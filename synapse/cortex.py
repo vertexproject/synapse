@@ -6310,7 +6310,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         crons = []
 
-        for _, cron in self.agenda.list():
+        for _, cron in await self.agenda.list():
 
             info = cron.pack()
 

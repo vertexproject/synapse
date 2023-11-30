@@ -177,7 +177,7 @@ class AgendaTest(s_t_utils.SynTest):
                 agenda = core.agenda
                 await agenda.start()  # make sure it doesn't blow up
 
-                self.eq([], agenda.list())
+                self.eq([], await agenda.list())
 
                 # Missing reqs
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
@@ -226,7 +226,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 self.eq((0, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
-                appts = agenda.list()
+                appts = await agenda.list()
                 self.len(1, appts)
                 self.eq(appts[0][1].startcount, 1)
                 self.eq(appts[0][1].nexttime, None)
@@ -239,7 +239,7 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime += 61
                 self.eq((1, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
-                appts = agenda.list()
+                appts = await agenda.list()
                 self.len(1, appts)
                 self.eq(appts[0][1].startcount, 1)
                 self.eq(appts[0][1].nexttime, None)
@@ -488,7 +488,7 @@ class AgendaTest(s_t_utils.SynTest):
                     await agenda.start()
                     agenda.enabled = True
 
-                    appts = agenda.list()
+                    appts = await agenda.list()
                     self.len(2, appts)
 
                     last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
@@ -546,7 +546,7 @@ class AgendaTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.callStorm('$lib.queue.add(foo)')
             await core.callStorm('cron.add --minute +1 { $lib.queue.get(foo).put((99)) $lib.time.sleep(10) }')
-            appts = core.agenda.list()
+            appts = await core.agenda.list()
             await core.agenda._execute(appts[0][1])
             self.eq((0, 99), await core.callStorm('return($lib.queue.get(foo).get())'))
 
@@ -810,11 +810,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                     cron00 = await core00.callStorm('return($lib.cron.list())')
                     cron01 = await core01.callStorm('return($lib.cron.list())')
-                    # both should have the job, but only one should have run
-                    self.len(1, cron00)
-                    self.eq(cron00[0]['lastresult'], 'finished successfully with 0 nodes')
-                    self.len(1, cron01)
-                    self.none(cron01[0]['lastresult'])
+
+                    self.eq(cron00, cron01)
 
                     start = mesgs[0]
                     stop = mesgs[1]

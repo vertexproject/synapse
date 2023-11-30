@@ -403,6 +403,9 @@ class _Appt:
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
         appt.enabled = val['enabled']
+        appt.startcount = val['startcount']
+        appt.errcount = val['errcount']
+        appt.lasterrs = val['lasterrs']
 
         return appt
 
@@ -565,10 +568,6 @@ class Agenda(s_base.Base):
         full = self._hivenode.full + (appt.iden,)
         stordict = appt.pack()
 
-        # Don't store ephemeral props
-        for prop in ('startcount', 'errcount', 'lasterrs'):
-            stordict.pop(prop, None)
-
         await self.core.hive.set(full, stordict, nexs=nexs)
 
     @staticmethod
@@ -590,7 +589,8 @@ class Agenda(s_base.Base):
                 newdict[k] = combo[i]
             yield newdict
 
-    def list(self):
+    async def list(self):
+        await self._load_all()
         return list(self.appts.items())
 
     async def add(self, cdef):
