@@ -414,14 +414,14 @@ Much like the :ref:`walk-light-edge` operators, the traverse (walk) and join lig
 
 **Examples:**
 
-*Traverse the "refs" light edge from an article and join the article with the FQDNs "referenced" by the article*
+*Traverse the "refs" light edge from an article and join the article with the FQDNs "referenced" by the article:*
 
 .. storm-pre:: [media:news="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
 ::
 
    <media:news> -(refs)+> inet:fqdn
 
-*Join an article with any/all the nodes referenced by the article*
+*Join an article with any/all the nodes referenced by the article:*
 
 .. storm-pre::  media:news -(refs)+> *
 ::
@@ -435,7 +435,7 @@ Much like the :ref:`walk-light-edge` operators, the traverse (walk) and join lig
 
    <inet:ipv4> <+(hasip)- inet:cidr4
 
-*Join a set of IPv4 address with the set of any nodes linked to those IPv4 addresses via the "hasip" or "ipwhois" light edges*
+*Join a set of IPv4 address with the set of any nodes linked to those IPv4 addresses via the "hasip" or "ipwhois" light edges:*
 
 .. storm-pre:: inet:ipv4 <+((hasip, ipwhois))- inet:cidr4
 ::
@@ -458,7 +458,7 @@ The pivot out and walk (traverse) light edges operator ( ``--> *`` ) combines a 
 
 **Syntax:**
 
-*<query>* **----> ***
+*<query>* **\-\-> ***
 
 **Examples:**
 
@@ -492,7 +492,7 @@ The pivot out and join operator (``--+>``) is similar to the :ref:`pivot-out-and
 
 **Syntax:**
 
-*<query>* **----+> ***
+*<query>* **\-\-+> ***
 
 **Example:**
 
@@ -516,7 +516,7 @@ The pivot in and walk (traverse) light edges operator ( ``<-- *`` ) combines a w
 
 **Syntax:**
 
-*<query>* **<---- ***
+*<query>* **<\-\- ***
 
 **Examples:**
 
@@ -552,7 +552,7 @@ The pivot in and join operator (``<+--``) is similar to the :ref:`pivot-in-and-w
 
 **Syntax:**
 
-*<query>* **<+---- ***
+*<query>* **<+\-\- ***
 
 **Examples:**
 
