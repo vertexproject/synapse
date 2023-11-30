@@ -6046,10 +6046,17 @@ class PathVars(Prim):
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
+        runt = s_scope.get('runt')
+
         if valu is undef:
             await self.path.popVar(name)
+            if runt:
+                await runt.popVar(name)
             return
+
         await self.path.setVar(name, valu)
+        if runt:
+            await runt.setVar(name, valu)
 
     async def iter(self):
         # prevent "edit while iter" issues
