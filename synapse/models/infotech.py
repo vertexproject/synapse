@@ -1295,9 +1295,9 @@ class ItModule(s_module.CoreModule):
                     ('period', ('ival', {}), {
                         'doc': 'The time interval when the campaign was active.'}),
                     ('created', ('time', {}), {
-                        'doc': 'The time that the campaign was created.'}),
+                        'doc': 'The time that the campaign was created by Mitre.'}),
                     ('updated', ('time', {}), {
-                        'doc': 'The time that the campaign was last updated.'}),
+                        'doc': 'The time that the campaign was last updated by Mitre.'}),
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The synapse tag used to annotate nodes included in this ATT&CK campaign.',
                         'ex': 'cno.mitre.c0028',
