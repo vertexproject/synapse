@@ -467,8 +467,7 @@ stormcmds = (
     {
         'name': 'gen.pol.country.government',
         'descr': '''
-            Lift (or create) the ou:org node representing a country's
-            government based on the 2 letter ISO-3166 country code.
+            Lift (or create) the ou:org node representing a country's government based on the 2 letter ISO-3166 country code.
 
             Examples:
 
