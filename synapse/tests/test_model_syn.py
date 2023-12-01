@@ -515,32 +515,30 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
 
     async def test_syn_cron_runts(self):
-        self.skip('FIX TEST')
+
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('cron', 'add')))
+            visi = await core.addUser('visi')
 
-            async with core.getLocalProxy(user='visi') as proxy:
-                cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
-                adef = await proxy.addCronJob(cdef)
-                iden = adef.get('iden')
+            cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}, 'creator': visi.get('iden')}
+            adef = await core.addCronJob(cdef)
+            iden = adef.get('iden')
 
-                nodes = await core.nodes('syn:cron')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', iden))
-                self.eq(nodes[0].get('doc'), '')
-                self.eq(nodes[0].get('name'), '')
-                self.eq(nodes[0].get('storm'), 'inet:ipv4')
+            nodes = await core.nodes('syn:cron')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:cron', iden))
+            self.eq(nodes[0].get('doc'), '')
+            self.eq(nodes[0].get('name'), '')
+            self.eq(nodes[0].get('storm'), 'inet:ipv4')
 
-                nodes = await core.nodes(f'syn:cron={iden} [ :doc=hehe :name=haha ]')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', iden))
-                self.eq(nodes[0].get('doc'), 'hehe')
-                self.eq(nodes[0].get('name'), 'haha')
+            nodes = await core.nodes(f'syn:cron={iden} [ :doc=hehe :name=haha ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:cron', iden))
+            self.eq(nodes[0].get('doc'), 'hehe')
+            self.eq(nodes[0].get('name'), 'haha')
 
-                nodes = await core.nodes(f'syn:cron={iden}')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', iden))
-                self.eq(nodes[0].get('doc'), 'hehe')
-                self.eq(nodes[0].get('name'), 'haha')
+            nodes = await core.nodes(f'syn:cron={iden}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:cron', iden))
+            self.eq(nodes[0].get('doc'), 'hehe')
+            self.eq(nodes[0].get('name'), 'haha')
