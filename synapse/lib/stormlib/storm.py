@@ -1,6 +1,10 @@
+import logging
+
 import synapse.exc as s_exc
 
 import synapse.lib.stormtypes as s_stormtypes
+
+logger = logging.getLogger(__name__)
 
 @s_stormtypes.registry.registerLib
 class LibStorm(s_stormtypes.Lib):
@@ -28,6 +32,9 @@ class LibStorm(s_stormtypes.Lib):
 
         text = await s_stormtypes.tostr(text)
         cast = await s_stormtypes.tostr(cast, noneok=True)
+
+        extra = await self.runt.snap.core.getLogExtra(text=text)
+        logger.info(f'Executing storm query via $lib.storm.eval() {{{text}}} as [{self.runt.user.name}]', extra=extra)
 
         casttype = None
         if cast:
