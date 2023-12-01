@@ -49,3 +49,28 @@ _HttpExtAPIConfSchema = {
 
 
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
+
+reqValidVault = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'type': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
+        'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
+        'secrets': {'type': 'object'},
+        'configs': {'type': 'object'},
+    },
+    'additionalProperties': False,
+    'required': [
+        'iden',
+        'name',
+        'type',
+        'scope',
+        'owner',
+        'permissions',
+        'secrets',
+        'configs',
+    ],
+})

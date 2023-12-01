@@ -157,31 +157,6 @@ reqValidStormMacro = s_config.getJsValidator({
     ],
 })
 
-reqValidVault = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'name': {'type': 'string', 'pattern': '^.{1,128}$'},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'type': {'type': 'string', 'pattern': '^.{1,128}$'},
-        'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
-        'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
-        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
-        'secrets': {'type': 'object'},
-        'configs': {'type': 'object'},
-    },
-    'additionalProperties': False,
-    'required': [
-        'iden',
-        'name',
-        'type',
-        'scope',
-        'owner',
-        'permissions',
-        'secrets',
-        'configs',
-    ],
-})
-
 def cmprkey_indx(x):
     return x[1]
 
@@ -6752,7 +6727,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self._initEasyPerm(vdef, default=s_cell.PERM_DENY)
 
-        vault = reqValidVault(vdef)
+        vault = s_schemas.reqValidVault(vdef)
 
         scope = vault.get('scope')
         vtype = vault.get('type')
@@ -6995,7 +6970,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault = self.reqVault(iden)
         vault[key] = valu
 
-        reqValidVault(vault)
+        s_schemas.reqValidVault(vault)
 
         bidn = s_common.uhex(iden)
 

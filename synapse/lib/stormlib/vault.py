@@ -13,16 +13,16 @@ stormcmds = (
             Examples:
 
                 // Add a global vault with type `synapse-test`
-                vault.add "shared-global-vault" synapse-test ({'apikey': 'foobar'}) --scope global
+                vault.add "shared-global-vault" synapse-test ({'apikey': 'foobar'}) ({}) --scope global
 
                 // Add a user vault with type `synapse-test`
-                vault.add "visi-user-vault" synapse-test ({'apikey': 'barbaz'}) --scope user --user visi
+                vault.add "visi-user-vault" synapse-test ({'apikey': 'barbaz'}) ({}) --scope user --user visi
 
                 // Add a role vault with type `synapse-test`
-                vault.add "contributor-role-vault" synapse-test ({'apikey': 'bazquux'}) --scope role --user contributor
+                vault.add "contributor-role-vault" synapse-test ({'apikey': 'bazquux'}) ({}) --scope role --user contributor
 
                 // Add an unscoped vault with type `synapse-test`
-                vault.add "unscoped-vault" synapse-test ({'apikey': 'quuxquo'})
+                vault.add "unscoped-vault" synapse-test ({'apikey': 'quuxquo'}) ({'server': 'api.foobar.com'})
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
@@ -84,13 +84,13 @@ stormcmds = (
             Examples:
 
                 // Set data to visi's user vault secrets
-                vault.set "visi-user-vault" apikey --value foobar
+                vault.set.secrets "visi-user-vault" apikey --value foobar
 
                 // Set data to contributor's role vault secrets
-                vault.set "contributor-role-vault" apikey --value barbaz
+                vault.set.secrets "contributor-role-vault" apikey --value barbaz
 
                 // Remove apikey from a global vault secrets
-                vault.set "some-global-vault" apikey --delete
+                vault.set.secrets "some-global-vault" apikey --delete
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
@@ -128,13 +128,13 @@ stormcmds = (
             Examples:
 
                 // Set data to visi's user vault configs
-                vault.set "visi-user-vault" color --value orange
+                vault.set.configs "visi-user-vault" color --value orange
 
                 // Set data to contributor's role vault configs
-                vault.set "contributor-role-vault" color --value blue
+                vault.set.configs "contributor-role-vault" color --value blue
 
                 // Remove apikey from a global vault configs
-                vault.set "some-global-vault" color --delete
+                vault.set.configs "some-global-vault" color --delete
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
@@ -575,7 +575,6 @@ class VaultSecrets(VaultConfigs):
     _vault_field_name = 'secrets'
     _vault_perm = s_cell.PERM_EDIT
 
-    @s_stormtypes.stormfunc(readonly=False)
     async def setitem(self, name, valu):
         vault = self.runt.snap.core.reqVault(self.valu)
 
