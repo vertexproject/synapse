@@ -38,7 +38,6 @@ class LibStormTest(s_test.SynTest):
                 await core.callStorm('$lib.storm.eval( "{$lib.auth.users.add(readonly)}" )', opts={'readonly': True})
 
             with self.getLoggerStream('synapse') as stream:
-            # with self.getLoggerStream('synapse.lib.stormlib.storm') as stream:
                 q = '''{
                     $lib.log.info(hehe)
                     [test:str=omg]
