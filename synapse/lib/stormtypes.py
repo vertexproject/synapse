@@ -5420,23 +5420,20 @@ class Query(Prim):
     def __str__(self):
         return self.text
 
-    async def _getRuntGenr(self, view=None):
+    async def _getRuntGenr(self):
         opts = {'vars': self.varz}
-        if view is not None:
-            opts['view'] = view
-
         query = await self.runt.getStormQuery(self.text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
             async for item in runt.execute():
                 yield item
 
-    async def nodes(self, view=None):
-        async with contextlib.aclosing(self._getRuntGenr(view=view)) as genr:
+    async def nodes(self):
+        async with contextlib.aclosing(self._getRuntGenr()) as genr:
             async for node, path in genr:
                 yield node
 
-    async def iter(self, view=None):
-        async for node, path in self._getRuntGenr(view=view):
+    async def iter(self):
+        async for node, path in self._getRuntGenr():
             yield Node(node)
 
     @stormfunc(readonly=True)
