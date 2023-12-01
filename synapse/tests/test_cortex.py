@@ -4514,7 +4514,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str'))
 
     async def test_cortex_logedits_off(self):
-        self.skip(mesg='fixme')
         '''
         Everything still works when no layer log is kept
         '''
@@ -4528,9 +4527,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str'))
 
             layr = core.getLayer()
-            await self.agenlen(0, layr.splices())
-            await self.agenlen(0, layr.splicesBack())
-            await self.agenlen(0, layr.syncNodeEdits(0))
+            await self.agenlen(0, layr.syncNodeEdits(0, wait=False))
+            await self.agenlen(0, layr.syncNodeEdits2(0, wait=False))
+            # We can still generate synthetic edits though
+            ndedits = await alist(layr.iterLayerNodeEdits())
+            self.gt(len(ndedits), 0)
+
             self.eq(0, await layr.getEditIndx())
 
             self.nn(await core.stat())

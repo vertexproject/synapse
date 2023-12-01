@@ -17,14 +17,6 @@ class FeedTest(s_t_utils.SynTest):
     def _getOldSynVers(self):
         return (0, 0, 0)
 
-    async def test_synsplice_remote(self):
-        self.skip('REMOVE TEST')
-        # async with self.getTestCore() as core:
-        #
-        #     with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
-        #         await s_feed.main(argv, outp=outp)
-        #         outp.expect(f'Cortex version 0.0.0 is outside of the feed tool supported range')
-
     async def test_synnodes_remote(self):
 
         async with self.getTestCore() as core:
@@ -54,6 +46,10 @@ class FeedTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int')
             self.len(20, nodes)
+
+            with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
+                await s_feed.main(argv, outp=outp)
+                outp.expect(f'Cortex version 0.0.0 is outside of the feed tool supported range')
 
     async def test_synnodes_offset(self):
 

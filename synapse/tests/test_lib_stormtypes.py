@@ -4479,7 +4479,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_cron_notime(self):
         # test cron APIs that don't require time stepping
-        self.skip('FIX ME')
+
         async with self.getTestCore() as core:
 
             cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
@@ -4509,16 +4509,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
 
-            async with core.getLocalProxy() as proxy:
+            cdef = await core.editCronJob(iden0, 'name', 'lolz')
+            self.eq('lolz', cdef.get('name'))
 
-                cdef = await proxy.editCronJob(iden0, 'name', 'lolz')
-                self.eq('lolz', cdef.get('name'))
-
-                cdef = await proxy.editCronJob(iden0, 'doc', 'zoinks')
-                self.eq('zoinks', cdef.get('doc'))
+            cdef = await core.editCronJob(iden0, 'doc', 'zoinks')
+            self.eq('zoinks', cdef.get('doc'))
 
     async def test_storm_lib_cron(self):
-        self.skip('FIX ME - RELIES ON OBE TELEPATH URLS.')
+
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
         s_provenance.reset()
@@ -4602,8 +4600,6 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr("Unexpected token '}' at line 1, column 10", mesgs)
 
                 ##################
-                oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]
-                nextoffs = (oldsplicespos + 1, 0, 0)
                 layr = core.getLayer()
                 nextlayroffs = await layr.getEditOffs() + 1
 
