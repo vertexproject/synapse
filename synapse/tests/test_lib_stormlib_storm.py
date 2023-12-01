@@ -49,6 +49,7 @@ class LibStormTest(s_test.SynTest):
                 core.stormlog = True
                 opts = {'vars': {'q': q}}
                 ret = await core.callStorm('return( $lib.storm.eval($q) )', opts=opts)
+                self.eq(ret, 'wow')
                 self.len(1, await core.nodes('test:str=omg'))
 
                 # Check that we saw the logs
