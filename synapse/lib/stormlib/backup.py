@@ -50,6 +50,7 @@ class BackupLib(s_stormtypes.Lib):
         gatekeys = ((self.runt.user.iden, ('backup', 'run'), None),)
         return await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _listBackups(self):
         todo = s_common.todo('getBackups')
         gatekeys = ((self.runt.user.iden, ('backup', 'list'), None),)

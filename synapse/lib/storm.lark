@@ -63,10 +63,10 @@ SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
 
-_oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | formjoin | formpivotin
-     | formjoinin | opervarlist | setitem | setvar | vareval | filtoper
+_oper: stormfunc | initblock | emptyblock | finiblock | trycatch | subquery | _formpivot | formjoin
+     | formpivotin | formjoinin | opervarlist | setitem | setvar | vareval | filtoper
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
-     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1join | n2join | n1walknpivo | n2walknpivo | n1walknjoin | n2walknjoin | rawpivot
 
 BREAK.4: /break(?=[\s\}])/
 CONTINUE.4: /continue(?=[\s\}])/
@@ -105,6 +105,9 @@ yieldvalu: YIELD _argvalu
 
 _INIT.2: /init(?=[\s\{])/
 initblock: _INIT "{" query "}"
+
+_EMPTY.2: /empty(?=[\s\{])/
+emptyblock: _EMPTY "{" query "}"
 
 _FINI.2: /fini(?=[\s\{])/
 finiblock: _FINI "{" query "}"
@@ -148,7 +151,7 @@ rawpivot: _RIGHTPIVOT "{" query "}"
 _RIGHTJOIN.4:  "-+>"
 _LEFTJOIN.4:   "<+-"
 _RIGHTPIVOT.4: "->"
-_LEFTPIVOT.4:  "<-"
+_LEFTPIVOT.4:  /<\-[^0-9]/
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
             | liftbytagprop | liftbyformtagprop | liftbytag | lifttagtag
@@ -163,7 +166,14 @@ n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu 
 
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
+n1join: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1JOINFINI _wildprops [ _cmpr _valu ]
+
+n2join: _EDGEN2JOININIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
+
 walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP))+ ","?) ")") -> valulist
+
+_WALKNJOINN1.4: "--+>"
+_WALKNJOINN2.4: "<+--"
 
 _WALKNPIVON1.4: "-->"
 _WALKNPIVON2.4: "<--"
@@ -171,11 +181,17 @@ _WALKNPIVON2.4: "<--"
 n1walknpivo: _WALKNPIVON1 "*"
 n2walknpivo: _WALKNPIVON2 "*"
 
+n1walknjoin: _WALKNJOINN1 "*"
+n2walknjoin: _WALKNJOINN2 "*"
+
 _EDGEADDN1INIT.2: "+("
 _EDGEN1INIT.2: "-("
 _EDGEN1FINI: ")>"
 _EDGEADDN2FINI: ")+"
 _EDGEN2FINI: ")-"
+
+_EDGEN1JOINFINI: ")+>"
+_EDGEN2JOININIT: "<+("
 
 // Regex to check for a matching ')-' or ')+' so we can avoid incorrectly matching
 // comparisons to an expression like '<(2)'
@@ -214,7 +230,7 @@ stormcmdargs: _stormcmdarg
 _stormcmdarg: _stormcmdarg? ((CMDOPT (EQNOSPACE (argvquery | _argvalu | wordtokn))?) | argvquery | _argvalu | wordtokn)
 
 // The name of a storm command
-CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
+CMDNAME.2: /(?!(init|empty|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
 
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
@@ -258,8 +274,9 @@ _MATCHHASHWILD.3: /\#
             <\(
             (?=(?>(?<N2MATCHRECUR>\(((?>[^()"'`]+|(?&N2MATCHRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)-
             )
+            | <(\+|-[^0-9])                          # avoid matching joins or pivots
         )
-        [@?!<>^~=]+                                # match any cmprs (regex fail)
+        [@?!<>^~=]+                                  # match any cmprs (regex fail)
     )
 )
 /x

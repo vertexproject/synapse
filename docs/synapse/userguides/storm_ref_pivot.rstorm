@@ -28,8 +28,11 @@ The pivot operations available within Storm are:
 - `Pivot In Operator`_
 - `Pivot With Join`_
 - `Traverse (Walk) Light Edges`_
+- `Traverse (Walk) and Join Light Edges`_
 - `Pivot Out and Walk`_
+- `Pivot Out and Join`_
 - `Pivot In and Walk`_
+- `Pivot In and Join`_
 - `Pivot to Digraph (Edge) Nodes`_
 - `Pivot Across Digraph (Edge) Nodes`_
 - `Pivot to Tags`_
@@ -382,6 +385,70 @@ by a light edge is "one way"). From a Storm syntax perspective, light edges can 
 - There are no light edges (i.e., specific light edge verbs) defined in a Cortex by default. Users can create and define their own according to their needs.
 - The Storm :ref:`storm-model`, :ref:`storm-edges`, and :ref:`storm-lift-byverb` commands can be used to work with  light edges in a Cortex.
 
+.. _join-light-edge:
+
+Traverse (Walk) and Join Light Edges
+------------------------------------
+
+Much like the :ref:`walk-light-edge` operators, the traverse (walk) and join light edges operator (``-(<verb>)+>`` or ``<+(<verb>)-``) is used to traverse from a set of inbound nodes to the set of nodes they are linked to by the specified light edge(s). Unlike :ref:`walk-light-edge`, the inbound nodes are retained and combined with the results of the pivot.
+
+**Syntax:**
+
+- *Walk and Join - Single Light Edge*
+
+  *<query>* **-(** *<verb>* **)+>** ***** | *<form>*
+  
+  *<query>* **<+(** *<verb>* **)-** ***** | *<form>*
+
+- *Walk and Join - Multiple Light Edges*
+
+  *<query>* **-( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )+>** ***** | *<form>*
+  
+  *<query>* **<+( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )-** ***** | *<form>*
+
+- *Walk and Join - Any Light Edge*
+
+  *<query>* **-(** ***** **)+>** ***** | *<form>*
+  
+  *<query>* **<+(** ***** **)-** ***** | *<form>*
+
+**Examples:**
+
+*Traverse the "refs" light edge from an article and join the article with the FQDNs "referenced" by the article:*
+
+.. storm-pre:: [media:news="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
+::
+
+   <media:news> -(refs)+> inet:fqdn
+
+*Join an article with any/all the nodes referenced by the article:*
+
+.. storm-pre::  media:news -(refs)+> *
+::
+
+   <media:news> -(refs)+> *
+
+*Traverse the "hasip" light edge from an IPv4 address to the CIDR block(s) the IP is part of and join the two sets together:*
+
+.. storm-pre:: inet:ipv4 <+(hasip)- inet:cidr4
+::
+
+   <inet:ipv4> <+(hasip)- inet:cidr4
+
+*Join a set of IPv4 address with the set of any nodes linked to those IPv4 addresses via the "hasip" or "ipwhois" light edges:*
+
+.. storm-pre:: inet:ipv4 <+((hasip, ipwhois))- inet:cidr4
+::
+
+    <inet:ipv4> <+((hasip, ipwhois))- *
+
+*Traverse and join any/all light edges from an article to all nodes linked by any light edge:*
+
+.. storm-pre:: media:news -(*)+> *
+::
+
+   <media:news> -(*)+> *
+
 .. _pivot-out-and-walk:
 
 Pivot Out and Walk
@@ -391,7 +458,7 @@ The pivot out and walk (traverse) light edges operator ( ``--> *`` ) combines a 
 
 **Syntax:**
 
-*<query>* **----> ***
+*<query>* **\-\-> ***
 
 **Examples:**
 
@@ -416,16 +483,40 @@ The pivot out and walk (traverse) light edges operator ( ``--> *`` ) combines a 
   
   <query> | tee { --> * } { <-- * }
 
+.. _pivot-out-and-join:
+
+Pivot Out and Join
+------------------
+
+The pivot out and join operator (``--+>``) is similar to the :ref:`pivot-out-and-walk` operator, but joins the results with the inbound set of nodes. That is, the inbound nodes are retained and combined with the results of the edge pivot.
+
+**Syntax:**
+
+*<query>* **\-\-+> ***
+
+**Example:**
+
+*Join any/all media:news with all nodes linked by any light edge:*
+
+.. storm-pre:: media:news --+> *
+::
+
+   <media:news> --+> *
+
+**Usage Notes:**
+
+- Much like the pivot out and walk operator, the pivot out and join operator can only be used with a wildcard ( ``*`` ); it is not possible to specify a particular form as the target of the operation. A filter operation can be used to refine the results of the pivot and walk operation if necessary.
+
 .. _pivot-in-and-walk:
 
 Pivot In and Walk
-------------------
+-----------------
 
 The pivot in and walk (traverse) light edges operator ( ``<-- *`` ) combines a wildcard pivot in ("refs in") operation ( ``<- *`` ) with a wildcard walk light edges operation ( ``<(*)-`` ).
 
 **Syntax:**
 
-*<query>* **<---- ***
+*<query>* **<\-\- ***
 
 **Examples:**
 
@@ -450,6 +541,32 @@ The pivot in and walk (traverse) light edges operator ( ``<-- *`` ) combines a w
 ::
   
   <query> | tee { --> * } { <-- * }
+
+
+.. _pivot-in-and-join:
+
+Pivot In and Join
+-----------------
+
+The pivot in and join operator (``<+--``) is similar to the :ref:`pivot-in-and-walk` operator, but joins the results with the inbound set of nodes. That is, the inbound nodes are retained and combined with the results of the edge pivot.
+
+**Syntax:**
+
+*<query>* **<+\-\- ***
+
+**Examples:**
+
+*Join a set of IP addresses with all the nodes that reference the IPs and all nodes linked to the IPs by light edges:*
+
+.. storm-pre:: inet:ipv4 <+-- *
+::
+
+   <inet:ipv4> <+-- *
+
+**Usage Notes:**
+
+- Much like the pivot in and walk operator, the pivot in and join operator can only be used with a wildcard ( ``*`` ); it is not possible to specify a particular form as the target of the operation. A filter operation can be used to refine the results of the pivot and walk operation if necessary.
+
 
 .. _pivot-to-edge:
 
@@ -820,7 +937,7 @@ The above example simply combines the previous two examples to illustrate the us
 
 In the example above, given the source and target forms, the logical pivot for implicit syntax is from the primary property of the inbound FQDN to the secondary properties of the DNS MX nodes. However, an ``inet:dns:mx`` form has **two** secondary properties of type ``inet:fqdn``: the mail exchange server (``inet:dns:mx:mx``) and the domain that uses the MX (``inet:dns:mx:fqdn``).
 
-Using implicit syntax, Storm wil pivot from the source FQDN(s) to any DNS MX records where the domain matches **either** of those secondary properties. For example, querying the FQDN ``google.com`` will return DNS MX records **for** Google (i.e., ``inet:dns:mx:fqdn=google.com``) as well as MX records that may **use** Google as their mail exchange (i.e., ``inet:dns:mx:mx=google.com``).
+Using implicit syntax, Storm will pivot from the source FQDN(s) to any DNS MX records where the domain matches **either** of those secondary properties. For example, querying the FQDN ``google.com`` will return DNS MX records **for** Google (i.e., ``inet:dns:mx:fqdn=google.com``) as well as MX records that may **use** Google as their mail exchange (i.e., ``inet:dns:mx:mx=google.com``).
 
 If you want only one or the other of those types of records, you need to use explicit syntax to specify the target property, i.e.:
 

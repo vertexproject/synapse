@@ -7,6 +7,29 @@ logo:
 
 modules:
     - name: testmod
+    - name: apimod
+      apidefs:
+        - name: search
+          desc: |
+            Execute a search
+            
+            This API will foo the bar.
+          type:
+            type: function
+            args:
+              - { name: text, type: str, desc: "The text." }
+              - { name: mintime, type: [str, int], desc: "The mintime.", default: "-30days" }
+            returns:
+              name: yields
+              type: node
+              desc: Yields it:dev:str nodes.
+        - name: status
+          desc: Get the status of the foo.
+          type:
+            type: function
+            returns:
+              type: dict
+              desc: A status dictionary.
 
 external_modules:
     - name: testext

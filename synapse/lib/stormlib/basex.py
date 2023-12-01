@@ -35,6 +35,7 @@ class BaseXLib(s_stormtypes.Lib):
             'decode': self.decode,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def encode(self, byts, charset):
         if not isinstance(byts, bytes):
             raise s_exc.BadArg(mesg='$lib.basex.encode() requires a bytes argument.')
@@ -54,6 +55,7 @@ class BaseXLib(s_stormtypes.Lib):
 
         return ''.join(retn[::-1])
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def decode(self, text, charset):
         text = await s_stormtypes.tostr(text)
         charset = await s_stormtypes.tostr(charset)
