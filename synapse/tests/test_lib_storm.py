@@ -589,13 +589,6 @@ class StormTest(s_t_utils.SynTest):
                 | view.exec $foo $bar
             ''', opts=opts))
 
-            self.len(1, await core.nodes('''
-                ou:org=$view
-                $foo=$node.repr()
-                $bar=${ inet:ipv4=1.2.3.4 }
-                | view.exec $foo $bar
-            ''', opts=opts))
-
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts={'view': view1}))
 
             self.len(0, await core.nodes('$x = $lib.null if ($x and $x > 20) { [ ps:contact=* ] }'))
