@@ -1,4 +1,6 @@
+import synapse.lib.cell as s_cell
 import synapse.lib.config as s_config
+import synapse.lib.msgpack as s_msgpack
 
 
 _HttpExtAPIConfSchema = {
