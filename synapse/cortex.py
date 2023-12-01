@@ -6310,7 +6310,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         crons = []
 
-        for _, cron in await self.agenda.list():
+        for _, cron in self.agenda.list():
 
             info = cron.pack()
 
@@ -6353,6 +6353,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         mesg = f'editCronJob name {name} is not supported for editing.'
         raise s_exc.BadArg(mesg=mesg)
+
+    @s_nexus.Pusher.onPushAuto('cron:stats')
+    async def updateCronStats(self, iden, cdef):
+        appt = await self.agenda.get(iden)
+
+        appt.nexttime = cdef.get('nexttime')
+        appt.laststarttime = cdef.get('laststarttime')
+        appt.lastfinishtime = cdef.get('lastfinishtime')
+        appt.lastresult = cdef.get('lastresult')
+        appt.startcount = cdef.get('startcount')
+        appt.errcount = cdef.get('errcount')
+        appt.lasterrs = cdef.get('lasterrs')
 
     @contextlib.asynccontextmanager
     async def enterMigrationMode(self):

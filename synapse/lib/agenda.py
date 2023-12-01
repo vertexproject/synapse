@@ -589,8 +589,7 @@ class Agenda(s_base.Base):
                 newdict[k] = combo[i]
             yield newdict
 
-    async def list(self):
-        await self._load_all()
+    def list(self):
         return list(self.appts.items())
 
     async def add(self, cdef):
@@ -922,3 +921,4 @@ class Agenda(s_base.Base):
                     # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
                     await self._storeAppt(appt, nexs=True)
+                    await self.core.updateCronStats(appt.iden, appt.pack())
