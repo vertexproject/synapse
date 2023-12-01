@@ -1040,48 +1040,6 @@ class LayerTest(s_t_utils.SynTest):
 
                 layr = core1.view.layers[0]
 
-                # Empty the layer to try again
-
-                await layr.truncate()
-
-                async with await s_telepath.openurl(url) as layrprox:
-
-                    for nodeedits in editlist:
-                        self.none(await layrprox.storNodeEditsNoLift(nodeedits))
-
-                    nodelist1 = []
-                    nodelist1.extend(await core1.nodes('test:str'))
-                    nodelist1.extend(await core1.nodes('inet:ipv4'))
-
-                    nodelist1 = [node.pack() for node in nodelist1]
-                    self.eq(nodelist0, nodelist1)
-
-                    meta = {'user': s_common.guid(),
-                            'time': 0,
-                            }
-
-                    await layr.truncate()
-
-                    for nodeedits in editlist:
-                        self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
-
-                    lastoffs = layr.nodeeditlog.index()
-                    for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
-                        self.eq(meta, nodeedit[1][1])
-
-                    async def waitForEdit():
-                        edit = (0, ('endofquery', 1), ())
-                        async for item in layr.syncNodeEdits(lastoffs):
-                            if item[1][0][1] == 'test:str' and edit in item[1][0][2]:
-                                return
-                            await asyncio.sleep(0)
-
-                    async def doEdit():
-                        await core1.nodes('sleep 1 | [ test:str=endofquery ]')
-
-                    core1.schedCoro(doEdit())
-                    await asyncio.wait_for(waitForEdit(), timeout=6)
-
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
 
@@ -1342,9 +1300,6 @@ class LayerTest(s_t_utils.SynTest):
 
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
-
-            with self.raises(s_exc.IsReadOnly):
-                await readlayr.truncate()
 
     async def test_layer_ro(self):
         with self.getTestDir() as dirn:

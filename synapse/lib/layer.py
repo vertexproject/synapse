@@ -2010,17 +2010,14 @@ class Layer(s_nexus.Pusher):
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
-    async def truncate(self):
-        self._reqNotReadOnly()
-        return await self._push('layer:truncate')
-
     @s_nexus.Pusher.onPush('layer:truncate')
     async def _truncate(self):
         '''
         Nuke all the contents in the layer, leaving an empty layer
         NOTE: This internal API is deprecated but is kept for Nexus event backward compatibility
         '''
-        s_common.deprdate('Layer.truncate() API', s_common._splicedepr)
+        # TODO: Remove this in 3.0.0
+        s_common.deprecated('layer:truncate Nexus handler', curv='2.156.0')
 
         self.dirty.clear()
         self.buidcache.clear()
@@ -2030,8 +2027,6 @@ class Layer(s_nexus.Pusher):
         await self.dataslab.trash()
 
         await self._initLayerStorage()
-
-    # async def wipe(self, meta): ...
 
     async def iterWipeNodeEdits(self):
 
