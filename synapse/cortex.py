@@ -5418,18 +5418,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
         return await view.nodes(text, opts=opts)
 
-    async def eval(self, text, opts=None):
-        '''
-        This API is deprecated.
-
-        Evaluate a storm query and yield packed nodes.
-        '''
-        s_common.deprdate('Cortex.eval() API', s_common._splicedepr)
-        opts = self._initStormOpts(opts)
-        view = self._viewFromOpts(opts)
-        async for node in view.eval(text, opts=opts):
-            yield node
-
     async def stormlist(self, text, opts=None):
         return [m async for m in self.storm(text, opts=opts)]
 
