@@ -6317,6 +6317,29 @@ class Layer(Prim):
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
                       {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.',
                        'default': None, },
+                      {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'A specific value of the property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
+        {'name': 'getPropArrayCount',
+         'desc': 'Get the number of individual value rows in the layer for the given array property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropArrayCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'A specific value in the array property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
+        {'name': 'getTagPropCount',
+         'desc': 'Get the number of rows in the layer for the given tag property.',
+         'type': {'type': 'function', '_funcname': '_methGetTagPropCount',
+                  'args': (
+                      {'name': 'tag', 'type': 'str', 'desc': 'The tag to look up.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'form', 'type': 'str', 'default': None,
+                       'desc': 'The optional form to look up.', },
+                      {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'A specific value of the property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
         {'name': 'getFormCounts', 'desc': '''
@@ -6514,6 +6537,8 @@ class Layer(Prim):
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getTagPropCount': self._methGetTagPropCount,
+            'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
@@ -6678,7 +6703,7 @@ class Layer(Prim):
         return await layr.getTagCount(tagname, formname=formname)
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, maxsize=None):
+    async def _methGetPropCount(self, propname, maxsize=None, valu=undef):
         propname = await tostr(propname)
         maxsize = await toint(maxsize, noneok=True)
 
@@ -6691,13 +6716,86 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
 
+        if valu is undef:
+            if prop.isform:
+                return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+
+            if prop.isuniv:
+                return await layr.getPropCount(None, prop.name, maxsize=maxsize)
+
+            return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
+
+        valu = await toprim(valu)
+        norm, info = prop.type.norm(valu)
+
         if prop.isform:
-            return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+            return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
 
         if prop.isuniv:
-            return await layr.getUnivPropCount(prop.name, maxsize=maxsize)
+            return layr.getPropValuCount(None, prop.name, prop.type.stortype, norm)
 
-        return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
+        return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropArrayCount(self, propname, valu=undef):
+        propname = await tostr(propname)
+
+        prop = self.runt.snap.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not prop.type.isarray:
+            mesg = f'Property is not an array type: {prop.type.name}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        if valu is undef:
+            if prop.isform:
+                return await layr.getPropArrayCount(prop.name, None)
+
+            if prop.isuniv:
+                return await layr.getPropArrayCount(None, prop.name)
+
+            return await layr.getPropArrayCount(prop.form.name, prop.name)
+
+        valu = await toprim(valu)
+        atyp = prop.type.arraytype
+        norm, info = atyp.norm(valu)
+
+        if prop.isform:
+            return layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
+
+        if prop.isuniv:
+            return layr.getPropArrayValuCount(None, prop.name, atyp.stortype, norm)
+
+        return layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
+
+    @stormfunc(readonly=True)
+    async def _methGetTagPropCount(self, tag, propname, form=None, valu=undef):
+        tag = await tostr(tag)
+        propname = await tostr(propname)
+        form = await tostr(form, noneok=True)
+
+        prop = self.runt.snap.core.model.getTagProp(propname)
+        if prop is None:
+            mesg = f'No tag property named {propname}'
+            raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        if valu is undef:
+            return await layr.getTagPropCount(form, tag, prop.name)
+
+        valu = await toprim(valu)
+        norm, info = prop.type.norm(valu)
+
+        return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
     async def _methLayerEdits(self, offs=0, wait=True, size=None):
@@ -7022,6 +7120,63 @@ class View(Prim):
                       {'type': 'dict',
                        'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
 
+        {'name': 'getPropCount',
+         'desc': '''
+            Get the number of nodes in the View with a specific property and optional value.
+
+            Notes:
+               This is a fast approximate count calculated by summing the number of
+               nodes with the property value in each layer of the view. Property values
+               which are overwritten by different values in higher layers will still
+               be included in the count.
+            ''',
+         'type': {'type': 'function', '_funcname': '_methGetPropCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'The value of the property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
+
+        {'name': 'getPropArrayCount',
+         'desc': '''
+            Get the number of invidivual array property values in the View for the given array property name.
+
+            Notes:
+               This is a fast approximate count calculated by summing the number of
+               array property values in each layer of the view. Property values
+               which are overwritten by different values in higher layers will
+               still be included in the count.
+            ''',
+         'type': {'type': 'function', '_funcname': '_methGetPropArrayCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'The value in the array property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
+
+        {'name': 'getTagPropCount',
+         'desc': '''
+            Get the number of nodes in the View with the given tag property and optional value.
+
+            Notes:
+               This is a fast approximate count calculated by summing the number of
+               nodes with the tag property value in each layer of the view.
+               Values which are overwritten by different values in higher layers
+               will still be included in the count.
+            ''',
+         'type': {'type': 'function', '_funcname': '_methGetTagPropCount',
+                  'args': (
+                      {'name': 'tag', 'type': 'str', 'desc': 'The tag to look up.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'form', 'type': 'str', 'default': None,
+                       'desc': 'The optional form to look up.', },
+                      {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'The value of the property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
+
         {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
          'type': {'type': 'function', '_funcname': 'detach',
                   'args': (),
@@ -7059,6 +7214,9 @@ class View(Prim):
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
+            'getPropCount': self._methGetPropCount,
+            'getTagPropCount': self._methGetTagPropCount,
+            'getPropArrayCount': self._methGetPropArrayCount,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7113,6 +7271,53 @@ class View(Prim):
         return await self.viewDynCall(todo, ('view', 'read'))
 
     @stormfunc(readonly=True)
+    async def _methGetPropCount(self, propname, valu=undef):
+        propname = await tostr(propname)
+
+        if valu is undef:
+            valu = s_common.novalu
+        else:
+            valu = await toprim(valu)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getPropCount(propname, valu=valu)
+
+    @stormfunc(readonly=True)
+    async def _methGetTagPropCount(self, tag, propname, form=None, valu=undef):
+        tag = await tostr(tag)
+        propname = await tostr(propname)
+        form = await tostr(form, noneok=True)
+
+        if valu is undef:
+            valu = s_common.novalu
+        else:
+            valu = await toprim(valu)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getTagPropCount(form, tag, propname, valu=valu)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropArrayCount(self, propname, valu=undef):
+        propname = await tostr(propname)
+
+        if valu is undef:
+            valu = s_common.novalu
+        else:
+            valu = await toprim(valu)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getPropArrayCount(propname, valu=valu)
+
+    @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
         todo = s_common.todo('getEdges', verb=verb)
@@ -7155,8 +7360,14 @@ class View(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+            if name == 'parent' and valu is not None:
+                self.runt.snap.core.reqView(valu, mesg='The parent view must already exist.')
+                self.runt.confirm(('view', 'read'), gateiden=valu)
+                self.runt.confirm(('view', 'fork'), gateiden=valu)
+
         elif name == 'nomerge':
             valu = await tobool(valu)
+
         elif name == 'layers':
 
             view = self._reqView()
@@ -7185,8 +7396,11 @@ class View(Prim):
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        todo = s_common.todo('setViewInfo', name, valu)
-        valu = await self.viewDynCall(todo, ('view', 'set', name))
+        view = self.runt.snap.core.reqView(self.valu.get('iden'))
+
+        self.runt.confirm(('view', 'set', name), gateiden=view.iden)
+        await view.setViewInfo(name, valu)
+
         self.valu[name] = valu
 
     @stormfunc(readonly=True)
@@ -7217,10 +7431,9 @@ class View(Prim):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        gatekeys = (
-            (useriden, ('view', 'add'), None),
-            (useriden, ('view', 'read'), viewiden),
-        )
+        self.runt.confirm(('view', 'add'))
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        self.runt.confirm(('view', 'fork'), gateiden=viewiden)
 
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}
@@ -7228,9 +7441,9 @@ class View(Prim):
         if name is not None:
             vdef['name'] = name
 
-        todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
+        view = self.runt.snap.core.reqView(viewiden)
 
-        newv = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        newv = await view.fork(ldef=ldef, vdef=vdef)
 
         return View(self.runt, newv, path=self.path)
 

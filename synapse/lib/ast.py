@@ -2012,6 +2012,9 @@ class N1WalkNPivo(PivotOut):
 
         async for node, path in genr:
 
+            if self.isjoin:
+                yield node, path
+
             async for item in self.getPivsOut(runt, node, path):
                 yield item
 
@@ -2130,6 +2133,9 @@ class N2WalkNPivo(PivotIn):
     async def run(self, runt, genr):
 
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             async for item in self.getPivsIn(runt, node, path):
                 yield item
@@ -3303,6 +3309,10 @@ class PropValue(Value):
                                                     name=name, form=path.node.form.name))
 
             valu = path.node.get(name)
+            if isinstance(valu, (dict, list, tuple)):
+                # these get special cased because changing them affects the node
+                # while it's in the pipeline but the modification doesn't get stored
+                valu = s_msgpack.deepcopy(valu)
             return prop, valu
 
         # handle implicit pivot properties
@@ -3324,6 +3334,10 @@ class PropValue(Value):
                                                 name=name, form=node.form.name))
 
             if i >= imax:
+                if isinstance(valu, (dict, list, tuple)):
+                    # these get special cased because changing them affects the node
+                    # while it's in the pipeline but the modification doesn't get stored
+                    valu = s_msgpack.deepcopy(valu)
                 return prop, valu
 
             form = runt.model.forms.get(prop.type.name)
@@ -4176,6 +4190,13 @@ class EditUnivDel(Edit):
 
 class N1Walk(Oper):
 
+    def __init__(self, astinfo, kids=(), isjoin=False):
+        Oper.__init__(self, astinfo, kids=kids)
+        self.isjoin = isjoin
+
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
+
     async def walkNodeEdges(self, runt, node, verb=None):
         async for _, iden in node.iterEdgesN1(verb=verb):
             buid = s_common.uhex(iden)
@@ -4264,6 +4285,9 @@ class N1Walk(Oper):
             cmpr = await self.kids[2].compute(runt, None)
 
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             verbs = await self.kids[0].compute(runt, path)
             verbs = await s_stormtypes.toprim(verbs)
