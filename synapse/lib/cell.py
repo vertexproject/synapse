@@ -1834,7 +1834,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.isactive
 
     async def setCellActive(self, active):
-        logger.info(f'Setting cell {active}')
+
         self.isactive = active
 
         if self.isactive:

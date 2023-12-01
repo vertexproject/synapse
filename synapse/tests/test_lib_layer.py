@@ -1269,16 +1269,16 @@ class LayerTest(s_t_utils.SynTest):
             await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
 
     async def test_layer_no_extra_logging(self):
-        self.skip('FIX THIS TEST UP')
+
         async with self.getTestCore() as core:
             '''
             For a do-nothing write, don't write new log entries
             '''
             await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             layr = core.getLayer(None)
-            lbefore = len(await alist(layr.splices()))
+            lbefore = len(await alist(layr.syncNodeEdits2(0, wait=False)))
             await core.nodes('[test:str=foo .seen=(2015, 2016)]')
-            lafter = len(await alist(layr.splices()))
+            lafter = len(await alist(layr.syncNodeEdits2(0, wait=False)))
             self.eq(lbefore, lafter)
 
     async def test_layer_del_then_lift(self):
