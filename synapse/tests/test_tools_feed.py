@@ -18,7 +18,7 @@ class FeedTest(s_t_utils.SynTest):
         return (0, 0, 0)
 
     async def test_synsplice_remote(self):
-
+        self.skip('REMOVE TEST')
         async with self.getTestCore() as core:
 
             await self.addCreatorDeleterRoles(core)

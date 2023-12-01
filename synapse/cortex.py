@@ -3001,45 +3001,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
-    @contextlib.asynccontextmanager
-    async def watcher(self, wdef):
-
-        iden = wdef.get('view', self.view.iden)
-
-        view = self.views.get(iden)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
-
-        async with await s_queue.Window.anit(maxsize=10000) as wind:
-
-            tags = wdef.get('tags')
-            if tags is not None:
-
-                tglobs = s_cache.TagGlobs()
-                [tglobs.add(t, True) for t in tags]
-
-                async def ontag(mesg):
-                    name = mesg[1].get('tag')
-                    if not tglobs.get(name):
-                        return
-
-                    await wind.put(mesg)
-
-                for layr in self.view.layers:
-                    layr.on('tag:add', ontag, base=wind)
-                    layr.on('tag:del', ontag, base=wind)
-
-            yield wind
-
-    async def watch(self, wdef):
-        '''
-        Hook cortex/view/layer watch points based on a specified watch definition.
-        ( see CoreApi.watch() docs for details )
-        '''
-        async with self.watcher(wdef) as wind:
-            async for mesg in wind:
-                yield mesg
-
     async def getExtModel(self):
         '''
         Get all extended model properties in the Cortex.
@@ -3863,7 +3824,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
-        self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.BatchCmd)
         self.addStormCmd(s_storm.CountCmd)
@@ -3968,8 +3928,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Registration for built-in Cortex feed functions.
         '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
-        self.setFeedFunc('syn.splice', self._addSynSplice)
-        self.setFeedFunc('syn.nodeedits', self._addSynNodeEdits)
 
     def _initCortexHttpApi(self):
         '''
@@ -3977,7 +3935,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.addHttpApi('/api/v1/feed', s_httpapi.FeedV1, {'cell': self})
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
-        self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})

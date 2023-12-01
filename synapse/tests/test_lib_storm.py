@@ -2324,16 +2324,6 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('[ test:str=foo test:str=bar ] | spin'))
             self.len(2, await core.nodes('test:str=foo test:str=bar'))
 
-    async def test_storm_reindex_sudo(self):
-
-        async with self.getTestCore() as core:
-
-            mesgs = await core.stormlist('reindex')
-            self.stormIsInWarn('reindex currently does nothing', mesgs)
-
-            msgs = await core.stormlist('.created | sudo')
-            self.stormIsInWarn('sudo command is deprecated and will be removed on 2023-10-01', msgs)
-
     async def test_storm_count(self):
 
         async with self.getTestCore() as core:
@@ -2970,7 +2960,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
     async def test_storm_splicelist(self):
-
+        self.skip('DEAD TEST REMOVE IT')
         async with self.getTestCoreAndProxy() as (core, prox):
 
             mesgs = await core.stormlist('[ test:str=foo ]')
@@ -3037,7 +3027,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_spliceundo(self):
 
-        self.skip('order is different and this is deprecated')
+        self.skip('DEAD TEST REMOVE IT')
         async with self.getTestCoreAndProxy() as (core, prox):
 
             await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
@@ -4816,3 +4806,34 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))
+
+    # async def test_storm_onload_persistence(self):
+    #     with self.getTestDir() as dirn:
+    #         pkg = {
+    #             'name': 'foosball',
+    #             'version': '0.0.1',
+    #             'synapse_minversion': [2, 144, 0],
+    #             'synapse_version': '>=2.8.0,<3.0.0',
+    #             'commands': ({
+    #                              'name': 'testcmd',
+    #                              'descr': 'test command',
+    #                              'storm': '[ inet:ipv4=1.2.3.4 ]',
+    #                          },),
+    #             'modules': (
+    #                 {
+    #                     'name': 'foosmod',
+    #                     'storm': '''
+    #                             function f(a) {return ($a)}
+    #                             ''',
+    #                 },
+    #             ),
+    #             'onload': '$lib.print(onload)'
+    #
+    #         }
+    #         conf = {'storm:log': True}
+    #         async with self.getTestCore(dirn=dirn, conf=conf) as core:
+    #             self.none(await core.addStormPkg(pkg))
+    #             await asyncio.sleep(1)
+    #         async with self.getTestCore(dirn=dirn, conf=conf) as core:
+    #             self.nn(await core.getStormPkg('foosball'))
+    #             await asyncio.sleep(1)
