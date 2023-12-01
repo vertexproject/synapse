@@ -491,7 +491,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An advertising identification string.'}),
 
                 # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
-                ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]+))*$'}), {
+                ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
                     'doc': 'A Microsoft Windows Security Identifier.',
                     'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
                 }),
