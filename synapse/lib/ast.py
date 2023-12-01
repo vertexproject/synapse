@@ -696,6 +696,9 @@ class SubQuery(Oper):
         if len(kids):
             self.text = kids[0].getAstText()
 
+    def isRuntSafe(self, runt):
+        return True
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
