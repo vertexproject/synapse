@@ -148,6 +148,7 @@ class ViewTest(s_t_utils.SynTest):
             await self.agenlen(1, view2.eval('[ test:int=12 ]'))
 
             # Add a bunch of nodes to require chunking of splices when merging
+            # XXX FIXME is this still relevant?
             for i in range(1000):
                 await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
 
@@ -410,15 +411,6 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, count['node'])
             self.eq(2, count['node:edits'])
             self.eq(0, count['node:add'])
-
-            mesgs = await core.stormlist('[test:str=foo2 :hehe=bar]', opts={'editformat': 'splices'})
-            count = collections.Counter(m[0] for m in mesgs)
-            self.eq(1, count['init'])
-            self.eq(1, count['node:add'])
-            self.eq(2, count['prop:set'])  # .created and .hehe
-            self.eq(0, count['node:edits'])
-            self.eq(1, count['node'])
-            self.eq(1, count['fini'])
 
             mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'count'})
             count = collections.Counter(m[0] for m in mesgs)

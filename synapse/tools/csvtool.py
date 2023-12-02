@@ -91,7 +91,9 @@ async def runCsvImport(opts, outp, text, stormopts):
 
         nodecount = 0
 
-        stormopts['editformat'] = 'splices'
+        # XXX FIXME is this correct?
+        stormopts['editformat'] = 'none'
+
         vars = stormopts.setdefault('vars', {})
 
         for rows in rowgenr:

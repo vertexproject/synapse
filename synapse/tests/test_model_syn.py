@@ -64,13 +64,13 @@ class SynModelTest(s_t_utils.SynTest):
 
                 node = await snap.getNodeByNdef(('syn:tag', 'foo'))
                 self.nn(node)
-
-            # We can safely do a pivot in from a syn:tag node
-            # which will attempt a syn:splice lift which will
-            # yield no nodes.
-            self.len(0, await core.nodes('syn:tag=foo.bar.baz <- *'))
-            nodes = await core.nodes('syn:tag=foo.bar.baz [ :doc:url="http://vertex.link" ]')
-            self.eq('http://vertex.link', nodes[0].get('doc:url'))
+            #
+            # # We can safely do a pivot in from a syn:tag node
+            # # which will attempt a syn:splice lift which will
+            # # yield no nodes.
+            # self.len(0, await core.nodes('syn:tag=foo.bar.baz <- *'))
+            # nodes = await core.nodes('syn:tag=foo.bar.baz [ :doc:url="http://vertex.link" ]')
+            # self.eq('http://vertex.link', nodes[0].get('doc:url'))
 
     async def test_syn_model_runts(self):
 
@@ -291,11 +291,6 @@ class SynModelTest(s_t_utils.SynTest):
 
             q = core.nodes('test:str [ +(newp)> { syn:form } ]')
             await self.asyncraises(s_exc.IsRuntForm, q)
-
-            # Syn:splice uses a null lift handler
-            self.len(1, await core.nodes('[test:str=test]'))
-            self.len(0, await core.nodes('syn:splice'))
-            self.len(0, await core.nodes('syn:splice:tag'))
 
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:

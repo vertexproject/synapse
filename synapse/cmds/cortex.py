@@ -56,6 +56,7 @@ Examples:
         ('line', {'type': 'glob'}),  # type: ignore
     )
 
+    # XXX FIXME update this..
     splicetypes = (
         'tag:add',
         'tag:del',
@@ -110,6 +111,7 @@ Examples:
         fd = self.locs.get('log:fd')
         editsonly = self.locs.get('log:editsonly')
         nodesonly = self.locs.get('log:nodesonly')
+        # XXX FIXME Update this....
         if fd and not fd.closed:
             if editsonly and mesg[0] not in (*self.splicetypes, 'node:edits'):
                 return
@@ -221,7 +223,6 @@ class StormCmd(s_cli.Cmd):
         --editformat <format>: What format of edits the server shall emit.
                 Options are
                    * nodeedits (default),
-                   * splices (similar to < 2.0.0),
                    * count (just counts of nodeedits), or
                    * none (no such messages emitted).
         --show-prov:  Show provenance messages.
@@ -239,7 +240,7 @@ class StormCmd(s_cli.Cmd):
     '''
     _cmd_name = 'storm'
 
-    editformat_enums = ('nodeedits', 'splices', 'count', 'none')
+    editformat_enums = ('nodeedits', 'count', 'none')
     _cmd_syntax = (
         ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
