@@ -940,7 +940,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self._onCoreFini)
 
         await self._initCoreHive()
-        self._initSplicers()
         self._initStormLibs()
         self._initFeedFuncs()
 
