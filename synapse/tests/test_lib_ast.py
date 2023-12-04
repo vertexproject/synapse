@@ -3284,7 +3284,7 @@ class AstTest(s_test.SynTest):
                 [(test:str=test2 +(refs)> {test:str=$test})]
             }
             $lib.macro.set(test.edge, $q)
-            return ($lib.true)
+            return($lib.true)
             '''
             self.true(await core.callStorm(q))
 
@@ -3296,11 +3296,17 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'test2'))
 
             q = '''
-            test:str=test2
-            $valu=$node.value()
-            | spin |
-            test:str=test1 -> { test:str=$valu }
+            $q = ${
+                test:str=test2
+                $valu=$node.value()
+                | spin |
+                test:str=test1 -> { test:str=$valu }
+            }
+            $lib.macro.set(test.pivot, $q)
+            return($lib.true)
             '''
-            nodes = await core.nodes(q)
+            self.true(await core.callStorm(q))
+
+            nodes = await core.nodes('macro.exec test.pivot')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test2'))
