@@ -215,8 +215,6 @@ class GeoTest(s_t_utils.SynTest):
             stamp = -0
 
             place = s_common.guid()
-            props = {'place': place,
-                     'loc': 'us.hehe.haha'}
             opts = {'vars': {'place': place, 'loc': 'us.hehe.haha', 'valu': (ndef, latlong, stamp)}}
             nodes = await core.nodes(f'[(geo:nloc=$valu :place=$place :loc=$loc)]', opts=opts)
             self.len(1, nodes)
