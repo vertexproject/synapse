@@ -56,18 +56,6 @@ Examples:
         ('line', {'type': 'glob'}),  # type: ignore
     )
 
-    # XXX FIXME update this..
-    splicetypes = (
-        'tag:add',
-        'tag:del',
-        'node:add',
-        'node:del',
-        'prop:set',
-        'prop:del',
-        'tag:prop:set',
-        'tag:prop:del',
-    )
-
     def _make_argparser(self):
 
         parser = s_cmd.Parser(prog='log', outp=self, description=self.__doc__)
@@ -111,9 +99,8 @@ Examples:
         fd = self.locs.get('log:fd')
         editsonly = self.locs.get('log:editsonly')
         nodesonly = self.locs.get('log:nodesonly')
-        # XXX FIXME Update this....
         if fd and not fd.closed:
-            if editsonly and mesg[0] not in (*self.splicetypes, 'node:edits'):
+            if editsonly and mesg[0] != 'node:edits':
                 return
             if nodesonly:
                 if mesg[0] != 'node':
