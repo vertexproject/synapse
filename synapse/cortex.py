@@ -143,7 +143,7 @@ reqValidStormMacro = s_config.getJsValidator({
         'storm': {'type': 'string'},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
-        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
+        'permissions': s_msgpack.deepcopy(s_schemas.easyPermSchema),
     },
     'required': [
         'name',

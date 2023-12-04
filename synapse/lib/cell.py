@@ -73,21 +73,6 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
-easyPermSchema = {
-    'type': 'object',
-    'properties': {
-        'users': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-        'roles': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-    },
-    'required': ['users', 'roles'],
-}
-
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.

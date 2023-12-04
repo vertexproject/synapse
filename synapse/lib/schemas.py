@@ -1,7 +1,21 @@
-import synapse.lib.cell as s_cell
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 
+
+easyPermSchema = {
+    'type': 'object',
+    'properties': {
+        'users': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+    },
+    'required': ['users', 'roles'],
+}
 
 _HttpExtAPIConfSchema = {
     'type': 'object',
@@ -60,7 +74,7 @@ reqValidVault = s_config.getJsValidator({
         'type': {'type': 'string', 'pattern': '^.{1,128}$'},
         'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
         'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
-        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
+        'permissions': s_msgpack.deepcopy(easyPermSchema),
         'secrets': {'type': 'object'},
         'configs': {'type': 'object'},
     },
