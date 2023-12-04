@@ -4721,7 +4721,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '[test:deprform=dform :deprprop=(1, 2)]'
                 await core1.nodes(q, opts={'view': view2_iden})
 
-    # Confirm we have a lock test elsewhere for this...
+    # XXX FIXMEco Confirm we have a lock test elsewhere for this...
     # async def test_stat_lock(self):
     #     self.thisHostMust(hasmemlocking=True)
     #     conf = {'layers:lockmemory': True}
