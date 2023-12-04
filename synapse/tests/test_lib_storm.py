@@ -465,12 +465,12 @@ class StormTest(s_t_utils.SynTest):
 
             # Non-runtsafe Storm works without inbound nodes
             msgs = await core.stormlist('''
-                try {
-                    [ inet:ipv4=0 ]
-                    $lib.raise(foo, $node.repr())
-                } catch * as err {
-                    $lib.print($err.mesg)
-                }
+            try {
+                [ inet:ipv4=0 ]
+                $lib.raise(foo, $node.repr())
+            } catch * as err {
+                $lib.print($err.mesg)
+            }
             ''')
             self.stormIsInPrint('0.0.0.0', msgs)
 
