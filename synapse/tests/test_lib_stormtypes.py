@@ -4509,10 +4509,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
 
-            cdef = await core.editCronJob(iden0, 'name', 'lolz')
+            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(name, lolz) )', opts=opts)
             self.eq('lolz', cdef.get('name'))
 
-            cdef = await core.editCronJob(iden0, 'doc', 'zoinks')
+            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
             self.eq('zoinks', cdef.get('doc'))
 
     async def test_storm_lib_cron(self):
