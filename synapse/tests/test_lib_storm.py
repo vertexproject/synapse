@@ -463,6 +463,17 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.stormIsInPrint('caught err=', msgs)
 
+            # Non-runtsafe Storm works without inbound nodes
+            msgs = await core.stormlist('''
+                try {
+                    [ inet:ipv4=0 ]
+                    $lib.raise(foo, $node.repr())
+                } catch * as err {
+                    $lib.print($err.mesg)
+                }
+            ''')
+            self.stormIsInPrint('0.0.0.0', msgs)
+
             # info must be json safe
             with self.raises(s_exc.MustBeJsonSafe):
                 await core.callStorm('$x="foo" $x=$x.encode() $lib.raise(foo, test, bar=$x)')

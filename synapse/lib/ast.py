@@ -870,6 +870,9 @@ class FiniBlock(AstNode):
 
 class TryCatch(AstNode):
 
+    def isRuntSafe(self, runt):
+        return True
+
     async def run(self, runt, genr):
 
         count = 0
