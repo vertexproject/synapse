@@ -682,7 +682,8 @@ class AgendaTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            derp = await core.auth.addUser('derp')
+            lowuser = await core.addUser('lowuser')
+            lowuser = lowuser.get('iden')
 
             msgs = await core.stormlist('cron.add --hourly 32 { $lib.print(woot) }')
             self.stormHasNoWarnErr(msgs)
@@ -690,15 +691,23 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
             self.eq(cdef['creator'], core.auth.rootuser.iden)
 
-            opts = {'vars': {'derp': derp.iden}}
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $derp)) }', opts=opts)
+            opts = {'vars': {'lowuser': lowuser}}
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $lowuser)) }',
+                                        opts=opts)
+            self.eq(cdef['creator'], lowuser)
 
-            self.eq(cdef['creator'], derp.iden)
+            opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
+            q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
+            msgs = await core.stormlist(q, opts=opts)
+            # XXX FIXME - This is an odd message since the new creator does not implicitly have
+            # access to the cronjob that is running as them.
+            self.stormIsInErr('Provided iden does not match any valid authorized cron job.', msgs)
 
-            # FIXME removed apis
-            # async with core.getLocalProxy(user='derp') as proxy:
-            #     with self.raises(s_exc.AuthDeny):
-            #         await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)
+            await core.addUserRule(lowuser, (True, ('cron', 'get')))
+            opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
+            q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInErr('must have permission cron.set.creator', msgs)
 
     async def test_agenda_fatal_run(self):
 
