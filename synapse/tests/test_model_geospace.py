@@ -217,17 +217,18 @@ class GeoTest(s_t_utils.SynTest):
             place = s_common.guid()
             props = {'place': place,
                      'loc': 'us.hehe.haha'}
-
-            async with await core.snap() as snap:
-                node = await snap.addNode('geo:nloc', (ndef, latlong, stamp), props=props)
-                self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))
-                self.eq(node.get('ndef'), ('inet:ipv4', 0))
-                self.eq(node.get('ndef:form'), 'inet:ipv4')
-                self.eq(node.get('latlong'), (0.0, 0.0))
-                self.eq(node.get('time'), 0)
-                self.eq(node.get('place'), place)
-                self.eq(node.get('loc'), 'us.hehe.haha')
-                self.nn(await snap.getNodeByNdef(('inet:ipv4', 0)))
+            opts = {'vars': {'place': place, 'loc': 'us.hehe.haha', 'valu': (ndef, latlong, stamp)}}
+            nodes = await core.nodes(f'[(geo:nloc=$valu :place=$place :loc=$loc)]', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))
+            self.eq(node.get('ndef'), ('inet:ipv4', 0))
+            self.eq(node.get('ndef:form'), 'inet:ipv4')
+            self.eq(node.get('latlong'), (0.0, 0.0))
+            self.eq(node.get('time'), 0)
+            self.eq(node.get('place'), place)
+            self.eq(node.get('loc'), 'us.hehe.haha')
+            self.len(1, await core.nodes('inet:ipv4=0'))
 
             # geo:place
 
@@ -238,36 +239,40 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'woot.woot.')
             self.eq(node.get('latlong'), (-30.0, 20.22))
 
-            async with await core.snap() as snap:
-                guid = s_common.guid()
-                fbyts = s_common.guid()
-                parent = s_common.guid()
-                props = {'name': 'Vertex  HQ',
-                         'desc': 'The place where Vertex Project hangs out at!',
-                         'address': '208 Datong Road, Pudong District, Shanghai, China',
-                         'parent': parent,
-                         'loc': 'us.hehe.haha',
-                         'photo': f'guid:{fbyts}',
-                         'latlong': '34.1341, -118.3215',
-                         'bbox': '2.11, 2.12, -4.88, -4.9',
-                         'radius': '1.337km'}
-                node = await snap.addNode('geo:place', guid, props)
-                self.eq(node.ndef[1], guid)
-                self.eq(node.get('name'), 'vertex hq')
-                self.eq(node.get('loc'), 'us.hehe.haha')
-                self.eq(node.get('latlong'), (34.1341, -118.3215))
-                self.eq(node.get('radius'), 1337000)
-                self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
-                self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
-                self.eq(node.get('parent'), parent)
-                self.eq(node.get('photo'), f'guid:{fbyts}')
+            guid = s_common.guid()
+            fbyts = s_common.guid()
+            parent = s_common.guid()
+            props = {'name': 'Vertex  HQ',
+                     'desc': 'The place where Vertex Project hangs out at!',
+                     'address': '208 Datong Road, Pudong District, Shanghai, China',
+                     'parent': parent,
+                     'loc': 'us.hehe.haha',
+                     'photo': f'guid:{fbyts}',
+                     'latlong': '34.1341, -118.3215',
+                     'bbox': '2.11, 2.12, -4.88, -4.9',
+                     'radius': '1.337km'}
+            opts = {'vars': {'valu': guid, 'p': props}}
+            q = '[(geo:place=$valu :name=$p.name :desc=$p.desc :address=$p.address :parent=$p.parent :loc=$p.loc ' \
+                ':photo=$p.photo :latlong=$p.latlong :bbox=$p.bbox :radius=$p.radius)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], guid)
+            self.eq(node.get('name'), 'vertex hq')
+            self.eq(node.get('loc'), 'us.hehe.haha')
+            self.eq(node.get('latlong'), (34.1341, -118.3215))
+            self.eq(node.get('radius'), 1337000)
+            self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
+            self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
+            self.eq(node.get('parent'), parent)
+            self.eq(node.get('photo'), f'guid:{fbyts}')
 
-                self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
-                self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
+            self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
+            self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
 
-                opts = {'vars': {'place': parent}}
-                nodes = await core.nodes('geo:place=$place', opts=opts)
-                self.len(1, nodes)
+            opts = {'vars': {'place': parent}}
+            nodes = await core.nodes('geo:place=$place', opts=opts)
+            self.len(1, nodes)
 
             self.len(1, await core.nodes('geo:place -> geo:place:taxonomy'))
 
