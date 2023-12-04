@@ -41,6 +41,8 @@ class StatsCountByCmd(s_storm.Cmd):
                           help='Maximum width of the labels to display.')
         pars.add_argument('--yield', default=False, action='store_true',
                           dest='yieldnodes', help='Yield inbound nodes.')
+        pars.add_argument('--by-name', default=False, action='store_true',
+                          help='Print stats sorted by name instead of count.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -54,6 +56,8 @@ class StatsCountByCmd(s_storm.Cmd):
         if barwidth < 0:
             mesg = f'Value for --bar-width must be >= 0, got: {barwidth}'
             raise s_exc.BadArg(mesg=mesg)
+
+        byname = await s_stormtypes.tobool(self.opts.by_name)
 
         counts = collections.defaultdict(int)
 
@@ -78,9 +82,24 @@ class StatsCountByCmd(s_storm.Cmd):
             await runt.printf('No values to display!')
             return
 
-        values = list(sorted(counts.items(), key=lambda x: x[1]))
+        if byname:
+            # Try to sort numerically instead of lexicographically
+            def coerce(indx):
+                def wrapped(valu):
+                    valu = valu[indx]
+                    try:
+                        return int(valu)
+                    except ValueError:
+                        return valu
+                return wrapped
 
-        maxv = values[-1][1]
+            values = list(sorted(counts.items(), key=coerce(0)))
+            maxv = max(val[1] for val in values)
+
+        else:
+            values = list(sorted(counts.items(), key=lambda x: x[1]))
+            maxv = values[-1][1]
+
         size = await s_stormtypes.toint(self.opts.size, noneok=True)
         char = (await s_stormtypes.tostr(self.opts.char))[0]
         reverse = self.opts.reverse
