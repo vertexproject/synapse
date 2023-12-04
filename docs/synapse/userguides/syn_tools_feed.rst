@@ -29,7 +29,7 @@ Where:
   
 - ``FORMAT`` specifies the format of the input files. 
 
-  - Currently, only the value "syn.nodes". This is also the default value.
+  - Currently, only the value "syn.nodes" is supported. This is also the default value.
 
 - ``MODULES`` specifies a path to a Synapse CoreModule class that will be loaded into the temporary Cortex.
 
