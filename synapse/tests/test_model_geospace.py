@@ -287,21 +287,26 @@ class GeoTest(s_t_utils.SynTest):
     async def test_eq(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
+            guid0 = s_common.guid()
+            props = {'name': 'Vertex  HQ',
+                     'latlong': '34.1341, -118.3215',
+                     'radius': '1.337km'}
+            opts = {'vars': {'valu': guid0, 'p': props}}
+            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
 
-                guid0 = s_common.guid()
-                props = {'name': 'Vertex  HQ',
-                         'latlong': '34.1341, -118.3215',
-                         'radius': '1.337km'}
-                node = await snap.addNode('geo:place', guid0, props)
-                self.nn(node)
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
-                guid1 = s_common.guid()
-                props = {'name': 'Griffith Observatory',
-                         'latlong': '34.1341, -118.3215',
-                         'radius': '75m'}
-                node = await snap.addNode('geo:place', guid1, props)
-                self.nn(node)
+            guid1 = s_common.guid()
+            props = {'name': 'Griffith Observatory',
+                     'latlong': '34.1341, -118.3215',
+                     'radius': '75m'}
+
+            opts = {'vars': {'valu': guid1, 'p': props}}
+            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
+
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
             nodes = await core.nodes('geo:place:latlong=(34.1341, -118.3215)')
             self.len(2, nodes)
@@ -315,49 +320,62 @@ class GeoTest(s_t_utils.SynTest):
     async def test_near(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                # These two nodes are 2,605m apart
-                guid0 = s_common.guid()
-                props = {'name': 'Vertex  HQ',
-                         'latlong': '34.1341, -118.3215',  # hollywood sign
-                         'radius': '1.337km'}
-                node = await snap.addNode('geo:place', guid0, props)
-                self.nn(node)
 
-                guid1 = s_common.guid()
-                props = {'name': 'Griffith Observatory',
-                         'latlong': '34.118560, -118.300370',
-                         'radius': '75m'}
-                node = await snap.addNode('geo:place', guid1, props)
-                self.nn(node)
+            # These two nodes are 2,605m apart
+            guid0 = s_common.guid()
+            props = {'name': 'Vertex  HQ',
+                     'latlong': '34.1341, -118.3215',  # hollywood sign
+                     'radius': '1.337km'}
+            opts = {'vars': {'valu': guid0, 'p': props}}
+            q = '[(geo:place=$valu :name=$p.name :latlong=$p.latlong :radius=$p.radius)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
-                guid2 = s_common.guid()
-                props = {'name': 'unknown location'}
-                node = await snap.addNode('geo:place', guid2, props)
-                self.nn(node)
+            guid1 = s_common.guid()
+            props = {'name': 'Griffith Observatory',
+                     'latlong': '34.118560, -118.300370',
+                     'radius': '75m'}
+            opts = {'vars': {'valu': guid1, 'p': props}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
-                # A telemetry node for example by the observatory
-                guid3 = s_common.guid()
-                props = {'latlong': '34.118660, -118.300470'}
-                node = await snap.addNode('tel:mob:telem', guid3, props)
-                self.nn(node)
+            guid2 = s_common.guid()
+            props = {'name': 'unknown location'}
+            opts = {'vars': {'valu': guid2, 'p': props}}
+            q = '[(geo:place=$valu :name=$p.name)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
-                # A telemetry node for example by the HQ
-                guid4 = s_common.guid()
-                props = {'latlong': '34.13412, -118.32153'}
-                node = await snap.addNode('tel:mob:telem', guid4, props)
-                self.nn(node)
+            # A telemetry node for example by the observatory
+            guid3 = s_common.guid()
+            props = {'latlong': '34.118660, -118.300470'}
+            opts = {'vars': {'valu': guid3, 'p': props}}
+            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
-                # Far away nodes to test bounding box
-                guid5 = s_common.guid()
-                props = {'latlong': '35.118660, -118.300470'}
-                node = await snap.addNode('tel:mob:telem', guid5, props)
-                self.nn(node)
+            # A telemetry node for example by the HQ
+            guid4 = s_common.guid()
+            props = {'latlong': '34.13412, -118.32153'}
+            opts = {'vars': {'valu': guid4, 'p': props}}
+            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
-                guid6 = s_common.guid()
-                props = {'latlong': '33.118660, -118.300470'}
-                node = await snap.addNode('tel:mob:telem', guid6, props)
-                self.nn(node)
+            # Far away nodes to test bounding box
+            guid5 = s_common.guid()
+            props = {'latlong': '35.118660, -118.300470'}
+            opts = {'vars': {'valu': guid5, 'p': props}}
+            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+
+            guid6 = s_common.guid()
+            props = {'latlong': '33.118660, -118.300470'}
+            opts = {'vars': {'valu': guid6, 'p': props}}
+            q = '[(tel:mob:telem=$valu :latlong=$p.latlong)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
 
             # Node filtering behavior
             nodes = await core.nodes('geo:place +:latlong*near=((34.1, -118.3), 10km)')
