@@ -91,8 +91,7 @@ async def runCsvImport(opts, outp, text, stormopts):
 
         nodecount = 0
 
-        # XXX FIXME is this correct?
-        stormopts['editformat'] = 'none'
+        stormopts['editformat'] = 'node:edits'
 
         vars = stormopts.setdefault('vars', {})
 
