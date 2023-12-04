@@ -107,6 +107,13 @@ chartchar_byname = '''
  0 | 1 | ++++++++++
 '''.strip()
 
+chartipv4_byname = '''
+ 0.0.0.6 | 1 | ##################################################
+ 0.0.0.2 | 1 | ##################################################
+0.0.0.10 | 1 | ##################################################
+ 0.0.0.1 | 1 | ##################################################
+'''.strip()
+
 
 class StatsTest(s_test.SynTest):
 
@@ -172,6 +179,10 @@ class StatsTest(s_test.SynTest):
 
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --char "+" --by-name')
             self.stormIsInPrint(chartchar_byname, msgs)
+
+            msgs = await core.stormlist(
+                'inet:ipv4=0.0.0.1 inet:ipv4=0.0.0.2 inet:ipv4=0.0.0.6 inet:ipv4=0.0.0.10 | stats.countby --by-name')
+            self.stormIsInPrint(chartipv4_byname, msgs)
 
             msgs = await core.stormlist('stats.countby foo')
             self.stormIsInPrint('No values to display!', msgs)
