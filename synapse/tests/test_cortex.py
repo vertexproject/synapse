@@ -4527,8 +4527,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq(0, await layr.getEditIndx())
 
-            self.nn(await core.stat())
-
     async def test_cortex_layer_settings(self):
         '''
         Make sure settings make it down to the slab
@@ -4720,18 +4718,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.IsDeprLocked):
                 q = '[test:deprform=dform :deprprop=(1, 2)]'
                 await core1.nodes(q, opts={'view': view2_iden})
-
-    # XXX FIXMEco Confirm we have a lock test elsewhere for this...
-    # async def test_stat_lock(self):
-    #     self.thisHostMust(hasmemlocking=True)
-    #     conf = {'layers:lockmemory': True}
-    #     async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
-    #         slab = realcore.view.layers[0].layrslab
-    #         self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
-    #
-    #         nstat = await core.stat()
-    #         layr = nstat.get('layer')
-    #         self.gt(layr.get('lock_goal'), 0)
 
     async def test_storm_sub_query(self):
 

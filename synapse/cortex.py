@@ -5592,14 +5592,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.exception('mod load fail: %s' % (ctor,))
             return None
 
-    async def stat(self):
-        stats = {
-            'iden': self.iden,
-            'layer': await self.getLayer().stat(),
-            'formcounts': await self.getFormCounts(),
-        }
-        return stats
-
     async def getPropNorm(self, prop, valu):
         '''
         Get the normalized property value based on the Cortex data model.
