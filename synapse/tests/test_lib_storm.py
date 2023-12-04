@@ -4512,34 +4512,3 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))
-
-    # async def test_storm_onload_persistence(self):
-    #     with self.getTestDir() as dirn:
-    #         pkg = {
-    #             'name': 'foosball',
-    #             'version': '0.0.1',
-    #             'synapse_minversion': [2, 144, 0],
-    #             'synapse_version': '>=2.8.0,<3.0.0',
-    #             'commands': ({
-    #                              'name': 'testcmd',
-    #                              'descr': 'test command',
-    #                              'storm': '[ inet:ipv4=1.2.3.4 ]',
-    #                          },),
-    #             'modules': (
-    #                 {
-    #                     'name': 'foosmod',
-    #                     'storm': '''
-    #                             function f(a) {return ($a)}
-    #                             ''',
-    #                 },
-    #             ),
-    #             'onload': '$lib.print(onload)'
-    #
-    #         }
-    #         conf = {'storm:log': True}
-    #         async with self.getTestCore(dirn=dirn, conf=conf) as core:
-    #             self.none(await core.addStormPkg(pkg))
-    #             await asyncio.sleep(1)
-    #         async with self.getTestCore(dirn=dirn, conf=conf) as core:
-    #             self.nn(await core.getStormPkg('foosball'))
-    #             await asyncio.sleep(1)
