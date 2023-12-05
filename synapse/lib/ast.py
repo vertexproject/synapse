@@ -870,9 +870,6 @@ class FiniBlock(AstNode):
 
 class TryCatch(AstNode):
 
-    def isRuntSafe(self, runt):
-        return True
-
     async def run(self, runt, genr):
 
         count = 0
@@ -894,7 +891,7 @@ class TryCatch(AstNode):
                 async for subi in block.run(runt, agen):
                     yield subi
 
-        if count == 0 and self.isRuntSafe(runt):
+        if count == 0:
             try:
                 async for item in self.kids[0].run(runt, genr):
                     yield item
