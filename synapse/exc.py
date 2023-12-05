@@ -137,6 +137,8 @@ class BadTag(SynErr): pass
 class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
+class MergeInProgress(SynErr): pass
+
 class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass

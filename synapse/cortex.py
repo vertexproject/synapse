@@ -1724,6 +1724,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
+
         for view in self.views.values():
             await view.initTrigTask()
 
@@ -1731,8 +1732,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await layer.initLayerActive()
 
     async def initServicePassive(self):
+
         await self.agenda.stop()
         await self.stormdmons.stop()
+
         for view in self.views.values():
             await view.finiTrigTask()
 
@@ -4820,33 +4823,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await layr.delete()
 
         layr.deloffs = nexsitem[0]
-
-    #@s_nexus.Pusher.onPushAuto('view:meta:set')
-    #async def setViewMeta(self, iden, name, valu):
-
-        #if len(name) > 512:
-            #mesg = 'View metadata names must be shorter than 512 characters.'
-            #raise s_exc.BadArg(mesg=mesg)
-
-        #view = self.reqView(iden)
-
-        #lkey = s_common.uhex(iden) + name.encode()
-        #self.slab.put(lkey, s_msgpack.en(valu)
-
-    #async def addViewComment(
-    #async def modViewComment(
-    #async def getViewComments(self, )
-    #async def addViewMergeApprove(self, iden, user, comment=''):
-        #name = f'comment:{s_common.guid()}'
-
-    #async def addViewApprove(self, viewiden, useriden):
-    #async def addViewApprover(self, viewiden, roleiden)
-    #async def delViewApprover(self, viewiden, roleiden)
-
-    async def _setViewMeta(self, iden, name, valu):
-        view = self.getView(iden)
-        if view is None:
-            raise s_
 
     async def setViewLayers(self, layers, iden=None):
         '''

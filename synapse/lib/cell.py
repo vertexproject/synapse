@@ -1744,6 +1744,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except Exception as e:  # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
 
+    def isActiveCoro(self, iden):
+        return self.activecoros.get(iden) is not None
+
     def addActiveCoro(self, func, iden=None, base=None):
         '''
         Add a function callback to be run as a coroutine when the Cell is active.
