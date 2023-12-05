@@ -340,7 +340,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
                     ('id', ('str', {'strip': True}), {
-                        'doc': 'An external identifier for the vulnerability.'}),
+                        'doc': 'An identifier for the vulnerability.'}),
 
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
