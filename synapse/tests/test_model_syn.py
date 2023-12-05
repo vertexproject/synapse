@@ -51,19 +51,19 @@ class SynModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[syn:tag=foo.bar.baz]')
+            self.len(1, nodes)
+            node = nodes[0]
 
-                node = await snap.addNode('syn:tag', 'foo.bar.baz')
+            self.eq(node.get('up'), 'foo.bar')
+            self.eq(node.get('depth'), 2)
+            self.eq(node.get('base'), 'baz')
 
-                self.eq(node.get('up'), 'foo.bar')
-                self.eq(node.get('depth'), 2)
-                self.eq(node.get('base'), 'baz')
+            nodes = await core.nodes('syn:tag=foo.bar')
+            self.len(1, nodes)
 
-                node = await snap.getNodeByNdef(('syn:tag', 'foo.bar'))
-                self.nn(node)
-
-                node = await snap.getNodeByNdef(('syn:tag', 'foo'))
-                self.nn(node)
+            nodes = await core.nodes('syn:tag=foo')
+            self.len(1, nodes)
 
             # We can safely do a pivot in from a syn:tag node
             # which will attempt a syn:splice lift which will
@@ -272,8 +272,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.isin('inet:client', pprops)
 
             # Pivot from a model node to a Edge node
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:edge', (('test:int', 1234), ('test:str', '1234')))
+            await core.nodes('[(test:edge=( ("test:int", (1234)), ("test:str", 1234) ))]')
 
             nodes = await core.nodes('syn:form=test:int -> test:edge:n1:form')
             self.len(1, nodes)
