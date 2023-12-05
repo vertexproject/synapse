@@ -163,7 +163,49 @@ Examples:
         $index = $lib.cortex.httpapi.index($api.iden, $cmdopts.index)
         $lib.print(`Set HTTP API {$api.iden} to index {$index}`)
         '''
-    }
+    },
+    {
+        'name': 'cortex.offload.set',
+        'descr': '''Set parameters for offloading Storm queries to mirrors of the Cortex.
+
+Examples:
+
+    // Set an AHA pool as the target for offloading queries.
+    cortex.offload.set --target aha://pool00...
+
+    // Set the timeout for a mirror to catch up to the current offset.
+    cortex.offload.set --timeout 10
+''',
+        'cmdargs': (
+            ('--target', {'help': 'A Cortex mirror URL or AHA pool to offload queries to.'}),
+            ('--timeout', {'help': 'Timeout to wait for a mirror to catch up before running a query on the leader.'}),
+        ),
+        'storm': '''
+            if $cmdopts.target {
+                $lib.cortex.offload.set(target=$cmdopts.target)
+                $lib.print(`Updated Cortex offload target to: {$cmdopts.target}`)
+            }
+
+            if $cmdopts.timeout {
+                $lib.cortex.offload.set(timeout=$cmdopts.timeout)
+                $lib.print(`Updated Cortex offload timeout to: {$cmdopts.timeout}`)
+            }
+        ''',
+    },
+    {
+        'name': 'cortex.offload.show',
+        'descr': 'Display the current parameters for offloading Storm queries.',
+        'cmdargs': (),
+        'storm': '''
+            $conf = $lib.cortex.offload.get()
+            if (not $conf.target) {
+                $lib.print('Query offloading is not currently configured.')
+            } elif ($conf.url) {
+                $lib.print(`Target: {$conf.target}`)
+                $lib.print(`Timeout: {$conf.timeout}`)
+            }
+        ''',
+    },
 ]
 
 def _normPermString(perm):
@@ -1166,3 +1208,70 @@ class CortexHttpApi(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
         index = await s_stormtypes.toint(index)
         return await self.runt.snap.view.core.setHttpApiIndx(iden, index)
+
+@s_stormtypes.registry.registerLib
+class CortexOffloadApi(s_stormtypes.Lib):
+    '''
+    Library for configuring Cortex query offloading.
+    '''
+    _storm_locals = (
+        {'name': 'set', 'desc': '''
+        Set Storm query offload config values.
+
+        Examples:
+
+            // Set an AHA pool as the target for offloading queries.
+            $lib.cortex.offload.set(target="aha://pool00...")
+
+            // Set the timeout for a mirror to catch up to the current offset.
+            $lib.cortex.offload.set(timeout=10)
+        ''',
+         'type': {'type': 'function', '_funcname': 'setOffload',
+                  'args': (
+                      {'name': 'target', 'default': '$lib.undef',
+                       'desc': 'A Cortex mirror URL or AHA pool to offload Storm queries to.'},
+                      {'name': 'timeout', 'default': '$lib.undef',
+                       'desc': 'Friendly name for the Extended HTTP API'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The updated query offload config.'}}},
+
+        {'name': 'get', 'desc': 'Get the current query offload config.',
+         'type': {'type': 'function', '_funcname': 'getOffload',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The query offload config.'}}},
+    )
+
+    _storm_lib_path = ('cortex', 'offload')
+
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'cortex', 'offload', 'get'), 'gate': 'cortex',
+         'desc': 'Controls the ability to get Cortex query offload config values.'},
+        {'perm': ('storm', 'lib', 'cortex', 'offload', 'set'), 'gate': 'cortex',
+         'desc': 'Controls the ability to set Cortex query offload config values.'},
+    )
+
+    def getObjLocals(self):
+        return {
+            'get': self.getOffload,
+            'set': self.setOffload,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getOffload(self):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'offload', 'get'))
+        return copy.deepcopy(self.runt.snap.core.querymirroropts)
+
+    async def setOffload(self, target=s_stormtypes.undef, timeout=s_stormtypes.undef):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'offload', 'set'))
+
+        opts = copy.deepcopy(self.runt.snap.core.querymirroropts)
+        if opts is None:
+            opts = {}
+
+        if target is not s_stormtypes.undef:
+            opts['target'] = await s_stormtypes.tostr(target, noneok=True)
+
+        if timeout is not s_stormtypes.undef:
+            opts['timeout'] = await s_stormtypes.toint(timeout, noneok=True)
+
+        return await self.runt.snap.core.setQueryMirrorOpts(opts)

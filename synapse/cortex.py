@@ -1215,6 +1215,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
+        self.querymirror = None
+        self.querymirroropts = None
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1727,6 +1729,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layer in self.layers.values():
             await layer.initLayerActive()
 
+        await self.initQueryMirror()
+
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
@@ -1735,6 +1739,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
+
+        if self.querymirror is not None:
+            await self.querymirror.fini()
+
+    async def initQueryMirror(self):
+        if self.querymirror is not None:
+            await self.querymirror.fini()
+
+        self.querymirroropts = self.getCellVar('query:mirror')
+        if self.querymirroropts is not None:
+            if (targ := self.querymirroropts.get('target')) is not None:
+                self.querymirror = await s_telepath.open(targ)
+                self.onfini(self.querymirror.fini)
+
+    async def setQueryMirrorOpts(self, opts):
+        if opts != self.querymirroropts:
+            return await self._push('query:mirror:set', opts)
+        return copy.deepcopy(opts)
+
+    @s_nexus.Pusher.onPush('query:mirror:set')
+    async def _setQueryMirrorOpts(self, opts):
+        self.setCellVar('query:mirror', opts)
+        await self.initQueryMirror()
+        return copy.deepcopy(opts)
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -5672,17 +5700,61 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return i
 
+    async def _getMirrorOpts(self, opts):
+        mirropts = copy.deepcopy(opts)
+        mirropts['nomirror'] = True
+        mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
+        mirropts['nexstimeout'] = self.querymirroropts.get('timeout')
+        return mirropts
+
     async def storm(self, text, opts=None):
-        '''
-        '''
+
         opts = self._initStormOpts(opts)
+
+        if self.querymirror is not None and not opts.get('nomirror'):
+            extra = await self.getLogExtra(text=text)
+            logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+            try:
+                mirropts = await self._getMirrorOpts(opts)
+                proxy = await self.querymirror.proxy(timeout=3)
+                async for mesg in proxy.storm(text, opts=mirropts):
+                    yield mesg
+                return
+
+            except s_exc.TimeOut:
+                mesg = 'Timeout waiting for query mirror, running locally instead.'
+                logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut('Timeout waiting for query mirror.')
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
             yield mesg
 
     async def callStorm(self, text, opts=None):
+
         opts = self._initStormOpts(opts)
+
+        if self.querymirror is not None and not opts.get('nomirror'):
+            extra = await self.getLogExtra(text=text)
+            logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+            try:
+                mirropts = await self._getMirrorOpts(opts)
+                proxy = await self.querymirror.proxy(timeout=3)
+                return await proxy.callStorm(text, opts=mirropts)
+
+            except s_exc.TimeOut:
+                mesg = 'Timeout waiting for query mirror, running locally instead.'
+                logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut('Timeout waiting for query mirror.')
+
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
 

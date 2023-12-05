@@ -2,8 +2,10 @@ import json
 
 import aiohttp
 
-import synapse.common as s_common
 import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.base as s_base
 
 import synapse.tests.utils as s_test
 
@@ -1325,3 +1327,52 @@ for $i in $values {
                 self.none(resp.headers.get('X-Content-Type-Options'))
                 # Server is still omitted though
                 self.none(resp.headers.get('Server'))
+
+    async def test_cortex_query_offload(self):
+        async with self.getTestAhaProv() as aha:
+
+            import synapse.cortex as s_cortex
+
+            async with await s_base.Base.anit() as base:
+
+                with self.getTestDir() as dirn:
+
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
+                    provinfo = {'mirror': '00.core'}
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
+
+                    self.len(1, await core00.nodes('[inet:asn=0]'))
+                    await core01.sync()
+                    self.len(1, await core01.nodes('inet:asn=0'))
+
+                    msgs = await core00.stormlist('aha.pool.add pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+
+                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                    msgs = await core00.stormlist('cortex.offload.set --target aha://pool00... --timeout 1')
+                    self.stormIsInPrint('Updated Cortex offload target to: aha://pool00...', msgs)
+                    self.stormIsInPrint('Updated Cortex offload timeout to: 1', msgs)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await s_test.alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
