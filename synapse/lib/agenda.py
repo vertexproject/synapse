@@ -403,9 +403,11 @@ class _Appt:
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
         appt.enabled = val['enabled']
-        appt.startcount = val['startcount']
-        appt.errcount = val['errcount']
-        appt.lasterrs = val['lasterrs']
+        appt.startcount = val.get('startcount', 0)
+        appt.errcount = val.get('errcount', 0)
+
+        lasterrs = val.get('lasterrs', ())
+        appt.lasterrs.extend(lasterrs)
 
         return appt
 
@@ -569,6 +571,24 @@ class Agenda(s_base.Base):
         stordict = appt.pack()
 
         await self.core.hive.set(full, stordict, nexs=nexs)
+
+    async def reload(self, iden):
+        appt = self.appts.get(iden)
+        if appt is None:
+            return
+
+        # Load appt from hive and set its attributes on the existing appointment
+        node = self._hivenode.get(iden)
+        if node is not None:
+            val = node.valu
+            _appt = _Appt.unpack(self, val)
+            appt.nexttime = _appt.nexttime
+            appt.laststarttime = _appt.laststarttime
+            appt.lastfinishtime = _appt.lastfinishtime
+            appt.lastresult = _appt.lastresult
+            appt.startcount = _appt.startcount
+            appt.errcount = _appt.errcount
+            appt.lasterrs = _appt.lasterrs
 
     @staticmethod
     def _dictproduct(rdict):
@@ -921,4 +941,4 @@ class Agenda(s_base.Base):
                     # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
                     await self._storeAppt(appt, nexs=True)
-                    await self.core.updateCronStats(appt.iden, appt.pack())
+                    await self.core.reloadCronJob(appt.iden)
