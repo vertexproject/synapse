@@ -1018,34 +1018,31 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(info.get('subs').get('type'), 'linklocal')
 
             # Form Tests ======================================================
-            async with await core.snap() as snap:
+            place = s_common.guid()
+            valu = '::fFfF:1.2.3.4'
+            props = {
+                'loc': 'cool',
+                'latlong': '0,2',
+                'dns:rev': 'vertex.link',
+                'place': place,
+            }
+            opts = {'vars': {'valu': valu, 'p': props}}
+            q = '[(inet:ipv6=$valu :loc=$p.loc :latong=$p.latlong :dns:rev=$p."dns:rev" :place=$p.place)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:ivp6', valu.lower()))
+            self.eq(node.get('dns:rev'), 'vertex.link')
+            self.eq(node.get('ipv4'), 0x01020304)
+            self.eq(node.get('latlong'), (0.0, 2.0))
+            self.eq(node.get('loc'), 'cool')
+            self.eq(node.get('place'), place)
 
-                place = s_common.guid()
-
-                valu_str = '::fFfF:1.2.3.4'
-                input_props = {
-                    'loc': 'cool',
-                    'latlong': '0,2',
-                    'dns:rev': 'vertex.link',
-                    'place': place,
-                }
-                expected_props = {
-                    'ipv4': 16909060,
-                    'loc': 'cool',
-                    'latlong': (0.0, 2.0),
-                    'dns:rev': 'vertex.link',
-                    'place': place,
-                }
-                expected_ndef = (formname, valu_str.lower())
-                node = await snap.addNode(formname, valu_str, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-                valu_str = '::1'
-                expected_props = {
-                }
-                expected_ndef = (formname, valu_str)
-                node = await snap.addNode(formname, valu_str)
-                self.checkNode(node, (expected_ndef, expected_props))
+            nodes = await core.nodes('inet:ivp6="::1"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:ipv6', '::1'))
+            self.none(node.get('ipv4'))
 
             self.len(1, await core.nodes('inet:ipv6=0::1'))
             self.len(1, await core.nodes('inet:ipv6*range=(0::1, 0::1)'))
@@ -1087,13 +1084,10 @@ class InetModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-
-                await snap.addNode('inet:ipv6', '0::f000')
-                await snap.addNode('inet:ipv6', '0::f001')
-                await snap.addNode('inet:ipv6', '0::f002')
-                await snap.addNode('inet:ipv6', '0::f003')
-                await snap.addNode('inet:ipv6', '0::f004')
+            for i in range(5):
+                valu = f'0::f00{i}'
+                nodes = await core.nodes('[inet:ipv6=$valu]', opts={'vars': {'valu': valu}})
+                self.len(1, nodes)
 
             self.len(3, await core.nodes('inet:ipv6=0::f001-0::f003'))
             self.len(3, await core.nodes('[inet:ipv6=0::f001-0::f003]'))
@@ -1157,17 +1151,17 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'GG:ff:FF:ff:FF:ff')
 
             # Form Tests ======================================================
-            async with await core.snap() as snap:
-                valu = '00:00:00:00:00:00'
-                expected_ndef = (formname, valu)
+            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:mac', '00:00:00:00:00:00'))
+            self.none(node.get('vendor'))
 
-                node = await snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.none(node.get('vendor'))
-
-                node = await snap.addNode(formname, valu, props={'vendor': 'Cool'})
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('vendor'), 'Cool')
+            nodes = await core.nodes('[inet:mac="00:00:00:00:00:00" :vendor=Cool]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:mac', '00:00:00:00:00:00'))
+            self.eq(node.get('vendor'), 'Cool')
 
     async def test_net4(self):
         tname = 'inet:net4'
@@ -1224,13 +1218,13 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_passwd(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-
-                node = await snap.addNode('inet:passwd', '2Cool4u')
-                self.eq(node.ndef[1], '2Cool4u')
-                self.eq('91112d75297841c12ca655baafc05104', node.get('md5'))
-                self.eq('2984ab44774294be9f7a369bbd73b52021bf0bb4', node.get('sha1'))
-                self.eq('62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f', node.get('sha256'))
+            nodes = await core.nodes('[inet:passwd=2Cool4u]')
+            self.len(1, nodes)
+            node = nodes
+            self.eq(node.ndef, ('inet:passwd', '2Cool4u'))
+            self.eq(node.get('md5'), '91112d75297841c12ca655baafc05104')
+            self.eq(node.get('sha1'), '2984ab44774294be9f7a369bbd73b52021bf0bb4')
+            self.eq(node.get('sha256'), '62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f')
 
     async def test_port(self):
         tname = 'inet:port'
@@ -1261,22 +1255,23 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
 
             valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(valu, 'bob\udcfesmith@woot.com')
 
             # Form Tests ======================================================
-            valu = '"UnitTest"    <UnitTest@Vertex.link>'
-            expected_ndef = (formname, 'unittest <unittest@vertex.link>')
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('email'), 'unittest@vertex.link')
-                self.eq(node.get('name'), 'unittest')
+            nodes = await core.nodes('[inet:rfc2822:addr=$valu]',
+                                     opts={'vars': {'valu': '"UnitTest"    <UnitTest@Vertex.link>'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:rfc2822:addr', 'unittest <unittest@vertex.link>'))
+            self.eq(node.get('email'), 'unittest@vertex.link')
+            self.eq(node.get('name'), 'unittest')
 
-                await snap.addNode(formname, '"UnitTest1')
-                await snap.addNode(formname, '"UnitTest12')
+            await core.nodes('[inet:rfc2822:addr=$valu]', opts={'vars': {'valu': '"UnitTest1'}})
+            await core.nodes('[inet:rfc2822:addr=$valu]', opts={'vars': {'valu': '"UnitTest12'}})
 
-                self.len(3, await snap.nodes('inet:rfc2822:addr^=unittest'))
-                self.len(2, await snap.nodes('inet:rfc2822:addr^=unittest1'))
-                self.len(1, await snap.nodes('inet:rfc2822:addr^=unittest12'))
+            self.len(3, await core.nodes('inet:rfc2822:addr^=unittest'))
+            self.len(2, await core.nodes('inet:rfc2822:addr^=unittest1'))
+            self.len(1, await core.nodes('inet:rfc2822:addr^=unittest12'))
 
     async def test_server(self):
         formname = 'inet:server'
@@ -1303,10 +1298,13 @@ class InetModelTest(s_t_utils.SynTest):
         )
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                for valu, expected_valu, expected_props in data:
-                    node = await snap.addNode(formname, valu)
-                    self.checkNode(node, ((formname, expected_valu), expected_props))
+            for valu, expected_valu, props in data:
+                nodes = await core.nodes('[inet:server=$valu]', opts={'vars': {'valu': valu}})
+                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.ndef, ('inet:server', expected_valu))
+                for p, v in props.items():
+                    self.eq(node.get(p), v)
 
     async def test_servfile(self):
         formname = 'inet:servfile'
@@ -1332,15 +1330,14 @@ class InetModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[inet:ssl:cert=("tcp://1.2.3.4:443", "guid:abcdabcdabcdabcdabcdabcdabcdabcd")]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('file'), 'guid:abcdabcdabcdabcdabcdabcdabcdabcd')
+            self.eq(node.get('server'), 'tcp://1.2.3.4:443')
 
-                node = await snap.addNode('inet:ssl:cert', ('tcp://1.2.3.4:443', 'guid:abcdabcdabcdabcdabcdabcdabcdabcd'))
-
-                self.eq(node.get('file'), 'guid:abcdabcdabcdabcdabcdabcdabcdabcd')
-                self.eq(node.get('server'), 'tcp://1.2.3.4:443')
-
-                self.eq(node.get('server:port'), 443)
-                self.eq(node.get('server:ipv4'), 0x01020304)
+            self.eq(node.get('server:port'), 443)
+            self.eq(node.get('server:ipv4'), 0x01020304)
 
     async def test_url(self):
         formname = 'inet:url'
@@ -1431,26 +1428,25 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(valu, expected)
 
             # Form Tests ======================================================
-            async with await core.snap() as snap:
-                valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
-                expected_ndef = (formname, valu)
-                node = await snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('fqdn'), 'vertex.link')
-                self.eq(node.get('passwd'), 'hunter2')
-                self.eq(node.get('path'), '/coolthings')
-                self.eq(node.get('port'), 1337)
-                self.eq(node.get('proto'), 'https')
-                self.eq(node.get('user'), 'vertexmc')
-                self.eq(node.get('base'), 'https://vertexmc:hunter2@vertex.link:1337/coolthings')
-                self.eq(node.get('params'), '?a=1')
+            nodes = await core.nodes('[inet:url="https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:url', 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'))
+            self.eq(node.get('fqdn'), 'vertex.link')
+            self.eq(node.get('passwd'), 'hunter2')
+            self.eq(node.get('path'), '/coolthings')
+            self.eq(node.get('port'), 1337)
+            self.eq(node.get('proto'), 'https')
+            self.eq(node.get('user'), 'vertexmc')
+            self.eq(node.get('base'), 'https://vertexmc:hunter2@vertex.link:1337/coolthings')
+            self.eq(node.get('params'), '?a=1')
 
-                valu = 'https://vertex.link?a=1'
-                expected_ndef = (formname, valu)
-                node = await snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('fqdn'), 'vertex.link')
-                self.eq(node.get('path'), '')
+            nodes = await core.nodes('[inet:url="https://vertex.link?a=1"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:url', 'https://vertex.link?a=1'))
+            self.eq(node.get('fqdn'), 'vertex.link')
+            self.eq(node.get('path'), '')
 
             # equality comparator behavior
             valu = 'https://vertex.link?a=1'
