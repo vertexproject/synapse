@@ -1148,6 +1148,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
+        'storm:query:mirror': {
+            'description': 'Configure a Cortex mirror or AHA pool to offload Storm queries to. This is an experimental option and should not be used in production.',
+            'type': 'object',
+            'properties': {
+                'url': {
+                    'type': 'string',
+                    'description': 'Telepath URL for a Cortex mirror or AHA pool.'
+                },
+                'timeout': {
+                    'type': 'integer',
+                    'description': 'Timeout to wait for a mirror to catch up before running a query on the leader.'
+                }
+            },
+            'required': ('url',)
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -1216,7 +1231,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
         self.querymirror = None
-        self.querymirroropts = None
+        self.querymirroropts = self.conf.get('storm:query:mirror')
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1749,22 +1764,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.querymirror.fini()
             self.querymirror = None
 
-        self.querymirroropts = self.getCellVar('query:mirror')
         if self.querymirroropts is not None:
-            if (targ := self.querymirroropts.get('target')) is not None:
-                self.querymirror = await s_telepath.open(targ)
-                self.onfini(self.querymirror.fini)
-
-    async def setQueryMirrorOpts(self, opts):
-        if opts != self.querymirroropts:
-            return await self._push('query:mirror:set', opts)
-        return copy.deepcopy(opts)
-
-    @s_nexus.Pusher.onPush('query:mirror:set')
-    async def _setQueryMirrorOpts(self, opts):
-        self.setCellVar('query:mirror', opts)
-        await self.initQueryMirror()
-        return copy.deepcopy(opts)
+            targ = self.querymirroropts.get('url')
+            self.querymirror = await s_telepath.open(targ)
+            self.onfini(self.querymirror.fini)
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -5709,6 +5712,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mirropts['nexstimeout'] = self.querymirroropts.get('timeout')
         return mirropts
 
+    async def _getMirrorProxy(self):
+        proxy = None
+        try:
+            proxy = await self.querymirror.proxy(timeout=3)
+        except (TimeoutError, s_exc.IsFini):
+            mesg = 'Unable to get proxy for query mirror, running locally instead.'
+            logger.warning(mesg)
+        return proxy
+
     async def storm(self, text, opts=None):
 
         opts = self._initStormOpts(opts)
@@ -5717,16 +5729,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             extra = await self.getLogExtra(text=text)
             logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
 
-            try:
-                mirropts = await self._getMirrorOpts(opts)
-                proxy = await self.querymirror.proxy(timeout=3)
-                async for mesg in proxy.storm(text, opts=mirropts):
-                    yield mesg
-                return
+            proxy = await self._getMirrorProxy()
+            mirropts = await self._getMirrorOpts(opts)
 
-            except s_exc.TimeOut:
-                mesg = 'Timeout waiting for query mirror, running locally instead.'
-                logger.warning(mesg)
+            if proxy is not None:
+                try:
+                    async for mesg in proxy.storm(text, opts=mirropts):
+                        yield mesg
+                    return
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5744,14 +5758,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             extra = await self.getLogExtra(text=text)
             logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
 
-            try:
-                mirropts = await self._getMirrorOpts(opts)
-                proxy = await self.querymirror.proxy(timeout=3)
-                return await proxy.callStorm(text, opts=mirropts)
+            proxy = await self._getMirrorProxy()
+            mirropts = await self._getMirrorOpts(opts)
 
-            except s_exc.TimeOut:
-                mesg = 'Timeout waiting for query mirror, running locally instead.'
-                logger.warning(mesg)
+            if proxy is not None:
+                try:
+                    return await proxy.callStorm(text, opts=mirropts)
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):

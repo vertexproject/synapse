@@ -1340,6 +1340,12 @@ for $i in $values {
                     dirn00 = s_common.genpath(dirn, 'cell00')
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
+                    conf = {
+                        'storm:query:mirror': {
+                            'url': 'aha://pool00...',
+                            'timeout': 1
+                        }
+                    }
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
                     provinfo = {'mirror': '00.core'}
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
@@ -1356,9 +1362,9 @@ for $i in $values {
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
 
-                    msgs = await core00.stormlist('cortex.offload.set --target aha://pool00... --timeout 1')
-                    self.stormIsInPrint('Updated Cortex offload target to: aha://pool00...', msgs)
-                    self.stormIsInPrint('Updated Cortex offload timeout to: 1', msgs)
+                    await core00.fini()
+
+                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00, conf=conf))
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await s_test.alist(core00.storm('inet:asn=0'))
@@ -1386,7 +1392,7 @@ for $i in $values {
                     stream.seek(0)
                     data = stream.read()
                     self.isin('Offloading Storm query', data)
-                    self.isin('running locally instead', data)
+                    self.isin('Timeout', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
@@ -1394,12 +1400,9 @@ for $i in $values {
                     stream.seek(0)
                     data = stream.read()
                     self.isin('Offloading Storm query', data)
-                    self.isin('running locally instead', data)
+                    self.isin('Timeout', data)
 
-                    msgs = await core00.stormlist('cortex.offload.set --target aha://pool00... --timeout 1')
-
-                    msgs = await core00.stormlist('cortex.offload.set --target $lib.undef', opts={'nomirror': True})
-                    self.stormIsInPrint('Updated Cortex offload target to: $lib.undef', msgs)
+                    await core01.fini()
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await s_test.alist(core00.storm('inet:asn=0'))
@@ -1407,4 +1410,13 @@ for $i in $values {
 
                     stream.seek(0)
                     data = stream.read()
-                    self.notin('Offloading Storm query', data)
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Unable to get proxy', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Unable to get proxy', data)

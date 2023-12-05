@@ -42,7 +42,6 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -1165,8 +1164,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellinfo = await node.dict()
         self.onfini(node)
 
-        self.cellvarsdb = self.slab.initdb('cell:vars')
-
         node = await self.hive.open(('cellvers',))
         self.cellvers = await node.dict(nexs=True)
 
@@ -1372,14 +1369,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.cellvers.set(name, vers, nexs=nexs)
 
             curv = vers
-
-    def getCellVar(self, name):
-        byts = self.slab.get(name.encode(), db=self.cellvarsdb)
-        if byts is not None:
-            return s_msgpack.un(byts)
-
-    def setCellVar(self, name, valu):
-        self.slab.put(name.encode(), s_msgpack.en(valu), db=self.cellvarsdb)
 
     def checkFreeSpace(self):
         self._checkspace.set()
