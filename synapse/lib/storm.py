@@ -2141,7 +2141,21 @@ class Runtime(s_base.Base):
 
     def confirm(self, perms, gateiden=None, default=None):
         '''
-        Raise AuthDeny if user doesn't have global permissions and write layer permissions
+        Raise AuthDeny if the user doesn't have the permission.
+
+        Notes:
+            An elevated runtime with asroot=True will always return True.
+
+        Args:
+            perms (tuple): The permission tuple.
+            gateiden (str): The gateiden.
+            default (bool): The default value.
+
+        Returns:
+            True: If the permission is allowed.
+
+        Raises:
+            AuthDeny: If the user does not have the permission.
         '''
         if self.asroot:
             return
@@ -4595,22 +4609,6 @@ class ReIndexCmd(Cmd):
         # Make this a generator
         if False:
             yield
-
-class SudoCmd(Cmd):
-    '''
-    Deprecated sudo command.
-
-    Left in for 2.x.x so that Storm command with it are still valid to execute.
-    '''
-    name = 'sudo'
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: sudo', s_common._splicedepr)
-
-        await runt.snap.warn(f'sudo command is deprecated and will be removed on {s_common._splicedepr}')
-        async for node, path in genr:
-            yield node, path
 
 class MoveTagCmd(Cmd):
     '''

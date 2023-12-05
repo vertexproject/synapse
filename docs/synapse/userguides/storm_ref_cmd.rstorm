@@ -2111,7 +2111,6 @@ query and view messages and results without displaying the associated nodes.
 .. storm-pre:: [inet:fqdn=firefoxupdata.com inet:fqdn=fakefirefox.net]
 .. storm-cli:: inet:fqdn~=firefox [+#int.research] | spin
 
-
 .. _storm-tag:
 
 tag
