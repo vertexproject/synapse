@@ -1376,3 +1376,14 @@ for $i in $values {
                     data = stream.read()
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout', data)
+
+                    msgs = await core00.stormlist('cortex.offload.set --target $lib.undef', opts={'nomirror': True})
+                    self.stormIsInPrint('Updated Cortex offload target to: $lib.undef', msgs)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await s_test.alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.notin('Offloading Storm query', data)

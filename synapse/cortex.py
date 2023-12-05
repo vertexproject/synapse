@@ -1746,6 +1746,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initQueryMirror(self):
         if self.querymirror is not None:
             await self.querymirror.fini()
+            self.querymirror = None
 
         self.querymirroropts = self.getCellVar('query:mirror')
         if self.querymirroropts is not None:

@@ -1228,10 +1228,10 @@ class CortexOffloadApi(s_stormtypes.Lib):
         ''',
          'type': {'type': 'function', '_funcname': 'setOffload',
                   'args': (
-                      {'name': 'target', 'default': '$lib.undef',
+                      {'name': 'target', 'type': 'str', 'default': None,
                        'desc': 'A Cortex mirror URL or AHA pool to offload Storm queries to.'},
-                      {'name': 'timeout', 'default': '$lib.undef',
-                       'desc': 'Friendly name for the Extended HTTP API'},
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                       'desc': 'Timeout to wait for a mirror to catch up before running a query on the leader.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The updated query offload config.'}}},
 
@@ -1261,17 +1261,23 @@ class CortexOffloadApi(s_stormtypes.Lib):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'offload', 'get'))
         return copy.deepcopy(self.runt.snap.core.querymirroropts)
 
-    async def setOffload(self, target=s_stormtypes.undef, timeout=s_stormtypes.undef):
+    async def setOffload(self, target=None, timeout=None):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'offload', 'set'))
 
         opts = copy.deepcopy(self.runt.snap.core.querymirroropts)
         if opts is None:
             opts = {}
 
-        if target is not s_stormtypes.undef:
-            opts['target'] = await s_stormtypes.tostr(target, noneok=True)
+        if target:
+            if target is s_stormtypes.undef:
+                opts.pop('target', None)
+            else:
+                opts['target'] = await s_stormtypes.tostr(target)
 
-        if timeout is not s_stormtypes.undef:
-            opts['timeout'] = await s_stormtypes.toint(timeout, noneok=True)
+        if timeout:
+            if timeout is s_stormtypes.undef:
+                opts.pop('timeout')
+            else:
+                opts['timeout'] = await s_stormtypes.toint(timeout)
 
         return await self.runt.snap.core.setQueryMirrorOpts(opts)
