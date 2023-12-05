@@ -1,10 +1,6 @@
-import logging
-
 import synapse.exc as s_exc
 
 import synapse.lib.stormtypes as s_stormtypes
-
-logger = logging.getLogger(__name__)
 
 evaldesc = '''\
 Evaluate a storm runtime value and optionally cast/coerce it.
