@@ -163,7 +163,7 @@ Examples:
         $index = $lib.cortex.httpapi.index($api.iden, $cmdopts.index)
         $lib.print(`Set HTTP API {$api.iden} to index {$index}`)
         '''
-    },
+    }
 ]
 
 def _normPermString(perm):
