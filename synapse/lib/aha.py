@@ -755,7 +755,7 @@ class AhaCell(s_cell.Cell):
         return poolinfo
 
     async def _getAhaSvc(self, svcname):
-        # no fancy auto-resolve, just get actual servic
+        # no fancy auto-resolve, just get actual service
         svcpath = ('aha', 'svcfull', svcname)
         return await self.jsonstor.getPathObj(svcpath)
 

@@ -148,7 +148,7 @@ stormcmds = (
     },
     {
         'name': 'aha.pool.svc.del',
-        'descr': 'Remove an AHA service to from a service pool.',
+        'descr': 'Remove an AHA service from a service pool.',
         'cmdargs': (
             ('poolname', {'help': 'The name of the AHA pool.'}),
             ('svcname', {'help': 'The name of the AHA service.'}),
