@@ -59,5 +59,5 @@ class LibStormTest(s_test.SynTest):
                 mesg = 'Executing storm query {return( $lib.storm.eval($q) )} as [root]'
                 self.isin(mesg, data)
 
-                mesg = f'Executing storm query {{{q}}} as [root]'
+                mesg = f'Executing storm query via $lib.storm.eval() {{{q}}} as [root]'
                 self.isin(mesg, data)

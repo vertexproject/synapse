@@ -1,3 +1,5 @@
+import logging
+
 import synapse.exc as s_exc
 
 import synapse.lib.stormtypes as s_stormtypes
@@ -8,6 +10,8 @@ Evaluate a storm runtime value and optionally cast/coerce it.
 NOTE: If storm logging is enabled, the expression being evaluated will be logged
 separately.
 '''
+
+stormlogger = logging.getLogger('synapse.storm')
 
 @s_stormtypes.registry.registerLib
 class LibStorm(s_stormtypes.Lib):
@@ -36,7 +40,9 @@ class LibStorm(s_stormtypes.Lib):
         text = await s_stormtypes.tostr(text)
         cast = await s_stormtypes.tostr(cast, noneok=True)
 
-        self.runt.snap.core._logStormQuery(text, self.runt.user)
+        if self.runt.snap.core.stormlog:
+            extra = await self.runt.snap.core.getLogExtra(text=text)
+            stormlogger.info(f'Executing storm query via $lib.storm.eval() {{{text}}} as [{self.runt.user.name}]', extra=extra)
 
         casttype = None
         if cast:
