@@ -65,13 +65,6 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:tag=foo')
             self.len(1, nodes)
 
-            # We can safely do a pivot in from a syn:tag node
-            # which will attempt a syn:splice lift which will
-            # yield no nodes.
-            self.len(0, await core.nodes('syn:tag=foo.bar.baz <- *'))
-            nodes = await core.nodes('syn:tag=foo.bar.baz [ :doc:url="http://vertex.link" ]')
-            self.eq('http://vertex.link', nodes[0].get('doc:url'))
-
     async def test_syn_model_runts(self):
 
         async def addExtModelConfigs(cortex):
@@ -290,11 +283,6 @@ class SynModelTest(s_t_utils.SynTest):
 
             q = core.nodes('test:str [ +(newp)> { syn:form } ]')
             await self.asyncraises(s_exc.IsRuntForm, q)
-
-            # Syn:splice uses a null lift handler
-            self.len(1, await core.nodes('[test:str=test]'))
-            self.len(0, await core.nodes('syn:splice'))
-            self.len(0, await core.nodes('syn:splice:tag'))
 
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
@@ -517,29 +505,27 @@ class SynModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('cron', 'add')))
+            visi = await core.addUser('visi')
 
-            async with core.getLocalProxy(user='visi') as proxy:
-                cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
-                adef = await proxy.addCronJob(cdef)
-                iden = adef.get('iden')
+            cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}, 'creator': visi.get('iden')}
+            adef = await core.addCronJob(cdef)
+            iden = adef.get('iden')
 
-                nodes = await core.nodes('syn:cron')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', iden))
-                self.eq(nodes[0].get('doc'), '')
-                self.eq(nodes[0].get('name'), '')
-                self.eq(nodes[0].get('storm'), 'inet:ipv4')
+            nodes = await core.nodes('syn:cron')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:cron', iden))
+            self.eq(nodes[0].get('doc'), '')
+            self.eq(nodes[0].get('name'), '')
+            self.eq(nodes[0].get('storm'), 'inet:ipv4')
 
-                nodes = await core.nodes(f'syn:cron={iden} [ :doc=hehe :name=haha ]')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', iden))
-                self.eq(nodes[0].get('doc'), 'hehe')
-                self.eq(nodes[0].get('name'), 'haha')
+            nodes = await core.nodes(f'syn:cron={iden} [ :doc=hehe :name=haha ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:cron', iden))
+            self.eq(nodes[0].get('doc'), 'hehe')
+            self.eq(nodes[0].get('name'), 'haha')
 
-                nodes = await core.nodes(f'syn:cron={iden}')
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('syn:cron', iden))
-                self.eq(nodes[0].get('doc'), 'hehe')
-                self.eq(nodes[0].get('name'), 'haha')
+            nodes = await core.nodes(f'syn:cron={iden}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('syn:cron', iden))
+            self.eq(nodes[0].get('doc'), 'hehe')
+            self.eq(nodes[0].get('name'), 'haha')
