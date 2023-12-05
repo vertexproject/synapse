@@ -399,6 +399,95 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
+    async def getPropCount(self, propname, valu=s_common.novalu):
+        prop = self.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        count = 0
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getPropCount(formname, propname)
+            return count
+
+        norm, info = prop.type.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
+
+        return count
+
+    async def getTagPropCount(self, form, tag, propname, valu=s_common.novalu):
+        prop = self.core.model.getTagProp(propname)
+        if prop is None:
+            mesg = f'No tag property named {propname}'
+            raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
+
+        count = 0
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getTagPropCount(form, tag, prop.name)
+            return count
+
+        norm, info = prop.type.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
+
+        return count
+
+    async def getPropArrayCount(self, propname, valu=s_common.novalu):
+        prop = self.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not prop.type.isarray:
+            mesg = f'Property is not an array type: {prop.type.name}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        count = 0
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getPropArrayCount(formname, propname)
+            return count
+
+        atyp = prop.type.arraytype
+        norm, info = atyp.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
+
+        return count
+
     async def getEdgeVerbs(self):
 
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
@@ -533,10 +622,7 @@ class View(s_nexus.Pusher):  # type: ignore
         mode = opts.get('mode', 'storm')
         editformat = opts.get('editformat', 'nodeedits')
         if editformat not in ('nodeedits', 'count', 'none'):
-            raise s_exc.BadConfValu(mesg='editformat')
-
-        if editformat == 'splices':
-            s_common.deprdate('storm option editformat=splices', s_common._splicedepr)
+            raise s_exc.BadConfValu(mesg=f'invalid edit format, got {editformat}', name='editformat', valu=editformat)
 
         texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
@@ -631,11 +717,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 if editformat == 'none':
                     continue
 
-                if editformat == 'count':
-                    count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
-                    mesg = ('node:edits:count', {'count': count})
-                    yield mesg
-                    continue
+                assert editformat == 'count'
+
+                count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
+                mesg = ('node:edits:count', {'count': count})
+                yield mesg
+                continue
 
             if kind == 'fini':
                 yield mesg
@@ -684,11 +771,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if name == 'parent':
 
-            parent = self.core.getView(valu)
-            if parent is None:
-                mesg = 'The parent view must already exist.'
-                raise s_exc.NoSuchView(mesg=mesg)
-
+            parent = self.core.reqView(valu, mesg='The parent view must already exist.')
             if parent.iden == self.iden:
                 mesg = 'A view may not have parent set to itself.'
                 raise s_exc.BadArg(mesg=mesg)

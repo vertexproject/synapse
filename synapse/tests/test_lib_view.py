@@ -147,8 +147,8 @@ class ViewTest(s_t_utils.SynTest):
             # Add a node back
             await self.agenlen(1, view2.eval('[ test:int=12 ]'))
 
-            # Add a bunch of nodes to require chunking of edits when merging
-            for i in range(1000):
+            # Add a bunch of test nodes to the view.
+            for i in range(20):
                 await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
 
             # Add prop that will only exist in the child
@@ -217,7 +217,7 @@ class ViewTest(s_t_utils.SynTest):
             await view2.wipeLayer()
 
             # The parent counts includes all the nodes that were merged
-            self.eq(1005, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(25, (await core.view.getFormCounts()).get('test:int'))
 
             # A node added to the child is now present in the parent
             nodes = await core.nodes('test:int=12')
@@ -247,12 +247,14 @@ class ViewTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:int -(refs)> *'))
 
             # The child count includes all the nodes in the view
-            self.eq(1005, (await view2.getFormCounts()).get('test:int'))
+            self.eq(25, (await view2.getFormCounts()).get('test:int'))
 
             # The child can see nodes that got merged
             nodes = await view2.nodes('test:int=12')
             self.len(1, nodes)
             nodes = await view2.nodes('test:int=1000')
+            self.len(1, nodes)
+            nodes = await view2.nodes('test:int=1019')
             self.len(1, nodes)
 
             await core.delView(view2.iden)

@@ -67,8 +67,6 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name:given'), 'эммануэль')
                 self.eq(node.get('nicks'), ['beeper88', 'w1ntermut3'])
                 self.eq(node.get('names'), ['bob ross'])
-                # self.eq(node.get('img'), '')  # fixme file:bytes
-                # self.eq(node.get('guidname'), '')  # fixme guid aliases
 
                 node = await snap.addNode('ps:person:has', (person0, ('test:str', 'sewer map')))
                 self.eq(node.ndef[1], (person0, ('test:str', 'sewer map')))
@@ -94,7 +92,6 @@ class PsModelTest(s_t_utils.SynTest):
                     'place': place,
                     'place:name': 'The Shire',
                     'orgname': 'Stark Industries, INC',
-                    # 'img': '',  # fixme file:bytes
                     'user': 'ironman',
                     'web:acct': ('twitter.com', 'ironman'),
                     'web:group': ('twitter.com', 'avengers'),

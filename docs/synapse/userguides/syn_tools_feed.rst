@@ -29,13 +29,12 @@ Where:
   
 - ``FORMAT`` specifies the format of the input files. 
 
-  - Currently, only the values "syn.nodes" and "syn.nodeedits" are supported.
-  - Defaults to "syn.nodes" if not specified
-  
+  - Currently, only the value "syn.nodes" is supported. This is also the default value.
+
 - ``MODULES`` specifies a path to a Synapse CoreModule class that will be loaded into the temporary Cortex.
 
   - This option has no effect if the ``--test`` option is not specified
-  - For more on Core Modules, see :ref:`dev_cortex_quickstart`
+
 - ``CHUNKSIZE`` specifies how many lines or chunks of data to read at a time from the given files.
 
   - Defaults to 1000 if not specified
@@ -55,11 +54,13 @@ The ``feed`` tool
 Ingest Example 1
 ++++++++++++++++
 
-This example demonstrates loading a set of nodes via the ``feed`` tool with the "syn.nodes" format option. The nodes are of a variety of types, and are encoded in a json lines (jsonl) format.
+This example demonstrates loading a set of nodes via the ``feed`` tool with the "syn.nodes" format option. The nodes
+are of a variety of types, and are encoded in a json lines (jsonl) format.
 
 **JSONL File:**
 
-The jsonl file (``testnodes.jsonl``) contains a list of nodes in their packed form. Each line in the file corresponds to a single node, with all of the properties, tags, and nodedata on the node encoded in a json friendly format.
+The jsonl file (``testnodes.jsonl``) contains a list of nodes in their packed form. Each line in the file corresponds
+to a single node, with all of the properties, tags, and nodedata on the node encoded in a json friendly format.
 
 ::
 
@@ -71,11 +72,14 @@ The jsonl file (``testnodes.jsonl``) contains a list of nodes in their packed fo
 
 **Verifying the Data:**
 
-Typically, users will want to double check the data they have before loading it into a production Cortex. The ``feed`` tool allows us to perform an ingest our of nodes file against an empty, ephemeral Cortex, so that we can check what nodes get created before slamming them into production. To load ``testnodes.jsonl`` into an ephemeral Cortex and drop into a prompt to explore the ingested nodes, run:
+Typically, users will want to double check the data they have before loading it into a production Cortex. The ``feed``
+tool allows us to perform an ingest our of nodes file against an empty, ephemeral Cortex, so that we can check what
+nodes get created before adding them to a production Cortex. To load ``testnodes.jsonl`` into an ephemeral Cortex and
+drop into a prompt to explore the ingested nodes, run:
 
 :: 
 
-  python -m synapse.tools.feed --test --debug --format syn.nodes testnodes.jsonl
+  python -m synapse.tools.feed --test --debug testnodes.jsonl
 
 Assuming the command completed with no errors, we should now have a ``cmdr`` prompt connected to our test Cortex:
 
@@ -118,18 +122,22 @@ From which we can issue Storm commands to interact with and validate the nodes t
 
 **Loading the Data:**
 
-Once we've inspected and verified the data is acceptable for loading, we can point the ``feed`` tool to the Cortex we want to load the nodes into, and the same nodes should be added.
+Once we've inspected and verified the data is acceptable for loading, we can point the ``feed`` tool to the Cortex we
+want to load the nodes into, and the same nodes should be added.
 
 ::
 
-  python -m synapse.tools.feed --cortex tcp://cortex.vertex.link:4444/cortex00 --format 'syn.nodes' 
-    testnodes.jsonl
+  python -m synapse.tools.feed --cortex "aha://cortex..." testnodes.jsonl
     
-However, once we've inspected the data, let's say that the it:reveng:function and inet:ipv4 nodes are not allowed in the production Cortex, but the inet:url and file:bytes are. We can skip these two nodes by using a combination of the ``chunksize`` and ``offset`` parameters:
+However, once we've inspected the data, let's say that the it:reveng:function and inet:ipv4 nodes are not allowed in
+the production Cortex, but the inet:url and file:bytes are. We can skip these two nodes by using a combination of
+the ``chunksize`` and ``offset`` parameters:
 
 ::
 
-  python -m synapse.tools.feed --cortex tcp://cortex.vertex.link:4444/cortex00 --format 'syn.nodes' 
-    testnodes.jsonl --chunksize 1 --offset 1
+  python -m synapse.tools.feed --cortex "aha://cortex..." testnodes.jsonl --chunksize 1 --offset 1
     
-With the ``chunksize`` parameter signifying that the ``feed`` tool should read two lines at a time from the file and process those before reading the next line, and the ``offset`` parameter meaning the ``feed`` tool should skip all lines before and including line 1 (so lines 1 and 0) when attempting to add nodes, and only add nodes once it's read in lines 2 and beyond.
+With the ``chunksize`` parameter signifying that the ``feed`` tool should read two lines at a time from the file and
+process those before reading the next line, and the ``offset`` parameter meaning the ``feed`` tool should skip all
+lines before and including line 1 (so lines 1 and 0) when attempting to add nodes, and only add nodes once it's read
+in lines 2 and beyond.

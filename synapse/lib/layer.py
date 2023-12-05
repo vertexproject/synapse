@@ -2333,17 +2333,14 @@ class Layer(s_nexus.Pusher):
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
-    async def truncate(self):
-        self._reqNotReadOnly()
-        return await self._push('layer:truncate')
-
     @s_nexus.Pusher.onPush('layer:truncate')
     async def _truncate(self):
         '''
         Nuke all the contents in the layer, leaving an empty layer
         NOTE: This internal API is deprecated but is kept for Nexus event backward compatibility
         '''
-        s_common.deprdate('Layer.truncate() API', s_common._splicedepr)
+        # TODO: Remove this in 3.0.0
+        s_common.deprecated('layer:truncate Nexus handler', curv='2.156.0')
 
         self.dirty.clear()
         self.nidcache.clear()
@@ -2354,8 +2351,6 @@ class Layer(s_nexus.Pusher):
         await self.dataslab.trash()
 
         await self._initLayerStorage()
-
-    # async def wipe(self, meta): ...
 
     async def iterWipeNodeEdits(self):
 
@@ -2692,6 +2687,44 @@ class Layer(s_nexus.Pusher):
 
         return await self.layrslab.countByPref(abrv, db=self.indxdb, maxsize=maxsize)
 
+    def getPropValuCount(self, formname, propname, stortype, valu):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        if stortype & 0x8000:
+            stortype = STOR_TYPE_MSGP
+
+        count = 0
+        for indx in self.getStorIndx(stortype, valu):
+            count += self.layrslab.count(abrv + indx, db=self.byprop)
+
+        return count
+
+    async def getPropArrayCount(self, formname, propname=None):
+        '''
+        Return the number of invidiual value rows in the layer for the given array form/prop.
+        '''
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.byarray)
+
+    def getPropArrayValuCount(self, formname, propname, stortype, valu):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        count = 0
+        for indx in self.getStorIndx(stortype, valu):
+            count += self.layrslab.count(abrv + indx, db=self.byarray)
+
+        return count
+
     async def getUnivPropCount(self, propname, maxsize=None):
         '''
         Return the number of universal property rows in the layer for the given prop.
@@ -2702,6 +2735,29 @@ class Layer(s_nexus.Pusher):
             return 0
 
         return await self.layrslab.countByPref(abrv, db=self.indxdb, maxsize=maxsize)
+
+    async def getTagPropCount(self, form, tag, prop):
+        '''
+        Return the number of property rows in the layer for the given form/tag/prop.
+        '''
+        try:
+            abrv = self.getTagPropAbrv(form, tag, prop)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.bytagprop)
+
+    def getTagPropValuCount(self, form, tag, prop, stortype, valu):
+        try:
+            abrv = self.getTagPropAbrv(form, tag, prop)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        count = 0
+        for indx in self.getStorIndx(stortype, valu):
+            count += self.layrslab.count(abrv + indx, db=self.bytagprop)
+
+        return count
 
     async def liftByTag(self, tag, form=None, reverse=False):
 

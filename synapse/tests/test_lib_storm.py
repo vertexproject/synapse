@@ -463,6 +463,17 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.stormIsInPrint('caught err=', msgs)
 
+            # Non-runtsafe Storm works without inbound nodes
+            msgs = await core.stormlist('''
+            try {
+                [ inet:ipv4=0 ]
+                $lib.raise(foo, $node.repr())
+            } catch * as err {
+                $lib.print($err.mesg)
+            }
+            ''')
+            self.stormIsInPrint('0.0.0.0', msgs)
+
             # info must be json safe
             with self.raises(s_exc.MustBeJsonSafe):
                 await core.callStorm('$x="foo" $x=$x.encode() $lib.raise(foo, test, bar=$x)')
@@ -559,7 +570,7 @@ class StormTest(s_t_utils.SynTest):
             self.true(all([n.get('name') == 'foo' for n in nodes]))
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | parallel $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             # test $lib.exit() and the StormExit handlers
@@ -2073,7 +2084,7 @@ class StormTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tree $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_movetag(self):
@@ -2326,16 +2337,6 @@ class StormTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.len(0, await core.nodes('[ test:str=foo test:str=bar ] | spin'))
             self.len(2, await core.nodes('test:str=foo test:str=bar'))
-
-    async def test_storm_reindex_sudo(self):
-
-        async with self.getTestCore() as core:
-
-            mesgs = await core.stormlist('reindex')
-            self.stormIsInWarn('reindex currently does nothing', mesgs)
-
-            msgs = await core.stormlist('.created | sudo')
-            self.stormIsInWarn('sudo command is deprecated and will be removed on 2023-10-01', msgs)
 
     async def test_storm_count(self):
 
@@ -2867,7 +2868,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes(q)
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tee $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tee $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_yieldvalu(self):
@@ -4062,12 +4063,12 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('runas visi { [ inet:fqdn=bar.com ] }')
 
             items = await alist(core.syncLayersEvents({}, wait=False))
-            self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
+            self.len(2, [item for item in items if item[-1]['user'] == visi.iden])
 
             await core.nodes(f'runas {visi.iden} {{ [ inet:fqdn=baz.com ] }}')
 
             items = await alist(core.syncLayersEvents({}, wait=False))
-            self.len(8, [item for item in items if item[-1]['user'] == visi.iden])
+            self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
 
             q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
