@@ -1377,6 +1377,27 @@ for $i in $values {
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout', data)
 
+                    core01.nexsroot.nexslog.indx = 0
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await s_test.alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('running locally instead', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('running locally instead', data)
+
+                    msgs = await core00.stormlist('cortex.offload.set --target aha://pool00... --timeout 1')
+
                     msgs = await core00.stormlist('cortex.offload.set --target $lib.undef', opts={'nomirror': True})
                     self.stormIsInPrint('Updated Cortex offload target to: $lib.undef', msgs)
 
