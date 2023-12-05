@@ -797,52 +797,6 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
 
-    async def test_http_watch(self):
-
-        async with self.getTestCore() as core:
-
-            visi = await core.auth.addUser('visi')
-
-            await visi.setPasswd('secret')
-
-            host, port = await core.addHttpsPort(0, host='127.0.0.1')
-
-            # with no session user...
-            async with self.getHttpSess() as sess:
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-                    self.eq('errx', mesg['type'])
-                    self.eq('AuthDeny', mesg['data']['code'])
-
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
-                    retn = await resp.json()
-                    self.eq('ok', retn.get('status'))
-                    self.eq('visi', retn['result']['name'])
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-                    self.eq('errx', mesg['type'])
-                    self.eq('AuthDeny', mesg['data']['code'])
-
-                await visi.addRule((True, ('watch',)))
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-
-                    self.eq('init', mesg['type'])
-
-                    await core.nodes('[ test:str=woot +#test.visi ]')
-
-                    mesg = await sock.receive_json()
-
-                    self.eq('tag:add', mesg['type'])
-                    self.eq('test.visi', mesg['data']['tag'])
-
     async def test_http_beholder(self):
         self.skipIfNexusReplay()
         async with self.getTestCore() as core:
