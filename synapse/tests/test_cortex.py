@@ -5124,7 +5124,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(node.getTag('known'))
             self.none(node.getTag('unknown'))
 
-            self.eq('foo', await core.callStorm('$var=foo switch $var { foo: {[test:str=foo] return($node.value()) } }'))
+            q = '$valu={[test:str=foo]} switch $valu { foo: {test:str=foo return($node.value()) } }'
+            self.eq('foo', await core.callStorm(q))
 
     async def test_storm_tagvar(self):
 
