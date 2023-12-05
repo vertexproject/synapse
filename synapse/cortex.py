@@ -1760,10 +1760,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.querymirror = None
 
     async def initQueryMirror(self):
-        if self.querymirror is not None:
-            await self.querymirror.fini()
-            self.querymirror = None
-
         if self.querymirroropts is not None:
             targ = self.querymirroropts.get('url')
             self.querymirror = await s_telepath.open(targ)
@@ -5744,7 +5740,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut('Timeout waiting for query mirror.')
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
@@ -5770,7 +5766,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut('Timeout waiting for query mirror.')
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)

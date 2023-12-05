@@ -7919,6 +7919,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.isin('Timeout waiting for query mirror', data)
 
+                    opts = {'nexsoffs': 1000000, 'nexstimeout': 0}
+                    with self.raises(s_exc.TimeOut):
+                        await alist(core01.storm('inet:asn=0', opts=opts))
+
+                    with self.raises(s_exc.TimeOut):
+                        await core00.callStorm('inet:asn=0', opts=opts)
+
                     await core01.fini()
 
                     with self.getLoggerStream('synapse') as stream:
