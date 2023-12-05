@@ -573,8 +573,6 @@ class Snap(s_base.Base):
 
     Transactions produce the following EventBus events:
 
-    (...any splice...)
-    ('log', {'level': 'mesg': })
     ('print', {}),
     '''
     tagcachesize = 1000
