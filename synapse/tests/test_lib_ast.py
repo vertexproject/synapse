@@ -3201,12 +3201,12 @@ class AstTest(s_test.SynTest):
             q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar'})
 
             q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar', 'bar': 'baz'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
 
             q = '''
             '''
@@ -3217,12 +3217,12 @@ class AstTest(s_test.SynTest):
             q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar'})
 
             q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar', 'bar': 'baz'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
 
             # Create node for the lift below
             q = '''
@@ -3237,12 +3237,12 @@ class AstTest(s_test.SynTest):
             q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('raw'), {'foo': 'bar'})
+            self.eq(nodes[0].get('raw'), {'foo': 'bar'})
 
             q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})
+            self.eq(nodes[0].get('raw'), {'foo': 'bar', 'baz': 'box'})
 
     async def test_ast_subq_runtsafety(self):
 
