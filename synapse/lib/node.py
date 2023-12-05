@@ -613,17 +613,15 @@ class Node:
             * delete all the tags (bottom up)
                 * fire onDelTag() handlers
                 * delete tag properties from storage
-                * log tag:del splices
 
             * delete all secondary properties
                 * fire onDelProp handler
                 * delete secondary property from storage
-                * log prop:del splices
 
             * delete the primary property
                 * fire onDel handlers for the node
                 * delete primary property from storage
-                * log node:del splices
+
         '''
 
         formname, formvalu = self.ndef

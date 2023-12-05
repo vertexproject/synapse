@@ -935,7 +935,7 @@ def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
 
-def deprdate(name, date):
+def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
 
@@ -1157,32 +1157,6 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
         except Exception:  # pragma: no cover
             logger.exception(f'Error loading {certpath}')
     return sslctx
-
-class aclosing(contextlib.AbstractAsyncContextManager):  # pragma: no cover
-    """Async context manager for safely finalizing an asynchronously cleaned-up
-    resource such as an async generator, calling its ``aclose()`` method.
-
-    Code like this::
-
-        async with aclosing(<module>.fetch(<arguments>)) as agen:
-            <block>
-
-    is equivalent to this::
-
-        agen = <module>.fetch(<arguments>)
-        try:
-            <block>
-        finally:
-            await agen.aclose()
-
-    """
-    def __init__(self, thing):
-        deprecated('synapse.common.aclosing()', curv='2.145.0', eolv='v2.150.0')
-        self.thing = thing
-    async def __aenter__(self):
-        return self.thing
-    async def __aexit__(self, exc, cls, tb):
-        await self.thing.aclose()
 
 def httpcodereason(code):
     '''
