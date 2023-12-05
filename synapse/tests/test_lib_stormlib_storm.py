@@ -37,7 +37,7 @@ class LibStormTest(s_test.SynTest):
             with self.raises(s_exc.IsReadOnly):
                 await core.callStorm('$lib.storm.eval( "{$lib.auth.users.add(readonly)}" )', opts={'readonly': True})
 
-            with self.getLoggerStream('synapse') as stream:
+            with self.getLoggerStream('synapse.storm') as stream:
                 q = '''{
                     $lib.log.info(hehe)
                     [test:str=omg]
@@ -59,5 +59,5 @@ class LibStormTest(s_test.SynTest):
                 mesg = 'Executing storm query {return( $lib.storm.eval($q) )} as [root]'
                 self.isin(mesg, data)
 
-                mesg = f'Executing storm query via $lib.storm.eval() {{{q}}} as [root]'
+                mesg = f'Executing storm query {{{q}}} as [root]'
                 self.isin(mesg, data)
