@@ -4479,6 +4479,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_cron_notime(self):
         # test cron APIs that don't require time stepping
+
         async with self.getTestCore() as core:
 
             cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
@@ -4508,13 +4509,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
 
-            async with core.getLocalProxy() as proxy:
+            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(name, lolz) )', opts=opts)
+            self.eq('lolz', cdef.get('name'))
 
-                cdef = await proxy.editCronJob(iden0, 'name', 'lolz')
-                self.eq('lolz', cdef.get('name'))
-
-                cdef = await proxy.editCronJob(iden0, 'doc', 'zoinks')
-                self.eq('zoinks', cdef.get('doc'))
+            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
+            self.eq('zoinks', cdef.get('doc'))
 
     async def test_storm_lib_cron(self):
 
@@ -4601,8 +4600,6 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr("Unexpected token '}' at line 1, column 10", mesgs)
 
                 ##################
-                oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]
-                nextoffs = (oldsplicespos + 1, 0, 0)
                 layr = core.getLayer()
                 nextlayroffs = await layr.getEditOffs() + 1
 
