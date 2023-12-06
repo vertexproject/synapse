@@ -12,11 +12,11 @@ class GisLib(s_stormtypes.Lib):
         {'name': 'bbox', 'desc': 'Calculate a min/max bounding box for the specified circle.',
          'type': {'type': 'function', '_funcname': '_methBbox',
                   'args': (
-                      {'name': 'lat', 'type': 'float', 'desc': 'The latitude in degrees.'},
                       {'name': 'lon', 'type': 'float', 'desc': 'The longitude in degrees.'},
+                      {'name': 'lat', 'type': 'float', 'desc': 'The latitude in degrees.'},
                       {'name': 'dist', 'type': 'int', 'desc': 'A distance in geo:dist base units (mm).'},
                   ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of (latmin, latmax, lonmin, lonmax).', }
+                  'returns': {'type': 'list', 'desc': 'A tuple of (lonmin, lonmax, latmin, latmax).', }
         }},
     )
     _storm_lib_path = ('gis',)
@@ -27,12 +27,12 @@ class GisLib(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methBbox(self, lat, lon, dist):
+    async def _methBbox(self, lon, lat, dist):
         try:
-            lat = float(await s_stormtypes.toprim(lat))
             lon = float(await s_stormtypes.toprim(lon))
+            lat = float(await s_stormtypes.toprim(lat))
         except ValueError as e:
             raise s_exc.BadArg(mesg=f'$lib.gis.bbox(): {e}')
         dist = await s_stormtypes.toint(dist)
 
-        return s_gis.bbox(lat, lon, dist)
+        return s_gis.bbox2(lon, lat, dist)

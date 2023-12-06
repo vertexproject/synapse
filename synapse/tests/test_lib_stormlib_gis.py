@@ -8,13 +8,11 @@ class StormLibGisTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            gchq = (51.8994, -2.0783)
-            km = 1000000.0  # using mm as base units
-            lbox = await core.callStorm('return($lib.gis.bbox(51.8994, -2.0783, $lib.cast(geo:dist, 1km)))')
-            self.eq(lbox, (51.890406796362754,
-                           51.908393203637246,
-                           -2.0928746526154747,
-                           -2.0637253473845254))
+            lbox = await core.callStorm('return($lib.gis.bbox(-2.0783, 51.8994, $lib.cast(geo:dist, 1km)))')
+            self.eq(lbox, (-2.0928746526154747,
+                           -2.0637253473845254,
+                           51.890406796362754,
+                           51.908393203637246))
 
             with self.raises(s_exc.BadArg):
                 lbox = await core.callStorm('return($lib.gis.bbox(newp, -2.0783, 1))')
