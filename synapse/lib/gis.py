@@ -1,7 +1,7 @@
 import math
 
 '''
-Synapse module with helpers for earth based geo-spacial calculations.
+Synapse module with helpers for earth based geospatial calculations.
 '''
 
 # base earth geo distances will be in mm
