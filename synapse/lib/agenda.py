@@ -16,63 +16,11 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.config as s_config
 import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
 logger = logging.getLogger(__name__)
-
-reqValidCdef = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'storm': {'type': 'string'},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string'},
-        'doc': {'type': 'string'},
-        'incunit': {
-            'oneOf': [
-                {'type': 'null'},
-                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
-            ]
-        },
-        'incvals': {
-            'type': ['array', 'number', 'null'],
-            'items': {'type': 'number'}
-        },
-        'reqs': {
-            'oneOf': [
-                {
-                    '$ref': '#/definitions/req',
-                },
-                {
-                    'type': ['array'],
-                    'items': {'$ref': '#/definitions/req'},
-                },
-            ]
-        },
-    },
-    'additionalProperties': False,
-    'required': ['creator', 'storm'],
-    'dependencices': {
-        'incvals': ['incunit'],
-        'incunit': ['incvals'],
-    },
-    'definitions': {
-        'req': {
-            'type': 'object',
-            'properties': {
-                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-            }
-        }
-    }
-})
 
 def _dayofmonth(hardday, month, year):
     '''

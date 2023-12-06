@@ -1919,17 +1919,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await appt.setDoc(valu, nexs=True)
+            await self.editCronJob(iden, 'doc', valu)
             node.props[prop.name] = valu
 
         async def onSetCronName(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await appt.setName(valu, nexs=True)
+            await self.editCronJob(iden, 'name', valu)
             node.props[prop.name] = valu
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
@@ -5669,7 +5667,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
             Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
-        s_agenda.reqValidCdef(cdef)
+        s_schemas.reqValidCronDef(cdef)
 
         iden = cdef.get('iden')
         appt = self.agenda.appts.get(iden)
