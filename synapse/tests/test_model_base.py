@@ -206,45 +206,40 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[meta:source="*" :name="FOO Bar" :type=osint :url=https://hehe.com/haha]')
+            self.len(1, nodes)
+            sorc = nodes[0]
 
-                props = {
-                    'name': 'FOO BAR',
-                    'type': 'osint',
-                    'url': 'https://foo.bar/index.html'
-                }
+            self.eq(sorc.get('type'), 'osint')
+            self.eq(sorc.get('name'), 'foo bar')
+            self.eq(sorc.get('url'), 'https://foo.bar/index.html')
 
-                sorc = await snap.addNode('meta:source', '*', props=props)
+            valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
+            nodes = await core.nodes('[meta:seen=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            seen = nodes[0]
 
-                self.eq(sorc.get('type'), 'osint')
-                self.eq(sorc.get('name'), 'foo bar')
-                self.eq(sorc.get('url'), 'https://foo.bar/index.html')
-
-                valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
-
-                seen = await snap.addNode('meta:seen', valu)
-
-                self.eq(seen.get('source'), sorc.ndef[1])
-                self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))
+            self.eq(seen.get('source'), sorc.ndef[1])
+            self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))
 
     async def test_model_base_cluster(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                guid = s_common.guid()
-                props = {'name': 'Test Cluster', 'desc': 'A cluster for testing', 'type': 'similarity'}
-                cnode = await snap.addNode('graph:cluster', guid, props)
-                self.eq(cnode.get('type'), 'similarity')
-                self.eq(cnode.get('name'), 'test cluster')
-                self.eq(cnode.get('desc'), 'a cluster for testing')
+            guid = s_common.guid()
+            q = '[(graph:cluster=$valu :name="Test Cluster" :desc="a test cluster" :type=similarity)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': guid}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('type'), 'similarity')
+            self.eq(node.get('name'), 'test cluster')
+            self.eq(node.get('desc'), 'a test cluster')
 
-                # Example reference nodes
-                r1 = await snap.addNode('edge:refs', (cnode.ndef, ('test:str', '1234')))
-                r2 = await snap.addNode('edge:refs', (cnode.ndef, ('test:int', 1234)))
+            await core.nodes('[(edge:refs=($ndef, (test:str, 1234)))]', opts={'vars': {'ndef': node.ndef}})
+            await core.nodes('[(edge:refs=($ndef, (test:int, (1234))))]', opts={'vars': {'ndef': node.ndef}})
 
-                # Gather up all the nodes in the cluster
-                nodes = await snap.eval(f'graph:cluster={guid} -+> edge:refs -+> * | uniq').list()
-                self.len(5, nodes)
+            # Gather up all the nodes in the cluster
+            nodes = await core.nodes(f'graph:cluster=$valu -+> edge:refs -+> * | uniq', opts={'vars': {'valu': guid}})
+            self.len(5, nodes)
 
     async def test_model_base_rules(self):
 
