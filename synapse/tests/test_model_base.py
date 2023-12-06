@@ -61,81 +61,78 @@ class BaseTest(s_t_utils.SynTest):
     async def test_model_base_node(self):
 
         async with self.getTestCore() as core:
+            iden = s_common.guid()
 
-            async with await core.snap() as snap:
-
-                iden = s_common.guid()
-
-                props = {
-                    'type': 'hehe haha',
-                    'data': ('some', 'data', 'here'),
-                }
-
-                node = await snap.addNode('graph:node', iden, props=props)
-                self.eq(node.ndef, ('graph:node', iden))
-                self.eq(node.get('type'), 'hehe haha')
-                self.eq(node.get('data'), ('some', 'data', 'here'))
+            nodes = await core.nodes('[(graph:node=$valu :type="hehe haha" :data=(some, data, here))]',
+                                     opts={'vars': {'valu': iden}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('graph:node', iden))
+            self.eq(node.get('type'), 'hehe haha')
+            self.eq(node.get('data'), ('some', 'data', 'here'))
 
     async def test_model_base_link(self):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[test:int=20 test:str=foo]')
+            self.len(2, nodes)
+            node1 = nodes[0]
+            node2 = nodes[1]
 
-                node1 = await snap.addNode('test:int', 20)
-                node2 = await snap.addNode('test:str', 'foo')
+            nodes = await core.nodes('[graph:edge=$valu]', opts={'vars': {'valu': (node1.ndef, node2.ndef)}})
+            self.len(1, nodes)
+            link = nodes[0]
 
-                link = await snap.addNode('graph:edge', (node1.ndef, node2.ndef))
+            self.eq(link.ndef, ('graph:edge', (('test:int', 20), ('test:str', 'foo'))))
+            self.eq(link.get('n1'), ('test:int', 20))
+            self.eq(link.get('n1:form'), 'test:int')
+            self.eq(link.get('n2'), ('test:str', 'foo'))
+            self.eq(link.get('n2:form'), 'test:str')
 
-                self.eq(link.ndef[1], (('test:int', 20), ('test:str', 'foo')))
-                self.eq(link.get('n1'), ('test:int', 20))
-                self.eq(link.get('n1:form'), 'test:int')
+            nodes = await core.nodes('[graph:timeedge=$valu]',
+                                     opts={'vars': {'valu': (node1.ndef, node2.ndef, '2015')}})
+            self.len(1, nodes)
+            timeedge = nodes[0]
 
-                self.eq(link.get('n2'), ('test:str', 'foo'))
-                self.eq(link.get('n2:form'), 'test:str')
-
-                timeedge = await snap.addNode('graph:timeedge', (node1.ndef, node2.ndef, '2015'))
-
-                self.eq(timeedge.ndef[1], (('test:int', 20), ('test:str', 'foo'), 1420070400000))
-
-                self.eq(timeedge.get('time'), 1420070400000)
-
-                self.eq(timeedge.get('n1'), ('test:int', 20))
-                self.eq(timeedge.get('n1:form'), 'test:int')
-
-                self.eq(timeedge.get('n2'), ('test:str', 'foo'))
-                self.eq(timeedge.get('n2:form'), 'test:str')
+            self.eq(timeedge.ndef, ('grpah:timedge', (('test:int', 20), ('test:str', 'foo'), 1420070400000)))
+            self.eq(timeedge.get('time'), 1420070400000)
+            self.eq(timeedge.get('n1'), ('test:int', 20))
+            self.eq(timeedge.get('n1:form'), 'test:int')
+            self.eq(timeedge.get('n2'), ('test:str', 'foo'))
+            self.eq(timeedge.get('n2:form'), 'test:str')
 
     async def test_model_base_event(self):
 
         async with self.getTestCore() as core:
+            iden = s_common.guid()
 
-            async with await core.snap() as snap:
+            props = {
+                'type': 'HeHe HaHa',
+                'time': '2015',
+                'name': 'Magic Pony',
+                'data': ('some', 'data', 'here'),
+            }
+            opts = {'vars': {'valu': iden, 'p': props}}
+            q = '[(graph:event=$valu :type=$p.type :time=$p.time :name=$p.name :data=$p.data)]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('graph:event', iden))
 
-                iden = s_common.guid()
+            self.eq(node.get('type'), 'HeHe HaHa')
+            self.eq(node.get('time'), 1420070400000)
+            self.eq(node.get('data'), ('some', 'data', 'here'))
+            self.eq(node.get('name'), 'Magic Pony')
 
-                props = {
-                    'type': 'HeHe HaHa',
-                    'time': '2015',
-                    'name': 'Magic Pony',
-                    'data': ('some', 'data', 'here'),
-                }
+            # Raise on non-json-safe values
+            props['data'] = {(1, 2): 'foo'}
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q, opts=opts)
 
-                node = await snap.addNode('graph:event', iden, props=props)
-
-                self.eq(node.ndef, ('graph:event', iden))
-
-                self.eq(node.get('type'), 'HeHe HaHa')
-                self.eq(node.get('time'), 1420070400000)
-                self.eq(node.get('data'), ('some', 'data', 'here'))
-                self.eq(node.get('name'), 'Magic Pony')
-
-                # Raise on non-json-safe values
-                props['data'] = {(1, 2): 'foo'}
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('graph:event', iden, props=props))
-
-                props['data'] = b'bindata'
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('graph:event', iden, props=props))
+            props['data'] = b'bindata'
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q, opts=opts)
 
     async def test_model_base_edge(self):
 
@@ -147,28 +144,26 @@ class BaseTest(s_t_utils.SynTest):
             n1def = ('ps:person', pers)
             n2def = ('geo:place', plac)
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[edge:has=$valu]', opts={'vars': {'valu': (n1def, n2def)}})
+            self.len(1, nodes)
+            node = nodes[0]
 
-                node = await snap.addNode('edge:has', (n1def, n2def))
+            self.eq(node.get('n1'), n1def)
+            self.eq(node.get('n1:form'), 'ps:person')
+            self.eq(node.get('n2'), n2def)
+            self.eq(node.get('n2:form'), 'geo:place')
 
-                self.eq(node.get('n1'), n1def)
-                self.eq(node.get('n1:form'), 'ps:person')
+            nodes = await core.nodes('[edge:wentto=$valu]', opts={'vars': {'valu': (n1def, n2def, '2016')}})
+            self.len(1, nodes)
+            node = nodes[0]
 
-                self.eq(node.get('n2'), n2def)
-                self.eq(node.get('n2:form'), 'geo:place')
-
-                node = await snap.addNode('edge:wentto', (n1def, n2def, '2016'))
-
-                self.eq(node.get('time'), 1451606400000)
-
-                self.eq(node.get('n1'), n1def)
-                self.eq(node.get('n1:form'), 'ps:person')
-
-                self.eq(node.get('n2'), n2def)
-                self.eq(node.get('n2:form'), 'geo:place')
+            self.eq(node.get('time'), 1451606400000)
+            self.eq(node.get('n1'), n1def)
+            self.eq(node.get('n1:form'), 'ps:person')
+            self.eq(node.get('n2'), n2def)
+            self.eq(node.get('n2:form'), 'geo:place')
 
             opts = {'vars': {'pers': pers}}
-
             self.eq(1, await core.count('ps:person=$pers -> edge:has -> *', opts=opts))
             self.eq(1, await core.count('ps:person=$pers -> edge:has -> geo:place', opts=opts))
             self.eq(0, await core.count('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
@@ -179,7 +174,6 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
 
             opts = {'vars': {'place': plac}}
-
             self.eq(1, await core.count('geo:place=$place <- edge:has <- *', opts=opts))
             self.eq(1, await core.count('geo:place=$place <- edge:has <- ps:person', opts=opts))
             self.eq(0, await core.count('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
@@ -189,8 +183,10 @@ class BaseTest(s_t_utils.SynTest):
             t = core.model.type('edge').clone(copts)
             norm, info = t.norm((n1def, n2def))
             self.eq(norm, (n1def, n2def))
-            self.raises(s_exc.BadTypeValu, t.norm, (n1def, ('test:int', 1)))
-            self.raises(s_exc.BadTypeValu, t.norm, (('test:int', 1), n2def))
+            with self.raises(s_exc.BadTypeValu):
+                t.norm((n1def, ('test:int', 1)))
+            with self.raises(s_exc.BadTypeValu):
+                t.norm((('test:int', 1), n2def))
 
             # Make sure we don't return None nodes if one node of an edge is deleted
             node = await core.getNodeByNdef(n2def)
