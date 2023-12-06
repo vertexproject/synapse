@@ -790,22 +790,26 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_edges(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                news = await snap.addNode('media:news', '*')
-                ipv4 = await snap.addNode('inet:ipv4', '1.2.3.4')
+            nodes = await core.nodes('[media:news=*]')
+            self.len(1, nodes)
+            news = nodes[0]
 
-                await news.addEdge('refs', ipv4.iden())
+            nodes = await core.nodes('[inet:ipv4=1.2.3.4]')
+            self.len(1, nodes)
+            ipv4 = nodes[0]
 
-                n1edges = await alist(news.iterEdgesN1())
-                n2edges = await alist(ipv4.iterEdgesN2())
+            await news.addEdge('refs', ipv4.iden())
 
-                self.eq(n1edges, (('refs', ipv4.iden()),))
-                self.eq(n2edges, (('refs', news.iden()),))
+            n1edges = await alist(news.iterEdgesN1())
+            n2edges = await alist(ipv4.iterEdgesN2())
 
-                await news.delEdge('refs', ipv4.iden())
+            self.eq(n1edges, (('refs', ipv4.iden()),))
+            self.eq(n2edges, (('refs', news.iden()),))
 
-                self.len(0, await alist(news.iterEdgesN1()))
-                self.len(0, await alist(ipv4.iterEdgesN2()))
+            await news.delEdge('refs', ipv4.iden())
+
+            self.len(0, await alist(news.iterEdgesN1()))
+            self.len(0, await alist(ipv4.iterEdgesN2()))
 
             nodes = await core.nodes('media:news [ +(refs)> {inet:ipv4=1.2.3.4} ]')
             self.eq(nodes[0].ndef[0], 'media:news')
@@ -2051,51 +2055,43 @@ class CortexTest(s_t_utils.SynTest):
             form.onDel(onNodeDel)
             form.props.get('tick').onDel(onPropDel)
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[test:pivtarg=foo]')
+            self.len(1, nodes)
+            targ = nodes[0]
 
-                targ = await snap.addNode('test:pivtarg', 'foo')
-                await snap.addNode('test:pivcomp', ('foo', 'bar'))
+            self.len(1, await core.nodes('[test:pivcomp=(foo, bar)]'))
 
-                await self.asyncraises(s_exc.CantDelNode, targ.delete())
+            with self.raises(s_exc.CantDelNode):
+                await targ.delete()
 
-                targ = await snap.addNode('test:str', 'foo')
-                await snap.nodes('[ test:arrayprop=* :strs=(foo, bar) ]')
+            nodes = await core.nodes('[test:str=foo]')
+            self.len(1, nodes)
+            targ = nodes[0]
+            self.len(1, await core.nodes('[test:arrayprop=* :strs=(foo, bar)]'))
 
-                await self.asyncraises(s_exc.CantDelNode, targ.delete())
+            with self.raises(s_exc.CantDelNode):
+                await targ.delete()
 
-                tstr = await snap.addNode('test:str', 'baz')
+            nodes = await core.nodes('[(test:str=baz :tick=(100) +#hehe)]')
+            self.len(1, nodes)
+            tstr = nodes[0]
 
-                await tstr.set('tick', 100)
-                await tstr.addTag('hehe')
+            nodes = await core.nodes('syn:tag=hehe')
+            self.len(1, nodes)
+            tagnode = nodes[0]
 
-                nodes = await snap.nodes('[ test:str=baz :tick=$(100) +#hehe ]')
-                self.len(1, nodes)
-                self.eq(100, nodes[0].get('tick'))
-                self.eq((None, None), nodes[0].getTag('hehe'))
+            with self.raises(s_exc.CantDelNode):
+                await tagnode.delete()
 
-                self.len(1, await core.nodes('#hehe'))
-                self.len(1, await snap.nodes('#hehe'))
-                self.len(1, await snap.nodes('test:str=baz'))
-                self.len(1, await snap.nodes('test:str:tick=$(100)'))
+            buid = tstr.buid
+            await tstr.delete()
 
-                tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
-                with self.raises(s_exc.CantDelNode):
-                    await tagnode.delete()
+            self.true(data.get('prop:del'))
+            self.true(data.get('node:del'))
 
-                buid = tstr.buid
-
-                await tstr.delete()
-
-                self.true(data.get('prop:del'))
-                self.true(data.get('node:del'))
-
-                # confirm that the snap cache is clear
-                self.none(await snap.getNodeByBuid(tstr.buid))
-                self.none(await snap.getNodeByNdef(('test:str', 'baz')))
-
-            async with await core.snap() as snap:
-                self.len(0, await snap.nodes('test:str:tick'))
-                self.eq(None, await snap.getNodeByBuid(buid))
+            self.len(0, await core.nodes('test:str=baz'))
+            self.len(0, await core.nodes('iden $valu', opts={'vars': {'valu': s_common.ehex(buid)}}))
+            self.len(0, await core.nodes('test:str:tick'))
 
     async def test_pivot_inout(self):
 
@@ -2377,10 +2373,8 @@ class CortexTest(s_t_utils.SynTest):
             # Do a PropPivotOut with a :prop value which is not a form.
             tgud = s_common.guid()
             tstr = 'boom'
-            async with await wcore.snap() as snap:
-                await snap.addNode('test:str', tstr)
-                await snap.addNode('test:guid', tgud)
-                await snap.addNode('test:edge', (('test:guid', tgud), ('test:str', tstr)))
+            q = '[test:str=$tstr] [test:guid=$tgud] [test:edge=((test:guid, $tgud), (test:str, $tstr))]'
+            self.len(3, await wcore.nodes(q, opts={'vars': {'tstr': tstr, 'tgud': tgud}}))
 
             q = f'test:str={tstr} <- test:edge :n1:form -> *'
             mesgs = await core.stormlist(q)
@@ -2415,10 +2409,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # Setup a form pivot where the primary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
-            async with await core.snap() as snap:
-                await snap.addNode('test:int', 10)
-                await snap.addNode('test:int', 25)
-                await snap.addNode('test:type10', 'test', {'intprop': 25})
+            self.len(1, await core.nodes('[test:int=10]'))
+            self.len(1, await core.nodes('[test:int=25]'))
+            self.len(1, await core.nodes('[(test:type10=test :intprop=25)]'))
             mesgs = await core.stormlist('test:int*in=(10, 25) -> test:type10:intprop')
 
             warns = [msg for msg in mesgs if msg[0] == 'warn']
@@ -2446,12 +2439,11 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            self.eq(1, await wcore.count('[ test:str=woot .seen=(2014,2015) ]'))
-
-            async with await core.snap() as snap:
-
-                node = await snap.getNodeByNdef(('test:str', 'woot'))
-                self.eq(node.get('.seen'), (1388534400000, 1420070400000))
+            self.len(1, await wcore.nodes('[ test:str=woot .seen=(2014,2015) ]'))
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('.seen'), (1388534400000, 1420070400000))
 
     async def test_cortex_storm_set_tag(self):
 
@@ -2464,14 +2456,21 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await wcore.nodes('[ test:str=hehe +#foo=(2014,2016) ]'))
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2015 ]'))
 
+            nodes = await core.nodes('test:str=hehe')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.getTag('foo'), (tick0, tick2))
+
+            nodes = await core.nodes('test:str=haha')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.getTag('bar'), (tick1, tick1 + 1))
+
             async with await core.snap() as snap:
-
-                node = await snap.getNodeByNdef(('test:str', 'hehe'))
-                self.eq(node.getTag('foo'), (tick0, tick2))
-
                 node = await snap.getNodeByNdef(('test:str', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
+                # XXX FIXME Snap.strict manipulation, remove me in 3.0.0
                 # Sad path with snap.strict=False
                 snap.strict = False
                 waiter = snap.waiter(1, 'warn')
@@ -2483,11 +2482,10 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
 
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
-
-            async with await core.snap() as snap:
-
-                node = await snap.getNodeByNdef(('test:str', 'haha'))
-                self.eq(node.getTag('bar'), (tick1, tick2 + 1))
+            nodes = await core.nodes('test:str=haha')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.getTag('bar'), (tick1, tick2 + 1))
 
             # Sad path
             with self.raises(s_exc.BadTypeValu) as cm:
@@ -2778,35 +2776,35 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(1, (await core.getFormCounts())['test:str'])
 
     async def test_cortex_greedy(self):
-        ''' Issue a large snap request, and make sure we can still do stuff in a reasonable amount of time'''
+        ''' Issue a large request, and make sure we can still do stuff in a reasonable amount of time'''
 
         async with self.getTestCore() as core:
+            # Prime the fork pool on a solo run
+            self.len(0, await core.nodes('.created | spin'))
+            event = asyncio.Event()
+            async def add_stuff():
+                vals = list(range(20000))
+                event.set()
+                msgs = await core.stormlist('for $i in $vals {[test:int=$i]} | spin',
+                                             opts={'editformat': 'none', 'vars': {'vals': vals}})
+                self.stormHasNoWarnErr(msgs)
 
-            async with await core.snap() as snap:
+            fut = core.schedCoro(add_stuff())
 
-                event = asyncio.Event()
+            # Wait for him to get started
+            before = time.time()
+            await event.wait()
 
-                async def add_stuff():
-                    event.set()
-                    ips = ((('inet:ipv4', x), {}) for x in range(20000))
-
-                    await alist(snap.addNodes(ips))
-
-                snap.schedCoro(add_stuff())
-
-                # Wait for him to get started
-                before = time.time()
-                await event.wait()
-
-                await snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
-                delta = time.time() - before
-
-                # Note: before latency improvement, delta was > 4 seconds
-                self.lt(delta, 0.5)
-
-            # Make sure the task in flight can be killed in a reasonable time
+            nodes = await core.nodes('[test:str=hehe]')
+            self.len(1, nodes)
             delta = time.time() - before
-            self.lt(delta, 1.0)
+
+            # Note: before latency improvement, delta was > 4 seconds
+            self.lt(delta, 0.5)
+
+        # Make sure the task in flight can be killed in a reasonable time
+        delta = time.time() - before
+        self.lt(delta, 1.0)
 
     async def test_storm_pivprop(self):
 
@@ -3335,6 +3333,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
                 await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
 
+                # XXX FIXME Snap.strict manipulation, remove in 3.0.0
                 snap.strict = False
                 self.none(await snap.addNode('test:str', s_common.novalu))
 
@@ -4492,11 +4491,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core1.nodes('test:int=2 -(refs)> *'))
 
             await core1.addTagProp('test', ('int', {}), {})
-            async with await core1.snap() as snap:
-                node = await snap.getNodeByNdef(('test:int', 1))
-                await node.setTagProp('beep.beep', 'test', 1138)
-                pode = node.pack()
 
+            msgs = await core1.stormlist('test:int=1 [+#beep.beep:test=1138]')
+            self.stormHasNoWarnErr(msgs)
+            pode = [m[1] for m in msgs if m[0] == 'node'][0]
             pode = (('test:int', 4), pode[1])
 
             await core1.addFeedData('syn.nodes', [pode])
