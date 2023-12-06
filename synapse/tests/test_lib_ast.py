@@ -3243,3 +3243,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})
+
+    async def test_ast_subq_runtsafety(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value())} $lib.print($foo)')
+            self.stormIsInPrint('foo', msgs)
+
+            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
+            self.stormIsInPrint('foo', msgs)
