@@ -645,7 +645,6 @@ class Snap(s_base.Base):
 
             yield pode
 
-    @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
@@ -663,7 +662,6 @@ class Snap(s_base.Base):
             async for x in runt.execute():
                 yield x
 
-    @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):
         '''
         Run a storm query and yield Node() objects.
