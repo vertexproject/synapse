@@ -165,6 +165,34 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
+                it:mitre:attack:campaign=C0001
+                    :created = 20231101
+                    :desc = "Much campaign, many sophisticated."
+                    :groups = (G0100,)
+                    :matrices = (enterprise,ics)
+                    :name = "much campaign"
+                    :names = ('much campaign', 'many sophisticated')
+                    :software = (S0100,)
+                    :techniques = (T0200,T0100)
+                    :updated = 20231102
+                    :url = https://attack.mitre.org/campaigns/C0001
+                    :period = (20151201, 20160101)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:campaign', 'C0001'))
+            self.eq(nodes[0].props.get('name'), 'much campaign')
+            self.eq(nodes[0].props.get('names'), ('many sophisticated', 'much campaign'))
+            self.eq(nodes[0].props.get('desc'), 'Much campaign, many sophisticated.')
+            self.eq(nodes[0].props.get('url'), 'https://attack.mitre.org/campaigns/C0001')
+            self.eq(nodes[0].props.get('matrices'), ('enterprise', 'ics'))
+            self.eq(nodes[0].props.get('groups'), ('G0100',))
+            self.eq(nodes[0].props.get('software'), ('S0100',))
+            self.eq(nodes[0].props.get('techniques'), ('T0100', 'T0200'))
+            self.eq(nodes[0].props.get('created'), 1698796800000)
+            self.eq(nodes[0].props.get('updated'), 1698883200000)
+            self.eq(nodes[0].props.get('period'), (1448928000000, 1451606400000))
+
+            nodes = await core.nodes('''[
                 it:exec:thread=*
                     :proc=*
                     :created=20210202
