@@ -16,3 +16,6 @@ class StormLibGisTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 lbox = await core.callStorm('return($lib.gis.bbox(newp, -2.0783, 1))')
+
+            with self.raises(s_exc.BadArg):
+                lbox = await core.callStorm('return($lib.gis.bbox(51.2, -2.0783, newp))')

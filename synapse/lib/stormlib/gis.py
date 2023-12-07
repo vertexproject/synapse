@@ -31,9 +31,11 @@ class GisLib(s_stormtypes.Lib):
         try:
             lon = float(await s_stormtypes.toprim(lon))
             lat = float(await s_stormtypes.toprim(lat))
+            dist = await s_stormtypes.toint(dist)
         except ValueError as e:
             raise s_exc.BadArg(mesg=f'$lib.gis.bbox(): {e}')
-        dist = await s_stormtypes.toint(dist)
+        except s_exc.BadCast as e:
+            raise s_exc.BadArg(mesg=f'$lib.gis.bbox(): {e.get("mesg")}')
 
         (latmin, latmax, lonmin, lonmax) = s_gis.bbox(lat, lon, dist)
         return (lonmin, lonmax, latmin, latmax)
