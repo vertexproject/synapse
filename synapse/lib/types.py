@@ -1304,9 +1304,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part == norm
+            return getr(valu) == norm
         return cmpr
 
     def _ctorCmprMinGe(self, text):
@@ -1322,9 +1320,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part >= norm
+            return getr(valu) >= norm
         return cmpr
 
     def _ctorCmprMinLe(self, text):
@@ -1340,9 +1336,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part <= norm
+            return getr(valu) <= norm
         return cmpr
 
     def _ctorCmprMinGt(self, text):
@@ -1358,9 +1352,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part > norm
+            return getr(valu) > norm
         return cmpr
 
     def _ctorCmprMinLt(self, text):
@@ -1376,9 +1368,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if (part := getr(valu)) is None:
-                return False
-            return part < norm
+            return getr(valu) < norm
         return cmpr
 
     def _ctorCmprMinAt(self, valu):
@@ -1389,16 +1379,11 @@ class Ival(Type):
 
     def _ctorCmprPartAtCommon(self, valu, getr):
 
-        if valu is None or valu == (None, None):
-            def cmpr(item):
-                return False
-            return cmpr
-
         if isinstance(valu, (str, int)):
             norm = self.norm(valu)[0]
+
         elif isinstance(valu, (list, tuple)):
             minv, maxv = self._normByTickTock(valu)[0]
-            # Use has input the nullset in a comparison operation.
             if minv >= maxv:
                 def cmpr(item):
                     return False
@@ -1410,12 +1395,6 @@ class Ival(Type):
                                    mesg='no norm for @= operator: %r' % (type(valu),))
 
         def cmpr(item):
-            if item is None:
-                return False
-
-            if item == (None, None):
-                return False
-
             othr, info = self.norm(item)
             othr = getr(othr)
 

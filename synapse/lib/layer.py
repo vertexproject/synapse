@@ -1351,6 +1351,8 @@ class StorTypeTime(StorTypeInt):
 
     def __init__(self, layr):
         StorTypeInt.__init__(self, layr, STOR_TYPE_TIME, 8, True)
+        self.futsize = 0x7fffffffffffffff
+        self.futbyts = self.futsize.to_bytes(8, 'big')
         self.lifters.update({
             '@=': self._liftAtIval,
         })
@@ -3185,8 +3187,8 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(univabrv + oldi, nid, db=self.indxdb)
 
                 if oldt == STOR_TYPE_IVAL:
-                    if oldv[1] == self.ivaltimetype.maxval:
-                        dura = self.ivaltimetype.maxval
+                    if oldv[1] == self.ivaltimetype.futsize:
+                        dura = self.ivaltimetype.futbyts
                     else:
                         dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3235,8 +3237,8 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((univabrv + indx, nid))
 
             if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.maxval:
-                    dura = self.ivaltimetype.maxval
+                if valu[1] == self.ivaltimetype.futsize:
+                    dura = self.ivaltimetype.futbyts
                 else:
                     dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3306,8 +3308,8 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
 
             if stortype == STOR_TYPE_IVAL:
-                if valu[1] == self.ivaltimetype.maxval:
-                    dura = self.ivaltimetype.maxval
+                if valu[1] == self.ivaltimetype.futsize:
+                    dura = self.ivaltimetype.futbyts
                 else:
                     dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3360,8 +3362,8 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(abrv, nid, db=self.indxdb)
                 self.layrslab.delete(formabrv, nid, db=self.indxdb)
             else:
-                if oldv[1] == self.ivaltimetype.maxval:
-                    dura = self.ivaltimetype.maxval
+                if oldv[1] == self.ivaltimetype.futsize:
+                    dura = self.ivaltimetype.futbyts
                 else:
                     dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3396,8 +3398,8 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((abrv, nid))
             kvpairs.append((formabrv, nid))
         else:
-            if valu[1] == self.ivaltimetype.maxval:
-                dura = self.ivaltimetype.maxval
+            if valu[1] == self.ivaltimetype.futsize:
+                dura = self.ivaltimetype.futbyts
             else:
                 dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3442,8 +3444,8 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(abrv, nid, db=self.indxdb)
             self.layrslab.delete(formabrv, nid, db=self.indxdb)
         else:
-            if oldv[1] == self.ivaltimetype.maxval:
-                dura = self.ivaltimetype.maxval
+            if oldv[1] == self.ivaltimetype.futsize:
+                dura = self.ivaltimetype.futbyts
             else:
                 dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3508,8 +3510,8 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(ftp_abrv + oldi, nid, db=self.indxdb)
 
                 if oldt == STOR_TYPE_IVAL:
-                    if oldv[1] == self.ivaltimetype.maxval:
-                        dura = self.ivaltimetype.maxval
+                    if oldv[1] == self.ivaltimetype.futsize:
+                        dura = self.ivaltimetype.futbyts
                     else:
                         dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3545,8 +3547,8 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((ftp_abrv + indx, nid))
 
         if stortype == STOR_TYPE_IVAL:
-            if valu[1] == self.ivaltimetype.maxval:
-                dura = self.ivaltimetype.maxval
+            if valu[1] == self.ivaltimetype.futsize:
+                dura = self.ivaltimetype.futbyts
             else:
                 dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3590,8 +3592,8 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(ftp_abrv + oldi, nid, db=self.indxdb)
 
         if oldt == STOR_TYPE_IVAL:
-            if oldv[1] == self.ivaltimetype.maxval:
-                dura = self.ivaltimetype.maxval
+            if oldv[1] == self.ivaltimetype.futsize:
+                dura = self.ivaltimetype.futbyts
             else:
                 dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
