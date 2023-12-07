@@ -463,6 +463,17 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.stormIsInPrint('caught err=', msgs)
 
+            # Non-runtsafe Storm works without inbound nodes
+            msgs = await core.stormlist('''
+            try {
+                [ inet:ipv4=0 ]
+                $lib.raise(foo, $node.repr())
+            } catch * as err {
+                $lib.print($err.mesg)
+            }
+            ''')
+            self.stormIsInPrint('0.0.0.0', msgs)
+
             # info must be json safe
             with self.raises(s_exc.MustBeJsonSafe):
                 await core.callStorm('$x="foo" $x=$x.encode() $lib.raise(foo, test, bar=$x)')
@@ -559,7 +570,7 @@ class StormTest(s_t_utils.SynTest):
             self.true(all([n.get('name') == 'foo' for n in nodes]))
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | parallel $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             # test $lib.exit() and the StormExit handlers
@@ -2070,7 +2081,7 @@ class StormTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tree $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_movetag(self):
@@ -2819,7 +2830,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes(q)
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tee $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tee $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_yieldvalu(self):
