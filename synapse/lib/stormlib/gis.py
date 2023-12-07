@@ -35,4 +35,5 @@ class GisLib(s_stormtypes.Lib):
             raise s_exc.BadArg(mesg=f'$lib.gis.bbox(): {e}')
         dist = await s_stormtypes.toint(dist)
 
-        return s_gis.bbox2(lon, lat, dist)
+        (latmin, latmax, lonmin, lonmax) = s_gis.bbox(lat, lon, dist)
+        return (lonmin, lonmax, latmin, latmax)

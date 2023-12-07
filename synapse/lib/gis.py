@@ -92,34 +92,6 @@ def bbox(lat, lon, dist):
 
     return (latmin, latmax, lonmin, lonmax)
 
-def bbox2(lon, lat, dist):
-    '''
-    Calculate a min/max bounding box for the circle defined by lon/lat/dist.
-
-    Args:
-        lon (float): The longitude in degrees
-        lat (float): The latitude in degrees
-        dist (int): A distance in geo:dist base units (mm)
-
-    Returns:
-        (float,float,float,float): (lonmin, lonmax, latmin, latmax)
-    '''
-    latr = math.radians(lat)
-    lonr = math.radians(lon)
-
-    rad = r_mm
-    prad = rad * math.cos(latr)
-
-    latd = dist / rad
-    lond = dist / prad
-
-    latmin = math.degrees(latr - latd)
-    latmax = math.degrees(latr + latd)
-    lonmin = math.degrees(lonr - lond)
-    lonmax = math.degrees(lonr + lond)
-
-    return (lonmin, lonmax, latmin, latmax)
-
 def dms2dec(degs, mins, secs):
     '''
     Convert degrees, minutes, seconds lat/long form to degrees float.
