@@ -82,7 +82,7 @@ Features and Enhancements
 - The Storm API ``$lib.storm.eval()`` now logs its ``text`` argument to the
   ``synapse.storm`` logger.
   (`#3448 <https://github.com/vertexproject/synapse/pull/3448>`_)
-- Add a ``--by-namee`` argument to the Storm ``stats.countby`` command. This
+- Add a ``--by-name`` argument to the Storm ``stats.countby`` command. This
   can be used to sort the results by name instead of count.
   (`#3450 <https://github.com/vertexproject/synapse/pull/3450>`_)
 - Add a new Storm API ``$lib.gis.bbox()`` to allow computing geospatial
@@ -105,8 +105,8 @@ Deprecations
 ------------
 - Deprecated Cortex and splice related APIs which were marked for removal
   after 2023-10-01 have been removed. The list of these apis can be found
-  at  :ref:`changelog-depr-20231001`. The additional splice related changes
-  are have also been made:
+  at  :ref:`changelog-depr-20231001`. These additional splice related changes
+  have also been made:
 
     The HTTP API ``/api/v1/storm`` now sets the default ``editformat`` opt
 value to ``nodeedits``. Previously this API produced splice changes by
