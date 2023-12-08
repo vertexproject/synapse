@@ -819,4 +819,4 @@ class AgendaTest(s_t_utils.SynTest):
 
                 stream.seek(0)
                 data = stream.read()
-                self.isin("_Appt.batch() Invalid property received: invalid = 'newp'", data)
+                self.isin("_Appt.batch() Invalid attribute received: invalid = 'newp'", data)

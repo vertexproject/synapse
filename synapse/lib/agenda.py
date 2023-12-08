@@ -412,7 +412,7 @@ class _Appt:
         for name, valu in edits.items():
             if name not in self.__class__._synced_props:
                 extra = await self.stor.core.getLogExtra(name=name, valu=valu)
-                logger.warning('_Appt.batch() Invalid property received: %s = %r', name, valu, extra=extra)
+                logger.warning('_Appt.batch() Invalid attribute received: %s = %r', name, valu, extra=extra)
                 continue
 
             if name == 'lasterrs':
