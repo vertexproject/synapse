@@ -110,7 +110,7 @@ Deprecations
   have also been made:
 
     The HTTP API ``/api/v1/storm`` now sets the default ``editformat`` opt
-value to ``nodeedits``. Previously this API produced splice changes by
+    value to ``nodeedits``. Previously this API produced splice changes by
     default.
 
     The ``synapse.tools.cmdr`` ``storm`` command no longer displays splices.
