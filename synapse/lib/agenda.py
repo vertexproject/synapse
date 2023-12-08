@@ -255,6 +255,21 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
+
+    _synced_props = (
+        'doc',
+        'name',
+        'enabled',
+        'errcount',
+        'nexttime',
+        'lasterrs',
+        'isrunning',
+        'lastresult',
+        'startcount',
+        'laststarttime',
+        'lastfinishtime',
+    )
+
     def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None):
         self.doc = ''
         self.name = ''
@@ -390,21 +405,29 @@ class _Appt:
         if not self.recs:
             self._recidxnexttime = None
             self.nexttime = None
-            return
 
-    async def setDoc(self, text, nexs=False):
-        '''
-        Set the doc field of an appointment.
-        '''
-        self.doc = text
-        await self._save(nexs=nexs)
+        return self.nexttime
 
-    async def setName(self, text, nexs=False):
-        self.name = text
-        await self._save(nexs=nexs)
+    async def batch(self, edits):
+        for name, valu in edits.items():
+            if name not in self.__class__._synced_props:
+                logger.warning('_Appt.batch() Invalid property received: %s = %r', name, valu)
+                continue
 
-    async def _save(self, nexs=False):
-        await self.stor._storeAppt(self, nexs=nexs)
+            if name == 'lasterrs':
+                # lasterrs is a deque and valu is a list
+                self.lasterrs.clear()
+                self.lasterrs.update(valu)
+
+            else:
+                setattr(self, name, valu)
+
+        await self.save()
+
+    async def save(self):
+        full = self.stor._hivenode.full + (self.iden,)
+        stordict = self.pack()
+        await self.stor.core.hive.set(full, stordict)
 
 class Agenda(s_base.Base):
     '''
@@ -507,17 +530,6 @@ class Agenda(s_base.Base):
         self.appts[iden] = appt
         if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
-
-    async def _storeAppt(self, appt, nexs=False):
-        ''' Store a single appointment '''
-        full = self._hivenode.full + (appt.iden,)
-        stordict = appt.pack()
-
-        # Don't store ephemeral props
-        for prop in ('startcount', 'errcount', 'lasterrs'):
-            stordict.pop(prop, None)
-
-        await self.core.hive.set(full, stordict, nexs=nexs)
 
     @staticmethod
     def _dictproduct(rdict):
@@ -630,7 +642,7 @@ class Agenda(s_base.Base):
 
         appt.doc = cdef.get('doc', '')
 
-        await self._storeAppt(appt)
+        await appt.save()
 
         return appt.pack()
 
@@ -656,7 +668,7 @@ class Agenda(s_base.Base):
             raise s_exc.NoSuchIden()
 
         appt.enabled = False
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def mod(self, iden, query):
         '''
@@ -675,7 +687,7 @@ class Agenda(s_base.Base):
         appt.query = query
         appt.enabled = True  # in case it was disabled for a bad query
 
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def move(self, croniden, viewiden):
         '''
@@ -687,7 +699,7 @@ class Agenda(s_base.Base):
 
         appt.view = viewiden
 
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def delete(self, iden):
         '''
@@ -743,7 +755,11 @@ class Agenda(s_base.Base):
             while self.apptheap and self.apptheap[0].nexttime <= now:
 
                 appt = heapq.heappop(self.apptheap)
-                appt.updateNexttime(now)
+                nexttime = appt.updateNexttime(now)
+                edits = {
+                    'nexttime': nexttime,
+                }
+                self.core.batchEditCronJob(appt.iden, edits)
 
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
@@ -808,22 +824,30 @@ class Agenda(s_base.Base):
         task.onfini(functools.partial(self._running_tasks.remove, task))
 
     async def _markfailed(self, appt, reason):
-        appt.lastfinishtime = appt.laststarttime = self._getNowTick()
-        appt.startcount += 1
-        appt.isrunning = False
-        appt.lastresult = f'Failed due to {reason}'
+        now = self._getNowTick()
+        edits = {
+            'laststarttime': now,
+            'lastfinishtime': now,
+            'startcount': appt.startcount + 1,
+            'isrunning': False,
+            'lastresult': f'Failed due to {reason}',
+        }
+        await self.core.batchEditCronJob(appt.iden, edits)
+
         if not self.isfini:
-            await self._storeAppt(appt, nexs=True)
+            await appt.save()
 
     async def _runJob(self, user, appt):
         '''
         Actually run the storm query, updating the appropriate statistics and results
         '''
         count = 0
-        appt.isrunning = True
-        appt.laststarttime = self._getNowTick()
-        appt.startcount += 1
-        await self._storeAppt(appt, nexs=True)
+        edits = {
+            'isrunning': True,
+            'laststarttime': self._getNowTick(),
+            'startcount': appt.startcount + 1,
+        }
+        await self.core.batchEditCronJob(appt.iden, edits)
 
         with s_provenance.claim('cron', iden=appt.iden):
             logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
@@ -856,17 +880,27 @@ class Agenda(s_base.Base):
             finally:
                 finishtime = self._getNowTick()
                 if not success:
-                    appt.errcount += 1
-                    appt.lasterrs.append(result)
+                    lasterrs = list(appt.lasterrs)
+                    lasterrs.append(result)
+                    edits = {
+                        'errcount': appt.errcount + 1,
+                        'lasterrs': lasterrs,
+                    }
+                    await self.core.batchEditCronJob(appt.iden, edits)
+
                 took = finishtime - starttime
                 mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
                        f'took {took:.3f}s'
                 logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
                                                      'result': result, 'username': user.name, 'took': took}})
-                appt.lastfinishtime = finishtime
-                appt.isrunning = False
-                appt.lastresult = result
+                edits = {
+                    'lastfinishtime': finishtime,
+                    'isrunning': False,
+                    'lastresult': result,
+                }
+                await self.core.batchEditCronJob(appt.iden, edits)
+
                 if not self.isfini:
                     # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
-                    await self._storeAppt(appt, nexs=True)
+                    await appt.save()

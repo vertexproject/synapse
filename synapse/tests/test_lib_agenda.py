@@ -449,7 +449,7 @@ class AgendaTest(s_t_utils.SynTest):
                     guid2 = adef.get('iden')
                     appt = agenda.appts[guid2]
                     appt.lasterrs.append('error happened')
-                    await agenda._storeAppt(appt)
+                    await appt.save()
 
                     # Add an appt with an invalid query
                     cdef = {'creator': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
@@ -773,13 +773,12 @@ class AgendaTest(s_t_utils.SynTest):
                         if len(mesgs) == 2:
                             break
 
+                    core01.sync()
+
                     cron00 = await core00.callStorm('return($lib.cron.list())')
                     cron01 = await core01.callStorm('return($lib.cron.list())')
-                    # both should have the job, but only one should have run
-                    self.len(1, cron00)
-                    self.eq(cron00[0]['lastresult'], 'finished successfully with 0 nodes')
-                    self.len(1, cron01)
-                    self.none(cron01[0]['lastresult'])
+
+                    self.eq(cron00, cron01)
 
                     start = mesgs[0]
                     stop = mesgs[1]
