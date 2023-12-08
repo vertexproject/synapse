@@ -3310,3 +3310,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('macro.exec test.pivot')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+    async def test_ast_subq_runtsafety(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value())} $lib.print($foo)')
+            self.stormIsInPrint('foo', msgs)
+
+            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
+            self.stormIsInPrint('foo', msgs)
