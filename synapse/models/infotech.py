@@ -408,6 +408,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
+                ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
+                    'doc': 'A Mitre ATT&CK Campaign ID.',
+                    'ex': 'C0028',
+                }),
                 ('it:mitre:attack:flow', ('guid', {}), {
                     'doc': 'A Mitre ATT&CK Flow diagram.',
                 }),
@@ -1256,6 +1260,50 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
                 )),
+                ('it:mitre:attack:campaign', {}, (
+                    ('name', ('ou:campname', {}), {
+                        'doc': 'The primary name for the ATT&CK campaign.',
+                    }),
+                    ('names', ('array', {'type': 'ou:campname', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate names for the ATT&CK campaign.',
+                    }),
+                    ('desc', ('str', {'strip': True}), {
+                        'doc': 'A description of the ATT&CK campaign.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK campaign.',
+                    }),
+                    ('groups', ('array', {'type': 'it:mitre:attack:group',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK group IDs attributed to the campaign.',
+                    }),
+                    ('software', ('array', {'type': 'it:mitre:attack:software',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK software IDs used in the campaign.',
+                    }),
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK technique IDs used in the campaign.',
+                    }),
+                    ('matrices', ('array', {'type': 'it:mitre:attack:matrix',
+                                            'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'The ATT&CK matrices which define the campaign.',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK campaign.',
+                    }),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time interval when the campaign was active.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the campaign was created by Mitre.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the campaign was last updated by Mitre.'}),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK campaign.',
+                        'ex': 'cno.mitre.c0028',
+                    }),
+                )),
                 ('it:mitre:attack:flow', {}, (
                     ('name', ('str', {}), {
                         'doc': 'The name of the attack-flow diagram.'}),
@@ -1791,10 +1839,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL that was scanned to produce the result.'}),
 
                     ('target:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 that was scanned to produce the result.'}),
+                        'doc': 'The IPv4 address that was scanned to produce the result.'}),
 
                     ('target:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 that was scanned to produce the result.'}),
+                        'doc': 'The IPv6 address that was scanned to produce the result.'}),
 
                     ('multi:scan', ('it:av:scan:result', {}), {
                         'doc': 'Set if this result was part of running multiple scanners.'}),
