@@ -71,7 +71,7 @@ Features and Enhancements
   following examples show pivoting across ``refs`` edges and joining the
   destination nodes with the inbound nodes: ``-(refs)+>`` and ``<+(refs)-``.
   (`#3441 <https://github.com/vertexproject/synapse/pull/3441>`_)
-- Add Storm operators to do pivot out and join ( ``--+>`` ) and  pivot in
+- Add Storm operators to do pivot out and join ( ``--+>`` ) and pivot in
   and join ( ``<+--``) operations across light edges.
   (`#3441 <https://github.com/vertexproject/synapse/pull/3441>`_)
   (`#3442 <https://github.com/vertexproject/synapse/pull/3442>`_)
