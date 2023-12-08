@@ -944,6 +944,17 @@ class CertDir:
             if os.path.isfile(path):
                 return path
 
+    def getUserCsrPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.csr' % name)
+            if os.path.isfile(path):
+                return path
+
+    def getHostCsrPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'hosts', '%s.csr' % name)
+            if os.path.isfile(path):
+                return path
     def importFile(self, path, mode, outp=None):
         '''
         Imports certs and keys into the Synapse cert directory
