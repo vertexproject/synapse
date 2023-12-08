@@ -68,7 +68,7 @@ Features and Enhancements
   for forking a view. This permission defaults to being allowed.
   (`#3437 <https://github.com/vertexproject/synapse/pull/3437>`_)
 - Add Storm operators to allow pivoting and joining across light edges. The
-  following exmaples show pivoting across ``refs`` edges and joining the
+  following examples show pivoting across ``refs`` edges and joining the
   destination nodes with the inbound nodes: ``-(refs)+>`` and ``<+(refs)-``.
   (`#3441 <https://github.com/vertexproject/synapse/pull/3441>`_)
 - Add Storm operators to do pivot out and join ( ``--+>`` ) and  pivot in
