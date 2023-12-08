@@ -488,11 +488,11 @@ class IPv4(s_types.Type):
             mask_int = int(mask_str)
         except ValueError:
             raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg='Invalid CIDR Mask')
+                                    mesg=f'Invalid CIDR Mask "{text}"')
 
         if mask_int > 32 or mask_int < 0:
             raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg='Invalid CIDR Mask')
+                                    mesg=f'Invalid CIDR Mask "{text}"')
 
         mask = cidrmasks[mask_int]
 
