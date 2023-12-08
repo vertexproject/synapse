@@ -56,17 +56,6 @@ Examples:
         ('line', {'type': 'glob'}),  # type: ignore
     )
 
-    splicetypes = (
-        'tag:add',
-        'tag:del',
-        'node:add',
-        'node:del',
-        'prop:set',
-        'prop:del',
-        'tag:prop:set',
-        'tag:prop:del',
-    )
-
     def _make_argparser(self):
 
         parser = s_cmd.Parser(prog='log', outp=self, description=self.__doc__)
@@ -111,7 +100,7 @@ Examples:
         editsonly = self.locs.get('log:editsonly')
         nodesonly = self.locs.get('log:nodesonly')
         if fd and not fd.closed:
-            if editsonly and mesg[0] not in (*self.splicetypes, 'node:edits'):
+            if editsonly and mesg[0] != 'node:edits':
                 return
             if nodesonly:
                 if mesg[0] != 'node':
@@ -221,7 +210,6 @@ class StormCmd(s_cli.Cmd):
         --editformat <format>: What format of edits the server shall emit.
                 Options are
                    * nodeedits (default),
-                   * splices (similar to < 2.0.0),
                    * count (just counts of nodeedits), or
                    * none (no such messages emitted).
         --show-prov:  Show provenance messages.
@@ -239,7 +227,7 @@ class StormCmd(s_cli.Cmd):
     '''
     _cmd_name = 'storm'
 
-    editformat_enums = ('nodeedits', 'splices', 'count', 'none')
+    editformat_enums = ('nodeedits', 'count', 'none')
     _cmd_syntax = (
         ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),

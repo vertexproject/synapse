@@ -463,6 +463,17 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.stormIsInPrint('caught err=', msgs)
 
+            # Non-runtsafe Storm works without inbound nodes
+            msgs = await core.stormlist('''
+            try {
+                [ inet:ipv4=0 ]
+                $lib.raise(foo, $node.repr())
+            } catch * as err {
+                $lib.print($err.mesg)
+            }
+            ''')
+            self.stormIsInPrint('0.0.0.0', msgs)
+
             # info must be json safe
             with self.raises(s_exc.MustBeJsonSafe):
                 await core.callStorm('$x="foo" $x=$x.encode() $lib.raise(foo, test, bar=$x)')
@@ -559,7 +570,7 @@ class StormTest(s_t_utils.SynTest):
             self.true(all([n.get('name') == 'foo' for n in nodes]))
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | parallel $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             # test $lib.exit() and the StormExit handlers
@@ -2070,7 +2081,7 @@ class StormTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tree $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_movetag(self):
@@ -2323,16 +2334,6 @@ class StormTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.len(0, await core.nodes('[ test:str=foo test:str=bar ] | spin'))
             self.len(2, await core.nodes('test:str=foo test:str=bar'))
-
-    async def test_storm_reindex_sudo(self):
-
-        async with self.getTestCore() as core:
-
-            mesgs = await core.stormlist('reindex')
-            self.stormIsInWarn('reindex currently does nothing', mesgs)
-
-            msgs = await core.stormlist('.created | sudo')
-            self.stormIsInWarn('sudo command is deprecated and will be removed on 2023-10-01', msgs)
 
     async def test_storm_count(self):
 
@@ -2864,7 +2865,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes(q)
 
             # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tee $q'
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tee $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_yieldvalu(self):
@@ -2968,300 +2969,6 @@ class StormTest(s_t_utils.SynTest):
             q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | for $n in $x { yield $n.iden() }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
-
-    async def test_storm_splicelist(self):
-
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            mesgs = await core.stormlist('[ test:str=foo ]')
-            await asyncio.sleep(0.01)
-
-            mesgs = await core.stormlist('[ test:str=bar ]')
-
-            tick = mesgs[0][1]['tick']
-            tickdt = datetime.datetime.fromtimestamp(tick / 1000.0, datetime.UTC)
-            tickstr = tickdt.strftime('%Y/%m/%d %H:%M:%S.%f')
-
-            tock = mesgs[-1][1]['tock']
-            tockdt = datetime.datetime.fromtimestamp(tock / 1000.0, datetime.UTC)
-            tockstr = tockdt.strftime('%Y/%m/%d %H:%M:%S.%f')
-
-            await asyncio.sleep(0.01)
-            mesgs = await core.stormlist('[ test:str=baz ]')
-
-            nodes = await core.nodes(f'splice.list')
-            self.len(9, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintimestamp {tick}')
-            self.len(4, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintime "{tickstr}"')
-            self.len(4, nodes)
-
-            nodes = await core.nodes(f'splice.list --maxtimestamp {tock}')
-            self.len(7, nodes)
-
-            nodes = await core.nodes(f'splice.list --maxtime "{tockstr}"')
-            self.len(7, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintimestamp {tick} --maxtimestamp {tock}')
-            self.len(2, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintime "{tickstr}" --maxtime "{tockstr}"')
-            self.len(2, nodes)
-
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --mintime badtime'))
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --maxtime nope'))
-
-            visi = await prox.addUser('visi', passwd='secret')
-
-            await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
-            await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-
-            async with core.getLocalProxy(user='visi') as asvisi:
-
-                # make sure a normal user only gets their own splices
-                nodes = await alist(asvisi.eval("[ test:str=hehe ]"))
-
-                nodes = await alist(asvisi.eval("splice.list"))
-                self.len(2, nodes)
-
-                # should get all splices now as an admin
-                await prox.setUserAdmin(visi['iden'], True)
-
-                nodes = await alist(asvisi.eval("splice.list"))
-                self.len(11, nodes)
-
-            msgs = await core.stormlist('splice.undo')
-            self.stormIsInWarn('deprecated', msgs)
-
-    async def test_storm_spliceundo(self):
-
-        self.skip('order is different and this is deprecated')
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
-
-            visi = await prox.addUser('visi', passwd='secret')
-
-            await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
-            await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-            await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-            async with core.getLocalProxy(user='visi') as asvisi:
-
-                nodes = await alist(asvisi.eval("[ test:str=foo ]"))
-                await asyncio.sleep(0.01)
-
-                mesgs = await alist(asvisi.storm("[ test:str=bar ]"))
-                tick = mesgs[0][1]['tick']
-                tock = mesgs[-1][1]['tock']
-
-                mesgs = await alist(asvisi.storm("test:str=bar [ +#test.tag ]"))
-
-                # undo a node add
-
-                nodes = await alist(asvisi.eval("test:str=bar"))
-                self.len(1, nodes)
-
-                # undo adding a node fails without tag:del perms if is it tagged
-                q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
-
-                # undo adding a node fails without node:del perms
-                q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'del')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=bar"))
-                self.len(0, nodes)
-
-                # undo a node delete
-
-                # undo deleting a node fails without node:add perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'add')))
-
-                q = 'splice.list | limit 2 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=bar"))
-                self.len(1, nodes)
-
-                # undo adding a prop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ :tick=2000 ]"))
-                self.nn(nodes[0][1]['props'].get('tick'))
-
-                # undo adding a prop fails without prop:del perms
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'del',)))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.none(nodes[0][1]['props'].get('tick'))
-
-                # undo updating a prop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ :tick=2000 ]"))
-                oldv = nodes[0][1]['props']['tick']
-                self.nn(oldv)
-
-                nodes = await alist(asvisi.eval("test:str=foo [ :tick=3000 ]"))
-                self.ne(oldv, nodes[0][1]['props']['tick'])
-
-                # undo updating a prop fails without prop:set perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set',)))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(oldv, nodes[0][1]['props']['tick'])
-
-                # undo deleting a prop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ -:tick ]"))
-                self.none(nodes[0][1]['props'].get('tick'))
-
-                # undo deleting a prop fails without prop:set perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(oldv, nodes[0][1]['props']['tick'])
-
-                # undo adding a tag
-
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=2000 ]"))
-                tagv = nodes[0][1]['tags'].get('rep')
-                self.nn(tagv)
-
-                # undo adding a tag fails without tag:del perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'del',)))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del',)))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.none(nodes[0][1]['tags'].get('rep'))
-
-                # undo deleting a tag
-
-                # undo deleting a tag fails without tag:add perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(tagv, nodes[0][1]['tags'].get('rep'))
-
-                # undo updating a tag
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=2000 ]"))
-                oldv = nodes[0][1]['tags'].get('rep')
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=3000 ]"))
-                self.ne(oldv, nodes[0][1]['tags'].get('rep'))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(oldv, nodes[0][1]['tags'].get('rep'))
-
-                # undo adding a tagprop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep:risk=50 ]"))
-                tagv = nodes[0][1]['tagprops']['rep'].get('risk')
-                self.nn(tagv)
-
-                # undo adding a tagprop fails without tag:del perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.none(nodes[0][1]['tagprops'].get('rep'))
-
-                # undo deleting a tagprop
-
-                # undo deleting a tagprop fails without tag:add perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
-
-                # undo updating a tagprop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep:risk=0 ]"))
-                self.ne(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
-
-                # undo updating a tagprop fails without prop:set perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
-
-                # sending nodes of form other than syn:splice doesn't work
-                q = 'test:str | limit 1 | splice.undo'
-                await self.agenraises(s_exc.StormRuntimeError, asvisi.eval(q))
-
-                # must be admin to use --force for node deletion
-                await alist(asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
-                await alist(asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
-
-                nodes = await alist(asvisi.eval("test:cycle0"))
-                self.len(1, nodes)
-
-                q = 'splice.list | +:type="node:add" +:form="test:cycle0" | limit 1 | splice.undo'
-                await self.agenraises(s_exc.CantDelNode, asvisi.eval(q))
-
-                q = 'splice.list | +:type="node:add" +:form="test:cycle0" | limit 1 | splice.undo --force'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.setUserAdmin(visi['iden'], True)
-
-                nodes = await alist(asvisi.eval(q))
-                nodes = await alist(asvisi.eval("test:cycle0"))
-                self.len(0, nodes)
 
     async def test_storm_argv_parser(self):
 

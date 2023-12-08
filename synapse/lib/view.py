@@ -620,11 +620,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         mode = opts.get('mode', 'storm')
         editformat = opts.get('editformat', 'nodeedits')
-        if editformat not in ('nodeedits', 'splices', 'count', 'none'):
-            raise s_exc.BadConfValu(mesg='editformat')
-
-        if editformat == 'splices':
-            s_common.deprdate('storm option editformat=splices', s_common._splicedepr)
+        if editformat not in ('nodeedits', 'count', 'none'):
+            raise s_exc.BadConfValu(mesg=f'invalid edit format, got {editformat}', name='editformat', valu=editformat)
 
         texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
@@ -718,18 +715,11 @@ class View(s_nexus.Pusher):  # type: ignore
                 if editformat == 'none':
                     continue
 
-                if editformat == 'count':
-                    count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
-                    mesg = ('node:edits:count', {'count': count})
-                    yield mesg
-                    continue
+                assert editformat == 'count'
 
-                assert editformat == 'splices'
-
-                nodeedits = mesg[1].get('edits', [()])
-                async for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
-                    if not show or splice[0] in show:
-                        yield splice
+                count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
+                mesg = ('node:edits:count', {'count': count})
+                yield mesg
                 continue
 
             if kind == 'fini':
