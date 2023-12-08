@@ -773,7 +773,7 @@ class AgendaTest(s_t_utils.SynTest):
                         if len(mesgs) == 2:
                             break
 
-                    core01.sync()
+                    await core01.sync()
 
                     cron00 = await core00.callStorm('return($lib.cron.list())')
                     cron01 = await core01.callStorm('return($lib.cron.list())')

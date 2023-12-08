@@ -5844,7 +5844,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('cron:batch')
     async def batchEditCronJob(self, iden, edits):
-        appt = await self.agent.get(iden)
+        appt = await self.agenda.get(iden)
         await appt.batch(edits)
 
     @contextlib.asynccontextmanager

@@ -417,7 +417,7 @@ class _Appt:
             if name == 'lasterrs':
                 # lasterrs is a deque and valu is a list
                 self.lasterrs.clear()
-                self.lasterrs.update(valu)
+                self.lasterrs.extend(valu)
 
             else:
                 setattr(self, name, valu)
@@ -759,7 +759,7 @@ class Agenda(s_base.Base):
                 edits = {
                     'nexttime': nexttime,
                 }
-                self.core.batchEditCronJob(appt.iden, edits)
+                await self.core.batchEditCronJob(appt.iden, edits)
 
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
@@ -834,9 +834,6 @@ class Agenda(s_base.Base):
         }
         await self.core.batchEditCronJob(appt.iden, edits)
 
-        if not self.isfini:
-            await appt.save()
-
     async def _runJob(self, user, appt):
         '''
         Actually run the storm query, updating the appropriate statistics and results
@@ -903,4 +900,3 @@ class Agenda(s_base.Base):
                 if not self.isfini:
                     # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
-                    await appt.save()
