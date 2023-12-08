@@ -68,6 +68,10 @@ class OuModelTest(s_t_utils.SynTest):
 
                 timeline = s_common.guid()
 
+                nodes = await core.nodes('[ it:mitre:attack:campaign=C0011 ]')
+                self.len(1, nodes)
+                attack = nodes[0].ndef
+
                 props = {
                     'org': org0,
                     'goal': goal,
@@ -85,6 +89,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'reporter': '*',
                     'reporter:name': 'vertex',
                     'timeline': timeline,
+                    'mitre:attack:campaign': 'C0011',
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
                 self.eq(node.get('tag'), 'cno.camp.31337')
@@ -101,9 +106,14 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('camptype'), 'get.pizza.')
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
                 self.eq(node.get('timeline'), timeline)
+                self.eq(node.get('mitre:attack:campaign'), 'C0011')
 
                 self.nn(node.get('reporter'))
                 self.eq(node.get('reporter:name'), 'vertex')
+
+                nodes = await core.nodes(f'ou:campaign={camp} -> it:mitre:attack:campaign')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, attack)
 
             # type norming first
             # ou:name

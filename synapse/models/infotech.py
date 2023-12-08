@@ -1839,10 +1839,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL that was scanned to produce the result.'}),
 
                     ('target:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 that was scanned to produce the result.'}),
+                        'doc': 'The IPv4 address that was scanned to produce the result.'}),
 
                     ('target:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 that was scanned to produce the result.'}),
+                        'doc': 'The IPv6 address that was scanned to produce the result.'}),
 
                     ('multi:scan', ('it:av:scan:result', {}), {
                         'doc': 'Set if this result was part of running multiple scanners.'}),
