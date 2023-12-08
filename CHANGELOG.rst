@@ -52,7 +52,7 @@ Model Changes
   **Updated Types**
 
   ``it:os:windows:sid``
-    The regular expression used to valid the SID has been updated
+    The regular expression used to validate the SID has been updated
     to allow modeling well-known SID values.
 
 Features and Enhancements
