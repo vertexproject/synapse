@@ -13,16 +13,16 @@ stormcmds = (
             Examples:
 
                 // Add a global vault with type `synapse-test`
-                vault.add "shared-global-vault" synapse-test ({'apikey': 'foobar'}) ({}) --scope global
+                vault.add "shared-global-vault" synapse-test ({'apikey': 'foobar'}) ({}) --global
 
                 // Add a user vault with type `synapse-test`
-                vault.add "visi-user-vault" synapse-test ({'apikey': 'barbaz'}) ({}) --scope user --user visi
+                vault.add "visi-user-vault" synapse-test ({'apikey': 'barbaz'}) ({}) --user visi
 
                 // Add a role vault with type `synapse-test`
-                vault.add "contributor-role-vault" synapse-test ({'apikey': 'bazquux'}) ({}) --scope role --user contributor
+                vault.add "contributor-role-vault" synapse-test ({'apikey': 'bazquux'}) ({}) --role contributor
 
                 // Add an unscoped vault with type `synapse-test`
-                vault.add "unscoped-vault" synapse-test ({'apikey': 'quuxquo'}) ({'server': 'api.foobar.com'})
+                vault.add "unscoped-vault" synapse-test ({'apikey': 'quuxquo'}) ({'server': 'api.foobar.com'}) --unscoped visi
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
@@ -63,7 +63,7 @@ stormcmds = (
             }
 
             if $cmdopts.unscoped {
-                $owner = $lib.auth.users.byname($cmdopts.user).iden
+                $owner = $lib.auth.users.byname($cmdopts.unscoped).iden
             }
 
             if $cmdopts.global {

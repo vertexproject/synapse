@@ -6620,7 +6620,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         break
 
             elif _scope == 'global':
-                tsi = f'{vtype}:global'
                 vault = self._getVaultByTSI(vtype, _scope, None)
 
             return vault
