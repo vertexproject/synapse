@@ -1352,7 +1352,8 @@ class StorTypeTime(StorTypeInt):
     def __init__(self, layr):
         StorTypeInt.__init__(self, layr, STOR_TYPE_TIME, 8, True)
         self.futsize = 0x7fffffffffffffff
-        self.futbyts = self.futsize.to_bytes(8, 'big')
+        self.futbyts = (self.futsize + self.offset).to_bytes(8, 'big')
+        self.maxbyts = (self.futsize + self.offset - 1).to_bytes(8, 'big')
         self.lifters.update({
             '@=': self._liftAtIval,
         })
@@ -1373,6 +1374,7 @@ class StorTypeIval(StorType):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_IVAL)
         self.timetype = StorTypeTime(layr)
+        self.maxdura = (2 ** (8 * 8) - 1).to_bytes(8, 'big')
         self.lifters.update({
             '=': self._liftIvalEq,
             '@=': self._liftIvalAt,
@@ -1503,7 +1505,7 @@ class StorTypeIval(StorType):
         minv = max(valu, 0)
 
         pkeymin = self.timetype.getIntIndx(minv)
-        pkeymax = self.timetype.fullbyts
+        pkeymax = self.timetype.maxbyts
         for item in scan(pkeymin, pkeymax):
             yield item
 
@@ -3188,7 +3190,7 @@ class Layer(s_nexus.Pusher):
 
                 if oldt == STOR_TYPE_IVAL:
                     if oldv[1] == self.ivaltimetype.futsize:
-                        dura = self.ivaltimetype.futbyts
+                        dura = self.stortypes[STOR_TYPE_IVAL].maxdura
                     else:
                         dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3238,7 +3240,7 @@ class Layer(s_nexus.Pusher):
 
             if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.ivaltimetype.futbyts
+                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
                 else:
                     dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3309,7 +3311,7 @@ class Layer(s_nexus.Pusher):
 
             if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
-                    dura = self.ivaltimetype.futbyts
+                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
                 else:
                     dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3363,7 +3365,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(formabrv, nid, db=self.indxdb)
             else:
                 if oldv[1] == self.ivaltimetype.futsize:
-                    dura = self.ivaltimetype.futbyts
+                    dura = self.stortypes[STOR_TYPE_IVAL].maxdura
                 else:
                     dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3399,7 +3401,7 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((formabrv, nid))
         else:
             if valu[1] == self.ivaltimetype.futsize:
-                dura = self.ivaltimetype.futbyts
+                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
             else:
                 dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3445,7 +3447,7 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(formabrv, nid, db=self.indxdb)
         else:
             if oldv[1] == self.ivaltimetype.futsize:
-                dura = self.ivaltimetype.futbyts
+                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
             else:
                 dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3511,7 +3513,7 @@ class Layer(s_nexus.Pusher):
 
                 if oldt == STOR_TYPE_IVAL:
                     if oldv[1] == self.ivaltimetype.futsize:
-                        dura = self.ivaltimetype.futbyts
+                        dura = self.stortypes[STOR_TYPE_IVAL].maxdura
                     else:
                         dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
@@ -3548,7 +3550,7 @@ class Layer(s_nexus.Pusher):
 
         if stortype == STOR_TYPE_IVAL:
             if valu[1] == self.ivaltimetype.futsize:
-                dura = self.ivaltimetype.futbyts
+                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
             else:
                 dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
@@ -3593,7 +3595,7 @@ class Layer(s_nexus.Pusher):
 
         if oldt == STOR_TYPE_IVAL:
             if oldv[1] == self.ivaltimetype.futsize:
-                dura = self.ivaltimetype.futbyts
+                dura = self.stortypes[STOR_TYPE_IVAL].maxdura
             else:
                 dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
