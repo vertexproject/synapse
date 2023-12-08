@@ -481,10 +481,20 @@ class IPv4(s_types.Type):
         return minv, maxv
 
     def getCidrRange(self, text):
-        addr, mask = text.split('/', 1)
+        addr, mask_str = text.split('/', 1)
         norm, info = self.norm(addr)
 
-        mask = cidrmasks[int(mask)]
+        try:
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg='Invalid CIDR Mask')
+
+        if mask_int > 32 or mask_int < 0:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg='Invalid CIDR Mask')
+
+        mask = cidrmasks[mask_int]
 
         minv = norm & mask[0]
         return minv, minv + mask[1]
