@@ -101,6 +101,9 @@ Bugfixes
   (`#3439 <https://github.com/vertexproject/synapse/pull/3439>`_)
 - Add a missing sub-query example to Storm ``for`` loop documentation.
   (`#3451 <https://github.com/vertexproject/synapse/pull/3451>`_)
+- Fix an issue where attempting to norm an IPv4 with an invalid netmask
+  would raise a Python error.
+  (`#3459 <https://github.com/vertexproject/synapse/pull/3459>`_)
 
 Deprecations
 ------------
