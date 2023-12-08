@@ -805,3 +805,18 @@ class AgendaTest(s_t_utils.SynTest):
                     appt = await core01.agenda.get(nodes[0].ndef[1])
                     self.eq(appt.name, 'foo')
                     self.eq(appt.doc, 'bar')
+
+            with self.getLoggerStream('synapse.lib.agenda') as stream:
+                async with self.getTestCore(dirn=path00) as core00:
+                    appts = core00.agenda.list()
+                    self.len(1, appts)
+                    appt = appts[0][1]
+
+                    edits = {
+                        'invalid': 'newp',
+                    }
+                    await core00.batchEditCronJob(appt.iden, edits)
+
+                stream.seek(0)
+                data = stream.read()
+                self.isin("_Appt.batch() Invalid property received: invalid = 'newp'", data)

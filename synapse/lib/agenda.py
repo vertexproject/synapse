@@ -411,7 +411,8 @@ class _Appt:
     async def batch(self, edits):
         for name, valu in edits.items():
             if name not in self.__class__._synced_props:
-                logger.warning('_Appt.batch() Invalid property received: %s = %r', name, valu)
+                extra = await self.stor.core.getLogExtra(name=name, valu=valu)
+                logger.warning('_Appt.batch() Invalid property received: %s = %r', name, valu, extra=extra)
                 continue
 
             if name == 'lasterrs':

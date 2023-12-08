@@ -5824,19 +5824,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if name == 'creator':
             await self.auth.reqUser(valu)
             appt.creator = valu
-            await appt.save()
 
         elif name == 'name':
             appt.name = str(valu)
-            await appt.save()
 
         elif name == 'doc':
             appt.doc = str(valu)
-            await appt.save()
 
         else:
             mesg = f'editCronJob name {name} is not supported for editing.'
             raise s_exc.BadArg(mesg=mesg)
+
+        await appt.save()
 
         pckd = appt.pack()
         await self.feedBeholder(f'cron:edit:{name}', {'iden': iden, name: pckd.get(name)}, gates=[iden])
