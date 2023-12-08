@@ -256,7 +256,7 @@ class _Appt:
     the lowest nexttime of all its ApptRecs.
     '''
 
-    _synced_props = (
+    _synced_attrs = (
         'doc',
         'name',
         'enabled',
@@ -410,7 +410,7 @@ class _Appt:
 
     async def batch(self, edits):
         for name, valu in edits.items():
-            if name not in self.__class__._synced_props:
+            if name not in self.__class__._synced_attrs:
                 extra = await self.stor.core.getLogExtra(name=name, valu=valu)
                 logger.warning('_Appt.batch() Invalid attribute received: %s = %r', name, valu, extra=extra)
                 continue
