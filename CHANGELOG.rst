@@ -23,10 +23,10 @@ Model Changes
     The form had the following properties added to it:
 
       ``target:ipv4``
-        The IPv4 that was scanned to produce the result.
+        The IPv4 address that was scanned to produce the result.
 
       ``target:ipv6``
-        The IPv6 that was scanned to produce the result.
+        The IPv6 address that was scanned to produce the result.
 
   ``ou:campaign``
     The form had the following property added to it:
@@ -65,13 +65,14 @@ Features and Enhancements
   ``getTagPropCount()``.
   (`#3435 <https://github.com/vertexproject/synapse/pull/3435>`_)
 - Add a new permission, ``view.fork``, which can be used to control access
-  for forking a view. This permission defaults to ``true``.
+  for forking a view. This permission defaults to being allowed.
   (`#3437 <https://github.com/vertexproject/synapse/pull/3437>`_)
 - Add Storm operators to allow pivoting and joining across light edges. The
   following exmaples show pivoting across ``refs`` edges and joining the
   destination nodes with the inbound nodes: ``-(refs)+>`` and ``<+(refs)-``.
   (`#3441 <https://github.com/vertexproject/synapse/pull/3441>`_)
-- Add Storm operator to do a pivot in and join ( ``<+--``).
+- Add Storm operators to do pivot out and join ( ``--+>`` ) and  pivot in
+  and join ( ``<+--``) operations across light edges.
   (`#3441 <https://github.com/vertexproject/synapse/pull/3441>`_)
   (`#3442 <https://github.com/vertexproject/synapse/pull/3442>`_)
 - Storm subqueries used to assign a value now always run.
@@ -98,13 +99,13 @@ Bugfixes
   modifying the deferenced value appeared to alter the node but did not
   actually result in any edits to the underlying data.
   (`#3439 <https://github.com/vertexproject/synapse/pull/3439>`_)
-- Add a missing sub-query example to to Storm ``for`` loop documentation.
+- Add a missing sub-query example to Storm ``for`` loop documentation.
   (`#3451 <https://github.com/vertexproject/synapse/pull/3451>`_)
 
 Deprecations
 ------------
 - Deprecated Cortex and splice related APIs which were marked for removal
-  after 2023-10-01 have been removed. The list of these apis can be found
+  after 2023-10-01 have been removed. The list of these APIs can be found
   at  :ref:`changelog-depr-20231001`. These additional splice related changes
   have also been made:
 
