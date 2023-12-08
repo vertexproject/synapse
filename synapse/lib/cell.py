@@ -3420,20 +3420,45 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ahaname = provconf.get('aha:name')
             ahanetw = provconf.get('aha:network')
 
-            if not certdir.getCaCertPath(ahanetw):
-                certdir.saveCaCertByts(await prov.getCaCert())
+            _crt = certdir.getCaCertPath(ahanetw)
+            if _crt:
+                logger.debug(f'Removing existing CA crt: {_crt}')
+                os.unlink(_crt)
+            certdir.saveCaCertByts(await prov.getCaCert())
 
             await self._bootProvConf(provconf)
 
             hostname = f'{ahaname}.{ahanetw}'
-            if certdir.getHostCertPath(hostname) is None:
-                hostcsr = certdir.genHostCsr(hostname)
-                certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+            _crt = certdir.getHostCertPath(hostname)
+            if _crt:
+                logger.debug(f'Removing existing host crt {_crt}')
+                os.unlink(_crt)
+            _kp = certdir.getHostKeyPath(hostname)
+            if _kp:
+                logger.debug(f'Removing existing host key {_kp}')
+                os.unlink(_kp)
+            _csr = certdir.getHostCsrPath(hostname)
+            if _csr:
+                logger.debug(f'Removing existing host csr {_csr}')
+                os.unlink(_csr)
+            hostcsr = certdir.genHostCsr(hostname)
+            certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
 
             userfull = f'{ahauser}@{ahanetw}'
-            if certdir.getUserCertPath(userfull) is None:
-                usercsr = certdir.genUserCsr(userfull)
-                certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+            _crt = certdir.getUserCertPath(userfull)
+            if _crt:
+                logger.debug(f'Removing existing user crt {_crt}')
+                os.unlink(_crt)
+            _kp = certdir.getUserKeyPath(userfull)
+            if _kp:
+                logger.debug(f'Removing existing user key {_kp}')
+                os.unlink(_kp)
+            _csr = certdir.getUserCsrPath(userfull)
+            if _csr:
+                logger.debug(f'Removing existing user csr {_csr}')
+                os.unlink(_csr)
+            usercsr = certdir.genUserCsr(userfull)
+            certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
 
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
