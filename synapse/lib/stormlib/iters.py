@@ -47,12 +47,14 @@ class LibIters(s_stormtypes.Lib):
             'zip': self._zip,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def enum(self, genr):
         indx = 0
         async for item in s_stormtypes.toiter(genr):
             yield (indx, item)
             indx += 1
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _zip(self, *args):
 
         async with contextlib.AsyncExitStack() as stack:

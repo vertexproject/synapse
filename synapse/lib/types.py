@@ -920,6 +920,7 @@ class Int(IntBase):
     _opt_defs = (
         ('size', 8),  # type: ignore # Set the storage size of the integer type in bytes.
         ('signed', True),
+        ('enums:strict', True),
 
         # Note: currently unused
         ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
@@ -942,6 +943,8 @@ class Int(IntBase):
 
         self.enumnorm = {}
         self.enumrepr = {}
+
+        self.enumstrict = self.opts.get('enums:strict')
 
         enums = self.opts.get('enums')
         if enums is not None:
@@ -1022,7 +1025,7 @@ class Int(IntBase):
             mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
-        if self.enumrepr and valu not in self.enumrepr:
+        if self.enumrepr and self.enumstrict and valu not in self.enumrepr:
             mesg = 'Value is not a valid enum value.'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
@@ -1301,9 +1304,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part == norm
+            return getr(valu) == norm
         return cmpr
 
     def _ctorCmprMinGe(self, text):
@@ -1319,9 +1320,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part >= norm
+            return getr(valu) >= norm
         return cmpr
 
     def _ctorCmprMinLe(self, text):
@@ -1337,9 +1336,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part <= norm
+            return getr(valu) <= norm
         return cmpr
 
     def _ctorCmprMinGt(self, text):
@@ -1355,9 +1352,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None or (part := getr(valu)) is None:
-                return False
-            return part > norm
+            return getr(valu) > norm
         return cmpr
 
     def _ctorCmprMinLt(self, text):
@@ -1373,9 +1368,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if (part := getr(valu)) is None:
-                return False
-            return part < norm
+            return getr(valu) < norm
         return cmpr
 
     def _ctorCmprMinAt(self, valu):
@@ -1386,16 +1379,11 @@ class Ival(Type):
 
     def _ctorCmprPartAtCommon(self, valu, getr):
 
-        if valu is None or valu == (None, None):
-            def cmpr(item):
-                return False
-            return cmpr
-
         if isinstance(valu, (str, int)):
             norm = self.norm(valu)[0]
+
         elif isinstance(valu, (list, tuple)):
             minv, maxv = self._normByTickTock(valu)[0]
-            # Use has input the nullset in a comparison operation.
             if minv >= maxv:
                 def cmpr(item):
                     return False
@@ -1407,19 +1395,13 @@ class Ival(Type):
                                    mesg='no norm for @= operator: %r' % (type(valu),))
 
         def cmpr(item):
-            if item is None:
-                return False
-
-            if item == (None, None):
-                return False
-
             othr, info = self.norm(item)
             othr = getr(othr)
 
-            if othr >= norm[1]:
+            if othr > norm[1]:
                 return False
 
-            if othr <= norm[0]:
+            if othr < norm[0]:
                 return False
 
             return True
@@ -1950,8 +1932,19 @@ class Taxonomy(Str):
         self.setNormFunc(tuple, self._normPyList)
         self.taxon = self.modl.type('taxon')
 
+    def _ctorCmprPref(self, valu):
+        norm = self._normForLift(valu)
+
+        def cmpr(valu):
+            return valu.startswith(norm)
+
+        return cmpr
+
     def _normForLift(self, valu):
-        return self.norm(valu)[0]
+        norm = self.norm(valu)[0]
+        if isinstance(valu, str) and not valu.strip().endswith('.'):
+            return norm.rstrip('.')
+        return norm
 
     def _normPyList(self, valu):
 
@@ -2129,6 +2122,8 @@ class Duration(IntBase):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
+        self.maxval = 2 ** ((8 * 8) - 1)
+
     def _normPyInt(self, valu):
         return valu, {}
 
@@ -2138,6 +2133,9 @@ class Duration(IntBase):
         if not text:
             mesg = 'Duration string must have non-zero length.'
             raise s_exc.BadTypeValu(mesg=mesg)
+
+        if text == '?':
+            return self.maxval, {}
 
         dura = 0
 

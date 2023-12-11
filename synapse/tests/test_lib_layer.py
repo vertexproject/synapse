@@ -466,8 +466,15 @@ class LayerTest(s_t_utils.SynTest):
 
                     self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
 
-                    # TODO make sure time and user are set on the downstream edits
+                    # make sure time and user are set on the downstream changes
                     root = await core01.auth.getUserByName('root')
+
+                    nedits = await alist(layr.syncNodeEdits2(0, wait=False))
+                    last_edit = nedits[-1]
+                    offs, edit, meta = last_edit
+                    self.gt(meta.get('time'), 0)
+                    self.eq(meta.get('user'), root.iden)
+                    self.notin('prov', meta)
 
     async def test_layer_upstream_with_mirror(self):
 
@@ -667,7 +674,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
     async def test_layer_stortype_ival(self):
-        stor = s_layer.StorTypeIval(self, None)
+        stor = s_layer.StorTypeIval(self)
 
         vals = [(2000, 2020), (1960, 1970)]
 
@@ -1041,11 +1048,15 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
 
-                layr = core1.view.layers[0]
+                layr = core1.view.layers[0]  # type: s_layer.Layer
 
-                # Empty the layer to try again
+                ############################################################################
+                # TEST ONLY - Force the layer nexus handler to consume a truncate event.
+                # This is for backwards compatibility for a mirror that consumes a truncate
+                # event.
+                # This can be removed in 3.0.0.
 
-                await layr.truncate()
+                await layr._push('layer:truncate')
 
                 async with await s_telepath.openurl(url) as layrprox:
 
@@ -1064,7 +1075,7 @@ class LayerTest(s_t_utils.SynTest):
                             'time': 0,
                             }
 
-                    await layr.truncate()
+                    await layr._push('layer:truncate')
 
                     for nodeedits in editlist:
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
@@ -1085,6 +1096,8 @@ class LayerTest(s_t_utils.SynTest):
 
                     core1.schedCoro(doEdit())
                     await asyncio.wait_for(waitForEdit(), timeout=6)
+
+                ############################################################################
 
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
@@ -1274,9 +1287,9 @@ class LayerTest(s_t_utils.SynTest):
             '''
             await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             layr = core.getLayer(None)
-            lbefore = len(await alist(layr.iterNodeEditLog()))
+            lbefore = len(await alist(layr.syncNodeEdits2(0, wait=False)))
             await core.nodes('[test:str=foo .seen=(2015, 2016)]')
-            lafter = len(await alist(layr.iterNodeEditLog()))
+            lafter = len(await alist(layr.syncNodeEdits2(0, wait=False)))
             self.eq(lbefore, lafter)
 
     async def test_layer_del_then_lift(self):
@@ -1342,9 +1355,6 @@ class LayerTest(s_t_utils.SynTest):
 
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
-
-            with self.raises(s_exc.IsReadOnly):
-                await readlayr.truncate()
 
     async def test_layer_ro(self):
         with self.getTestDir() as dirn:
@@ -1617,3 +1627,128 @@ class LayerTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadStorageVersion):
             async with self.getRegrCore('future-layrvers') as core:
                 pass
+
+    async def test_layer_ival_indexes(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('footime', ('ival', {}), {})
+
+            self.len(0, await core.nodes('ou:campaign#bar:footime*min=2020-01-01'))
+
+            await core.nodes('''[
+                ou:campaign=(foo,)
+                    :period=(2020-01-01, ?)
+                    +#foo=(2020-01-01, ?)
+                    +#bar:footime=(2020-01-01, ?)
+            ]''')
+
+            await core.nodes('''[
+                ou:campaign=(foo,)
+                    :period=(2019-01-01, ?)
+                    +#foo=(2019-01-01, ?)
+                    +#bar:footime=(2019-01-01, ?)
+            ]''')
+
+            await core.nodes('''[
+                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
+                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
+                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
+                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
+                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign:period*min=2020-01-01'))
+            self.len(3, await core.nodes('ou:campaign:period*min<2022-01-01'))
+            self.len(4, await core.nodes('ou:campaign:period*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign:period*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign:period*min>2022-01-01'))
+            self.len(1, await core.nodes('ou:campaign:period*min@=2020'))
+            self.len(3, await core.nodes('ou:campaign:period*min@=(2020-01-01, 2022-01-01)'))
+
+            self.len(1, await core.nodes('reverse(ou:campaign:period*min=2020-01-01)'))
+            self.len(3, await core.nodes('reverse(ou:campaign:period*min<2022-01-01)'))
+            self.len(4, await core.nodes('reverse(ou:campaign:period*min<=2022-01-01)'))
+            self.len(3, await core.nodes('reverse(ou:campaign:period*min>=2022-01-01)'))
+            self.len(2, await core.nodes('reverse(ou:campaign:period*min>2022-01-01)'))
+            self.len(1, await core.nodes('reverse(ou:campaign:period*min@=2020)'))
+            self.len(3, await core.nodes('reverse(ou:campaign:period*min@=(2020-01-01, 2022-01-01))'))
+
+            self.len(1, await core.nodes('ou:campaign:period*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign:period*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign:period*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign:period*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign:period*max>2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign:period*max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('ou:campaign:period*max=?'))
+
+            self.len(1, await core.nodes('ou:campaign:period*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign:period*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign:period*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign:period*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign:period*duration>31D'))
+            self.len(1, await core.nodes('ou:campaign:period*duration=?'))
+
+            await core.nodes('''[
+                (ou:campaign=* +#foo=(2020-01-01, 2020-01-02))
+                (ou:campaign=* +#foo=(2021-01-01, 2021-02-01))
+                (ou:campaign=* +#foo=(2022-01-01, 2022-05-01))
+                (ou:campaign=* +#foo=(2023-01-01, 2024-01-01))
+                (ou:campaign=* +#foo=(2024-01-01, 2026-01-01))
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign#foo*min=2020-01-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*min<2022-01-01'))
+            self.len(4, await core.nodes('ou:campaign#foo*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign#foo*min>2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*min@=(2020-01-01, 2022-01-01)'))
+            self.len(3, await core.nodes('reverse(ou:campaign#foo*min@=(2020-01-01, 2022-01-01))'))
+
+            self.len(1, await core.nodes('ou:campaign#foo*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign#foo*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign#foo*max>2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('ou:campaign#foo*max=?'))
+
+            self.len(1, await core.nodes('ou:campaign#foo*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign#foo*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign#foo*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign#foo*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign#foo*duration>31D'))
+            self.len(1, await core.nodes('ou:campaign#foo*duration=?'))
+
+            await core.nodes('''[
+                (ou:campaign=* +#bar:footime=(2020-01-01, 2020-01-02))
+                (ou:campaign=* +#bar:footime=(2021-01-01, 2021-02-01))
+                (ou:campaign=* +#bar:footime=(2022-01-01, 2022-05-01))
+                (ou:campaign=* +#bar:footime=(2023-01-01, 2024-01-01))
+                (ou:campaign=* +#bar:footime=(2024-01-01, 2026-01-01))
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign#bar:footime*min=2020-01-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*min<2022-01-01'))
+            self.len(4, await core.nodes('ou:campaign#bar:footime*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*min>2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01)'))
+            self.len(3, await core.nodes('reverse(ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01))'))
+
+            self.len(1, await core.nodes('ou:campaign#bar:footime*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*max>2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('ou:campaign#bar:footime*max=?'))
+
+            self.len(1, await core.nodes('ou:campaign#bar:footime*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign#bar:footime*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign#bar:footime*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*duration>31D'))
+            self.len(1, await core.nodes('ou:campaign#bar:footime*duration=?'))
+
+            await core.nodes('[ ou:campaign=(foo,) -:period -#foo -#bar:footime ]')

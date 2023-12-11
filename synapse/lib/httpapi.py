@@ -612,48 +612,6 @@ class ReqValidStormV1(StormHandler):
         else:
             return self.sendRestRetn(valid)
 
-class WatchSockV1(WebSocket):
-    '''
-    A web-socket based API endpoint for distributing cortex tag events.
-
-    Deprecated.
-    '''
-    async def onWatchMesg(self, byts):
-        # Note: This API handler is intended to be used on a heavy Cortex object.
-        try:
-
-            wdef = json.loads(byts)
-            iden = wdef.get('view', self.cell.view.iden)
-
-            perm = ('watch', 'view', iden)
-            await self._reqUserAllow(perm)
-
-            async with self.cell.watcher(wdef) as watcher:
-
-                await self.xmit('init')
-
-                async for mesg in watcher:
-                    await self.xmit(mesg[0], **mesg[1])
-
-                # pragma: no cover
-                # (this would only happen on slow-consumer)
-                await self.xmit('fini')
-
-        except s_exc.SynErr as e:
-
-            text = e.get('mesg', str(e))
-            await self.xmit('errx', code=e.__class__.__name__, mesg=text)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception as e:
-            await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
-
-    async def on_message(self, byts):
-        s_common.deprdate('/api/v1/watch HTTP API', s_common._splicedepr)
-        self.cell.schedCoro(self.onWatchMesg(byts))
-
 class BeholdSockV1(WebSocket):
 
     async def onInitMessage(self, byts):
@@ -723,6 +681,19 @@ class LoginV1(Handler):
         self.web_username = name
 
         return self.sendRestRetn(await authcell.getUserDef(iden))
+
+class LogoutV1(Handler):
+
+    async def get(self):
+        sess = await self.sess(gen=False)
+        if sess is not None:
+            self.web_useriden = sess.info.get('user')
+            self.web_username = sess.info.get('username', '<no username>')
+            await self.getAuthCell().delHttpSess(sess.iden)
+
+        self.clear_cookie('sess')
+
+        self.sendRestRetn(True)
 
 class AuthUsersV1(Handler):
 

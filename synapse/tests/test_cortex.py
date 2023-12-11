@@ -1786,45 +1786,41 @@ class CortexTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                async with core.getLocalProxy() as prox:
+                await core.setStormCmd(cdef0)
 
-                    await prox.setStormCmd(cdef0)
+                nodes = await core.nodes('[ inet:asn=10 ] | testcmd0 zoinks')
+                self.true(nodes[0].getTag('zoinks'))
 
-                    nodes = await core.nodes('[ inet:asn=10 ] | testcmd0 zoinks')
-                    self.true(nodes[0].getTag('zoinks'))
+                nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore')
 
-                    nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore')
+                self.true(nodes[0].getTag('haha'))
+                self.true(nodes[0].getTag('zoinks'))
 
-                    self.true(nodes[0].getTag('haha'))
-                    self.true(nodes[0].getTag('zoinks'))
+                # test that cmdopts/cmdconf/locals dont leak
+                with self.raises(s_exc.NoSuchVar):
+                    q = '[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdopts) {[ +#hascmdopts ]}'
+                    nodes = await core.nodes(q)
 
-                    # test that cmdopts/cmdconf/locals dont leak
-                    with self.raises(s_exc.NoSuchVar):
-                        q = '[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdopts) {[ +#hascmdopts ]}'
-                        nodes = await core.nodes(q)
+                with self.raises(s_exc.NoSuchVar):
+                    q = '[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdconf) {[ +#hascmdconf ]}'
+                    nodes = await core.nodes(q)
 
-                    with self.raises(s_exc.NoSuchVar):
-                        q = '[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($cmdconf) {[ +#hascmdconf ]}'
-                        nodes = await core.nodes(q)
-
-                    with self.raises(s_exc.NoSuchVar):
-                        q = '[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($foo) {[ +#hasfoo ]}'
-                        nodes = await core.nodes(q)
+                with self.raises(s_exc.NoSuchVar):
+                    q = '[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($foo) {[ +#hasfoo ]}'
+                    nodes = await core.nodes(q)
 
             # make sure it's still loaded...
             async with self.getTestCore(dirn=dirn) as core:
 
-                async with core.getLocalProxy() as prox:
+                await core.nodes('[ inet:asn=30 ] | testcmd0 zoinks')
 
-                    await core.nodes('[ inet:asn=30 ] | testcmd0 zoinks')
+                await core.delStormCmd('testcmd0')
 
-                    await prox.delStormCmd('testcmd0')
+                with self.raises(s_exc.NoSuchCmd):
+                    await core.delStormCmd('newpcmd')
 
-                    with self.raises(s_exc.NoSuchCmd):
-                        await prox.delStormCmd('newpcmd')
-
-                    with self.raises(s_exc.NoSuchName):
-                        await core.nodes('[ inet:asn=31 ] | testcmd0 zoinks')
+                with self.raises(s_exc.NoSuchName):
+                    await core.nodes('[ inet:asn=31 ] | testcmd0 zoinks')
 
     async def test_base_types2(self):
 
@@ -2005,6 +2001,35 @@ class CortexTest(s_t_utils.SynTest):
             opts = {'idens': ('deadb33f',)}
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('', opts=opts)
+
+            # init / fini messages contain tick/tock/took/count information
+            msgs = await core.stormlist('{}')
+            self.len(2, msgs)
+
+            (ityp, info) = msgs[0]
+            self.eq('init', ityp)
+            self.gt(info.get('tick'), 0)
+            self.gt(info.get('abstick'), 0)
+            self.eq(info.get('text'), '{}')
+            self.eq(info.get('hash'), '99914b932bd37a50b983c5e7c90ae93b')
+
+            (ftyp, fnfo) = msgs[1]
+            self.eq('fini', ftyp)
+            self.eq(fnfo.get('count'), 0)
+            took = fnfo.get('took')
+            self.ge(took, 0)
+            self.ge(fnfo.get('tock'), info.get('tick'))
+            self.ge(fnfo.get('abstock'), info.get('abstick'))
+            self.eq(took, fnfo.get('tock') - info.get('tick'))
+            self.eq(took, fnfo.get('abstock') - info.get('abstick'))
+
+            # count = 2
+            msgs = await core.stormlist('test:comp=(10, haha) test:str="foo bar" ')
+            self.len(4, msgs)
+
+            (ftyp, fnfo) = msgs[-1]
+            self.eq('fini', ftyp)
+            self.eq(fnfo.get('count'), 2)
 
             # Test and/or/not
             await core.nodes('[test:comp=(1, test) +#meep.morp +#bleep.blorp +#cond]')
@@ -2431,6 +2456,13 @@ class CortexTest(s_t_utils.SynTest):
             # Do a PivotInFrom with a bad form
             with self.raises(s_exc.NoSuchForm) as cm:
                 await core.nodes('.created <- test:newp')
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('test:str <- test:str')
+
+            mesg = 'Pivot in from a specific form cannot be used with nodes of type test:str'
+            self.eq(cm.exception.get('mesg'), mesg)
+            self.eq(cm.exception.get('name'), 'test:str')
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
@@ -3081,30 +3113,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(corever, s_version.version)
             self.eq(corever, cellver)
 
+            # NOTE: addNode / addNodes are deprecated in 3.0.0
             nodes = ((('inet:user', 'visi'), {}),)
 
             nodes = await alist(proxy.addNodes(nodes))
             self.len(1, nodes)
 
             node = await proxy.addNode('test:str', 'foo')
-
-            pack = await proxy.addNodeTag(node[1].get('iden'), '#foo.bar')
-            self.eq(pack[1]['tags'].get('foo.bar'), (None, None))
-
-            pack = await proxy.setNodeProp(node[1].get('iden'), 'tick', '2015')
-            self.eq(pack[1]['props'].get('tick'), 1420070400000)
-
-            self.eq(1, await proxy.count('test:str#foo.bar'))
-            self.eq(1, await proxy.count('test:str:tick=2015'))
-
-            pack = await proxy.delNodeProp(node[1].get('iden'), 'tick')
-            self.none(pack[1]['props'].get('tick'))
-
-            iden = s_common.ehex(s_common.buid('newp'))
-            await self.asyncraises(s_exc.NoSuchIden, proxy.delNodeProp(iden, 'tick'))
-
-            await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
-            self.eq(0, await proxy.count('test:str#foo.bar'))
 
             opts = {'ndefs': [('inet:user', 'visi')]}
 
@@ -3722,7 +3737,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 'degrees': 2,
 
-                'pivots': ['<- meta:seen <- meta:source'],
+                'pivots': [],
 
                 'filters': ['-#nope'],
 
@@ -3842,7 +3857,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 inet:fqdn | graph
                                 --degrees 2
                                 --filter { -#nope }
-                                --pivot { <- meta:seen <- meta:source }
+                                --pivot {}
                                 --form-pivot inet:fqdn {<- * | limit 20}
                                 --form-pivot inet:fqdn {-> * | limit 20}
                                 --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
@@ -4542,10 +4557,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str'))
 
             layr = core.getLayer()
-            await self.agenlen(0, layr.syncNodeEdits(0))
-            self.eq(0, await layr.getEditIndx())
+            await self.agenlen(0, layr.syncNodeEdits(0, wait=False))
+            await self.agenlen(0, layr.syncNodeEdits2(0, wait=False))
+            # We can still generate synthetic edits though
+            ndedits = await alist(layr.iterLayerNodeEdits())
+            self.gt(len(ndedits), 0)
 
-            self.nn(await core.stat())
+            self.eq(0, await layr.getEditIndx())
 
     async def test_cortex_layer_settings(self):
         '''
@@ -4739,30 +4757,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '[test:deprform=dform :deprprop=(1, 2)]'
                 await core1.nodes(q, opts={'view': view2_iden})
 
-    async def test_stat(self):
-
-        async with self.getTestCoreAndProxy() as (realcore, core):
-            coreiden = realcore.iden
-            ostat = await core.stat()
-            self.eq(ostat.get('iden'), coreiden)
-            self.isin('layer', ostat)
-            self.len(1, await realcore.nodes('[test:str=123 :tick=2018]'))
-            nstat = await core.stat()
-
-            counts = nstat.get('formcounts')
-            self.eq(counts.get('test:str'), 1)
-
-    async def test_stat_lock(self):
-        self.thisHostMust(hasmemlocking=True)
-        conf = {'layers:lockmemory': True}
-        async with self.getTestCoreAndProxy(conf=conf) as (realcore, core):
-            slab = realcore.view.layers[0].layrslab
-            self.true(await asyncio.wait_for(slab.lockdoneevent.wait(), 8))
-
-            nstat = await core.stat()
-            layr = nstat.get('layer')
-            self.gt(layr.get('lock_goal'), 0)
-
     async def test_storm_sub_query(self):
 
         async with self.getTestCore() as core:
@@ -4922,6 +4916,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(node.ndef[1], 'c')
             self.nn(node.getTag('known'))
             self.none(node.getTag('unknown'))
+
+            q = '$valu={[test:str=foo]} switch $valu { foo: {test:str=foo return($node.value()) } }'
+            self.eq('foo', await core.callStorm(q))
 
     async def test_storm_tagvar(self):
 
@@ -6470,35 +6467,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(view, core.getView(view.iden))
             self.eq(view, core.getView(core.iden))
             self.none(core.getView('xxx'))
-
-    async def test_cortex_cronjob_perms(self):
-        async with self.getTestCore() as realcore:
-            async with realcore.getLocalProxy() as core:
-                fred = await core.addUser('fred')
-                await core.setUserPasswd(fred['iden'], 'secret')
-                cdef = {'storm': '[test:str=foo]', 'reqs': {'dayofmonth': 1},
-                        'incunit': None, 'incvals': None}
-                adef = await core.addCronJob(cdef)
-                iden = adef.get('iden')
-
-            async with realcore.getLocalProxy(user='fred') as core:
-                # Rando user can't make cron jobs
-                cdef = {'storm': '[test:int=1]', 'reqs': {'month': 1},
-                        'incunit': None, 'incvals': None}
-                await self.asyncraises(s_exc.AuthDeny, core.addCronJob(cdef))
-
-                # Rando user can't mod cron jobs
-                await self.asyncraises(s_exc.AuthDeny, core.updateCronJob(iden, '[test:str=bar]'))
-
-                # Rando user doesn't see any cron jobs
-                self.len(0, await core.listCronJobs())
-
-                # Rando user can't delete cron jobs
-                await self.asyncraises(s_exc.AuthDeny, core.delCronJob(iden))
-
-                # Rando user can't enable/disable cron jobs
-                await self.asyncraises(s_exc.AuthDeny, core.enableCronJob(iden))
-                await self.asyncraises(s_exc.AuthDeny, core.disableCronJob(iden))
 
     async def test_cortex_cron_deluser(self):
 

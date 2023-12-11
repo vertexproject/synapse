@@ -408,6 +408,36 @@ class HttpApiTest(s_tests.SynTest):
                         self.true(await stream.wait(timeout=6))
 
             async with self.getHttpSess() as sess:
+                info = {'user': 'visi', 'passwd': 'secret'}
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+                # make sure session works
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+                # log out of said session
+                async with sess.get(f'https://localhost:{port}/api/v1/logout') as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    newcookie = resp.headers.get('Set-Cookie')
+                    self.isin('sess=""', newcookie)
+
+                # session no longer works
+                data = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+            async with self.getHttpSess() as sess:
 
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
@@ -425,21 +455,21 @@ class HttpApiTest(s_tests.SynTest):
                     async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=heheauth) as resp:
                         item = await resp.json()
                         self.eq('NotAuthenticated', item.get('code'))
-                        self.true(stream.wait(timeout=12))
+                        self.true(await stream.wait(timeout=12))
 
                 await core.setUserLocked(visiiden, True)
                 with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
                     async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
                         item = await resp.json()
                         self.eq('NotAuthenticated', item.get('code'))
-                        self.true(stream.wait(timeout=12))
+                        self.true(await stream.wait(timeout=12))
                 await core.setUserLocked(visiiden, False)
 
                 with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
                     async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
                         item = await resp.json()
                         self.eq('NotAuthenticated', item.get('code'))
-                        self.true(stream.wait(timeout=12))
+                        self.true(await stream.wait(timeout=12))
 
                 headers = {'Authorization': 'yermom'}
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
@@ -766,52 +796,6 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
-
-    async def test_http_watch(self):
-
-        async with self.getTestCore() as core:
-
-            visi = await core.auth.addUser('visi')
-
-            await visi.setPasswd('secret')
-
-            host, port = await core.addHttpsPort(0, host='127.0.0.1')
-
-            # with no session user...
-            async with self.getHttpSess() as sess:
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-                    self.eq('errx', mesg['type'])
-                    self.eq('AuthDeny', mesg['data']['code'])
-
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
-                    retn = await resp.json()
-                    self.eq('ok', retn.get('status'))
-                    self.eq('visi', retn['result']['name'])
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-                    self.eq('errx', mesg['type'])
-                    self.eq('AuthDeny', mesg['data']['code'])
-
-                await visi.addRule((True, ('watch',)))
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-
-                    self.eq('init', mesg['type'])
-
-                    await core.nodes('[ test:str=woot +#test.visi ]')
-
-                    mesg = await sock.receive_json()
-
-                    self.eq('tag:add', mesg['type'])
-                    self.eq('test.visi', mesg['data']['tag'])
 
     async def test_http_beholder(self):
         self.skipIfNexusReplay()

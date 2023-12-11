@@ -334,6 +334,8 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
         volumes:
             - ./storage:/vertex/storage
         environment:
+            - SYN_CORTEX_AXON=aha://axon...
+            - SYN_CORTEX_JSONSTOR=aha://jsonstor...
             # disable HTTPS API for now to prevent port collisions
             - SYN_CORTEX_HTTPS_PORT=null
             - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>

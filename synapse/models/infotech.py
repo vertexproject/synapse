@@ -222,6 +222,13 @@ tlplevels = (
     (50, 'red'),
 )
 
+suslevels = (
+    (10, 'benign'),
+    (20, 'unknown'),
+    (30, 'suspicious'),
+    (40, 'malicious'),
+)
+
 # The published Attack Flow json schema at the below URL is horribly
 # broken. It depends on some custom python scripting to validate each
 # object individually against the schema for each object's type instead
@@ -401,6 +408,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
+                ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
+                    'doc': 'A Mitre ATT&CK Campaign ID.',
+                    'ex': 'C0028',
+                }),
                 ('it:mitre:attack:flow', ('guid', {}), {
                     'doc': 'A Mitre ATT&CK Flow diagram.',
                 }),
@@ -483,7 +494,8 @@ class ItModule(s_module.CoreModule):
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
 
-                ('it:os:windows:sid', ('str', {'regex': r'^S-1-[0-59]-\d{2}-\d{8,10}-\d{8,10}-\d{8,10}-[1-9]\d{3}$'}), {
+                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
+                ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
                     'doc': 'A Microsoft Windows Security Identifier.',
                     'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
                 }),
@@ -542,18 +554,25 @@ class ItModule(s_module.CoreModule):
                 ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
+
                 ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
-                   'doc': 'A signature name within the namespace of an antivirus engine name.'
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'
                 }),
                 ('it:av:signame', ('str', {'lower': True}), {
-                    'doc': 'An antivirus signature name.',
-                }),
+                    'doc': 'An antivirus signature name.'}),
+
+                ('it:av:scan:result', ('guid', {}), {
+                    'doc': 'The result of running an antivirus scanner.'}),
+
                 ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
-                    'doc': 'A file that triggered an alert on a specific antivirus signature.',
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
+
                 ('it:av:prochit', ('guid', {}), {
-                    'doc': 'An instance of a process triggering an alert on a specific antivirus signature.'
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
+
                 ('it:auth:passwdhash', ('guid', {}), {
                     'doc': 'An instance of a password hash.',
                 }),
@@ -1241,6 +1260,50 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
                 )),
+                ('it:mitre:attack:campaign', {}, (
+                    ('name', ('ou:campname', {}), {
+                        'doc': 'The primary name for the ATT&CK campaign.',
+                    }),
+                    ('names', ('array', {'type': 'ou:campname', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate names for the ATT&CK campaign.',
+                    }),
+                    ('desc', ('str', {'strip': True}), {
+                        'doc': 'A description of the ATT&CK campaign.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK campaign.',
+                    }),
+                    ('groups', ('array', {'type': 'it:mitre:attack:group',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK group IDs attributed to the campaign.',
+                    }),
+                    ('software', ('array', {'type': 'it:mitre:attack:software',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK software IDs used in the campaign.',
+                    }),
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK technique IDs used in the campaign.',
+                    }),
+                    ('matrices', ('array', {'type': 'it:mitre:attack:matrix',
+                                            'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'The ATT&CK matrices which define the campaign.',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK campaign.',
+                    }),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time interval when the campaign was active.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the campaign was created by Mitre.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the campaign was last updated by Mitre.'}),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK campaign.',
+                        'ex': 'cno.mitre.c0028',
+                    }),
+                )),
                 ('it:mitre:attack:flow', {}, (
                     ('name', ('str', {}), {
                         'doc': 'The name of the attack-flow diagram.'}),
@@ -1743,6 +1806,63 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:av:signame', {}, ()),
 
+                ('it:av:scan:result', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the scan was run.'}),
+
+                    ('verdict', ('int', {'enums': suslevels}), {
+                        'doc': 'The scanner provided verdict for the scan.'}),
+
+                    ('scanner', ('it:prod:softver', {}), {
+                        'doc': 'The scanner software used to produce the result.'}),
+
+                    ('scanner:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('signame', ('it:av:signame', {}), {
+                        'doc': 'The name of the signature returned by the scanner.'}),
+
+                    ('target:file', ('file:bytes', {}), {
+                        'doc': 'The file that was scanned to produce the result.'}),
+
+                    ('target:proc', ('it:exec:proc', {}), {
+                        'doc': 'The process that was scanned to produce the result.'}),
+
+                    ('target:host', ('it:host', {}), {
+                        'doc': 'The host that was scanned to produce the result.'}),
+
+                    ('target:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN that was scanned to produce the result.'}),
+
+                    ('target:url', ('inet:url', {}), {
+                        'doc': 'The URL that was scanned to produce the result.'}),
+
+                    ('target:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The IPv4 that was scanned to produce the result.'}),
+
+                    ('target:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The IPv6 that was scanned to produce the result.'}),
+
+                    ('multi:scan', ('it:av:scan:result', {}), {
+                        'doc': 'Set if this result was part of running multiple scanners.'}),
+
+                    ('multi:count', ('int', {'min': 0}), {
+                        'doc': 'The total number of scanners which were run by a multi-scanner'}),
+
+                    ('multi:count:benign', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a benign verdict.'}),
+
+                    ('multi:count:unknown', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a unknown/unsupported verdict.'}),
+
+                    ('multi:count:suspicious', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a suspicious verdict.'}),
+
+                    ('multi:count:malicious', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a malicious verdict.'}),
+                )),
+
                 ('it:av:filehit', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
@@ -1863,6 +1983,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL of the API endpoint the query was sent to.'}),
                     ('language', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the language that the query is expressed in.'}),
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset of the last record consumed from the query.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {

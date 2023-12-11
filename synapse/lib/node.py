@@ -598,10 +598,6 @@ class Node(NodeBase):
             raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
                                    form=self.form.full, tag=tag)
 
-        curv = self.getTag(name, s_common.novalu)
-        if curv is s_common.novalu:
-            return ()
-
         pref = name + '.'
 
         tags = self._getTagsDict()
@@ -643,7 +639,8 @@ class Node(NodeBase):
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
 
         edits.extend(self._getTagPropDel(name))
-        edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
+        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+            edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         return edits
 
@@ -755,17 +752,15 @@ class Node(NodeBase):
             * delete all the tags (bottom up)
                 * fire onDelTag() handlers
                 * delete tag properties from storage
-                * log tag:del edits
 
             * delete all secondary properties
                 * fire onDelProp handler
                 * delete secondary property from storage
-                * log prop:del edits
 
             * delete the primary property
                 * fire onDel handlers for the node
                 * delete primary property from storage
-                * log node:del edits
+
         '''
 
         formname, formvalu = self.ndef

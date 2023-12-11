@@ -165,6 +165,34 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
+                it:mitre:attack:campaign=C0001
+                    :created = 20231101
+                    :desc = "Much campaign, many sophisticated."
+                    :groups = (G0100,)
+                    :matrices = (enterprise,ics)
+                    :name = "much campaign"
+                    :names = ('much campaign', 'many sophisticated')
+                    :software = (S0100,)
+                    :techniques = (T0200,T0100)
+                    :updated = 20231102
+                    :url = https://attack.mitre.org/campaigns/C0001
+                    :period = (20151201, 20160101)
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:campaign', 'C0001'))
+            self.eq(nodes[0].get('name'), 'much campaign')
+            self.eq(nodes[0].get('names'), ('many sophisticated', 'much campaign'))
+            self.eq(nodes[0].get('desc'), 'Much campaign, many sophisticated.')
+            self.eq(nodes[0].get('url'), 'https://attack.mitre.org/campaigns/C0001')
+            self.eq(nodes[0].get('matrices'), ('enterprise', 'ics'))
+            self.eq(nodes[0].get('groups'), ('G0100',))
+            self.eq(nodes[0].get('software'), ('S0100',))
+            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('created'), 1698796800000)
+            self.eq(nodes[0].get('updated'), 1698883200000)
+            self.eq(nodes[0].get('period'), (1448928000000, 1451606400000))
+
+            nodes = await core.nodes('''[
                 it:exec:thread=*
                     :proc=*
                     :created=20210202
@@ -283,6 +311,58 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('time'), 1612224000000)
             self.len(1, await core.nodes('it:app:yara:procmatch -> it:exec:proc'))
             self.len(1, await core.nodes('it:app:yara:procmatch -> it:app:yara:rule'))
+
+            nodes = await core.nodes('''[
+                it:av:scan:result=*
+                    :time=20231117
+                    :verdict=suspicious
+                    :scanner={[ it:prod:softver=* :name="visi scan" ]}
+                    :scanner:name="visi scan"
+                    :signame=omgwtfbbq
+                    :target:file=*
+                    :target:proc={[ it:exec:proc=* :cmd="foo.exe --bar" ]}
+                    :target:host={[ it:host=* :name=visihost ]}
+                    :target:fqdn=vertex.link
+                    :target:url=https://vertex.link
+                    :target:ipv4=1.2.3.4
+                    :target:ipv6='::1'
+                    :multi:scan={[ it:av:scan:result=*
+                        :scanner:name="visi total"
+                        :multi:count=10
+                        :multi:count:benign=3
+                        :multi:count:unknown=1
+                        :multi:count:suspicious=4
+                        :multi:count:malicious=2
+                    ]}
+            ]''')
+            self.eq(1700179200000, nodes[0].get('time'))
+            self.eq(30, nodes[0].get('verdict'))
+            self.eq('visi scan', nodes[0].get('scanner:name'))
+            self.eq('vertex.link', nodes[0].get('target:fqdn'))
+            self.eq('https://vertex.link', nodes[0].get('target:url'))
+            self.eq(0x01020304, nodes[0].get('target:ipv4'))
+            self.eq('::1', nodes[0].get('target:ipv6'))
+            self.eq('omgwtfbbq', nodes[0].get('signame'))
+
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:host'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:url'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:fqdn'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> file:bytes'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:exec:proc'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:av:signame'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:prod:softver'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:prod:softname'))
+
+            nodes = await core.nodes('it:av:scan:result:scanner:name="visi total"')
+            self.len(1, nodes)
+
+            self.eq(10, nodes[0].get('multi:count'))
+            self.eq(3, nodes[0].get('multi:count:benign'))
+            self.eq(1, nodes[0].get('multi:count:unknown'))
+            self.eq(4, nodes[0].get('multi:count:suspicious'))
+            self.eq(2, nodes[0].get('multi:count:malicious'))
+
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi total" -> it:av:scan:result +:scanner:name="visi scan"'))
 
     async def test_infotech_ios(self):
 
@@ -435,6 +515,34 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1615687260000, nodes[1].get('logoff:time'))
             self.eq(7260000, nodes[1].get('duration'))
             self.eq('02:01:00.000', nodes[1].repr('duration'))
+
+            # Sample SIDs from here:
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab
+            sids = [
+                'S-1-0-0', 'S-1-1-0', 'S-1-2-0', 'S-1-2-1', 'S-1-3', 'S-1-3-0',
+                'S-1-3-1', 'S-1-3-2', 'S-1-3-3', 'S-1-3-4', 'S-1-5', 'S-1-5-1',
+                'S-1-5-2', 'S-1-5-3', 'S-1-5-4', 'S-1-5-6', 'S-1-5-7', 'S-1-5-8',
+                'S-1-5-9', 'S-1-5-10', 'S-1-5-11', 'S-1-5-12', 'S-1-5-13', 'S-1-5-14',
+                'S-1-5-15', 'S-1-5-17', 'S-1-5-18', 'S-1-5-19', 'S-1-5-20',
+                'S-1-5-21-0-0-0-496', 'S-1-5-21-0-0-0-497', 'S-1-5-32-544',
+                'S-1-5-32-545', 'S-1-5-32-546', 'S-1-5-32-547', 'S-1-5-32-548',
+                'S-1-5-32-549', 'S-1-5-32-550', 'S-1-5-32-551', 'S-1-5-32-552',
+                'S-1-5-32-554', 'S-1-5-32-555', 'S-1-5-32-556', 'S-1-5-32-557',
+                'S-1-5-32-558', 'S-1-5-32-559', 'S-1-5-32-560', 'S-1-5-32-561',
+                'S-1-5-32-562', 'S-1-5-32-568', 'S-1-5-32-569', 'S-1-5-32-573',
+                'S-1-5-32-574', 'S-1-5-32-575', 'S-1-5-32-576', 'S-1-5-32-577',
+                'S-1-5-32-578', 'S-1-5-32-579', 'S-1-5-32-580', 'S-1-5-32-582',
+                'S-1-5-33', 'S-1-5-64-10', 'S-1-5-64-14', 'S-1-5-64-21', 'S-1-5-65-1',
+                'S-1-5-80', 'S-1-5-80-0', 'S-1-5-83-0', 'S-1-5-84-0-0-0-0-0',
+                'S-1-5-90-0', 'S-1-5-113', 'S-1-5-114', 'S-1-5-1000', 'S-1-15-2-1',
+                'S-1-16-0', 'S-1-16-4096', 'S-1-16-8192', 'S-1-16-8448', 'S-1-16-12288',
+                'S-1-16-16384', 'S-1-16-20480', 'S-1-16-28672', 'S-1-18-1', 'S-1-18-2',
+                'S-1-18-3', 'S-1-18-4', 'S-1-18-5', 'S-1-18-6',
+            ]
+
+            opts = {'vars': {'sids': sids}}
+            nodes = await core.nodes('for $sid in $sids {[ it:account=* :windows:sid=$sid ]}', opts=opts)
+            self.len(88, nodes)
 
             nodes = await core.nodes('inet:email=visi@vertex.link -> ps:contact -> it:account -> it:logon +:time>=2021 -> it:host')
             self.len(1, nodes)
@@ -1360,10 +1468,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :opts=({"foo": "bar"})
                     :api:url=https://vertex.link/api/v1.
                     :time=20220720
+                    :offset=99
                     // we can assume the rest of the interface props work
                 ]
             ''')
             self.eq(1658275200000, nodes[0].get('time'))
+            self.eq(99, nodes[0].get('offset'))
             self.eq('sql', nodes[0].get('language'))
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))

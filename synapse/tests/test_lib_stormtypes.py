@@ -613,6 +613,14 @@ class StormTypesTest(s_test.SynTest):
                     'name': 'test',
                     'storm': '$valu=$modconf.valu function getvalu() { return($valu) }',
                     'modconf': {'valu': 'foo'},
+                },
+                {
+                    'name': 'test.danger',
+                    'storm': '''
+                        init { $src=$lib.null }
+                        function genSrc() { if $src { return ($src) } [meta:source=(s1,)] $src=$node return ($node) }
+                        $genSrc()
+                        '''
                 }
             ],
             'commands': [
@@ -735,9 +743,13 @@ class StormTypesTest(s_test.SynTest):
 
             await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
+            self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())', opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('return($lib.import(test.danger).src)', opts={'readonly': True})
 
             mods = await core.getStormMods()
-            self.len(1, mods)
+            self.len(2, mods)
             mods['test']['modconf']['valu'] = 'bar'
             mods = await core.getStormMods()
             self.eq('foo', mods['test']['modconf']['valu'])
@@ -942,6 +954,28 @@ class StormTypesTest(s_test.SynTest):
 
             msgs = await core.stormlist('$lib.print($lib.undef)')
             self.stormIsInPrint('$lib.undef', msgs)
+
+            msgs = await core.stormlist('auth.user.add visi')
+            self.stormHasNoWarnErr(msgs)
+            msgs = await core.stormlist('auth.user.addrule visi view.read')
+            self.stormHasNoWarnErr(msgs)
+
+            fork00 = await core.callStorm('return($lib.view.get().fork())')
+            iden = fork00.get('iden')
+
+            visi = await core.auth.getUserByName('visi')
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.view.get().detach()', opts={'user': visi.iden, 'view': iden})
+
+            await core.stormlist('$lib.view.get().detach()', opts={'view': iden})
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.view.get().detach()', opts={'view': iden})
+
+            view = core.reqView(iden)
+
+            self.none(view.parent)
+            self.none(view.info.get('parent'))
 
     async def test_storm_lib_ps(self):
 
@@ -1180,6 +1214,24 @@ class StormTypesTest(s_test.SynTest):
             return($q.size(limit=2))
             '''
             self.eq(2, await core.callStorm(q))
+
+            q = '''
+            $q=${ return( $lib.auth.users.byname(root).name ) }
+            return ( $q.exec() )
+            '''
+            self.eq('root', await core.callStorm(q, opts={'readonly': True}))
+
+            q = '''
+            $q=${ test:int=1 }
+            return ( $q.size() )
+            '''
+            self.eq(1, await core.callStorm(q, opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('$foo=${ [test:str=readonly] } return ( $foo.exec() )', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('$foo=${ [test:str=readonly] } return( $foo.size() )', opts={'readonly': True})
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
@@ -1513,6 +1565,72 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $v=($foo, aString, $bar,) $v.sort() return ($v)'
                 await core.callStorm(q)
+
+            q = '$l = (1, 2, (3), 4, 1, (3), 3, asdf) return ( $l.unique() )'
+            self.eq(['1', '2', 3, '4', '3', 'asdf'], await core.callStorm(q))
+
+            q = '$a=$lib.text(hehe) $b=$lib.text(haha) $c=$lib.text(hehe) $foo=($a, $b, $c) return ($foo.unique())'
+            self.eq(['hehe', 'haha'], await core.callStorm(q))
+
+            await core.addUser('lowuser1')
+            await core.addUser('lowuser2')
+            q = '''
+            $a=$lib.auth.users.byname(lowuser1) $b=$lib.auth.users.byname(lowuser2) $r=$lib.auth.users.byname(root)
+            $l = ($a, $r, $b, $b, $a ) $l2 = $l.unique() $l3 = ()
+            for $user in $l2 {
+                $l3.append($user.name)
+            }
+            return ( $l3 )'''
+            self.eq(['lowuser1', 'root', 'lowuser2'], await core.callStorm(q))
+
+            q = '$l=(1, 2, 3, 3, $lib.queue) return ( $lib.len($l.unique()) )'
+            self.eq(4, await core.callStorm(q))
+
+            # funcs are different class instances here
+            q = '$l = (1, 2, 2, $lib.inet.http.get, $lib.inet.http.get) return ($lib.len($l.unique()))'
+            self.eq(4, await core.callStorm(q))
+
+            # funcs are the same class instance
+            q = '$hehe = $lib.inet.http $l = (1, 2, 2, $hehe.get, $hehe.get) return ($lib.len($l.unique()))'
+            self.eq(3, await core.callStorm(q))
+
+            q = '''
+            function foo() {}
+            function bar() {}
+            $l = ($foo, $bar)
+            return ($lib.len($l.unique()))
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            q = '''
+            function foo() {}
+            function bar() {}
+            $l = ($bar, $foo, $bar)
+            return ($lib.len($l.unique()))
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            q = '''
+            $q1 = $lib.queue.gen(hehe)
+            $q2 = $lib.queue.get(hehe)
+            $l = ($q1, $q2)
+            return ( $lib.len($l.unique()) ) '''
+            self.eq(1, await core.callStorm(q))
+
+            q = '''
+            $q1 = $lib.queue.gen(hehe)
+            $q2 = $lib.queue.get(hehe)
+            $l = ($q1, $q2, $q2)
+            return ( $lib.len($l.unique()) ) '''
+            self.eq(1, await core.callStorm(q))
+
+            q = '''
+            $q1 = $lib.queue.gen(hehe)
+            $q2 = $lib.queue.get(hehe)
+            $q3 = $lib.queue.get(hehe)
+            $l = ($q1, $q2, $q3)
+            return ( $lib.len($l.unique()) ) '''
+            self.eq(1, await core.callStorm(q))
 
             # Python Tuples can be treated like a List object for accessing via data inside of.
             q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
@@ -3465,9 +3583,17 @@ class StormTypesTest(s_test.SynTest):
             layrs0 = (layr0.iden, ldef1.get('iden'))
             layrs1 = (ldef1.get('iden'), layr0.iden)
 
+            # fork the default view to test editing the root view layers
+            fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
+            self.eq(2, await core.callStorm('return($lib.view.get().layers.size())', opts={'view': fork00}))
+
             await core.callStorm('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': layrs0}})
             ldefs = await core.callStorm('return($lib.view.get().get(layers))')
             self.eq(layrs0, [x.get('iden') for x in ldefs])
+
+            layers = await core.callStorm('return($lib.view.get().layers)', opts={'view': fork00})
+            self.eq(layrs0, [layr['iden'] for layr in layers][-2:])
+            self.len(3, layers)
 
             await core.callStorm('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': layrs1}})
             ldefs = await core.callStorm('return($lib.view.get().get(layers))')
@@ -3938,6 +4064,15 @@ class StormTypesTest(s_test.SynTest):
             self.nn(iden)
             self.true(visi.allowed(('view', 'read'), gateiden=iden))
 
+            await visi.addRule((True, ('view', 'add')))
+
+            msgs = await core.stormlist('$lib.view.get().fork()', opts={'user': visi.iden})
+            self.stormHasNoWarnErr(msgs)
+
+            await visi.addRule((False, ('view', 'fork')), gateiden=core.view.iden)
+            msgs = await core.stormlist('$lib.view.get().fork()', opts={'user': visi.iden})
+            self.stormIsInErr('must have permission view.fork', msgs)
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
@@ -4326,6 +4461,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_cron_notime(self):
         # test cron APIs that don't require time stepping
+
         async with self.getTestCore() as core:
 
             cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
@@ -4355,13 +4491,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
 
-            async with core.getLocalProxy() as proxy:
+            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(name, lolz) )', opts=opts)
+            self.eq('lolz', cdef.get('name'))
 
-                cdef = await proxy.editCronJob(iden0, 'name', 'lolz')
-                self.eq('lolz', cdef.get('name'))
-
-                cdef = await proxy.editCronJob(iden0, 'doc', 'zoinks')
-                self.eq('zoinks', cdef.get('doc'))
+            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
+            self.eq('zoinks', cdef.get('doc'))
 
     async def test_storm_lib_cron(self):
 
@@ -5772,6 +5906,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_layer_counts(self):
         async with self.getTestCore() as core:
+
             self.eq(0, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
             await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
             self.eq(0, await core.callStorm('return($lib.layer.get().getPropCount(ps:person))'))
@@ -5789,6 +5924,111 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm("return($lib.layer.get().getPropCount('.newp'))")
+
+            await core.nodes('.created | delnode --force')
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            q = '''[
+                inet:ipv4=1
+                inet:ipv4=2
+                inet:ipv4=3
+                :asn=4
+
+                (ou:org=*
+                 ou:org=*
+                 :names=(foo, bar))
+
+                .seen=2020
+                .univarray=(1, 2)
+                +#foo:score=2
+
+                test:arrayform=(1,2,3)
+                test:arrayform=(2,3,4)
+            ]'''
+            await core.nodes(q)
+
+            q = 'return($lib.layer.get().getPropCount(inet:ipv4:asn, valu=1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(inet:ipv4:loc, valu=1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(inet:ipv4:asn, valu=4))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(inet:ipv4.seen, valu=2020))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(".seen", valu=2020))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(".test:univ", valu=1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(inet:ipv4, valu=1))'
+            self.eq(1, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(ou:org:names, valu=(foo, bar)))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropCount(".univarray", valu=(1, 2)))'
+            self.eq(5, await core.callStorm(q))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.layer.get().getPropCount(newp, valu=1))'
+                await core.callStorm(q)
+
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:names))'
+            self.eq(4, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:names, valu=foo))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(".univarray"))'
+            self.eq(10, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(".univarray", valu=2))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(test:arrayform))'
+            self.eq(6, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(test:arrayform, valu=2))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs, valu=*))'
+            self.eq(0, await core.callStorm(q))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.layer.get().getPropArrayCount(newp, valu=1))'
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadTypeValu):
+                q = 'return($lib.layer.get().getPropArrayCount(inet:ipv4, valu=1))'
+                await core.callStorm(q)
+
+            q = 'return($lib.layer.get().getTagPropCount(foo, score))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropCount(foo, score, valu=2))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropCount(foo, score, form=ou:org, valu=2))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropCount(bar, score))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropCount(bar, score, valu=2))'
+            self.eq(0, await core.callStorm(q))
+
+            with self.raises(s_exc.NoSuchTagProp):
+                q = 'return($lib.layer.get().getTagPropCount(foo, newp, valu=2))'
+                await core.callStorm(q)
 
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
@@ -6613,3 +6853,114 @@ words\tword\twrd'''
             '''
             msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
             self.stormIsInErr(mesg, msgs)
+
+    async def test_storm_view_counts(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            view2 = await core.view.fork()
+            forkopts = {'view': view2['iden']}
+
+            q = '''[
+                inet:ipv4=1
+                inet:ipv4=2
+                inet:ipv4=3
+                :asn=4
+
+                (ou:org=*
+                 ou:org=*
+                 :names=(foo, bar))
+
+                .seen=2020
+                .univarray=(1, 2)
+                +#foo:score=2
+
+                test:arrayform=(1,2,3)
+                test:arrayform=(2,3,4)
+            ]'''
+            await core.nodes(q)
+
+            q = '''[
+                inet:ipv4=4
+                inet:ipv4=5
+                inet:ipv4=6
+                :asn=4
+
+                (ou:org=*
+                 ou:org=*
+                 :names=(foo, bar))
+
+                .seen=2020
+                .univarray=(1, 2)
+                +#foo:score=2
+
+                test:arrayform=(3,4,5)
+                test:arrayform=(4,5,6)
+            ]'''
+            await core.nodes(q, opts=forkopts)
+
+            q = 'return($lib.view.get().getPropCount(inet:ipv4:asn))'
+            self.eq(6, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(inet:ipv4:asn, valu=1))'
+            self.eq(0, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(inet:ipv4:loc, valu=1))'
+            self.eq(0, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(inet:ipv4:asn, valu=4))'
+            self.eq(6, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(inet:ipv4.seen, valu=2020))'
+            self.eq(6, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(".seen", valu=2020))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(inet:ipv4, valu=1))'
+            self.eq(1, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(ou:org:names, valu=(foo, bar)))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropCount(".univarray", valu=(1, 2)))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.view.get().getPropCount(newp, valu=1))'
+                await core.callStorm(q, opts=forkopts)
+
+            q = 'return($lib.view.get().getPropArrayCount(ou:org:names))'
+            self.eq(8, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(ou:org:names, valu=foo))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(".univarray", valu=2))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayCount(test:arrayform, valu=3))'
+            self.eq(3, await core.callStorm(q, opts=forkopts))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.view.get().getPropArrayCount(newp, valu=1))'
+                await core.callStorm(q, opts=forkopts)
+
+            with self.raises(s_exc.BadTypeValu):
+                q = 'return($lib.view.get().getPropArrayCount(inet:ipv4, valu=1))'
+                await core.callStorm(q, opts=forkopts)
+
+            q = 'return($lib.view.get().getTagPropCount(foo, score))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getTagPropCount(foo, score, valu=2))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getTagPropCount(foo, score, form=ou:org, valu=2))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            with self.raises(s_exc.NoSuchTagProp):
+                q = 'return($lib.view.get().getTagPropCount(foo, newp, valu=2))'
+                await core.callStorm(q, opts=forkopts)

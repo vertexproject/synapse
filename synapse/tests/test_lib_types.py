@@ -168,6 +168,46 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(node.get('depth'), 2)
             self.eq(node.get('parent'), 'foo.bar.')
 
+            self.sorteq(
+                ['foo.', 'foo.bar.', 'foo.bar.baz.'],
+                [n.ndef[1] for n in await core.nodes('test:taxonomy')]
+            )
+
+            self.len(0, await core.nodes('test:taxonomy=foo.bar.ba'))
+            self.len(1, await core.nodes('test:taxonomy=foo.bar.baz'))
+            self.len(1, await core.nodes('test:taxonomy=foo.bar.baz.'))
+
+            self.len(0, await core.nodes('test:taxonomy=(foo, bar, ba)'))
+            self.len(1, await core.nodes('test:taxonomy=(foo, bar, baz)'))
+
+            self.len(3, await core.nodes('test:taxonomy^=f'))
+            self.len(0, await core.nodes('test:taxonomy^=f.'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.b'))
+            self.len(0, await core.nodes('test:taxonomy^=foo.b.'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.bar'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.bar.'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.b'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz.'))
+
+            self.len(0, await core.nodes('test:taxonomy^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy^=(foo, b)'))
+            self.len(2, await core.nodes('test:taxonomy^=(foo, bar)'))
+            self.len(1, await core.nodes('test:taxonomy^=(foo, bar, baz)'))
+
+            # just test one conditional since RelPropCond and
+            # AbsPropCond (for form and prop) use the same logic
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=f'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=f.'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b.'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar.'))
+
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, b)'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, bar)'))
+
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
@@ -844,6 +884,42 @@ class TypesTest(s_t_utils.SynTest):
             q = 'test:str.seen*range=((20090601, 20090701), (20110905, 20110906,))'
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes(q)
+
+            await core.nodes('''[
+                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
+                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
+                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
+                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
+                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
+                (ou:campaign=*)
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min<2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min>2022-01-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*min@=2020'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min@=(2020-01-01, 2022-01-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max>2022-05-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*max@=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max@=(2020-01-02, 2022-05-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign.created +:period*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*duration>31D'))
+
+            self.len(0, await core.nodes('ou:campaign.created +:period*min@=(2022-01-01, 2020-01-01)'))
+
+            with self.raises(s_exc.NoSuchFunc):
+                await core.nodes('ou:campaign.created +:period*min@=({})')
 
     async def test_loc(self):
         model = s_datamodel.Model()

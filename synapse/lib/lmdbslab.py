@@ -1204,6 +1204,17 @@ class Slab(s_base.Base):
         with self.xact.cursor(db=realdb) as curs:
             return curs.set_key_dup(lkey, lval)
 
+    def count(self, lkey, db=None):
+        realdb, dupsort = self.dbnames[db]
+        with self.xact.cursor(db=realdb) as curs:
+            if not curs.set_key(lkey):
+                return 0
+
+            if not dupsort:
+                return 1
+
+            return curs.count()
+
     def prefexists(self, byts, db=None):
         '''
         Returns True if a prefix exists in the db.
