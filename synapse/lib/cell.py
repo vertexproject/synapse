@@ -73,21 +73,6 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
-easyPermSchema = {
-    'type': 'object',
-    'properties': {
-        'users': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-        'roles': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-    },
-    'required': ['users', 'roles'],
-}
-
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -2992,8 +2977,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 elif rolelevel >= level:
                     return True
 
-        # allow read by default unless explicitly set
-        if level <= PERM_READ:
+        default = item['permissions'].get('default', PERM_READ)
+        if level <= default:
             return True
 
         return False
@@ -3040,13 +3025,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             perms[iden] = level
 
-    def _initEasyPerm(self, item):
+    def _initEasyPerm(self, item, default=PERM_READ):
         '''
         Ensure that the given object has populated the "easy perm" convention.
         '''
+        if default > PERM_ADMIN or default < PERM_DENY:
+            mesg = f'Invalid permission level: {default} (must be <= {PERM_ADMIN} and >= {PERM_DENY})'
+            raise s_exc.BadArg(mesg=mesg)
+
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
+        item['permissions']['default'] = default
 
     async def getTeleApi(self, link, mesg, path):
 
