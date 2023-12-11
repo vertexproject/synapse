@@ -6403,7 +6403,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Args:
             iden (str): The iden of the vault to edit.
-            valu (str): New configs object to store on the vault. `s_common.novalu` to set an empty configs.
+            valu (str): New configs object to store on the vault.
 
         Raises:
             synapse.exc.BadArg: `valu` is not a dictionary.
@@ -6433,7 +6433,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Args:
             iden (str): The iden of the vault to edit.
-            valu (str): New secrets object to store on the vault. `s_common.novalu` to set an empty secrets.
+            valu (str): New secrets object to store on the vault.
 
         Raises:
             synapse.exc.BadArg: `valu` is not a dictionary.
