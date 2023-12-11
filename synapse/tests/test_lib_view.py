@@ -581,12 +581,7 @@ class ViewTest(s_t_utils.SynTest):
 
             self.true(await core.callStorm('return($lib.globals.get(trig))'))
 
-            self.eq({
-                'meta:source': 0,
-                'syn:tag': 0,
-                'test:arrayprop': 0,
-                'test:str': 0,
-            }, await layr.getFormCounts())
+            self.eq({}, await layr.getFormCounts())
 
             self.eq(0, layr.layrslab.stat(db=layr.bynid)['entries'])
             self.eq(0, layr.layrslab.stat(db=layr.indxdb)['entries'])

@@ -1486,14 +1486,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             for layr in self.layers.values():
                 if not prop.isform and prop.isuniv:
-                    if await layr.getUnivPropCount(prop.name, maxsize=1):
+                    if await layr.getPropCount(None, prop.name):
                         break
 
                 else:
-                    if await layr.getPropCount(propname, maxsize=1):
+                    if await layr.getPropCount(propname):
                         break
 
-                    if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
+                    if await layr.getPropCount(prop.form.name, prop.name):
                         break
             else:
                 count += 1
