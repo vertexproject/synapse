@@ -959,6 +959,12 @@ class InetModelTest(s_t_utils.SynTest):
                 await core.nodes('[inet:ipv4=foo-bar-duck.com]')
 
             with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ipv4=3.87/nice/index.php]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ipv4=3.87/33]')
+
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[test:str="foo"] [inet:ipv4=$node.value()]')
 
             with self.raises(s_exc.BadTypeValu):

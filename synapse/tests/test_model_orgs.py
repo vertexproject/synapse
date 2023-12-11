@@ -86,11 +86,13 @@ class OuModelTest(s_t_utils.SynTest):
                 'reporter': '*',
                 'reporter:name': 'vertex',
                 'timeline': timeline,
+                'mitre:attack:campaign': 'C0011',
             }
             q = '''[(ou:campaign=$valu :org=$p.org :goal=$p.goal :goals=$p.goals :actors=$p.actors
             :camptype=$p.camptype :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :success=$p.success
             :techniques=$p.techniques :sophistication=$p.sophistication :tag=$p.tag
             :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
+            :mitre:attack:campaign=$p."mitre:attack:campaign"
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': camp, 'p': props}})
             self.len(1, nodes)
@@ -111,6 +113,13 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('timeline'), timeline)
             self.nn(node.get('reporter'))
             self.eq(node.get('reporter:name'), 'vertex')
+            self.eq(node.get('mitre:attack:campaign'), 'C0011')
+
+            nodes = await core.nodes(f'ou:campaign={camp} -> it:mitre:attack:campaign')
+            self.len(1, nodes)
+            nodes = nodes[0]
+            self.eq(nodes.ndef, ('it:mitre:attack:campaign', 'C0011'))
+
             # type norming first
             # ou:name
             t = core.model.type('ou:name')
@@ -413,7 +422,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'url': 'http://arrowcon.org/2018/dinner',
             }
             q = '''[(ou:conference:event=$valu :name=$p.name :desc=$p.desc :start=$p.start :end=$p.end
-                    :contact=$p.contact :place=$p.place :url=$p.url)]'''
+                    :conference=$p.conference :contact=$p.contact :place=$p.place :url=$p.url)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -432,10 +441,10 @@ class OuModelTest(s_t_utils.SynTest):
                 'departed': '201803012300',
                 'roles': ['staff', 'speaker'],
             }
-            q = '[{ou:conference:event:attendee=$valu :arrived=$p.arrived :departed=$p.departed :roles=$p.roles}]'
-            await core.nodes(q, opts={'vars': {'valu': (c0, person0), 'p': props}})
+            q = '[(ou:conference:event:attendee=$valu :arrived=$p.arrived :departed=$p.departed :roles=$p.roles)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': (c0, person0), 'p': props}})
             self.len(1, nodes)
-            node = node[0]
+            node = nodes[0]
             self.eq(node.ndef[1], (c0, person0))
             self.eq(node.get('arrived'), 1519932180000)
             self.eq(node.get('departed'), 1519945200000)
