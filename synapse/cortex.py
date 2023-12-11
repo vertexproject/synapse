@@ -6336,8 +6336,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except s_exc.NotMsgpackSafe as exc:
                 raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
 
-            secrets[key] = valu
-
         return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
 
     async def setVaultConfigs(self, iden, key, valu):
@@ -6374,8 +6372,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
                 raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
-
-            configs[key] = valu
 
         return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 
