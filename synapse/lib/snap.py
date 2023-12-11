@@ -195,7 +195,7 @@ class ProtoNode:
 
         return await self.ctx.addNode('syn:tag', norm, norminfo=info)
 
-    def getTag(self, tag):
+    def getTag(self, tag, defval=None):
 
         if tag in self.tagdels:
             return None
@@ -205,7 +205,7 @@ class ProtoNode:
             return curv
 
         if self.node is not None:
-            return self.node.getTag(tag)
+            return self.node.getTag(tag, defval=defval)
 
     async def addTag(self, tag, valu=(None, None), tagnode=None):
 
@@ -287,9 +287,6 @@ class ProtoNode:
 
         name = '.'.join(path)
 
-        if self.getTag(name) is None:
-            return False
-
         if len(path) > 1:
 
             parent = '.'.join(path[:-1])
@@ -321,7 +318,8 @@ class ProtoNode:
             if tname.startswith(pref):
                 self._delTag(tname)
 
-        self._delTag(name)
+        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+            self._delTag(name)
 
         return True
 
