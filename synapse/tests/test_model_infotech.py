@@ -1579,100 +1579,211 @@ class InfotechModelTest(s_t_utils.SynTest):
             origin = s_common.guid()
             label = s_common.guid()
             issuelabel = s_common.guid()
+            submod = s_common.guid()
+            remote = s_common.guid()
+            parent = s_common.guid()
+            replyto = s_common.guid()
             file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
 
             props = {
-                ('it:dev:repo', repo): {
-                    'name': 'synapse',
-                    'desc': 'Synapse Central Intelligence System',
-                    'created': 0,
-                    'url': 'https://github.com/vertexproject/synapse',
-                    'type': 'svn.',
-                    'submodules': (s_common.guid(),),
-                },
-
-                ('it:dev:repo:remote', s_common.guid()): {
-                    'name': 'origin',
-                    'repo': repo,
-                    'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
-                    'remote': origin,
-                },
-
-                ('it:dev:repo:commit', commit): {
-                    'repo': repo,
-                    'branch': branch,
-                    'parents': (s_common.guid(),),
-                    'mesg': 'fancy new release',
-                    'id': 'r12345',
-                    'created': 0,
-                    'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
-                },
-
-                ('it:dev:repo:diff', diff): {
-                    'commit': commit,
-                    'file': file,
-                    'path': 'synapse/tests/test_model_infotech.py',
-                    'url': 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1',
-                },
-
-                ('it:dev:repo:issue', issue): {
-                    'repo': repo,
-                    'title': 'a fancy new release',
-                    'desc': 'Gonna be a big release friday',
-                    'created': 1,
-                    'updated': 1,
-                    'id': '1234',
-                    'url': 'https://github.com/vertexproject/synapse/issues/2821',
-                },
-
-                ('it:dev:repo:label', label): {
-                    'id': '123456789',
-                    'title': 'new feature',
-                    'desc': 'a super cool new feature'
-                },
-
-                ('it:dev:repo:issue:label', issuelabel): {
-                    'issue': issue,
-                    'label': label,
-                    'applied': 97,
-                    'removed': 98
-                },
-
-                ('it:dev:repo:issue:comment', icom): {
-                    'issue': issue,
-                    'text': 'a comment on an issue',
-                    'replyto': s_common.guid(),
-                    'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
-                    'created': 12,
-                    'updated': 93
-                },
-
-                ('it:dev:repo:diff:comment', dcom): {
-                    'diff': diff,
-                    'text': 'types types types types types',
-                    'replyto': s_common.guid(),
-                    'line': 100,
-                    'offset': 100,
-                    'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
-                    'created': 1,
-                    'updated': 3
-                },
-
-                ('it:dev:repo:branch', branch): {
-                    'parent': s_common.guid(),
-                    'start': commit,
-                    'name': 'IT_dev_repo_models',
-                    'url': 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models',
-                    'created': 0,
-                    'merged': 1,
-                    'deleted': 2
-                }
+                'name': 'synapse',
+                'desc': 'Synapse Central Intelligence System',
+                'created': 0,
+                'url': 'https://github.com/vertexproject/synapse',
+                'type': 'svn.',
+                'submodules': (submod,),
             }
+            q = '''[(it:dev:repo=$valu :name=$p.name :desc=$p.desc :created=$p.created :url=$p.url :type=$p.type
+                :submodules=$p.submodules )]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': repo, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo', repo))
+            self.eq(node.get('name'), 'synapse')
+            self.eq(node.get('desc'), 'Synapse Central Intelligence System')
+            self.eq(node.get('created'), 0)
+            self.eq(node.get('url'), 'https://github.com/vertexproject/synapse')
+            self.eq(node.get('type'), 'svn.')
+            self.eq(node.get('submodules'), (submod,))
 
-            async with await core.snap() as snap:
-                for (form, valu), props in props.items():
-                    node = await snap.addNode(form, valu, props=props)
-                    self.checkNode(node, ((form, valu), props))
+            props = {
+                'name': 'origin',
+                'repo': repo,
+                'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
+                'remote': origin,
+            }
+            q = '''[(it:dev:repo:remote=$valu :name=$p.name :repo=$p.repo :url=$p.url :remote=$p.remote)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': remote, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:remote', remote))
+            self.eq(node.get('name'), 'origin')
+            self.eq(node.get('repo'), repo),
+            self.eq(node.get('url'), 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging')
+            self.eq(node.get('remote'), origin)
+
+            props = {
+                'repo': repo,
+                'branch': branch,
+                'parents': (parent,),
+                'mesg': 'a fancy new release',
+                'id': 'r12345',
+                'created': 0,
+                'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
+            }
+            q = '''[(it:dev:repo:commit=$valu :repo=$p.repo :branch=$p.branch :parents=$p.parents :mesg=$p.mesg
+                :id=$p.id :created=$p.created :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': commit, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:commit', commit))
+            self.eq(node.get('repo'), repo)
+            self.eq(node.get('branch'), branch)
+            self.eq(node.get('parents'), (parent,))
+            self.eq(node.get('mesg'), 'a fancy new release')
+            self.eq(node.get('id'), 'r12345')
+            self.eq(node.get('created'), 0)
+            self.eq(node.get('url'),
+                    'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf')
+
+            props = {
+                'commit': commit,
+                'file': file,
+                'path': 'synapse/tets/test_model_infotech.py',
+                'url': 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1',
+            }
+            q = '''[(it:dev:repo:diff=$valu :commit=$p.commit :file=$p.file :path=$p.path :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': diff, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:diff', diff))
+            self.eq(node.get('commit'), commit)
+            self.eq(node.get('file'), file)
+            self.eq(node.get('path'), 'synapse/tets/test_model_infotech.py')
+            self.eq(node.get('url'), 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1')
+
+            props = {
+                'repo': repo,
+                'title': 'a fancy new release',
+                'desc': 'Gonna be a big release friday',
+                'created': 1,
+                'updated': 1,
+                'id': '1234',
+                'url': 'https://github.com/vertexproject/synapse/issues/2821',
+            }
+            q = '''[(it:dev:repo:issue=$valu :repo=$p.repo :title=$p.title :desc=$p.desc
+                :created=$p.created :updated=$p.updated :id=$p.id :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': issue, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:issue', issue))
+            self.eq(node.get('repo'), repo)
+            self.eq(node.get('title'), 'a fancy new release')
+            self.eq(node.get('desc'), 'Gonna be a big release friday')
+            self.eq(node.get('created'), 1)
+            self.eq(node.get('updated'), 1)
+            self.eq(node.get('id'), '1234')
+            self.eq(node.get('url'), 'https://github.com/vertexproject/synapse/issues/2821')
+
+            props = {
+                'id': '123456789',
+                'title': 'new feature',
+                'desc': 'a super cool new feature'
+            }
+            q = '[(it:dev:repo:label=$valu :id=$p.id :title=$p.title :desc=$p.desc)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': label, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:label', label))
+            self.eq(node.get('id'), '123456789')
+            self.eq(node.get('title'), 'new feature')
+            self.eq(node.get('desc'), 'a super cool new feature')
+
+            props = {
+                'issue': issue,
+                'label': label,
+                'applied': 97,
+                'removed': 98
+            }
+            q = '''[(it:dev:repo:issue:label=$valu :issue=$p.issue :label=$p.label :applied=$p.applied
+                :removed=$p.removed)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': issuelabel, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:issue:label', issuelabel))
+            self.eq(node.get('label'), label)
+            self.eq(node.get('issue'), issue)
+            self.eq(node.get('applied'), 97)
+            self.eq(node.get('removed'), 98)
+
+            props = {
+                'issue': issue,
+                'text': 'a comment on an issue',
+                'replyto': replyto,
+                'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
+                'created': 12,
+                'updated': 93
+            }
+            q = '''[(it:dev:repo:issue:comment=$valu :issue=$p.issue :text=$p.text :replyto=$p.replyto
+                :url=$p.url :created=$p.created :updated=$p.updated)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': icom, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:issue:comment', icom))
+            self.eq(node.get('issue'), issue)
+            self.eq(node.get('text'), 'a comment on an issue')
+            self.eq(node.get('replyto'), replyto)
+            self.eq(node.get('url'), 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758')
+            self.eq(node.get('created'), 12)
+            self.eq(node.get('updated'), 93)
+
+            props = {
+                'diff': diff,
+                'text': 'types types types types types',
+                'replyto': replyto,
+                'line': 100,
+                'offset': 100,
+                'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
+                'created': 1,
+                'updated': 3
+            }
+            q = '''[(it:dev:repo:diff:comment=$valu :diff=$p.diff :text=$p.text :replyto=$p.replyto
+                :line=$p.line :offset=$p.offset :url=$p.url :created=$p.created :updated=$p.updated)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': dcom, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:diff:comment', dcom))
+            self.eq(node.get('diff'), diff)
+            self.eq(node.get('text'), 'types types types types types')
+            self.eq(node.get('replyto'), replyto)
+            self.eq(node.get('line'), 100)
+            self.eq(node.get('offset'), 100)
+            self.eq(node.get('url'), 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069')
+            self.eq(node.get('created'), 1)
+            self.eq(node.get('updated'), 3)
+
+            props = {
+                'parent': parent,
+                'start': commit,
+                'name': 'IT_dev_repo_models',
+                'url': 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models',
+                'created': 0,
+                'merged': 1,
+                'deleted': 2
+            }
+            q = '''[(it:dev:repo:branch=$valu :parent=$p.parent :start=$p.start :name=$p.name
+                :url=$p.url :created=$p.created :merged=$p.merged :deleted=$p.deleted)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': branch, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:repo:branch', branch))
+            self.eq(node.get('parent'), parent)
+            self.eq(node.get('start'), commit)
+            self.eq(node.get('name'), 'IT_dev_repo_models')
+            self.eq(node.get('url'), 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models')
+            self.eq(node.get('created'), 0)
+            self.eq(node.get('merged'), 1)
+            self.eq(node.get('deleted'), 2)
 
             nodes = await core.nodes('it:dev:repo')
             self.len(2, nodes)
