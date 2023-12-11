@@ -144,7 +144,7 @@ stormcmds = [
                     $lib.print("{name}...", name=$name)
 
                     for $layr in $lib.layer.list() {
-                        if $layr.getPropCount($name, maxsize=1) {
+                        if $layr.getPropCount($name) {
                             $lib.warn("Layer {iden} still contains {name}", iden=$layr.iden, name=$name)
                             $ok = $lib.false
                         }
