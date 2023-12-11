@@ -323,31 +323,32 @@ class InetModelTest(s_t_utils.SynTest):
                     self.checkNode(node, ((formname, expected_valu), expected_props))
 
     async def test_download(self):
-        formname = 'inet:download'
-        input_props = {
-            'time': 0,
-            'file': 64 * 'b',
-            'fqdn': 'vertex.link',
-            'client': 'tcp://127.0.0.1:45654',
-            'server': 'tcp://1.2.3.4:80'
-        }
-        expected_props = {
-            'time': 0,
-            'file': 'sha256:' + 64 * 'b',
-            'fqdn': 'vertex.link',
-            'client': 'tcp://127.0.0.1:45654',
-            'client:ipv4': 2130706433,
-            'client:port': 45654,
-            'client:proto': 'tcp',
-            'server': 'tcp://1.2.3.4:80',
-            'server:ipv4': 16909060,
-            'server:port': 80,
-            'server:proto': 'tcp',
-        }
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, 32 * 'a', props=input_props)
-                self.checkNode(node, ((formname, 32 * 'a'), expected_props))
+
+            valu = s_common.guid()
+            props = {
+                'time': 0,
+                'file': 64 * 'b',
+                'fqdn': 'vertex.link',
+                'client': 'tcp://127.0.0.1:45654',
+                'server': 'tcp://1.2.3.4:80'
+            }
+            q = '[(inet:download=$valu :time=$p.time :file=$p.file :fqdn=$p.fqdn :client=$p.client :server=$p.server)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:download', valu))
+            self.eq(node.get('time'), 0)
+            self.eq(node.get('file'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('fqdn'), 'vertex.link')
+            self.eq(node.get('client'), 'tcp://127.0.0.1:45654')
+            self.eq(node.get('client:ipv4'), 2130706433)
+            self.eq(node.get('client:port'), 45654)
+            self.eq(node.get('client:proto'), 'tcp')
+            self.eq(node.get('server'), 'tcp://1.2.3.4:80')
+            self.eq(node.get('server:ipv4'), 0x01020304)
+            self.eq(node.get('server:port'), 80)
+            self.eq(node.get('server:proto'), 'tcp')
 
     async def test_email(self):
         formname = 'inet:email'
@@ -542,47 +543,42 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
 
             # Form Tests ======================================================
-            valu = 'api.vertex.link'
-            expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('domain'), 'vertex.link')
-                self.eq(node.get('host'), 'api')
-                # self.eq(node.get('issuffix'), 0)
-                # self.eq(node.get('iszone'), 0)
-                self.eq(node.get('zone'), 'vertex.link')
+            nodes = await core.nodes('[inet:fqdn=api.vertex.link]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:fqdn', 'api.vertex.link'))
+            self.eq(node.get('domain'), 'vertex.link')
+            self.eq(node.get('host'), 'api')
+            self.eq(node.get('issuffix'), 0)
+            self.eq(node.get('iszone'), 0)
+            self.eq(node.get('zone'), 'vertex.link')
 
-            async with await core.snap() as snap:
-                nvalu = 'vertex.link'
-                expected_ndef = (formname, nvalu)
-                node = await snap.getNodeByNdef((formname, nvalu))
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('domain'), 'link')
-                self.eq(node.get('host'), 'vertex')
-                self.eq(node.get('issuffix'), 0)
-                self.eq(node.get('iszone'), 1)
-                self.eq(node.get('zone'), 'vertex.link')
+            nodes = await core.nodes('inet:fqdn=vertex.link')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
+            self.eq(node.get('domain'), 'link')
+            self.eq(node.get('host'), 'vertex')
+            self.eq(node.get('issuffix'), 0)
+            self.eq(node.get('iszone'), 1)
+            self.eq(node.get('zone'), 'vertex.link')
 
-            async with await core.snap() as snap:
-                nvalu = 'link'
-                expected_ndef = (formname, nvalu)
-                node = await snap.getNodeByNdef((formname, nvalu))
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('host'), 'link')
-                self.eq(node.get('issuffix'), 1)
-                self.eq(node.get('iszone'), 0)
-
+            nodes = await core.nodes('inet:fqdn=link')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:fqdn', 'link'))
+            self.eq(node.get('host'), 'link')
+            self.eq(node.get('issuffix'), 1)
+            self.eq(node.get('iszone'), 0)
             # Demonstrate wildcard
-            async with await core.snap() as snap:
-                self.len(3, await snap.nodes('inet:fqdn="*"'))
-                self.len(3, await snap.nodes('inet:fqdn="*link"'))
-                self.len(2, await snap.nodes('inet:fqdn="*.link"'))
-                self.len(1, await snap.nodes('inet:fqdn="*.vertex.link"'))
-                with self.raises(s_exc.BadLiftValu):
-                    await snap.nodes('inet:fqdn=api.*.link')
+            self.len(3, await core.nodes('inet:fqdn="*"'))
+            self.len(3, await core.nodes('inet:fqdn="*link"'))
+            self.len(2, await core.nodes('inet:fqdn="*.link"'))
+            self.len(1, await core.nodes('inet:fqdn="*.vertex.link"'))
+            with self.raises(s_exc.BadLiftValu):
+                await core.nodes('inet:fqdn=api.*.link')
 
             q = 'inet:fqdn="*.link" +inet:fqdn="*vertex.link"'
             nodes = await core.nodes(q)
@@ -598,6 +594,13 @@ class InetModelTest(s_t_utils.SynTest):
             q = 'inet:fqdn="*.link" +inet:fqdn=""'
             nodes = await core.nodes(q)
             self.len(0, nodes)
+
+            # Recursion depth test
+            fqdn = '.'.join(['x' for x in range(150)]) + '.foo.com'
+            q = f'[ inet:fqdn="{fqdn}"]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('zone'), 'foo.com')
 
     async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -884,36 +887,25 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Form Tests ======================================================
             place = s_common.guid()
-            input_props = {
+            props = {
                 'asn': 3,
                 'loc': 'uS',
                 'dns:rev': 'vertex.link',
                 'latlong': '-50.12345, 150.56789',
                 'place': place,
             }
-            expected_props = {
-                'asn': 3,
-                'loc': 'us',
-                'type': 'unicast',
-                'dns:rev': 'vertex.link',
-                'latlong': (-50.12345, 150.56789),
-                'place': place,
-            }
-            valu_str = '1.2.3.4'
-            valu_int = 16909060
-            expected_ndef = (formname, valu_int)
-
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu_str, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-            # XXX FIXME - stopped here
-            # q = '[(inet:ipv4=$valu :asn=$p.asn :loc=$p.loc :dns:rec=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
-            # opts = {'vars': {'p': props}}
-            # nodes = await core.nodes(q, opts=opts)
-            # self.len(1, nodes)
-            # node = nodes[0]
-            # self.eq(node.ndef, (''))
+            q = '[(inet:ipv4=$valu :asn=$p.asn :loc=$p.loc :dns:rec=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
+            opts = {'vars': {'valu': '1.2.3.4', 'p': props}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:ipv4', 0x01020304))
+            self.eq(node.get('asn'), 3)
+            self.eq(node.get('loc'), 'us')
+            self.eq(node.get('type'), 'unicast')
+            self.eq(node.get('dns:rev'), 'vertex.link')
+            self.eq(node.get('latlong'), (-50.12345, 150.56789))
+            self.eq(node.eget('place'), place)
 
             # > / < lifts and filters
             self.len(4, await core.nodes('[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 inet:ipv4=3]'))
@@ -2393,6 +2385,49 @@ class InetModelTest(s_t_utils.SynTest):
             self.none(node.get('rec'))
             self.eq(node.get('ipv6'), '3300:100:1::ffff')
 
+            contact = s_common.guid()
+            pscontact = s_common.guid()
+            subcontact = s_common.guid()
+            props = {
+                'contact': pscontact,
+                'asof': 2554869000000,
+                'created': 2554858000000,
+                'updated': 2554858000000,
+                'role': 'registrant',
+                'roles': ('abuse', 'administrative', 'technical'),
+                'asn': 123456,
+                'id': 'SPM-3',
+                'links': ('http://myrdap.com/SPM3',),
+                'status': 'active',
+                'contacts': (subcontact,),
+            }
+            q = '''[(inet:whois:ipcontact=$valu :contact=$p.contact
+            :asof=$p.asof :created=$p.created :updated=$p.updated :role=$p.role :roles=$p.roles
+            :asn=$p.asn :id=$p.id :links=$p.links :status=$p.status :contacts=$p.contacts)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': contact, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:whois:ipcontact', contact))
+            self.eq(node.get('contact'), pscontact)
+            self.eq(node.get('contacts'), (subcontact,))
+            self.eq(node.get('asof'), 2554869000000)
+            self.eq(node.get('created'), 2554858000000)
+            self.eq(node.get('updated'), 2554858000000)
+            self.eq(node.get('role'), 'registrant')
+            self.eq(node.get('roles'), ('abuse', 'administrative', 'technical'))
+            self.eq(node.get('asn'), 123456)
+            self.eq(node.get('id'), 'SPM-3')
+            self.eq(node.get('links'), ('http://myrdap.com/SPM3',))
+            self.eq(node.get('status'), 'active')
+            #  check regid pivot
+            valu = s_common.guid()
+            nodes = await core.nodes('[inet:whois:iprec=$valu :id=$id]',
+                                     opts={'vars': {'valu': valu, 'id': props.get('id')}})
+            self.len(1, nodes)
+            nodes = await core.nodes('inet:whois:ipcontact=$valu :id -> inet:whois:iprec:id',
+                                     opts={'vars': {'valu': contact}})
+            self.len(1, nodes)
+
     async def test_whois_rec(self):
 
         async with self.getTestCore() as core:
@@ -2496,37 +2531,6 @@ class InetModelTest(s_t_utils.SynTest):
                 guid = s_common.guid()
                 props = {'country': 'u9'}
                 await self.asyncraises(s_exc.BadTypeValu, snap.addNode('inet:whois:iprec', guid, props=props))
-
-    async def test_whois_ipcontact(self):
-        pscontact = s_common.guid()
-        contact = s_common.guid()
-        subcontact = s_common.guid()
-        props = {
-            'contact': pscontact,
-            'asof': 2554869000000,
-            'created': 2554858000000,
-            'updated': 2554858000000,
-            'role': 'registrant',
-            'roles': ('abuse', 'administrative', 'technical'),
-            'asn': 123456,
-            'id': 'SPM-3',
-            'links': ('http://myrdap.com/SPM3',),
-            'status': 'active',
-            'contacts': (subcontact,),
-        }
-
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('inet:whois:ipcontact', contact, props=props)
-                self.checkNode(node, (('inet:whois:ipcontact', contact), props))
-
-                # check regid pivot
-                iprec_guid = s_common.guid()
-                await snap.addNode(f'inet:whois:iprec', iprec_guid, props={'id': props['id']})
-                scmd = f'inet:whois:ipcontact={contact} :id -> inet:whois:iprec:id'
-                nodes = await core.nodes(scmd)
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('inet:whois:iprec', iprec_guid))
 
     async def test_wifi_collection(self):
         async with self.getTestCore() as core:
@@ -2730,12 +2734,3 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
-
-    async def test_model_inet_onset_depth(self):
-
-        async with self.getTestCore() as core:
-            fqdn = '.'.join(['x' for x in range(150)]) + '.foo.com'
-            q = f'[ inet:fqdn="{fqdn}"]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq(nodes[0].get('zone'), 'foo.com')

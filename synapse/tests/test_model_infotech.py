@@ -367,122 +367,157 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-
-                valu = '00000000-0000-0000-0000-00000000000A'
-                idfa = await snap.addNode('it:os:ios:idfa', valu)
-                self.eq(idfa.ndef[1], '00000000-0000-0000-0000-00000000000a')
+            nodes = await core.nodes('[it:os:ios:idfa="00000000-0000-0000-0000-00000000000A"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:ios:idfa', '00000000-0000-0000-0000-00000000000a'))
 
     async def test_infotech_android(self):
 
-        softver = s_common.guid()
-
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[it:os:android:perm="Foo Perm"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:perm', 'Foo Perm'))
 
-                perm = await snap.addNode('it:os:android:perm', 'Foo Perm')
-                self.eq(perm.ndef[1], 'Foo Perm')
-                intent = await snap.addNode('it:os:android:intent', 'Foo Intent')
-                self.eq(intent.ndef[1], 'Foo Intent')
+            nodes = await core.nodes('[it:os:android:intent="Foo Intent"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:intent', 'Foo Intent'))
 
-                ilisn = await snap.addNode('it:os:android:ilisten', (softver, 'Listen Test'))
-                self.eq(ilisn.get('app'), softver)
-                self.eq(ilisn.get('intent'), 'Listen Test')
+            softver = s_common.guid()
+            valu = (softver, 'Listen Test')
+            nodes = await core.nodes('[it:os:android:ilisten=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:ilisten', (softver, 'Listen Test')))
+            self.eq(node.get('app'), softver)
+            self.eq(node.get('intent'), 'Listen Test')
 
-                ibcast = await snap.addNode('it:os:android:ibroadcast', (softver, 'Broadcast Test'))
-                self.eq(ibcast.get('app'), softver)
-                self.eq(ibcast.get('intent'), 'Broadcast Test')
+            valu = (softver, 'Broadcast Test')
+            nodes = await core.nodes('[it:os:android:ibroadcast=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:ibroadcast', (softver, 'Broadcast Test')))
+            self.eq(node.get('app'), softver)
+            self.eq(node.get('intent'), 'Broadcast Test')
 
-                reqperm = await snap.addNode('it:os:android:reqperm', (softver, 'Test Perm'))
-                self.eq(reqperm.get('app'), softver)
-                self.eq(reqperm.get('perm'), 'Test Perm')
+            valu = (softver, 'Test Perm')
+            nodes = await core.nodes('[it:os:android:reqperm=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:reqperm', (softver, 'Test Perm')))
+            self.eq(node.get('app'), softver)
+            self.eq(node.get('perm'), 'Test Perm')
 
-                valu = 'someIdentifier'
-                aaid = await snap.addNode('it:os:android:aaid', valu)
-                self.eq(aaid.ndef[1], 'someidentifier')
+            nodes = await core.nodes('[it:os:android:aaid=someIdentifier]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:os:android:aaid', 'someidentifier'))
 
     async def test_it_forms_simple(self):
         async with self.getTestCore() as core:
             place = s_common.guid()
-            async with await core.snap() as snap:
-                node = await snap.addNode('it:hostname', 'Bobs Computer')
-                self.eq(node.ndef[1], 'bobs computer')
-                org0 = s_common.guid()
-                host0 = s_common.guid()
-                sver0 = s_common.guid()
-                cont0 = s_common.guid()
-                hprops = {
-                    'name': 'Bobs laptop',
-                    'desc': 'Bobs paperweight',
-                    'ipv4': '1.2.3.4',
-                    'latlong': '0.0, 0.0',
-                    'place': place,
-                    'os': sver0,
-                    'manu': 'Dull',
-                    'model': 'Lutitude 8249',
-                    'serial': '111-222',
-                    'loc': 'us.hehe.haha',
-                    'operator': cont0,
-                    'org': org0,
-                    'ext:id': 'foo123'
-                }
-                node = await snap.addNode('it:host', host0, hprops)
-                self.eq(node.ndef[1], host0)
-                self.eq(node.get('name'), 'bobs laptop')
-                self.eq(node.get('desc'), 'Bobs paperweight')
-                self.eq(node.get('ipv4'), 0x01020304)
-                self.eq(node.get('latlong'), (0.0, 0.0))
-                self.eq(node.get('place'), place)
-                self.eq(node.get('os'), sver0)
-                self.eq(node.get('loc'), 'us.hehe.haha')
-                self.eq(node.get('org'), org0)
-                self.eq(node.get('operator'), cont0)
-                self.eq(node.get('ext:id'), 'foo123')
+            nodes = await core.nodes('[it:hostname="Bobs Computer"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:hostname', 'bobs computer'))
 
-                node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
-                self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
-                self.eq(node.get('host'), host0)
-                self.eq(node.get('url'), 'http://vertex.ninja/cool.php')
+            org0 = s_common.guid()
+            host0 = s_common.guid()
+            sver0 = s_common.guid()
+            cont0 = s_common.guid()
+            props = {
+                'name': 'Bobs laptop',
+                'desc': 'Bobs paperweight',
+                'ipv4': '1.2.3.4',
+                'latlong': '0.0, 0.0',
+                'place': place,
+                'os': sver0,
+                'manu': 'Dull',
+                'model': 'Lutitude 8249',
+                'serial': '111-222',
+                'loc': 'us.hehe.haha',
+                'operator': cont0,
+                'org': org0,
+                'ext:id': 'foo123'
+            }
+            q = '''[(it:host=$valu :name=$p.name :desc=$p.desc :ipv4=$p.ipv4 :place=$p.place :latlong=$p.latlong
+                :os=$p.os :manu=$p.manu :model=$p.model :serial=$p.serial :loc=$p.loc :operator=$p.operator
+                :org=$p.org :ext:id=$p."ext:id")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': host0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], host0)
+            self.eq(node.get('name'), 'bobs laptop')
+            self.eq(node.get('desc'), 'Bobs paperweight')
+            self.eq(node.get('ipv4'), 0x01020304)
+            self.eq(node.get('latlong'), (0.0, 0.0))
+            self.eq(node.get('place'), place)
+            self.eq(node.get('os'), sver0)
+            self.eq(node.get('loc'), 'us.hehe.haha')
+            self.eq(node.get('org'), org0)
+            self.eq(node.get('operator'), cont0)
+            self.eq(node.get('ext:id'), 'foo123')
 
-                node = await snap.addNode('it:dev:int', 0x61C88648)
-                self.eq(node.ndef[1], 1640531528)
+            valu = (host0, 'http://vertex.ninja/cool.php')
+            nodes = await core.nodes('[it:hosturl=$valu]', opts={'vars': {'valu': valu}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:hosturl', (host0, 'http://vertex.ninja/cool.php')))
+            self.eq(node.get('host'), host0)
+            self.eq(node.get('url'), 'http://vertex.ninja/cool.php')
 
-                cprops = {
-                    'desc': 'Some words.',
-                }
-                node = await snap.addNode('it:sec:cve', 'CVE-2013-9999', cprops)
-                self.eq(node.ndef[1], 'cve-2013-9999')
-                self.eq(node.get('desc'), 'Some words.')
+            nodes = await core.nodes('[it:dev:int=0x61c88648]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:int', 1640531528))
 
-                node = await snap.addNode('it:sec:cve', 'CVE\u20122013\u20131138', cprops)
-                self.eq(node.ndef[1], 'cve-2013-1138')
+            nodes = await core.nodes('[it:sec:cve=CVE-2013-9999 :desc="Some words."]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-9999'))
+            self.eq(node.get('desc'), 'Some words.')
 
-                node = await snap.addNode('it:sec:cve', 'CVE\u20112013\u20140001', cprops)
-                self.eq(node.ndef[1], 'cve-2013-0001')
+            nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-1138'))
 
-                hash0 = s_common.guid()
-                hprops = {
-                    'salt': 'B33F',
-                    'hash:md5': s_m_crypto.ex_md5,
-                    'hash:sha1': s_m_crypto.ex_sha1,
-                    'hash:sha256': s_m_crypto.ex_sha256,
-                    'hash:sha512': s_m_crypto.ex_sha512,
-                    'hash:lm': s_m_crypto.ex_md5,
-                    'hash:ntlm': s_m_crypto.ex_md5,
-                    'passwd': "I've got the same combination on my luggage!",
-                }
-                node = await snap.addNode('it:auth:passwdhash', hash0, hprops)
-                self.eq(node.ndef[1], hash0)
-                self.eq(node.get('salt'), 'b33f')
-                self.eq(node.get('hash:md5'), s_m_crypto.ex_md5)
-                self.eq(node.get('hash:sha1'), s_m_crypto.ex_sha1)
-                self.eq(node.get('hash:sha256'), s_m_crypto.ex_sha256)
-                self.eq(node.get('hash:sha512'), s_m_crypto.ex_sha512)
-                self.eq(node.get('hash:lm'), s_m_crypto.ex_md5)
-                self.eq(node.get('hash:ntlm'), s_m_crypto.ex_md5)
-                self.eq(node.get('passwd'), "I've got the same combination on my luggage!")
+            nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20112013\u20140001'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:sec:cve', 'cve-2013-0001'))
+
+            hash0 = s_common.guid()
+            props = {
+                'salt': 'B33F',
+                'hash:md5': s_m_crypto.ex_md5,
+                'hash:sha1': s_m_crypto.ex_sha1,
+                'hash:sha256': s_m_crypto.ex_sha256,
+                'hash:sha512': s_m_crypto.ex_sha512,
+                'hash:lm': s_m_crypto.ex_md5,
+                'hash:ntlm': s_m_crypto.ex_md5,
+                'passwd': "I've got the same combination on my luggage!",
+            }
+            q = '''[(it:auth:passwdhash=$valu :salt=$p.salt :hash:md5=$p."hash:md5" :hash:sha1=$p."hash:sha1"
+                :hash:sha256=$p."hash:sha256" :hash:sha512=$p."hash:sha512"
+                :hash:lm=$p."hash:lm" :hash:ntlm=$p."hash:ntlm"
+                :passwd=$p.passwd)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': hash0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+
+            self.eq(node.ndef, ('it:auth:passwdhash', hash0))
+            self.eq(node.get('salt'), 'b33f')
+            self.eq(node.get('hash:md5'), s_m_crypto.ex_md5)
+            self.eq(node.get('hash:sha1'), s_m_crypto.ex_sha1)
+            self.eq(node.get('hash:sha256'), s_m_crypto.ex_sha256)
+            self.eq(node.get('hash:sha512'), s_m_crypto.ex_sha512)
+            self.eq(node.get('hash:lm'), s_m_crypto.ex_md5)
+            self.eq(node.get('hash:ntlm'), s_m_crypto.ex_md5)
+            self.eq(node.get('passwd'), "I've got the same combination on my luggage!")
 
             nodes = await core.nodes('[ it:adid=visi ]')
             self.eq(('it:adid', 'visi'), nodes[0].ndef)
@@ -580,229 +615,262 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                # it:prod:soft
-                prod0 = s_common.guid()
-                org0 = s_common.guid()
-                person0 = s_common.guid()
-                teqs = (s_common.guid(), s_common.guid())
-                file0 = 'a' * 64
-                acct0 = ('vertex.link', 'pennywise')
-                url0 = 'https://vertex.link/products/balloonmaker'
-                sprops = {
-                    'name': 'Balloon Maker',
-                    'type': 'hehe.haha',
-                    'names': ('clowns inc',),
-                    'desc': "Pennywise's patented balloon blower upper",
-                    'desc:short': 'Balloon blower',
-                    'author:org': org0,
-                    'author:email': 'pennywise@vertex.link',
-                    'author:acct': acct0,
-                    'author:person': person0,
-                    'techniques': teqs,
-                    'url': url0,
-                }
-                node = await snap.addNode('it:prod:soft', prod0, sprops)
-                self.eq(node.ndef[1], prod0)
-                self.eq(node.get('name'), 'balloon maker')
-                self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
-                self.eq(node.get('desc:short'), 'balloon blower')
-                self.eq(node.get('author:org'), org0)
-                self.eq(node.get('author:acct'), acct0)
-                self.eq(node.get('author:email'), 'pennywise@vertex.link')
-                self.eq(node.get('author:person'), person0)
-                self.eq(node.get('techniques'), tuple(sorted(teqs)))
-                self.false(node.get('isos'))
-                self.false(node.get('islib'))
-                await node.set('isos', True)
-                await node.set('islib', True)
-                self.true(node.get('isos'))
-                self.true(node.get('islib'))
+            # it:prod:soft
+            prod0 = s_common.guid()
+            org0 = s_common.guid()
+            person0 = s_common.guid()
+            teqs = (s_common.guid(), s_common.guid())
+            file0 = 'a' * 64
+            acct0 = ('vertex.link', 'pennywise')
+            url0 = 'https://vertex.link/products/balloonmaker'
+            props = {
+                'name': 'Balloon Maker',
+                'type': 'hehe.haha',
+                'names': ('clowns inc',),
+                'desc': "Pennywise's patented balloon blower upper",
+                'desc:short': 'Balloon blower',
+                'author:org': org0,
+                'author:email': 'pennywise@vertex.link',
+                'author:acct': acct0,
+                'author:person': person0,
+                'techniques': teqs,
+                'url': url0,
+            }
+            q = '''[(it:prod:soft=$valu :name=$p.name :type=$p.type :names=$p.names
+                :desc=$p.desc :desc:short=$p."desc:short" :author:org=$p."author:org" :author:email=$p."author:email"
+                :author:acct=$p."author:acct" :author:person=$p."author:person"
+                :techniques=$p.techniques :url=$p.url )]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': prod0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:prod:soft', prod0))
+            self.eq(node.get('name'), 'balloon maker')
+            self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
+            self.eq(node.get('desc:short'), 'balloon blower')
+            self.eq(node.get('author:org'), org0)
+            self.eq(node.get('author:acct'), acct0)
+            self.eq(node.get('author:email'), 'pennywise@vertex.link')
+            self.eq(node.get('author:person'), person0)
+            self.eq(node.get('techniques'), tuple(sorted(teqs)))
+            self.false(node.get('isos'))
+            self.false(node.get('islib'))
+            await node.set('isos', True)
+            await node.set('islib', True)
+            self.true(node.get('isos'))
+            self.true(node.get('islib'))
+            self.eq(node.get('url'), url0)
+            self.len(1, await core.nodes('it:prod:soft:name="balloon maker" -> it:prod:soft:taxonomy'))
+            self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
+            # it:prod:softver - this does test a bunch of property related callbacks
+            ver0 = s_common.guid()
+            url1 = 'https://vertex.link/products/balloonmaker/release_101-beta.exe'
+            props = {
+                'vers': 'V1.0.1-beta+exp.sha.5114f85',
+                'released': '2018-04-03 08:44:22',
+                'url': url1,
+                'software': prod0,
+                'arch': 'amd64',
+                'name': 'balloonmaker',
+                'names': ('clowns inc',),
+                'desc': 'makes balloons',
+            }
+            q = '''[(it:prod:softver=$valu :vers=$p.vers :released=$p.released :url=$p.url :software=$p.software
+                :arch=$p.arch :name=$p.name :names=$p.names :desc=$p.desc)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': ver0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:prod:softver', ver0))
+            self.eq(node.get('arch'), 'amd64')
+            self.eq(node.get('released'), 1522745062000)
+            self.eq(node.get('software'), prod0)
+            self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
+            self.eq(node.get('vers:norm'), 'v1.0.1-beta+exp.sha.5114f85')
+            self.eq(node.get('semver'), 0x000010000000001)
+            self.eq(node.get('semver:major'), 1)
+            self.eq(node.get('semver:minor'), 0)
+            self.eq(node.get('semver:patch'), 1)
+            self.eq(node.get('semver:pre'), 'beta')
+            self.eq(node.get('semver:build'), 'exp.sha.5114f85')
+            self.eq(node.get('url'), url1)
+            self.eq(node.get('name'), 'balloonmaker')
+            self.eq(node.get('desc'), 'makes balloons')
+            # callback node creation checks
+            self.len(1, await core.nodes('it:dev:str=V1.0.1-beta+exp.sha.5114f85'))
+            self.len(1, await core.nodes('it:dev:str=amd64'))
+            self.len(2, await core.nodes('it:prod:softname="balloonmaker" -> it:prod:softver -> it:prod:softname'))
+            # it:hostsoft
+            host0 = s_common.guid()
+            nodes = await core.nodes('[it:hostsoft=$valu]', opts={'vars': {'valu': (host0, ver0)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:hostsoft', (host0, ver0)))
+            self.eq(node.get('host'), host0)
+            self.eq(node.get('softver'), ver0)
+            # it:prod:softfile
+            nodes = await core.nodes('[it:prod:softfile=$valu :path="/path/to/nowhere"]',
+                                     opts={'vars': {'valu': (ver0, file0)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('soft'), ver0)
+            self.eq(node.get('file'), f'sha256:{file0}')
+            self.eq(node.get('path'), '/path/to/nowhere', )
+            self.len(1, await core.nodes('it:prod:softfile -> file:path'))
+            q = '''[ it:prod:softreg=(*, *) ]
+                { -> it:prod:softver [ :name=woot ] }
+                { -> it:dev:regval [ :key=HKEY_LOCAL_MACHINE/visi :int=31337 ] }'''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('regval'))
+            self.nn(node.get('softver'))
+            self.len(1, await core.nodes('it:prod:softver:name=woot -> it:prod:softreg -> it:dev:regval +:int=31337'))
+            # it:prod:softlib
+            ver1 = s_common.guid()
+            nodes = await core.nodes('[it:prod:softlib=$valu]', opts={'vars': {'valu': (ver0, ver1)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:prod:softlib', (ver0, ver1)))
+            self.eq(node.get('soft'), ver0)
+            self.eq(node.get('lib'), ver1)
+            # it:prod:softos
+            os0 = s_common.guid()
+            nodes = await core.nodes('[it:prod:softos=$valu]', opts={'vars': {'valu': (ver0, os0)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:prod:softos', (ver0, os0)))
+            self.eq(node.get('soft'), ver0)
+            self.eq(node.get('os'), os0)
+            # it:av:sig
+            prod1 = s_common.guid()
+            props = {
+                'desc': 'The evil balloon virus!',
+                'url': url1,
+            }
+            sig0 = (prod1, 'Bar.BAZ.faZ')
+            nodes = await core.nodes('[(it:av:sig=$valu :desc=$p.desc :url=$p.url)]',
+                                     opts={'vars': {'valu': sig0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:av:sig', (prod1, 'Bar.BAZ.faZ'.lower())))
+            self.eq(node.get('soft'), prod1)
+            self.eq(node.get('name'), 'bar.baz.faz')
+            self.eq(node.get('desc'), 'The evil balloon virus!')
+            self.eq(node.get('url'), url1)
+            self.len(1, await core.nodes('it:prod:soft=$valu', opts={'vars': {'valu': prod1}}))
+            self.len(1, await core.nodes('it:av:signame=bar.baz.faz -> it:av:sig'))
+            # it:av:filehit
+            nodes = await core.nodes('[it:av:filehit=$valu]', opts={'vars': {'valu': (file0, sig0)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:av:filehit', (f'sha256:{file0}', (prod1, 'Bar.BAZ.faZ'.lower()))))
+            self.eq(node.get('file'), f'sha256:{file0}')
+            self.eq(node.get('sig'), (prod1, 'Bar.BAZ.faZ'.lower()))
+            self.eq(node.get('sig:name'), 'bar.baz.faz')
+            self.eq(node.get('sig:soft'), prod1)
 
-                self.eq(node.get('url'), url0)
+            # Test 'vers' semver brute forcing
+            testvectors = [
+                ('1', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
+                ('2.0A1', 0x000020000000000, {'major': 2, 'minor': 0, 'patch': 0}),
+                ('2016-03-01', 0x007e00000300001, {'major': 2016, 'minor': 3, 'patch': 1}),
+                ('1.2.windows-RC1', 0x000010000200000, {'major': 1, 'minor': 2, 'patch': 0}),
+                ('3.4', 0x000030000400000, {'major': 3, 'minor': 4, 'patch': 0}),
+                ('1.3a2.dev12', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
+                ('v2.4.0.0-1', 0x000020000400000, {'major': 2, 'minor': 4, 'patch': 0}),
+                ('v2.4.1.0-0.3.rc1', 0x000020000400001, {'major': 2, 'minor': 4, 'patch': 1}),
+                ('0.18rc2', 0, {'major': 0, 'minor': 0, 'patch': 0}),
+                ('OpenSSL_1_0_2l', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
+            ]
+            itmod = core.getCoreMod('synapse.models.infotech.ItModule')
 
-                self.len(1, await core.nodes('it:prod:soft:name="balloon maker" -> it:prod:soft:taxonomy'))
-                self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
-
-                # it:prod:softver - this does test a bunch of property related callbacks
-                url1 = 'https://vertex.link/products/balloonmaker/release_101-beta.exe'
-                vprops = {
-                    'vers': 'V1.0.1-beta+exp.sha.5114f85',
-                    'released': '2018-04-03 08:44:22',
-                    'url': url1,
-                    'software': prod0,
-                    'arch': 'amd64',
-                    'name': 'balloonmaker',
-                    'names': ('clowns inc',),
-                    'desc': 'makes balloons',
-                }
-                ver0 = s_common.guid()
-                node = await snap.addNode('it:prod:softver', ver0, vprops)
-
-                self.eq(node.ndef[1], ver0)
-                self.eq(node.get('arch'), 'amd64')
-                self.eq(node.get('released'), 1522745062000)
-                self.eq(node.get('software'), prod0)
-                self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
-                self.eq(node.get('vers:norm'), 'v1.0.1-beta+exp.sha.5114f85')
-                self.eq(node.get('semver'), 0x000010000000001)
-                self.eq(node.get('semver:major'), 1)
-                self.eq(node.get('semver:minor'), 0)
-                self.eq(node.get('semver:patch'), 1)
-                self.eq(node.get('semver:pre'), 'beta')
-                self.eq(node.get('semver:build'), 'exp.sha.5114f85')
-                self.eq(node.get('url'), url1)
-                self.eq(node.get('name'), 'balloonmaker')
-                self.eq(node.get('desc'), 'makes balloons')
-                # callback node creation checks
-                nodes = await snap.nodes('it:dev:str=V1.0.1-beta+exp.sha.5114f85')
+            for tv, te, subs in testvectors:
+                nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': tv}})
                 self.len(1, nodes)
-                nodes = await snap.nodes('it:dev:str=amd64')
+                node = nodes[0]
+                self.eq(node.get('semver'), te)
+                self.eq(node.get('semver:major'), subs.get('major'))
+                self.eq(node.get('semver:minor'), subs.get('minor'))
+                self.eq(node.get('semver:patch'), subs.get('patch'))
+                self.eq(itmod.bruteVersionStr(tv), (te, subs))
+
+            nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': ''}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('vers'), '')
+            self.none(node.get('vers:norm'))
+            self.none(node.get('semver'))
+
+            with self.getLoggerStream('synapse.models.infotech',
+                                      'Unable to parse string as a semver') as stream:
+
+                nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': 'alpha'}})
                 self.len(1, nodes)
-                self.len(2, await core.nodes('it:prod:softname="balloonmaker" -> it:prod:softver -> it:prod:softname'))
-
-                host0 = s_common.guid()
-                node = await snap.addNode('it:hostsoft', (host0, ver0))
-                self.eq(node.ndef[1], (host0, ver0))
-                self.eq(node.get('host'), host0)
-                self.eq(node.get('softver'), ver0)
-
-                softfileprops = {'path': '/path/to/nowhere'}
-                softfile = await snap.addNode('it:prod:softfile', (ver0, file0), props=softfileprops)
-                self.eq(softfile.get('soft'), ver0)
-                self.eq(softfile.get('file'), f'sha256:{file0}')
-                self.eq('/path/to/nowhere', softfile.get('path'))
-                self.len(1, await core.nodes('it:prod:softfile -> file:path'))
-                nodes = await core.nodes('''
-                    [ it:prod:softreg=(*, *) ]
-                    { -> it:prod:softver [ :name=woot ] }
-                    { -> it:dev:regval [ :key=HKEY_LOCAL_MACHINE/visi :int=31337 ] }
-                ''')
-                self.len(1, nodes)
-                self.nn(nodes[0].get('regval'))
-                self.nn(nodes[0].get('softver'))
-                self.len(1, await core.nodes('it:prod:softver:name=woot -> it:prod:softreg -> it:dev:regval +:int=31337'))
-
-                ver1 = s_common.guid()
-                softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))
-                self.eq(softlib.get('soft'), ver0)
-                self.eq(softlib.get('lib'), ver1)
-
-                os0 = s_common.guid()
-                softos = await snap.addNode('it:prod:softos', (ver0, os0))
-                self.eq(softos.get('soft'), ver0)
-                self.eq(softos.get('os'), os0)
-
-                prod1 = s_common.guid()
-                sigprops = {
-                    'desc': 'The evil balloon virus!',
-                    'url': url1,
-                }
-                sig0 = (prod1, 'Bar.BAZ.faZ')
-                node = await snap.addNode('it:av:sig', sig0, sigprops)
-                self.eq(node.ndef[1], (prod1, 'Bar.BAZ.faZ'.lower()))
-                self.eq(node.get('soft'), prod1)
-                self.eq(node.get('name'), 'bar.baz.faz')
-                self.eq(node.get('desc'), 'The evil balloon virus!')
-                self.eq(node.get('url'), url1)
-
-                node = await snap.addNode('it:av:filehit', (file0, sig0))
-                self.eq(node.ndef[1], (f'sha256:{file0}', (prod1, 'Bar.BAZ.faZ'.lower())))
-                self.eq(node.get('file'), f'sha256:{file0}')
-                self.eq(node.get('sig'), (prod1, 'Bar.BAZ.faZ'.lower()))
-                self.eq(node.get('sig:name'), 'bar.baz.faz')
-                self.eq(node.get('sig:soft'), prod1)
-                await self.checkNodes(core, (('it:prod:soft', prod1),))
-
-                self.len(1, await core.nodes('it:av:signame=bar.baz.faz -> it:av:sig'))
-
-                # Test 'vers' semver brute forcing
-                testvectors = [
-                    ('1', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
-                    ('2.0A1', 0x000020000000000, {'major': 2, 'minor': 0, 'patch': 0}),
-                    ('2016-03-01', 0x007e00000300001, {'major': 2016, 'minor': 3, 'patch': 1}),
-                    ('1.2.windows-RC1', 0x000010000200000, {'major': 1, 'minor': 2, 'patch': 0}),
-                    ('3.4', 0x000030000400000, {'major': 3, 'minor': 4, 'patch': 0}),
-                    ('1.3a2.dev12', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
-                    ('v2.4.0.0-1', 0x000020000400000, {'major': 2, 'minor': 4, 'patch': 0}),
-                    ('v2.4.1.0-0.3.rc1', 0x000020000400001, {'major': 2, 'minor': 4, 'patch': 1}),
-                    ('0.18rc2', 0, {'major': 0, 'minor': 0, 'patch': 0}),
-                    ('OpenSSL_1_0_2l', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
-                ]
-                itmod = core.getCoreMod('synapse.models.infotech.ItModule')
-
-                for tv, te, subs in testvectors:
-                    props = {
-                        'vers': tv
-                    }
-                    node = await snap.addNode('it:prod:softver', '*', props)
-                    self.eq(node.get('semver'), te)
-                    self.eq(node.get('semver:major'), subs.get('major'))
-                    self.eq(node.get('semver:minor'), subs.get('minor'))
-                    self.eq(node.get('semver:patch'), subs.get('patch'))
-
-                    self.eq(itmod.bruteVersionStr(tv), (te, subs))
-
-                node = await snap.addNode('it:prod:softver', '*', {'vers': ''})
-                self.eq(node.get('vers'), '')
-                self.none(node.get('vers:norm'))
+                node = nodes[0]
+                self.eq(node.get('vers'), 'alpha')
                 self.none(node.get('semver'))
-
-                with self.getLoggerStream('synapse.models.infotech',
-                                          'Unable to parse string as a semver') as stream:
-
-                    node = await snap.addNode('it:prod:softver', '*', {'vers': 'Alpha'})
-                    self.none(node.get('semver'))
-                    self.true(stream.is_set())
+                self.true(stream.is_set())
 
     async def test_it_form_callbacks(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                # it:dev:str kicks out the :norm property on him when he is made
-                node = await snap.addNode('it:dev:str', 'evil RAT')
-                self.eq(node.ndef[1], 'evil RAT')
-                self.eq(node.get('norm'), 'evil rat')
-
-                node = await snap.addNode('it:dev:pipe', 'MyPipe')
-                self.eq(node.ndef[1], 'MyPipe')
-                nodes = await snap.nodes('it:dev:str=MyPipe')
+            # it:dev:str kicks out the :norm property on him when he is made
+            nodes = await core.nodes('[it:dev:str="evil RAT"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:str', 'evil RAT'))
+            self.eq(node.get('norm'), 'evil rat')
+            # Named pipes create it:dev:str nodes
+            nodes = await core.nodes('[it:dev:pipe="MyPipe"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:pipe', 'MyPipe'))
+            nodes = await core.nodes('it:dev:str=MyPipe')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:str', 'MyPipe'))
+            self.eq(node.get('norm'), 'mypipe')
+            # mutexs behave the same way
+            nodes = await core.nodes('[it:dev:mutex="MyMutex"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:mutex', 'MyMutex'))
+            nodes = await core.nodes('it:dev:str=MyMutex')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:str', 'MyMutex'))
+            self.eq(node.get('norm'), 'mymutex')
+            # registry keys are similar
+            key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
+            nodes = await core.nodes('[it:dev:regkey=$valu]', opts={'vars': {'valu': key}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:regkey', key))
+            nodes = await core.nodes('it:dev:str=$valu', opts={'vars': {'valu': key}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:dev:str', key))
+            self.eq(node.get('norm'), 'hkey_local_machine\\foo\\bar')
+            # Regval behaves the same
+            fbyts = 'sha256:' + 64 * 'f'
+            key = 'HKEY_LOCAL_MACHINE\\DUCK\\QUACK'
+            valus = [
+                ('str', 'knight'),
+                ('int', 20),
+                ('bytes', fbyts),
+            ]
+            for prop, valu in valus:
+                iden = s_common.guid((key, valu))
+                props = {
+                    'key': key,
+                    'prop': valu,
+                }
+                q = f'[it:dev:regval=$valu :key=$p.key :{prop}=$p.prop]'
+                nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
                 self.len(1, nodes)
-                # The callback created node also has norm set on it
-                self.eq(nodes[0].get('norm'), 'mypipe')
-
-                node = await snap.addNode('it:dev:mutex', 'MyMutex')
-                self.eq(node.ndef[1], 'MyMutex')
-                nodes = await snap.nodes('it:dev:str=MyMutex')
-                self.len(1, nodes)
-
-                key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
-                node = await snap.addNode('it:dev:regkey', key)
-                self.eq(node.ndef[1], key)
-                opts = {'vars': {'key': key}}
-                nodes = await snap.nodes('it:dev:str=$key', opts=opts)
-                self.len(1, nodes)
-
-                fbyts = 'sha256:' + 64 * 'f'
-                key = 'HKEY_LOCAL_MACHINE\\DUCK\\QUACK'
-                valus = [
-                    ('str', 'knight'),
-                    ('int', 20),
-                    ('bytes', fbyts),
-                ]
-                for prop, valu in valus:
-
-                    iden = s_common.guid((key, valu))
-                    props = {
-                        'key': key,
-                        prop: valu,
-                    }
-                    node = await snap.addNode('it:dev:regval', iden, props)
-                    self.eq(node.ndef[1], iden)
-                    self.eq(node.get('key'), key)
-                    self.eq(node.get(prop), valu)
-
-                nodes = await snap.nodes('it:dev:str=HKEY_LOCAL_MACHINE\\Foo\\Bar')
-                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.ndef, ('it:dev:regval', iden))
+                self.eq(node.get('key'), key)
+                self.eq(node.get(prop), valu)
+            self.len(1, await core.nodes('it:dev:str=HKEY_LOCAL_MACHINE\\DUCK\\QUACK'))
 
     async def test_it_semvertype(self):
         async with self.getTestCore() as core:
