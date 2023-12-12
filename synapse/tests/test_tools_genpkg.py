@@ -212,7 +212,7 @@ class GenPkgTest(s_test.SynTest):
         # Missing files are still a problem
         with self.getTestDir(copyfrom=srcpath) as dirn:
             ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
-            os.unlink(os.path.join(dirn, 'storm', 'modules', 'testmod'))
+            os.unlink(os.path.join(dirn, 'storm', 'modules', 'testmod.storm'))
             self.setDirFileModes(dirn=dirn, mode=readonly_mode)
             with self.raises(s_exc.NoSuchFile) as cm:
                 s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
@@ -220,7 +220,7 @@ class GenPkgTest(s_test.SynTest):
 
         with self.getTestDir(copyfrom=srcpath) as dirn:
             ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
-            os.remove(os.path.join(dirn, 'storm', 'commands', 'testpkgcmd'))
+            os.remove(os.path.join(dirn, 'storm', 'commands', 'testpkgcmd.storm'))
             self.setDirFileModes(dirn=dirn, mode=readonly_mode)
             with self.raises(s_exc.NoSuchFile) as cm:
                 s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)

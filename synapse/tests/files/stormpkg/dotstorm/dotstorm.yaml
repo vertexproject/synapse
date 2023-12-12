@@ -1,6 +1,9 @@
 name: dotstorm
 version: 0.0.1
 
+genopts:
+  dotstorm: false
+
 modules:
     - name: dotstorm.foo
 

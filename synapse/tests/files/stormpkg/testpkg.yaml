@@ -1,9 +1,6 @@
 name: testpkg
 version: 0.0.1
 
-genopts:
-  dotstorm: false
-
 logo:
     mime: image/svg
     path: docs/foobar.svg
