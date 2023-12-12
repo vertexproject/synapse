@@ -1524,6 +1524,7 @@ class LibUser(s_stormtypes.Lib):
 
         perm = permname.split('.')
         return self.runt.user.allowed(perm, gateiden=gateiden, default=default)
+
 @s_stormtypes.registry.registerLib
 class LibUsers(s_stormtypes.Lib):
     '''
