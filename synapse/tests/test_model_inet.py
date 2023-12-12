@@ -1926,14 +1926,16 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(('VerTex.linK', 'PerSon1')), (enorm, edata))
 
             # Form Tests
-            place = s_common.guid()
             valu = ('blogs.Vertex.link', 'Brutus')
-            input_props = {
+            place = s_common.guid()
+            props = {
                 'avatar': 'sha256:' + 64 * 'a',
                 'banner': 'sha256:' + 64 * 'b',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
-                'linked:accts': (('twitter.com', 'brutus'), ('linkedin.com', 'brutester'), ('linkedin.com', 'brutester')),
+                'linked:accts': (('twitter.com', 'brutus'),
+                                 ('linkedin.com', 'brutester'),
+                                 ('linkedin.com', 'brutester')),
                 'latlong': '0,0',
                 'place': place,
                 'loc': 'sol',
@@ -1953,29 +1955,41 @@ class InetModelTest(s_t_utils.SynTest):
                 'webpage': 'https://blogs.vertex.link/brutus',
                 'recovery:email': 'recovery@vertex.link',
             }
-
-            expected_ndef = (formname, ('blogs.vertex.link', 'brutus'))
-            expected_props = copy.copy(input_props)
-            expected_props.update({
-                'site': valu[0].lower(),
-                'user': valu[1].lower(),
-                'latlong': (0.0, 0.0),
-                'aliases': ('bar', 'foo'),
-                'linked:accts': (('linkedin.com', 'brutester'), ('twitter.com', 'brutus')),
-                'place': place,
-                'phone': '5555555555',
-                'realname': 'брут',
-                'signup:client': 'tcp://0.0.0.4',
-                'signup:client:ipv4': 4,
-                'signup:client:ipv6': '::1',
-                'recovery:email': 'recovery@vertex.link',
-            })
-
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, valu, props=input_props)
-                self.eq(node.ndef, expected_ndef)
-                self.checkNode(node, (expected_ndef, expected_props))
-
+            q = '''[(inet:web:acct=$valu :avatar=$p.avatar :banner=$p.banner :dob=$p.dob :email=$p.email
+                :linked:accts=$p."linked:accts" :latlong=$p.latlong :loc=$p.loc :place=$p.place
+                :name=$p.name :aliases=$p.aliases :name:en=$p."name:en"
+                :realname=$p.realname :realname:en=$p."realname:en"
+                :occupation=$p.occupation :passwd=$p.passwd :phone=$p.phone
+                :signup=$p.signup :signup:client=$p."signup:client" :signup:client:ipv6=$p."signup:client:ipv6"
+                :tagline=$p.tagline :url=$p.url :webpage=$p.webpage :recovery:email=$p."recovery:email")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:web:acct', ('blogs.vertex.link', 'brutus')))
+            self.eq(node.get('site'), 'blogs.vertex.link')
+            self.eq(node.get('user'), 'brutus')
+            self.eq(node.get('avatar'), 'sha256:' + 64 * 'a')
+            self.eq(node.get('banner'), 'sha256:' + 64 * 'b')
+            self.eq(node.get('dob'), -64836547200000)
+            self.eq(node.get('email'), 'brutus@vertex.link')
+            self.eq(node.get('linked:accts'), (('linkedin.com', 'brutester'), ('twitter.com', 'brutus')))
+            self.eq(node.get('latlong'), (0.0, 0.0))
+            self.eq(node.get('place'), place)
+            self.eq(node.get('loc'), 'sol')
+            self.eq(node.get('name'), 'ካሳር')
+            self.eq(node.get('aliases'), ('bar', 'foo'))
+            self.eq(node.get('name:en'), 'brutus')
+            self.eq(node.get('realname'), 'брут')
+            self.eq(node.get('passwd'), 'hunter2')
+            self.eq(node.get('phone'), '5555555555')
+            self.eq(node.get('signup'), 3)
+            self.eq(node.get('signup:client'), 'tcp://0.0.0.4')
+            self.eq(node.get('signup:client:ipv4'), 4)
+            self.eq(node.get('signup:client:ipv6'), '::1')
+            self.eq(node.get('tagline'), 'Taglines are not tags')
+            self.eq(node.get('recovery:email'), 'recovery@vertex.link')
+            self.eq(node.get('url'), 'https://blogs.vertex.link/')
+            self.eq(node.get('webpage'), 'https://blogs.vertex.link/brutus')
             self.len(2, await core.nodes('inet:web:acct=(blogs.vertex.link, brutus) :linked:accts -> inet:web:acct'))
 
     async def test_web_action(self):
