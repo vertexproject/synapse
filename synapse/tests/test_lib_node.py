@@ -17,7 +17,7 @@ class NodeTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
             await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})
-            q = '[test:str=cool :tick=(12345) +#foo:score=10 +#foo.note=" This is a really cool tag! "]'
+            q = '[test:str=cool :tick=(12345) +#foo:score=10 +#foo:note=" This is a really cool tag! "]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             node = nodes[0]

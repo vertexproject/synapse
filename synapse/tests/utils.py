@@ -502,8 +502,7 @@ class TestModule(s_module.CoreModule):
 
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
 
-        if len(await self.core.nodes(f'meta:source={self.testguid}')) == 0:
-            await self.core.nodes(f'[meta:source={self.testguid} :name=test]')
+        await self.core.addNode(self.core.auth.rootuser, 'meta:source', self.testguid, {'name': 'test'})
 
         self.core.addStormLib(('test',), LibTst)
 

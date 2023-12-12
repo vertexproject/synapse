@@ -920,7 +920,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'latlong': '-50.12345, 150.56789',
                 'place': place,
             }
-            q = '[(inet:ipv4=$valu :asn=$p.asn :loc=$p.loc :dns:rec=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
+            q = '[(inet:ipv4=$valu :asn=$p.asn :loc=$p.loc :dns:rev=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
             opts = {'vars': {'valu': '1.2.3.4', 'p': props}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -931,7 +931,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'unicast')
             self.eq(node.get('dns:rev'), 'vertex.link')
             self.eq(node.get('latlong'), (-50.12345, 150.56789))
-            self.eq(node.eget('place'), place)
+            self.eq(node.get('place'), place)
 
             # > / < lifts and filters
             self.len(4, await core.nodes('[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 inet:ipv4=3]'))
@@ -2017,8 +2017,8 @@ class InetModelTest(s_t_utils.SynTest):
             q = '[inet:web:action=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://::ffff:8.7.6.5"]'
             self.len(1, await core.nodes(q))
             self.len(1, await core.nodes('inet:ipv4=8.7.6.5'))
-            self.len(1, await core.nodes('inet:ipv6="::fff:8.7.6.5"'))
-            self.len(1, await core.nodes('inet:fqdn=newp.come'))
+            self.len(1, await core.nodes('inet:ipv6="::ffff:8.7.6.5"'))
+            self.len(1, await core.nodes('inet:fqdn=newp.com'))
             self.len(1, await core.nodes('inet:user=hehe'))
 
     async def test_web_chprofile(self):

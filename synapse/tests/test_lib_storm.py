@@ -2227,7 +2227,7 @@ class StormTest(s_t_utils.SynTest):
 
         # make a cycle of tags via move tag
         async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[test:str=neato +#basic.one +#basic.two +unicryle +#tricyle +bicycle]'))
+            self.len(1, await core.nodes('[test:str=neato +#basic.one +#basic.two +#unicycle +#tricyle +#bicycle]'))
 
             # basic 2-cycle test
             await core.nodes('movetag basic.one basic.two')
@@ -2243,7 +2243,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=badcycle +#unicycle]'))
 
             # 4 cycle test
-            self.len(1, await core.nodes('[test:str=burrito +#there.picard +#are.is #four.best +#tags.captain]'))
+            self.len(1, await core.nodes('[test:str=burrito +#there.picard +#are.is +#four.best +#tags.captain]'))
 
             # A -> B -> C -> D -> A
             await core.nodes('movetag there are')   # A -> B
@@ -2253,8 +2253,8 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('movetag are four')    # B -> C (creates the cycle)
 
             # make a pre-existing cycle to ensure we can break break that with move tag
-            self.len(1, await core.nodes('[syn:tag=existing :isnow=cycle]]'))
-            self.len(1, await core.nodes('[syn:tag=cycle :isnow=existing]]'))
+            self.len(1, await core.nodes('[syn:tag=existing :isnow=cycle]'))
+            self.len(1, await core.nodes('[syn:tag=cycle :isnow=existing]'))
 
             await core.nodes('movetag cycle breaker')
 
@@ -2268,10 +2268,9 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('isnow'), 'breaker')
 
-            nodes = await core.nodes('syn:tag=brekaer')
+            nodes = await core.nodes('syn:tag=breaker')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('isnow'), 'cycle')
             self.none(node.get('isnow'))
 
             # make a pre-existing cycle to ensure we can catch that if an chain is encountered
@@ -2460,7 +2459,7 @@ class StormTest(s_t_utils.SynTest):
             await asyncio.sleep(0.01)
             self.len(1, await core.nodes('[test:guid=* :tick=2017 .seen=2017]'))
             await asyncio.sleep(0.01)
-            self.len(1, await core.nodes('[test:str1 :tick=2016]'))
+            self.len(1, await core.nodes('[test:str=1 :tick=2016]'))
 
             # Relative paths
             nodes = await core.nodes('test:guid | max :tick')

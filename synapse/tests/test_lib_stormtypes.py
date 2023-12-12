@@ -1438,7 +1438,7 @@ class StormTypesTest(s_test.SynTest):
 
             # make sure we bunzip correctly
             opts = {'vars': {'iden': n2}}
-            nodes = await nodes.nodes('graph:node=$iden', opts=opts)
+            nodes = await core.nodes('graph:node=$iden', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('data'), hstr)

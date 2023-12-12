@@ -95,7 +95,7 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             timeedge = nodes[0]
 
-            self.eq(timeedge.ndef, ('grpah:timedge', (('test:int', 20), ('test:str', 'foo'), 1420070400000)))
+            self.eq(timeedge.ndef, ('graph:timeedge', (('test:int', 20), ('test:str', 'foo'), 1420070400000)))
             self.eq(timeedge.get('time'), 1420070400000)
             self.eq(timeedge.get('n1'), ('test:int', 20))
             self.eq(timeedge.get('n1:form'), 'test:int')
@@ -202,7 +202,7 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[meta:source="*" :name="FOO Bar" :type=osint :url=https://hehe.com/haha]')
+            nodes = await core.nodes('[meta:source="*" :name="FOO Bar" :type=osint :url="https://foo.bar/index.html"]')
             self.len(1, nodes)
             sorc = nodes[0]
 

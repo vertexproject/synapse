@@ -1662,7 +1662,7 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await wcore.nodes('[(test:str=newp)]'))
 
-            nodes = await wcore.nodes('[(test:str=one +#foo.bar=(2016, 2017)]')
+            nodes = await wcore.nodes('[(test:str=one +#foo.bar=(2016, 2017))]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
@@ -1848,7 +1848,8 @@ class CortexTest(s_t_utils.SynTest):
                 await wcore.nodes('test:comp=(33, "THIRTY THREE") [ :hehe = 80]')
 
             self.len(0, await wcore.nodes('test:auto=autothis'))
-            nodes = await wcore.nodes('[test:str=woot :bar=(test:auto, autothis) :baz=(test:type10:strprop, WOOT) :tick=(20160505)]')
+            q = '[test:str=woot :bar=(test:auto, autothis) :baz=(test:type10:strprop, WOOT) :tick=20160505]'
+            nodes = await wcore.nodes(q)
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('bar'), ('test:auto', 'autothis'))
@@ -1870,7 +1871,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:type10:locprop^=us.va')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(nodes.ndef, ('test:type10', 'one'))
+            self.eq(node.ndef, ('test:type10', 'one'))
 
     async def test_eval(self):
         ''' Cortex.eval test '''
@@ -3247,7 +3248,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             core.onTagAdd('glob.*', onadd)
             core.onTagDel('glob.*', ondel)
 
-            nodes = await core.node('test:str=hehe')
+            nodes = await core.nodes('[test:str=hehe]')
             self.len(1, nodes)
             node = nodes[0]
             await node.addTag('foo.bar.baz', valu=(200, 300))
@@ -4178,7 +4179,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(3, nodes)
 
             # Ensure we can pivot to/from runt nodes
-            nodes = await core.nodes('test:str=beep.sys')
+            nodes = await core.nodes('[test:str=beep.sys]')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:runt :lulz -> test:str')
