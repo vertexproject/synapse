@@ -2088,14 +2088,8 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'foo')
-                await node.addTag('hehe.haha', valu=(20, 30))
-
-                tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe.haha'))
-
-                await tagnode.set('doc', 'haha doc')
-                await tagnode.set('title', 'haha title')
+            self.len(1, await core.nodes('[test:str=foo +#hehe.haha=((20), (30)) ]'))
+            self.len(1, await core.nodes('syn:tag=hehe.haha [:doc="haha doc" :title="haha title"]'))
 
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag hehe hehe')
@@ -2108,65 +2102,58 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#woot'))
             self.len(1, await core.nodes('#woot.haha'))
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('syn:tag=woot.haha')
+            self.len(1, nodes)
+            newt = nodes[0]
+            self.eq(newt.get('doc'), 'haha doc')
+            self.eq(newt.get('title'), 'haha title')
 
-                newt = await core.getNodeByNdef(('syn:tag', 'woot.haha'))
+            nodes = await core.nodes('test:str=foo')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq((20, 30), node.tags.get('woot.haha'))
+            self.none(node.tags.get('hehe'))
+            self.none(node.tags.get('hehe.haha'))
 
-                self.eq(newt.get('doc'), 'haha doc')
-                self.eq(newt.get('title'), 'haha title')
+            nodes = await core.nodes('syn:tag=hehe')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('isnow'), 'woot')
 
-                node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.eq((20, 30), node.tags.get('woot.haha'))
+            nodes = await core.nodes('syn:tag=hehe.haha')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('isnow'), 'woot.haha')
 
-                self.none(node.tags.get('hehe'))
-                self.none(node.tags.get('hehe.haha'))
-
-                node = await snap.getNodeByNdef(('syn:tag', 'hehe'))
-                self.eq('woot', node.get('isnow'))
-
-                node = await snap.getNodeByNdef(('syn:tag', 'hehe.haha'))
-                self.eq('woot.haha', node.get('isnow'))
-
-                node = await snap.addNode('test:str', 'bar')
-
-                # test isnow plumbing
-                await node.addTag('hehe.haha')
-
-                self.nn(node.tags.get('woot'))
-                self.nn(node.tags.get('woot.haha'))
-
-                self.none(node.tags.get('hehe'))
-                self.none(node.tags.get('hehe.haha'))
+            # test isnow plumbing
+            nodes = await core.nodes('[test:str=bar +#hehe.haha]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.tags.get('woot'))
+            self.nn(node.tags.get('woot.haha'))
+            self.none(node.tags.get('hehe'))
+            self.none(node.tags.get('hehe.haha'))
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'foo')
-                await node.addTag('hehe', valu=(20, 30))
-
-                tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
-
-                await tagnode.set('doc', 'haha doc')
-                await tagnode.set('doc:url', 'http://haha.doc.com')
+            self.len(1, await core.nodes('[test:str=foo +#hehe=((20), (30)) ]'))
+            self.len(1, await core.nodes('syn:tag=hehe [:doc="haha doc" :doc:url="http://haha.doc.com"]'))
 
             await core.nodes('movetag hehe woot')
 
             self.len(0, await core.nodes('#hehe'))
             self.len(1, await core.nodes('#woot'))
 
-            async with await core.snap() as snap:
-                newt = await core.getNodeByNdef(('syn:tag', 'woot'))
-
-                self.eq(newt.get('doc'), 'haha doc')
-                self.eq(newt.get('doc:url'), 'http://haha.doc.com')
+            nodes = await core.nodes('syn:tag=woot')
+            self.len(1, nodes)
+            newt = nodes[0]
+            self.eq(newt.get('doc'), 'haha doc')
+            self.eq(newt.get('doc:url'), 'http://haha.doc.com')
 
         # Test moving a tag which has tags on it.
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'V')
-                await node.addTag('a.b.c', (None, None))
-                tnode = await snap.getNodeByNdef(('syn:tag', 'a.b'))
-                await tnode.addTag('foo', (None, None))
+            self.len(1, await core.nodes('[test:str=V +#a.b.c]'))
+            self.len(1, await core.nodes('syn:tag=a.b [+#foo]'))
 
             await core.nodes('movetag a.b a.m')
             self.len(2, await core.nodes('#foo'))
@@ -2175,12 +2162,8 @@ class StormTest(s_t_utils.SynTest):
 
         # Test moving a tag to another tag which is a string prefix of the source
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'V')
-                await node.addTag('aaa.b.ccc', (None, None))
-                await node.addTag('aaa.b.ddd', (None, None))
-                node = await snap.addNode('test:str', 'Q')
-                await node.addTag('aaa.barbarella.ccc', (None, None))
+            self.len(1, await core.nodes('[test:str=V +#aaa.b.ccc +#aaa.b.ddd]'))
+            self.len(1, await core.nodes('[test:str=Q +#aaa.barbarella.ccc]'))
 
             await core.nodes('movetag aaa.b aaa.barbarella')
 
@@ -2244,13 +2227,7 @@ class StormTest(s_t_utils.SynTest):
 
         # make a cycle of tags via move tag
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'neato')
-                await node.addTag('basic.one', (None, None))
-                await node.addTag('basic.two', (None, None))
-                await node.addTag('unicycle', (None, None))
-                await node.addTag('bicycle', (None, None))
-                await node.addTag('tricycle', (None, None))
+            self.len(1, await core.nodes('[test:str=neato +#basic.one +#basic.two +#unicycle +#tricyle +#bicycle]'))
 
             # basic 2-cycle test
             await core.nodes('movetag basic.one basic.two')
@@ -2263,16 +2240,10 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag tricycle unicycle')
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'badcycle')
-                await node.addTag('unicycle')
+            self.len(1, await core.nodes('[test:str=badcycle +#unicycle]'))
 
             # 4 cycle test
-            node = await snap.addNode('test:str', 'burrito')
-            await node.addTag('there.picard', (None, None))
-            await node.addTag('are.is', (None, None))
-            await node.addTag('four.best', (None, None))
-            await node.addTag('tags.captain', (None, None))
+            self.len(1, await core.nodes('[test:str=burrito +#there.picard +#are.is +#four.best +#tags.captain]'))
 
             # A -> B -> C -> D -> A
             await core.nodes('movetag there are')   # A -> B
@@ -2282,37 +2253,36 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('movetag are four')    # B -> C (creates the cycle)
 
             # make a pre-existing cycle to ensure we can break break that with move tag
-            async with await core.snap() as snap:
-
-                node = await snap.addNode('syn:tag', 'existing')
-                await node.set('isnow', 'cycle')
-
-                node = await snap.addNode('syn:tag', 'cycle')
-                await node.set('isnow', 'existing')
+            self.len(1, await core.nodes('[syn:tag=existing :isnow=cycle]'))
+            self.len(1, await core.nodes('[syn:tag=cycle :isnow=existing]'))
 
             await core.nodes('movetag cycle breaker')
 
-            node = await core.getNodeByNdef(('syn:tag', 'existing'))
-            self.eq('cycle', node.get('isnow'))
-            node = await core.getNodeByNdef(('syn:tag', 'cycle'))
-            self.eq('breaker', node.get('isnow'))
-            node = await core.getNodeByNdef(('syn:tag', 'breaker'))
-            self.eq(None, node.get('isnow'))
+            nodes = await core.nodes('syn:tag=existing')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('isnow'), 'cycle')
+
+            nodes = await core.nodes('syn:tag=cycle')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('isnow'), 'breaker')
+
+            nodes = await core.nodes('syn:tag=breaker')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.none(node.get('isnow'))
 
             # make a pre-existing cycle to ensure we can catch that if an chain is encountered
             # B -> C -> D -> E -> C
             # Then movetag to make A -> B
-            async with await core.snap() as snap:
-                node = await snap.addNode('syn:tag', 'this')
 
-                node = await snap.addNode('syn:tag', 'is')
-                await node.set('isnow', 'not')
-                node = await snap.addNode('syn:tag', 'not')
-                await node.set('isnow', 'a')
-                node = await snap.addNode('syn:tag', 'a')
-                await node.set('isnow', 'test')
-                node = await snap.addNode('syn:tag', 'test')
-                await node.set('isnow', 'not')
+            self.len(1, await core.nodes('[syn:tag=this]'))
+            self.len(1, await core.nodes('[syn:tag=is :isnow=not]'))
+            self.len(1, await core.nodes('[syn:tag=not :isnow=a]'))
+            self.len(1, await core.nodes('[syn:tag=a :isnow=test]'))
+            self.len(1, await core.nodes('[syn:tag=test :isnow=not]'))
+
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag this is')
 
@@ -2481,20 +2451,15 @@ class StormTest(s_t_utils.SynTest):
             midval = core.model.type('time').norm('2016')[0]
             maxval = core.model.type('time').norm('2017')[0]
 
-            async with await core.snap() as snap:
-                # Ensure each node we make has its own discrete created time.
-                await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2015',
-                                                             '.seen': '2015'})
-                minc = node.get('.created')
-                await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2016',
-                                                             '.seen': '2016'})
-                await asyncio.sleep(0.01)
-                node = await snap.addNode('test:guid', '*', {'tick': '2017',
-                                                             '.seen': '2017'})
-                await asyncio.sleep(0.01)
-                node = await snap.addNode('test:str', '1', {'tick': '2016'})
+            nodes = await core.nodes('[test:guid=* :tick=2015 .seen=2015]')
+            self.len(1, nodes)
+            minc = nodes[0].get('.created')
+            await asyncio.sleep(0.01)
+            self.len(1, await core.nodes('[test:guid=* :tick=2016 .seen=2016]'))
+            await asyncio.sleep(0.01)
+            self.len(1, await core.nodes('[test:guid=* :tick=2017 .seen=2017]'))
+            await asyncio.sleep(0.01)
+            self.len(1, await core.nodes('[test:str=1 :tick=2016]'))
 
             # Relative paths
             nodes = await core.nodes('test:guid | max :tick')
@@ -2662,12 +2627,11 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                guid = s_common.guid()
-                await snap.addNode('edge:refs', (('media:news', guid), ('inet:ipv4', '1.2.3.4')))
-                await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
-
-            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=0 ]')
+            guid = s_common.guid()
+            self.len(1, await core.nodes('[edge:refs=((media:news, $valu), (inet:ipv4, 1.2.3.4))]',
+                                         opts={'vars': {'valu': guid}}))
+            self.len(1, await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ :asn=0 ]'))
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4 | tee { -> * }')
             self.len(1, nodes)
@@ -3840,19 +3804,9 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'foo')
-                await node.addTag('parent.child.grandchild')
-
-                node = await snap.addNode('test:str', 'bar')
-                await node.addTag('parent.childtag')
-                await node.addTag('parent.child.step')
-                await node.addTag('parent.child.grandchild')
-
-                node = await snap.addNode('test:str', 'baz')
-                await node.addTag('parent.child.step')
-                await node.addTag('parent.child.step.two')
-                await node.addTag('parent.child.step.three')
+            self.len(1, await core.nodes('[test:str=foo +#parent.child.grandchild]'))
+            self.len(1, await core.nodes('[test:str=bar +#parent.childtag +#parent.child.step +#parent.child.grandchild]'))
+            self.len(1, await core.nodes('[test:str=baz +#parent.child.step +#parent.child.step.two +#parent.child.step.three]'))
 
             # Won't do anything but should work
             nodes = await core.nodes('test:str | tag.prune')
@@ -3907,18 +3861,8 @@ class StormTest(s_t_utils.SynTest):
             node = (await core.nodes('test:str=baz'))[0]
             self.eq(list(node.tags.keys()), [])
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'foo')
-                await node.addTag('tag.tree.one')
-                await node.addTag('tag.tree.two')
-                await node.addTag('another.tag.tree')
-
-                node = await snap.addNode('test:str', 'baz')
-                await node.addTag('tag.tree.one')
-                await node.addTag('tag.tree.two')
-                await node.addTag('another.tag.tree')
-                await node.addTag('more.tags.to.remove')
-                await node.addTag('tag.that.stays')
+            self.len(1, await core.nodes('[test:str=foo +#tag.tree.one +#tag.tree.two +#another.tag.tree]'))
+            self.len(1, await core.nodes('[test:str=baz +#tag.tree.one +#tag.tree.two +#another.tag.tree +#more.tags.to.remove +#tag.that.stays]'))
 
             # Remove multiple tags
             tags = '''
@@ -3936,16 +3880,9 @@ class StormTest(s_t_utils.SynTest):
             exp = ['tag', 'tag.that', 'tag.that.stays']
             self.eq(list(node.tags.keys()), exp)
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'runtsafety')
-                await node.addTag('runtsafety')
-
-                node = await snap.addNode('test:str', 'foo')
-                await node.addTag('runtsafety')
-
-                node = await snap.addNode('test:str', 'runt.safety.two')
-                await node.addTag('runt.safety.two')
-                await node.addTag('runt.child')
+            self.len(1, await core.nodes('[test:str=runtsafety +#runtsafety]'))
+            self.len(1, await core.nodes('[test:str=foo +#runtsafety]'))
+            self.len(1, await  core.nodes('[test:str=runt.safety.two +#runt.safety.two +#runt.child]'))
 
             # Test non-runtsafe usage
             await core.nodes('test:str | tag.prune $node.value()')
@@ -3959,12 +3896,8 @@ class StormTest(s_t_utils.SynTest):
             node = (await core.nodes('test:str=runt.safety.two'))[0]
             self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'foo')
-                await node.addTag('runt.need.perms')
-
-                node = await snap.addNode('test:str', 'runt.safety.two')
-                await node.addTag('runt.safety.two')
+            self.len(1, await core.nodes('[test:str=foo +#runt.need.perms]'))
+            self.len(1, await core.nodes('[test:str=runt.safety.two +#runt.safety.two]'))
 
             # Test perms
             visi = await core.auth.addUser('visi')
@@ -4037,12 +3970,9 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_version(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-
-                msgs = await core.stormlist('version')
-
-                self.stormIsInPrint('Synapse Version:', msgs)
-                self.stormIsInPrint('Commit Hash:', msgs)
+            msgs = await core.stormlist('version')
+            self.stormIsInPrint('Synapse Version:', msgs)
+            self.stormIsInPrint('Commit Hash:', msgs)
 
     async def test_storm_runas(self):
         async with self.getTestCore() as core:
