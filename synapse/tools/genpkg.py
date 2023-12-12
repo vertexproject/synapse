@@ -161,7 +161,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         name = mod.get('name')
 
         basename = name
-        if genopts.get('dotstorm', False):
+        if genopts.get('dotstorm', True):
             basename = f'{basename}.storm'
 
         mod_path = s_common.genpath(protodir, 'storm', 'modules', basename)
@@ -192,7 +192,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         name = cmd.get('name')
 
         basename = name
-        if genopts.get('dotstorm'):
+        if genopts.get('dotstorm', True):
             basename = f'{basename}.storm'
 
         cmd_path = s_common.genpath(protodir, 'storm', 'commands', basename)
