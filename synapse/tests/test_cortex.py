@@ -2470,7 +2470,7 @@ class CortexTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('test:str', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
-                # XXX FIXME Snap.strict manipulation, remove me in 3.0.0
+                # FIXME Snap.strict manipulation, remove in 3.0.0
                 # Sad path with snap.strict=False
                 snap.strict = False
                 waiter = snap.waiter(1, 'warn')
@@ -3333,7 +3333,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
                 await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
 
-                # XXX FIXME Snap.strict manipulation, remove in 3.0.0
+                # FIXME Snap.strict manipulation, remove in 3.0.0
                 snap.strict = False
                 self.none(await snap.addNode('test:str', s_common.novalu))
 
