@@ -41,7 +41,7 @@ that gets processed and loaded into your Cortex.
     synapse_version: '>=2.144.0,<3.0.0'
 
     genopts:
-        dotstorm: true # Specify that storm command/module files end with ".storm"
+        dotstorm: false # Disable ".storm" extension on command/module files
 
     author:
       url: https://acme.newp
