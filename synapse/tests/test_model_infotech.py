@@ -1024,286 +1024,343 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_it_forms_hostexec(self):
         # forms related to the host execution model
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                exe = 'sha256:' + 'a' * 64
-                port = 80
-                tick = s_common.now()
-                host = s_common.guid()
-                proc = s_common.guid()
-                mutex = 'giggleXX_X0'
-                pipe = 'pipe\\mynamedpipe'
-                user = 'serviceadmin'
-                pid = 20
-                key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
-                ipv4 = 0x01020304
-                ipv6 = '::1'
+            exe = 'sha256:' + 'a' * 64
+            port = 80
+            tick = s_common.now()
+            host = s_common.guid()
+            proc = s_common.guid()
+            mutex = 'giggleXX_X0'
+            pipe = 'pipe\\mynamedpipe'
+            user = 'serviceadmin'
+            pid = 20
+            key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
+            ipv4 = 0x01020304
+            ipv6 = '::1'
 
-                sandfile = 'sha256:' + 'b' * 64
-                addr4 = f'tcp://1.2.3.4:{port}'
-                addr6 = f'udp://[::1]:{port}'
-                url = 'http://www.google.com/sekrit.html'
-                raw_path = r'c:\Windows\System32\rar.exe'
-                norm_path = r'c:/windows/system32/rar.exe'
-                src_proc = s_common.guid()
-                src_path = r'c:/temp/ping.exe'
-                cmd0 = 'rar a -r yourfiles.rar *.txt'
-                fpath = 'c:/temp/yourfiles.rar'
-                fbyts = 'sha256:' + 'b' * 64
-                pprops = {
-                    'exe': exe,
-                    'pid': pid,
-                    'cmd': cmd0,
-                    'host': host,
-                    'time': tick,
-                    'user': user,
-                    'account': '*',
-                    'path': raw_path,
-                    'src:exe': src_path,
-                    'src:proc': src_proc,
-                    'sandbox:file': sandfile,
-                }
-                node = await snap.addNode('it:exec:proc', proc, pprops)
-                self.eq(node.ndef[1], proc)
-                self.eq(node.get('exe'), exe)
-                self.eq(node.get('pid'), pid)
-                self.eq(node.get('cmd'), cmd0)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('user'), user)
-                self.eq(node.get('path'), norm_path)
-                self.eq(node.get('src:exe'), src_path)
-                self.eq(node.get('src:proc'), src_proc)
-                self.eq(node.get('sandbox:file'), sandfile)
+            sandfile = 'sha256:' + 'b' * 64
+            addr4 = f'tcp://1.2.3.4:{port}'
+            addr6 = f'udp://[::1]:{port}'
+            url = 'http://www.google.com/sekrit.html'
+            raw_path = r'c:\Windows\System32\rar.exe'
+            norm_path = r'c:/windows/system32/rar.exe'
+            src_proc = s_common.guid()
+            src_path = r'c:/temp/ping.exe'
+            cmd0 = 'rar a -r yourfiles.rar *.txt'
+            fpath = 'c:/temp/yourfiles.rar'
+            fbyts = 'sha256:' + 'b' * 64
+            pprops = {
+                'exe': exe,
+                'pid': pid,
+                'cmd': cmd0,
+                'host': host,
+                'time': tick,
+                'user': user,
+                'account': '*',
+                'path': raw_path,
+                'src:exe': src_path,
+                'src:proc': src_proc,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:proc=$valu :exe=$p.exe :pid=$p.pid :cmd=$p.cmd :host=$p.host :time=$p.time :user=$p.user
+                :account=$p.account :path=$p.path :src:exe=$p."src:exe" :src:proc=$p."src:proc"
+                :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': proc, 'p': pprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:proc', proc))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('pid'), pid)
+            self.eq(node.get('cmd'), cmd0)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('user'), user)
+            self.eq(node.get('path'), norm_path)
+            self.eq(node.get('src:exe'), src_path)
+            self.eq(node.get('src:proc'), src_proc)
+            self.eq(node.get('sandbox:file'), sandfile)
+            self.nn(node.get('account'))
+            self.len(1, await core.nodes('it:exec:proc -> it:account'))
 
-                self.nn(node.get('account'))
-                self.len(1, await core.nodes('it:exec:proc -> it:account'))
+            nodes = await core.nodes('it:cmd')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
 
-                nodes = await core.nodes('it:cmd')
+            m0 = s_common.guid()
+            mprops = {
+                'exe': exe,
+                'proc': proc,
+                'name': mutex,
+                'host': host,
+                'time': tick,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:mutex=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+                    :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': m0, 'p': mprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:mutex', m0))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('name'), mutex)
+            self.eq(node.get('sandbox:file'), sandfile)
+
+            p0 = s_common.guid()
+            pipeprops = {
+                'exe': exe,
+                'proc': proc,
+                'name': pipe,
+                'host': host,
+                'time': tick,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:pipe=$valu :exe=$p.exe :proc=$p.proc :name=$p.name :host=$p.host :time=$p.time
+                    :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': p0, 'p': pipeprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:pipe', p0))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('name'), pipe)
+            self.eq(node.get('sandbox:file'), sandfile)
+
+            u0 = s_common.guid()
+            uprops = {
+                'proc': proc,
+                'host': host,
+                'exe': exe,
+                'time': tick,
+                'url': url,
+                'page:pdf': '*',
+                'page:html': '*',
+                'page:image': '*',
+                'browser': '*',
+                'client': addr4,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:url=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                :url=$p.url :page:pdf=$p."page:pdf" :page:html=$p."page:html" :page:image=$p."page:image"
+                :browser=$p.browser :client=$p.client
+                :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': u0, 'p': uprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:url', u0))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('url'), url)
+            self.eq(node.get('client'), addr4)
+            self.eq(node.get('client:ipv4'), ipv4)
+            self.eq(node.get('client:port'), port)
+            self.eq(node.get('sandbox:file'), sandfile)
+            self.nn(node.get('page:pdf'))
+            self.nn(node.get('page:html'))
+            self.nn(node.get('page:image'))
+            self.nn(node.get('browser'))
+            opts = {'vars': {'guid': u0}}
+            self.len(1, await core.nodes('it:exec:url=$guid :page:pdf -> file:bytes', opts=opts))
+            self.len(1, await core.nodes('it:exec:url=$guid :page:html -> file:bytes', opts=opts))
+            self.len(1, await core.nodes('it:exec:url=$guid :page:image -> file:bytes', opts=opts))
+            self.len(1, await core.nodes('it:exec:url=$guid :browser -> it:prod:softver', opts=opts))
+            self.len(1, await core.nodes('it:exec:url=$guid :sandbox:file -> file:bytes', opts=opts))
+
+            u1 = s_common.guid()
+            uprops['client'] = addr6
+            q = '''[(it:exec:url=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                            :url=$p.url :page:pdf=$p."page:pdf" :page:html=$p."page:html" :page:image=$p."page:image"
+                            :browser=$p.browser :client=$p.client
+                            :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': u1, 'p': uprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:url', u1))
+            self.eq(node.get('client'), addr6)
+            self.eq(node.get('client:ipv6'), ipv6)
+            self.eq(node.get('client:port'), port)
+
+            b0 = s_common.guid()
+            bprops = {
+                'proc': proc,
+                'host': host,
+                'exe': exe,
+                'time': tick,
+                'server': addr4,
+                'sandbox:file': sandfile,
+            }
+            q = '''[(it:exec:bind=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                :server=$p.server :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': b0, 'p': bprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:bind', b0))
+            self.eq(node.ndef[1], b0)
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('server'), addr4)
+            self.eq(node.get('server:ipv4'), ipv4)
+            self.eq(node.get('server:port'), port)
+            self.eq(node.get('sandbox:file'), sandfile)
+
+            b1 = s_common.guid()
+            bprops['server'] = addr6
+            nodes = await core.nodes(q, opts={'vars': {'valu': b1, 'p': bprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:bind', b1))
+            self.eq(node.get('server'), addr6)
+            self.eq(node.get('server:ipv6'), ipv6)
+            self.eq(node.get('server:port'), port)
+
+            faprops = {
+                'exe': exe,
+                'host': host,
+                'proc': proc,
+                'file': fbyts,
+                'time': tick,
+                'path': fpath,
+                'sandbox:file': sandfile,
+            }
+            fa0 = s_common.guid()
+            q = '''[(it:exec:file:add=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                :file=$p.file :path=$p.path
+                :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fa0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:add', fa0))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('file'), fbyts)
+            self.eq(node.get('path'), fpath)
+            self.eq(node.get('path:dir'), 'c:/temp')
+            self.eq(node.get('path:base'), 'yourfiles.rar')
+            self.eq(node.get('path:ext'), 'rar')
+            self.eq(node.get('sandbox:file'), sandfile)
+
+            fr0 = s_common.guid()
+            q = '''[(it:exec:file:read=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                            :file=$p.file :path=$p.path
+                            :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fr0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:read', fr0))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('file'), fbyts)
+            self.eq(node.get('path'), fpath)
+            self.eq(node.get('path:dir'), 'c:/temp')
+            self.eq(node.get('path:base'), 'yourfiles.rar')
+            self.eq(node.get('path:ext'), 'rar')
+            self.eq(node.get('sandbox:file'), sandfile)
+
+            fw0 = s_common.guid()
+            q = '''[(it:exec:file:write=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                    :file=$p.file :path=$p.path
+                    :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fw0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:write', fw0))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('file'), fbyts)
+            self.eq(node.get('path'), fpath)
+            self.eq(node.get('path:dir'), 'c:/temp')
+            self.eq(node.get('path:base'), 'yourfiles.rar')
+            self.eq(node.get('path:ext'), 'rar')
+            self.eq(node.get('sandbox:file'), sandfile)
+
+            fd0 = s_common.guid()
+            q = '''[(it:exec:file:del=$valu :exe=$p.exe :proc=$p.proc :host=$p.host :time=$p.time
+                                :file=$p.file :path=$p.path
+                                :sandbox:file=$p."sandbox:file")]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': fd0, 'p': faprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:exec:file:del', fd0))
+            self.eq(node.get('exe'), exe)
+            self.eq(node.get('host'), host)
+            self.eq(node.get('proc'), proc)
+            self.eq(node.get('time'), tick)
+            self.eq(node.get('file'), fbyts)
+            self.eq(node.get('path'), fpath)
+            self.eq(node.get('path:dir'), 'c:/temp')
+            self.eq(node.get('path:base'), 'yourfiles.rar')
+            self.eq(node.get('path:ext'), 'rar')
+            self.eq(node.get('sandbox:file'), sandfile)
+
+            file0 = s_common.guid()
+            fsprops = {
+                'host': host,
+                'path': fpath,
+                'file': fbyts,
+                'ctime': tick,
+                'mtime': tick + 1,
+                'atime': tick + 2,
+                'user': user,
+                'group': 'domainadmin'
+            }
+            q = '''[(it:fs:file=$valu :host=$p.host :path=$p.path :file=$p.file :user=$p.user :group=$p.group
+                :ctime=$p.ctime :mtime=$p.mtime :atime=$p.atime  )]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': file0, 'p': fsprops}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('it:fs:file', file0))
+            self.eq(node.get('host'), host)
+            self.eq(node.get('user'), user)
+            self.eq(node.get('group'), 'domainadmin')
+            self.eq(node.get('file'), fbyts)
+            self.eq(node.get('ctime'), tick)
+            self.eq(node.get('mtime'), tick + 1)
+            self.eq(node.get('atime'), tick + 2)
+            self.eq(node.get('path'), fpath)
+            self.eq(node.get('path:dir'), 'c:/temp')
+            self.eq(node.get('path:base'), 'yourfiles.rar')
+            self.eq(node.get('path:ext'), 'rar')
+
+            rprops = {
+                'host': host,
+                'proc': proc,
+                'exe': exe,
+                'time': tick,
+                'reg': '*',
+                'sandbox:file': sandfile,
+            }
+            forms = ('it:exec:reg:get',
+                     'it:exec:reg:set',
+                     'it:exec:reg:del',
+                     )
+            for form in forms:
+                rk0 = s_common.guid()
+                nprops = rprops.copy()
+                q = '''[(*$form=$valu :host=$p.host :proc=$p.proc :exe=$p.exe :time=$p.time :reg=$p.reg
+                    :sandbox:file=$p."sandbox:file")]'''
+                nodes = await core.nodes(q, opts={'vars': {'form': form, 'valu': rk0, 'p': nprops}})
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
-
-                m0 = s_common.guid()
-                mprops = {
-                    'exe': exe,
-                    'proc': proc,
-                    'name': mutex,
-                    'host': host,
-                    'time': tick,
-                    'sandbox:file': sandfile,
-                }
-                node = await snap.addNode('it:exec:mutex', m0, mprops)
-                self.eq(node.ndef[1], m0)
-                self.eq(node.get('exe'), exe)
-                self.eq(node.get('proc'), proc)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('name'), mutex)
-                self.eq(node.get('sandbox:file'), sandfile)
-
-                p0 = s_common.guid()
-                pipeprops = {
-                    'exe': exe,
-                    'proc': proc,
-                    'name': pipe,
-                    'host': host,
-                    'time': tick,
-                    'sandbox:file': sandfile,
-                }
-                node = await snap.addNode('it:exec:pipe', p0, pipeprops)
-                self.eq(node.ndef[1], p0)
-                self.eq(node.get('exe'), exe)
-                self.eq(node.get('proc'), proc)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('name'), pipe)
-                self.eq(node.get('sandbox:file'), sandfile)
-
-                u0 = s_common.guid()
-                uprops = {
-                    'proc': proc,
-                    'host': host,
-                    'exe': exe,
-                    'time': tick,
-                    'url': url,
-                    'page:pdf': '*',
-                    'page:html': '*',
-                    'page:image': '*',
-                    'browser': '*',
-                    'client': addr4,
-                    'sandbox:file': sandfile,
-                }
-                node = await snap.addNode('it:exec:url', u0, uprops)
-                self.eq(node.ndef[1], u0)
-                self.eq(node.get('exe'), exe)
-                self.eq(node.get('proc'), proc)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('url'), url)
-                self.eq(node.get('client'), addr4)
-                self.eq(node.get('client:ipv4'), ipv4)
-                self.eq(node.get('client:port'), port)
-                self.eq(node.get('sandbox:file'), sandfile)
-
-                self.nn(node.get('page:pdf'))
-                self.nn(node.get('page:html'))
-                self.nn(node.get('page:image'))
-                self.nn(node.get('browser'))
-                opts = {'vars': {'guid': u0}}
-                self.len(1, await core.nodes('it:exec:url=$guid :page:pdf -> file:bytes', opts=opts))
-                self.len(1, await core.nodes('it:exec:url=$guid :page:html -> file:bytes', opts=opts))
-                self.len(1, await core.nodes('it:exec:url=$guid :page:image -> file:bytes', opts=opts))
-                self.len(1, await core.nodes('it:exec:url=$guid :browser -> it:prod:softver', opts=opts))
-                self.len(1, await core.nodes('it:exec:url=$guid :sandbox:file -> file:bytes', opts=opts))
-
-                u1 = s_common.guid()
-                uprops['client'] = addr6
-                node = await snap.addNode('it:exec:url', u1, uprops)
-                self.eq(node.ndef[1], u1)
-                self.eq(node.get('client'), addr6)
-                self.eq(node.get('client:ipv6'), ipv6)
-                self.eq(node.get('client:port'), port)
-
-                b0 = s_common.guid()
-                bprops = {
-                    'proc': proc,
-                    'host': host,
-                    'exe': exe,
-                    'time': tick,
-                    'server': addr4,
-                    'sandbox:file': sandfile,
-                }
-                node = await snap.addNode('it:exec:bind', b0, bprops)
-                self.eq(node.ndef[1], b0)
-                self.eq(node.get('exe'), exe)
-                self.eq(node.get('proc'), proc)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('server'), addr4)
-                self.eq(node.get('server:ipv4'), ipv4)
-                self.eq(node.get('server:port'), port)
-                self.eq(node.get('sandbox:file'), sandfile)
-
-                b1 = s_common.guid()
-                bprops['server'] = addr6
-                node = await snap.addNode('it:exec:bind', b1, bprops)
-                self.eq(node.ndef[1], b1)
-                self.eq(node.get('server'), addr6)
-                self.eq(node.get('server:ipv6'), ipv6)
-                self.eq(node.get('server:port'), port)
-
-                faprops = {
-                    'exe': exe,
-                    'host': host,
-                    'proc': proc,
-                    'file': fbyts,
-                    'time': tick,
-                    'path': fpath,
-                    'sandbox:file': sandfile,
-                }
-                fa0 = s_common.guid()
-                node = await snap.addNode('it:exec:file:add', fa0, faprops)
-                self.eq(node.ndef[1], fa0)
-                self.eq(node.get('exe'), exe)
+                node = nodes[0]
+                self.eq(node.ndef, (form, rk0))
                 self.eq(node.get('host'), host)
                 self.eq(node.get('proc'), proc)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('file'), fbyts)
-                self.eq(node.get('path'), fpath)
-                self.eq(node.get('path:dir'), 'c:/temp')
-                self.eq(node.get('path:base'), 'yourfiles.rar')
-                self.eq(node.get('path:ext'), 'rar')
-                self.eq(node.get('sandbox:file'), sandfile)
-
-                fr0 = s_common.guid()
-                node = await snap.addNode('it:exec:file:read', fr0, faprops)
-                self.eq(node.ndef[1], fr0)
                 self.eq(node.get('exe'), exe)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('proc'), proc)
                 self.eq(node.get('time'), tick)
-                self.eq(node.get('file'), fbyts)
-                self.eq(node.get('path'), fpath)
-                self.eq(node.get('path:dir'), 'c:/temp')
-                self.eq(node.get('path:base'), 'yourfiles.rar')
-                self.eq(node.get('path:ext'), 'rar')
+                self.nn(node.get('reg'))
                 self.eq(node.get('sandbox:file'), sandfile)
-
-                fw0 = s_common.guid()
-                node = await snap.addNode('it:exec:file:write', fw0, faprops)
-                self.eq(node.ndef[1], fw0)
-                self.eq(node.get('exe'), exe)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('proc'), proc)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('file'), fbyts)
-                self.eq(node.get('path'), fpath)
-                self.eq(node.get('path:dir'), 'c:/temp')
-                self.eq(node.get('path:base'), 'yourfiles.rar')
-                self.eq(node.get('path:ext'), 'rar')
-                self.eq(node.get('sandbox:file'), sandfile)
-
-                fd0 = s_common.guid()
-                node = await snap.addNode('it:exec:file:del', fd0, faprops)
-                self.eq(node.ndef[1], fd0)
-                self.eq(node.get('exe'), exe)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('proc'), proc)
-                self.eq(node.get('time'), tick)
-                self.eq(node.get('file'), fbyts)
-                self.eq(node.get('path'), fpath)
-                self.eq(node.get('path:dir'), 'c:/temp')
-                self.eq(node.get('path:base'), 'yourfiles.rar')
-                self.eq(node.get('path:ext'), 'rar')
-                self.eq(node.get('sandbox:file'), sandfile)
-
-                file0 = s_common.guid()
-                fsprops = {
-                    'host': host,
-                    'path': fpath,
-                    'file': fbyts,
-                    'ctime': tick,
-                    'mtime': tick + 1,
-                    'atime': tick + 2,
-                    'user': user,
-                    'group': 'domainadmin'
-                }
-                node = await snap.addNode('it:fs:file', file0, fsprops)
-                self.eq(node.ndef[1], file0)
-                self.eq(node.get('host'), host)
-                self.eq(node.get('user'), user)
-                self.eq(node.get('group'), 'domainadmin')
-                self.eq(node.get('file'), fbyts)
-                self.eq(node.get('ctime'), tick)
-                self.eq(node.get('mtime'), tick + 1)
-                self.eq(node.get('atime'), tick + 2)
-                self.eq(node.get('path'), fpath)
-                self.eq(node.get('path:dir'), 'c:/temp')
-                self.eq(node.get('path:base'), 'yourfiles.rar')
-                self.eq(node.get('path:ext'), 'rar')
-
-                rprops = {
-                    'host': host,
-                    'proc': proc,
-                    'exe': exe,
-                    'time': tick,
-                    'reg': '*',
-                    'sandbox:file': sandfile,
-                }
-                forms = ('it:exec:reg:get',
-                         'it:exec:reg:set',
-                         'it:exec:reg:del',
-                         )
-                for form in forms:
-                    rk0 = s_common.guid()
-                    nprops = rprops.copy()
-                    node = await snap.addNode(form, rk0, nprops)
-                    self.eq(node.ndef[1], rk0)
-                    self.eq(node.get('host'), host)
-                    self.eq(node.get('proc'), proc)
-                    self.eq(node.get('exe'), exe)
-                    self.eq(node.get('time'), tick)
-                    self.nn(node.get('reg'))
-                    self.eq(node.get('sandbox:file'), sandfile)
 
     async def test_it_app_yara(self):
 
