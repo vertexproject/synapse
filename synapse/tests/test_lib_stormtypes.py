@@ -1271,116 +1271,100 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                hstr = 'ohhai'
-                ghstr = base64.urlsafe_b64encode((gzip.compress(hstr.encode()))).decode()
-                mstr = 'ohgood'
-                n2 = s_common.guid()
-                n3 = s_common.guid()
+            hstr = 'ohhai'
+            ghstr = base64.urlsafe_b64encode((gzip.compress(hstr.encode()))).decode()
+            mstr = 'ohgood'
+            n2 = s_common.guid()
+            n3 = s_common.guid()
 
-                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
-                node2 = await snap.addNode('graph:node', '*', {'data': mstr})
+            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': ghstr}})
+            self.len(1, nodes)
+            node1 = nodes[0]
 
-                text = f'''
-                    graph:node={node1.ndef[1]}
-                    $gzthing = :data
-                    $foo = $lib.base64.decode($gzthing).gunzip()
-                    $lib.print($foo)
+            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': mstr}})
+            self.len(1, nodes)
+            node2 = nodes[0]
+            q = '''graph:node=$n1 $gzthing = :data
+                $foo = $lib.base64.decode($gzthing).gunzip()
+                $lib.print($foo)
+                [( graph:node=$n2 :data=$foo.decode() )]'''
 
-                    [ graph:node={n2} :data=$foo.decode() ]
-                '''
+            msgs = await core.stormlist(q, opts={'vars': {'n1': node1.ndef[1], 'n2': n2}})
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('ohhai', msgs)
 
-                await core.stormlist(text)
+            # make sure we gunzip correctly
+            nodes = await core.nodes('graph:node=$valu', opts={'vars': {'valu': n2}})
+            self.len(1, nodes)
+            self.eq(hstr, nodes[0].get('data'))
 
-                # make sure we gunzip correctly
-                opts = {'vars': {'iden': n2}}
-                nodes = await snap.nodes('graph:node=$iden', opts=opts)
-                self.len(1, nodes)
-                self.eq(hstr, nodes[0].get('data'))
+            text = f'''graph:node=$n2 $bar = :data
+                    [( graph:node=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
+            msgs = await core.stormlist(text, opts={'vars': {'n2': node2.ndef[1], 'n3': n3}})
+            self.stormHasNoWarnErr(msgs)
 
-                # gzip
-                text = f'''
-                    graph:node={node2.ndef[1]}
-                    $bar = :data
-                    [ graph:node={n3} :data=$lib.base64.encode($bar.encode().gzip()) ]
-                '''
-                await core.stormlist(text)
-
-                # make sure we gzip correctly
-                opts = {'vars': {'iden': n3}}
-                nodes = await snap.nodes('graph:node=$iden', opts=opts)
-                self.len(1, nodes)
-                self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].props['data'])))
+            # make sure we gzip correctly
+            nodes = await core.nodes('graph:node=$valu', opts={'vars': {'valu': n3}})
+            self.len(1, nodes)
+            self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].props['data'])))
 
     async def test_storm_lib_bytes_bzip(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                hstr = 'ohhai'
-                ghstr = base64.urlsafe_b64encode((bz2.compress(hstr.encode()))).decode()
-                mstr = 'ohgood'
-                ggstr = base64.urlsafe_b64encode((bz2.compress(mstr.encode()))).decode()
-                n2 = s_common.guid()
-                n3 = s_common.guid()
+            hstr = 'ohhai'
+            ghstr = base64.urlsafe_b64encode((bz2.compress(hstr.encode()))).decode()
+            mstr = 'ohgood'
+            ggstr = base64.urlsafe_b64encode((bz2.compress(mstr.encode()))).decode()
+            n2 = s_common.guid()
+            n3 = s_common.guid()
 
-                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
-                node2 = await snap.addNode('graph:node', '*', {'data': mstr})
+            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': ghstr}})
+            self.len(1, nodes)
+            node1 = nodes[0]
+            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': mstr}})
+            self.len(1, nodes)
+            node2 = nodes[0]
 
-                text = '''
-                    graph:node={valu}
-                    $bzthing = :data
-                    $foo = $lib.base64.decode($bzthing).bunzip()
-                    $lib.print($foo)
+            q = '''graph:node=$valu $bzthing = :data $foo = $lib.base64.decode($bzthing).bunzip()
+            $lib.print($foo)
+            [( graph:node=$n2 :data=$foo.decode() )] -graph:node=$valu'''
+            msgs = await core.stormlist(q, opts={'vars': {'valu': node1.ndef[1], 'n2': n2}})
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('ohhai', msgs)
 
-                    [ graph:node={n2} :data=$foo.decode() ]
-                '''
-                text = text.format(valu=node1.ndef[1], n2=n2)
-                await core.stormlist(text)
+            # make sure we bunzip correctly
+            opts = {'vars': {'iden': n2}}
+            nodes = await core.nodes('graph:node=$iden', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('data'), hstr)
 
-                # make sure we bunzip correctly
-                opts = {'vars': {'iden': n2}}
-                nodes = await snap.nodes('graph:node=$iden', opts=opts)
-                self.len(1, nodes)
-                self.eq(hstr, nodes[0].props['data'])
-
-                # bzip
-                text = '''
-                    graph:node={valu}
-                    $bar = :data
-                    [ graph:node={n3} :data=$lib.base64.encode($bar.encode().bzip()) ]
-                '''
-                text = text.format(valu=node2.ndef[1], n3=n3)
-                await core.stormlist(text)
-
-                # make sure we bzip correctly
-                opts = {'vars': {'iden': n3}}
-                nodes = await snap.nodes('graph:node=$iden', opts=opts)
-                self.len(1, nodes)
-                self.eq(ggstr, nodes[0].props['data'])
+            # bzip
+            q = '''graph:node=$valu $bar = :data
+                [( graph:node=$n3 :data=$lib.base64.encode($bar.encode().bzip()) )] -graph:node=$valu'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': node2.ndef[1], 'n3': n3}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('data'), ggstr)
 
     async def test_storm_lib_bytes_json(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                foo = {'a': 'ohhai'}
-                ghstr = json.dumps(foo)
-                n2 = s_common.guid()
 
-                node1 = await snap.addNode('graph:node', '*', {'data': ghstr})
+            foo = {'a': 'ohhai'}
+            ghstr = json.dumps(foo)
+            valu = s_common.guid()
+            n2 = s_common.guid()
 
-                text = '''
-                    graph:node={valu}
-                    $jzthing = :data
-                    $foo = $jzthing.encode().json()
+            nodes = await core.nodes('[graph:node=$valu :data=$data]', opts={'vars': {'valu': valu, 'data': ghstr}})
+            self.len(1, nodes)
+            node1 = nodes[0]
+            self.eq(node1.get('data'), ghstr)
 
-                    [ graph:node={n2} :data=$foo ]
-                '''
-                text = text.format(valu=node1.ndef[1], n2=n2)
-                await core.stormlist(text)
-
-                # make sure we json loaded correctly
-                opts = {'vars': {'iden': n2}}
-                nodes = await snap.nodes('graph:node=$iden', opts=opts)
-                self.len(1, nodes)
-                self.eq(foo, nodes[0].props['data'])
+            q = '''graph:node=$valu $jzthing=:data $foo=$jzthing.encode().json() [(graph:node=$n2 :data=$foo)]
+                  -graph:node=$valu'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'n2': n2}})
+            self.len(1, nodes)
+            node2 = nodes[0]
+            self.eq(node2.get('data'), foo)
 
             buf = b'\xff\xfe{\x00"\x00k\x00"\x00:\x00 \x00"\x00v\x00"\x00}\x00'
             q = '''return( $buf.json(encoding=$encoding) )'''
