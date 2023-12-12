@@ -3,6 +3,7 @@ import copy
 import regex
 import asyncio
 import logging
+import textwrap
 import contextlib
 import collections
 
@@ -6303,9 +6304,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def setVaultSecrets(self, iden, key, valu):
         '''
-        Set vault secrets.
+        Set vault secret item.
 
-        This function sets the `key`:`valu` into the vault.
+        This function sets the `key`:`valu` into the vault secrets.
 
         Args:
             iden (str): The iden of the vault to edit.
@@ -6314,6 +6315,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: One of `key` or `valu` is not msgpack safe.
 
         Returns: Updated vault.
         '''
@@ -6334,15 +6336,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg=f'Vault secrets must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
 
     async def setVaultConfigs(self, iden, key, valu):
         '''
-        Set vault configs.
+        Set vault config item.
 
-        This function sets the `key`:`valu` into the vault.
+        This function sets the `key`:`valu` into the vault configs.
 
         Args:
             iden (str): The iden of the vault to edit.
@@ -6351,6 +6353,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: One of `key` or `valu` is not msgpack safe.
 
         Returns: Updated vault.
         '''
@@ -6371,12 +6374,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg=f'Vault configs must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 
     @s_nexus.Pusher.onPush('vault:data:set')
-    async def _setVaultSecrets(self, iden, obj, key, valu, delete):
+    async def _setVaultData(self, iden, obj, key, valu, delete):
         vault = self.reqVault(iden)
         data = vault.get(obj)
 
@@ -6390,6 +6393,78 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return data
+
+    async def replaceVaultConfigs(self, iden, valu):
+        '''
+        Replace the entire vault config.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            valu (str): New configs object to store on the vault.
+
+        Raises:
+            synapse.exc.BadArg: `valu` is not a dictionary.
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: `valu` is not msgpack safe.
+
+        Returns: New configs.
+        '''
+        vault = self.reqVault(iden)
+
+        if not isinstance(valu, dict):
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+
+        try:
+            s_msgpack.en(valu)
+        except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.NotMsgpackSafe(
+                mesg='Vault configs must be msgpack safe.',
+                name='valu',
+                valu=short) from None
+
+        return await self._push('vault:data:replace', iden, 'configs', valu)
+
+    async def replaceVaultSecrets(self, iden, valu):
+        '''
+        Replace the entire vault config.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            valu (str): New secrets object to store on the vault.
+
+        Raises:
+            synapse.exc.BadArg: `valu` is not a dictionary.
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: `valu` is not msgpack safe.
+
+        Returns: New secrets.
+        '''
+        vault = self.reqVault(iden)
+
+        if not isinstance(valu, dict):
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+
+        try:
+            s_msgpack.en(valu)
+        except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.NotMsgpackSafe(
+                mesg='Vault secrets must be msgpack safe.',
+                name='valu',
+                valu=short) from None
+
+        return await self._push('vault:data:replace', iden, 'secrets', valu)
+
+    @s_nexus.Pusher.onPush('vault:data:replace')
+    async def _replaceVaultData(self, iden, obj, valu):
+        vault = self.reqVault(iden)
+        bidn = s_common.uhex(iden)
+
+        vault[obj] = valu
+
+        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        return valu
 
     def listVaults(self):
         '''

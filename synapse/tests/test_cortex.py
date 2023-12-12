@@ -5,6 +5,7 @@ import time
 import asyncio
 import hashlib
 import logging
+import textwrap
 
 import regex
 
@@ -7467,6 +7468,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(await core.setVaultConfigs(giden, 'color', 'orange'))
             self.true(await core.setVaultSecrets(giden, 'apikey', 'foobar'))
 
+            await core.replaceVaultConfigs(giden, {'rubiks': 'cube'})
+            vault = core.reqVault(giden)
+            self.eq({'rubiks': 'cube'}, vault['configs'])
+
+            await core.replaceVaultSecrets(giden, {'secret': 'squirrel'})
+            vault = core.reqVault(giden)
+            self.eq({'secret': 'squirrel'}, vault['secrets'])
+
             vaults = list(core.listVaults())
             self.len(4, vaults)
 
@@ -7666,22 +7675,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.setVaultConfigs(visi1.iden, 'foo', 'bar')
             self.eq(f'Vault not found for iden: {visi1.iden}.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, 'foo', self)
             self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, 'foo', self)
             self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, self, 'bar')
             self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, self, 'bar')
             self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
@@ -7721,6 +7730,40 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Requested type/scope doesn't exist
                 core.reqVaultByType(vtype1, visi1.iden, 'user')
             self.eq(f'Vault not found for type: {vtype1}.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.replaceVaultSecrets(giden, self)
+            self.eq('valu must be a dictionary.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultSecrets(giden, {'foo': self})
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.replaceVaultConfigs(giden, self)
+            self.eq('valu must be a dictionary.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultConfigs(giden, {'foo': self})
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+
+            class LongRepr:
+                def __repr__(self):
+                    return 'Abcd. ' * 1000
+
+            valu = {'foo': LongRepr()}
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultSecrets(giden, valu)
+            self.eq(
+                "{'foo': Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. [...]",
+                exc.exception.get('valu'))
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultConfigs(giden, {'foo': LongRepr()})
+            self.eq(
+                "{'foo': Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. [...]",
+                exc.exception.get('valu'))
 
     async def test_cortex_user_scope(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
