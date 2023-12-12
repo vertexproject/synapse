@@ -90,3 +90,28 @@ reqValidVault = s_config.getJsValidator({
         'configs',
     ],
 })
+
+# 7776000000  -> 90 days
+# 31536000000 -> 365 days
+_cellUserAccesTokenSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string', 'default': ''},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'lifetime': {'type': 'integer', 'minimum': 1, 'maximum': 31536000000, 'default': 7776000000},
+        'shadow': {  # TODO break out shadowv2 props?
+            'type': 'object',
+        },
+        'scopes': {
+            'type': 'array',
+            'items': {
+                'type': 'string',
+                'minlen': 1,
+            }
+        }
+    },
+    'additionalProperties': False,
+}
+reqValidUserAccessTokenDef = s_config.getJsValidator(_cellUserAccesTokenSchema)

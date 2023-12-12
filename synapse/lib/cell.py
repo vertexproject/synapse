@@ -42,6 +42,8 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -645,6 +647,10 @@ class CellApi(s_base.Base):
     async def popUserProfInfo(self, iden, name, default=None):
         return await self.cell.popUserProfInfo(iden, name, default=default)
 
+    @adminapi()
+    async def checkUserAccessToken(self, tokn):
+        return await self.cell.checkUserAccessToken(tokn)
+
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -1141,7 +1147,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(root)
 
         await self._initCellSlab(readonly=readonly)
-
+        self._uatdb = self.slab.initdb('cell:user:tokens')
         self.hive = await self._initCellHive()
 
         # self.cellinfo, a HiveDict for general purpose persistent storage
@@ -2725,6 +2731,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initCellHttp(self):
 
         self.httpds = []
+        self.httpapi_scopes = []
         self.sessstor = s_lmdbslab.GuidStor(self.slab, 'http:sess')
 
         async def fini():
@@ -2779,6 +2786,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.wapp.add_handlers('.*', (
             (path, ctor, info),
         ))
+        scope = getattr(ctor, 'syn_uat_scope', None)
+        if scope and scope not in self.httpapi_scopes:
+            self.httpapi_scopes.append(scope)
+            self.httpapi_scopes.sort()
 
     def _initCertDir(self):
 
@@ -4031,3 +4042,128 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return s_common.retnexc(e)
         logger.debug(f'Completed cell reload system {name}')
         return (True, ret)
+
+    async def getUserAccessTokenScopes(self):
+        # List of registered token scopes
+        return tuple(self.httpapi_scopes)
+
+    async def genUserAccessToken(self, useriden, name, scopes=None, duration=None):
+        # TODO CHECK USER IDEN
+        iden, token, shadow = await s_passwd.generateAccessToken()
+
+        tdef = {
+            'iden': iden,
+            'name': name,
+            'user': useriden,
+            'created': s_common.now(),
+            'shadow': shadow,
+        }
+        if scopes:
+            tdef['scopes'] = scopes
+        if duration:
+            tdef['duration'] = duration
+
+        tdef = s_schemas.reqValidUserAccessTokenDef(tdef)
+
+        await self._push('user:token:add', tdef)
+
+        tdef.pop('shadow')
+        return token, tdef
+
+    @s_nexus.Pusher.onPush('user:token:add')
+    async def _genUserAccessToken(self, tdef):
+        iden = tdef.get('iden')
+        valu = self.slab.get(iden.encode('utf-8'), self._uatdb)
+        if valu is not None:
+            return
+        self.slab.put(iden.encode('utf-8'), s_msgpack.en(tdef), db=self._uatdb)
+
+    async def getUserAccessToken(self, iden):
+        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
+        if buf is None:
+            return None
+        tdef = s_msgpack.un(buf)
+        tdef.pop('shadow')
+        return tdef
+
+    # List user access tokens?
+
+    # Is it possible to keep an lru cache of tokens in memory?
+    # Possibly but we have a expiration problem and a user-refresh problem...
+    async def checkUserAccessToken(self, tokn):
+        isok, valu = s_passwd.checkAccesToken(tokn)
+        if isok is False:
+            return False, {'mesg': 'Access token is malformed.'}
+
+        iden, secv = valu
+
+        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
+        if buf is None:
+            return False, {'mesg': f'Access token does not exist: {iden}'}
+
+        tdef = s_msgpack.un(buf)
+
+        udef = await self.getUserDef(tdef.get('user'), packroles=False)
+        if udef is None:
+            return False, {'mesg': f'User does not exist for access token: {iden}', 'user': tdef.get('user')}
+
+        if udef.get('locked'):
+            return False, {'mesg': f'User associated with access token is locked: {iden}',
+                           'user': tdef.get('user'), 'name': udef.get('name')}
+
+        now = s_common.now()
+        if now >= tdef.get('created') + tdef.get('lifetime'):
+            return False, {'mesg': f'Access token is expired: {iden}',
+                           'user': tdef.get('user'), 'name': udef.get('name')}
+
+        shadow = tdef.pop('shadow')
+        valid = await s_passwd.checkShadowV2(secv, shadow)
+        if valid is False:
+            return False, {'mesg': f'Access token shadow mismatch: {iden}',
+                           'user': tdef.get('user'), 'name': udef.get('name')}
+
+        return True, {'tdef': tdef, 'udef': udef}
+
+    async def modifyUserAccessToken(self, iden, key, valu):
+        # Modify the name of a token
+        # Modify the scope of a token
+        # NEXUS
+        return {}
+
+    async def regenerateUserAccessToken(self, iden, duration=None):
+        # Regenerated a private value for an existing
+        # Modify the scope of a token
+        # NEXUS
+
+        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
+        if buf is None:
+            logger.error(f'Requested access Key does not exist, cannot regenerate it: {iden}')
+            return False
+        tdef = s_msgpack.un(buf)
+        _, token, shadow = await s_passwd.generateAccessToken(iden=iden)
+
+        tdef['shadow'] = shadow
+        if duration:
+            tdef['duration'] = duration
+        tdef = s_schemas.reqValidUserAccessTokenDef(tdef)
+
+        await self._push('user:token:set', tdef)
+
+        tdef.pop('shadow')
+        return token, tdef
+
+    @s_nexus.Pusher.onPush('user:token:set')
+    async def _setUserAccessToken(self, tdef):
+        iden = tdef.get('iden')
+        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
+        if buf is None:
+            raise s_exc.NoSuchIden(mesg=f'User access token does not exist: {iden}')
+        self.slab.put(iden.encode('utf-8'), s_msgpack.en(tdef), db=self._uatdb)
+        return tdef
+
+    async def _deleteHttpToken(self, iden):
+        pass
+
+    @s_nexus.Pusher.onPush('user:token:del')
+    async def _deleteHttpToken(self, iden):
+        pass

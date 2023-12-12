@@ -2407,3 +2407,35 @@ class CellTest(s_t_utils.SynTest):
 
                         users = {m.get('info', {}).get('name') for m in bitems}
                         self.eq(users, {'alice', 'bob'})
+
+    async def test_cell_user_access_tokens(self):
+        async with self.getTestCell(s_cell.Cell) as cell:
+
+            await cell.auth.rootuser.setPasswd('root')
+            root = cell.auth.rootuser.iden
+
+            visi = await cell.addUser('visi')
+            visi = visi.get('iden')
+
+            hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+            rtk0, rtdf0 = await cell.genUserAccessToken(root, name='Test Token', scopes=['auth.password',])
+            print(rtk0)
+            print(rtdf0)
+
+            async with self.getHttpSess(port=hport) as sess:
+
+                headers = {'Authorization': f'Bearer {rtk0}'}
+
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers,
+                                       json={'user': visi})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+                onepass = answ['result']
+                print(onepass)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/v1/auth/roles', headers=headers)
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+                print(answ)

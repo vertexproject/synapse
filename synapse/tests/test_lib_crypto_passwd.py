@@ -78,3 +78,16 @@ class PasswdTest(s_t_utils.SynTest):
         for vec in tvs:
             with self.raises(AttributeError):
                 await s_passwd.getShadowV2(vec)
+
+    async def test_token_generation(self):
+        iden, token, shadow = await s_passwd.generateAccessToken()
+        print(iden)
+        print(token)
+        print(shadow)
+        isok, (iden2, secv) = s_passwd.checkAccesToken(token)
+        self.true(isok)
+        print(iden2, secv)
+        self.eq(iden, iden2)
+
+        result = s_passwd.checkShadowV2(secv, shadow)
+        self.true(result)
