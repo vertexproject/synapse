@@ -565,10 +565,6 @@ class Node(NodeBase):
         Returns:
             None: This returns None.
         '''
-        if self.form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
-                                   form=self.form.full, tag=tag)
-
         async with self.snap.getNodeEditor(self) as protonode:
             await protonode.addTag(tag, valu=valu)
 
@@ -600,10 +596,6 @@ class Node(NodeBase):
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
-
-        if self.form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
-                                   form=self.form.full, tag=tag)
 
         pref = name + '.'
 
@@ -781,10 +773,6 @@ class Node(NodeBase):
         '''
 
         formname, formvalu = self.ndef
-
-        if self.form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
-                                   form=formname, valu=formvalu)
 
         # top level tags will cause delete cascades
         tags = self._getTagsDict()

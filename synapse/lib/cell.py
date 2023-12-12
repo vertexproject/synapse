@@ -73,21 +73,6 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
-easyPermSchema = {
-    'type': 'object',
-    'properties': {
-        'users': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-        'roles': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-    },
-    'required': ['users', 'roles'],
-}
-
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -2992,8 +2977,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 elif rolelevel >= level:
                     return True
 
-        # allow read by default unless explicitly set
-        if level <= PERM_READ:
+        default = item['permissions'].get('default', PERM_READ)
+        if level <= default:
             return True
 
         return False
@@ -3040,13 +3025,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             perms[iden] = level
 
-    def _initEasyPerm(self, item):
+    def _initEasyPerm(self, item, default=PERM_READ):
         '''
         Ensure that the given object has populated the "easy perm" convention.
         '''
+        if default > PERM_ADMIN or default < PERM_DENY:
+            mesg = f'Invalid permission level: {default} (must be <= {PERM_ADMIN} and >= {PERM_DENY})'
+            raise s_exc.BadArg(mesg=mesg)
+
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
+        item['permissions']['default'] = default
 
     async def getTeleApi(self, link, mesg, path):
 
@@ -3420,20 +3410,45 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ahaname = provconf.get('aha:name')
             ahanetw = provconf.get('aha:network')
 
-            if not certdir.getCaCertPath(ahanetw):
-                certdir.saveCaCertByts(await prov.getCaCert())
+            _crt = certdir.getCaCertPath(ahanetw)
+            if _crt:
+                logger.debug(f'Removing existing CA crt: {_crt}')
+                os.unlink(_crt)
+            certdir.saveCaCertByts(await prov.getCaCert())
 
             await self._bootProvConf(provconf)
 
             hostname = f'{ahaname}.{ahanetw}'
-            if certdir.getHostCertPath(hostname) is None:
-                hostcsr = certdir.genHostCsr(hostname)
-                certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+            _crt = certdir.getHostCertPath(hostname)
+            if _crt:
+                logger.debug(f'Removing existing host crt {_crt}')
+                os.unlink(_crt)
+            _kp = certdir.getHostKeyPath(hostname)
+            if _kp:
+                logger.debug(f'Removing existing host key {_kp}')
+                os.unlink(_kp)
+            _csr = certdir.getHostCsrPath(hostname)
+            if _csr:
+                logger.debug(f'Removing existing host csr {_csr}')
+                os.unlink(_csr)
+            hostcsr = certdir.genHostCsr(hostname)
+            certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
 
             userfull = f'{ahauser}@{ahanetw}'
-            if certdir.getUserCertPath(userfull) is None:
-                usercsr = certdir.genUserCsr(userfull)
-                certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+            _crt = certdir.getUserCertPath(userfull)
+            if _crt:
+                logger.debug(f'Removing existing user crt {_crt}')
+                os.unlink(_crt)
+            _kp = certdir.getUserKeyPath(userfull)
+            if _kp:
+                logger.debug(f'Removing existing user key {_kp}')
+                os.unlink(_kp)
+            _csr = certdir.getUserCsrPath(userfull)
+            if _csr:
+                logger.debug(f'Removing existing user csr {_csr}')
+                os.unlink(_csr)
+            usercsr = certdir.genUserCsr(userfull)
+            certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
 
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
