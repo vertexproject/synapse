@@ -5,6 +5,7 @@ import time
 import asyncio
 import hashlib
 import logging
+import textwrap
 
 import regex
 
@@ -7745,6 +7746,24 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NotMsgpackSafe) as exc:
                 await core.replaceVaultConfigs(giden, {'foo': self})
             self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+
+            class LongRepr:
+                def __repr__(self):
+                    return 'Abcd. ' * 1000
+
+            valu = {'foo': LongRepr()}
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultSecrets(giden, valu)
+            self.eq(
+                "{'foo': Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. [...]",
+                exc.exception.get('valu'))
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultConfigs(giden, {'foo': LongRepr()})
+            self.eq(
+                "{'foo': Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. [...]",
+                exc.exception.get('valu'))
 
     async def test_cortex_user_scope(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex

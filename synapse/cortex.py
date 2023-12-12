@@ -3,6 +3,7 @@ import copy
 import regex
 import asyncio
 import logging
+import textwrap
 import contextlib
 import collections
 
@@ -6416,10 +6417,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             s_msgpack.en(valu)
         except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
             raise s_exc.NotMsgpackSafe(
                 mesg='Vault configs must be msgpack safe.',
                 name='valu',
-                valu=valu) from None
+                valu=short) from None
 
         return await self._push('vault:data:replace', iden, 'configs', valu)
 
@@ -6446,10 +6448,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             s_msgpack.en(valu)
         except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
             raise s_exc.NotMsgpackSafe(
                 mesg='Vault secrets must be msgpack safe.',
                 name='valu',
-                valu=valu) from None
+                valu=short) from None
 
         return await self._push('vault:data:replace', iden, 'secrets', valu)
 
