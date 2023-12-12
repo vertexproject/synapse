@@ -390,91 +390,109 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('user'), 'unittest')
 
     async def test_flow(self):
-        formname = 'inet:flow'
-        srccert = s_common.guid()
-        dstcert = s_common.guid()
-        input_props = {
-            'time': 0,
-            'duration': 1,
-            'from': 32 * 'b',
-            'src': 'tcp://127.0.0.1:45654',
-            'src:host': 32 * 'b',
-            'src:proc': 32 * 'c',
-            'src:exe': 64 * 'd',
-            'src:txcount': 30,
-            'src:txbytes': 1,
-            'src:handshake': 'Hello There',
-            'dst': 'tcp://1.2.3.4:80',
-            'dst:host': 32 * 'e',
-            'dst:proc': 32 * 'f',
-            'dst:exe': 64 * '0',
-            'dst:txcount': 33,
-            'dst:txbytes': 2,
-            'tot:txcount': 63,
-            'tot:txbytes': 3,
-            'dst:handshake': 'OHai!',
-            'src:softnames': ('HeHe', 'haha'),
-            'dst:softnames': ('FooBar', 'bazfaz'),
-            'src:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
-            'dst:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
-            'ip:proto': 6,
-            'ip:tcp:flags': 0x20,
-            'sandbox:file': 'e' * 64,
-            'src:ssh:key': srccert,
-            'dst:ssh:key': dstcert,
-            'src:ssl:cert': srccert,
-            'dst:ssl:cert': dstcert,
-            'src:rdp:hostname': 'SYNCODER',
-            'src:rdp:keyboard:layout': 'AZERTY',
-            'raw': (10, 20),
-        }
-        expected_props = {
-            'time': 0,
-            'duration': 1,
-            'from': 32 * 'b',
-            'src': 'tcp://127.0.0.1:45654',
-            'src:port': 45654,
-            'src:proto': 'tcp',
-            'src:ipv4': 2130706433,
-            'src:host': 32 * 'b',
-            'src:proc': 32 * 'c',
-            'src:exe': 'sha256:' + 64 * 'd',
-            'src:txcount': 30,
-            'src:txbytes': 1,
-            'src:handshake': 'Hello There',
-            'dst': 'tcp://1.2.3.4:80',
-            'dst:port': 80,
-            'dst:proto': 'tcp',
-            'dst:ipv4': 16909060,
-            'dst:host': 32 * 'e',
-            'dst:proc': 32 * 'f',
-            'dst:exe': 'sha256:' + 64 * '0',
-            'dst:txcount': 33,
-            'dst:txbytes': 2,
-            'tot:txcount': 63,
-            'tot:txbytes': 3,
-            'dst:handshake': 'OHai!',
-            'src:softnames': ('haha', 'hehe'),
-            'dst:softnames': ('bazfaz', 'foobar'),
-            'src:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
-            'dst:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
-            'ip:proto': 6,
-            'ip:tcp:flags': 0x20,
-            'sandbox:file': 'sha256:' + 64 * 'e',
-            'src:ssh:key': srccert,
-            'dst:ssh:key': dstcert,
-            'src:ssl:cert': srccert,
-            'dst:ssl:cert': dstcert,
-            'src:rdp:hostname': 'syncoder',
-            'src:rdp:keyboard:layout': 'azerty',
-            'raw': (10, 20),
-        }
-        expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, 32 * 'a', props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
+            valu = s_common.guid()
+            srccert = s_common.guid()
+            dstcert = s_common.guid()
+            shost = s_common.guid()
+            sproc = s_common.guid()
+            sexe = 'sha256:' + 'b' * 64
+            dhost = s_common.guid()
+            dproc = s_common.guid()
+            dexe = 'sha256:' + 'c' * 64
+            pfrom = s_common.guid()
+            sfile = 'sha256:' + 'd' * 64
+            props = {
+                'from': pfrom,
+                'shost': shost,
+                'sproc': sproc,
+                'sexe': sexe,
+                'dhost': dhost,
+                'dproc': dproc,
+                'dexe': dexe,
+                'sfile': sfile,
+                'skey': srccert,
+                'dkey': dstcert,
+                'scrt': srccert,
+                'dcrt': dstcert,
+            }
+            q = '''[(inet:flow=$valu
+                :time=(0)
+                :duration=(1)
+                :from=$p.from
+                :src="tcp://127.0.0.1:45654"
+                :src:host=$p.shost
+                :src:proc=$p.sproc
+                :src:exe=$p.sexe
+                :src:txcount=30
+                :src:txbytes=1
+                :src:handshake="Hello There"
+                :dst="tcp://1.2.3.4:80"
+                :dst:host=$p.dhost
+                :dst:proc=$p.dproc
+                :dst:exe=$p.dexe
+                :dst:txcount=33
+                :dst:txbytes=2
+                :tot:txcount=63
+                :tot:txbytes=3
+                :dst:handshake="OHai!"
+                :src:softnames=(HeHe, haha)
+                :dst:softnames=(FooBar, bazfaz)
+                :src:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+                :dst:cpes=("cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*", "cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*")
+                :ip:proto=6
+                :ip:tcp:flags=(0x20)
+                :sandbox:file=$p.sfile
+                :src:ssh:key=$p.skey
+                :dst:ssh:key=$p.dkey
+                :src:ssl:cert=$p.scrt
+                :dst:ssl:cert=$p.dcrt
+                :src:rdp:hostname=SYNCODER
+                :src:rdp:keyboard:layout=AZERTY
+                :raw=((10), (20))
+            )]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:flow', valu))
+            self.eq(node.get('time'), 0)
+            self.eq(node.get('duration'), 1)
+            self.eq(node.get('from'), pfrom)
+            self.eq(node.get('src'), 'tcp://127.0.0.1:45654')
+            self.eq(node.get('src:port'), 45654)
+            self.eq(node.get('src:proto'), 'tcp')
+            self.eq(node.get('src:host'), shost)
+            self.eq(node.get('src:proc'), sproc)
+            self.eq(node.get('src:exe'), sexe)
+            self.eq(node.get('src:txcount'), 30)
+            self.eq(node.get('src:txbytes'), 1)
+            self.eq(node.get('src:handshake'), 'Hello There')
+            self.eq(node.get('dst'), 'tcp://1.2.3.4:80')
+            self.eq(node.get('dst:port'), 80)
+            self.eq(node.get('dst:proto'), 'tcp')
+            self.eq(node.get('dst:ipv4'), 0x01020304)
+            self.eq(node.get('dst:host'), dhost)
+            self.eq(node.get('dst:proc'), dproc)
+            self.eq(node.get('dst:exe'), dexe)
+            self.eq(node.get('dst:txcount'), 33)
+            self.eq(node.get('dst:txbytes'), 2)
+            self.eq(node.get('dst:handshake'), 'OHai!')
+            self.eq(node.get('tot:txcount'), 63)
+            self.eq(node.get('tot:txbytes'), 3)
+            self.eq(node.get('src:softnames'), ('haha', 'hehe'))
+            self.eq(node.get('dst:softnames'), ('bazfaz', 'foobar'))
+            self.eq(node.get('src:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+            self.eq(node.get('dst:cpes'), ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),)
+            self.eq(node.get('ip:proto'), 6)
+            self.eq(node.get('ip:tcp:flags'), 0x20)
+            self.eq(node.get('sandbox:file'), sfile)
+            self.eq(node.get('src:ssh:key'), srccert)
+            self.eq(node.get('dst:ssh:key'), dstcert)
+            self.eq(node.get('src:ssl:cert'), srccert)
+            self.eq(node.get('dst:ssl:cert'), dstcert)
+            self.eq(node.get('src:rdp:hostname'), 'syncoder')
+            self.eq(node.get('src:rdp:keyboard:layout'), 'azerty')
+            self.eq(node.get('raw'), (10, 20))
             self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
             self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
             self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
