@@ -1,8 +1,8 @@
 import synapse.exc as s_exc
 
-import synapse.lib.cell as s_cell
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 
 gdefSchema = {
@@ -51,7 +51,7 @@ gdefSchema = {
                 }
             }
         },
-        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema)
+        'permissions': s_msgpack.deepcopy(s_schemas.easyPermSchema)
     },
     'additionalProperties': False,
     'required': ['iden', 'name', 'scope'],
