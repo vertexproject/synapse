@@ -6411,15 +6411,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault = self.reqVault(iden)
 
         if not isinstance(valu, dict):
-            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='replaceVaultConfigs', valu=valu)
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
 
         try:
             s_msgpack.en(valu)
         except s_exc.NotMsgpackSafe:
             raise s_exc.NotMsgpackSafe(
                 mesg='Vault configs must be msgpack safe.',
-                name='replaceVaultSecrets',
-                valu=valu)
+                name='valu',
+                valu=valu) from None
 
         return await self._push('vault:data:replace', iden, 'configs', valu)
 
@@ -6441,15 +6441,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault = self.reqVault(iden)
 
         if not isinstance(valu, dict):
-            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='replaceVaultSecrets', valu=valu)
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
 
         try:
             s_msgpack.en(valu)
         except s_exc.NotMsgpackSafe:
             raise s_exc.NotMsgpackSafe(
                 mesg='Vault secrets must be msgpack safe.',
-                name='replaceVaultSecrets',
-                valu=valu)
+                name='valu',
+                valu=valu) from None
 
         return await self._push('vault:data:replace', iden, 'secrets', valu)
 
