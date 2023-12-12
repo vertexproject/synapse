@@ -418,13 +418,6 @@ class Node(NodeBase):
         '''
         Remove a property from a node and return the value
         '''
-        if self.form.isrunt:
-            prop = self.form.prop(name)
-            if prop.info.get('ro'):
-                raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
-                                       form=self.form.full, prop=name)
-            return await self.snap.core.runRuntPropDel(self, prop)
-
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.pop(name)
 
@@ -640,10 +633,6 @@ class Node(NodeBase):
         '''
         Delete a tag from the node.
         '''
-        if self.form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
-                                   form=self.form.full, tag=tag)
-
         async with self.snap.getNodeEditor(self) as editor:
             await editor.delTag(tag)
 
