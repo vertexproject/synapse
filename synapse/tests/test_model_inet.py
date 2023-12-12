@@ -2441,77 +2441,102 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(q))
 
     async def test_whois_iprec(self):
-        contact = s_common.guid()
-        addlcontact = s_common.guid()
-
-        rec_ipv4 = s_common.guid()
-        props_ipv4 = {
-            'net4': '10.0.0.0/28',
-            'asof': 2554869000000,
-            'created': 2554858000000,
-            'updated': 2554858000000,
-            'text': 'this is  a bunch of \nrecord text 123123',
-            'desc': 'these are some notes\n about record 123123',
-            'asn': 12345,
-            'id': 'NET-10-0-0-0-1',
-            'name': 'vtx',
-            'parentid': 'NET-10-0-0-0-0',
-            'registrant': contact,
-            'contacts': (addlcontact, ),
-            'country': 'US',
-            'status': 'validated',
-            'type': 'direct allocation',
-            'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
-        }
-        expected_ipv4 = copy.deepcopy(props_ipv4)
-        expected_ipv4.update({
-            'net4': (167772160, 167772175),
-            'net4:min': 167772160,
-            'net4:max': 167772175,
-            'country': 'us',
-        })
-
-        rec_ipv6 = s_common.guid()
-        props_ipv6 = {
-            'net6': '2001:db8::/101',
-            'asof': 2554869000000,
-            'created': 2554858000000,
-            'updated': 2554858000000,
-            'text': 'this is  a bunch of \nrecord text 123123',
-            'asn': 12345,
-            'id': 'NET-10-0-0-0-0',
-            'name': 'EU-VTX-1',
-            'registrant': contact,
-            'country': 'tp',
-            'status': 'renew prohibited',
-            'type': 'allocated-BY-rir',
-        }
-        expected_ipv6 = copy.deepcopy(props_ipv6)
-        expected_ipv6.update({
-            'net6': ('2001:db8::', '2001:db8::7ff:ffff'),
-            'net6:min': '2001:db8::',
-            'net6:max': '2001:db8::7ff:ffff',
-            'type': 'allocated-by-rir',
-        })
-
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('inet:whois:iprec', rec_ipv4, props=props_ipv4)
-                self.checkNode(node, (('inet:whois:iprec', rec_ipv4), expected_ipv4))
+            contact = s_common.guid()
+            addlcontact = s_common.guid()
+            rec_ipv4 = s_common.guid()
+            props = {
+                'net4': '10.0.0.0/28',
+                'asof': 2554869000000,
+                'created': 2554858000000,
+                'updated': 2554858000000,
+                'text': 'this is  a bunch of \nrecord text 123123',
+                'desc': 'these are some notes\n about record 123123',
+                'asn': 12345,
+                'id': 'NET-10-0-0-0-1',
+                'name': 'vtx',
+                'parentid': 'NET-10-0-0-0-0',
+                'registrant': contact,
+                'contacts': (addlcontact, ),
+                'country': 'US',
+                'status': 'validated',
+                'type': 'direct allocation',
+                'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
+            }
+            q = '''[(inet:whois:iprec=$valu :net4=$p.net4 :asof=$p.asof :created=$p.created :updated=$p.updated
+                :text=$p.text :desc=$p.desc :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
+                :registrant=$p.registrant :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
+                :links=$p.links)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:whois:iprec', rec_ipv4))
+            self.eq(node.get('net4'), (167772160, 167772175))
+            self.eq(node.get('net4:min'), 167772160)
+            self.eq(node.get('net4:max'), 167772175)
+            self.eq(node.get('asof'), 2554869000000)
+            self.eq(node.get('created'), 2554858000000)
+            self.eq(node.get('updated'), 2554858000000)
+            self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
+            self.eq(node.get('desc'), 'these are some notes\n about record 123123')
+            self.eq(node.get('asn'), 12345)
+            self.eq(node.get('id'), 'NET-10-0-0-0-1')
+            self.eq(node.get('name'), 'vtx')
+            self.eq(node.get('parentid'), 'NET-10-0-0-0-0')
+            self.eq(node.get('registrant'), contact)
+            self.eq(node.get('contacts'), (addlcontact,))
+            self.eq(node.get('country'), 'us')
+            self.eq(node.get('status'), 'validated')
+            self.eq(node.get('type'), 'direct allocation')
+            self.eq(node.get('links'), ('http://rdap.com/foo', 'http://rdap.net/bar'))
 
-                node = await snap.addNode('inet:whois:iprec', rec_ipv6, props=props_ipv6)
-                self.checkNode(node, (('inet:whois:iprec', rec_ipv6), expected_ipv6))
+            rec_ipv6 = s_common.guid()
+            props = {
+                'net6': '2001:db8::/101',
+                'asof': 2554869000000,
+                'created': 2554858000000,
+                'updated': 2554858000000,
+                'text': 'this is  a bunch of \nrecord text 123123',
+                'asn': 12345,
+                'id': 'NET-10-0-0-0-0',
+                'name': 'EU-VTX-1',
+                'registrant': contact,
+                'country': 'tp',
+                'status': 'renew prohibited',
+                'type': 'allocated-BY-rir',
+            }
 
-                # check regid pivot
-                scmd = f'inet:whois:iprec={rec_ipv4} :parentid -> inet:whois:iprec:id'
-                nodes = await core.nodes(scmd)
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('inet:whois:iprec', rec_ipv6))
+            q = '''[(inet:whois:iprec=$valu :net6=$p.net6 :asof=$p.asof :created=$p.created :updated=$p.updated
+                :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name
+                :registrant=$p.registrant :country=$p.country :status=$p.status :type=$p.type)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv6, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('inet:whois:iprec', rec_ipv6))
+            self.eq(node.get('net6'), ('2001:db8::', '2001:db8::7ff:ffff'))
+            self.eq(node.get('net6:min'), '2001:db8::')
+            self.eq(node.get('net6:max'), '2001:db8::7ff:ffff')
+            self.eq(node.get('asof'), 2554869000000)
+            self.eq(node.get('created'), 2554858000000)
+            self.eq(node.get('updated'), 2554858000000)
+            self.eq(node.get('text'), 'this is  a bunch of \nrecord text 123123')
+            self.eq(node.get('asn'), 12345)
+            self.eq(node.get('id'), 'NET-10-0-0-0-0')
+            self.eq(node.get('name'), 'EU-VTX-1')
+            self.eq(node.get('registrant'), contact)
+            self.eq(node.get('country'), 'tp')
+            self.eq(node.get('status'), 'renew prohibited')
+            self.eq(node.get('type'), 'allocated-by-rir')
 
-                # bad country code
-                guid = s_common.guid()
-                props = {'country': 'u9'}
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('inet:whois:iprec', guid, props=props))
+            # check regid pivot
+            scmd = f'inet:whois:iprec={rec_ipv4} :parentid -> inet:whois:iprec:id'
+            nodes = await core.nodes(scmd)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:whois:iprec', rec_ipv6))
+
+            # bad country code
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(inet:whois:iprec=* :country=u9)]')
 
     async def test_wifi_collection(self):
         async with self.getTestCore() as core:
