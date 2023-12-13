@@ -377,24 +377,15 @@ class LayerTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
+                await core00.addTagProp('score', ('int', {}), {})
 
                 layriden = core00.view.layers[0].iden
 
                 await core00.nodes('[test:str=foobar +#hehe.haha]')
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
-                await core00.addTagProp('score', ('int', {}), {})
-
-                async with await core00.snap() as snap:
-
-                    props = {'tick': 12345}
-                    node1 = await snap.addNode('test:str', 'foo', props=props)
-                    await node1.setTagProp('bar', 'score', 10)
-                    await node1.setData('baz', 'nodedataiscool')
-
-                    node2 = await snap.addNode('test:str', 'bar', props=props)
-                    await node2.setData('baz', 'nodedataiscool')
-
-                    await node1.addEdge('refs', node2.iden())
+                await core00.nodes('[test:str=foo :tick=(12345) +#bar:score=10] $node.data.set(baz, nodedataiscool)')
+                await core00.nodes('[test:str=bar :tick=(12345)] $node.data.set(baz, nodedataiscool)')
+                await core00.nodes('test:str=foo [ +(refs)> { test:str=bar }]')
 
                 async with self.getTestCore(dirn=path01) as core01:
 
@@ -418,13 +409,14 @@ class LayerTest(s_t_utils.SynTest):
                     self.len(1, nodes)
                     self.nn(nodes[0].tags.get('hehe.haha'))
 
-                    async with await core01.snap() as snap:
-                        node = await snap.getNodeByNdef(('test:str', 'foo'))
-                        self.nn(node)
-                        self.eq(node.props.get('tick'), 12345)
-                        self.eq(node.getTagProp('bar', 'score'), 10)
-                        self.eq(await node.getData('baz'), 'nodedataiscool')
-                        self.len(1, await alist(node.iterEdgesN1()))
+                    nodes = await core01.nodes('test:str=foo')
+                    self.len(1, nodes)
+                    node = nodes[0]
+                    self.nn(node)
+                    self.eq(node.props.get('tick'), 12345)
+                    self.eq(node.getTagProp('bar', 'score'), 10)
+                    self.eq(await node.getData('baz'), 'nodedataiscool')
+                    self.len(1, await alist(node.iterEdgesN1()))
 
                     # make sure updates show up
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
@@ -1546,31 +1538,25 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[inet:ipv4=1 :asn=10 .seen=(2016, 2017) +#foo=(2020, 2021) +#foo:score=42]')
+            self.len(1, nodes)
+            buid1 = nodes[0].buid
 
-                props = {'asn': 10, '.seen': ('2016', '2017')}
-                node = await snap.addNode('inet:ipv4', 1, props=props)
-                buid1 = node.buid
-                await node.addTag('foo', ('2020', '2021'))
-                await node.setTagProp('foo', 'score', 42)
+            nodes = await core.nodes('[inet:ipv4=2 :asn=20 .seen=(2015, 2016) +#foo=(2019, 2020) +#foo:score=41]')
+            self.len(1, nodes)
+            buid2 = nodes[0].buid
 
-                props = {'asn': 20, '.seen': ('2015', '2016')}
-                node = await snap.addNode('inet:ipv4', 2, props=props)
-                buid2 = node.buid
-                await node.addTag('foo', ("2019", "2020"))
-                await node.setTagProp('foo', 'score', 41)
+            nodes = await core.nodes('[inet:ipv4=3 :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99]')
+            self.len(1, nodes)
+            buid3 = nodes[0].buid
 
-                props = {'asn': 30, '.seen': ('2015', '2016')}
-                node = await snap.addNode('inet:ipv4', 3, props=props)
-                buid3 = node.buid
-                await node.addTag('foo', ("2018", "2020"))
-                await node.setTagProp('foo', 'score', 99)
+            nodes = await core.nodes('[test:str=yolo]')
+            self.len(1, nodes)
+            strbuid = nodes[0].buid
 
-                node = await snap.addNode('test:str', 'yolo')
-                strbuid = node.buid
-
-                node = await snap.addNode('test:str', 'z' * 500)
-                strbuid2 = node.buid
+            nodes = await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}})
+            self.len(1, nodes)
+            strbuid2 = nodes[0].buid
 
             # rows are (buid, valu) tuples
             layr = core.view.layers[0]
