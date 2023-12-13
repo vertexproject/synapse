@@ -1411,7 +1411,7 @@ class StormTypesTest(s_test.SynTest):
             # make sure we gzip correctly
             nodes = await core.nodes('graph:node=$valu', opts={'vars': {'valu': n3}})
             self.len(1, nodes)
-            self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].props['data'])))
+            self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].get('data'))))
 
     async def test_storm_lib_bytes_bzip(self):
         async with self.getTestCore() as core:

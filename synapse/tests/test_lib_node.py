@@ -45,9 +45,9 @@ class NodeTest(s_t_utils.SynTest):
             # where one Cortex can have model knowledge and set props
             # that another Cortex (sitting on top of the first one) lifts
             # a node which has props the second cortex doens't know about.
-            node.props['.newp'] = 1
-            node.props['newp'] = (2, 3)
-            node.tagprops['foo']['valu'] = 10
+            node.sodes[0]['props']['.newp'] = (1, 0)
+            node.sodes[0]['props']['newp'] = ((2, 3), 0)
+            node.sodes[0]['tagprops']['foo']['valu'] = (10, 0)
             iden, info = node.pack(dorepr=True)
             props, reprs = info.get('props'), info.get('reprs')
             tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')

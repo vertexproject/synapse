@@ -2114,9 +2114,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq((20, 30), node.tags.get('woot.haha'))
-            self.none(node.tags.get('hehe'))
-            self.none(node.tags.get('hehe.haha'))
+            self.eq((20, 30), node.get('#woot.haha'))
+            self.none(node.get('#hehe'))
+            self.none(node.get('#hehe.haha'))
 
             nodes = await core.nodes('syn:tag=hehe')
             self.len(1, nodes)
@@ -2132,10 +2132,10 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=bar +#hehe.haha]')
             self.len(1, nodes)
             node = nodes[0]
-            self.nn(node.tags.get('woot'))
-            self.nn(node.tags.get('woot.haha'))
-            self.none(node.tags.get('hehe'))
-            self.none(node.tags.get('hehe.haha'))
+            self.nn(node.get('#woot'))
+            self.nn(node.get('#woot.haha'))
+            self.none(node.get('#hehe'))
+            self.none(node.get('#hehe.haha'))
 
         async with self.getTestCore() as core:
 

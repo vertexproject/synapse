@@ -798,7 +798,6 @@ class CortexTest(s_t_utils.SynTest):
             n1edges = await alist(news.iterEdgesN1())
             n2edges = await alist(ipv4.iterEdgesN2())
 
-
             self.eq(n1edges, (('refs', ipv4.nid),))
             self.eq(n2edges, (('refs', news.nid),))
 
