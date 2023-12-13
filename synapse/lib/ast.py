@@ -2406,17 +2406,17 @@ class FormPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            async for pivo in pgenr(node):
-                try:
+            try:
+                async for pivo in pgenr(node):
                     yield pivo, path.fork(pivo)
-                except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
-                    if not warned:
-                        logger.warning(f'Caught error during pivot: {e.items()}')
-                        warned = True
-                    items = e.items()
-                    mesg = items.pop('mesg', '')
-                    mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
-                    await runt.snap.warn(mesg, **items)
+            except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
+                if not warned:
+                    logger.warning(f'Caught error during pivot: {e.items()}')
+                    warned = True
+                items = e.items()
+                mesg = items.pop('mesg', '')
+                mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
+                await runt.snap.warn(mesg, **items)
 
 class PropPivotOut(PivotOper):
     '''
@@ -2566,18 +2566,18 @@ class PropPivot(PivotOper):
                 await asyncio.sleep(0)
                 continue
 
-            async for pivo in pgenr(node, srcprop, valu):
-                try:
+            try:
+                async for pivo in pgenr(node, srcprop, valu):
                     yield pivo, path.fork(pivo)
 
-                except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
-                    if not warned:
-                        logger.warning(f'Caught error during pivot: {e.items()}')
-                        warned = True
-                    items = e.items()
-                    mesg = items.pop('mesg', '')
-                    mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                    await runt.snap.warn(mesg, **items)
+            except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
+                if not warned:
+                    logger.warning(f'Caught error during pivot: {e.items()}')
+                    warned = True
+                items = e.items()
+                mesg = items.pop('mesg', '')
+                mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
+                await runt.snap.warn(mesg, **items)
 
 class Value(AstNode):
     '''
