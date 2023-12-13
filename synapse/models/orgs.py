@@ -503,6 +503,9 @@ class OuModule(s_module.CoreModule):
 
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
+
+                    ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
+                        'doc': 'A mapping to a Mitre ATT&CK campaign if applicable.'}),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {

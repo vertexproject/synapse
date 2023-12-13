@@ -270,11 +270,10 @@ class AstTest(s_test.SynTest):
             # Show that a computed variable being smashed by a
             # subquery variable assignment with multiple nodes
             # traveling through a subquery.
-            async with await core.snap() as snap:
-                await snap.addNode('test:comp', (30, 'w00t'))
-                await snap.addNode('test:comp', (40, 'w00t'))
-                await snap.addNode('test:int', 30, {'loc': 'sol'})
-                await snap.addNode('test:int', 40, {'loc': 'mars'})
+            await core.nodes('[test:comp=(30, w00t)]')
+            await core.nodes('[test:comp=(40, w00t)]')
+            await core.nodes('[test:int=30 :loc=sol]')
+            await core.nodes('[test:int=40 :loc=mars]')
 
             q = '''
                 test:comp:haha=w00t
@@ -3401,3 +3400,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})
+
+    async def test_ast_subq_runtsafety(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value())} $lib.print($foo)')
+            self.stormIsInPrint('foo', msgs)
+
+            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
+            self.stormIsInPrint('foo', msgs)

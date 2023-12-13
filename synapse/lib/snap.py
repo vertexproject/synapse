@@ -573,8 +573,6 @@ class Snap(s_base.Base):
 
     Transactions produce the following EventBus events:
 
-    (...any splice...)
-    ('log', {'level': 'mesg': })
     ('print', {}),
     '''
     tagcachesize = 1000
@@ -702,7 +700,6 @@ class Snap(s_base.Base):
 
             yield pode
 
-    @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
@@ -720,7 +717,6 @@ class Snap(s_base.Base):
             async for x in runt.execute():
                 yield x
 
-    @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):
         '''
         Run a storm query and yield Node() objects.
