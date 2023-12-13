@@ -2,6 +2,7 @@ import copy
 import unittest.mock as mock
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
@@ -91,3 +92,20 @@ class PasswdTest(s_t_utils.SynTest):
 
         result = s_passwd.checkShadowV2(secv, shadow)
         self.true(result)
+
+        some_iden = s_common.guid()
+
+        iden0, token0, shadow0 = await s_passwd.generateAccessToken(some_iden)
+        iden1, token1, shadow1 = await s_passwd.generateAccessToken(some_iden)
+        self.eq(some_iden, iden0)
+        self.eq(iden0, iden1)
+        self.ne(token0, token1)
+        self.ne(shadow0, shadow1)
+
+        isok0, (cidn0, secv0) = s_passwd.checkAccesToken(token0)
+        isok1, (cidn1, secv1) = s_passwd.checkAccesToken(token1)
+        self.true(isok0)
+        self.true(isok1)
+        self.eq(some_iden, cidn0)
+        self.eq(some_iden, cidn1)
+        self.ne(secv0, secv1)

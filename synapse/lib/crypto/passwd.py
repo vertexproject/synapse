@@ -110,10 +110,24 @@ async def checkShadowV2(passwd: AnyStr, shadow: Dict) -> bool:
 async def generateAccessToken(iden=None):
     if iden is None:
         iden = s_common.guid()
+    iden_buf = s_common.uhex(iden)
+
     secv = s_common.guid()
-    valu = f'{iden}.{secv}'.encode('utf-8')
-    if len(valu) != 65:
+    secv_buf = s_common.uhex(secv)
+    valu = b''
+
+    # Mix the iden and secret together. This produces an avalanche effect where
+    # token regeneration does not have repeated patterns in the final output.
+    for (i1, s2) in zip(iden_buf, secv_buf):
+        ihigh, ilow = i1 >> 4, i1 & 0x0F
+        shigh, slow = s2 >> 4, s2 & 0x0F
+        c1 = (shigh << 4) | ilow
+        c2 = (ihigh << 4) | slow
+        valu = valu + c1.to_bytes(1, byteorder='big') + c2.to_bytes(1, byteorder='big')
+
+    if len(valu) != 32:
         raise s_exc.CryptoErr(mesg=f'Token size mismatch - invalid iden provided: {iden}')
+
     valu = base64.urlsafe_b64encode(valu + binascii.crc32(valu).to_bytes(4, byteorder='big'))
     token = f'syn_{valu.decode("utf-8")}'
     shadow = await getShadowV2(secv)
@@ -124,11 +138,25 @@ def checkAccesToken(valu):
     if prefix != 'syn':
         return False, f'Incorrect prefix, got {prefix[:40]}'
     tokn = base64.urlsafe_b64decode(tokn)
-    if len(tokn) != 69:
+    if len(tokn) != 36:
         return False, f'Incorrect length, got {len(tokn)}'
     tokn, csum = tokn[:-4], tokn[-4:]
     calc = binascii.crc32(tokn)
     if calc != int.from_bytes(csum, byteorder='big'):
         return False, 'Invalid checksum'
-    iden, secv = tokn.decode('utf-8').split('.', 1)
+
+    # Unmix the iden and secv
+    iden = b''
+    secv = b''
+    for (c1, c2) in s_common.chunks(tokn, 2):
+        shigh, ilow = c1 >> 4, c1 & 0x0F
+        ihigh, slow = c2 >> 4, c2 & 0x0F
+        i1 = (ihigh << 4) | ilow
+        s2 = (shigh << 4) | slow
+        iden = iden + i1.to_bytes(1, byteorder='big')
+        secv = secv + s2.to_bytes(1, byteorder='big')
+
+    iden = s_common.ehex(iden)
+    secv = s_common.ehex(secv)
+
     return True, (iden, secv)
