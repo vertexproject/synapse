@@ -883,8 +883,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                              mesg='cortex version in storage is incompatible with running software')
 
         self.viewmeta = self.slab.initdb('view:meta')
-        # avoid check/set locks. May not be acquired within a nexus handler.
-        self.viewmetalock = asyncio.Lock()
 
         self.views = {}
         self.layers = {}

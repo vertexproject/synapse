@@ -83,17 +83,6 @@ reqValidVote = s_config.getJsValidator({
     'additionalProperties': False,
 })
 
-reqValidComment = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'created': {'type': 'number'},
-        'comment': {'type': 'string'},
-    },
-    'required': ['user', 'created', 'comment'],
-    'additionalProperties': False,
-})
-
 class ViewApi(s_cell.CellApi):
 
     async def __anit__(self, core, link, user, view):
@@ -175,9 +164,6 @@ class View(s_nexus.Pusher):  # type: ignore
         for _, tdef in self.trigdict.items():
             try:
                 await self.triggers.load(tdef)
-
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
 
             except Exception:
                 logger.exception(f'Failed to load trigger {tdef!r}')
@@ -705,7 +691,6 @@ class View(s_nexus.Pusher):  # type: ignore
             'view': await self.pack(),
             'merging': self.merging,
             'votes': [vote async for vote in self.getMergeVotes()],
-            #'comments': [cmnt async for cmnt in await self.getComments()],
         }
 
     async def getFormCounts(self):
@@ -1121,10 +1106,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 await self.info.pop(name)
             else:
                 await self.info.set(name, valu)
-
-        if name == 'quorum':
-            # TODO decide what to do about kids existing votes and counts
-            pass
 
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
                                      gates=[self.iden, self.layers[0].iden])
