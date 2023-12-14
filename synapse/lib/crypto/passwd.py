@@ -129,13 +129,13 @@ async def generateAccessToken(iden=None):
         raise s_exc.CryptoErr(mesg=f'Token size mismatch - invalid iden provided: {iden}')
 
     valu = base64.urlsafe_b64encode(valu + binascii.crc32(valu).to_bytes(4, byteorder='big'))
-    token = f'syn_{valu.decode("utf-8")}'
+    token = f'synuat_{valu.decode("utf-8")}'
     shadow = await getShadowV2(secv)
     return iden, token, shadow
 
 def checkAccesToken(valu):
     prefix, tokn = valu.split('_', 1)
-    if prefix != 'syn':
+    if prefix != 'synuat':
         return False, f'Incorrect prefix, got {prefix[:40]}'
     tokn = base64.urlsafe_b64decode(tokn)
     if len(tokn) != 36:

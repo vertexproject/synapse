@@ -97,11 +97,13 @@ _cellUserAccesTokenSchema = {
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string', 'default': ''},
+        'name': {'type': 'string'},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
-        'lifetime': {'type': 'integer', 'minimum': 1, 'maximum': 31536000000, 'default': 7776000000},
-        'shadow': {  # TODO break out shadowv2 props?
+        'modified': {'type': 'integer', 'minimum': 0},
+        'expref': {'type': 'integer', 'minimum': 0},
+        'duration': {'type': 'integer', 'minimum': 1, 'maximum': 31536000000, 'default': 7776000000},
+        'shadow': {  # DISCUSS break out shadowv2 props? seems overkill since shadowv2 is kind of malleable.
             'type': 'object',
         },
         'scopes': {
@@ -113,5 +115,14 @@ _cellUserAccesTokenSchema = {
         }
     },
     'additionalProperties': False,
+    'required': [
+        'iden',
+        'name',
+        'user',
+        'created',
+        'modified',
+        'expref',
+        'shadow',
+    ],
 }
 reqValidUserAccessTokenDef = s_config.getJsValidator(_cellUserAccesTokenSchema)

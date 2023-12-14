@@ -4050,12 +4050,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def genUserAccessToken(self, useriden, name, scopes=None, duration=None):
         # TODO CHECK USER IDEN
         iden, token, shadow = await s_passwd.generateAccessToken()
-
+        now = s_common.now()
         tdef = {
             'iden': iden,
             'name': name,
             'user': useriden,
-            'created': s_common.now(),
+            'created': now,
+            'modified': now,
+            'expref': now,  # This is the value that is used as a reference for computing the token expiration.
             'shadow': shadow,
         }
         if scopes:
@@ -4086,7 +4088,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         tdef.pop('shadow')
         return tdef
 
-    # List user access tokens?
+    # TODO List user access tokens?
 
     # Is it possible to keep an lru cache of tokens in memory?
     # Possibly but we have a expiration problem and a user-refresh problem...
@@ -4103,7 +4105,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         tdef = s_msgpack.un(buf)
 
-        udef = await self.getUserDef(tdef.get('user'), packroles=False)
+        udef = await self.getUserDef(tdef.get('user'))
         if udef is None:
             return False, {'mesg': f'User does not exist for access token: {iden}', 'user': tdef.get('user')}
 
@@ -4112,7 +4114,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                            'user': tdef.get('user'), 'name': udef.get('name')}
 
         now = s_common.now()
-        if now >= tdef.get('created') + tdef.get('lifetime'):
+        if now >= tdef.get('expref') + tdef.get('duration'):
             return False, {'mesg': f'Access token is expired: {iden}',
                            'user': tdef.get('user'), 'name': udef.get('name')}
 
@@ -4128,7 +4130,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # Modify the name of a token
         # Modify the scope of a token
         # NEXUS
-        return {}
+        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
+        if buf is None:
+            raise s_exc.NoSuchIden(mesg=f'Requested user access token does not exist, cannot regenerate it: {iden}',
+                                   iden=iden)
+        tdef = s_msgpack.un(buf)
+        if key == 'name':
+            tdef['name'] = valu
+        elif key == 'scopes':
+            # TODO Ensure scopes are valid from listScopes API
+            tdef['scopes'] = valu
+        else:
+            raise s_exc.BadArg(mesg=f'Cannot set {key} on user access tokens.', name=key)
+
+        tdef = s_schemas.reqValidUserAccessTokenDef(tdef)
+        await self._push('user:token:set', tdef)
+        tdef.pop('shadow')
+        return tdef
 
     async def regenerateUserAccessToken(self, iden, duration=None):
         # Regenerated a private value for an existing
@@ -4137,14 +4155,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
-            logger.error(f'Requested access Key does not exist, cannot regenerate it: {iden}')
-            return False
+            raise s_exc.NoSuchIden(mesg=f'Requested user access token does not exist, cannot regenerate it: {iden}',
+                                   iden=iden)
         tdef = s_msgpack.un(buf)
         _, token, shadow = await s_passwd.generateAccessToken(iden=iden)
 
         tdef['shadow'] = shadow
-        if duration:
+
+        # Duration is either reset to the default OR we use the provided duration
+        if duration is None:
+            tdef.pop('duration')
+        else:
             tdef['duration'] = duration
+        tdef['modified'] = s_common.now()
         tdef = s_schemas.reqValidUserAccessTokenDef(tdef)
 
         await self._push('user:token:set', tdef)
