@@ -4059,6 +4059,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:add', kdef)
 
+        # TODO Log user api key creation with iden, duration, name and status=MODIFY
+
         kdef.pop('shadow')
         return token, kdef
 
@@ -4131,6 +4133,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
         await self._push('user:token:set', kdef)
+
+        # TODO Log user api key modification with iden, duration, name and status=MODIFY
+
         kdef.pop('shadow')
         return kdef
 
@@ -4158,6 +4163,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:set', kdef)
 
+        # TODO Log user api key modification with iden, duration, name and status=MODIFY
+
         kdef.pop('shadow')
         return token, kdef
 
@@ -4172,6 +4179,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return kdef
 
     async def deleteHttpToken(self, iden):
+        # TODO Log user api key deletion with iden, duration, name and status=MODIFY
         pass
 
     @s_nexus.Pusher.onPush('user:token:del')
