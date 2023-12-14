@@ -2488,9 +2488,28 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getHttpSess(port=hport) as sess:
 
-                # New token works
+                # Expired token fails
                 headers2 = {'X-API-KEY': rtk2}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers1,
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                                       json={'user': visi})
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+
+            rtk3, rtdf3 = await cell.genUserApiKey(root, name='Test Token 3')
+
+            async with self.getHttpSess(port=hport) as sess:
+
+                # New token works
+                headers2 = {'X-API-KEY': rtk3}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                                       json={'user': visi})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+                # Delete the token - it no longer works
+                await cell.delUserApiKey('', rtdf3.get('iden'))  # TODO plumb user
+
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': visi})
                 answ = await resp.json()
                 self.eq('err', answ['status'])

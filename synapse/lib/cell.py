@@ -4189,10 +4189,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.slab.put(iden.encode('utf-8'), s_msgpack.en(kdef), db=self._uatdb)
         return kdef
 
-    async def deleteHttpToken(self, iden):
+    async def delUserApiKey(self, user, iden):
+        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
+        if buf is None:
+            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
         # TODO Log user api key deletion with iden, duration, name and status=MODIFY
-        pass
+        user = '' # FIX USER
+        return await self._push('user:token:del', user, iden)
 
     @s_nexus.Pusher.onPush('user:token:del')
-    async def _deleteHttpToken(self, iden):
-        pass
+    async def _delUserApiKey(self, user, iden):
+        valu = self.slab.pop(iden.encode('utf-8'), db=self._uatdb)
+        return True
