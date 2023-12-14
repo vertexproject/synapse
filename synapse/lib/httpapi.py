@@ -60,8 +60,6 @@ class Sess(s_base.Base):
 
 class HandlerBase:
 
-    syn_uat_scope = None
-
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
@@ -345,26 +343,6 @@ class HandlerBase:
         tdef = info.get('tdef')
         udef = info.get('udef')
 
-        # DISCUSS: This may be an extra level of complexity that we do not strictly need.
-        #
-        # The pro: A user can create a UAT that can only access specific types of endpoints. This allows the creation
-        # of UAT which are narrow - for example, a UAT that is only allowed to access global storm vars. The loss of
-        # this token doesn't allow the execution of storm code under the users name.
-        #
-        # The con: It is another level of abstraction that interacts with our auth system. A scope being present
-        # does not mean that the underlying user still has access to perform the functinoality that they have
-        # granted the UAT scope for.
-        if self.syn_uat_scope is None:
-            self.logAuthIssue(mesg=f'User access tokens are not allowed on this endpoint.',
-                              user=udef.get('iden'), username=udef.get('name'))
-            return
-
-        # Check if access token scope allows the api
-        if self.syn_uat_scope not in tdef.get('scopes'):
-            self.logAuthIssue(mesg=f'User access token is not allowed for scope={self.syn_uat_scope} {tdef.get("iden")}',
-                              user=udef.get('iden'), username=udef.get('name'))
-            return
-
         # Would be nice to know when a UAT was being used to auth...
         # self.logAuthIssue(mesg=f'User access token use: {tdef.get("iden")}',
         #                   user=udef.get('iden'), username=udef.get('name'), level=logging.DEBUG)
@@ -502,7 +480,6 @@ class StreamHandler(Handler):
 
 class StormHandler(Handler):
 
-    syn_uat_scope = 'storm'
     def getCore(self):
         # add an abstraction to allow subclasses to dictate how
         # a reference to the cortex is returned from the handler.
@@ -662,8 +639,6 @@ class ReqValidStormV1(StormHandler):
 
 class BeholdSockV1(WebSocket):
 
-    syn_uat_scope = 'beholder'
-
     async def onInitMessage(self, byts):
         try:
             mesg = json.loads(byts)
@@ -746,7 +721,6 @@ class LogoutV1(Handler):
         self.sendRestRetn(True)
 
 class AuthUsersV1(Handler):
-    syn_uat_scope = 'auth'
 
     async def get(self):
 
@@ -772,7 +746,6 @@ class AuthUsersV1(Handler):
         return
 
 class AuthRolesV1(Handler):
-    syn_uat_scope = 'auth'
 
     async def get(self):
 
@@ -782,7 +755,6 @@ class AuthRolesV1(Handler):
         self.sendRestRetn(await self.getAuthCell().getRoleDefs())
 
 class AuthUserV1(Handler):
-    syn_uat_scope = 'auth'
 
     async def get(self, iden):
 
@@ -840,7 +812,7 @@ class AuthUserV1(Handler):
         self.sendRestRetn(await authcell.getUserDef(iden, packroles=False))
 
 class AuthUserPasswdV1(Handler):
-    syn_uat_scope = 'auth.password'
+
     async def post(self, iden):
 
         current_user, body = await self.getUseridenBody()
@@ -865,7 +837,6 @@ class AuthUserPasswdV1(Handler):
         self.sendRestRetn(await authcell.getUserDef(iden, packroles=False))
 
 class AuthRoleV1(Handler):
-    syn_uat_scope = 'auth'
 
     async def get(self, iden):
 
@@ -904,7 +875,6 @@ class AuthGrantV1(Handler):
     '''
     /api/v1/auth/grant?user=iden&role=iden
     '''
-    syn_uat_scope = 'auth'
 
     async def post(self):
         return await self.get()
@@ -940,7 +910,6 @@ class AuthRevokeV1(Handler):
     '''
     /api/v1/auth/grant?user=iden&role=iden
     '''
-    syn_uat_scope = 'auth'
 
     async def post(self):
         return await self.get()
@@ -973,7 +942,6 @@ class AuthRevokeV1(Handler):
         return
 
 class AuthAddUserV1(Handler):
-    syn_uat_scope = 'auth'
 
     async def post(self):
 
@@ -1019,7 +987,6 @@ class AuthAddUserV1(Handler):
         return
 
 class AuthAddRoleV1(Handler):
-    syn_uat_scope = 'auth'
 
     async def post(self):
 
@@ -1051,7 +1018,6 @@ class AuthAddRoleV1(Handler):
         return
 
 class AuthDelRoleV1(Handler):
-    syn_uat_scope = 'auth'
 
     async def post(self):
 
@@ -1078,7 +1044,6 @@ class AuthDelRoleV1(Handler):
         return
 
 class ModelNormV1(Handler):
-    syn_uat_scope = 'model'
 
     async def post(self):
         return await self.get()
@@ -1109,7 +1074,6 @@ class ModelNormV1(Handler):
             self.sendRestRetn({'norm': valu, 'info': info})
 
 class ModelV1(Handler):
-    syn_uat_scope = 'model'
 
     async def get(self):
 
@@ -1134,7 +1098,6 @@ class ActiveV1(Handler):
         return self.sendRestRetn(resp)
 
 class StormVarsGetV1(Handler):
-    syn_uat_scope = 'storm.vars'
 
     async def get(self):
 
@@ -1152,7 +1115,6 @@ class StormVarsGetV1(Handler):
         return self.sendRestRetn(valu)
 
 class StormVarsPopV1(Handler):
-    syn_uat_scope = 'storm.vars'
 
     async def post(self):
 
@@ -1170,8 +1132,6 @@ class StormVarsPopV1(Handler):
         return self.sendRestRetn(valu)
 
 class StormVarsSetV1(Handler):
-    syn_uat_scope = 'storm.vars'
-
     async def post(self):
 
         body = self.getJsonBody()
@@ -1193,7 +1153,6 @@ class OnePassIssueV1(Handler):
     '''
     /api/v1/auth/onepass/issue
     '''
-    syn_uat_scope = 'auth.password'
 
     async def post(self):
 
@@ -1228,7 +1187,6 @@ class FeedV1(Handler):
                 'items': [...],
             }
     '''
-    syn_uat_scope = 'feed'
 
     async def post(self):
         # Note: This API handler is intended to be used on a heavy Cortex object.
@@ -1279,7 +1237,6 @@ class CoreInfoV1(Handler):
     '''
     /api/v1/core/info
     '''
-    syn_uat_scope = 'storm'
 
     async def get(self):
 
@@ -1293,7 +1250,6 @@ class ExtApiHandler(StormHandler):
     '''
     /api/ext/.*
     '''
-    syn_uat_scope = 'extendedapi'
     storm_prefix = 'init { $request = $lib.cortex.httpapi.response($_http_request_info) }'
 
     # Disables the etag header from being computed and set. It is too much magic for

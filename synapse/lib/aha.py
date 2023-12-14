@@ -56,7 +56,6 @@ _provSvcSchema = {
 provSvcSchema = s_config.getJsValidator(_provSvcSchema)
 
 class AhaProvisionServiceV1(s_httpapi.Handler):
-    syn_uat_scope = 'aha'
 
     async def post(self):
         if not await self.reqAuthAdmin():

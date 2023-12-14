@@ -2731,7 +2731,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initCellHttp(self):
 
         self.httpds = []
-        self.httpapi_scopes = []
         self.sessstor = s_lmdbslab.GuidStor(self.slab, 'http:sess')
 
         async def fini():
@@ -2786,10 +2785,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.wapp.add_handlers('.*', (
             (path, ctor, info),
         ))
-        scope = getattr(ctor, 'syn_uat_scope', None)
-        if scope and scope not in self.httpapi_scopes:
-            self.httpapi_scopes.append(scope)
-            self.httpapi_scopes.sort()
 
     def _initCertDir(self):
 
@@ -4043,11 +4038,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.debug(f'Completed cell reload system {name}')
         return (True, ret)
 
-    async def getUserAccessTokenScopes(self):
-        # List of registered token scopes
-        return tuple(self.httpapi_scopes)
-
-    async def genUserAccessToken(self, useriden, name, scopes=None, duration=None):
+    async def genUserAccessToken(self, useriden, name, duration=None):
         # TODO CHECK USER IDEN
         iden, token, shadow = await s_passwd.generateAccessToken()
         now = s_common.now()
@@ -4060,8 +4051,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'expref': now,  # This is the value that is used as a reference for computing the token expiration.
             'shadow': shadow,
         }
-        if scopes:
-            tdef['scopes'] = scopes
+
         if duration:
             tdef['duration'] = duration
 
@@ -4137,9 +4127,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         tdef = s_msgpack.un(buf)
         if key == 'name':
             tdef['name'] = valu
-        elif key == 'scopes':
-            # TODO Ensure scopes are valid from listScopes API
-            tdef['scopes'] = valu
         else:
             raise s_exc.BadArg(mesg=f'Cannot set {key} on user access tokens.', name=key)
 

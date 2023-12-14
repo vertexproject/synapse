@@ -103,16 +103,9 @@ _cellUserAccesTokenSchema = {
         'modified': {'type': 'integer', 'minimum': 0},
         'expref': {'type': 'integer', 'minimum': 0},
         'duration': {'type': 'integer', 'minimum': 1, 'maximum': 31536000000, 'default': 7776000000},
-        'shadow': {  # DISCUSS break out shadowv2 props? seems overkill since shadowv2 is kind of malleable.
+        'shadow': {
             'type': 'object',
         },
-        'scopes': {
-            'type': 'array',
-            'items': {
-                'type': 'string',
-                'minlen': 1,
-            }
-        }
     },
     'additionalProperties': False,
     'required': [

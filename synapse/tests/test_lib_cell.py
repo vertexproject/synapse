@@ -2419,8 +2419,7 @@ class CellTest(s_t_utils.SynTest):
 
             hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
-            rtk0, rtdf0 = await cell.genUserAccessToken(root, name='Test Token', scopes=['auth.password',])
-            self.eq(rtdf0.get('scopes'), ['auth.password'])
+            rtk0, rtdf0 = await cell.genUserAccessToken(root, name='Test Token')
 
             print(rtk0)
             print(rtdf0)
@@ -2439,7 +2438,7 @@ class CellTest(s_t_utils.SynTest):
 
                 resp = await sess.get(f'https://localhost:{hport}/api/v1/auth/roles', headers=headers0)
                 answ = await resp.json()
-                self.eq('err', answ['status'])
+                self.eq('ok', answ['status'])
                 print(answ)
 
             # Regenerate the token
@@ -2450,7 +2449,6 @@ class CellTest(s_t_utils.SynTest):
             self.eq(rtdf0.get('user'), rtdf1.get('user'))
             self.eq(rtdf0.get('created'), rtdf1.get('created'))
             self.eq(rtdf0.get('name'), rtdf1.get('name'))
-            self.eq(rtdf0.get('scopes'), rtdf1.get('scopes'))
             # Modtime is increased
             self.lt(rtdf0.get('modified'), rtdf1.get('modified'))
             # Duration is unchanged - no duration given when regenerating
@@ -2468,25 +2466,6 @@ class CellTest(s_t_utils.SynTest):
                 headers1 = {'Authorization': f'Bearer {rtk1}'}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers1,
                                        json={'user': visi})
-                answ = await resp.json()
-                self.eq('ok', answ['status'])
-
-                # scope is unchanged
-                resp = await sess.get(f'https://localhost:{hport}/api/v1/auth/roles', headers=headers1)
-                answ = await resp.json()
-                self.eq('err', answ['status'])
-                print(answ)
-
-                # change scope
-                rtdf1_scopes = await cell.modifyUserAccessToken(rtdf1.get('iden'), 'scopes', ['auth'])
-                self.eq(rtdf1_scopes.get('scopes'), ['auth'])
-
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers1,
-                                       json={'user': visi})
-                answ = await resp.json()
-                self.eq('err', answ['status'])
-
-                resp = await sess.get(f'https://localhost:{hport}/api/v1/auth/roles', headers=headers1)
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
