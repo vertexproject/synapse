@@ -7181,6 +7181,38 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': 'detach',
                   'args': (),
                   'returns': {'type': 'null', }}},
+
+        {'name': 'setMergeRequest', 'desc': 'Setup a merge request for the view in the current state.',
+         'type': {'type': 'function', '_funcname': 'setMergeRequest',
+                  'args': (
+                      {'name': 'comment', 'type': 'str', 'default': None,
+                       'desc': 'A text comment to include in the merge request.'},
+                  )}},
+        {'name': 'delMergeRequest', 'desc': 'Remove the existing merge reqeust.',
+         'type': {'type': 'function', '_funcname': 'delMergeRequest',
+                  'args': (
+                      {'name': 'comment', 'type': 'str', 'default': None,
+                       'desc': 'A text comment to include in the merge request.'},
+                  )}},
+        {'name': 'setMergeVote', 'desc': 'Register a vote for or against the current merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeVote',
+                  'args': (
+                      {'name': 'approved', 'type': 'boolean', 'default': True,
+                       'desc': 'Set to (true) to approve the merge or (false) to veto it.'},
+                      {'name': 'comment', 'type': 'str', 'default': None,
+                       'desc': 'A comment attached to the vote.'},
+                  )}},
+        {'name': 'delMergeVote', 'desc': 'Remove a previously created merge vote.',
+         'type': {'type': 'function', '_funcname': 'delMergeVote',
+                  'args': (
+                      {'name': 'useriden', 'type': 'str', 'default': None,
+                       'desc': 'Delete a merge vote by a different user (requires global admin).'},
+                  )}},
+        {'name': 'getMerges', 'desc': 'Yield',
+         'type': {'type': 'function', '_funcname': 'getMerges',
+                  'args': (),
+                  'returns': {'name': 'Yields', 'type': 'dict',
+                              'desc': 'Yields prevously successful merges into the view.', }}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7217,6 +7249,12 @@ class View(Prim):
             'getPropCount': self._methGetPropCount,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
+
+            'getMerges': self.getMerges,
+            'delMergeVote': self.delMergeVote,
+            'setMergeVote': self.setMergeVote,
+            'delMergeRequest': self.delMergeRequest,
+            'setMergeRequest': self.setMergeRequest,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7365,6 +7403,9 @@ class View(Prim):
                 self.runt.confirm(('view', 'read'), gateiden=valu)
                 self.runt.confirm(('view', 'fork'), gateiden=valu)
 
+        elif name == 'quorum':
+            valu = await toprim(valu)
+
         elif name == 'nomerge':
             valu = await tobool(valu)
 
@@ -7396,12 +7437,13 @@ class View(Prim):
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        view = self.runt.snap.core.reqView(self.valu.get('iden'))
-
+        view = self._reqView()
         self.runt.confirm(('view', 'set', name), gateiden=view.iden)
-        await view.setViewInfo(name, valu)
+        retn = await view.setViewInfo(name, valu)
 
-        self.valu[name] = valu
+        self.valu[name] = retn
+
+        return retn
 
     @stormfunc(readonly=True)
     async def _methViewRepr(self):
@@ -7451,11 +7493,10 @@ class View(Prim):
         '''
         Merge a forked view back into its parent.
         '''
+        view = self._reqView()
+        view.reqNoParentQuorum()
         force = await tobool(force)
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        todo = s_common.todo('merge', useriden=useriden, force=force)
-        await self.runt.dyncall(viewiden, todo)
+        return view.merge(useriden=self.runt.user.iden, force=force)
 
     async def _methWipeLayer(self):
         '''
@@ -7465,6 +7506,84 @@ class View(Prim):
         viewiden = self.valu.get('iden')
         view = self.runt.snap.core.getView(viewiden)
         await view.wipeLayer(useriden=useriden)
+
+    async def getMerges(self):
+        view = self._reqView()
+        async for merge in view.getMerges():
+            yield merge
+
+    async def delMergeRequest(self):
+
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Deleting a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        return await view.delMergeRequest()
+
+    async def setMergeRequest(self, comment=None):
+
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Creating a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        mreq = {'creator': self.runt.user.iden}
+
+        if comment is not None:
+            mreq['comment'] = await tostr(comment)
+
+        return await view.setMergeRequest(mreq)
+
+    async def delMergeRequest(self):
+
+        view = self._reqView()
+        view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Removing a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        return await view.delMergeRequest()
+
+    #async def addMergeComment(self, text):
+
+    async def setMergeVote(self, approved=True, comment=None):
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        reqroles = set(quorum.get('roles', ()))
+        userroles = set(self.runt.user.info.get('roles', ()))
+
+        if not reqroles & userroles:
+            mesg = 'You are not a member of a role with voting priviledges for this merge request.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        vote = {'user': self.runt.user.iden, 'approved': await tobool(approved)}
+
+        if comment is not None:
+            vote['comment'] = await tostr(comment)
+
+        return await view.setMergeVote(vote)
+
+    async def delMergeVote(self, useriden=None):
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        useriden = await tostr(useriden, noneok=True)
+
+        if not self.runt.isAdmin() and useriden is not None:
+            mesg = 'Only a global admin may delete a vote for another user.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        if useriden is None:
+            useriden = self.runt.user.iden
+
+        return await view.delMergeVote(useriden)
 
 @registry.registerLib
 class LibTrigger(Lib):

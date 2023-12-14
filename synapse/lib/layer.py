@@ -2846,6 +2846,10 @@ class Layer(s_nexus.Pusher):
         self.layrslab.putmulti(kvlist, db=self.bybuidv3)
         self.dirty.clear()
 
+    def getStorNodeCount(self):
+        info = self.layrslab.stat(db=self.bybuidv3)
+        return info.get('entries', 0)
+
     async def getStorNode(self, buid):
         sode = self._getStorNode(buid)
         if sode is not None:

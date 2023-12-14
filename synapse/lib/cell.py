@@ -1805,11 +1805,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         func = cdef.get('func')
 
         async def wrap():
-            while not self.isfini:
+            while not self.isfini and self.isActiveCoro(iden):
                 try:
                     await func()
-                except asyncio.CancelledError:
-                    raise
                 except Exception:  # pragma no cover
                     logger.exception(f'activeCoro Error: {func}')
                     await asyncio.sleep(1)

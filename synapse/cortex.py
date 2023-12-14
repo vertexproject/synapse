@@ -1428,6 +1428,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for view in self.views.values():
             await view.initTrigTask()
+            await view.initMergeTask()
 
         for layer in self.layers.values():
             await layer.initLayerActive()
@@ -1439,6 +1440,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for view in self.views.values():
             await view.finiTrigTask()
+            await view.finiMergeTask()
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
