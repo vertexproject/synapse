@@ -2421,6 +2421,9 @@ class CellTest(s_t_utils.SynTest):
 
             rtk0, rtdf0 = await cell.genUserApiKey(root, name='Test Token')
 
+            self.none(rtdf0.get('duration'))
+            self.none(rtdf0.get('expref'))
+
             print(rtk0)
             print(rtdf0)
 
@@ -2470,5 +2473,24 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('ok', answ['status'])
 
             # Verify duration arg for regeneration is applied
-            rtk2, rtdf2 = await cell.regenerateUserApiKey(rtdf0.get('iden'), duration=1000)
-            self.eq(rtdf2.get('duration'), 1000)
+            rtk2, rtdf2 = await cell.regenerateUserApiKey(rtdf0.get('iden'), duration=5)
+            self.eq(rtdf2.get('duration'), 5)
+            # expref is now present and equal to the mod time
+            self.eq(rtdf2.get('expref'), rtdf2.get('modified'))
+
+            await asyncio.sleep(0.02)
+
+            isok, info = await cell.checkUserApiKey(rtk2)
+            self.false(isok)
+            self.isin('API Key is expired', info.get('mesg'))
+
+            # Expired tokens fail...
+
+            async with self.getHttpSess(port=hport) as sess:
+
+                # New token works
+                headers2 = {'X-API-KEY': rtk2}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers1,
+                                       json={'user': visi})
+                answ = await resp.json()
+                self.eq('err', answ['status'])

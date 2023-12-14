@@ -4048,11 +4048,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'user': useriden,
             'created': now,
             'modified': now,
-            'expref': now,  # This is the value that is used as a reference for computing the token expiration.
             'shadow': shadow,
         }
 
         if duration:
+            kdef['expref']: now
             kdef['duration'] = duration
 
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
@@ -4103,10 +4103,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False, {'mesg': f'User associated with API Key is locked: {iden}',
                            'user': user, 'name': udef.get('name')}
 
-        now = s_common.now()
-        if now >= kdef.get('expref') + kdef.get('duration'):
-            return False, {'mesg': f'API Key is expired: {iden}',
-                           'user': user, 'name': udef.get('name')}
+        duration = kdef.get('duration')
+        if duration is not None:
+            now = s_common.now()
+            if now >= kdef.get('expref') + kdef.get('duration'):
+                return False, {'mesg': f'API Key is expired: {iden}',
+                               'user': user, 'name': udef.get('name')}
 
         shadow = kdef.pop('shadow')
         valid = await s_passwd.checkShadowV2(secv, shadow)
@@ -4117,9 +4119,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return True, {'kdef': kdef, 'udef': udef}
 
     async def modifyUserApiKey(self, iden, key, valu):
-        # Modify the name of a token
-        # Modify the scope of a token
-        # NEXUS
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
             raise s_exc.NoSuchIden(mesg=f'Requested user API Key does not exist, cannot regenerate it: {iden}',
@@ -4136,10 +4135,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return kdef
 
     async def regenerateUserApiKey(self, iden, duration=None):
-        # Regenerated a private value for an existing
-        # Modify the scope of a token
-        # NEXUS
-
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
             raise s_exc.NoSuchIden(mesg=f'Requested user API Key does not exist, cannot regenerate it: {iden}',
@@ -4150,11 +4145,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef['shadow'] = shadow
 
         # Duration is either reset to the default OR we use the provided duration
+        now = s_common.now()
         if duration is None:
-            kdef.pop('duration')
+            kdef.pop('duration', None)
+            kdef.pop('expref', None)
         else:
             kdef['duration'] = duration
-        kdef['modified'] = s_common.now()
+            kdef['expref'] = now
+        kdef['modified'] = now
+
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
         await self._push('user:apikey:set', kdef)

@@ -91,8 +91,6 @@ reqValidVault = s_config.getJsValidator({
     ],
 })
 
-# 7776000000  -> 90 days
-# 31536000000 -> 365 days
 _cellUserApiKeySchema = {
     'type': 'object',
     'properties': {
@@ -102,7 +100,7 @@ _cellUserApiKeySchema = {
         'created': {'type': 'integer', 'minimum': 0},
         'modified': {'type': 'integer', 'minimum': 0},
         'expref': {'type': 'integer', 'minimum': 0},
-        'duration': {'type': 'integer', 'minimum': 1, 'maximum': 31536000000, 'default': 7776000000},
+        'duration': {'type': 'integer', 'minimum': 1},
         'shadow': {
             'type': 'object',
         },
@@ -114,7 +112,6 @@ _cellUserApiKeySchema = {
         'user',
         'created',
         'modified',
-        'expref',
         'shadow',
     ],
 }
