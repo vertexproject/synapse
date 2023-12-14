@@ -100,7 +100,6 @@ reqValidLdef = s_config.getJsValidator({
         'logedits': {'type': 'boolean', 'default': True},
         'name': {'type': 'string'},
         'readonly': {'type': 'boolean', 'default': False},
-        'merging': {'type': 'boolean'},
     },
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],
@@ -1400,8 +1399,6 @@ class Layer(s_nexus.Pusher):
 
         self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
         self.readonly = False
-
-        self.merging = self.layrinfo.get('merging')
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
