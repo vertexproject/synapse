@@ -648,8 +648,8 @@ class CellApi(s_base.Base):
         return await self.cell.popUserProfInfo(iden, name, default=default)
 
     @adminapi()
-    async def checkUserAccessToken(self, tokn):
-        return await self.cell.checkUserAccessToken(tokn)
+    async def checkUserApiKey(self, key):
+        return await self.cell.checkUserApiKey(tokn)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
@@ -4038,11 +4038,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.debug(f'Completed cell reload system {name}')
         return (True, ret)
 
-    async def genUserAccessToken(self, useriden, name, duration=None):
+    async def genUserApiKey(self, useriden, name, duration=None):
         # TODO CHECK USER IDEN
-        iden, token, shadow = await s_passwd.generateAccessToken()
+        iden, token, shadow = await s_passwd.generateApiKey()
         now = s_common.now()
-        tdef = {
+        kdef = {
             'iden': iden,
             'name': name,
             'user': useriden,
@@ -4053,125 +4053,126 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
         if duration:
-            tdef['duration'] = duration
+            kdef['duration'] = duration
 
-        tdef = s_schemas.reqValidUserAccessTokenDef(tdef)
+        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
-        await self._push('user:token:add', tdef)
+        await self._push('user:apikey:add', kdef)
 
-        tdef.pop('shadow')
-        return token, tdef
+        kdef.pop('shadow')
+        return token, kdef
 
-    @s_nexus.Pusher.onPush('user:token:add')
-    async def _genUserAccessToken(self, tdef):
-        iden = tdef.get('iden')
+    @s_nexus.Pusher.onPush('user:apikey:add')
+    async def _genUserApiKey(self, kdef):
+        iden = kdef.get('iden')
         valu = self.slab.get(iden.encode('utf-8'), self._uatdb)
         if valu is not None:
             return
-        self.slab.put(iden.encode('utf-8'), s_msgpack.en(tdef), db=self._uatdb)
+        self.slab.put(iden.encode('utf-8'), s_msgpack.en(kdef), db=self._uatdb)
 
-    async def getUserAccessToken(self, iden):
+    async def getUserApiKey(self, iden):
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
             return None
-        tdef = s_msgpack.un(buf)
-        tdef.pop('shadow')
-        return tdef
+        kdef = s_msgpack.un(buf)
+        kdef.pop('shadow')
+        return kdef
 
-    # TODO List user access tokens?
+    # TODO List user api keys?
 
     # Is it possible to keep an lru cache of tokens in memory?
     # Possibly but we have a expiration problem and a user-refresh problem...
-    async def checkUserAccessToken(self, tokn):
-        isok, valu = s_passwd.checkAccesToken(tokn)
+    async def checkUserApiKey(self, key):
+        isok, valu = s_passwd.parseApiKey(key)
         if isok is False:
-            return False, {'mesg': 'Access token is malformed.'}
+            return False, {'mesg': 'API Key is malformed.'}
 
         iden, secv = valu
 
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
-            return False, {'mesg': f'Access token does not exist: {iden}'}
+            return False, {'mesg': f'API Key does not exist: {iden}'}
 
-        tdef = s_msgpack.un(buf)
-
-        udef = await self.getUserDef(tdef.get('user'))
+        kdef = s_msgpack.un(buf)
+        user = kdef.get('user')
+        udef = await self.getUserDef(user)
         if udef is None:
-            return False, {'mesg': f'User does not exist for access token: {iden}', 'user': tdef.get('user')}
+            return False, {'mesg': f'User does not exist for API Key: {iden}', 'user': user}
 
         if udef.get('locked'):
-            return False, {'mesg': f'User associated with access token is locked: {iden}',
-                           'user': tdef.get('user'), 'name': udef.get('name')}
+            return False, {'mesg': f'User associated with API Key is locked: {iden}',
+                           'user': user, 'name': udef.get('name')}
 
         now = s_common.now()
-        if now >= tdef.get('expref') + tdef.get('duration'):
-            return False, {'mesg': f'Access token is expired: {iden}',
-                           'user': tdef.get('user'), 'name': udef.get('name')}
+        if now >= kdef.get('expref') + kdef.get('duration'):
+            return False, {'mesg': f'API Key is expired: {iden}',
+                           'user': user, 'name': udef.get('name')}
 
-        shadow = tdef.pop('shadow')
+        shadow = kdef.pop('shadow')
         valid = await s_passwd.checkShadowV2(secv, shadow)
         if valid is False:
-            return False, {'mesg': f'Access token shadow mismatch: {iden}',
-                           'user': tdef.get('user'), 'name': udef.get('name')}
+            return False, {'mesg': f'API Key shadow mismatch: {iden}',
+                           'user': user, 'name': udef.get('name')}
 
-        return True, {'tdef': tdef, 'udef': udef}
+        return True, {'kdef': kdef, 'udef': udef}
 
-    async def modifyUserAccessToken(self, iden, key, valu):
+    async def modifyUserApiKey(self, iden, key, valu):
         # Modify the name of a token
         # Modify the scope of a token
         # NEXUS
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
-            raise s_exc.NoSuchIden(mesg=f'Requested user access token does not exist, cannot regenerate it: {iden}',
+            raise s_exc.NoSuchIden(mesg=f'Requested user API Key does not exist, cannot regenerate it: {iden}',
                                    iden=iden)
-        tdef = s_msgpack.un(buf)
+        kdef = s_msgpack.un(buf)
         if key == 'name':
-            tdef['name'] = valu
+            kdef['name'] = valu
         else:
-            raise s_exc.BadArg(mesg=f'Cannot set {key} on user access tokens.', name=key)
+            raise s_exc.BadArg(mesg=f'Cannot set {key} on user API Keys.', name=key)
 
-        tdef = s_schemas.reqValidUserAccessTokenDef(tdef)
-        await self._push('user:token:set', tdef)
-        tdef.pop('shadow')
-        return tdef
+        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
+        await self._push('user:token:set', kdef)
+        kdef.pop('shadow')
+        return kdef
 
-    async def regenerateUserAccessToken(self, iden, duration=None):
+    async def regenerateUserApiKey(self, iden, duration=None):
         # Regenerated a private value for an existing
         # Modify the scope of a token
         # NEXUS
 
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
-            raise s_exc.NoSuchIden(mesg=f'Requested user access token does not exist, cannot regenerate it: {iden}',
+            raise s_exc.NoSuchIden(mesg=f'Requested user API Key does not exist, cannot regenerate it: {iden}',
                                    iden=iden)
-        tdef = s_msgpack.un(buf)
-        _, token, shadow = await s_passwd.generateAccessToken(iden=iden)
+        kdef = s_msgpack.un(buf)
+        _, token, shadow = await s_passwd.generateApiKey(iden=iden)
 
-        tdef['shadow'] = shadow
+        kdef['shadow'] = shadow
 
         # Duration is either reset to the default OR we use the provided duration
         if duration is None:
-            tdef.pop('duration')
+            kdef.pop('duration')
         else:
-            tdef['duration'] = duration
-        tdef['modified'] = s_common.now()
-        tdef = s_schemas.reqValidUserAccessTokenDef(tdef)
+            kdef['duration'] = duration
+        kdef['modified'] = s_common.now()
+        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
-        await self._push('user:token:set', tdef)
+        await self._push('user:apikey:set', kdef)
 
-        tdef.pop('shadow')
-        return token, tdef
+        kdef.pop('shadow')
+        return token, kdef
 
-    @s_nexus.Pusher.onPush('user:token:set')
-    async def _setUserAccessToken(self, tdef):
-        iden = tdef.get('iden')
+    @s_nexus.Pusher.onPush('user:apikey:set')
+    async def _setUserApiKey(self, kdef):
+        # TODO This should takes a set of values insteaf of a kdef smash so we're only sending atomic edits to the kdef
+        iden = kdef.get('iden')
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
-            raise s_exc.NoSuchIden(mesg=f'User access token does not exist: {iden}')
-        self.slab.put(iden.encode('utf-8'), s_msgpack.en(tdef), db=self._uatdb)
-        return tdef
+            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
+        self.slab.put(iden.encode('utf-8'), s_msgpack.en(kdef), db=self._uatdb)
+        return kdef
 
-    async def _deleteHttpToken(self, iden):
+    async def deleteHttpToken(self, iden):
         pass
 
     @s_nexus.Pusher.onPush('user:token:del')

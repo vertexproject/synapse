@@ -2419,14 +2419,14 @@ class CellTest(s_t_utils.SynTest):
 
             hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
-            rtk0, rtdf0 = await cell.genUserAccessToken(root, name='Test Token')
+            rtk0, rtdf0 = await cell.genUserApiKey(root, name='Test Token')
 
             print(rtk0)
             print(rtdf0)
 
             async with self.getHttpSess(port=hport) as sess:
 
-                headers0 = {'Authorization': f'Bearer {rtk0}'}
+                headers0 = {'X-API-KEY': rtk0}
 
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers0,
                                        json={'user': visi})
@@ -2442,7 +2442,7 @@ class CellTest(s_t_utils.SynTest):
                 print(answ)
 
             # Regenerate the token
-            rtk1, rtdf1 = await cell.regenerateUserAccessToken(rtdf0.get('iden'))
+            rtk1, rtdf1 = await cell.regenerateUserApiKey(rtdf0.get('iden'))
             self.ne(rtk0, rtk1)
             # Immutable fields are the same
             self.eq(rtdf0.get('iden'), rtdf1.get('iden'))
@@ -2463,12 +2463,12 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('err', answ['status'])
 
                 # New token works
-                headers1 = {'Authorization': f'Bearer {rtk1}'}
+                headers1 = {'X-API-KEY': rtk1}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers1,
                                        json={'user': visi})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
             # Verify duration arg for regeneration is applied
-            rtk2, rtdf2 = await cell.regenerateUserAccessToken(rtdf0.get('iden'), duration=1000)
+            rtk2, rtdf2 = await cell.regenerateUserApiKey(rtdf0.get('iden'), duration=1000)
             self.eq(rtdf2.get('duration'), 1000)

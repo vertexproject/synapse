@@ -93,7 +93,7 @@ reqValidVault = s_config.getJsValidator({
 
 # 7776000000  -> 90 days
 # 31536000000 -> 365 days
-_cellUserAccesTokenSchema = {
+_cellUserApiKeySchema = {
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
@@ -118,4 +118,4 @@ _cellUserAccesTokenSchema = {
         'shadow',
     ],
 }
-reqValidUserAccessTokenDef = s_config.getJsValidator(_cellUserAccesTokenSchema)
+reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)

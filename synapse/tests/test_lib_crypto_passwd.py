@@ -81,11 +81,11 @@ class PasswdTest(s_t_utils.SynTest):
                 await s_passwd.getShadowV2(vec)
 
     async def test_token_generation(self):
-        iden, token, shadow = await s_passwd.generateAccessToken()
+        iden, token, shadow = await s_passwd.generateApiKey()
         print(iden)
         print(token)
         print(shadow)
-        isok, (iden2, secv) = s_passwd.checkAccesToken(token)
+        isok, (iden2, secv) = s_passwd.parseApiKey(token)
         self.true(isok)
         print(iden2, secv)
         self.eq(iden, iden2)
@@ -95,15 +95,15 @@ class PasswdTest(s_t_utils.SynTest):
 
         some_iden = s_common.guid()
 
-        iden0, token0, shadow0 = await s_passwd.generateAccessToken(some_iden)
-        iden1, token1, shadow1 = await s_passwd.generateAccessToken(some_iden)
+        iden0, token0, shadow0 = await s_passwd.generateApiKey(some_iden)
+        iden1, token1, shadow1 = await s_passwd.generateApiKey(some_iden)
         self.eq(some_iden, iden0)
         self.eq(iden0, iden1)
         self.ne(token0, token1)
         self.ne(shadow0, shadow1)
 
-        isok0, (cidn0, secv0) = s_passwd.checkAccesToken(token0)
-        isok1, (cidn1, secv1) = s_passwd.checkAccesToken(token1)
+        isok0, (cidn0, secv0) = s_passwd.parseApiKey(token0)
+        isok1, (cidn1, secv1) = s_passwd.parseApiKey(token1)
         self.true(isok0)
         self.true(isok1)
         self.eq(some_iden, cidn0)

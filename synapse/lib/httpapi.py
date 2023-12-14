@@ -278,6 +278,11 @@ class HandlerBase:
 
             return iden
 
+        # Check for API Keys
+        key = self.request.headers.get('X-API-KEY')
+        if key is not None:
+            return await self.handleApiKeyAuth()
+
         return await self.handleBasicAuth()
 
     async def handleBasicAuth(self):
@@ -296,9 +301,6 @@ class HandlerBase:
         auth = self.request.headers.get('Authorization')
         if auth is None:
             return None
-
-        if auth.startswith('Bearer '):
-            return await self.handleBearerAuth(auth)
 
         if not auth.startswith('Basic '):
             return None
@@ -329,21 +331,18 @@ class HandlerBase:
         self.web_username = udef.get('name')
         return self.web_useriden
 
-    async def handleBearerAuth(self, auth):
+    async def handleApiKeyAuth(self):
         authcell = self.getAuthCell()
-        prefix, blob = auth.split(None, 1)
-
-        assert prefix == 'Bearer'  # TODO hard check
-
-        isok, info = await authcell.checkUserAccessToken(blob)  # errfo or dict with tdef + udef
+        key = self.request.headers.get('X-API-KEY')
+        isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
         if isok is False:
             self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
             return
 
-        tdef = info.get('tdef')
+        kdef = info.get('kdef')
         udef = info.get('udef')
 
-        # Would be nice to know when a UAT was being used to auth...
+        # Would be nice to know when an API key was being used to auth...
         # self.logAuthIssue(mesg=f'User access token use: {tdef.get("iden")}',
         #                   user=udef.get('iden'), username=udef.get('name'), level=logging.DEBUG)
 
