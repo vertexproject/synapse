@@ -4049,6 +4049,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'created': now,
             'modified': now,
             'shadow': shadow,
+            'duration': None,
+            'expref': None,
         }
 
         if duration:
@@ -4126,13 +4128,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NoSuchIden(mesg=f'Requested user API Key does not exist, cannot regenerate it: {iden}',
                                    iden=iden)
         kdef = s_msgpack.un(buf)
+        vals = {
+            'modified': s_common.now()
+        }
         if key == 'name':
-            kdef['name'] = valu
+            vals['name'] = valu
         else:
             raise s_exc.BadArg(mesg=f'Cannot set {key} on user API Keys.', name=key)
 
+        kdef.update(vals)
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
-        await self._push('user:token:set', kdef)
+
+        await self._push('user:apikey:update', iden, vals)
 
         # TODO Log user api key modification with iden, duration, name and status=MODIFY
 
@@ -4147,34 +4154,38 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef = s_msgpack.un(buf)
         _, token, shadow = await s_passwd.generateApiKey(iden=iden)
 
+        now = s_common.now()
+        vals = {
+            'shadow': shadow,
+            'modified': now
+        }
         kdef['shadow'] = shadow
 
-        # Duration is either reset to the default OR we use the provided duration
-        now = s_common.now()
+        # Duration is either reset to the default None or use we the provided destination
         if duration is None:
-            kdef.pop('duration', None)
-            kdef.pop('expref', None)
+            vals['expref'] = None
+            vals['duration'] = None
         else:
-            kdef['duration'] = duration
-            kdef['expref'] = now
-        kdef['modified'] = now
+            vals['expref'] = now
+            vals['duration'] = duration
 
+        kdef.update(vals)
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
-        await self._push('user:apikey:set', kdef)
+        await self._push('user:apikey:update', iden, vals)
 
         # TODO Log user api key modification with iden, duration, name and status=MODIFY
 
         kdef.pop('shadow')
         return token, kdef
 
-    @s_nexus.Pusher.onPush('user:apikey:set')
-    async def _setUserApiKey(self, kdef):
-        # TODO This should takes a set of values insteaf of a kdef smash so we're only sending atomic edits to the kdef
-        iden = kdef.get('iden')
+    @s_nexus.Pusher.onPush('user:apikey:update')
+    async def _setUserApiKey(self, iden, vals):
         buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
         if buf is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
+        kdef = s_msgpack.un(buf)
+        kdef.update(vals)
         self.slab.put(iden.encode('utf-8'), s_msgpack.en(kdef), db=self._uatdb)
         return kdef
 
