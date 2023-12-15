@@ -258,7 +258,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await layr.layrinfo.set('readonly', True)
 
         merge = self.getMergeRequest()
-        merge['votes'] = [ vote async for vote in self.getMergeVotes() ]
+        merge['votes'] = [vote async for vote in self.getMergeVotes()]
         merge['merged'] = tick
 
         tick = s_common.int64en(tick)
@@ -356,7 +356,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if nodeedits:
                     yield nodeedits
-
 
             total = self.layers[0].getStorNodeCount()
 
