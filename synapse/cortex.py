@@ -5848,10 +5848,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder(f'cron:edit:{name}', {'iden': iden, name: pckd.get(name)}, gates=[iden])
         return pckd
 
-    @s_nexus.Pusher.onPushAuto('cron:batch')
-    async def batchEditCronJob(self, iden, edits):
+    @s_nexus.Pusher.onPushAuto('cron:edits')
+    async def addCronEdits(self, iden, edits):
+        '''
+        Take a dictionary of edits and apply them to the appointment (cron job)
+        '''
         appt = await self.agenda.get(iden)
-        await appt.batch(edits)
+        await appt.edits(edits)
 
     @contextlib.asynccontextmanager
     async def enterMigrationMode(self):

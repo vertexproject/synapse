@@ -256,7 +256,7 @@ class _Appt:
     the lowest nexttime of all its ApptRecs.
     '''
 
-    _synced_attrs = (
+    _synced_attrs = {
         'doc',
         'name',
         'enabled',
@@ -268,7 +268,7 @@ class _Appt:
         'startcount',
         'laststarttime',
         'lastfinishtime',
-    )
+    }
 
     def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None):
         self.doc = ''
@@ -296,7 +296,7 @@ class _Appt:
         self.isrunning = False  # whether it is currently running
         self.startcount = 0  # how many times query has started
         self.errcount = 0  # how many times this appt failed
-        self.lasterrs = collections.deque((), maxlen=5)
+        self.lasterrs = []
         self.laststarttime = None
         self.lastfinishtime = None
         self.lastresult = None
@@ -351,7 +351,7 @@ class _Appt:
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
             'lastresult': self.lastresult,
-            'lasterrs': list(self.lasterrs)
+            'lasterrs': list(self.lasterrs[:5])
         }
 
     @classmethod
@@ -408,17 +408,12 @@ class _Appt:
 
         return self.nexttime
 
-    async def batch(self, edits):
+    async def edits(self, edits):
         for name, valu in edits.items():
             if name not in self.__class__._synced_attrs:
                 extra = await self.stor.core.getLogExtra(name=name, valu=valu)
-                logger.warning('_Appt.batch() Invalid attribute received: %s = %r', name, valu, extra=extra)
+                logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
                 continue
-
-            if name == 'lasterrs':
-                # lasterrs is a deque and valu is a list
-                self.lasterrs.clear()
-                self.lasterrs.extend(valu)
 
             else:
                 setattr(self, name, valu)
@@ -760,7 +755,7 @@ class Agenda(s_base.Base):
                 edits = {
                     'nexttime': nexttime,
                 }
-                await self.core.batchEditCronJob(appt.iden, edits)
+                await self.core.addCronEdits(appt.iden, edits)
 
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
@@ -833,7 +828,7 @@ class Agenda(s_base.Base):
             'isrunning': False,
             'lastresult': f'Failed due to {reason}',
         }
-        await self.core.batchEditCronJob(appt.iden, edits)
+        await self.core.addCronEdits(appt.iden, edits)
 
     async def _runJob(self, user, appt):
         '''
@@ -845,7 +840,7 @@ class Agenda(s_base.Base):
             'laststarttime': self._getNowTick(),
             'startcount': appt.startcount + 1,
         }
-        await self.core.batchEditCronJob(appt.iden, edits)
+        await self.core.addCronEdits(appt.iden, edits)
 
         with s_provenance.claim('cron', iden=appt.iden):
             logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
@@ -878,13 +873,13 @@ class Agenda(s_base.Base):
             finally:
                 finishtime = self._getNowTick()
                 if not success:
-                    lasterrs = list(appt.lasterrs)
-                    lasterrs.append(result)
+                    appt.lasterrs.append(result)
                     edits = {
                         'errcount': appt.errcount + 1,
-                        'lasterrs': lasterrs,
+                        # we only care about the last five errors
+                        'lasterrs': list(appt.lasterrs[-5:]),
                     }
-                    await self.core.batchEditCronJob(appt.iden, edits)
+                    await self.core.addCronEdits(appt.iden, edits)
 
                 took = finishtime - starttime
                 mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
@@ -896,7 +891,7 @@ class Agenda(s_base.Base):
                     'isrunning': False,
                     'lastresult': result,
                 }
-                await self.core.batchEditCronJob(appt.iden, edits)
+                await self.core.addCronEdits(appt.iden, edits)
 
                 if not self.isfini:
                     # fire beholder event before invoking nexus change (in case readonly)

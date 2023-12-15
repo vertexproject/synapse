@@ -815,8 +815,8 @@ class AgendaTest(s_t_utils.SynTest):
                     edits = {
                         'invalid': 'newp',
                     }
-                    await core00.batchEditCronJob(appt.iden, edits)
+                    await core00.addCronEdits(appt.iden, edits)
 
                 stream.seek(0)
                 data = stream.read()
-                self.isin("_Appt.batch() Invalid attribute received: invalid = 'newp'", data)
+                self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)
