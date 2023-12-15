@@ -446,7 +446,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         quorum = self.parent.info.get('quorum')
         if quorum is not None:
-            # remove any pending merge requests or 
+            # remove any pending merge requests or votes
             await self._delMergeMeta()
 
         self.parent = None
@@ -483,8 +483,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     genrs.append(await func(*funcargs, **funckwargs))
 
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
                 except Exception as e:  # pragma: no cover
                     logger.exception('mergeStormIface()')
 
@@ -519,8 +517,6 @@ class View(s_nexus.Pusher):  # type: ignore
                         valu = await func(*funcargs, **funckwargs)
                         yield await s_stormtypes.toprim(valu)
 
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
                 except Exception as e:
                     modname = moddef.get('name')
                     logger.exception(f'callStormIface {name} mod: {modname}')
@@ -685,13 +681,6 @@ class View(s_nexus.Pusher):  # type: ignore
         d['triggers'] = triginfo
 
         return d
-
-    async def details(self):
-        retn = {
-            'view': await self.pack(),
-            'merging': self.merging,
-            'votes': [vote async for vote in self.getMergeVotes()],
-        }
 
     async def getFormCounts(self):
         counts = collections.defaultdict(int)

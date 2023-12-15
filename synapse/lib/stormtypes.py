@@ -7148,11 +7148,18 @@ class View(Prim):
                       {'name': 'comment', 'type': 'str', 'default': None,
                        'desc': 'A comment attached to the vote.'},
                   )}},
-        {'name': 'delMergeVote', 'desc': 'Remove a previously created merge vote.',
+        {'name': 'delMergeVote', 'desc': '''
+            Remove a previously created merge vote.
+
+            Notes:
+                The default use case removes a vote cast by the current user. Specifying the useriden
+                parameter allows you to remove a vote cast by another user but requires global admin
+                permissions.
+         ''',
          'type': {'type': 'function', '_funcname': 'delMergeVote',
                   'args': (
                       {'name': 'useriden', 'type': 'str', 'default': None,
-                       'desc': 'Delete a merge vote by a different user (requires global admin).'},
+                       'desc': 'Delete a merge vote by a different user.'},
                   )}},
         {'name': 'getMerges', 'desc': 'Yield',
          'type': {'type': 'function', '_funcname': 'getMerges',
@@ -7495,8 +7502,6 @@ class View(Prim):
             raise s_exc.AuthDeny(mesg=mesg)
 
         return await view.delMergeRequest()
-
-    #async def addMergeComment(self, text):
 
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
