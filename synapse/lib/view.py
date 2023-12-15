@@ -17,6 +17,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -56,31 +57,6 @@ reqValidVdef = s_config.getJsValidator({
     },
     'additionalProperties': True,
     'required': ['iden', 'parent', 'creator', 'layers'],
-})
-
-reqValidMerge = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'created': {'type': 'number'},
-        'comment': {'type': 'string'},
-    },
-    'required': ['creator', 'created'],
-    'additionalProperties': False,
-})
-
-reqValidVote = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'offset': {'type': 'number'},
-        'created': {'type': 'number'},
-        'approved': {'type': 'boolean'},
-        'comment': {'type': 'string'},
-    },
-    'required': ['user', 'offset', 'created', 'approved'],
-    'additionalProperties': False,
 })
 
 class ViewApi(s_cell.CellApi):
@@ -229,7 +205,7 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPush('merge:set')
     async def _setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
-        reqValidMerge(mergeinfo)
+        s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
         return mergeinfo
@@ -308,7 +284,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _setMergeVote(self, vote):
 
         self.reqParentQuorum()
-        reqValidVote(vote)
+        s_schemas.reqValidVote(vote)
 
         uidn = s_common.uhex(vote.get('user'))
 

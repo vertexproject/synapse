@@ -90,3 +90,28 @@ reqValidVault = s_config.getJsValidator({
         'configs',
     ],
 })
+
+reqValidMerge = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'number'},
+        'comment': {'type': 'string'},
+    },
+    'required': ['creator', 'created'],
+    'additionalProperties': False,
+})
+
+reqValidVote = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'offset': {'type': 'number'},
+        'created': {'type': 'number'},
+        'approved': {'type': 'boolean'},
+        'comment': {'type': 'string'},
+    },
+    'required': ['user', 'offset', 'created', 'approved'],
+    'additionalProperties': False,
+})
