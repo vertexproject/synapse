@@ -7133,13 +7133,12 @@ class View(Prim):
                   'args': (
                       {'name': 'comment', 'type': 'str', 'default': None,
                        'desc': 'A text comment to include in the merge request.'},
-                  )}},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The newly created merge request.'}}},
         {'name': 'delMergeRequest', 'desc': 'Remove the existing merge request.',
          'type': {'type': 'function', '_funcname': 'delMergeRequest',
-                  'args': (
-                      {'name': 'comment', 'type': 'str', 'default': None,
-                       'desc': 'A text comment to include in the merge request.'},
-                  )}},
+                  'args': (),
+                  'returns': {'type': 'dict', }}},
         {'name': 'setMergeVote', 'desc': 'Register a vote for or against the current merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVote',
                   'args': (
@@ -7147,7 +7146,8 @@ class View(Prim):
                        'desc': 'Set to (true) to approve the merge or (false) to veto it.'},
                       {'name': 'comment', 'type': 'str', 'default': None,
                        'desc': 'A comment attached to the vote.'},
-                  )}},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The vote record that was created.' }}},
         {'name': 'delMergeVote', 'desc': '''
             Remove a previously created merge vote.
 
@@ -7160,7 +7160,8 @@ class View(Prim):
                   'args': (
                       {'name': 'useriden', 'type': 'str', 'default': None,
                        'desc': 'Delete a merge vote by a different user.'},
-                  )}},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The vote record that was removed.' }}},
         {'name': 'getMerges', 'desc': 'Yield',
          'type': {'type': 'function', '_funcname': 'getMerges',
                   'args': (),
@@ -7491,17 +7492,6 @@ class View(Prim):
             mreq['comment'] = await tostr(comment)
 
         return await view.setMergeRequest(mreq)
-
-    async def delMergeRequest(self):
-
-        view = self._reqView()
-        view.reqParentQuorum()
-
-        if not self.runt.isAdmin(gateiden=view.iden):
-            mesg = 'Removing a merge request requires admin permissions on the view.'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        return await view.delMergeRequest()
 
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
