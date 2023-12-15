@@ -210,16 +210,6 @@ class Node:
 
         return retn
 
-    async def seen(self, tick, source=None):
-        '''
-        Update the .seen interval and optionally a source specific seen node.
-        '''
-        await self.set('.seen', tick)
-
-        if source is not None:
-            seen = await self.snap.addNode('meta:seen', (source, self.ndef))
-            await seen.set('.seen', tick)
-
     def getNodeRefs(self):
         '''
         Return a list of (prop, (form, valu)) refs out for the node.
