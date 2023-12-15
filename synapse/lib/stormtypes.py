@@ -7134,7 +7134,7 @@ class View(Prim):
                       {'name': 'comment', 'type': 'str', 'default': None,
                        'desc': 'A text comment to include in the merge request.'},
                   )}},
-        {'name': 'delMergeRequest', 'desc': 'Remove the existing merge reqeust.',
+        {'name': 'delMergeRequest', 'desc': 'Remove the existing merge request.',
          'type': {'type': 'function', '_funcname': 'delMergeRequest',
                   'args': (
                       {'name': 'comment', 'type': 'str', 'default': None,

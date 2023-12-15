@@ -230,7 +230,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
         reqValidMerge(mergeinfo)
-        lkey = s_common.uhex(self.iden) + b'merge:req'
+        lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
         return mergeinfo
 
