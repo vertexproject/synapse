@@ -7451,7 +7451,7 @@ class View(Prim):
         view = self._reqView()
         view.reqNoParentQuorum()
         force = await tobool(force)
-        return view.merge(useriden=self.runt.user.iden, force=force)
+        return await view.merge(useriden=self.runt.user.iden, force=force)
 
     async def _methWipeLayer(self):
         '''
