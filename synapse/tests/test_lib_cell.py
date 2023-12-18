@@ -2507,7 +2507,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('ok', answ['status'])
 
                 # Delete the token - it no longer works
-                await cell.delUserApiKey('', rtdf3.get('iden'))  # TODO plumb user
+                await cell.delUserApiKey(rtdf3.get('iden'))  # TODO plumb user
 
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': visi})

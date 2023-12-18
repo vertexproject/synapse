@@ -1147,7 +1147,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(root)
 
         await self._initCellSlab(readonly=readonly)
-        self._uatdb = self.slab.initdb('cell:user:tokens')
+        self.apikeydb = self.slab.initdb('user:apikeys')  # token -> useriden
+        self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
+        self.rolemetadb = self.slab.initdb('view:meta')  # roleiden + <valu> -> dict valu
+
         self.hive = await self._initCellHive()
 
         # self.cellinfo, a HiveDict for general purpose persistent storage
@@ -4039,13 +4042,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return (True, ret)
 
     async def genUserApiKey(self, useriden, name, duration=None):
-        # TODO CHECK USER IDEN
+
+        user = await self.auth.reqUser(useriden)
         iden, token, shadow = await s_passwd.generateApiKey()
         now = s_common.now()
         kdef = {
             'iden': iden,
             'name': name,
-            'user': useriden,
+            'user': user.iden,
             'created': now,
             'modified': now,
             'shadow': shadow,
@@ -4061,6 +4065,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:add', kdef)
 
+        logger.info(f'Created HTTP API Key {iden} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
         # TODO Log user api key creation with iden, duration, name and status=MODIFY
 
         kdef.pop('shadow')
@@ -4068,18 +4075,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPush('user:apikey:add')
     async def _genUserApiKey(self, kdef):
-        iden = kdef.get('iden')
-        valu = self.slab.get(iden.encode('utf-8'), self._uatdb)
+        iden = kdef.get('iden').encode('utf-8')
+        user = kdef.get('user').encode('utf-8')
+        valu = self.slab.get(iden, self.apikeydb)
         if valu is not None:
             return
-        self.slab.put(iden.encode('utf-8'), s_msgpack.en(kdef), db=self._uatdb)
+        self.slab.put(iden, user, db=self.apikeydb)
+        lkey = user + b'cell:apikey' + iden  # DISCUSS Do we make this a dupsort DB?
+        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):
-        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
-        if buf is None:
+        user = self.slab.get(iden.encode('utf-8'), db=self.apikeydb)
+        if user is None:
             return None
-        kdef = s_msgpack.un(buf)
-        kdef.pop('shadow')
+        lkey = user + b'cell:apikey' + iden.encode('utf-8')
+        buf = self.slab.get(lkey, db=self.usermetadb)  # None here would be a nexus state inconsistency
+        kdef = s_msgpack.un(buf)  # This includes the shadow key
         return kdef
 
     # TODO List user api keys?
@@ -4093,11 +4104,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         iden, secv = valu
 
-        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
-        if buf is None:
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
             return False, {'mesg': f'API Key does not exist: {iden}'}
 
-        kdef = s_msgpack.un(buf)
         user = kdef.get('user')
         udef = await self.getUserDef(user)
         if udef is None:
@@ -4139,7 +4149,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef.update(vals)
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
-        await self._push('user:apikey:update', iden, vals)
+        await self._push('user:apikey:update', kdef.get('user'), iden, vals)
 
         # TODO Log user api key modification with iden, duration, name and status=MODIFY
 
@@ -4147,11 +4157,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return kdef
 
     async def regenerateUserApiKey(self, iden, duration=None):
-        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
-        if buf is None:
-            raise s_exc.NoSuchIden(mesg=f'Requested user API Key does not exist, cannot regenerate it: {iden}',
-                                   iden=iden)
-        kdef = s_msgpack.un(buf)
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot regnerate it: {iden}', iden=iden)
         _, token, shadow = await s_passwd.generateApiKey(iden=iden)
 
         now = s_common.now()
@@ -4172,7 +4180,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef.update(vals)
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
-        await self._push('user:apikey:update', iden, vals)
+        await self._push('user:apikey:update', kdef.get('user'), iden, vals)
 
         # TODO Log user api key modification with iden, duration, name and status=MODIFY
 
@@ -4180,24 +4188,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return token, kdef
 
     @s_nexus.Pusher.onPush('user:apikey:update')
-    async def _setUserApiKey(self, iden, vals):
-        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
+    async def _setUserApiKey(self, user, iden, vals):
+        lkey = user.encode('utf-8') + b'cell:apikey' + iden.encode('utf-8')
+        buf = self.slab.get(lkey, db=self.usermetadb)
         if buf is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
-        self.slab.put(iden.encode('utf-8'), s_msgpack.en(kdef), db=self._uatdb)
+        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
         return kdef
 
-    async def delUserApiKey(self, user, iden):
-        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
-        if buf is None:
+    async def delUserApiKey(self, iden):
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
-        # TODO Log user api key deletion with iden, duration, name and status=MODIFY
-        user = '' # FIX USER
-        return await self._push('user:token:del', user, iden)
+        user = kdef.get('user')
+        ret = await self._push('user:token:del', user, iden)
+        # logger.info(f'Deleted HTTP API Key {iden} for {user.name}',
+        #             extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+        #                                          status='MODIFY'))
+        return ret
 
     @s_nexus.Pusher.onPush('user:token:del')
     async def _delUserApiKey(self, user, iden):
-        valu = self.slab.pop(iden.encode('utf-8'), db=self._uatdb)
+        user = user.encode()
+        iden = iden.encode()
+        self.slab.pop(iden, db=self.apikeydb)
+        self.slab.pop(user + b'user:apikey' + iden, db=self.apikeydb)
         return True
