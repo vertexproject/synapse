@@ -23,6 +23,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.certdir as s_certdir
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -2408,7 +2409,7 @@ class CellTest(s_t_utils.SynTest):
                         users = {m.get('info', {}).get('name') for m in bitems}
                         self.eq(users, {'alice', 'bob'})
 
-    async def test_cell_user_access_tokens(self):
+    async def test_cell_user_api_key(self):
         async with self.getTestCell(s_cell.Cell) as cell:
 
             await cell.auth.rootuser.setPasswd('root')
@@ -2420,12 +2421,10 @@ class CellTest(s_t_utils.SynTest):
             hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
             rtk0, rtdf0 = await cell.genUserApiKey(root, name='Test Token')
+            bkk0, bkdf0 = await cell.genUserApiKey(root, name='Backup Token')
 
             self.none(rtdf0.get('duration'))
             self.none(rtdf0.get('expref'))
-
-            print(rtk0)
-            print(rtdf0)
 
             async with self.getHttpSess(port=hport) as sess:
 
@@ -2436,13 +2435,9 @@ class CellTest(s_t_utils.SynTest):
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
-                onepass = answ['result']
-                print(onepass)
-
                 resp = await sess.get(f'https://localhost:{hport}/api/v1/auth/roles', headers=headers0)
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
-                print(answ)
 
             # Regenerate the token
             rtk1, rtdf1 = await cell.regenerateUserApiKey(rtdf0.get('iden'))
@@ -2456,6 +2451,10 @@ class CellTest(s_t_utils.SynTest):
             self.lt(rtdf0.get('modified'), rtdf1.get('modified'))
             # Duration is unchanged - no duration given when regenerating
             self.eq(rtdf0.get('duration'), rtdf1.get('duration'))
+
+            # Change the token name
+            rtdf1_new = await cell.modUserApiKey(rtdf1.get('iden'), 'name', 'Haha Key')
+            self.eq(rtdf1_new.get('name'), 'Haha Key')
 
             async with self.getHttpSess(port=hport) as sess:
 
@@ -2485,7 +2484,6 @@ class CellTest(s_t_utils.SynTest):
             self.isin('API Key is expired', info.get('mesg'))
 
             # Expired tokens fail...
-
             async with self.getHttpSess(port=hport) as sess:
 
                 # Expired token fails
@@ -2514,6 +2512,13 @@ class CellTest(s_t_utils.SynTest):
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
+                # Backup token works
+                headers2 = {'X-API-KEY': bkk0}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                                       json={'user': lowuser})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
             # Generate an API key for lowuser and delete the user. The token should be deleted as well.
             ltk0, ltdf0 = await cell.genUserApiKey(lowuser, name='Visi Token')
             self.eq(lowuser, ltdf0.get('user'))
@@ -2527,9 +2532,36 @@ class CellTest(s_t_utils.SynTest):
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
+                # Make some additional keys that will be deleted
+                ktup0 = await cell.genUserApiKey(lowuser, name='1', duration=1)
+                ktup1 = await cell.genUserApiKey(lowuser, name='2', duration=1)
+                ktup2 = await cell.genUserApiKey(lowuser, name='3', duration=1)
+                ktup3 = await cell.genUserApiKey(lowuser, name='4', duration=1)
+
                 await cell.delUser(lowuser)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
                 answ = await resp.json()
-                print(answ)
                 self.eq('err', answ['status'])
+
+            # Ensure User meta was cleaned up, as well as the api key db
+            # Only two root keys should be left
+            vals = set()
+            # for key, vals in cell.slab.scanByPref(lowuse)
+            i = 0
+            for lkey, val in cell.slab.scanByFull(cell.usermetadb):
+                i = i + 1
+                suffix = lkey[32:]
+                if suffix.startswith(b'cell:apikey'):
+                    kdef = s_msgpack.un(val)
+                    vals.add(kdef.get('iden'))
+            self.eq(i, 2)
+            self.eq(vals, {bkdf0.get('iden'), rtdf2.get('iden')})
+
+            i = 0
+            users = set()
+            for lkey, val in cell.slab.scanByFull(cell.apikeydb):
+                i = i + 1
+                users.add(val.decode())
+            self.eq(i, 2)
+            self.eq(users, {root, })

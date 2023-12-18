@@ -4072,10 +4072,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:add', kdef)
 
-        logger.info(f'Created HTTP API Key {iden} for {user.name}',
+        logger.info(f'Created HTTP API Key {iden} for {user.name}, {name=}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
                                                  status='MODIFY'))
-        # TODO Log user api key creation with iden, duration, name and status=MODIFY
 
         kdef.pop('shadow')
         return token, kdef
@@ -4139,12 +4138,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return True, {'kdef': kdef, 'udef': udef}
 
-    async def modifyUserApiKey(self, iden, key, valu):
-        buf = self.slab.get(iden.encode('utf-8'), db=self._uatdb)
-        if buf is None:
-            raise s_exc.NoSuchIden(mesg=f'Requested user API Key does not exist, cannot regenerate it: {iden}',
-                                   iden=iden)
-        kdef = s_msgpack.un(buf)
+    async def modUserApiKey(self, iden, key, valu):
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot modify it: {iden}', iden=iden)
+        useriden = kdef.get('user')
+        user = await self.auth.reqUser(useriden)
+
         vals = {
             'modified': s_common.now()
         }
@@ -4158,7 +4158,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:update', kdef.get('user'), iden, vals)
 
-        # TODO Log user api key modification with iden, duration, name and status=MODIFY
+        logger.info(f'Updated HTTP API Key {iden} for {user.name}, set {key}={valu}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
 
         kdef.pop('shadow')
         return kdef
@@ -4166,7 +4168,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def regenerateUserApiKey(self, iden, duration=None):
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
-            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot regnerate it: {iden}', iden=iden)
+            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot regenerated it: {iden}', iden=iden)
+        useriden = kdef.get('user')
+        user = await self.auth.reqUser(useriden)
+
         _, token, shadow = await s_passwd.generateApiKey(iden=iden)
 
         now = s_common.now()
@@ -4189,7 +4194,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:update', kdef.get('user'), iden, vals)
 
-        # TODO Log user api key modification with iden, duration, name and status=MODIFY
+        logger.info(f'Regenerated HTTP API Key {iden} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
 
         kdef.pop('shadow')
         return token, kdef
@@ -4221,8 +4228,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _delUserApiKey(self, user, iden):
         user = user.encode()
         iden = iden.encode()
+
         self.slab.pop(iden, db=self.apikeydb)
-        self.slab.pop(user + b'user:apikey' + iden, db=self.apikeydb)
+        self.slab.pop(user + b'cell:apikey' + iden, db=self.usermetadb)
         return True
 
     async def _onUserDelEvnt(self, evnt):
@@ -4235,4 +4243,4 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if suffix.startswith(b'cell:apikey'):
                 key_iden = suffix[11:]
                 self.slab.pop(key_iden, db=self.apikeydb)
-        self.slab.delete(ukey, db=self.usermetadb)
+            self.slab.pop(lkey, db=self.usermetadb)
