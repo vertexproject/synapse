@@ -40,9 +40,6 @@ that gets processed and loaded into your Cortex.
     synapse_minversion: [2, 144, 0]
     synapse_version: '>=2.144.0,<3.0.0'
 
-    genopts:
-        dotstorm: false # Disable ".storm" extension on command/module files
-
     author:
       url: https://acme.newp
       name: ACME Explosives and Anvils
