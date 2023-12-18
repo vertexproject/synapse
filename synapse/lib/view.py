@@ -1055,7 +1055,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 vdef = self.info.pack()
                 vdef['quorum'] = s_msgpack.deepcopy(valu)
 
-                s_schemas.reqValidVdef(vdef)
+                s_schemas.reqValidView(vdef)
 
             if valu is None:
                 await self.info.pop(name)

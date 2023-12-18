@@ -142,7 +142,7 @@ reqValidVault = s_config.getJsValidator({
     ],
 })
 
-reqValidVdef = s_config.getJsValidator({
+reqValidView = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},

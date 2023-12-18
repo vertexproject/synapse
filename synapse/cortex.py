@@ -4338,7 +4338,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
-        s_schemas.reqValidVdef(vdef)
+        s_schemas.reqValidView(vdef)
 
         if nexs:
             return await self._push('view:add', vdef)
@@ -4348,7 +4348,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
 
-        s_schemas.reqValidVdef(vdef)
+        s_schemas.reqValidView(vdef)
 
         iden = vdef['iden']
         if iden in self.views:
