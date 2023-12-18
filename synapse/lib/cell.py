@@ -4202,17 +4202,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
-        user = kdef.get('user')
-        ret = await self._push('user:token:del', user, iden)
-        # logger.info(f'Deleted HTTP API Key {iden} for {user.name}',
-        #             extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
-        #                                          status='MODIFY'))
+        useriden = kdef.get('user')
+        user = await self.auth.reqUser(useriden)
+        ret = await self._push('user:apikey:del', useriden, iden)
+        logger.info(f'Deleted HTTP API Key {iden} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
         return ret
 
-    @s_nexus.Pusher.onPush('user:token:del')
+    @s_nexus.Pusher.onPush('user:apikey:del')
     async def _delUserApiKey(self, user, iden):
         user = user.encode()
         iden = iden.encode()
         self.slab.pop(iden, db=self.apikeydb)
         self.slab.pop(user + b'user:apikey' + iden, db=self.apikeydb)
         return True
+
+    async def _delUserMeta(self, user):
+        ukey = user.encode('utf-8')
+        for lkey, buf in self.slab.scanByPref(ukey, db=self.usermetadb):
+            suffix = lkey[32:]
+            # Special handling for certain meta which has secondary indexes
+            if suffix.startswith(b'cell:apikey'):
+                key_iden = suffix[11:]
+                self.slab.pop(key_iden, db=self.apikeydb)
+        self.slab.delete(ukey, db=self.usermetadb)

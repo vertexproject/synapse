@@ -2414,8 +2414,8 @@ class CellTest(s_t_utils.SynTest):
             await cell.auth.rootuser.setPasswd('root')
             root = cell.auth.rootuser.iden
 
-            visi = await cell.addUser('visi')
-            visi = visi.get('iden')
+            lowuser = await cell.addUser('lowuser')
+            lowuser = lowuser.get('iden')
 
             hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
@@ -2432,7 +2432,7 @@ class CellTest(s_t_utils.SynTest):
                 headers0 = {'X-API-KEY': rtk0}
 
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers0,
-                                       json={'user': visi})
+                                       json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
@@ -2461,14 +2461,14 @@ class CellTest(s_t_utils.SynTest):
 
                 # Old token failes
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers0,
-                                       json={'user': visi})
+                                       json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
                 # New token works
                 headers1 = {'X-API-KEY': rtk1}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers1,
-                                       json={'user': visi})
+                                       json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
@@ -2491,7 +2491,7 @@ class CellTest(s_t_utils.SynTest):
                 # Expired token fails
                 headers2 = {'X-API-KEY': rtk2}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
-                                       json={'user': visi})
+                                       json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2502,7 +2502,7 @@ class CellTest(s_t_utils.SynTest):
                 # New token works
                 headers2 = {'X-API-KEY': rtk3}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
-                                       json={'user': visi})
+                                       json={'user': lowuser})
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
@@ -2510,6 +2510,26 @@ class CellTest(s_t_utils.SynTest):
                 await cell.delUserApiKey(rtdf3.get('iden'))  # TODO plumb user
 
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
-                                       json={'user': visi})
+                                       json={'user': lowuser})
                 answ = await resp.json()
+                self.eq('err', answ['status'])
+
+            # Generate an API key for lowuser and delete the user. The token should be deleted as well.
+            ltk0, ltdf0 = await cell.genUserApiKey(lowuser, name='Visi Token')
+            self.eq(lowuser, ltdf0.get('user'))
+
+            async with self.getHttpSess(port=hport) as sess:
+
+                # New token works
+                headers2 = {'X-API-KEY': ltk0}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                                       json={'passwd': 'secret'})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+                await cell.delUser(lowuser)
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                                       json={'passwd': 'secret'})
+                answ = await resp.json()
+                print(answ)
                 self.eq('err', answ['status'])
