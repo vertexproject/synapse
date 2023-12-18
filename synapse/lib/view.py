@@ -26,39 +26,6 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-reqValidVdef = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string'},
-        'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'nomerge': {'type': 'boolean'},
-        'merging': {'type': 'boolean'},
-        'layers': {
-            'type': 'array',
-            'items': {'type': 'string', 'pattern': s_config.re_iden},
-            'minItems': 1,
-            'uniqueItems': True
-        },
-        'quorum': {
-            'type': 'object',
-            'properties': {
-                'roles': {'type': 'array', 'items': {
-                    'type': 'string',
-                    'pattern': s_config.re_iden},
-                    'uniqueItems': True
-                },
-                'count': {'type': 'number', 'minimum': 1},
-            },
-            'required': ['count', 'roles'],
-            'additionalProperties': False,
-        },
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'parent', 'creator', 'layers'],
-})
-
 class ViewApi(s_cell.CellApi):
 
     async def __anit__(self, core, link, user, view):
@@ -1066,6 +1033,15 @@ class View(s_nexus.Pusher):  # type: ignore
             self.core._calcViewsByLayer()
 
         else:
+            if name == 'quorum':
+                # TODO hack a schema test until the setViewInfo API is updated to
+                # enforce ( which will need to be done very carefully to prevent
+                # existing non-compliant values from causing issues with existing views )
+                vdef = self.info.pack()
+                vdef['quorum'] = s_msgpack.deepcopy(valu)
+
+                s_schemas.reqValidVdef(vdef)
+
             if valu is None:
                 await self.info.pop(name)
             else:

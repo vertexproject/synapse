@@ -7344,6 +7344,8 @@ class View(Prim):
 
     async def _methViewSet(self, name, valu):
 
+        view = self._reqView()
+
         name = await tostr(name)
 
         if name in ('name', 'desc', 'parent'):
@@ -7391,7 +7393,6 @@ class View(Prim):
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        view = self._reqView()
         self.runt.confirm(('view', 'set', name), gateiden=view.iden)
         retn = await view.setViewInfo(name, valu)
 
