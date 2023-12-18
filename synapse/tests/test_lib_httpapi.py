@@ -1880,7 +1880,6 @@ class HttpApiTest(s_tests.SynTest):
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            from pprint import pprint
             async with self.getHttpSess() as sess:
 
                 async with sess.post(f'https://localhost:{port}/api/v1/login',
