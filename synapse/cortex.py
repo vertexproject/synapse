@@ -1931,17 +1931,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await appt.setDoc(valu, nexs=True)
+            await self.editCronJob(iden, 'doc', valu)
             node.props[prop.name] = valu
 
         async def onSetCronName(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await appt.setName(valu, nexs=True)
+            await self.editCronJob(iden, 'name', valu)
             node.props[prop.name] = valu
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
@@ -5684,7 +5682,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
             Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
-        s_agenda.reqValidCdef(cdef)
+        s_schemas.reqValidCronDef(cdef)
 
         iden = cdef.get('iden')
         appt = self.agenda.appts.get(iden)
@@ -5840,26 +5838,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if name == 'creator':
             await self.auth.reqUser(valu)
             appt.creator = valu
-            await appt._save()
 
-            cdef = appt.pack()
-            await self.feedBeholder('cron:edit:creator', {'iden': iden, 'creator': cdef.get('creator')}, gates=[iden])
-            return cdef
+        elif name == 'name':
+            appt.name = str(valu)
 
-        if name == 'name':
-            await appt.setName(str(valu))
-            pckd = appt.pack()
-            await self.feedBeholder('cron:edit:name', {'iden': iden, 'name': pckd.get('name')}, gates=[iden])
-            return pckd
+        elif name == 'doc':
+            appt.doc = str(valu)
 
-        if name == 'doc':
-            await appt.setDoc(str(valu))
-            pckd = appt.pack()
-            await self.feedBeholder('cron:edit:doc', {'iden': iden, 'doc': pckd.get('doc')}, gates=[iden])
-            return pckd
+        else:
+            mesg = f'editCronJob name {name} is not supported for editing.'
+            raise s_exc.BadArg(mesg=mesg)
 
-        mesg = f'editCronJob name {name} is not supported for editing.'
-        raise s_exc.BadArg(mesg=mesg)
+        await appt.save()
+
+        pckd = appt.pack()
+        await self.feedBeholder(f'cron:edit:{name}', {'iden': iden, name: pckd.get(name)}, gates=[iden])
+        return pckd
+
+    @s_nexus.Pusher.onPushAuto('cron:edits')
+    async def addCronEdits(self, iden, edits):
+        '''
+        Take a dictionary of edits and apply them to the appointment (cron job)
+        '''
+        appt = await self.agenda.get(iden)
+        await appt.edits(edits)
 
     @contextlib.asynccontextmanager
     async def enterMigrationMode(self):
