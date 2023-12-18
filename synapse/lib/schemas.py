@@ -63,9 +63,60 @@ _HttpExtAPIConfSchema = {
     'additionalProperties': False
 }
 
-
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
 
+_CronJobSchema = {
+    'type': 'object',
+    'properties': {
+        'storm': {'type': 'string'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'doc': {'type': 'string'},
+        'incunit': {
+            'oneOf': [
+                {'type': 'null'},
+                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
+            ]
+        },
+        'incvals': {
+            'type': ['array', 'number', 'null'],
+            'items': {'type': 'number'}
+        },
+        'reqs': {
+            'oneOf': [
+                {
+                    '$ref': '#/definitions/req',
+                },
+                {
+                    'type': ['array'],
+                    'items': {'$ref': '#/definitions/req'},
+                },
+            ]
+        },
+    },
+    'additionalProperties': False,
+    'required': ['creator', 'storm'],
+    'dependencices': {
+        'incvals': ['incunit'],
+        'incunit': ['incvals'],
+    },
+    'definitions': {
+        'req': {
+            'type': 'object',
+            'properties': {
+                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+            }
+        }
+    }
+}
+
+reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
 reqValidVault = s_config.getJsValidator({
     'type': 'object',
     'properties': {
