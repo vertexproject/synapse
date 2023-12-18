@@ -6386,3 +6386,17 @@ words\tword\twrd'''
             msgs = await waiter.wait(timeout=3)
             self.eq(msgs[-2][1]['event'], 'view:merge:prog')
             self.eq(msgs[-1][1]['event'], 'view:merge:fini')
+
+            # test coverage for bad state for merge request
+            fork00 = await core.getView().fork()
+            fork01 = await core.getView(fork00['iden']).fork()
+
+            opts = {'view': fork00['iden']}
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            await core.delView(fork01['iden'])
+            await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().fork())', opts=opts)

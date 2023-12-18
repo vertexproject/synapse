@@ -134,12 +134,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if self.parent is None:
             mesg = f'View ({self.iden}) has no parent.'
-            raise s_exc.SynErr(mesg=mesg)
+            raise s_exc.BadState(mesg=mesg)
 
         quorum = self.parent.info.get('quorum')
         if quorum is None:
             mesg = f'Parent view of ({self.iden}) does not require quorum voting.'
-            raise s_exc.SynErr(mesg=mesg)
+            raise s_exc.BadState(mesg=mesg)
 
         return quorum
 
@@ -169,9 +169,20 @@ class View(s_nexus.Pusher):  # type: ignore
         mergeinfo['created'] = s_common.now()
         return await self._push('merge:set', mergeinfo)
 
+    def hasKids(self):
+        for view in self.core.views.values():
+            if view.parent == self:
+                return True
+        return False
+
     @s_nexus.Pusher.onPush('merge:set')
     async def _setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
+
+        if self.hasKids():
+            mesg = 'Cannot add a merge request to a view with children.'
+            raise s_exc.BadState(mesg=mesg)
+
         s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
@@ -1160,6 +1171,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if vdef is None:
             vdef = {}
+
+        if self.getMergeRequest() is not None:
+            mesg = 'Cannot fork a view which has a merge request.'
+            raise s_exc.BadState(mesg=mesg)
 
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')
