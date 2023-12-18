@@ -553,8 +553,7 @@ class Auth(s_nexus.Pusher):
 
         await user.fini()
         await self.node.hive.pop(path)
-        if self.nexsroot.cell is not None:
-            await self.nexsroot.cell._delUserMeta(user.iden)
+        await self.fire('user:del', iden=iden, name=user.name)
         await self.feedBeholder('user:del', {'iden': iden})
 
     def _getUsersInRole(self, role):

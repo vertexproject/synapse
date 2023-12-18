@@ -2851,10 +2851,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
+            # TODO FIXME curv value before release
+            s_common.deprecated('auth:ctor cell config option')
             ctor = s_dyndeps.getDynLocal(authctor)
-            return await ctor(self)
+            auth = await ctor(self)
+        else:
+            auth = await self._initCellHiveAuth()
 
-        return await self._initCellHiveAuth()
+        # Add callbacks
+        self.on('user:del', self._onUserDelEvnt)
+
+        return auth
 
     def getCellNexsRoot(self):
         # the "cell scope" nexusroot only exists if we are *not* embedded
@@ -4218,7 +4225,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.slab.pop(user + b'user:apikey' + iden, db=self.apikeydb)
         return True
 
-    async def _delUserMeta(self, user):
+    async def _onUserDelEvnt(self, evnt):
+        # Call callback for handling user:del events
+        user = evnt[1].get('iden')
         ukey = user.encode('utf-8')
         for lkey, buf in self.slab.scanByPref(ukey, db=self.usermetadb):
             suffix = lkey[32:]
