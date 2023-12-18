@@ -5,6 +5,7 @@ import logging
 import synapse.exc as s_exc
 
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.stormlib.auth as slib_auth
 
 logger = logging.getLogger(__name__)
 
@@ -391,7 +392,7 @@ class HttpApi(s_stormtypes.StormType):
 
     async def _storOwner(self, owner):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
-        if isinstance(owner, s_stormtypes.User):
+        if isinstance(owner, slib_auth.User):
             info = await owner.value()
             owner = info.get('iden')
         else:
@@ -406,7 +407,7 @@ class HttpApi(s_stormtypes.StormType):
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is None:
             raise s_exc.NoSuchUser(mesg=f'HTTP API owner does not exist {iden}', user=iden)
-        return s_stormtypes.User(self.runt, udef['iden'])
+        return slib_auth.User(self.runt, udef['iden'])
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorCreator(self):
@@ -414,7 +415,7 @@ class HttpApi(s_stormtypes.StormType):
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is None:
             raise s_exc.NoSuchUser(mesg=f'HTTP API creator does not exist {iden}', user=iden)
-        return s_stormtypes.User(self.runt, udef['iden'])
+        return slib_auth.User(self.runt, udef['iden'])
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorUpdated(self):

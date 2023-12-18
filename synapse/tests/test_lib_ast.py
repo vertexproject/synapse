@@ -270,11 +270,10 @@ class AstTest(s_test.SynTest):
             # Show that a computed variable being smashed by a
             # subquery variable assignment with multiple nodes
             # traveling through a subquery.
-            async with await core.snap() as snap:
-                await snap.addNode('test:comp', (30, 'w00t'))
-                await snap.addNode('test:comp', (40, 'w00t'))
-                await snap.addNode('test:int', 30, {'loc': 'sol'})
-                await snap.addNode('test:int', 40, {'loc': 'mars'})
+            await core.nodes('[test:comp=(30, w00t)]')
+            await core.nodes('[test:comp=(40, w00t)]')
+            await core.nodes('[test:int=30 :loc=sol]')
+            await core.nodes('[test:int=40 :loc=mars]')
 
             q = '''
                 test:comp:haha=w00t
