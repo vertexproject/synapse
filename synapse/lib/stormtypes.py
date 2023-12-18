@@ -7166,7 +7166,7 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': 'getMerges',
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
-                              'desc': 'Yields prevously successful merges into the view.'}}},
+                              'desc': 'Yields previously successful merges into the view.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
