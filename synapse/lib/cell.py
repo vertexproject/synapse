@@ -649,7 +649,7 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def checkUserApiKey(self, key):
-        return await self.cell.checkUserApiKey(tokn)
+        return await self.cell.checkUserApiKey(key)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
