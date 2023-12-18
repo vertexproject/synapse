@@ -229,6 +229,16 @@ class StormCli(s_cli.Cli):
         self.stormopts = {'repr': True}
 
         if opts is not None:
+
+            if opts.optsfile is not None:
+
+                stormopts = s_common.yamlload(opts.optsfile)
+                if stormopts is None:
+                    mesg = f'The --optsfile {opts.optsfile} does not exist.'
+                    raise s_exc.NoSuchFile(mesg=mesg)
+
+                self.stormopts.update(stormopts)
+
             if opts.view:
                 self.stormopts['view'] = opts.view
 
@@ -397,6 +407,7 @@ def getArgParser():
     pars.add_argument('cortex', help='A telepath URL for the Cortex.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
     pars.add_argument('--view', default=None, help='The view iden to work in.')
+    pars.add_argument('--optsfile', default=None, help='A JSON/YAML file which contains storm runtime options.')
     return pars
 
 async def main(argv, outp=s_output.stdout):
