@@ -32,6 +32,10 @@
       "last_seen": "2020-01-01T00:00:00.000Z",
       "modified": "2021-04-29T17:34:49.374Z",
       "name": "redtree",
+      "sample_refs": [
+        "file--7b92f2ab-cba7-507f-a5ed-79fdd41a0fe9",
+        "file--91f2d7c9-4247-52a6-a438-840acce2f906"
+      ],
       "spec_version": "2.1",
       "type": "malware"
     },
@@ -69,6 +73,11 @@
         }
       },
       "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
+      "resolves_to_refs": [
+        "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+        "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+        "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c"
+      ],
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "vertex.link"
