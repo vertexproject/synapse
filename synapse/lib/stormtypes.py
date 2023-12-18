@@ -7179,7 +7179,7 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': 'getMerges',
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
-                              'desc': 'Yields prevously successful merges into the view.'}}},
+                              'desc': 'Yields previously successful merges into the view.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7515,7 +7515,7 @@ class View(Prim):
         userroles = set(self.runt.user.info.get('roles', ()))
 
         if not reqroles & userroles:
-            mesg = 'You are not a member of a role with voting priviledges for this merge request.'
+            mesg = 'You are not a member of a role with voting privileges for this merge request.'
             raise s_exc.AuthDeny(mesg=mesg)
 
         vote = {'user': self.runt.user.iden, 'approved': await tobool(approved)}
