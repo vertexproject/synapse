@@ -7147,7 +7147,7 @@ class View(Prim):
                       {'name': 'comment', 'type': 'str', 'default': None,
                        'desc': 'A comment attached to the vote.'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'The vote record that was created.' }}},
+                  'returns': {'type': 'dict', 'desc': 'The vote record that was created.'}}},
         {'name': 'delMergeVote', 'desc': '''
             Remove a previously created merge vote.
 
@@ -7161,12 +7161,12 @@ class View(Prim):
                       {'name': 'useriden', 'type': 'str', 'default': None,
                        'desc': 'Delete a merge vote by a different user.'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'The vote record that was removed.' }}},
+                  'returns': {'type': 'dict', 'desc': 'The vote record that was removed.'}}},
         {'name': 'getMerges', 'desc': 'Yield',
          'type': {'type': 'function', '_funcname': 'getMerges',
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
-                              'desc': 'Yields prevously successful merges into the view.', }}},
+                              'desc': 'Yields prevously successful merges into the view.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
