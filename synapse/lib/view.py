@@ -141,6 +141,10 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'Parent view of ({self.iden}) does not require quorum voting.'
             raise s_exc.BadState(mesg=mesg)
 
+        if self.parent.layers[0].readonly:
+            mesg = f'Parent view of ({self.iden}) has a read-only top layer.'
+            raise s_exc.BadState(mesg=mesg)
+
         return quorum
 
     def reqNoParentQuorum(self):

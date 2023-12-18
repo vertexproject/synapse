@@ -6398,5 +6398,11 @@ words\tword\twrd'''
             await core.delView(fork01['iden'])
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
+            core.getView().layers[0].readonly = True
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            core.getView().layers[0].readonly = False
+
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().fork())', opts=opts)

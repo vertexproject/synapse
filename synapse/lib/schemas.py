@@ -183,7 +183,7 @@ reqValidMerge = s_config.getJsValidator({
         'created': {'type': 'number'},
         'comment': {'type': 'string'},
     },
-    'required': ['creator', 'created'],
+    'required': ['iden', 'creator', 'created'],
     'additionalProperties': False,
 })
 

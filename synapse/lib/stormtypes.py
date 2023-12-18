@@ -6987,6 +6987,19 @@ class View(Prim):
                     Set the list of layer idens for a non-forked view. Layers are specified
                     in precedence order with the first layer in the list being the write layer.
 
+                quorum (dict)
+                    A dictionary of the quorum settings which require users to vote on merges.
+                    {
+                        "count": <int>,
+                        "roles": [ <roleid>, ... ]
+                    }
+                    Once quorum is enabled for a view, any forks must use the setMergeRequest()
+                    API to request that the child view is merged. The $view.addMergeVote() API
+                    is used for users to add their votes if they have been granted one of the
+                    roles listed. Once the number of approvals are met and there are no vetoes, a
+                    background process will kick off which merges the nodes and ultimately deletes
+                    the view and top layer.
+
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
 
@@ -7138,7 +7151,7 @@ class View(Prim):
         {'name': 'delMergeRequest', 'desc': 'Remove the existing merge request.',
          'type': {'type': 'function', '_funcname': 'delMergeRequest',
                   'args': (),
-                  'returns': {'type': 'dict', }}},
+                  'returns': {'type': 'dict', 'desc': 'The deleted merge request.'}}},
         {'name': 'setMergeVote', 'desc': 'Register a vote for or against the current merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVote',
                   'args': (
