@@ -1870,3 +1870,33 @@ class HttpApiTest(s_tests.SynTest):
                         url = f'https://localhost:{port}/api/v1/axon/files/has/sha256/{sha256}'
                         async with sess.get(url, timeout=timeout) as resp:
                             pass
+
+    async def test_http_login_broken(self):
+        async with self.getTestCore() as core:
+
+            lowuser = await core.addUser('lowuser', passwd='secret')
+            ninjas = await core.addRole('ninjas')
+            await core.addUserRole(lowuser.get('iden'), ninjas.get('iden'))
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            from pprint import pprint
+            async with self.getHttpSess() as sess:
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'lowuser', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    roles = set([r.get('name') for r in retn.get('result', {}).get('roles')])
+                    self.eq(roles, {'all', 'ninjas'})
+
+            # Remove the role from the Auth subsystem.
+            core.auth.rolesbyiden.pop(ninjas.get('iden'))
+
+            async with self.getHttpSess() as sess:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'lowuser', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    roles = set([r.get('name') for r in retn.get('result', {}).get('roles')])
+                    self.eq(roles, {'all'})
