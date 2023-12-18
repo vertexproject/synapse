@@ -2420,8 +2420,8 @@ class CellTest(s_t_utils.SynTest):
 
             hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
-            rtk0, rtdf0 = await cell.genUserApiKey(root, name='Test Token')
-            bkk0, bkdf0 = await cell.genUserApiKey(root, name='Backup Token')
+            rtk0, rtdf0 = await cell.addUserApiKey(root, name='Test Token')
+            bkk0, bkdf0 = await cell.addUserApiKey(root, name='Backup Token')
 
             self.none(rtdf0.get('duration'))
             self.none(rtdf0.get('expref'))
@@ -2493,7 +2493,7 @@ class CellTest(s_t_utils.SynTest):
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
-            rtk3, rtdf3 = await cell.genUserApiKey(root, name='Test Token 3')
+            rtk3, rtdf3 = await cell.addUserApiKey(root, name='Test Token 3')
 
             async with self.getHttpSess(port=hport) as sess:
 
@@ -2520,7 +2520,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('ok', answ['status'])
 
             # Generate an API key for lowuser and delete the user. The token should be deleted as well.
-            ltk0, ltdf0 = await cell.genUserApiKey(lowuser, name='Visi Token')
+            ltk0, ltdf0 = await cell.addUserApiKey(lowuser, name='Visi Token')
             self.eq(lowuser, ltdf0.get('user'))
 
             async with self.getHttpSess(port=hport) as sess:
@@ -2533,10 +2533,10 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('ok', answ['status'])
 
                 # Make some additional keys that will be deleted
-                ktup0 = await cell.genUserApiKey(lowuser, name='1', duration=1)
-                ktup1 = await cell.genUserApiKey(lowuser, name='2', duration=1)
-                ktup2 = await cell.genUserApiKey(lowuser, name='3', duration=1)
-                ktup3 = await cell.genUserApiKey(lowuser, name='4', duration=1)
+                ktup0 = await cell.addUserApiKey(lowuser, name='1', duration=1)
+                ktup1 = await cell.addUserApiKey(lowuser, name='2', duration=1)
+                ktup2 = await cell.addUserApiKey(lowuser, name='3', duration=1)
+                ktup3 = await cell.addUserApiKey(lowuser, name='4', duration=1)
 
                 await cell.delUser(lowuser)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,

@@ -4048,7 +4048,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.debug(f'Completed cell reload system {name}')
         return (True, ret)
 
-    async def genUserApiKey(self, useriden, name, duration=None):
+    async def addUserApiKey(self, useriden, name, duration=None):
 
         user = await self.auth.reqUser(useriden)
         iden, token, shadow = await s_passwd.generateApiKey()
