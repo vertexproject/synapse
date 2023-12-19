@@ -799,8 +799,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                     nodes = await core01.nodes('syn:cron')
                     self.len(1, nodes)
-                    self.eq(nodes[0].props.get('name'), 'foo')
-                    self.eq(nodes[0].props.get('doc'), 'bar')
+                    self.eq(nodes[0].get('name'), 'foo')
+                    self.eq(nodes[0].get('doc'), 'bar')
 
                     appt = await core01.agenda.get(nodes[0].ndef[1])
                     self.eq(appt.name, 'foo')
