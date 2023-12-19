@@ -4123,8 +4123,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return vals
 
     async def checkUserApiKey(self, key):
-        # TODO Timecache this API call
-        isok, valu = s_passwd.parseApiKey(key)
+        isok, valu = s_passwd.parseApiKey(key)  # TODO Timecache this API call
         if isok is False:
             return False, {'mesg': 'API Key is malformed.'}
 
@@ -4151,8 +4150,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                'user': user, 'name': udef.get('name')}
 
         shadow = kdef.pop('shadow')
-        # TODO Timecache this API call
-        valid = await s_passwd.checkShadowV2(secv, shadow)
+        valid = await s_passwd.checkShadowV2(secv, shadow)  # TODO Timecache this API call
         if valid is False:
             return False, {'mesg': f'API Key shadow mismatch: {iden}',
                            'user': user, 'name': udef.get('name')}
@@ -4202,7 +4200,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
         kdef['shadow'] = shadow
 
-        # Duration is either reset to the default None or use we the provided destination
+        # Duration is either None or use we use the provided destination which needs to meet schema.
         if duration is None:
             vals['expref'] = None
             vals['duration'] = None
@@ -4231,6 +4229,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
         self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        # TODO Timecache clear
         return kdef
 
     async def delUserApiKey(self, iden):
@@ -4252,6 +4251,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.slab.pop(iden, db=self.apikeydb)
         self.slab.pop(user + b'cell:apikey' + iden, db=self.usermetadb)
+        # TODO Timecache clear
         return True
 
     async def _onUserDelEvnt(self, evnt):
@@ -4264,4 +4264,5 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if suffix.startswith(b'cell:apikey'):
                 key_iden = suffix[11:]
                 self.slab.pop(key_iden, db=self.apikeydb)
+                # TODO Timecache clear
             self.slab.pop(lkey, db=self.usermetadb)

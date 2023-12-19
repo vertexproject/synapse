@@ -1,9 +1,9 @@
 import os
 import hmac
 import base64
-import binascii
 import hashlib
 import logging
+import binascii
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -118,6 +118,7 @@ async def generateApiKey(iden=None):
 
     # Mix the iden and secret together. This produces an avalanche effect where
     # key regeneration does not have human perceptible patterns in the output.
+    # This also means that users only end up with a single value to provide.
     for (i1, s2) in zip(iden_buf, secv_buf):
         ihigh, ilow = i1 >> 4, i1 & 0x0F
         shigh, slow = s2 >> 4, s2 & 0x0F

@@ -80,14 +80,14 @@ class PasswdTest(s_t_utils.SynTest):
             with self.raises(AttributeError):
                 await s_passwd.getShadowV2(vec)
 
-    async def test_token_generation(self):
+    async def test_apikey_generation(self):
         iden, token, shadow = await s_passwd.generateApiKey()
-        print(iden)
-        print(token)
-        print(shadow)
+        self.true(s_common.isguid(iden))
+        self.true(token.startswith('syn_'))
+        self.isinstance(shadow, dict)
+
         isok, (iden2, secv) = s_passwd.parseApiKey(token)
         self.true(isok)
-        print(iden2, secv)
         self.eq(iden, iden2)
 
         result = s_passwd.checkShadowV2(secv, shadow)

@@ -874,7 +874,6 @@ class AuthGrantV1(Handler):
     '''
     /api/v1/auth/grant?user=iden&role=iden
     '''
-
     async def post(self):
         return await self.get()
 
@@ -909,7 +908,6 @@ class AuthRevokeV1(Handler):
     '''
     /api/v1/auth/grant?user=iden&role=iden
     '''
-
     async def post(self):
         return await self.get()
 
@@ -1131,6 +1129,7 @@ class StormVarsPopV1(Handler):
         return self.sendRestRetn(valu)
 
 class StormVarsSetV1(Handler):
+
     async def post(self):
 
         body = self.getJsonBody()
@@ -1152,7 +1151,6 @@ class OnePassIssueV1(Handler):
     '''
     /api/v1/auth/onepass/issue
     '''
-
     async def post(self):
 
         if not await self.reqAuthAdmin():
@@ -1186,7 +1184,6 @@ class FeedV1(Handler):
                 'items': [...],
             }
     '''
-
     async def post(self):
         # Note: This API handler is intended to be used on a heavy Cortex object.
 
@@ -1250,7 +1247,6 @@ class ExtApiHandler(StormHandler):
     /api/ext/.*
     '''
     storm_prefix = 'init { $request = $lib.cortex.httpapi.response($_http_request_info) }'
-
     # Disables the etag header from being computed and set. It is too much magic for
     # a user defined API to utilize.
     def compute_etag(self):

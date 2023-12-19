@@ -34,7 +34,6 @@ MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
 class AxonHandlerMixin:
-
     def getAxon(self):
         '''
         Get a reference to the Axon interface used by the handler.
