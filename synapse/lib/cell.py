@@ -4091,6 +4091,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):
+        '''
+        Get a user API key via iden.
+
+        Args:
+            iden (str): The key iden.
+
+        Returns:
+            dict: The key dictionary; or none.
+        '''
         user = self.slab.get(iden.encode('utf-8'), db=self.apikeydb)
         if user is None:
             return None
@@ -4099,11 +4108,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef = s_msgpack.un(buf)  # This includes the shadow key
         return kdef
 
-    # TODO List user api keys?
+    async def listUserApiKeys(self, user=None):
+        # DISCUSS: This could easily be a generator too
+        vals = []
+        lkey = b''
+        if user:
+            lkey = user.encode('utf-8') + b'cell:apikey'
+        for lkey, valu in self.slab.scanByPref(lkey, db=self.usermetadb):
+            useriden, suffix = lkey[:32], lkey[32:]
+            if suffix.startswith(b'cell:apikey'):
+                kdef = s_msgpack.un(valu)
+                kdef.pop('shadow')
+                vals.append((useriden.decode('utf-8'), kdef))
+        return vals
 
-    # Is it possible to keep an lru cache of tokens in memory?
-    # Possibly but we have a expiration problem and a user-refresh problem...
     async def checkUserApiKey(self, key):
+        # TODO Timecache this API call
         isok, valu = s_passwd.parseApiKey(key)
         if isok is False:
             return False, {'mesg': 'API Key is malformed.'}
@@ -4131,6 +4151,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                'user': user, 'name': udef.get('name')}
 
         shadow = kdef.pop('shadow')
+        # TODO Timecache this API call
         valid = await s_passwd.checkShadowV2(secv, shadow)
         if valid is False:
             return False, {'mesg': f'API Key shadow mismatch: {iden}',

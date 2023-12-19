@@ -2426,6 +2426,20 @@ class CellTest(s_t_utils.SynTest):
             self.none(rtdf0.get('duration'))
             self.none(rtdf0.get('expref'))
 
+            allkeys = await cell.listUserApiKeys()
+            self.len(2, allkeys)
+            _kdefs = [rtdf0, bkdf0]
+            for useriden, kdef in allkeys:
+                self.eq(useriden, root)
+                self.isin(kdef, _kdefs)
+                _kdefs.remove(kdef)
+
+            rootkeys = await cell.listUserApiKeys(user=root)
+            self.eq(allkeys, rootkeys)
+
+            lowkeys = await cell.listUserApiKeys(user=lowuser)
+            self.len(0, lowkeys)
+
             async with self.getHttpSess(port=hport) as sess:
 
                 headers0 = {'X-API-KEY': rtk0}
@@ -2538,11 +2552,20 @@ class CellTest(s_t_utils.SynTest):
                 ktup2 = await cell.addUserApiKey(lowuser, name='3', duration=1)
                 ktup3 = await cell.addUserApiKey(lowuser, name='4', duration=1)
 
+                # We have bunch of API keys we can list
+                allkeys = await cell.listUserApiKeys()
+                self.len(5 + 2, allkeys)  # Root has two, lowuser has 5
+
                 await cell.delUser(lowuser)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
                 answ = await resp.json()
                 self.eq('err', answ['status'])
+
+            allkeys = await cell.listUserApiKeys()
+            self.len(2, allkeys)  # Root has two
+            for useriden, kdef in allkeys:
+                self.eq(useriden, root)
 
             # Ensure User meta was cleaned up, as well as the api key db
             # Only two root keys should be left
