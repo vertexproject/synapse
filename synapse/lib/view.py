@@ -108,7 +108,7 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
                 await self.triggers.load(tdef)
 
-            except Exception:
+            except Exception: # pragma: no cover
                 logger.exception(f'Failed to load trigger {tdef!r}')
 
         await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
@@ -225,7 +225,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def tryToMerge(self, tick):
         # NOTE: must be called from within a nexus handler!
 
-        if self.merging:
+        if self.merging: # pragma: no cover
             return
 
         if not await self.isMergeReady():
@@ -367,7 +367,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.core.delView(self.iden)
             await self.core.delLayer(self.layers[0].iden)
 
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')
 
     async def isMergeReady(self):

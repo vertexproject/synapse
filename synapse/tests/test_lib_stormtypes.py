@@ -6286,12 +6286,25 @@ words\tword\twrd'''
 
             ninjas = await core.auth.addRole('ninjas')
 
+            with self.raises(s_exc.BadState):
+                core.getView().reqParentQuorum()
+
+            vdef = await core.getView().fork()
+            with self.raises(s_exc.BadState):
+                core.getView(vdef['iden']).reqParentQuorum()
+
             with self.raises(s_exc.AuthDeny):
                 opts = {'user': visi.iden, 'vars': {'role': ninjas.iden}}
                 await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
 
             opts = {'vars': {'role': ninjas.iden}}
             quorum = await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
+
+            # coverage mop up for edge cases...
+            with self.raises(s_exc.CantMergeView):
+                await core.getView(vdef['iden']).mergeAllowed()
+
+            await core.getView(vdef['iden']).detach()
 
             fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
 
