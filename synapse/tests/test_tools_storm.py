@@ -2,6 +2,7 @@ import os
 import subprocess
 import synapse.tests.utils as s_test
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -169,3 +170,13 @@ class StormCliTest(s_test.SynTest):
                 await s_t_storm.main(('--view', view, url, q), outp=outp)
                 text = str(outp)
                 self.isin(f'saved 1 nodes to: {path}', text)
+
+                optsfile = s_common.genpath(dirn, 'opts.yaml')
+                with self.raises(s_exc.NoSuchFile):
+                    await s_t_storm.main(('--optsfile', optsfile, url, 'file:bytes'), outp=outp)
+
+                s_common.yamlsave({'view': view}, optsfile)
+
+                outp = s_output.OutPutStr()
+                await s_t_storm.main(('--optsfile', optsfile, url, 'file:bytes'), outp=outp)
+                self.isin('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', str(outp))

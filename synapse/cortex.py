@@ -3,6 +3,7 @@ import copy
 import regex
 import asyncio
 import logging
+import textwrap
 import contextlib
 import collections
 
@@ -1919,17 +1920,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await appt.setDoc(valu, nexs=True)
+            await self.editCronJob(iden, 'doc', valu)
             node.pode[1]['props'][prop.name] = valu
 
         async def onSetCronName(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await appt.setName(valu, nexs=True)
+            await self.editCronJob(iden, 'name', valu)
             node.pode[1]['props'][prop.name] = valu
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
@@ -5476,7 +5475,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
             Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
-        s_agenda.reqValidCdef(cdef)
+        s_schemas.reqValidCronDef(cdef)
 
         iden = cdef.get('iden')
         appt = self.agenda.appts.get(iden)
@@ -5632,26 +5631,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if name == 'creator':
             await self.auth.reqUser(valu)
             appt.creator = valu
-            await appt._save()
 
-            cdef = appt.pack()
-            await self.feedBeholder('cron:edit:creator', {'iden': iden, 'creator': cdef.get('creator')}, gates=[iden])
-            return cdef
+        elif name == 'name':
+            appt.name = str(valu)
 
-        if name == 'name':
-            await appt.setName(str(valu))
-            pckd = appt.pack()
-            await self.feedBeholder('cron:edit:name', {'iden': iden, 'name': pckd.get('name')}, gates=[iden])
-            return pckd
+        elif name == 'doc':
+            appt.doc = str(valu)
 
-        if name == 'doc':
-            await appt.setDoc(str(valu))
-            pckd = appt.pack()
-            await self.feedBeholder('cron:edit:doc', {'iden': iden, 'doc': pckd.get('doc')}, gates=[iden])
-            return pckd
+        else:
+            mesg = f'editCronJob name {name} is not supported for editing.'
+            raise s_exc.BadArg(mesg=mesg)
 
-        mesg = f'editCronJob name {name} is not supported for editing.'
-        raise s_exc.BadArg(mesg=mesg)
+        await appt.save()
+
+        pckd = appt.pack()
+        await self.feedBeholder(f'cron:edit:{name}', {'iden': iden, name: pckd.get(name)}, gates=[iden])
+        return pckd
+
+    @s_nexus.Pusher.onPushAuto('cron:edits')
+    async def addCronEdits(self, iden, edits):
+        '''
+        Take a dictionary of edits and apply them to the appointment (cron job)
+        '''
+        appt = await self.agenda.get(iden)
+        await appt.edits(edits)
 
     @contextlib.asynccontextmanager
     async def enterMigrationMode(self):
@@ -6098,9 +6101,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def setVaultSecrets(self, iden, key, valu):
         '''
-        Set vault secrets.
+        Set vault secret item.
 
-        This function sets the `key`:`valu` into the vault.
+        This function sets the `key`:`valu` into the vault secrets.
 
         Args:
             iden (str): The iden of the vault to edit.
@@ -6109,6 +6112,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: One of `key` or `valu` is not msgpack safe.
 
         Returns: Updated vault.
         '''
@@ -6129,15 +6133,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg=f'Vault secrets must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
 
     async def setVaultConfigs(self, iden, key, valu):
         '''
-        Set vault configs.
+        Set vault config item.
 
-        This function sets the `key`:`valu` into the vault.
+        This function sets the `key`:`valu` into the vault configs.
 
         Args:
             iden (str): The iden of the vault to edit.
@@ -6146,6 +6150,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: One of `key` or `valu` is not msgpack safe.
 
         Returns: Updated vault.
         '''
@@ -6166,12 +6171,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
+                raise s_exc.NotMsgpackSafe(mesg=f'Vault configs must be msgpack safe.') from None
 
         return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 
     @s_nexus.Pusher.onPush('vault:data:set')
-    async def _setVaultSecrets(self, iden, obj, key, valu, delete):
+    async def _setVaultData(self, iden, obj, key, valu, delete):
         vault = self.reqVault(iden)
         data = vault.get(obj)
 
@@ -6185,6 +6190,78 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return data
+
+    async def replaceVaultConfigs(self, iden, valu):
+        '''
+        Replace the entire vault config.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            valu (str): New configs object to store on the vault.
+
+        Raises:
+            synapse.exc.BadArg: `valu` is not a dictionary.
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: `valu` is not msgpack safe.
+
+        Returns: New configs.
+        '''
+        vault = self.reqVault(iden)
+
+        if not isinstance(valu, dict):
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+
+        try:
+            s_msgpack.en(valu)
+        except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.NotMsgpackSafe(
+                mesg='Vault configs must be msgpack safe.',
+                name='valu',
+                valu=short) from None
+
+        return await self._push('vault:data:replace', iden, 'configs', valu)
+
+    async def replaceVaultSecrets(self, iden, valu):
+        '''
+        Replace the entire vault config.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            valu (str): New secrets object to store on the vault.
+
+        Raises:
+            synapse.exc.BadArg: `valu` is not a dictionary.
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: `valu` is not msgpack safe.
+
+        Returns: New secrets.
+        '''
+        vault = self.reqVault(iden)
+
+        if not isinstance(valu, dict):
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+
+        try:
+            s_msgpack.en(valu)
+        except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.NotMsgpackSafe(
+                mesg='Vault secrets must be msgpack safe.',
+                name='valu',
+                valu=short) from None
+
+        return await self._push('vault:data:replace', iden, 'secrets', valu)
+
+    @s_nexus.Pusher.onPush('vault:data:replace')
+    async def _replaceVaultData(self, iden, obj, valu):
+        vault = self.reqVault(iden)
+        bidn = s_common.uhex(iden)
+
+        vault[obj] = valu
+
+        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        return valu
 
     def listVaults(self):
         '''

@@ -1875,6 +1875,7 @@ class Runtime(s_base.Base):
         # inherit runtsafe vars from our root
         if self.root is not None:
             self.runtvars.update(root.runtvars)
+            self.runtvars.update({k: True for k in self.root.getScopeVars().keys()})
 
         # all vars/ctors are de-facto runtsafe
         self.runtvars.update({k: True for k in self.vars.keys()})
