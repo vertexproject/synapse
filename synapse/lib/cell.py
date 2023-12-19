@@ -4065,7 +4065,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
         if duration:
-            kdef['expref']: now
+            kdef['expref'] = now
             kdef['duration'] = duration
 
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)

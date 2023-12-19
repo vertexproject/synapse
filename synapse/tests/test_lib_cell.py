@@ -2433,6 +2433,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(useriden, root)
                 self.isin(kdef, _kdefs)
                 _kdefs.remove(kdef)
+            self.len(0, _kdefs)
 
             rootkeys = await cell.listUserApiKeys(user=root)
             self.eq(allkeys, rootkeys)
