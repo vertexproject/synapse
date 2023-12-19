@@ -5,6 +5,7 @@ import time
 import asyncio
 import hashlib
 import logging
+import textwrap
 
 import regex
 
@@ -784,22 +785,26 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_edges(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                news = await snap.addNode('media:news', '*')
-                ipv4 = await snap.addNode('inet:ipv4', '1.2.3.4')
+            nodes = await core.nodes('[media:news=*]')
+            self.len(1, nodes)
+            news = nodes[0]
 
-                await news.addEdge('refs', ipv4.iden())
+            nodes = await core.nodes('[inet:ipv4=1.2.3.4]')
+            self.len(1, nodes)
+            ipv4 = nodes[0]
 
-                n1edges = await alist(news.iterEdgesN1())
-                n2edges = await alist(ipv4.iterEdgesN2())
+            await news.addEdge('refs', ipv4.iden())
 
-                self.eq(n1edges, (('refs', ipv4.nid),))
-                self.eq(n2edges, (('refs', news.nid),))
+            n1edges = await alist(news.iterEdgesN1())
+            n2edges = await alist(ipv4.iterEdgesN2())
 
-                await news.delEdge('refs', ipv4.iden())
+            self.eq(n1edges, (('refs', ipv4.nid),))
+            self.eq(n2edges, (('refs', news.nid),))
 
-                self.len(0, await alist(news.iterEdgesN1()))
-                self.len(0, await alist(ipv4.iterEdgesN2()))
+            await news.delEdge('refs', ipv4.iden())
+
+            self.len(0, await alist(news.iterEdgesN1()))
+            self.len(0, await alist(ipv4.iterEdgesN2()))
 
             nodes = await core.nodes('media:news [ +(refs)> {inet:ipv4=1.2.3.4} ]')
             self.eq(nodes[0].ndef[0], 'media:news')
@@ -1343,9 +1348,7 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_prop_pivot(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):
-
-            async with await wcore.snap() as snap:
-                await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+            self.len(1, await wcore.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]'))
 
             nodes = await core.nodes('inet:dns:a :ipv4 -> *')
             self.len(1, nodes)
@@ -1359,12 +1362,10 @@ class CortexTest(s_t_utils.SynTest):
         '''
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            async with await wcore.snap() as snap:
-
-                node = await snap.addNode('test:str', 'foo')
-                await node.addTag('lol', valu=('2015', '?'))
-
-                self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
+            nodes = await wcore.nodes('[test:str=foo +#lol=(2015,?)]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
 
             self.len(0, await core.nodes('test:str=foo +#lol@=2014'))
             self.len(1, await core.nodes('test:str=foo +#lol@=2016'))
@@ -1374,43 +1375,45 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             sorc = s_common.guid()
+            nodes = await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]')
+            self.len(1, nodes)
+            node = nodes[0]
 
-            async with await core.snap() as snap:
+            refs = dict(node.getNodeRefs())
+            self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
+            self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
 
-                node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+            self.len(1, await core.nodes('[meta:seen=($sorc, $valu)]',
+                                         opts={'vars': {'sorc': sorc, 'valu': node.ndef}}))
 
-                refs = dict(node.getNodeRefs())
-
-                self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
-                self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
-
-                await node.seen('now', source=sorc)
-
-                # test un-populated properties
-                node = await snap.addNode('ps:contact', '*')
-                self.len(0, node.getNodeRefs())
-
-                # test ndef field
-                node = await snap.addNode('geo:nloc', (('inet:fqdn', 'woot.com'), '34.1,-118.3', 'now'))
-                refs = dict(node.getNodeRefs())
-                refs.get('ndef', ('inet:fqdn', 'woot.com'))
-
-                # test un-populated ndef field
-                node = await snap.addNode('test:str', 'woot')
-                refs = dict(node.getNodeRefs())
-                self.none(refs.get('bar'))
-
-                node = await snap.addNode('test:arrayprop', '*')
-
-                # test un-populated array prop
-                refs = node.getNodeRefs()
-                self.len(0, [r for r in refs if r[0] == 'ints'])
-
-                # test array prop
-                await node.set('ints', (1, 2, 3))
-                refs = node.getNodeRefs()
-                ints = sorted([r[1] for r in refs if r[0] == 'ints'])
-                self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
+            # test un-populated properties
+            nodes = await core.nodes('[ps:contact="*"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.len(0, node.getNodeRefs())
+            # test ndef field
+            nodes = await core.nodes('[geo:nloc=((inet:fqdn, woot.com), "34.1,-118.3", now)]')
+            self.len(1, nodes)
+            node = nodes[0]
+            refs = dict(node.getNodeRefs())
+            refs.get('ndef', ('inet:fqdn', 'woot.com'))
+            # Test empty ndef
+            nodes = await core.nodes('[test:str=woot]')
+            self.len(1, nodes)
+            node = nodes[0]
+            refs = dict(node.getNodeRefs())
+            self.none(refs.get('bar'))
+            # test un-populated array prop
+            nodes = await core.nodes('[test:arrayprop="*"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            refs = node.getNodeRefs()
+            self.len(0, [r for r in refs if r[0] == 'ints'])
+            # test array prop
+            await node.set('ints', (1, 2, 3))
+            refs = node.getNodeRefs()
+            ints = sorted([r[1] for r in refs if r[0] == 'ints'])
+            self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
 
             opts = {'vars': {'sorc': sorc}}
             nodes = await core.nodes('meta:seen:source=$sorc -> *', opts=opts)
@@ -1427,19 +1430,14 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_lift_regex(self):
 
         async with self.getTestCore() as core:
-
             core.model.addUnivProp('favcolor', ('str', {}), {})
-
-            async with await core.snap() as snap:
-                await snap.addNode('test:str', 'hezipha', props={'.favcolor': 'red'})
-                comps = [(20, 'lulzlulz'), (40, 'lulz')]
-                await snap.addNode('test:compcomp', comps)
+            self.len(1, await core.nodes('[(test:str=hezipha .favcolor=red)]'))
+            self.len(1, await core.nodes('[test:compcomp=((20, lulzlulz),(40, lulz))]'))
 
             self.len(0, await core.nodes('test:comp:haha~="^zerg"'))
             self.len(1, await core.nodes('test:comp:haha~="^lulz$"'))
             self.len(1, await core.nodes('test:compcomp~="^lulz"'))
             self.len(0, await core.nodes('test:compcomp~="^newp"'))
-
             self.len(1, await core.nodes('test:str~="zip"'))
             self.len(1, await core.nodes('.favcolor~="^r"'))
 
@@ -1651,61 +1649,50 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                valu = 'a' * 257
-                await snap.addNode('test:str', valu)
-
-                nodes = await snap.nodes('test:str^=aa')
-                self.len(1, nodes)
+            self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'a' * 258}}))
+            self.len(1, await core.nodes('test:str^=aa'))
 
     async def test_tags(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            async with await wcore.snap() as snap:
+            self.len(1, await wcore.nodes('[(test:str=newp)]'))
 
-                await snap.addNode('test:str', 'newp')
+            nodes = await wcore.nodes('[(test:str=one +#foo.bar=(2016, 2017))]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
 
-                node = await snap.addNode('test:str', 'one')
-                await node.addTag('foo.bar', ('2016', '2017'))
+            nodes = await wcore.nodes('[(test:comp=(10, hehe) +#foo.bar)]')
+            self.len(1, nodes)
 
-                self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
+            self.len(1, await core.nodes('syn:tag=foo'))
+            self.len(1, await core.nodes('syn:tag=foo.bar'))
 
-                node1 = await snap.addNode('test:comp', (10, 'hehe'))
-                await node1.addTag('foo.bar')
+            nodes = await core.nodes('test:str=one')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.true(node.hasTag('foo'))
+            self.true(node.hasTag('foo.bar'))
 
-            async with await core.snap() as snap:
+            self.len(2, await core.nodes('#foo.bar'))
+            self.len(1, await core.nodes('test:str#foo.bar'))
 
-                self.nn(await snap.getNodeByNdef(('syn:tag', 'foo')))
-                self.nn(await snap.getNodeByNdef(('syn:tag', 'foo.bar')))
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('test:newp#foo.bar')
 
-            async with await core.snap() as snap:
+            # delete a tag and it persists
+            nodes = await wcore.nodes('test:str=one [-#foo]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.false(node.hasTag('foo'))
+            self.false(node.hasTag('foo.bar'))
 
-                node = await snap.getNodeByNdef(('test:str', 'one'))
-
-                self.true(node.hasTag('foo'))
-                self.true(node.hasTag('foo.bar'))
-
-                self.len(2, await snap.nodes('#foo.bar'))
-                self.len(1, await snap.nodes('test:str#foo.bar'))
-
-                with self.raises(s_exc.NoSuchForm):
-                    await snap.nodes('test:newp#foo.bar')
-
-            async with await wcore.snap() as snap:
-
-                node = await snap.addNode('test:str', 'one')
-
-                await node.delTag('foo')
-
-                self.false(node.hasTag('foo'))
-                self.false(node.hasTag('foo.bar'))
-
-            async with await wcore.snap() as snap:
-
-                node = await snap.addNode('test:str', 'one')
-                self.false(node.hasTag('foo'))
-                self.false(node.hasTag('foo.bar'))
+            nodes = await wcore.nodes('test:str=one')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.false(node.hasTag('foo'))
+            self.false(node.hasTag('foo.bar'))
 
             # Can norm a list of tag parts into a tag string and use it
             nodes = await wcore.nodes("$foo=('foo', 'bar.baz') $foo=$lib.cast('syn:tag', $foo) [test:int=0 +#$foo]")
@@ -1747,15 +1734,11 @@ class CortexTest(s_t_utils.SynTest):
     async def test_base_types1(self):
 
         async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:type10', 'one')
-                await node.set('intprop', 21)
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:type10', 'one'))
-                self.nn(node)
-                self.eq(node.get('intprop'), 21)
+            self.len(1, await core.nodes('[test:type10=one :intprop=21]'))
+            nodes = await core.nodes('test:type10=one')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('intprop'), 21)
 
     async def test_cortex_pure_cmds(self):
 
@@ -1831,107 +1814,60 @@ class CortexTest(s_t_utils.SynTest):
             await asyncio.sleep(0.001)
 
             # Test some default values
-            async with await wcore.snap() as snap:
+            nodes = await wcore.nodes('[test:type10=one]')
+            self.len(1, nodes)
+            node = nodes[0]
+            tick = node.get('.created')
+            created = node.repr('.created')
 
-                node = await snap.addNode('test:type10', 'one')
-                self.nn(node.get('.created'))
-                created = node.reprs().get('.created')
-
-            # open a new snap, committing the previous snap and do some lifts by univ prop
-            async with await core.snap() as snap:
-
-                nodes = await snap.nodes('.created')
-                self.len(1 + 1, nodes)
-
-                tick = node.get('.created')
-                nodes = await snap.nodes('.created=$tick', opts={'vars': {'tick': tick}})
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('.created>=2010')
-                self.len(1 + 1, nodes)
-
-                nodes = await snap.nodes('.created*range=("2010", "3001")')
-                self.len(1 + 1, nodes)
-
-                nodes = await snap.nodes('.created*range=(2010,?)')
-                self.len(1 + 1, nodes)
-
-                self.len(2, await core.nodes('.created'))
-                self.len(1, await core.nodes(f'.created="{created}"'))
-                self.len(2, await core.nodes('.created>2010'))
-                self.len(0, await core.nodes('.created<2010'))
-                # The year the monolith returns
-                self.len(2, await core.nodes('.created*range=(2010, 3001)'))
-                self.len(2, await core.nodes('.created*range=("2010", "?")'))
+            self.len(2, await core.nodes('.created'))
+            self.len(1, await core.nodes('.created=$tick', opts={'vars': {'tick': tick}}))
+            self.len(2, await core.nodes('.created>=2010'))
+            self.len(2, await core.nodes('.created>2010'))
+            self.len(0, await core.nodes('.created<2010'))
+            # The year the monolith returns
+            self.len(2, await core.nodes('.created*range=(2010, 3001)'))
+            self.len(2, await core.nodes('.created*range=("2010", "?")'))
 
             # The .created time is ro
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes(f'.created="{created}" [.created=3001]')
 
-            # Open another snap to test some more default value behavior
-            async with await wcore.snap() as snap:
+            self.len(1, await wcore.nodes('test:type10=one [:intprop=21 :strprop=qwer :locprop=us.va.reston]'))
+            nodes = await wcore.nodes('[test:comp=(33, "THIRTY THREE")]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('hehe'), 33)
+            self.eq(node.get('haha'), 'thirty three')
 
-                # Grab an updated reference to the first node
-                node = (await snap.nodes('test:type10=one'))[0]
-                # add another node with default vals
-                await snap.addNode('test:type10', 'two')
+            with self.raises(s_exc.ReadOnlyProp):
+                await wcore.nodes('test:comp=(33, "THIRTY THREE") [ :hehe = 80]')
 
-                # modify default vals on initial node
-                await node.set('intprop', 21)
-                await node.set('strprop', 'qwer')
-                await node.set('locprop', 'us.va.reston')
-
-                node = await snap.addNode('test:comp', (33, 'THIRTY THREE'))
-
-                self.eq(node.get('hehe'), 33)
-                self.eq(node.get('haha'), 'thirty three')
-
-                await self.asyncraises(s_exc.ReadOnlyProp, node.set('hehe', 80))
-
-                self.none(await snap.getNodeByNdef(('test:auto', 'autothis')))
-
-                props = {
-                    'bar': ('test:auto', 'autothis'),
-                    'baz': ('test:type10:strprop', 'WOOT'),
-                    'tick': '20160505',
-                }
-                node = await snap.addNode('test:str', 'woot', props=props)
-                self.eq(node.get('bar'), ('test:auto', 'autothis'))
-                self.eq(node.get('baz'), ('test:type10:strprop', 'woot'))
-                self.eq(node.get('tick'), 1462406400000)
-
-                # add some time range bumper nodes
-                await snap.addNode('test:str', 'toolow', props={'tick': '2015'})
-                await snap.addNode('test:str', 'toohigh', props={'tick': '2018'})
-
-                self.nn(await snap.getNodeByNdef(('test:auto', 'autothis')))
-
-                # test lifting by prop without value
-                nodes = await snap.nodes('test:str:tick')
-                self.len(3, nodes)
-
-            async with await wcore.snap() as snap:
-
-                node = await snap.addNode('test:type10', 'one')
-                self.eq(node.get('intprop'), 21)
-
-                self.nn(node.get('.created'))
-
-                nodes = await snap.nodes('test:str^=too')
-                self.len(2, nodes)
-
-                # test loc prop prefix based lookup
-                nodes = await snap.nodes('test:type10:locprop^=us.va')
-
-                self.len(1, nodes)
-                self.eq(nodes[0].ndef[1], 'one')
-
-                nodes = await snap.nodes('test:comp=(33, "thirty three")')
-
-                self.len(1, nodes)
-
-                self.eq(nodes[0].get('hehe'), 33)
-                self.eq(nodes[0].ndef[1], (33, 'thirty three'))
+            self.len(0, await wcore.nodes('test:auto=autothis'))
+            q = '[test:str=woot :bar=(test:auto, autothis) :baz=(test:type10:strprop, WOOT) :tick=20160505]'
+            nodes = await wcore.nodes(q)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('bar'), ('test:auto', 'autothis'))
+            self.eq(node.get('baz'), ('test:type10:strprop', 'woot'))
+            self.eq(node.get('tick'), 1462406400000)
+            self.len(1, await wcore.nodes('test:auto=autothis'))
+            # add some time range bumper nodes
+            self.len(1, await wcore.nodes('[test:str=toolow :tick=2015]'))
+            self.len(1, await wcore.nodes('[test:str=toohigh :tick=2018]'))
+            # test lifting by prop without value
+            self.len(3, await core.nodes('test:str:tick'))
+            nodes = await core.nodes('test:type10=one')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('intprop'), 21)
+            self.nn(node.get('.created'))
+            self.len(2, await core.nodes('test:str^=too'))
+            # Loc prop lookup
+            nodes = await core.nodes('test:type10:locprop^=us.va')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:type10', 'one'))
 
     async def test_eval(self):
         ''' Cortex.eval test '''
@@ -2117,51 +2053,43 @@ class CortexTest(s_t_utils.SynTest):
             form.onDel(onNodeDel)
             form.props.get('tick').onDel(onPropDel)
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[test:pivtarg=foo]')
+            self.len(1, nodes)
+            targ = nodes[0]
 
-                targ = await snap.addNode('test:pivtarg', 'foo')
-                await snap.addNode('test:pivcomp', ('foo', 'bar'))
+            self.len(1, await core.nodes('[test:pivcomp=(foo, bar)]'))
 
-                await self.asyncraises(s_exc.CantDelNode, targ.delete())
+            with self.raises(s_exc.CantDelNode):
+                await targ.delete()
 
-                targ = await snap.addNode('test:str', 'foo')
-                await snap.nodes('[ test:arrayprop=* :strs=(foo, bar) ]')
+            nodes = await core.nodes('[test:str=foo]')
+            self.len(1, nodes)
+            targ = nodes[0]
+            self.len(1, await core.nodes('[test:arrayprop=* :strs=(foo, bar)]'))
 
-                await self.asyncraises(s_exc.CantDelNode, targ.delete())
+            with self.raises(s_exc.CantDelNode):
+                await targ.delete()
 
-                tstr = await snap.addNode('test:str', 'baz')
+            nodes = await core.nodes('[(test:str=baz :tick=(100) +#hehe)]')
+            self.len(1, nodes)
+            tstr = nodes[0]
 
-                await tstr.set('tick', 100)
-                await tstr.addTag('hehe')
+            nodes = await core.nodes('syn:tag=hehe')
+            self.len(1, nodes)
+            tagnode = nodes[0]
 
-                nodes = await snap.nodes('[ test:str=baz :tick=$(100) +#hehe ]')
-                self.len(1, nodes)
-                self.eq(100, nodes[0].get('tick'))
-                self.eq((None, None), nodes[0].getTag('hehe'))
+            with self.raises(s_exc.CantDelNode):
+                await tagnode.delete()
 
-                self.len(1, await core.nodes('#hehe'))
-                self.len(1, await snap.nodes('#hehe'))
-                self.len(1, await snap.nodes('test:str=baz'))
-                self.len(1, await snap.nodes('test:str:tick=$(100)'))
+            buid = tstr.buid
+            await tstr.delete()
 
-                tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
-                with self.raises(s_exc.CantDelNode):
-                    await tagnode.delete()
+            self.true(data.get('prop:del'))
+            self.true(data.get('node:del'))
 
-                buid = tstr.buid
-
-                await tstr.delete()
-
-                self.true(data.get('prop:del'))
-                self.true(data.get('node:del'))
-
-                # confirm that the snap cache is clear
-                self.none(await snap.getNodeByBuid(tstr.buid))
-                self.none(await snap.getNodeByNdef(('test:str', 'baz')))
-
-            async with await core.snap() as snap:
-                self.len(0, await snap.nodes('test:str:tick'))
-                self.eq(None, await snap.getNodeByBuid(buid))
+            self.len(0, await core.nodes('test:str=baz'))
+            self.len(0, await core.nodes('iden $valu', opts={'vars': {'valu': s_common.ehex(buid)}}))
+            self.len(0, await core.nodes('test:str:tick'))
 
     async def test_pivot_inout(self):
 
@@ -2443,10 +2371,8 @@ class CortexTest(s_t_utils.SynTest):
             # Do a PropPivotOut with a :prop value which is not a form.
             tgud = s_common.guid()
             tstr = 'boom'
-            async with await wcore.snap() as snap:
-                await snap.addNode('test:str', tstr)
-                await snap.addNode('test:guid', tgud)
-                await snap.addNode('test:edge', (('test:guid', tgud), ('test:str', tstr)))
+            q = '[test:str=$tstr] [test:guid=$tgud] [test:edge=((test:guid, $tgud), (test:str, $tstr))]'
+            self.len(3, await wcore.nodes(q, opts={'vars': {'tstr': tstr, 'tgud': tgud}}))
 
             q = f'test:str={tstr} <- test:edge :n1:form -> *'
             mesgs = await core.stormlist(q)
@@ -2481,10 +2407,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # Setup a form pivot where the primary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
-            async with await core.snap() as snap:
-                await snap.addNode('test:int', 10)
-                await snap.addNode('test:int', 25)
-                await snap.addNode('test:type10', 'test', {'intprop': 25})
+            self.len(1, await core.nodes('[test:int=10]'))
+            self.len(1, await core.nodes('[test:int=25]'))
+            self.len(1, await core.nodes('[(test:type10=test :intprop=25)]'))
             mesgs = await core.stormlist('test:int*in=(10, 25) -> test:type10:intprop')
 
             warns = [msg for msg in mesgs if msg[0] == 'warn']
@@ -2512,12 +2437,11 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            self.eq(1, await wcore.count('[ test:str=woot .seen=(2014,2015) ]'))
-
-            async with await core.snap() as snap:
-
-                node = await snap.getNodeByNdef(('test:str', 'woot'))
-                self.eq(node.get('.seen'), (1388534400000, 1420070400000))
+            self.len(1, await wcore.nodes('[ test:str=woot .seen=(2014,2015) ]'))
+            nodes = await core.nodes('test:str=woot')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('.seen'), (1388534400000, 1420070400000))
 
     async def test_cortex_storm_set_tag(self):
 
@@ -2530,14 +2454,21 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await wcore.nodes('[ test:str=hehe +#foo=(2014,2016) ]'))
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2015 ]'))
 
+            nodes = await core.nodes('test:str=hehe')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.getTag('foo'), (tick0, tick2))
+
+            nodes = await core.nodes('test:str=haha')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.getTag('bar'), (tick1, tick1 + 1))
+
             async with await core.snap() as snap:
-
-                node = await snap.getNodeByNdef(('test:str', 'hehe'))
-                self.eq(node.getTag('foo'), (tick0, tick2))
-
                 node = await snap.getNodeByNdef(('test:str', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
+                # FIXME Snap.strict manipulation, remove in 3.0.0
                 # Sad path with snap.strict=False
                 snap.strict = False
                 waiter = snap.waiter(1, 'warn')
@@ -2549,11 +2480,10 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
 
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
-
-            async with await core.snap() as snap:
-
-                node = await snap.getNodeByNdef(('test:str', 'haha'))
-                self.eq(node.getTag('bar'), (tick1, tick2 + 1))
+            nodes = await core.nodes('test:str=haha')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.getTag('bar'), (tick1, tick2 + 1))
 
             # Sad path
             with self.raises(s_exc.BadTypeValu) as cm:
@@ -2844,35 +2774,35 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(1, (await core.getFormCounts())['test:str'])
 
     async def test_cortex_greedy(self):
-        ''' Issue a large snap request, and make sure we can still do stuff in a reasonable amount of time'''
+        ''' Issue a large request, and make sure we can still do stuff in a reasonable amount of time'''
 
         async with self.getTestCore() as core:
+            # Prime the fork pool on a solo run
+            self.len(0, await core.nodes('.created | spin'))
+            event = asyncio.Event()
+            async def add_stuff():
+                vals = list(range(20000))
+                event.set()
+                msgs = await core.stormlist('for $i in $vals {[test:int=$i]} | spin',
+                                             opts={'editformat': 'none', 'vars': {'vals': vals}})
+                self.stormHasNoWarnErr(msgs)
 
-            async with await core.snap() as snap:
+            fut = core.schedCoro(add_stuff())
 
-                event = asyncio.Event()
+            # Wait for him to get started
+            before = time.time()
+            await event.wait()
 
-                async def add_stuff():
-                    event.set()
-                    ips = ((('inet:ipv4', x), {}) for x in range(20000))
-
-                    await alist(snap.addNodes(ips))
-
-                snap.schedCoro(add_stuff())
-
-                # Wait for him to get started
-                before = time.time()
-                await event.wait()
-
-                await snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
-                delta = time.time() - before
-
-                # Note: before latency improvement, delta was > 4 seconds
-                self.lt(delta, 0.5)
-
-            # Make sure the task in flight can be killed in a reasonable time
+            nodes = await core.nodes('[test:str=hehe]')
+            self.len(1, nodes)
             delta = time.time() - before
-            self.lt(delta, 1.0)
+
+            # Note: before latency improvement, delta was > 4 seconds
+            self.lt(delta, 0.5)
+
+        # Make sure the task in flight can be killed in a reasonable time
+        delta = time.time() - before
+        self.lt(delta, 1.0)
 
     async def test_storm_pivprop(self):
 
@@ -2881,9 +2811,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
             self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
             self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 :asn=8080 ]'))
-
-            async with await core.snap() as snap:
-                self.nn(await snap.getNodeByNdef(('inet:asn', 200)))
 
             self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
 
@@ -3076,18 +3003,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             arg_hit['hit'] = node
 
         async with self.getTestCore() as core:
+            core.model.form('test:str').onAdd(testcb)
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[test:str=hello]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node, arg_hit.get('hit'))
 
-                core.model.form('inet:ipv4').onAdd(testcb)
-
-                node = await snap.addNode('inet:ipv4', '1.2.3.4')
-                self.eq(node, arg_hit.get('hit'))
-
-                arg_hit['hit'] = None
-                core.model.form('inet:ipv4').offAdd(testcb)
-                node = await snap.addNode('inet:ipv4', '1.2.3.5')
-                self.none(arg_hit.get('hit'))
+            arg_hit['hit'] = None
+            core.model.form('test:str').offAdd(testcb)
+            nodes = await core.nodes('[test:str=goodbye]')
+            self.len(1, nodes)
+            self.none(arg_hit.get('hit'))
 
     async def test_adddata(self):
 
@@ -3258,34 +3185,39 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_onsetdel(self):
 
-        args_hit = None
+        arg_hit = {}
 
-        async def test_cb(*args):
-            nonlocal args_hit
-            args_hit = args
+        async def test_cb(node, oldv):
+            arg_hit['hit'] = (node, oldv)
 
         async with self.getTestCore() as core:
+            core.model.prop('test:str:hehe').onSet(test_cb)
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[test:str=hi :hehe=haha]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('hehe'), 'haha')
+            self.eq(node, arg_hit['hit'][0])
+            self.none(arg_hit['hit'][1])
 
-                core.model.prop('inet:ipv4:loc').onSet(test_cb)
+            arg_hit.clear()
+            nodes = await core.nodes('test:str=hi [:hehe=weee]')
+            self.len(1, nodes)
+            node = nodes[0]
 
-                node = await snap.addNode('inet:ipv4', '1.2.3.4')
-                await node.set('loc', 'US.  VA')
+            self.eq(node.get('hehe'), 'weee')
+            self.eq(node, arg_hit['hit'][0])
+            self.eq(arg_hit['hit'][1], 'haha')
 
-                self.eq(args_hit, [node, None])
+            arg_hit.clear()
+            core.model.prop('test:str:hehe').onDel(test_cb)
 
-                args_hit = None
-                core.model.prop('inet:ipv4:loc').onDel(test_cb)
-
-                await node.pop('loc')
-                self.eq(args_hit, [node, 'us.va'])
-
-                self.none(node.get('loc'))
-
-            async with await core.snap() as snap:
-                node = await snap.addNode('inet:ipv4', '1.2.3.4')
-                self.none(node.get('loc'))
+            nodes = await core.nodes('test:str=hi [-:hehe]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.none(node.get('hehe'))
+            self.eq(node, arg_hit['hit'][0])
+            self.eq(arg_hit['hit'][1], 'weee')
 
     async def test_cortex_onofftag(self):
 
@@ -3312,57 +3244,57 @@ class CortexBasicTest(s_t_utils.SynTest):
             core.onTagAdd('glob.*', onadd)
             core.onTagDel('glob.*', ondel)
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[test:str=hehe]')
+            self.len(1, nodes)
+            node = nodes[0]
+            await node.addTag('foo.bar.baz', valu=(200, 300))
 
-                node = await snap.addNode('test:str', 'hehe')
-                await node.addTag('foo.bar.baz', valu=(200, 300))
+            self.eq(tags.get('foo'), (None, None))
+            self.eq(tags.get('foo.bar'), (None, None))
+            self.eq(tags.get('foo.bar.baz'), (200, 300))
 
-                self.eq(tags.get('foo'), (None, None))
-                self.eq(tags.get('foo.bar'), (None, None))
-                self.eq(tags.get('foo.bar.baz'), (200, 300))
+            await node.delTag('foo.bar')
 
-                await node.delTag('foo.bar')
+            self.eq(tags.get('foo'), (None, None))
 
-                self.eq(tags.get('foo'), (None, None))
+            self.none(tags.get('foo.bar'))
+            self.none(tags.get('foo.bar.baz'))
 
-                self.none(tags.get('foo.bar'))
-                self.none(tags.get('foo.bar.baz'))
+            core.offTagAdd('foo.bar', onadd)
+            core.offTagDel('foo.bar', ondel)
+            core.offTagAdd('foo.bar', lambda x: 0)
+            core.offTagDel('foo.bar', lambda x: 0)
 
-                core.offTagAdd('foo.bar', onadd)
-                core.offTagDel('foo.bar', ondel)
-                core.offTagAdd('foo.bar', lambda x: 0)
-                core.offTagDel('foo.bar', lambda x: 0)
+            await node.addTag('foo.bar', valu=(200, 300))
+            self.none(tags.get('foo.bar'))
 
-                await node.addTag('foo.bar', valu=(200, 300))
-                self.none(tags.get('foo.bar'))
+            tags['foo.bar'] = 'fake'
+            await node.delTag('foo.bar')
+            self.eq(tags.get('foo.bar'), 'fake')
 
-                tags['foo.bar'] = 'fake'
-                await node.delTag('foo.bar')
-                self.eq(tags.get('foo.bar'), 'fake')
+            # Coverage for removing something from a
+            # tag we never added a handler for.
+            core.offTagAdd('test.newp', lambda x: 0)
+            core.offTagDel('test.newp', lambda x: 0)
 
-                # Coverage for removing something from a
-                # tag we never added a handler for.
-                core.offTagAdd('test.newp', lambda x: 0)
-                core.offTagDel('test.newp', lambda x: 0)
+            # Test tag glob handlers
+            await node.addTag('glob.foo', valu=(200, 300))
+            self.eq(tags.get('glob.foo'), (200, 300))
 
-                # Test tag glob handlers
-                await node.addTag('glob.foo', valu=(200, 300))
-                self.eq(tags.get('glob.foo'), (200, 300))
+            await node.delTag('glob.foo')
+            self.none(tags.get('glob.foo'))
 
-                await node.delTag('glob.foo')
-                self.none(tags.get('glob.foo'))
+            await node.addTag('glob.foo.bar', valu=(200, 300))
+            self.none(tags.get('glob.foo.bar'))
 
-                await node.addTag('glob.foo.bar', valu=(200, 300))
-                self.none(tags.get('glob.foo.bar'))
-
-                # Test handlers don't run after removed
-                core.offTagAdd('glob.*', onadd)
-                core.offTagDel('glob.*', ondel)
-                await node.addTag('glob.faz', valu=(200, 300))
-                self.none(tags.get('glob.faz'))
-                tags['glob.faz'] = (1, 2)
-                await node.delTag('glob.faz')
-                self.eq(tags['glob.faz'], (1, 2))
+            # Test handlers don't run after removed
+            core.offTagAdd('glob.*', onadd)
+            core.offTagDel('glob.*', ondel)
+            await node.addTag('glob.faz', valu=(200, 300))
+            self.none(tags.get('glob.faz'))
+            tags['glob.faz'] = (1, 2)
+            await node.delTag('glob.faz')
+            self.eq(tags['glob.faz'], (1, 2))
 
     async def test_storm_logging(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -3399,6 +3331,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
                 await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
 
+                # FIXME Snap.strict manipulation, remove in 3.0.0
                 snap.strict = False
                 self.none(await snap.addNode('test:str', s_common.novalu))
 
@@ -4217,10 +4150,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                await snap.addNode('test:str', 'a')
-                await snap.addNode('test:str', 'b')
-                await snap.addNode('test:str', 'c')
+            nodes = await core.nodes('[test:str=a test:str=b test:str=c]')
+            self.len(3, nodes)
 
             self.len(0, await core.nodes('test:str*in=()'))
             self.len(0, await core.nodes('test:str*in=(d,)'))
@@ -4283,8 +4214,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(3, nodes)
 
             # Ensure we can pivot to/from runt nodes
-            async with await core.snap() as snap:
-                await snap.addNode('test:str', 'beep.sys')
+            nodes = await core.nodes('[test:str=beep.sys]')
+            self.len(1, nodes)
 
             nodes = await core.nodes('test:runt :lulz -> test:str')
             self.len(1, nodes)
@@ -4371,14 +4302,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_tag_globbing(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'n1')
-                await node.addTag('foo.bar.baz', (None, None))
-
-                node = await snap.addNode('test:str', 'n2')
-                await node.addTag('foo.bad.baz', (None, None))
-
-                node = await snap.addNode('test:str', 'n3')  # No tags on him
+            nodes = await core.nodes('[(test:str=n1 +#foo.bar.baz)] [(test:str=n2 +#foo.bad.baz)] [test:str=n3]')
+            self.len(3, nodes)
 
             # Setup worked correct
             self.len(3, await core.nodes('test:str'))
@@ -4409,15 +4334,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.hive.set(('visi',), 200)
             async with core.getLocalProxy(share='cortex/hive') as hive:
                 self.eq(200, await hive.get(('visi',)))
-
-    async def test_delevent(self):
-        ''' Tests deleting a node with a property without an index '''
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                evt_guid = s_common.guid('evt')
-                node = await snap.addNode('graph:event', evt_guid, {'name': 'an event', 'data': 'beep'})
-
-                await node.delete(force=True)
 
     async def test_cortex_delnode_perms(self):
 
@@ -4463,14 +4379,15 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_node_repr(self):
 
         async with self.getTestCore() as core:
+            nodes = await core.nodes('[inet:ipv4=$valu]', opts={'vars': {'valu': 0x01020304}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq('1.2.3.4', node.repr())
 
-            async with await core.snap() as snap:
-
-                node = await snap.addNode('inet:ipv4', 0x01020304)
-                self.eq('1.2.3.4', node.repr())
-
-                node = await snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
-                self.eq('1.2.3.4', node.repr('ipv4'))
+            nodes = await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq('1.2.3.4', node.repr('ipv4'))
 
     async def test_coverage(self):
 
@@ -4525,12 +4442,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             opts = {'vars': {'foo': norm}}
             self.len(1, await core.nodes('test:pivcomp:tick=$foo', opts=opts))
 
-    async def test_cortex_snap_eval(self):
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
-            self.len(2, await core.nodes('test:str'))
-
     async def test_cortex_nexslogen_off(self):
         '''
         Everything still works when no nexus log is kept
@@ -4540,8 +4451,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'layers:logedits': True,
                 }
         async with self.getTestCore(conf=conf) as core:
-            async with await core.snap() as snap:
-                await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
+            self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
 
     async def test_cortex_logedits_off(self):
@@ -4553,8 +4463,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'layers:logedits': False,
                 }
         async with self.getTestCore(conf=conf) as core:
-            async with await core.snap() as snap:
-                await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
+            self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
 
             layr = core.getLayer()
@@ -4623,11 +4532,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core1.nodes('test:int=2 -(refs)> *'))
 
             await core1.addTagProp('test', ('int', {}), {})
-            async with await core1.snap() as snap:
-                node = await snap.getNodeByNdef(('test:int', 1))
-                await node.setTagProp('beep.beep', 'test', 1138)
-                pode = node.pack()
 
+            msgs = await core1.stormlist('test:int=1 [+#beep.beep:test=1138]')
+            self.stormHasNoWarnErr(msgs)
+            pode = [m[1] for m in msgs if m[0] == 'node'][0]
             pode = (('test:int', 4), pode[1])
 
             await core1.addFeedData('syn.nodes', [pode])
@@ -7243,29 +7151,20 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (core, prox):
             await core.addTagProp('score', ('int', {}), {})
 
-            async with await core.snap() as snap:
+            nodes = await core.nodes('[(inet:ipv4=1 :asn=10 .seen=(2016, 2017) +#foo=(2020,2021) +#foo:score=42)]')
+            self.len(1, nodes)
+            buid1 = nodes[0].buid
 
-                props = {'asn': 10, '.seen': ('2016', '2017')}
-                node = await snap.addNode('inet:ipv4', 1, props=props)
-                buid1 = node.buid
-                await node.addTag('foo', ('2020', '2021'))
-                await node.setTagProp('foo', 'score', 42)
+            nodes = await core.nodes('[(inet:ipv4=2 :asn=20 .seen=(2015, 2016) +#foo=(2019,2020) +#foo:score=41)]')
+            self.len(1, nodes)
+            buid2 = nodes[0].buid
 
-                props = {'asn': 20, '.seen': ('2015', '2016')}
-                node = await snap.addNode('inet:ipv4', 2, props=props)
-                buid2 = node.buid
-                await node.addTag('foo', ("2019", "2020"))
-                await node.setTagProp('foo', 'score', 41)
+            nodes = await core.nodes('[(inet:ipv4=3 :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99)]')
+            self.len(1, nodes)
+            buid3 = nodes[0].buid
 
-                props = {'asn': 30, '.seen': ('2015', '2016')}
-                node = await snap.addNode('inet:ipv4', 3, props=props)
-                buid3 = node.buid
-                await node.addTag('foo', ("2018", "2020"))
-                await node.setTagProp('foo', 'score', 99)
-
-                node = await snap.addNode('test:str', 'yolo')
-
-                node = await snap.addNode('test:str', 'z' * 500)
+            self.len(1, await core.nodes('[test:str=yolo]'))
+            self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}}))
 
             badiden = 'xxx'
             await self.agenraises(s_exc.NoSuchLayer, prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
@@ -7494,6 +7393,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(await core.setVaultConfigs(giden, 'color', 'orange'))
             self.true(await core.setVaultSecrets(giden, 'apikey', 'foobar'))
 
+            await core.replaceVaultConfigs(giden, {'rubiks': 'cube'})
+            vault = core.reqVault(giden)
+            self.eq({'rubiks': 'cube'}, vault['configs'])
+
+            await core.replaceVaultSecrets(giden, {'secret': 'squirrel'})
+            vault = core.reqVault(giden)
+            self.eq({'secret': 'squirrel'}, vault['secrets'])
+
             vaults = list(core.listVaults())
             self.len(4, vaults)
 
@@ -7693,22 +7600,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.setVaultConfigs(visi1.iden, 'foo', 'bar')
             self.eq(f'Vault not found for iden: {visi1.iden}.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, 'foo', self)
             self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, 'foo', self)
             self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultSecrets(giden, self, 'bar')
             self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.BadArg) as exc:
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
                 # data not msgpack safe
                 await core.setVaultConfigs(giden, self, 'bar')
             self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
@@ -7748,6 +7655,40 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Requested type/scope doesn't exist
                 core.reqVaultByType(vtype1, visi1.iden, 'user')
             self.eq(f'Vault not found for type: {vtype1}.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.replaceVaultSecrets(giden, self)
+            self.eq('valu must be a dictionary.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultSecrets(giden, {'foo': self})
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.replaceVaultConfigs(giden, self)
+            self.eq('valu must be a dictionary.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultConfigs(giden, {'foo': self})
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+
+            class LongRepr:
+                def __repr__(self):
+                    return 'Abcd. ' * 1000
+
+            valu = {'foo': LongRepr()}
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultSecrets(giden, valu)
+            self.eq(
+                "{'foo': Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. [...]",
+                exc.exception.get('valu'))
+
+            with self.raises(s_exc.NotMsgpackSafe) as exc:
+                await core.replaceVaultConfigs(giden, {'foo': LongRepr()})
+            self.eq(
+                "{'foo': Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. Abcd. [...]",
+                exc.exception.get('valu'))
 
     async def test_cortex_user_scope(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex

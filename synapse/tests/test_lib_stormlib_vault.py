@@ -173,10 +173,34 @@ class StormlibVaultTest(s_test.SynTest):
             q = 'return($lib.vault.get($giden).secrets)'
             self.none(await core.callStorm(q, opts=opts))
 
+            # replace secrets
+            opts = {'vars': {'giden': giden}}
+            q = '$lib.vault.get($giden).secrets = ({"apikey": "foobar"}) return($lib.vault.get($giden).secrets)'
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, {'apikey': 'foobar'})
+
+            # replace secrets without EDIT perms
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            q = '$lib.vault.get($giden).secrets = ({"apikey": "foobar2"})'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
             # Get configs without EDIT perms
             opts = {'vars': {'giden': giden}, 'user': visi1.iden}
             q = 'return($lib.vault.get($giden).configs)'
             self.eq(await core.callStorm(q, opts=opts), {'server': 'gvault'})
+
+            # replace configs
+            opts = {'vars': {'giden': giden}}
+            q = '$lib.vault.get($giden).configs = ({"server": "foobar"}) return($lib.vault.get($giden).configs)'
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, {'server': 'foobar'})
+
+            # replace configs without EDIT perms
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            q = '$lib.vault.get($giden).configs = ({"server": "foobar2"})'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
 
             # Set name without EDIT perms
             opts = {'vars': {'giden': giden}, 'user': visi1.iden}

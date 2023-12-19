@@ -501,10 +501,7 @@ class TestModule(s_module.CoreModule):
 
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
 
-        async with await self.core.snap() as snap:
-            node = await snap.getNodeByNdef(('meta:source', self.testguid))
-            if node is None:
-                await snap.addNode('meta:source', self.testguid, {'name': 'test'})
+        await self.core.addNode(self.core.auth.rootuser, 'meta:source', self.testguid, {'name': 'test'})
 
         self.core.addStormLib(('test',), LibTst)
 

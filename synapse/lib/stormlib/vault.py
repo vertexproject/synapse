@@ -609,14 +609,16 @@ class Vault(s_stormtypes.Prim):
         {'name': 'configs',
          'desc': 'The Vault configs data.',
          'type': {
-             'type': ['gtor'],
+             'type': ['gtor', 'stor'],
              '_gtorfunc': '_gtorConfigs',
+             '_storfunc': '_storConfigs',
              'returns': {'type': 'vault:data'}}},
         {'name': 'secrets',
          'desc': 'The Vault secrets data.',
          'type': {
-             'type': ['gtor'],
+             'type': ['gtor', 'stor'],
              '_gtorfunc': '_gtorSecrets',
+             '_storfunc': '_storSecrets',
              'returns': {'type': 'vault:data'}}},
 
         {'name': 'name',
@@ -658,6 +660,8 @@ class Vault(s_stormtypes.Prim):
 
         self.stors.update({
             'name': self._storName,
+            'configs': self._storConfigs,
+            'secrets': self._storSecrets,
         })
 
         self.gtors.update({
@@ -696,6 +700,12 @@ class Vault(s_stormtypes.Prim):
         vault = self.runt.snap.core.reqVault(self.valu)
         return VaultConfigs(self.runt, self.valu)
 
+    async def _storConfigs(self, configs):
+        configs = await s_stormtypes.toprim(configs)
+        vault = self.runt.snap.core.reqVault(self.valu)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
+        return await self.runt.snap.core.replaceVaultConfigs(self.valu, configs)
+
     async def _gtorSecrets(self):
         vault = self.runt.snap.core.reqVault(self.valu)
         if not self.runt.isAdmin():
@@ -704,6 +714,12 @@ class Vault(s_stormtypes.Prim):
                 return None
 
         return VaultSecrets(self.runt, self.valu)
+
+    async def _storSecrets(self, secrets):
+        secrets = await s_stormtypes.toprim(secrets)
+        vault = self.runt.snap.core.reqVault(self.valu)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
+        return await self.runt.snap.core.replaceVaultSecrets(self.valu, secrets)
 
     async def _gtorPermissions(self):
         vault = self.runt.snap.core.reqVault(self.valu)

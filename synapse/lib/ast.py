@@ -759,11 +759,7 @@ class SubQuery(Oper):
 
         retn = []
 
-        opts = {}
-        if path is not None:
-            opts['vars'] = path.vars.copy()
-
-        async with runt.getSubRuntime(self.kids[0], opts=opts) as runt:
+        async with runt.getSubRuntime(self.kids[0]) as runt:
             async for valunode, valupath in runt.execute():
 
                 retn.append(valunode.ndef[1])
@@ -1846,8 +1842,7 @@ class RawPivot(PivotOper):
     async def run(self, runt, genr):
         query = self.kids[0]
         async for node, path in genr:
-            opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query) as subr:
                 async for node, path in subr.execute():
                     yield node, path
 
@@ -4120,8 +4115,7 @@ class EditEdgeAdd(Edit):
 
             allowed(verb)
 
-            opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query) as subr:
 
                 if self.n2:
                     async for subn, subp in subr.execute():
@@ -4185,8 +4179,7 @@ class EditEdgeDel(Edit):
 
             allowed(verb)
 
-            opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query) as subr:
                 if self.n2:
                     async for subn, subp in subr.execute():
                         if subn.form.isrunt:
