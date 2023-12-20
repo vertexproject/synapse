@@ -660,7 +660,7 @@ class AhaCell(s_cell.Cell):
             return poolinfo
 
         mesg = f'There is no AHA service pool named {name}.'
-        raise s_exc.NoSuchName(mesg=mesg)
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
 
     async def addAhaPool(self, name, info):
 
