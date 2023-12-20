@@ -2384,7 +2384,7 @@ class Layer(s_nexus.Pusher):
         self.dirty.clear()
 
     def getStorNodeCount(self):
-        info = self.layrslab.stat(db=self.bybuidv3)
+        info = self.layrslab.stat(db=self.bynid)
         return info.get('entries', 0)
 
     async def getStorNode(self, nid):
