@@ -72,7 +72,7 @@ _svcPoolSchema = {
         }}},
     },
     'additionalProperties': False,
-    'required': ['name', 'creator', 'created', 'services'],
+    'userrequired': ['name', 'creator', 'created', 'services'],
 }
 reqValidPoolInfo = s_config.getJsValidator(_svcPoolSchema)
 
@@ -648,6 +648,9 @@ class AhaCell(s_cell.Cell):
         # the modern version of names is absolute or ...
         if name.endswith('...'):
             netw = self.conf.get('aha:network')
+            if netw is None: # pragma: no cover
+                mesg = 'AHA Server requires aha:network configuration.'
+                raise s_exc.NeedConfValu(mesg=mesg)
             name = name[:-2] + netw
         return name
 
@@ -707,20 +710,9 @@ class AhaCell(s_cell.Cell):
     async def addAhaPoolSvc(self, poolname, svcname, info):
         info['created'] = s_common.now()
         info.setdefault('creator', self.getDmonUser())
-        return await self._addAhaPoolSvc(poolname, svcname, info)
+        return await self._push('aha:pool;:svc:add', poolname, svcname, info)
 
-    @s_nexus.Pusher.onPush('aha:pool:del')
-    async def delAhaPool(self, name):
-        name = self._getAhaName(name)
-        byts = self.slab.pop(name.encode(), db='aha:pools')
-
-        for wind in self.poolwindows.get(name, ()):
-            await wind.fini()
-
-        if byts is not None:
-            return s_msgpack.un(byts)
-
-    @s_nexus.Pusher.onPushAuto('aha:pool:svc:add')
+    @s_nexus.Pusher.onPush('aha:pool:svc:add')
     async def _addAhaPoolSvc(self, poolname, svcname, info):
 
         svcname = self._getAhaName(svcname)
@@ -737,6 +729,17 @@ class AhaCell(s_cell.Cell):
             await wind.put(('svc:add', svcitem))
 
         return poolinfo
+
+    @s_nexus.Pusher.onPushAuto('aha:pool:del')
+    async def delAhaPool(self, name):
+        name = self._getAhaName(name)
+        byts = self.slab.pop(name.encode(), db='aha:pools')
+
+        for wind in self.poolwindows.get(name, ()):
+            await wind.fini()
+
+        if byts is not None:
+            return s_msgpack.un(byts)
 
     @s_nexus.Pusher.onPushAuto('aha:pool:svc:del')
     async def delAhaPoolSvc(self, poolname, svcname):
