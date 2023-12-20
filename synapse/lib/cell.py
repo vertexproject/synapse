@@ -1795,7 +1795,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     await func()
                 except Exception:  # pragma no cover
                     logger.exception(f'activeCoro Error: {func}')
-                    await asyncio.sleep(1)
+                    await self.waitfini(1)
 
         cdef['task'] = self.schedCoro(wrap())
 

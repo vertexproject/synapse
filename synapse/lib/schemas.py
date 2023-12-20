@@ -180,7 +180,7 @@ reqValidMerge = s_config.getJsValidator({
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'created': {'type': 'number'},
+        'created': {'type': 'number', 'minval': 0},
         'comment': {'type': 'string'},
     },
     'required': ['iden', 'creator', 'created'],
@@ -191,8 +191,8 @@ reqValidVote = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'offset': {'type': 'number'},
-        'created': {'type': 'number'},
+        'offset': {'type': 'number', 'minval': 0},
+        'created': {'type': 'number', 'minval': 0},
         'approved': {'type': 'boolean'},
         'comment': {'type': 'string'},
     },
