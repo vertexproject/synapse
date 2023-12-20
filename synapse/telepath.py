@@ -987,7 +987,6 @@ class Pool(s_base.Base):
     '''
     async def __anit__(self, aha, ahasvc, urlinfo):
         await s_base.Base.__anit__(self)
-        self.avail = 0
         self.clients = {}
         self.proxies = set()
 

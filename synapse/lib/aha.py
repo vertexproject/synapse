@@ -638,9 +638,6 @@ class AhaCell(s_cell.Cell):
         return name
 
     async def getAhaPool(self, name):
-        return self._getAhaPool(name)
-
-    def _getAhaPool(self, name):
         name = self._getAhaName(name)
         byts = self.slab.get(name.encode(), db='aha:pools')
         if byts is not None:
@@ -817,7 +814,7 @@ class AhaCell(s_cell.Cell):
 
             return svcentry
 
-        pooldef = self._getAhaPool(name)
+        pooldef = await self.getAhaPool(name)
         if pooldef is not None:
 
             # in case the caller is not pool aware, merge a service entry and the pool def
