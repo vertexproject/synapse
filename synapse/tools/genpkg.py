@@ -158,13 +158,9 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     for mod in pkgdef.get('modules', ()):
 
-        name = mod.get('name')
+        name = f'{mod.get("name")}.storm'
 
-        basename = name
-        if genopts.get('dotstorm', False):
-            basename = f'{basename}.storm'
-
-        mod_path = s_common.genpath(protodir, 'storm', 'modules', basename)
+        mod_path = s_common.genpath(protodir, 'storm', 'modules', name)
         if readonly:
             mod['storm'] = getStormStr(mod_path)
         else:
@@ -189,13 +185,10 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     pkgdef.pop('external_modules', None)
 
     for cmd in pkgdef.get('commands', ()):
-        name = cmd.get('name')
 
-        basename = name
-        if genopts.get('dotstorm'):
-            basename = f'{basename}.storm'
+        name = f'{cmd.get("name")}.storm'
 
-        cmd_path = s_common.genpath(protodir, 'storm', 'commands', basename)
+        cmd_path = s_common.genpath(protodir, 'storm', 'commands', name)
         if readonly:
             cmd['storm'] = getStormStr(cmd_path)
         else:
