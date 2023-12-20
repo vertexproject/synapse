@@ -3,6 +3,7 @@ import copy
 import regex
 import asyncio
 import logging
+import textwrap
 import contextlib
 import collections
 
@@ -56,6 +57,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
 import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
+import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
 import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
@@ -78,6 +80,7 @@ import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.stats as s_stormlib_stats  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
+import synapse.lib.stormlib.vault as s_stormlib_vault  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
 import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
@@ -143,7 +146,7 @@ reqValidStormMacro = s_config.getJsValidator({
         'storm': {'type': 'string'},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
-        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
+        'permissions': s_msgpack.deepcopy(s_schemas.easyPermSchema),
     },
     'required': [
         'name',
@@ -220,11 +223,6 @@ class CoreApi(s_cell.CellApi):
     def getCoreMods(self):
         return self.cell.getCoreMods()
 
-    def stat(self):
-        self.user.confirm(('status',))
-        s_common.deprdate('Cortex.stat() telepath API', s_common._splicedepr)
-        return self.cell.stat()
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -289,227 +287,10 @@ class CoreApi(s_cell.CellApi):
         opts = self._reqValidStormOpts(opts)
         return await self.cell.feedFromAxon(sha256, opts=opts)
 
-    async def addCronJob(self, cdef):
-        '''
-        This API is deprecated.
-
-        Add a cron job to the cortex
-
-        A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
-        for the times that the queries run can be one-shot or recurring.
-
-        Args:
-            query (str):  The storm query to execute in the future
-            reqs (Union[Dict[str, Union[int, List[int]]], List[Dict[...]]]):
-                Either a dict of the fixed time fields or a list of such dicts.  The keys are in the set ('year',
-                'month', 'dayofmonth', 'dayofweek', 'hour', 'minute'.  The values must be positive integers, except for
-                the key of 'dayofmonth' in which it may also be a negative integer which represents the number of days
-                from the end of the month with -1 representing the last day of the month.  All values may also be lists
-                of valid values.
-            incunit (Optional[str]):
-                A member of the same set as above, with an additional member 'day'.  If is None (default), then the
-                appointment is one-shot and will not recur.
-            incvals (Union[int, List[int]):
-                A integer or a list of integers of the number of units
-
-        Returns (bytes):
-            An iden that can be used to later modify, query, and delete the job.
-
-        Notes:
-            reqs must have fields present or incunit must not be None (or both)
-            The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
-        '''
-        cdef['creator'] = self.user.iden
-
-        s_common.deprdate('Cortex.addCronJob() telepath API', s_common._splicedepr)
-        self.user.confirm(('cron', 'add'), gateiden='cortex')
-        return await self.cell.addCronJob(cdef)
-
-    async def delCronJob(self, iden):
-        '''
-        This API is deprecated.
-
-        Delete a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be deleted
-        '''
-        s_common.deprdate('Cortex.delCronJob() telepath API', s_common._splicedepr)
-        self.user.confirm(('cron', 'del'), gateiden=iden)
-        await self.cell.delCronJob(iden)
-
-    async def updateCronJob(self, iden, query):
-        '''
-        This API is deprecated.
-
-        Change an existing cron job's query
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        s_common.deprdate('Cortex.updateCronJob() telepath API', s_common._splicedepr)
-        self.user.confirm(('cron', 'set'), gateiden=iden)
-        await self.cell.updateCronJob(iden, query)
-
-    async def enableCronJob(self, iden):
-        '''
-        This API is deprecated.
-
-        Enable a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        s_common.deprdate('Cortex.enableCronJob() telepath API', s_common._splicedepr)
-        self.user.confirm(('cron', 'set'), gateiden=iden)
-        await self.cell.enableCronJob(iden)
-
-    async def disableCronJob(self, iden):
-        '''
-        This API is deprecated.
-
-        Enable a cron job
-
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        s_common.deprdate('Cortex.disableCronJob() telepath API', s_common._splicedepr)
-        self.user.confirm(('cron', 'set'), gateiden=iden)
-        await self.cell.disableCronJob(iden)
-
-    async def listCronJobs(self):
-        '''
-        This API is deprecated.
-
-        Get information about all the cron jobs accessible to the current user
-        '''
-        s_common.deprdate('Cortex.listCronJobs() telepath API', s_common._splicedepr)
-
-        crons = []
-        for cron in await self.cell.listCronJobs():
-
-            if not self.user.allowed(('cron', 'get'), gateiden=cron.get('iden')):
-                continue
-
-            crons.append(cron)
-
-        return crons
-
-    async def editCronJob(self, iden, name, valu):
-        '''
-        Update a value in a cron definition.
-        '''
-        iden = str(iden)
-        name = str(name)
-
-        s_common.deprdate('Cortex.editCronJob() telepath API', s_common._splicedepr)
-
-        if name == 'creator':
-            # this permission must be granted cortex wide
-            # to prevent abuse...
-            self.user.confirm(('cron', 'set', 'creator'))
-
-        else:
-            self.user.confirm(('cron', 'set', name), gateiden=iden)
-
-        return await self.cell.editCronJob(iden, name, valu)
-
-    async def setStormCmd(self, cdef):
-        '''
-        Set the definition of a pure storm command in the cortex.
-        '''
-        s_common.deprdate('Cortex.setStormCmd() telepath API', s_common._splicedepr)
-        self.user.confirm(('admin', 'cmds'))
-        return await self.cell.setStormCmd(cdef)
-
-    async def delStormCmd(self, name):
-        '''
-        Remove a pure storm command from the cortex.
-        '''
-        s_common.deprdate('Cortex.delStormCmd() telepath API', s_common._splicedepr)
-        self.user.confirm(('admin', 'cmds'))
-        return await self.cell.delStormCmd(name)
-
     async def _reqDefLayerAllowed(self, perms):
         view = self.cell.getView()
         wlyr = view.layers[0]
         self.user.confirm(perms, gateiden=wlyr.iden)
-
-    async def addNodeTag(self, iden, tag, valu=(None, None)):
-        '''
-        This API is deprecated.
-
-        Add a tag to a node specified by iden.
-
-        Args:
-            iden (str): A hex encoded node BUID.
-            tag (str):  A tag string.
-            valu (tuple):  A time interval tuple or (None, None).
-        '''
-        s_common.deprdate('Cortex.addNodeTag() telepath API', s_common._splicedepr)
-        await self._reqDefLayerAllowed(('node', 'tag', 'add', *tag.split('.')))
-        return await self.cell.addNodeTag(self.user, iden, tag, valu)
-
-    async def delNodeTag(self, iden, tag):
-        '''
-        This API is deprecated.
-
-        Delete a tag from the node specified by iden. Deprecated in 2.0.0.
-
-        Args:
-            iden (str): A hex encoded node BUID.
-            tag (str):  A tag string.
-        '''
-        s_common.deprdate('Cortex.delNodeTag() telepath API', s_common._splicedepr)
-        await self._reqDefLayerAllowed(('node', 'tag', 'del', *tag.split('.')))
-        return await self.cell.delNodeTag(self.user, iden, tag)
-
-    async def setNodeProp(self, iden, name, valu):
-        '''
-        This API is deprecated.
-
-        Set a property on a single node.
-        '''
-        s_common.deprdate('Cortex.setNodeProp() telepath API', s_common._splicedepr)
-        buid = s_common.uhex(iden)
-
-        async with await self.cell.snap(user=self.user) as snap:
-
-            with s_provenance.claim('coreapi', meth='prop:set', user=snap.user.iden):
-
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                prop = node.form.props.get(name)
-                self.user.confirm(('node', 'prop', 'set', prop.full), gateiden=snap.wlyr.iden)
-
-                await node.set(name, valu)
-                return node.pack()
-
-    async def delNodeProp(self, iden, name):
-        '''
-        This API is deprecated.
-
-        Delete a property from a single node.
-        '''
-        s_common.deprdate('Cortex.delNodeProp() telepath API', s_common._splicedepr)
-        buid = s_common.uhex(iden)
-
-        async with await self.cell.snap(user=self.user) as snap:
-
-            with s_provenance.claim('coreapi', meth='prop:del', user=snap.user.iden):
-
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                prop = node.form.props.get(name)
-
-                self.user.confirm(('node', 'prop', 'del', prop.full), gateiden=snap.wlyr.iden)
-
-                await node.pop(name)
-                return node.pack()
 
     async def addNode(self, form, valu, props=None):
         '''
@@ -611,18 +392,6 @@ class CoreApi(s_cell.CellApi):
         opts = self._reqValidStormOpts(opts)
         return await self.cell.count(text, opts=opts)
 
-    async def eval(self, text, opts=None):
-        '''
-        This API is deprecated.
-
-        Evaluate a storm query and yield packed nodes.
-        '''
-        s_common.deprdate('Cortex.eval() telepath API', s_common._splicedepr)
-        opts = self._reqValidStormOpts(opts)
-        view = self.cell._viewFromOpts(opts)
-        async for pode in view.iterStormPodes(text, opts=opts):
-            yield pode
-
     async def storm(self, text, opts=None):
         '''
         Evaluate a storm query and yield result messages.
@@ -651,26 +420,6 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.reqValidStorm(text, opts)
 
-    async def watch(self, wdef):
-        '''
-        This API is deprecated.
-
-        Hook cortex/view/layer watch points based on a specified watch definition.
-
-        Example:
-
-            wdef = { 'tags': [ 'foo.bar', 'baz.*' ] }
-
-            async for mesg in core.watch(wdef):
-                dostuff(mesg)
-        '''
-        s_common.deprdate('Cortex.watch() telepath API', s_common._splicedepr)
-        iden = wdef.get('view', self.cell.view.iden)
-        self.user.confirm(('watch',), gateiden=iden)
-
-        async for mesg in self.cell.watch(wdef):
-            yield mesg
-
     async def syncLayerNodeEdits(self, offs, layriden=None, wait=True):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
@@ -687,49 +436,6 @@ class CoreApi(s_cell.CellApi):
 
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
-
-    @s_cell.adminapi()
-    async def splices(self, offs=None, size=None, layriden=None):
-        '''
-        This API is deprecated.
-
-        Return the list of splices at the given offset.
-        '''
-        s_common.deprdate('Cortex.splices() telepath API', s_common._splicedepr)
-        layr = self.cell.getLayer(layriden)
-        count = 0
-        async for mesg in layr.splices(offs=offs, size=size):
-            count += 1
-            if not count % 1000:
-                await asyncio.sleep(0)
-            yield mesg
-
-    @s_cell.adminapi()
-    async def splicesBack(self, offs=None, size=None):
-        '''
-        This API is deprecated.
-
-        Return the list of splices backwards from the given offset.
-        '''
-        s_common.deprdate('Cortex.splicesBack() telepath API', s_common._splicedepr)
-        count = 0
-        async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
-            count += 1
-            if not count % 1000:  # pragma: no cover
-                await asyncio.sleep(0)
-            yield mesg
-
-    async def spliceHistory(self):
-        '''
-        This API is deprecated.
-
-        Yield splices backwards from the end of the splice log.
-
-        Will only return the user's own splices unless they are an admin.
-        '''
-        s_common.deprdate('Cortex.spliceHistory() telepath API', s_common._splicedepr)
-        async for splice in self.cell.spliceHistory(self.user):
-            yield splice
 
     async def getPropNorm(self, prop, valu):
         '''
@@ -1180,12 +886,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
                              mesg='cortex version in storage is incompatible with running software')
 
+        self.viewmeta = self.slab.initdb('view:meta')
+
         self.views = {}
         self.layers = {}
         self.viewsbylayer = collections.defaultdict(list)
 
         self.modules = {}
-        self.splicers = {}
         self.feedfuncs = {}
         self.stormcmds = {}
 
@@ -1239,7 +946,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self._onCoreFini)
 
         await self._initCoreHive()
-        self._initSplicers()
         self._initStormLibs()
         self._initFeedFuncs()
 
@@ -1309,6 +1015,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+        self._initVaults()
 
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
@@ -1721,17 +1429,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
+
         for view in self.views.values():
             await view.initTrigTask()
+            await view.initMergeTask()
 
         for layer in self.layers.values():
             await layer.initLayerActive()
 
     async def initServicePassive(self):
+
         await self.agenda.stop()
         await self.stormdmons.stop()
+
         for view in self.views.values():
             await view.finiTrigTask()
+            await view.finiMergeTask()
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
@@ -2219,17 +1932,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await appt.setDoc(valu, nexs=True)
+            await self.editCronJob(iden, 'doc', valu)
             node.props[prop.name] = valu
 
         async def onSetCronName(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await appt.setName(valu, nexs=True)
+            await self.editCronJob(iden, 'name', valu)
             node.props[prop.name] = valu
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
@@ -3299,45 +3010,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
-    @contextlib.asynccontextmanager
-    async def watcher(self, wdef):
-
-        iden = wdef.get('view', self.view.iden)
-
-        view = self.views.get(iden)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
-
-        async with await s_queue.Window.anit(maxsize=10000) as wind:
-
-            tags = wdef.get('tags')
-            if tags is not None:
-
-                tglobs = s_cache.TagGlobs()
-                [tglobs.add(t, True) for t in tags]
-
-                async def ontag(mesg):
-                    name = mesg[1].get('tag')
-                    if not tglobs.get(name):
-                        return
-
-                    await wind.put(mesg)
-
-                for layr in self.view.layers:
-                    layr.on('tag:add', ontag, base=wind)
-                    layr.on('tag:del', ontag, base=wind)
-
-            yield wind
-
-    async def watch(self, wdef):
-        '''
-        Hook cortex/view/layer watch points based on a specified watch definition.
-        ( see CoreApi.watch() docs for details )
-        '''
-        async with self.watcher(wdef) as wind:
-            async for mesg in wind:
-                yield mesg
-
     async def getExtModel(self):
         '''
         Get all extended model properties in the Cortex.
@@ -3967,23 +3639,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         await self.waitfini(1)
 
-    async def spliceHistory(self, user):
-        '''
-        Yield splices backwards from the end of the nodeedit log.
-
-        Will only return user's own splices unless they are an admin.
-        '''
-        layr = self.view.layers[0]
-
-        count = 0
-        async for _, mesg in layr.splicesBack():
-            count += 1
-            if not count % 1000:  # pragma: no cover
-                await asyncio.sleep(0)
-
-            if user.iden == mesg[1]['user'] or user.isAdmin():
-                yield mesg
-
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvarsnode.dict()
@@ -4161,7 +3816,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
-        self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.BatchCmd)
         self.addStormCmd(s_storm.CountCmd)
@@ -4184,8 +3838,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.IntersectCmd)
         self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
-        self.addStormCmd(s_storm.SpliceListCmd)
-        self.addStormCmd(s_storm.SpliceUndoCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
 
@@ -4211,6 +3863,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_stormlib_cortex.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_vault.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
@@ -4248,29 +3903,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if path:
                 self.addStormLib(path, ctor)
 
-    def _initSplicers(self):
-        '''
-        Registration for splice handlers.
-        '''
-        splicers = {
-            'tag:add': self._onFeedTagAdd,
-            'tag:del': self._onFeedTagDel,
-            'node:add': self._onFeedNodeAdd,
-            'node:del': self._onFeedNodeDel,
-            'prop:set': self._onFeedPropSet,
-            'prop:del': self._onFeedPropDel,
-            'tag:prop:set': self._onFeedTagPropSet,
-            'tag:prop:del': self._onFeedTagPropDel,
-        }
-        self.splicers.update(**splicers)
-
     def _initFeedFuncs(self):
         '''
         Registration for built-in Cortex feed functions.
         '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
-        self.setFeedFunc('syn.splice', self._addSynSplice)
-        self.setFeedFunc('syn.nodeedits', self._addSynNodeEdits)
 
     def _initCortexHttpApi(self):
         '''
@@ -4278,7 +3915,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.addHttpApi('/api/v1/feed', s_httpapi.FeedV1, {'cell': self})
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
-        self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
@@ -4706,7 +4342,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
-        s_view.reqValidVdef(vdef)
+        s_schemas.reqValidView(vdef)
 
         if nexs:
             return await self._push('view:add', vdef)
@@ -4716,7 +4352,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
 
-        s_view.reqValidVdef(vdef)
+        s_schemas.reqValidView(vdef)
 
         iden = vdef['iden']
         if iden in self.views:
@@ -5487,117 +5123,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for node in snap.addNodes(items):
             pass
 
-    async def _addSynSplice(self, snap, items):
-        s_common.deprdate('Cortex.addFeedData(syn.splice, ...) API', s_common._splicedepr)
-
-        for item in items:
-            func = self.splicers.get(item[0])
-
-            if func is None:
-                await snap.warn(f'no such splice: {item!r}')
-                continue
-
-            try:
-                await func(snap, item)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception as e:
-                logger.exception('splice error')
-                await snap.warn(f'splice error: {e}')
-
-    async def _onFeedNodeAdd(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-
-        if ndef is None:
-            await snap.warn(f'Invalid Splice: {mesg!r}')
-            return
-
-        await snap.addNode(*ndef)
-
-    async def _onFeedNodeDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.delete()
-
-    async def _onFeedPropSet(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        name = mesg[1].get('prop')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.set(name, valu)
-
-    async def _onFeedPropDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        name = mesg[1].get('prop')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.pop(name)
-
-    async def _onFeedTagAdd(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        tag = mesg[1].get('tag')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.addTag(tag, valu=valu)
-
-    async def _onFeedTagDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        tag = mesg[1].get('tag')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.delTag(tag)
-
-    async def _onFeedTagPropSet(self, snap, mesg):
-
-        tag = mesg[1].get('tag')
-        prop = mesg[1].get('prop')
-        ndef = mesg[1].get('ndef')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is not None:
-            await node.setTagProp(tag, prop, valu)
-
-    async def _onFeedTagPropDel(self, snap, mesg):
-
-        tag = mesg[1].get('tag')
-        prop = mesg[1].get('prop')
-        ndef = mesg[1].get('ndef')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is not None:
-            await node.delTagProp(tag, prop)
-
-    async def _addSynNodeEdits(self, snap, items):
-        s_common.deprdate('Cortex.addFeedData(syn.nodeedits, ...) API', s_common._splicedepr)
-        for item in items:
-            item = s_common.unjsonsafe_nodeedits(item)
-            await snap.saveNodeEdits(item, None)
-
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)
         await self._bumpUserDmons(iden)
@@ -5787,18 +5312,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self._viewFromOpts(opts)
         return await view.nodes(text, opts=opts)
-
-    async def eval(self, text, opts=None):
-        '''
-        This API is deprecated.
-
-        Evaluate a storm query and yield packed nodes.
-        '''
-        s_common.deprdate('Cortex.eval() API', s_common._splicedepr)
-        opts = self._initStormOpts(opts)
-        view = self._viewFromOpts(opts)
-        async for node in view.eval(text, opts=opts):
-            yield node
 
     async def stormlist(self, text, opts=None):
         return [m async for m in self.storm(text, opts=opts)]
@@ -6096,14 +5609,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.exception('mod load fail: %s' % (ctor,))
             return None
 
-    async def stat(self):
-        stats = {
-            'iden': self.iden,
-            'layer': await self.getLayer().stat(),
-            'formcounts': await self.getFormCounts(),
-        }
-        return stats
-
     async def getPropNorm(self, prop, valu):
         '''
         Get the normalized property value based on the Cortex data model.
@@ -6181,7 +5686,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
             Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
-        s_agenda.reqValidCdef(cdef)
+        s_schemas.reqValidCronDef(cdef)
 
         iden = cdef.get('iden')
         appt = self.agenda.appts.get(iden)
@@ -6337,26 +5842,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if name == 'creator':
             await self.auth.reqUser(valu)
             appt.creator = valu
-            await appt._save()
 
-            cdef = appt.pack()
-            await self.feedBeholder('cron:edit:creator', {'iden': iden, 'creator': cdef.get('creator')}, gates=[iden])
-            return cdef
+        elif name == 'name':
+            appt.name = str(valu)
 
-        if name == 'name':
-            await appt.setName(str(valu))
-            pckd = appt.pack()
-            await self.feedBeholder('cron:edit:name', {'iden': iden, 'name': pckd.get('name')}, gates=[iden])
-            return pckd
+        elif name == 'doc':
+            appt.doc = str(valu)
 
-        if name == 'doc':
-            await appt.setDoc(str(valu))
-            pckd = appt.pack()
-            await self.feedBeholder('cron:edit:doc', {'iden': iden, 'doc': pckd.get('doc')}, gates=[iden])
-            return pckd
+        else:
+            mesg = f'editCronJob name {name} is not supported for editing.'
+            raise s_exc.BadArg(mesg=mesg)
 
-        mesg = f'editCronJob name {name} is not supported for editing.'
-        raise s_exc.BadArg(mesg=mesg)
+        await appt.save()
+
+        pckd = appt.pack()
+        await self.feedBeholder(f'cron:edit:{name}', {'iden': iden, name: pckd.get(name)}, gates=[iden])
+        return pckd
+
+    @s_nexus.Pusher.onPushAuto('cron:edits')
+    async def addCronEdits(self, iden, edits):
+        '''
+        Take a dictionary of edits and apply them to the appointment (cron job)
+        '''
+        appt = await self.agenda.get(iden)
+        await appt.edits(edits)
 
     @contextlib.asynccontextmanager
     async def enterMigrationMode(self):
@@ -6489,6 +5998,598 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
             yield item
+
+    def _initVaults(self):
+        self.vaultsdb = self.slab.initdb('vaults')
+        # { idenb: s_msgpack.en(vault), ... }
+
+        self.vaultsbynamedb = self.slab.initdb('vaults:byname')
+        # { name.encode(): idenb, ... }
+
+        # TSI = type, scope, iden. This is used to deconflict uniqueness of
+        # scoped vaults without requiring a bunch of other indexes.
+        self.vaultsbyTSIdb = self.slab.initdb('vaults:byTSI')
+        # { TSI.encode(): idenb, ... }
+
+    def _getVaults(self):
+        '''
+        Slab helper function for getting all vaults.
+        '''
+        genr = self.slab.scanByFull(db=self.vaultsdb)
+        for idenb, byts in genr:
+            vault = s_msgpack.un(byts)
+            yield vault
+
+    def _getVaultByBidn(self, bidn):
+        '''
+        Slab helper function for getting a vault by iden (bytes).
+        '''
+        byts = self.slab.get(bidn, db=self.vaultsdb)
+        if byts is None:
+            return None
+
+        vault = s_msgpack.un(byts)
+
+        return vault
+
+    def _getVaultByTSI(self, vtype, scope, iden):
+        '''
+        Slab helper function for getting a vault by type,scope,iden.
+        '''
+        if scope == 'global':
+            tsi = f'{vtype}:global'
+        elif scope in ('user', 'role'):
+            tsi = f'{vtype}:{scope}:{iden}'
+        else:
+            raise s_exc.BadArg(mesg=f'Invalid scope: {scope}.')
+
+        bidn = self.slab.get(tsi.encode(), db=self.vaultsbyTSIdb)
+        if bidn is None:
+            return None
+
+        return self._getVaultByBidn(bidn)
+
+    def getVault(self, iden):
+        '''
+        Get a vault.
+
+        Args:
+            iden (str): Iden of the vault to get.
+
+        Returns: vault or None
+        '''
+        if not s_common.isguid(iden):
+            return None
+
+        bidn = s_common.uhex(iden)
+        return self._getVaultByBidn(bidn)
+
+    def getVaultByName(self, name):
+        '''
+        Get a vault by name.
+
+        Args:
+            name (str): Name of the vault to get.
+
+        Returns: vault or None
+        '''
+        bidn = self.slab.get(name.encode(), db=self.vaultsbynamedb)
+        if bidn is None:
+            return None
+        return self._getVaultByBidn(bidn)
+
+    def getVaultByType(self, vtype, useriden, scope=None):
+        '''
+        Get a vault of type `vtype` and scope `scope` for user with `iden`.
+
+        This function allows the caller to retrieve a vault of the specified
+        `vtype` by searching for the first available vault that matches the
+        `vtype` and `scope` criteria. The search order for opening vaults is as
+        follows:
+            - If `scope` is specified, return the vault with `vtype` and `scope`.
+              Return None if such a vault doesn't exist.
+            - Check 'user' scope for a vault of `vtype`. Continue if non-existent.
+            - Check 'role' scope for a vault of `vtype`. Continue if non-existent.
+            - Check 'global' scope for a vault of `vtype`. Continue if non-existent.
+            - Return None
+
+        Args:
+            vtype (str): Type of the vault to open.
+            useriden (str): Iden of user trying to open the vault.
+            scope (str|None): The vault scope to open.
+
+        Raises:
+            synapse.exc.BadArg: Invalid scope specified.
+
+        Returns: vault or None if matching vault could not be found.
+        '''
+        if scope not in (None, 'user', 'role', 'global'):
+            raise s_exc.BadArg(mesg=f'Invalid scope: {scope}.')
+
+        def _getVault(_scope):
+            vault = None
+            if _scope == 'user':
+                vault = self._getVaultByTSI(vtype, _scope, useriden)
+
+            elif _scope == 'role':
+                user = self.auth.user(useriden)
+                if user is None:
+                    mesg = f'No user with iden {useriden}.'
+                    raise s_exc.NoSuchUser(mesg=mesg, user=useriden)
+
+                for role in user.getRoles():
+                    vault = self._getVaultByTSI(vtype, _scope, role.iden)
+                    if vault:
+                        if not self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                            vault = None
+                            continue
+
+                        break
+
+            elif _scope == 'global':
+                vault = self._getVaultByTSI(vtype, _scope, None)
+
+            return vault
+
+        # If caller specified a scope, return that vault if it exists
+        if scope is not None:
+            return _getVault(scope)
+
+        # Finally, try the user, role, and global vaults in order
+        for _scope in ('user', 'role', 'global'):
+            vault = _getVault(_scope)
+            if vault:
+                return vault
+
+        return None
+
+    def reqVault(self, iden):
+        '''
+        Get a vault by iden.
+
+        Args:
+            iden (str): Iden of the vault to get.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` not found.
+
+        Returns: vault
+        '''
+        if not s_common.isguid(iden):
+            raise s_exc.BadArg(mesg=f'Iden is not a valid iden: {iden}.')
+
+        vault = self.getVault(iden)
+        if vault is None:
+            raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.')
+
+        return vault
+
+    def reqVaultByName(self, name):
+        '''
+        Get a vault by name.
+
+        Args:
+            name (str): Name of the vault to get.
+
+        Raises:
+            synapse.exc.NoSuchName: Vault with `name` not found.
+
+        Returns: vault
+        '''
+        vault = self.getVaultByName(name)
+        if vault is None:
+            raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}.')
+
+        return vault
+
+    def reqVaultByType(self, vtype, iden, scope=None):
+        '''
+        Get a vault by type.
+
+        Args:
+            vtype (str): Type of the vault to get.
+            iden (str): Iden of the user or role for the vault type.
+            scope (str|None): Scope of the vault to get.
+
+        Raises:
+            synapse.exc.NoSuchName: Vault with `vtype`/`iden`/`scope` not found.
+
+        Returns: vault
+        '''
+        vault = self.getVaultByType(vtype, iden, scope)
+        if vault is None:
+            raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.')
+
+        return vault
+
+    async def addVault(self, vdef):
+        '''
+        Create a new vault.
+
+        Args:
+            vdef (dict): The vault to add.
+
+        Raises:
+            synapse.exc.SchemaViolation: `vdef` does not conform to the vault schema.
+            synapse.exc.DupName:
+                - Vault already exists for type/scope/owner.
+                - Vault already exists with specified name.
+            synapse.exc.BadArg:
+                - Invalid vault definition provided.
+                - Owner required for unscoped, user, and role vaults.
+                - Vault secrets is not msgpack safe.
+                - Vault configs is not msgpack safe.
+
+        Returns: iden of new vault
+        '''
+        if not isinstance(vdef, dict):
+            raise s_exc.BadArg(mesg='Invalid vault definition provided.')
+
+        # Set some standard properties on the vdef before validating
+        vdef['iden'] = s_common.guid()
+
+        if 'permissions' in vdef:
+            vdef.pop('permissions')
+
+        self._initEasyPerm(vdef, default=s_cell.PERM_DENY)
+
+        vault = s_schemas.reqValidVault(vdef)
+
+        scope = vault.get('scope')
+        vtype = vault.get('type')
+        owner = vault.get('owner')
+        name = vault.get('name')
+
+        if owner is None and scope != 'global':
+            raise s_exc.BadArg(mesg='Owner required for unscoped, user, and role vaults.')
+
+        # Make sure the type/scope/owner combination is unique. Not for unscoped vaults
+        if scope is not None and self._getVaultByTSI(vtype, scope, owner) is not None:
+            raise s_exc.DupName(mesg=f'Vault already exists for type {vtype}, scope {scope}, owner {owner}.')
+
+        # Make sure the requested name is unique
+        if self.getVaultByName(name) is not None:
+            raise s_exc.DupName(mesg=f'Vault {name} already exists.')
+
+        secrets = vault.get('secrets')
+        configs = vault.get('configs')
+
+        try:
+            s_msgpack.en(secrets)
+        except s_exc.NotMsgpackSafe as exc:
+            raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
+
+        try:
+            s_msgpack.en(configs)
+        except s_exc.NotMsgpackSafe as exc:
+            raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
+
+        if scope == 'global':
+            # everyone gets read access
+            await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_READ)
+
+        elif scope == 'user':
+            user = self.auth.user(owner)
+            if user is None:
+                raise s_exc.NoSuchUser(mesg=f'User with iden {owner} not found.')
+
+            # The user is the admin, everyone else no access
+            await self._setEasyPerm(vault, 'users', owner, s_cell.PERM_ADMIN)
+
+        elif scope == 'role':
+            role = self.auth.role(owner)
+            if role is None:
+                raise s_exc.NoSuchRole(mesg=f'Role with iden {owner} not found.')
+
+            # role members gets read access
+            await self._setEasyPerm(vault, 'roles', owner, s_cell.PERM_READ)
+
+        else:
+            # Unscoped vaults
+
+            # The creator gets admin, everyone else no access
+            await self._setEasyPerm(vault, 'users', owner, s_cell.PERM_ADMIN)
+
+        return await self._push('vault:add', vault)
+
+    @s_nexus.Pusher.onPush('vault:add')
+    async def _addVault(self, vault):
+        iden = vault.get('iden')
+        name = vault.get('name')
+        scope = vault.get('scope')
+
+        bidn = s_common.uhex(iden)
+
+        if scope is not None:
+            vtype = vault.get('type')
+            owner = vault.get('owner')
+
+            if scope == 'global':
+                tsi = f'{vtype}:global'
+            else:
+                tsi = f'{vtype}:{scope}:{owner}'
+
+            self.slab.put(tsi.encode(), bidn, db=self.vaultsbyTSIdb)
+
+        self.slab.put(name.encode(), bidn, db=self.vaultsbynamedb)
+        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        return iden
+
+    async def setVaultSecrets(self, iden, key, valu):
+        '''
+        Set vault secret item.
+
+        This function sets the `key`:`valu` into the vault secrets.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            key (str): Vault secret key.
+            valu (str): Vault secret value. s_common.novalu to delete a key.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: One of `key` or `valu` is not msgpack safe.
+
+        Returns: Updated vault.
+        '''
+        vault = self.reqVault(iden)
+
+        secrets = vault.get('secrets')
+
+        delete = False
+
+        if valu is s_common.novalu:
+            if key not in secrets:
+                raise s_exc.BadArg(mesg=f'Key {key} not found in vault secrets.')
+
+            valu = None
+            delete = True
+
+        else:
+            try:
+                s_msgpack.en({key: valu})
+            except s_exc.NotMsgpackSafe as exc:
+                raise s_exc.NotMsgpackSafe(mesg=f'Vault secrets must be msgpack safe.') from None
+
+        return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
+
+    async def setVaultConfigs(self, iden, key, valu):
+        '''
+        Set vault config item.
+
+        This function sets the `key`:`valu` into the vault configs.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            key (str): Vault secret key.
+            valu (str): Vault secret value. s_common.novalu to delete a key.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: One of `key` or `valu` is not msgpack safe.
+
+        Returns: Updated vault.
+        '''
+        vault = self.reqVault(iden)
+
+        configs = vault.get('configs')
+
+        delete = False
+
+        if valu is s_common.novalu:
+            if key not in configs:
+                raise s_exc.BadArg(mesg=f'Key {key} not found in vault configs.')
+
+            valu = None
+            delete = True
+
+        else:
+            try:
+                s_msgpack.en({key: valu})
+            except s_exc.NotMsgpackSafe as exc:
+                raise s_exc.NotMsgpackSafe(mesg=f'Vault configs must be msgpack safe.') from None
+
+        return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
+
+    @s_nexus.Pusher.onPush('vault:data:set')
+    async def _setVaultData(self, iden, obj, key, valu, delete):
+        vault = self.reqVault(iden)
+        data = vault.get(obj)
+
+        bidn = s_common.uhex(iden)
+
+        if delete:
+            if key in data:
+                data.pop(key)
+        else:
+            data[key] = valu
+
+        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        return data
+
+    async def replaceVaultConfigs(self, iden, valu):
+        '''
+        Replace the entire vault config.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            valu (str): New configs object to store on the vault.
+
+        Raises:
+            synapse.exc.BadArg: `valu` is not a dictionary.
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: `valu` is not msgpack safe.
+
+        Returns: New configs.
+        '''
+        vault = self.reqVault(iden)
+
+        if not isinstance(valu, dict):
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+
+        try:
+            s_msgpack.en(valu)
+        except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.NotMsgpackSafe(
+                mesg='Vault configs must be msgpack safe.',
+                name='valu',
+                valu=short) from None
+
+        return await self._push('vault:data:replace', iden, 'configs', valu)
+
+    async def replaceVaultSecrets(self, iden, valu):
+        '''
+        Replace the entire vault config.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            valu (str): New secrets object to store on the vault.
+
+        Raises:
+            synapse.exc.BadArg: `valu` is not a dictionary.
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.NotMsgpackSafe: `valu` is not msgpack safe.
+
+        Returns: New secrets.
+        '''
+        vault = self.reqVault(iden)
+
+        if not isinstance(valu, dict):
+            raise s_exc.BadArg(mesg='valu must be a dictionary.', name='valu', valu=valu)
+
+        try:
+            s_msgpack.en(valu)
+        except s_exc.NotMsgpackSafe:
+            short = textwrap.shorten(repr(valu), width=64)
+            raise s_exc.NotMsgpackSafe(
+                mesg='Vault secrets must be msgpack safe.',
+                name='valu',
+                valu=short) from None
+
+        return await self._push('vault:data:replace', iden, 'secrets', valu)
+
+    @s_nexus.Pusher.onPush('vault:data:replace')
+    async def _replaceVaultData(self, iden, obj, valu):
+        vault = self.reqVault(iden)
+        bidn = s_common.uhex(iden)
+
+        vault[obj] = valu
+
+        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        return valu
+
+    def listVaults(self):
+        '''
+        List all vaults.
+
+        Args: None
+
+        Raises: None
+
+        Yields: tuples of vault info: (<iden>, <name>, <type>, <scope>).
+        '''
+        for vault in self._getVaults():
+            yield vault
+
+    async def setVaultPerm(self, viden, iden, level):
+        '''
+        Set vault permissions.
+        Args:
+            viden (str): The iden of the vault to edit.
+            iden (str): Iden of the user/role to add permissions for.
+            level (int): Easy perms level.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+
+        Returns: Updated vault.
+        '''
+        vault = self.reqVault(viden)
+
+        scope = 'users'
+        ident = self.auth.user(iden)
+        if ident is None:
+            scope = 'roles'
+            ident = self.auth.role(iden)
+            if ident is None:
+                raise s_exc.NoSuchIden(mesg=f'Iden {iden} is not a valid user or role.')
+
+        await self._setEasyPerm(vault, scope, ident.iden, level)
+        permissions = vault.get('permissions')
+        return await self._push(('vault:set'), viden, 'permissions', permissions)
+
+    async def renameVault(self, iden, name):
+        '''
+        Rename a vault.
+
+        Args:
+            iden (str): Iden of the vault to rename.
+            name (str): New vault name.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.DupName: Vault with `name` already exists.
+
+        Returns: Updated vault.
+        '''
+        if self.getVaultByName(name) is not None:
+            raise s_exc.DupName(mesg=f'Vault with name {name} already exists.')
+
+        return await self._push(('vault:set'), iden, 'name', name)
+
+    @s_nexus.Pusher.onPush('vault:set')
+    async def _setVault(self, iden, key, valu):
+        if key not in ('name', 'permissions'):  # pragma: no cover
+            raise s_exc.BadArg('Only vault names and permissions can be changed.')
+
+        vault = self.reqVault(iden)
+        vault[key] = valu
+
+        s_schemas.reqValidVault(vault)
+
+        bidn = s_common.uhex(iden)
+
+        if key == 'name':
+            name = vault.get('name')
+            self.slab.delete(name.encode(), db=self.vaultsbynamedb)
+            self.slab.put(valu.encode(), bidn, db=self.vaultsbynamedb)
+
+        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        return vault
+
+    @s_nexus.Pusher.onPushAuto('vault:del')
+    async def delVault(self, iden):
+        '''
+        Delete a vault.
+
+        Args:
+            iden (str): Iden of the vault to delete.
+
+        Returns: None
+        '''
+        vault = self.getVault(iden)
+        if vault is None:
+            return
+
+        bidn = s_common.uhex(iden)
+
+        name = vault.get('name')
+        vtype = vault.get('type')
+        scope = vault.get('scope')
+
+        tsi = None
+        if scope == 'global':
+            tsi = f'{vtype}:global'
+        elif scope in ('user', 'role'):
+            owner = vault.get('owner')
+            tsi = f'{vtype}:{scope}:{owner}'
+
+        if tsi is not None:
+            self.slab.delete(tsi.encode(), db=self.vaultsbyTSIdb)
+
+        self.slab.delete(name.encode(), db=self.vaultsbynamedb)
+        self.slab.delete(bidn, db=self.vaultsdb)
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

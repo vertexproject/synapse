@@ -625,6 +625,19 @@ Example:
         # Only include required messages.
         opts = {'show': []}
 
+show:storage
+------------
+
+A boolean option which, when set to ``true``, instructs the Storm runtime to add a ``storage`` key to each yielded node
+which contains a raw breakdown of storage nodes which can be used to determine which parts of the node are stored in
+which layer within the view.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'show:storage': True}
+
 task
 ----
 

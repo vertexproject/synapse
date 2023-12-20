@@ -21,6 +21,8 @@ class LibEasyPerm(s_stormtypes.Lib):
                   'args': (
                       {'name': 'edef', 'type': 'dict', 'default': None,
                        'desc': 'A dictionary to add easy perms to.'},
+                      {'name': 'default', 'type': 'int', 'default': s_cell.PERM_READ,
+                       'desc': 'Specify the default permission level for this item.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary with the easy perm structure.'}}},
         {'name': 'set', 'desc': 'Set the permission level for a user or role in an easy perm dictionary.',
@@ -76,15 +78,17 @@ class LibEasyPerm(s_stormtypes.Lib):
         await self.runt.snap.core._setEasyPerm(edef, scope, iden, level)
         return edef
 
-    async def _initEasyPerm(self, edef=None):
+    async def _initEasyPerm(self, edef=None, default=s_cell.PERM_READ):
         edef = await s_stormtypes.toprim(edef)
         if edef is None:
             edef = {}
 
+        default = await s_stormtypes.toint(default)
+
         if not isinstance(edef, dict):
             raise s_exc.BadArg(mesg='Object to add easy perms to must be a dictionary.')
 
-        self.runt.snap.core._initEasyPerm(edef)
+        self.runt.snap.core._initEasyPerm(edef, default=default)
 
         await self.runt.snap.core._setEasyPerm(edef, 'users', self.runt.user.iden, s_cell.PERM_ADMIN)
         return edef

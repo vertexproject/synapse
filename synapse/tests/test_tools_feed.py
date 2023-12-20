@@ -17,36 +17,6 @@ class FeedTest(s_t_utils.SynTest):
     def _getOldSynVers(self):
         return (0, 0, 0)
 
-    async def test_synsplice_remote(self):
-
-        async with self.getTestCore() as core:
-
-            await self.addCreatorDeleterRoles(core)
-
-            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
-
-            curl = f'tcp://icanadd:secret@{host}:{port}/'
-
-            mesg = ('node:add', {'ndef': ('test:str', 'foo')})
-            splicefp = s_common.genpath(core.dirn, 'splice.mpk')
-            with s_common.genfile(splicefp) as fd:
-                fd.write(s_msgpack.en(mesg))
-
-            argv = ['--cortex', curl,
-                    '--format', 'syn.splice',
-                    '--modules', 'synapse.tests.utils.TestModule',
-                    splicefp]
-
-            outp = self.getTestOutp()
-            self.eq(await s_feed.main(argv, outp=outp), 0)
-
-            nodes = await core.nodes('test:str=foo')
-            self.len(1, nodes)
-
-            with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
-                await s_feed.main(argv, outp=outp)
-                outp.expect(f'Cortex version 0.0.0 is outside of the feed tool supported range')
-
     async def test_synnodes_remote(self):
 
         async with self.getTestCore() as core:
@@ -76,6 +46,10 @@ class FeedTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int')
             self.len(20, nodes)
+
+            with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
+                await s_feed.main(argv, outp=outp)
+                outp.expect(f'Cortex version 0.0.0 is outside of the feed tool supported range')
 
     async def test_synnodes_offset(self):
 
