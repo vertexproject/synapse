@@ -2445,8 +2445,6 @@ class Layer(s_nexus.Pusher):
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
 
-        self.formcounts = await self.layrslab.getHotCount('count:forms')
-
         nodeeditpath = s_common.genpath(self.dirn, 'nodeedits.lmdb')
         self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
 
@@ -2463,6 +2461,8 @@ class Layer(s_nexus.Pusher):
         self.edgen2abrv = self.setIndxAbrv(INDX_EDGE_N2)
         self.edgen1n2abrv = self.setIndxAbrv(INDX_EDGE_N1N2)
         self.edgeverbabrv = self.setIndxAbrv(INDX_EDGE_VERB)
+
+        self.indxcounts = await self.layrslab.getLruHotCount('indxcounts')
 
         self.nodedata = self.dataslab.initdb('nodedata')
         self.dataname = self.dataslab.initdb('dataname', dupsort=True)
@@ -2552,7 +2552,16 @@ class Layer(s_nexus.Pusher):
             await self.leader.fini()
 
     async def getFormCounts(self):
-        return self.formcounts.pack()
+        formcounts = {}
+        for byts in self.indxabrv.keysByPref(INDX_PROP):
+            (form, prop) = s_msgpack.un(byts[2:])
+            if prop is None:
+                abrv = self.indxabrv.bytsToAbrv(byts)
+                valu = self.indxcounts.get(abrv, 0)
+                if valu > 0:
+                    formcounts[form] = valu
+
+        return formcounts
 
     @s_cache.memoizemethod()
     def getIndxAbrv(self, indx, *args):
@@ -2678,9 +2687,9 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return 0
 
-        return await self.layrslab.countByPref(abrv, db=self.indxdb)
+        return self.indxcounts.get(abrv, 0)
 
-    async def getPropCount(self, formname, propname=None, maxsize=None):
+    async def getPropCount(self, formname, propname=None):
         '''
         Return the number of property rows in the layer for the given form/prop.
         '''
@@ -2689,7 +2698,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return 0
 
-        return await self.layrslab.countByPref(abrv, db=self.indxdb, maxsize=maxsize)
+        return self.indxcounts.get(abrv, 0)
 
     def getPropValuCount(self, formname, propname, stortype, valu):
         try:
@@ -2715,7 +2724,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return 0
 
-        return await self.layrslab.countByPref(abrv, db=self.indxdb)
+        return self.indxcounts.get(abrv, 0)
 
     def getPropArrayValuCount(self, formname, propname, stortype, valu):
         try:
@@ -2729,17 +2738,6 @@ class Layer(s_nexus.Pusher):
 
         return count
 
-    async def getUnivPropCount(self, propname, maxsize=None):
-        '''
-        Return the number of universal property rows in the layer for the given prop.
-        '''
-        try:
-            abrv = self.getIndxAbrv(INDX_PROP, None, propname)
-        except s_exc.NoSuchAbrv:
-            return 0
-
-        return await self.layrslab.countByPref(abrv, db=self.indxdb, maxsize=maxsize)
-
     async def getTagPropCount(self, form, tag, prop):
         '''
         Return the number of property rows in the layer for the given form/tag/prop.
@@ -2749,7 +2747,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return 0
 
-        return await self.layrslab.countByPref(abrv, db=self.indxdb)
+        return self.indxcounts.get(abrv, 0)
 
     def getTagPropValuCount(self, form, tag, prop, stortype, valu):
         try:
@@ -3072,16 +3070,18 @@ class Layer(s_nexus.Pusher):
 
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((arryabrv + indx, nid))
+                self.indxcounts.inc(arryabrv)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 kvpairs.append((abrv + indx, nid))
+                self.indxcounts.inc(abrv)
 
         else:
 
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((abrv + indx, nid))
+                self.indxcounts.inc(abrv)
 
-        self.formcounts.inc(form)
         if self.nodeAddHook is not None:
             self.nodeAddHook()
 
@@ -3108,16 +3108,18 @@ class Layer(s_nexus.Pusher):
 
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
+                self.indxcounts.inc(arryabrv, -1)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+                self.indxcounts.inc(abrv, -1)
 
         else:
 
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+                self.indxcounts.inc(abrv, -1)
 
-        self.formcounts.inc(form, valu=-1)
         if self.nodeDelHook is not None:
             self.nodeDelHook()
 
@@ -3168,8 +3170,11 @@ class Layer(s_nexus.Pusher):
 
             if oldt & STOR_FLAG_ARRAY:
                 arryabrv = self.setIndxAbrv(INDX_ARRAY, form, prop)
+                self.indxcounts.inc(arryabrv, len(oldv) * -1)
+
                 if univabrv is not None:
                     univarryabrv = self.setIndxAbrv(INDX_ARRAY, None, prop)
+                    self.indxcounts.inc(univarryabrv, len(oldv) * -1)
 
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
@@ -3178,15 +3183,21 @@ class Layer(s_nexus.Pusher):
 
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
                     self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+                    self.indxcounts.inc(abrv, -1)
+
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
+                        self.indxcounts.inc(univabrv, -1)
 
             else:
 
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(abrv + oldi, nid, db=self.indxdb)
+                    self.indxcounts.inc(abrv, -1)
+
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.indxdb)
+                        self.indxcounts.inc(univabrv, -1)
 
                 if oldt == STOR_TYPE_IVAL:
                     if oldv[1] == self.ivaltimetype.futsize:
@@ -3196,10 +3207,12 @@ class Layer(s_nexus.Pusher):
 
                     duraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
+                    self.indxcounts.inc(duraabrv, -1)
 
                     if univabrv is not None:
                         univduraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, None, prop)
                         self.layrslab.delete(univduraabrv + dura, nid, db=self.indxdb)
+                        self.indxcounts.inc(univduraabrv, -1)
 
                     if not oldv[1] == valu[1]:
                         oldi = oldi[8:]
@@ -3223,20 +3236,26 @@ class Layer(s_nexus.Pusher):
 
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((arryabrv + indx, nid))
+                self.indxcounts.inc(arryabrv)
                 if univabrv is not None:
                     kvpairs.append((univarryabrv + indx, nid))
+                    self.indxcounts.inc(univarryabrv)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 kvpairs.append((abrv + indx, nid))
+                self.indxcounts.inc(abrv)
                 if univabrv is not None:
                     kvpairs.append((univabrv + indx, nid))
+                    self.indxcounts.inc(univabrv)
 
         else:
 
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((abrv + indx, nid))
+                self.indxcounts.inc(abrv)
                 if univabrv is not None:
                     kvpairs.append((univabrv + indx, nid))
+                    self.indxcounts.inc(univabrv)
 
             if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
@@ -3246,10 +3265,12 @@ class Layer(s_nexus.Pusher):
 
                 duraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 kvpairs.append((duraabrv + dura, nid))
+                self.indxcounts.inc(duraabrv)
 
                 if univabrv is not None:
                     univduraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, None, prop)
                     kvpairs.append((univduraabrv + dura, nid))
+                    self.indxcounts.inc(univduraabrv)
 
                 if oldv is None or oldv[1] != valu[1]:
                     indx = indx[8:]
@@ -3288,8 +3309,10 @@ class Layer(s_nexus.Pusher):
             realtype = stortype & 0x7fff
 
             arryabrv = self.setIndxAbrv(INDX_ARRAY, form, prop)
+            self.indxcounts.inc(arryabrv, len(valu) * -1)
             if univabrv is not None:
                 univarryabrv = self.setIndxAbrv(INDX_ARRAY, None, prop)
+                self.indxcounts.inc(univarryabrv, len(valu) * -1)
 
             for aval in valu:
                 for indx in self.getStorIndx(realtype, aval):
@@ -3299,15 +3322,19 @@ class Layer(s_nexus.Pusher):
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+                self.indxcounts.inc(abrv, -1)
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
+                    self.indxcounts.inc(univabrv, -1)
 
         else:
 
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+                self.indxcounts.inc(abrv, -1)
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
+                    self.indxcounts.inc(univabrv, -1)
 
             if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
@@ -3322,12 +3349,14 @@ class Layer(s_nexus.Pusher):
 
                 self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
+                self.indxcounts.inc(duraabrv, -1)
 
                 if univabrv is not None:
                     univmaxabrv = self.setIndxAbrv(INDX_IVAL_MAX, None, prop)
                     univduraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, None, prop)
                     self.layrslab.delete(univmaxabrv + indx, nid, db=self.indxdb)
                     self.layrslab.delete(univduraabrv + dura, nid, db=self.indxdb)
+                    self.indxcounts.inc(univduraabrv, -1)
 
         self._incSodeRefs(buid, sode, inc=-1)
 
@@ -3347,18 +3376,21 @@ class Layer(s_nexus.Pusher):
         if oldv is None:
             self._incSodeRefs(buid, sode)
 
-        nid = sode.get('nid')
-        if oldv is not None:
+        abrv = self.setIndxAbrv(INDX_TAG, None, tag)
+        formabrv = self.setIndxAbrv(INDX_TAG, form, tag)
 
+        nid = sode.get('nid')
+        if oldv is None:
+            self.indxcounts.inc(abrv)
+            self.indxcounts.inc(formabrv)
+
+        else:
             if oldv != (None, None) and valu != (None, None):
                 allv = oldv + valu
                 valu = (min(allv), max(allv))
 
             if oldv == valu:
                 return (), ()
-
-            abrv = self.setIndxAbrv(INDX_TAG, None, tag)
-            formabrv = self.setIndxAbrv(INDX_TAG, form, tag)
 
             if oldv == (None, None):
                 self.layrslab.delete(abrv, nid, db=self.indxdb)
@@ -3374,6 +3406,8 @@ class Layer(s_nexus.Pusher):
 
                 self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
                 self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
+                self.indxcounts.inc(duraabrv, -1)
+                self.indxcounts.inc(duraformabrv, -1)
 
                 minindx = self.ivaltimetype.getIntIndx(oldv[0])
                 maxindx = self.ivaltimetype.getIntIndx(oldv[1])
@@ -3410,6 +3444,8 @@ class Layer(s_nexus.Pusher):
 
             kvpairs.append((duraabrv + dura, nid))
             kvpairs.append((duraformabrv + dura, nid))
+            self.indxcounts.inc(duraabrv)
+            self.indxcounts.inc(duraformabrv)
 
             minindx = self.ivaltimetype.getIntIndx(valu[0])
             maxindx = self.ivaltimetype.getIntIndx(valu[1])
@@ -3442,6 +3478,9 @@ class Layer(s_nexus.Pusher):
         abrv = self.setIndxAbrv(INDX_TAG, None, tag)
         formabrv = self.setIndxAbrv(INDX_TAG, form, tag)
 
+        self.indxcounts.inc(abrv, -1)
+        self.indxcounts.inc(formabrv, -1)
+
         if oldv == (None, None):
             self.layrslab.delete(abrv, nid, db=self.indxdb)
             self.layrslab.delete(formabrv, nid, db=self.indxdb)
@@ -3456,6 +3495,8 @@ class Layer(s_nexus.Pusher):
 
             self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
             self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
+            self.indxcounts.inc(duraabrv, -1)
+            self.indxcounts.inc(duraformabrv, -1)
 
             minindx = self.ivaltimetype.getIntIndx(oldv[0])
             maxindx = self.ivaltimetype.getIntIndx(oldv[1])
@@ -3510,6 +3551,8 @@ class Layer(s_nexus.Pusher):
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(tp_abrv + oldi, nid, db=self.indxdb)
                     self.layrslab.delete(ftp_abrv + oldi, nid, db=self.indxdb)
+                    self.indxcounts.inc(tp_abrv, -1)
+                    self.indxcounts.inc(ftp_abrv, -1)
 
                 if oldt == STOR_TYPE_IVAL:
                     if oldv[1] == self.ivaltimetype.futsize:
@@ -3522,6 +3565,8 @@ class Layer(s_nexus.Pusher):
 
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
                     self.layrslab.delete(duraformabrv + dura, nid, db=self.indxdb)
+                    self.indxcounts.inc(duraabrv, -1)
+                    self.indxcounts.inc(duraformabrv, -1)
 
                     if not oldv[1] == valu[1]:
                         oldi = oldi[8:]
@@ -3547,6 +3592,8 @@ class Layer(s_nexus.Pusher):
         for indx in self.getStorIndx(stortype, valu):
             kvpairs.append((tp_abrv + indx, nid))
             kvpairs.append((ftp_abrv + indx, nid))
+            self.indxcounts.inc(tp_abrv)
+            self.indxcounts.inc(ftp_abrv)
 
         if stortype == STOR_TYPE_IVAL:
             if valu[1] == self.ivaltimetype.futsize:
@@ -3558,6 +3605,8 @@ class Layer(s_nexus.Pusher):
             duraformabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
             kvpairs.append((duraabrv + dura, nid))
             kvpairs.append((duraformabrv + dura, nid))
+            self.indxcounts.inc(duraabrv)
+            self.indxcounts.inc(duraformabrv)
 
             if oldv is None or oldv[1] != valu[1]:
                 indx = indx[8:]
@@ -3592,6 +3641,8 @@ class Layer(s_nexus.Pusher):
         for oldi in self.getStorIndx(oldt, oldv):
             self.layrslab.delete(tp_abrv + oldi, nid, db=self.indxdb)
             self.layrslab.delete(ftp_abrv + oldi, nid, db=self.indxdb)
+            self.indxcounts.inc(tp_abrv, -1)
+            self.indxcounts.inc(ftp_abrv, -1)
 
         if oldt == STOR_TYPE_IVAL:
             if oldv[1] == self.ivaltimetype.futsize:
@@ -3605,6 +3656,8 @@ class Layer(s_nexus.Pusher):
             duraformabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
             self.layrslab.delete(duraabrv + indx, nid, db=self.indxdb)
             self.layrslab.delete(duraformabrv + indx, nid, db=self.indxdb)
+            self.indxcounts.inc(duraabrv, -1)
+            self.indxcounts.inc(duraformabrv, -1)
 
             maxabrv = self.setIndxAbrv(INDX_IVAL_MAX, None, tag, prop)
             maxformabrv = self.setIndxAbrv(INDX_IVAL_MAX, form, tag, prop)

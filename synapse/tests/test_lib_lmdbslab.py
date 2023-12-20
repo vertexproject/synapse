@@ -1300,6 +1300,35 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.len(1, [k for k, v in cache if k == b'foo'])
                 self.len(1, [k for k, v in cache if k == b'bar'])
 
+    async def test_lmdbslab_lruhotcount(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                async with await s_lmdbslab.LruHotCount.anit(slab, 'counts', size=5, commitsize=2) as ctr:
+
+                    self.len(0, ctr.cache)
+                    for valu in range(5):
+                        ctr.set(str(valu).encode(), 3)
+
+                    self.len(5, ctr.cache)
+                    self.eq(3, ctr.get('2'.encode()))
+                    self.len(5, ctr.cache)
+
+                    self.eq(5, ctr.set('5'.encode(), 5))
+                    self.len(4, ctr.cache)
+                    self.eq([b'3', b'4', b'2', b'5'], list(ctr.cache.keys()))
+
+                    self.eq(3, ctr.get('4'.encode()))
+                    self.eq(0, ctr.get('6'.encode()))
+                    self.eq(0, ctr.get('7'.encode()))
+                    self.len(4, ctr.cache)
+                    self.eq([b'5', b'4', b'6', b'7'], list(ctr.cache.keys()))
+
+                    self.eq(3, ctr.get('2'.encode()))
+
     async def test_lmdbslab_doubleopen(self):
 
         with self.getTestDir() as dirn:

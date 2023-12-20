@@ -310,6 +310,77 @@ class HotCount(HotKeyVal):
     def get(self, name: str, defv=0):
         return self.cache.get(name.encode(), defv)
 
+class LruHotCount(s_base.Base):
+    '''
+    HotCount with size limit and LRU cache for large key sets.
+    '''
+    encode = staticmethod(s_common.signedint64en)
+    decode = staticmethod(s_common.signedint64un)
+
+    async def __anit__(self, slab, name, size=10000, commitsize=100):
+        await s_base.Base.__anit__(self)
+
+        self.slab = slab
+        self.cache = collections.OrderedDict()
+        self.dirty = set()
+        self.db = self.slab.initdb(name)
+        self.maxsize = size
+        self.commitsize = commitsize
+
+        slab.on('commit', self._onSlabCommit)
+
+        self.onfini(self.sync)
+
+    async def _onSlabCommit(self, mesg):
+        if self.dirty:
+            self.sync()
+
+    def sync(self):
+        if not self.dirty:
+            return()
+
+        self.slab.putmulti([(p, self.encode(self.cache[p])) for p in self.dirty], db=self.db)
+        self.dirty.clear()
+
+    def get(self, name, defv=0):
+        if (valu := self.cache.get(name)) is not None:
+            self.cache.move_to_end(name)
+            return valu
+
+        if (valu := self.slab.get(name, db=self.db)) is not None:
+            valu = self.decode(valu)
+        else:
+            valu = defv
+
+        self.cache[name] = valu
+        self.cache.move_to_end(name)
+
+        if len(self.cache) > self.maxsize:
+            self.sync()
+            for _ in range(self.commitsize):
+                self.cache.popitem(last=False)
+
+        return valu
+
+    def inc(self, name, valu=1):
+        self.cache[name] = self.get(name) + valu
+        self.dirty.add(name)
+        self.slab.dirty = True
+
+    def set(self, name, valu):
+        self.cache[name] = valu
+        self.dirty.add(name)
+        self.slab.dirty = True
+
+        self.cache.move_to_end(name)
+
+        if len(self.cache) > self.maxsize:
+            self.sync()
+            for _ in range(self.commitsize):
+                self.cache.popitem(last=False)
+
+        return valu
+
 class MultiQueue(s_base.Base):
     '''
     Allows creation/consumption of multiple durable queues in a slab.
@@ -833,6 +904,11 @@ class Slab(s_base.Base):
 
     async def getHotCount(self, name):
         item = await HotCount.anit(self, name)
+        self.onfini(item)
+        return item
+
+    async def getLruHotCount(self, name, size=10000, commitsize=100):
+        item = await LruHotCount.anit(self, name, size=size, commitsize=commitsize)
         self.onfini(item)
         return item
 
