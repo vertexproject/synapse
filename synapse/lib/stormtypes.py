@@ -7182,7 +7182,7 @@ class View(Prim):
                        'desc': 'Delete a merge vote by a different user.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The vote record that was removed.'}}},
-        {'name': 'getMerges', 'desc': 'Yield',
+        {'name': 'getMerges', 'desc': 'Yields previously successful merges into the view.',
          'type': {'type': 'function', '_funcname': 'getMerges',
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
