@@ -4141,8 +4141,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False, {'mesg': f'User associated with API Key is locked: {iden}',
                            'user': user, 'name': udef.get('name')}
 
-        expires = kdef.get('expires')
-        if expires is not None:
+        if (expires := kdef.get('expires') is not None):
             if s_common.now() > expires:
                 return False, {'mesg': f'API Key is expired: {iden}',
                                'user': user, 'name': udef.get('name')}

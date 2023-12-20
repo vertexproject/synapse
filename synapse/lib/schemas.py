@@ -208,7 +208,7 @@ _cellUserApiKeySchema = {
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'updated': {'type': 'integer', 'minimum': 0},
-        'expires': {'type': ['null', 'integer'], 'minimum': 0},
+        'expires': {'type': ['null', 'integer'], 'minimum': 1},
         'shadow': {
             'type': 'object',
         },

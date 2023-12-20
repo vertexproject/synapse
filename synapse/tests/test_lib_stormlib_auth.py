@@ -1140,9 +1140,8 @@ class StormLibAuthTest(s_test.SynTest):
             self.eq(rtdf0.get('name'), 'Test Key')
             self.eq(rtdf0.get('user'), root)
             self.nn(rtdf0.get('iden'))
-            self.gt(rtdf0.get('modified'), 0)
-            self.none(rtdf0.get('duration'))
-            self.none(rtdf0.get('expref'))
+            self.gt(rtdf0.get('updated'), 0)
+            self.none(rtdf0.get('expires'))
 
             q = '$u=$lib.auth.users.byname(root) return($u.listApiKeys())'
             rootkeys = await core.callStorm(q)
@@ -1163,13 +1162,13 @@ class StormLibAuthTest(s_test.SynTest):
             _rtdf0 = await core.callStorm(q, opts=opts)
             self.eq(_rtdf0.get('name'), 'heheKey!')
             self.eq(_rtdf0.get('iden'), rtdf0.get('iden'))
-            self.gt(_rtdf0.get('modified'), rtdf0.get('modified'))
+            self.gt(_rtdf0.get('updated'), rtdf0.get('updated'))
 
             q = '$u=$lib.auth.users.byname(root) return($u.regenerateApiKey($iden))'
             _rtk0, _rtdf0 = await core.callStorm(q, opts=opts)
             self.ne(_rtk0, rtk0)
             self.eq(_rtdf0.get('iden'), rtdf0.get('iden'))
-            self.gt(_rtdf0.get('modified'), rtdf0.get('modified'))
+            self.gt(_rtdf0.get('updated'), rtdf0.get('updated'))
 
             q = '$u=$lib.auth.users.byname(root) return($u.delApiKey($iden))'
             self.true(await core.callStorm(q, opts=opts))
@@ -1225,9 +1224,8 @@ class StormLibAuthTest(s_test.SynTest):
                                                opts=lowuser_opts)
             self.nn(ntk0)
             self.eq(ntdf0.get('name'), 'weee')
-            self.eq(ntdf0.get('duration'), 10)  # really short but...example...
-            self.eq(ntdf0.get('created'), ntdf0.get('modified'))
-            self.eq(ntdf0.get('created'), ntdf0.get('expref'))
+            self.eq(ntdf0.get('expires'), ntdf0.get('updated') + 10)  # really short but...example...
+            self.eq(ntdf0.get('created'), ntdf0.get('updated'))
 
             q = 'return($lib.auth.users.byname(lowuser).getApiKey($iden))'
             _ltdf0 = await core.callStorm(q, opts=lowuser_opts)
@@ -1248,17 +1246,16 @@ class StormLibAuthTest(s_test.SynTest):
             _ntk0, _ntdf0 = await core.callStorm(q, opts=lowuser_opts)
             self.ne(_ntk0, ntk0)
             self.eq(_ntdf0.get('iden'), ntdf0.get('iden'))
-            self.gt(_ntdf0.get('modified'), ntdf0.get('modified'))
-            self.eq(_ntdf0.get('modified'), _ntdf0.get('expref'))
-            self.eq(_ntdf0.get('duration'), 1000000)
+            self.gt(_ntdf0.get('updated'), ntdf0.get('updated'))
+            self.eq(_ntdf0.get('expires'), _ntdf0.get('updated') + 1000000)
 
             await asyncio.sleep(0.001)
             q = 'return($lib.auth.users.byname(lowuser).modApiKey($iden, name, ohmy))'
             lowuser_opts = {'user': lowuser, 'vars': {'iden': ntdf0.get('iden')}}
             _ntdf0_2 = await core.callStorm(q, opts=lowuser_opts)
             self.eq(_ntdf0_2.get('iden'), _ntdf0.get('iden'))
-            self.gt(_ntdf0_2.get('modified'), ntdf0.get('modified'))
-            self.eq(_ntdf0_2.get('expref'), _ntdf0.get('expref'))
+            self.gt(_ntdf0_2.get('updated'), ntdf0.get('updated'))
+            self.eq(_ntdf0_2.get('expires'), _ntdf0.get('expires'))
             self.eq(_ntdf0_2.get('name'), 'ohmy')
 
             q = 'return($lib.auth.users.byname(lowuser).delApiKey($iden))'
