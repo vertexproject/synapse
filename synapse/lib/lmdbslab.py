@@ -314,8 +314,8 @@ class LruHotCount(s_base.Base):
     '''
     HotCount with size limit and LRU cache for large key sets.
     '''
-    EncFunc = staticmethod(s_common.signedint64en)
-    DecFunc = staticmethod(s_common.signedint64un)
+    encode = staticmethod(s_common.signedint64en)
+    decode = staticmethod(s_common.signedint64un)
 
     async def __anit__(self, slab, name, size=10000, commitsize=100):
         await s_base.Base.__anit__(self)
@@ -339,7 +339,7 @@ class LruHotCount(s_base.Base):
         if not self.dirty:
             return()
 
-        self.slab.putmulti([(p, self.EncFunc(self.cache[p])) for p in self.dirty], db=self.db)
+        self.slab.putmulti([(p, self.encode(self.cache[p])) for p in self.dirty], db=self.db)
         self.dirty.clear()
 
     def get(self, name, defv=0):
@@ -348,7 +348,7 @@ class LruHotCount(s_base.Base):
             return valu
 
         if (valu := self.slab.get(name, db=self.db)) is not None:
-            valu = self.DecFunc(valu)
+            valu = self.decode(valu)
         else:
             valu = defv
 
