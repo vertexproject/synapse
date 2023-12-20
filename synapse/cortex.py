@@ -880,6 +880,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
                              mesg='cortex version in storage is incompatible with running software')
 
+        self.viewmeta = self.slab.initdb('view:meta')
+
         self.views = {}
         self.layers = {}
         self.viewsbylayer = collections.defaultdict(list)
@@ -1422,17 +1424,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
+
         for view in self.views.values():
             await view.initTrigTask()
+            await view.initMergeTask()
 
         for layer in self.layers.values():
             await layer.initLayerActive()
 
     async def initServicePassive(self):
+
         await self.agenda.stop()
         await self.stormdmons.stop()
+
         for view in self.views.values():
             await view.finiTrigTask()
+            await view.finiMergeTask()
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
@@ -4132,7 +4139,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
-        s_view.reqValidVdef(vdef)
+        s_schemas.reqValidView(vdef)
 
         if nexs:
             return await self._push('view:add', vdef)
@@ -4142,7 +4149,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('view:add')
     async def _addView(self, vdef):
 
-        s_view.reqValidVdef(vdef)
+        s_schemas.reqValidView(vdef)
 
         iden = vdef['iden']
         if iden in self.views:

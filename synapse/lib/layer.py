@@ -2334,6 +2334,7 @@ class Layer(s_nexus.Pusher):
         ret = self.layrinfo.pack()
         if ret.get('mirror'):
             ret['mirror'] = s_urlhelp.sanitizeUrl(ret['mirror'])
+        ret['offset'] = await self.getEditIndx()
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
@@ -2626,6 +2627,16 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.putmulti(kvlist, db=self.bynid)
         self.dirty.clear()
+
+    def getStorNodeCount(self):
+        info = self.layrslab.stat(db=self.bybuidv3)
+        return info.get('entries', 0)
+
+    async def getStorNode(self, nid):
+        sode = self._getStorNode(nid)
+        if sode is not None:
+            return deepcopy(sode)
+        return {}
 
     def _getStorNode(self, nid):
         '''
