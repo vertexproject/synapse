@@ -4083,11 +4083,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _genUserApiKey(self, kdef):
         iden = kdef.get('iden').encode('utf-8')
         user = kdef.get('user').encode('utf-8')
-        valu = self.slab.get(iden, self.apikeydb)
-        if valu is not None:
-            return
         self.slab.put(iden, user, db=self.apikeydb)
-        lkey = user + b'cell:apikey' + iden  # DISCUSS Do we make this a dupsort DB?
+        lkey = user + b'cell:apikey' + iden
         self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):

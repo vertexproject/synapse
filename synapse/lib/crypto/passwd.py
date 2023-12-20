@@ -110,6 +110,10 @@ async def checkShadowV2(passwd: AnyStr, shadow: Dict) -> bool:
 async def generateApiKey(iden=None):
     if iden is None:
         iden = s_common.guid()
+    else:
+        if not s_common.isguid(iden):
+            raise s_exc.CryptoErr(mesg=f'Invalid iden provided: {iden}, must be a guid.')
+
     iden_buf = s_common.uhex(iden)
 
     secv = s_common.guid()
@@ -125,9 +129,6 @@ async def generateApiKey(iden=None):
         c1 = (shigh << 4) | ilow
         c2 = (ihigh << 4) | slow
         valu = valu + c1.to_bytes(1, byteorder='big') + c2.to_bytes(1, byteorder='big')
-
-    if len(valu) != 32:
-        raise s_exc.CryptoErr(mesg=f'Token size mismatch - invalid iden provided: {iden}')
 
     valu = base64.urlsafe_b64encode(valu + binascii.crc32(valu).to_bytes(4, byteorder='big'))
     token = f'syn_{valu.decode("utf-8")}'

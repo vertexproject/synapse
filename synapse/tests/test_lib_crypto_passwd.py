@@ -1,4 +1,5 @@
 import copy
+import base64
 import unittest.mock as mock
 
 import synapse.exc as s_exc
@@ -81,31 +82,57 @@ class PasswdTest(s_t_utils.SynTest):
                 await s_passwd.getShadowV2(vec)
 
     async def test_apikey_generation(self):
-        iden, token, shadow = await s_passwd.generateApiKey()
+        iden, key, shadow = await s_passwd.generateApiKey()
         self.true(s_common.isguid(iden))
-        self.true(token.startswith('syn_'))
+        self.true(key.startswith('syn_'))
         self.isinstance(shadow, dict)
 
-        isok, (iden2, secv) = s_passwd.parseApiKey(token)
+        isok, (iden2, secv) = s_passwd.parseApiKey(key)
         self.true(isok)
         self.eq(iden, iden2)
 
-        result = s_passwd.checkShadowV2(secv, shadow)
+        result = await s_passwd.checkShadowV2(secv, shadow)
         self.true(result)
 
         some_iden = s_common.guid()
 
-        iden0, token0, shadow0 = await s_passwd.generateApiKey(some_iden)
-        iden1, token1, shadow1 = await s_passwd.generateApiKey(some_iden)
+        iden0, key0, shadow0 = await s_passwd.generateApiKey(some_iden)
+        iden1, key1, shadow1 = await s_passwd.generateApiKey(some_iden)
         self.eq(some_iden, iden0)
         self.eq(iden0, iden1)
-        self.ne(token0, token1)
+        self.ne(key0, key1)
         self.ne(shadow0, shadow1)
 
-        isok0, (cidn0, secv0) = s_passwd.parseApiKey(token0)
-        isok1, (cidn1, secv1) = s_passwd.parseApiKey(token1)
+        isok0, (cidn0, secv0) = s_passwd.parseApiKey(key0)
+        isok1, (cidn1, secv1) = s_passwd.parseApiKey(key1)
         self.true(isok0)
         self.true(isok1)
         self.eq(some_iden, cidn0)
         self.eq(some_iden, cidn1)
         self.ne(secv0, secv1)
+
+        self.true(await s_passwd.checkShadowV2(secv0, shadow0))
+        self.false(await s_passwd.checkShadowV2(secv1, shadow0))
+        self.false(await s_passwd.checkShadowV2(secv0, shadow1))
+        self.true(await s_passwd.checkShadowV2(secv1, shadow1))
+
+        with self.raises(s_exc.CryptoErr):
+            await s_passwd.generateApiKey(iden=iden[:16])
+
+        badkey = 'newp_' + key1.split('_', 1)[0]
+        isok, valu = s_passwd.parseApiKey(badkey)
+        self.false(isok)
+        self.eq(valu, 'Incorrect prefix, got newp')
+
+        prefix, valu = key1.split('_', 1)
+        tokn = base64.urlsafe_b64decode(valu)
+
+        badkey = '_'.join([prefix, base64.urlsafe_b64encode(tokn + b'newp').decode()])
+        isok, valu = s_passwd.parseApiKey(badkey)
+        self.false(isok)
+        self.eq(valu, 'Incorrect length, got 40')
+
+        badkey = '_'.join([prefix, base64.urlsafe_b64encode(tokn[:32] + b'newp').decode()])
+        isok, valu = s_passwd.parseApiKey(badkey)
+        self.false(isok)
+        self.eq(valu, 'Invalid checksum')

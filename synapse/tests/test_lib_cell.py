@@ -2426,6 +2426,18 @@ class CellTest(s_t_utils.SynTest):
             self.none(rtdf0.get('duration'))
             self.none(rtdf0.get('expref'))
 
+            async with cell.getLocalProxy() as prox:
+                isok, valu = await prox.checkUserApiKey(rtk0)
+            self.true(isok)
+            self.eq(valu.get('kdef'), rtdf0)
+            udef = valu.get('udef')
+            self.eq(udef.get('iden'), root)
+            self.eq(udef.get('name'), 'root')
+
+            isok, valu = await cell.checkUserApiKey(rtk0 + 'newp')
+            self.false(isok)
+            self.eq(valu, {'mesg': 'API Key is malformed.'})
+
             allkeys = await cell.listUserApiKeys()
             self.len(2, allkeys)
             _kdefs = [rtdf0, bkdf0]
@@ -2476,6 +2488,7 @@ class CellTest(s_t_utils.SynTest):
                 # Old token failes
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers0,
                                        json={'user': lowuser})
+                self.eq(401, resp.status)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2505,6 +2518,7 @@ class CellTest(s_t_utils.SynTest):
                 headers2 = {'X-API-KEY': rtk2}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
+                self.eq(401, resp.status)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2524,6 +2538,7 @@ class CellTest(s_t_utils.SynTest):
 
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
+                self.eq(401, resp.status)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2557,6 +2572,14 @@ class CellTest(s_t_utils.SynTest):
                 allkeys = await cell.listUserApiKeys()
                 self.len(5 + 2, allkeys)  # Root has two, lowuser has 5
 
+                # Lock users cannot use their API Keys
+                await cell.setUserLocked(lowuser, True)
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                                       json={'passwd': 'secret'})
+                self.eq(401, resp.status)
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+
                 await cell.delUser(lowuser)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
@@ -2568,8 +2591,8 @@ class CellTest(s_t_utils.SynTest):
             for useriden, kdef in allkeys:
                 self.eq(useriden, root)
 
-            # Ensure User meta was cleaned up, as well as the api key db
-            # Only two root keys should be left
+            # Ensure User meta was cleaned up from the user deletion, as well as
+            # the api key db. Only two root keys should be left
             vals = set()
             # for key, vals in cell.slab.scanByPref(lowuse)
             i = 0
@@ -2589,3 +2612,17 @@ class CellTest(s_t_utils.SynTest):
                 users.add(val.decode())
             self.eq(i, 2)
             self.eq(users, {root, })
+
+            # Sad path coverage
+            with self.raises(s_exc.BadArg):
+                await cell.modUserApiKey(bkdf0.get('iden'), 'shadow', {'hehe': 'haha'})
+
+            newp = s_common.guid()
+            with self.raises(s_exc.NoSuchIden):
+                await cell.modUserApiKey(newp, 'name', 'newp')
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.regenerateUserApiKey(newp)
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.delUserApiKey(newp)
