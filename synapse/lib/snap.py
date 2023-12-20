@@ -671,6 +671,8 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
+        show_storage = False
+
         self.core._logStormQuery(text, user, info={'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
 
         # { form: ( embedprop, ... ) }
@@ -684,11 +686,15 @@ class Snap(s_base.Base):
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
+            show_storage = opts.get('show:storage', False)
 
         async for node, path in self.storm(text, opts=opts, user=user):
 
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
+
+            if show_storage:
+                pode[1]['storage'] = await node.getStorNodes()
 
             if scrubber is not None:
                 pode = scrubber.scrub(pode)
