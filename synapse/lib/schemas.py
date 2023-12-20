@@ -142,6 +142,64 @@ reqValidVault = s_config.getJsValidator({
     ],
 })
 
+reqValidView = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'nomerge': {'type': 'boolean'},
+        'merging': {'type': 'boolean'},
+        'layers': {
+            'type': 'array',
+            'items': {'type': 'string', 'pattern': s_config.re_iden},
+            'minItems': 1,
+            'uniqueItems': True
+        },
+        'quorum': {
+            'type': 'object',
+            'properties': {
+                'roles': {'type': 'array', 'items': {
+                    'type': 'string',
+                    'pattern': s_config.re_iden},
+                    'uniqueItems': True
+                },
+                'count': {'type': 'number', 'minimum': 1},
+            },
+            'required': ['count', 'roles'],
+            'additionalProperties': False,
+        },
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'parent', 'creator', 'layers'],
+})
+
+reqValidMerge = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'number', 'minval': 0},
+        'comment': {'type': 'string'},
+    },
+    'required': ['iden', 'creator', 'created'],
+    'additionalProperties': False,
+})
+
+reqValidVote = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'offset': {'type': 'number', 'minval': 0},
+        'created': {'type': 'number', 'minval': 0},
+        'approved': {'type': 'boolean'},
+        'comment': {'type': 'string'},
+    },
+    'required': ['user', 'offset', 'created', 'approved'],
+    'additionalProperties': False,
+})
+
 _cellUserApiKeySchema = {
     'type': 'object',
     'properties': {
