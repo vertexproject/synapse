@@ -668,7 +668,7 @@ class AhaCell(s_cell.Cell):
 
         if await self._getAhaSvc(name) is not None:
             mesg = f'An AHA service or pool is already using the name "{name}".'
-            raise s_exc.DupName(mesg=mesg)
+            raise s_exc.DupName(mesg=mesg, name=name)
 
         info['name'] = name
         info['created'] = s_common.now()
