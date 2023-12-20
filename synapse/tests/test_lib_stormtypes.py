@@ -1128,6 +1128,19 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.IsReadOnly):
                 await core.callStorm('$foo=${ [test:str=readonly] } return( $foo.size() )', opts={'readonly': True})
 
+            q = '''
+            $foo = ${ return(:asn) }
+            [ (inet:ipv4=1.2.3.4 :asn=1234) (inet:ipv4=2.3.4.5 :asn=2345) ]
+            $lib.print( $foo.exec($node) )
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1234', msgs)
+            self.stormIsInPrint('2345', msgs)
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('$foo=${ return(foo) } $foo.exec(bar)')
+            self.eq(exc.exception.get('mesg'), 'The node argument must be a node, got str.')
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')

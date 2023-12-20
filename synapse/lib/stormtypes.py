@@ -5332,6 +5332,10 @@ class Query(Prim):
                 The ``.exec()`` method can return a value if the Storm query
                 contains a ``return( ... )`` statement in it.''',
          'type': {'type': 'function', '_funcname': '_methQueryExec',
+                  'args': (
+                      {'name': 'node', 'type': 'node', 'default': None,
+                       'desc': 'Optional node to inject into the sub-runtime.', },
+                  ),
                   'returns': {'type': ['null', 'any'],
                               'desc': 'A value specified with a return statement, or none.', }}},
         {'name': 'size',
@@ -5366,11 +5370,19 @@ class Query(Prim):
     def __str__(self):
         return self.text
 
-    async def _getRuntGenr(self):
+    async def _getRuntGenr(self, node=None):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
-            async for item in runt.execute():
+            genr = None
+
+            if node is not None:
+                async def genrfn():
+                    yield node, runt.initPath(node)
+
+                genr = genrfn()
+
+            async for item in runt.execute(genr=genr):
                 yield item
 
     async def nodes(self):
@@ -5383,10 +5395,19 @@ class Query(Prim):
             yield Node(node)
 
     @stormfunc(readonly=True)
-    async def _methQueryExec(self):
-        logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
+    async def _methQueryExec(self, node=None):
+        if node is not None and not isinstance(node, s_node.Node):
+            argtype = await totype(node)
+            mesg = f'The node argument must be a node, got {argtype}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        ndef = None
+        if node is not None:
+            ndef = node.ndef
+
+        logger.info(f'Executing storm query via exec(node={ndef}) {{{self.text}}} as [{self.runt.user.name}]')
         try:
-            async for item in self._getRuntGenr():
+            async for item in self._getRuntGenr(node):
                 await asyncio.sleep(0)
         except s_stormctrl.StormReturn as e:
             return e.item
