@@ -215,5 +215,5 @@ reqValidAhaPoolDef = s_config.getJsValidator({
         }}},
     },
     'additionalProperties': False,
-    'userrequired': ['name', 'creator', 'created', 'services'],
+    'required': ['name', 'creator', 'created', 'services'],
 })
