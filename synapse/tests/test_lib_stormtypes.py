@@ -6375,6 +6375,12 @@ words\tword\twrd'''
             opts = {'view': fork.iden}
             self.nn(await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts))
 
+            # confirm that you may not re-parent to a view with a merge request
+            layr = await core.addLayer()
+            vdef = await core.addView({'layers': (layr['iden'],)})
+            with self.raises(s_exc.BadState):
+                await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
+
             opts = {'view': fork.iden, 'user': visi.iden}
             self.nn(await core.callStorm('return($lib.view.get().setMergeVote(approved=(false)))', opts=opts))
             self.len(1, [vote async for vote in fork.getMergeVotes()])

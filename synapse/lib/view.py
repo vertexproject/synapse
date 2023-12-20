@@ -1026,6 +1026,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 mesg = 'Circular dependency of view parents is not supported.'
                 raise s_exc.BadArg(mesg=mesg)
 
+            if parent.getMergeRequest() is not None:
+                mesg = 'You may not set the parent to a view with a pending merge request.'
+                raise s_exc.BadState(mesg=mesg)
+
             if self.parent is not None:
                 if self.parent.iden == parent.iden:
                     return valu
