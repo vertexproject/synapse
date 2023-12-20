@@ -644,9 +644,6 @@ class Snap(s_base.Base):
             if show_storage:
                 pode[1]['storage'] = await node.getStorNodes()
 
-            if scrubber is not None:
-                pode = scrubber.scrub(pode)
-
             if embeds is not None:
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
