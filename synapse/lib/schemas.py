@@ -207,9 +207,8 @@ _cellUserApiKeySchema = {
         'name': {'type': 'string'},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
-        'modified': {'type': 'integer', 'minimum': 0},
-        'expref': {'type': ['null', 'integer'], 'minimum': 0},
-        'duration': {'type': ['integer', 'null'], 'minimum': 1},
+        'updated': {'type': 'integer', 'minimum': 0},
+        'expires': {'type': ['null', 'integer'], 'minimum': 0},
         'shadow': {
             'type': 'object',
         },
@@ -220,10 +219,9 @@ _cellUserApiKeySchema = {
         'name',
         'user',
         'created',
-        'modified',
+        'updated',
         'shadow',
-        'expref',
-        'duration',
+        'expires',
     ],
 }
 reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)

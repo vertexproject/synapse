@@ -1147,9 +1147,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(root)
 
         await self._initCellSlab(readonly=readonly)
-        self.apikeydb = self.slab.initdb('user:apikeys')  # token -> useriden
+        self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
-        self.rolemetadb = self.slab.initdb('view:meta')  # roleiden + <valu> -> dict valu
+        self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
 
         self.hive = await self._initCellHive()
 
@@ -4059,15 +4059,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'name': name,
             'user': user.iden,
             'created': now,
-            'modified': now,
+            'updated': now,
             'shadow': shadow,
-            'duration': None,
-            'expref': None,
+            'expires': None,
         }
 
         if duration:
-            kdef['expref'] = now
-            kdef['duration'] = duration
+            if duration < 1:
+                raise s_exc.BadArg(mesg='Duration must be equal or greater than 1', name='duration')
+            kdef['expires'] = now + duration
 
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
@@ -4082,10 +4082,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPush('user:apikey:add')
     async def _genUserApiKey(self, kdef):
-        iden = kdef.get('iden').encode('utf-8')
-        user = kdef.get('user').encode('utf-8')
+        iden = s_common.uhex(kdef.get('iden'))
+        user = s_common.uhex(kdef.get('user'))
         self.slab.put(iden, user, db=self.apikeydb)
-        lkey = user + b'cell:apikey' + iden
+        lkey = user + b'apikey' + iden
         self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):
@@ -4098,11 +4098,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             dict: The key dictionary; or none.
         '''
-        user = self.slab.get(iden.encode('utf-8'), db=self.apikeydb)
+        iden = s_common.uhex(iden)
+        user = self.slab.get(iden, db=self.apikeydb)
         if user is None:
             return None
-        lkey = user + b'cell:apikey' + iden.encode('utf-8')
-        buf = self.slab.get(lkey, db=self.usermetadb)  # None here would be a nexus state inconsistency
+        buf = self.slab.get(user + b'apikey' + iden, db=self.usermetadb)  # None here would be a nexus state inconsistency
         kdef = s_msgpack.un(buf)  # This includes the shadow key
         return kdef
 
@@ -4111,13 +4111,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         vals = []
         lkey = b''
         if user:
-            lkey = user.encode('utf-8') + b'cell:apikey'
+            lkey = s_common.uhex(user) + b'apikey'
         for lkey, valu in self.slab.scanByPref(lkey, db=self.usermetadb):
-            useriden, suffix = lkey[:32], lkey[32:]
-            if suffix.startswith(b'cell:apikey'):
+            useriden, suffix = lkey[:16], lkey[16:]
+            if suffix.startswith(b'apikey'):
                 kdef = s_msgpack.un(valu)
                 kdef.pop('shadow')
-                vals.append((useriden.decode('utf-8'), kdef))
+                vals.append((s_common.ehex(useriden), kdef))
+            await asyncio.sleep(0)
         return vals
 
     async def checkUserApiKey(self, key):
@@ -4140,10 +4141,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False, {'mesg': f'User associated with API Key is locked: {iden}',
                            'user': user, 'name': udef.get('name')}
 
-        duration = kdef.get('duration')
-        if duration is not None:
-            now = s_common.now()
-            if now >= kdef.get('expref') + kdef.get('duration'):
+        expires = kdef.get('expires')
+        if expires is not None:
+            if s_common.now() > expires:
                 return False, {'mesg': f'API Key is expired: {iden}',
                                'user': user, 'name': udef.get('name')}
 
@@ -4163,7 +4163,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(useriden)
 
         vals = {
-            'modified': s_common.now()
+            'updated': s_common.now()
         }
         if key == 'name':
             vals['name'] = valu
@@ -4194,17 +4194,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         now = s_common.now()
         vals = {
             'shadow': shadow,
-            'modified': now
+            'updated': now
         }
         kdef['shadow'] = shadow
 
-        # Duration is either None or use we use the provided destination which needs to meet schema.
         if duration is None:
-            vals['expref'] = None
-            vals['duration'] = None
+            vals['expires'] = None
         else:
-            vals['expref'] = now
-            vals['duration'] = duration
+            if duration < 1:
+                raise s_exc.BadArg(mesg='Duration must be equal or greater than 1', name='duration')
+            vals['expires'] = now + duration
 
         kdef.update(vals)
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
@@ -4220,7 +4219,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPush('user:apikey:update')
     async def _setUserApiKey(self, user, iden, vals):
-        lkey = user.encode('utf-8') + b'cell:apikey' + iden.encode('utf-8')
+        lkey = s_common.uhex(user) + b'apikey' + s_common.uhex(iden)
         buf = self.slab.get(lkey, db=self.usermetadb)
         if buf is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
@@ -4244,23 +4243,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPush('user:apikey:del')
     async def _delUserApiKey(self, user, iden):
-        user = user.encode()
-        iden = iden.encode()
+        user = s_common.uhex(user)
+        iden = s_common.uhex(iden)
 
         self.slab.pop(iden, db=self.apikeydb)
-        self.slab.pop(user + b'cell:apikey' + iden, db=self.usermetadb)
+        self.slab.pop(user + b'apikey' + iden, db=self.usermetadb)
         # TODO Timecache clear
         return True
 
     async def _onUserDelEvnt(self, evnt):
         # Call callback for handling user:del events
         user = evnt[1].get('iden')
-        ukey = user.encode('utf-8')
+        ukey = s_common.uhex(user)
         for lkey, buf in self.slab.scanByPref(ukey, db=self.usermetadb):
-            suffix = lkey[32:]
+            suffix = lkey[16:]
             # Special handling for certain meta which has secondary indexes
-            if suffix.startswith(b'cell:apikey'):
-                key_iden = suffix[11:]
+            if suffix.startswith(b'apikey'):
+                key_iden = suffix[6:]
                 self.slab.pop(key_iden, db=self.apikeydb)
                 # TODO Timecache clear
             self.slab.pop(lkey, db=self.usermetadb)
+            await asyncio.sleep(0)

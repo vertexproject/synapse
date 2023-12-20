@@ -339,7 +339,6 @@ class HandlerBase:
             self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
             return
 
-        kdef = info.get('kdef')
         udef = info.get('udef')
 
         # Would be nice to know when an API key was being used to auth...

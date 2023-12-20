@@ -84,7 +84,7 @@ class PasswdTest(s_t_utils.SynTest):
     async def test_apikey_generation(self):
         iden, key, shadow = await s_passwd.generateApiKey()
         self.true(s_common.isguid(iden))
-        self.true(key.startswith('syn_'))
+        self.isinstance(key, str)
         self.isinstance(shadow, dict)
 
         isok, (iden2, secv) = s_passwd.parseApiKey(key)
@@ -119,20 +119,17 @@ class PasswdTest(s_t_utils.SynTest):
         with self.raises(s_exc.CryptoErr):
             await s_passwd.generateApiKey(iden=iden[:16])
 
-        badkey = 'newp_' + key1.split('_', 1)[0]
+        badkey = key1 + ' '
         isok, valu = s_passwd.parseApiKey(badkey)
         self.false(isok)
-        self.eq(valu, 'Incorrect prefix, got newp')
+        self.eq(valu, 'Excess data after padding')
 
-        prefix, valu = key1.split('_', 1)
-        tokn = base64.urlsafe_b64decode(valu)
-
-        badkey = '_'.join([prefix, base64.urlsafe_b64encode(tokn + b'newp').decode()])
+        badkey = key1 + 'newp'
         isok, valu = s_passwd.parseApiKey(badkey)
         self.false(isok)
-        self.eq(valu, 'Incorrect length, got 40')
+        self.eq(valu, 'Excess data after padding')
 
-        badkey = '_'.join([prefix, base64.urlsafe_b64encode(tokn[:32] + b'newp').decode()])
+        badkey = base64.b64encode(b'newp', altchars=b'-_').decode('-utf-8')
         isok, valu = s_passwd.parseApiKey(badkey)
         self.false(isok)
-        self.eq(valu, 'Invalid checksum')
+        self.eq(valu, 'Incorrect length, got 8')

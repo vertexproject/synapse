@@ -2423,8 +2423,7 @@ class CellTest(s_t_utils.SynTest):
             rtk0, rtdf0 = await cell.addUserApiKey(root, name='Test Token')
             bkk0, bkdf0 = await cell.addUserApiKey(root, name='Backup Token')
 
-            self.none(rtdf0.get('duration'))
-            self.none(rtdf0.get('expref'))
+            self.none(rtdf0.get('expires'))
 
             async with cell.getLocalProxy() as prox:
                 isok, valu = await prox.checkUserApiKey(rtk0)
@@ -2475,9 +2474,9 @@ class CellTest(s_t_utils.SynTest):
             self.eq(rtdf0.get('created'), rtdf1.get('created'))
             self.eq(rtdf0.get('name'), rtdf1.get('name'))
             # Modtime is increased
-            self.lt(rtdf0.get('modified'), rtdf1.get('modified'))
-            # Duration is unchanged - no duration given when regenerating
-            self.eq(rtdf0.get('duration'), rtdf1.get('duration'))
+            self.lt(rtdf0.get('updated'), rtdf1.get('updated'))
+            # Expires is unchanged - no duration given when regenerating
+            self.eq(rtdf0.get('expires'), rtdf1.get('expires'))
 
             # Change the token name
             rtdf1_new = await cell.modUserApiKey(rtdf1.get('iden'), 'name', 'Haha Key')
@@ -2501,9 +2500,7 @@ class CellTest(s_t_utils.SynTest):
 
             # Verify duration arg for regeneration is applied
             rtk2, rtdf2 = await cell.regenerateUserApiKey(rtdf0.get('iden'), duration=5)
-            self.eq(rtdf2.get('duration'), 5)
-            # expref is now present and equal to the mod time
-            self.eq(rtdf2.get('expref'), rtdf2.get('modified'))
+            self.eq(rtdf2.get('expires'), rtdf2.get('updated') + 5)
 
             await asyncio.sleep(0.02)
 
@@ -2598,8 +2595,8 @@ class CellTest(s_t_utils.SynTest):
             i = 0
             for lkey, val in cell.slab.scanByFull(cell.usermetadb):
                 i = i + 1
-                suffix = lkey[32:]
-                if suffix.startswith(b'cell:apikey'):
+                suffix = lkey[16:]
+                if suffix.startswith(b'apikey'):
                     kdef = s_msgpack.un(val)
                     vals.add(kdef.get('iden'))
             self.eq(i, 2)
@@ -2609,7 +2606,7 @@ class CellTest(s_t_utils.SynTest):
             users = set()
             for lkey, val in cell.slab.scanByFull(cell.apikeydb):
                 i = i + 1
-                users.add(val.decode())
+                users.add(s_common.ehex(val))
             self.eq(i, 2)
             self.eq(users, {root, })
 
