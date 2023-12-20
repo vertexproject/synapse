@@ -2437,7 +2437,9 @@ class CellTest(s_t_utils.SynTest):
             self.false(isok)
             self.eq(valu, {'mesg': 'API Key is malformed.'})
 
-            allkeys = await cell.listUserApiKeys()
+            allkeys = []
+            async for (useriden, kdef) in cell.getApiKeys():
+                allkeys.append((useriden, kdef))
             self.len(2, allkeys)
             _kdefs = [rtdf0, bkdf0]
             for useriden, kdef in allkeys:
@@ -2446,10 +2448,10 @@ class CellTest(s_t_utils.SynTest):
                 _kdefs.remove(kdef)
             self.len(0, _kdefs)
 
-            rootkeys = await cell.listUserApiKeys(user=root)
-            self.eq(allkeys, rootkeys)
+            rootkeys = await cell.listUserApiKeys(root)
+            self.eq([kdef for useriden, kdef in allkeys], rootkeys)
 
-            lowkeys = await cell.listUserApiKeys(user=lowuser)
+            lowkeys = await cell.listUserApiKeys(lowuser)
             self.len(0, lowkeys)
 
             async with self.getHttpSess(port=hport) as sess:
@@ -2566,7 +2568,9 @@ class CellTest(s_t_utils.SynTest):
                 ktup3 = await cell.addUserApiKey(lowuser, name='4', duration=1)
 
                 # We have bunch of API keys we can list
-                allkeys = await cell.listUserApiKeys()
+                allkeys = []
+                async for (useriden, kdef) in cell.getApiKeys():
+                    allkeys.append((useriden, kdef))
                 self.len(5 + 2, allkeys)  # Root has two, lowuser has 5
 
                 # Lock users cannot use their API Keys
@@ -2583,10 +2587,10 @@ class CellTest(s_t_utils.SynTest):
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
-            allkeys = await cell.listUserApiKeys()
-            self.len(2, allkeys)  # Root has two
-            for useriden, kdef in allkeys:
-                self.eq(useriden, root)
+            with self.raises(s_exc.NoSuchUser):  # user was deleted...
+                await cell.listUserApiKeys(lowuser)
+            rootkeys = await cell.listUserApiKeys(root)
+            self.len(2, rootkeys)  # Root has two
 
             # Ensure User meta was cleaned up from the user deletion, as well as
             # the api key db. Only two root keys should be left

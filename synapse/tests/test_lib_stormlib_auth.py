@@ -1147,8 +1147,7 @@ class StormLibAuthTest(s_test.SynTest):
             rootkeys = await core.callStorm(q)
             self.len(2, rootkeys)
             _kdefs = [rtdf0, bkdf0]
-            for useriden, kdef in rootkeys:
-                self.eq(useriden, root)
+            for kdef in rootkeys:
                 self.isin(kdef, _kdefs)
                 _kdefs.remove(kdef)
             self.len(0, _kdefs)
@@ -1175,13 +1174,13 @@ class StormLibAuthTest(s_test.SynTest):
 
             q = '$u=$lib.auth.users.byname(root) return($u.listApiKeys())'
             rootkeys = await core.callStorm(q)
-            self.eq(rootkeys, [[root, bkdf0]])
+            self.eq(rootkeys, (bkdf0,))
 
             # Root can get API keys for other users
             q = '$u=$lib.auth.users.byname(lowuser) return($u.listApiKeys())'
             lowkeys = await core.callStorm(q)
             self.len(1, lowkeys)
-            self.eq(lowkeys, [[lowuser, ltdf0]])
+            self.eq(lowkeys, (ltdf0,))
             q = '$u=$lib.auth.users.byname(lowuser) return($u.getApiKey($iden))'
             _ltdf0 = await core.callStorm(q, opts={'vars': {'iden': ltdf0.get('iden')}})
             self.eq(_ltdf0, ltdf0)
@@ -1235,8 +1234,7 @@ class StormLibAuthTest(s_test.SynTest):
             lowkeys = await core.callStorm(q, opts=lowuser_opts)
             self.len(2, lowkeys)
             _kdefs = [ltdf0, ntdf0]
-            for useriden, kdef in lowkeys:
-                self.eq(useriden, lowuser)
+            for kdef in lowkeys:
                 self.isin(kdef, _kdefs)
                 _kdefs.remove(kdef)
             self.len(0, _kdefs)
@@ -1264,7 +1262,7 @@ class StormLibAuthTest(s_test.SynTest):
             q = '$u=$lib.auth.users.byname(lowuser) return($u.listApiKeys())'
             lowkeys = await core.callStorm(q, opts=lowuser_opts)
             self.len(1, lowkeys)
-            self.eq(lowkeys, [[lowuser, ltdf0]])
+            self.eq(lowkeys, (ltdf0,))
 
             # Perm allows lowuser to manage others API keys
             await core.addUserRule(lowuser, (True, ('auth', 'user', 'set', 'apikey')))
@@ -1282,8 +1280,7 @@ class StormLibAuthTest(s_test.SynTest):
             rootkeys = await core.callStorm(q, opts=lowuser_opts)
             self.len(2, rootkeys)
             _kdefs = [bkdf0, rtdf1]
-            for useriden, kdef in rootkeys:
-                self.eq(useriden, root)
+            for kdef in rootkeys:
                 self.isin(kdef, _kdefs)
                 _kdefs.remove(kdef)
             self.len(0, _kdefs)
@@ -1303,7 +1300,7 @@ class StormLibAuthTest(s_test.SynTest):
             q = '$u=$lib.auth.users.byname(root) return($u.listApiKeys())'
             rootkeys = await core.callStorm(q, opts=lowuser_opts)
             self.len(1, rootkeys)
-            self.eq(rootkeys, [[root, bkdf0]])
+            self.eq(rootkeys, (bkdf0,))
 
             # API keys work to identify the user
             async with self.getHttpSess(port=hport) as sess:

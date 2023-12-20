@@ -4106,20 +4106,43 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef = s_msgpack.un(buf)  # This includes the shadow key
         return kdef
 
-    async def listUserApiKeys(self, user=None):
-        # DISCUSS: This could easily be a generator too
+    async def listUserApiKeys(self, useriden):
+        '''
+        Get all the API keys for a user.
+
+        Args:
+            useriden (str): The user iden.
+
+        Returns:
+            list: A list of kdef values.
+        '''
+        user = await self.auth.reqUser(useriden)
         vals = []
-        lkey = b''
-        if user:
-            lkey = s_common.uhex(user) + b'apikey'
-        for lkey, valu in self.slab.scanByPref(lkey, db=self.usermetadb):
+        prefix = s_common.uhex(user.iden) + b'apikey'
+        for lkey, valu in self.slab.scanByPref(prefix, db=self.usermetadb):
             useriden, suffix = lkey[:16], lkey[16:]
             if suffix.startswith(b'apikey'):
                 kdef = s_msgpack.un(valu)
                 kdef.pop('shadow')
-                vals.append((s_common.ehex(useriden), kdef))
+                vals.append(kdef)
             await asyncio.sleep(0)
         return vals
+
+    async def getApiKeys(self):
+        '''
+        Get all API keys in the cell.
+
+        Yields:
+            tuple: Useriden, kdef values
+        '''
+        # yield all users API keys
+        for lkey, valu in self.slab.scanByFull(db=self.usermetadb):
+            useriden, suffix = lkey[:16], lkey[16:]
+            if suffix.startswith(b'apikey'):
+                kdef = s_msgpack.un(valu)
+                kdef.pop('shadow')
+                yield (s_common.ehex(useriden), kdef)
+            await asyncio.sleep(0)
 
     async def checkUserApiKey(self, key):
         isok, valu = s_passwd.parseApiKey(key)  # TODO Timecache this API call

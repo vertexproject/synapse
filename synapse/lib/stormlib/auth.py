@@ -1258,10 +1258,10 @@ class User(s_stormtypes.Prim):
     async def _methListApiKeys(self):
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.snap.core.listUserApiKeys(user=self.valu)
+            return await self.runt.snap.core.listUserApiKeys(self.valu)
 
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-        return await self.runt.snap.core.listUserApiKeys(user=self.valu)
+        return await self.runt.snap.core.listUserApiKeys(self.valu)
 
     async def _methModApiKey(self, iden, name, valu):
         iden = await s_stormtypes.tostr(iden)
