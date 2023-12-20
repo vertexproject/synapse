@@ -199,3 +199,21 @@ reqValidVote = s_config.getJsValidator({
     'required': ['user', 'offset', 'created', 'approved'],
     'additionalProperties': False,
 })
+
+reqValidAhaPoolDef = s_config.getJsValidator({
+    'type': 'object', 'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'created': {'type': 'number'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'services': {'type': 'object', 'patternProperties': {
+            '.+': {'type': 'object', 'properties': {
+                'created': {'type': 'number'},
+                'creator': {'type': 'string', 'pattern': s_config.re_iden},
+            },
+            'required': ['creator', 'created'],
+            'additionalProperties': False,
+        }}},
+    },
+    'additionalProperties': False,
+    'userrequired': ['name', 'creator', 'created', 'services'],
+})

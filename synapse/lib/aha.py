@@ -17,6 +17,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -57,24 +58,6 @@ _provSvcSchema = {
 }
 provSvcSchema = s_config.getJsValidator(_provSvcSchema)
 
-_svcPoolSchema = {
-    'type': 'object', 'properties': {
-        'name': {'type': 'string', 'minLength': 1},
-        'created': {'type': 'number'},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'services': {'type': 'object', 'patternProperties': {
-            '.+': {'type': 'object', 'properties': {
-                'created': {'type': 'number'},
-                'creator': {'type': 'string', 'pattern': s_config.re_iden},
-            },
-            'required': ['creator', 'created'],
-            'additionalProperties': False,
-        }}},
-    },
-    'additionalProperties': False,
-    'userrequired': ['name', 'creator', 'created', 'services'],
-}
-reqValidPoolInfo = s_config.getJsValidator(_svcPoolSchema)
 
 class AhaProvisionServiceV1(s_httpapi.Handler):
 
@@ -664,7 +647,7 @@ class AhaCell(s_cell.Cell):
             return s_msgpack.un(byts)
 
     def _savePoolInfo(self, poolinfo):
-        reqValidPoolInfo(poolinfo)
+        s_schemas.reqValidAhaPoolDef(poolinfo)
         name = poolinfo.get('name')
         self.slab.put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
 
@@ -710,7 +693,7 @@ class AhaCell(s_cell.Cell):
     async def addAhaPoolSvc(self, poolname, svcname, info):
         info['created'] = s_common.now()
         info.setdefault('creator', self.getDmonUser())
-        return await self._push('aha:pool;:svc:add', poolname, svcname, info)
+        return await self._push('aha:pool:svc:add', poolname, svcname, info)
 
     @s_nexus.Pusher.onPush('aha:pool:svc:add')
     async def _addAhaPoolSvc(self, poolname, svcname, info):
