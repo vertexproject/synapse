@@ -116,6 +116,8 @@ class BadArg(SynErr):
     ''' Improper function arguments '''
     pass
 
+class BadState(SynErr): pass
+
 class BadFileExt(SynErr): pass
 class BadIndxValu(SynErr): pass
 class BadMesgVers(SynErr): pass
