@@ -449,7 +449,7 @@ class AgendaTest(s_t_utils.SynTest):
                     guid2 = adef.get('iden')
                     appt = agenda.appts[guid2]
                     appt.lasterrs.append('error happened')
-                    await agenda._storeAppt(appt)
+                    await appt.save()
 
                     # Add an appt with an invalid query
                     cdef = {'creator': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
@@ -495,51 +495,6 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(last_appt.query, '#bahhumbug')
 
                     self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
-
-    async def test_cron_perms(self):
-
-        async with self.getTestCore() as core:
-
-            visi = await core.auth.addUser('visi')
-            newb = await core.auth.addUser('newb')
-            async with core.getLocalProxy(user='visi') as proxy:
-
-                cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.addCronJob(cdef)
-
-                await visi.addRule((True, ('cron', 'add')))
-                cron0 = await proxy.addCronJob(cdef)
-                cron0_iden = cron0.get('iden')
-
-                cdef = {'storm': 'inet:ipv6', 'reqs': {'hour': 2}}
-                cron1 = await proxy.addCronJob(cdef)
-                cron1_iden = cron1.get('iden')
-
-                await proxy.delCronJob(cron0_iden)
-
-                cdef = {'storm': '[test:str=foo]', 'reqs': {'now': True},
-                        'incunit': 'month',
-                        'incvals': 1}
-                await self.asyncraises(s_exc.BadConfValu, proxy.addCronJob(cdef))
-
-            async with core.getLocalProxy(user='newb') as proxy:
-
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.delCronJob(cron1_iden)
-
-                self.eq(await proxy.listCronJobs(), ())
-                await newb.addRule((True, ('cron', 'get')))
-                self.len(1, await proxy.listCronJobs())
-
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.disableCronJob(cron1_iden)
-
-                await newb.addRule((True, ('cron', 'set')))
-                self.none(await proxy.disableCronJob(cron1_iden))
-
-                await newb.addRule((True, ('cron', 'del')))
-                await proxy.delCronJob(cron1_iden)
 
     async def test_agenda_stop(self):
 
@@ -727,7 +682,8 @@ class AgendaTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            derp = await core.auth.addUser('derp')
+            lowuser = await core.addUser('lowuser')
+            lowuser = lowuser.get('iden')
 
             msgs = await core.stormlist('cron.add --hourly 32 { $lib.print(woot) }')
             self.stormHasNoWarnErr(msgs)
@@ -735,14 +691,23 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
             self.eq(cdef['creator'], core.auth.rootuser.iden)
 
-            opts = {'vars': {'derp': derp.iden}}
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $derp)) }', opts=opts)
+            opts = {'vars': {'lowuser': lowuser}}
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $lowuser)) }',
+                                        opts=opts)
+            self.eq(cdef['creator'], lowuser)
 
-            self.eq(cdef['creator'], derp.iden)
+            opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
+            q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
+            msgs = await core.stormlist(q, opts=opts)
+            # XXX FIXME - This is an odd message since the new creator does not implicitly have
+            # access to the cronjob that is running as them.
+            self.stormIsInErr('Provided iden does not match any valid authorized cron job.', msgs)
 
-            async with core.getLocalProxy(user='derp') as proxy:
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)
+            await core.addUserRule(lowuser, (True, ('cron', 'get')))
+            opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
+            q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInErr('must have permission cron.set.creator', msgs)
 
     async def test_agenda_fatal_run(self):
 
@@ -808,13 +773,12 @@ class AgendaTest(s_t_utils.SynTest):
                         if len(mesgs) == 2:
                             break
 
+                    await core01.sync()
+
                     cron00 = await core00.callStorm('return($lib.cron.list())')
                     cron01 = await core01.callStorm('return($lib.cron.list())')
-                    # both should have the job, but only one should have run
-                    self.len(1, cron00)
-                    self.eq(cron00[0]['lastresult'], 'finished successfully with 0 nodes')
-                    self.len(1, cron01)
-                    self.none(cron01[0]['lastresult'])
+
+                    self.eq(cron00, cron01)
 
                     start = mesgs[0]
                     stop = mesgs[1]
@@ -824,3 +788,35 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(start['info']['iden'], cron00[0]['iden'])
                     self.eq(stop['info']['iden'], cron00[0]['iden'])
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+                    nodes = await core00.nodes('syn:cron')
+                    self.len(1, nodes)
+
+                    msgs = await core00.stormlist('syn:cron [ :name=foo :doc=bar ]')
+                    self.stormHasNoWarnErr(msgs)
+                    await core01.sync()
+
+                    nodes = await core01.nodes('syn:cron')
+                    self.len(1, nodes)
+                    self.eq(nodes[0].props.get('name'), 'foo')
+                    self.eq(nodes[0].props.get('doc'), 'bar')
+
+                    appt = await core01.agenda.get(nodes[0].ndef[1])
+                    self.eq(appt.name, 'foo')
+                    self.eq(appt.doc, 'bar')
+
+            with self.getLoggerStream('synapse.lib.agenda') as stream:
+                async with self.getTestCore(dirn=path00) as core00:
+                    appts = core00.agenda.list()
+                    self.len(1, appts)
+                    appt = appts[0][1]
+
+                    edits = {
+                        'invalid': 'newp',
+                    }
+                    await core00.addCronEdits(appt.iden, edits)
+
+                stream.seek(0)
+                data = stream.read()
+                self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)

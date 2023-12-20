@@ -861,7 +861,14 @@ class HiveUser(HiveRuler):
 
         roles = self.info.get('roles', ())
         if packroles:
-            roles = [self.auth.role(r).pack() for r in roles]
+            _roles = []
+            for r in roles:
+                role = self.auth.role(r)
+                if role is None:
+                    logger.error(f'User {self.iden} ({self.name}) contains a missing role: {r}')
+                    continue
+                _roles.append(role.pack())
+            roles = _roles
 
         return {
             'type': 'user',

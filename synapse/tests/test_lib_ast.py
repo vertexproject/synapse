@@ -270,11 +270,10 @@ class AstTest(s_test.SynTest):
             # Show that a computed variable being smashed by a
             # subquery variable assignment with multiple nodes
             # traveling through a subquery.
-            async with await core.snap() as snap:
-                await snap.addNode('test:comp', (30, 'w00t'))
-                await snap.addNode('test:comp', (40, 'w00t'))
-                await snap.addNode('test:int', 30, {'loc': 'sol'})
-                await snap.addNode('test:int', 40, {'loc': 'mars'})
+            await core.nodes('[test:comp=(30, w00t)]')
+            await core.nodes('[test:comp=(40, w00t)]')
+            await core.nodes('[test:int=30 :loc=sol]')
+            await core.nodes('[test:int=40 :loc=mars]')
 
             q = '''
                 test:comp:haha=w00t
@@ -655,6 +654,109 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :asn -> *'))
             self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :foo -> *'))
             self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :asn -> inet:asn'))
+
+    async def test_ast_edge_walknjoin(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[test:str=foo :hehe=bar +(foobar)> { [ test:str=baz ] }]')
+
+            nodes = await core.nodes('test:str=foo --+> *')
+            self.len(2, nodes)
+            self.eq(('test:str', 'foo'), nodes[0].ndef)
+            self.eq(('test:str', 'baz'), nodes[1].ndef)
+
+            nodes = await core.nodes('test:str=baz <+-- *')
+            self.len(2, nodes)
+            self.eq(('test:str', 'baz'), nodes[0].ndef)
+            self.eq(('test:str', 'foo'), nodes[1].ndef)
+
+            nodes = await core.nodes('test:str=foo -(foobar)+> *')
+            self.len(2, nodes)
+            self.eq(('test:str', 'foo'), nodes[0].ndef)
+            self.eq(('test:str', 'baz'), nodes[1].ndef)
+
+            nodes = await core.nodes('test:str=baz <+(foobar)- *')
+            self.len(2, nodes)
+            self.eq(('test:str', 'baz'), nodes[0].ndef)
+            self.eq(('test:str', 'foo'), nodes[1].ndef)
+
+            await core.nodes('test:str=foo [ +(coffeeone)> { [ test:str=arabica ] } ]')
+            await core.nodes('test:str=foo [ +(coffeetwo)> { [ test:str=robusta ] } ]')
+            await core.nodes('[ test:int=28 +(coffeethree)> { test:str=arabica } ]')
+
+            nodes = await core.nodes('test:str=foo -((coffeeone, coffeetwo))+> *')
+            self.len(3, nodes)
+            self.eq(('test:str', 'foo'), nodes[0].ndef)
+            self.eq(('test:str', 'arabica'), nodes[1].ndef)
+            self.eq(('test:str', 'robusta'), nodes[2].ndef)
+
+            await core.nodes('[test:str=neato :hehe=haha +(stuff)> { [inet:ipv4=1.2.3.0/24] }]')
+            await core.nodes('[test:str=burrito :hehe=stuff <(stuff)+ { test:str=baz }]')
+            await core.nodes('test:str=neato [ <(other)+ { test:str=foo } ]')
+
+            nodes = await core.nodes('$edge=stuff test:str=neato -($edge)+> *')
+            self.len(257, nodes)
+            self.eq(('test:str', 'neato'), nodes[0].ndef)
+            for n in nodes[1:]:
+                self.eq('inet:ipv4', n.ndef[0])
+
+            nodes = await core.nodes('test:str=neato | tee { --+> * } { <+(other)- * }')
+            self.len(259, nodes)
+            self.eq(('test:str', 'neato'), nodes[0].ndef)
+            self.eq(('test:str', 'foo'), nodes[-1].ndef)
+            self.eq(('test:str', 'neato'), nodes[-2].ndef)
+
+            for n in nodes[1:257]:
+                self.eq('inet:ipv4', n.ndef[0])
+
+            await core.nodes('test:str=foo [ +(wat)> {[test:int=12]}]')
+
+            nodes = await core.nodes('test:str=foo -(other)+> test:str')
+            self.len(2, nodes)
+            self.eq(('test:str', 'foo'), nodes[0].ndef)
+            self.eq(('test:str', 'neato'), nodes[1].ndef)
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str=neato --+> test:str')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str <+-- test:str')
+
+            nodes = await core.nodes('test:str=foo -(*)+> test:str')
+            self.len(5, nodes)
+            self.eq(('test:str', 'foo'), nodes[0].ndef)
+            ndefs = [n.ndef for n in nodes[1:]]
+            self.isin(('test:str', 'arabica'), ndefs)
+            self.isin(('test:str', 'robusta'), ndefs)
+            self.isin(('test:str', 'baz'), ndefs)
+            self.isin(('test:str', 'neato'), ndefs)
+            self.notin(('test:int', 12), ndefs)
+
+            nodes = await core.nodes('test:str=foo -(*)+> *')
+            self.len(6, nodes)
+            self.eq(('test:str', 'foo'), nodes[0].ndef)
+            ndefs = [n.ndef for n in nodes[1:]]
+            self.isin(('test:int', 12), ndefs)
+
+            nodes = await core.nodes('test:str=arabica <+(*)- test:str')
+            self.len(2, nodes)
+            self.eq(('test:str', 'arabica'), nodes[0].ndef)
+            self.eq(('test:str', 'foo'), nodes[1].ndef)
+
+            nodes = await core.nodes('test:str=arabica <+(*)- *')
+            self.len(3, nodes)
+            self.eq(('test:str', 'arabica'), nodes[0].ndef)
+            ndefs = [n.ndef for n in nodes[1:]]
+            self.isin(('test:str', 'foo'), ndefs)
+            self.isin(('test:int', 28), ndefs)
+
+            await core.nodes('test:str=arabica [ <(place)+ { [ test:str=coffeebar] } ]')
+            nodes = await core.nodes('test:str=arabica <+((place, coffeeone))- *')
+            self.len(3, nodes)
+            self.eq(('test:str', 'arabica'), nodes[0].ndef)
+            self.eq(('test:str', 'coffeebar'), nodes[1].ndef)
+            self.eq(('test:str', 'foo'), nodes[2].ndef)
 
     async def test_ast_lift_filt_array(self):
 
@@ -3015,8 +3117,11 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('test:str +#taga*:score'))
             self.len(1, await core.nodes('test:str +#tagaa:score=5'))
             self.len(1, await core.nodes('test:str +#tagaa:score<(2+4)'))
+            self.len(0, await core.nodes('test:str +#tagaa:score<-5'))
             self.len(1, await core.nodes('test:str +#tagaa:score*range=(4,6)'))
+            self.len(0, await core.nodes('test:str +#taga*:score <- *'))
             self.len(1, await core.nodes('test:str +#taga*:score <(*)- *'))
+            self.len(3, await core.nodes('test:str +#taga*:score <+(*)- *'))
             self.len(2, await core.nodes('$tag=taga* test:str +#$tag:score'))
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score=5'))
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score*range=(4,6)'))
@@ -3137,3 +3242,79 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})
+
+    async def test_ast_subrunt_safety(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:str=test1]')
+            self.len(1, nodes)
+
+            q = '''
+            test:str=test1
+            $test=$node.value()
+            [(test:str=test2 +(refs)> {test:str=$test})]
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            nodes = await core.nodes('test:str=test1 <(refs)- test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+            q = '''
+            test:str=test2
+            $valu=$node.value()
+            | spin |
+            test:str=test1 -> { test:str=$valu }
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+        # Should produce the same results in a macro sub-runtime
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:str=test1]')
+            self.len(1, nodes)
+
+            q = '''
+            $q = ${
+                test:str=test1
+                $test=$node.value()
+                [(test:str=test2 +(refs)> {test:str=$test})]
+            }
+            $lib.macro.set(test.edge, $q)
+            return($lib.true)
+            '''
+            self.true(await core.callStorm(q))
+
+            nodes = await core.nodes('macro.exec test.edge')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('test:str=test1 <(refs)- test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+            q = '''
+            $q = ${
+                test:str=test2
+                $valu=$node.value()
+                | spin |
+                test:str=test1 -> { test:str=$valu }
+            }
+            $lib.macro.set(test.pivot, $q)
+            return($lib.true)
+            '''
+            self.true(await core.callStorm(q))
+
+            nodes = await core.nodes('macro.exec test.pivot')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+    async def test_ast_subq_runtsafety(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('$foo={[test:str=foo] return($node.value())} $lib.print($foo)')
+            self.stormIsInPrint('foo', msgs)
+
+            msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
+            self.stormIsInPrint('foo', msgs)

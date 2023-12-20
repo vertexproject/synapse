@@ -157,6 +157,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :timeline:vendor:fixed=2020-01-14
                     :timeline:published=2020-01-14
 
+                    :id=" Vtx-000-1234 "
+
                     :cve=cve-2013-0000
                     :cve:desc="Woot Woot"
                     :cve:references=(http://vertex.link,)
@@ -207,6 +209,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('timeline:vendor:notified'), 1578960000000)
             self.eq(node.get('timeline:vendor:fixed'), 1578960000000)
             self.eq(node.get('timeline:published'), 1578960000000)
+
+            self.eq(node.get('id'), 'Vtx-000-1234')
 
             self.eq(node.get('cve'), 'cve-2013-0000')
             self.eq(node.get('cve:desc'), 'Woot Woot')

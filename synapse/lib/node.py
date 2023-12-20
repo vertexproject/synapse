@@ -210,16 +210,6 @@ class Node:
 
         return retn
 
-    async def seen(self, tick, source=None):
-        '''
-        Update the .seen interval and optionally a source specific seen node.
-        '''
-        await self.set('.seen', tick)
-
-        if source is not None:
-            seen = await self.snap.addNode('meta:seen', (source, self.ndef))
-            await seen.set('.seen', tick)
-
     def getNodeRefs(self):
         '''
         Return a list of (prop, (form, valu)) refs out for the node.
@@ -613,17 +603,15 @@ class Node:
             * delete all the tags (bottom up)
                 * fire onDelTag() handlers
                 * delete tag properties from storage
-                * log tag:del splices
 
             * delete all secondary properties
                 * fire onDelProp handler
                 * delete secondary property from storage
-                * log prop:del splices
 
             * delete the primary property
                 * fire onDel handlers for the node
                 * delete primary property from storage
-                * log node:del splices
+
         '''
 
         formname, formvalu = self.ndef

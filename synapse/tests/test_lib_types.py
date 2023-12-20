@@ -263,8 +263,9 @@ class TypesTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             t = 'test:complexcomp'
             valu = ('123', 'HAHA')
-            async with await core.snap() as snap:
-                node = await snap.addNode(t, valu)
+            nodes = await core.nodes('[test:complexcomp=(123, HAHA)]')
+            self.len(1, nodes)
+            node = nodes[0]
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (123, 'haha')))
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
@@ -414,16 +415,12 @@ class TypesTest(s_t_utils.SynTest):
                     self.raises(b, t.norm, v)
 
             # Do some node creation and lifting
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:hexa', '01:00 01')
-                self.eq(node.ndef[1], '010001')
-
-            async with await core.snap() as snap:
-                nodes = await snap.nodes('test:hexa=010001')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hexa=$byts', opts={'vars': {'byts': b'\x01\x00\x01'}})
-                self.len(1, nodes)
+            nodes = await core.nodes('[test:hexa="01:00 01"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:hexa', '010001'))
+            self.len(1, await core.nodes('test:hexa=010001'))
+            self.len(1, await core.nodes('test:hexa=$byts', opts={'vars': {'byts': b'\x01\x00\x01'}}))
 
             # Do some fancy prefix searches for test:hexa
             valus = ['deadb33f',
@@ -431,50 +428,25 @@ class TypesTest(s_t_utils.SynTest):
                      'deadb3b3',
                      'deaddead',
                      'DEADBEEF']
-            async with await core.snap() as snap:
-                for valu in valus:
-                    node = await snap.addNode('test:hexa', valu)
-
-            async with await core.snap() as snap:
-                nodes = await snap.nodes('test:hexa=dead*')
-                self.len(5, nodes)
-
-                nodes = await snap.nodes('test:hexa=deadb3*')
-                self.len(3, nodes)
-
-                nodes = await snap.nodes('test:hexa=deadb33fb3*')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hexa=deadde*')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hexa=b33f*')
-                self.len(0, nodes)
-
+            self.len(5, await core.nodes('for $valu in $vals {[test:hexa=$valu]}', opts={'vars': {'vals': valus}}))
+            self.len(5, await core.nodes('test:hexa=dead*'))
+            self.len(3, await core.nodes('test:hexa=deadb3*'))
+            self.len(1, await core.nodes('test:hexa=deadb33fb3*'))
+            self.len(1, await core.nodes('test:hexa=deadde*'))
+            self.len(0, await core.nodes('test:hexa=b33f*'))
             # Do some fancy prefix searches for test:hex4
             valus = ['0000',
                      '0100',
                      '01ff',
                      '0200',
                      ]
-            async with await core.snap() as snap:
-                for valu in valus:
-                    node = await snap.addNode('test:hex4', valu)
-
-            async with await core.snap() as snap:
-                nodes = await snap.nodes('test:hex4=00*')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hex4=01*')
-                self.len(2, nodes)
-
-                nodes = await snap.nodes('test:hex4=02*')
-                self.len(1, nodes)
-
-                # You can ask for a longer prefix then allowed
-                # but you'll get no results
-                nodes = await snap.nodes('test:hex4=022020*')
-                self.len(0, nodes)
+            self.len(4, await core.nodes('for $valu in $vals {[test:hex4=$valu]}', opts={'vars': {'vals': valus}}))
+            self.len(1, await core.nodes('test:hex4=00*'))
+            self.len(2, await core.nodes('test:hex4=01*'))
+            self.len(1, await core.nodes('test:hex4=02*'))
+            # You can ask for a longer prefix then allowed
+            # but you'll get no results
+            self.len(0, await core.nodes('test:hex4=022020*'))
 
             self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
             self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
@@ -689,40 +661,21 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            t = core.model.type('test:time')
-
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '2014', '.seen': ('2005', '2006')})
-                await node.addTag('foo', valu=('2000', '2001'))
-
-                node = await snap.addNode('test:str', 'b', {'tick': '2015', '.seen': ('8679', '9000')})
-                await node.addTag('foo', valu=('2015', '2018'))
-
-                node = await snap.addNode('test:str', 'c', {'tick': '2016', '.seen': ('now-5days', 'now-1day')})
-                await node.addTag('bar', valu=('1970', '1990'))
-
-                node = await snap.addNode('test:str', 'd', {'tick': 'now', '.seen': ('now-10days', '?')})
-                await node.addTag('baz', valu='now')
-
-                node = await snap.addNode('test:str', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
-                await node.addTag('biz', valu=('now-1day', 'now+1day'))
-
-                # node whose primary prop is an ival
-                node = await snap.addNode('test:ival', (0, 10), {'interval': ("now", "now+4days")})
-                node = await snap.addNode('test:ival', (50, 100), {'interval': ("now-2days", "now+2days")})
-                node = await snap.addNode('test:ival', ("1995", "1997"), {'interval': ("2010", "2011")})
-                node = await snap.addNode('test:ival', ("now-2days", "now+4days"), {'interval': ("201006", "20100605")})
-                node = await snap.addNode('test:ival', ("now+21days", "?"), {'interval': ("2000", "2001")})
-
-                # tag of tags
-                node = (await snap.nodes('syn:tag=foo'))[0]
-                await node.addTag('v.p', valu=('2005', '2006'))
-
-                node = (await snap.nodes('syn:tag=bar'))[0]
-                await node.addTag('vert.proj', valu=('20110605', 'now'))
-
-                node = (await snap.nodes('syn:tag=biz'))[0]
-                await node.addTag('vertex.project', valu=('now-5days', 'now'))
+            self.len(1, await core.nodes('[test:str=a .seen=(2005, 2006) :tick=2014 +#foo=(2000, 2001)]'))
+            self.len(1, await core.nodes('[test:str=b .seen=(8679, 9000) :tick=2015 +#foo=(2015, 2018)]'))
+            self.len(1, await core.nodes('[test:str=c .seen=("now-5days", "now-1day") :tick=2016 +#bar=(1970, 1990)]'))
+            self.len(1, await core.nodes('[test:str=d .seen=("now-10days", "?") :tick=now +#baz=now]'))
+            self.len(1, await core.nodes('[test:str=e .seen=("now+1day", "now+5days") :tick="now-3days" +#biz=("now-1day", "now+1 day")]'))
+            # node whose primary prop is an ival
+            self.len(1, await core.nodes('[test:ival=((0),(10)) :interval=(now, "now+4days")]'))
+            self.len(1, await core.nodes('[test:ival=((50),(100)) :interval=("now-2days", "now+2days")]'))
+            self.len(1, await core.nodes('[test:ival=(1995, 1997) :interval=(2010, 2011)]'))
+            self.len(1, await core.nodes('[test:ival=("now-2days", "now+4days") :interval=(201006, 20100605) ]'))
+            self.len(1, await core.nodes('[test:ival=("now+21days", "?") :interval=(2000, 2001)]'))
+            # tag of tags
+            self.len(1, await core.nodes('[syn:tag=foo +#v.p=(2005, 2006)]'))
+            self.len(1, await core.nodes('[syn:tag=bar +#vert.proj=(20110605, now)]'))
+            self.len(1, await core.nodes('[syn:tag=biz +#vertex.project=("now-5days", now)]'))
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str :tick=(20150102, "-4 day")')
@@ -1013,15 +966,14 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_range_filter(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'bar': ('test:str', 'a'), 'tick': '19990101'})
-                node = await snap.addNode('test:str', 'b', {'.seen': ('20100101', '20110101'), 'tick': '20151207'})
-                node = await snap.addNode('test:str', 'm', {'bar': ('test:str', 'm'), 'tick': '20200101'})
-                node = await snap.addNode('test:guid', 'C' * 32)
-                node = await snap.addNode('test:guid', 'F' * 32)
-                await core.nodes('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]')
-                await core.nodes('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]')
-                await core.nodes('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]')
+            self.len(1, await core.nodes('[test:str=a :bar=(test:str, b) :tick=19990101]'))
+            self.len(1, await core.nodes('[test:str=b .seen=(20100101, 20110101) :tick=20151207]'))
+            self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
+            self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
+            self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
+            self.len(1, await core.nodes('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]'))
+            self.len(1, await core.nodes('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]'))
+            self.len(1, await core.nodes('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]'))
 
             self.len(0, await core.nodes('test:str=a +:tick*range=(20000101, 20101201)'))
             nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
@@ -1047,14 +999,10 @@ class TypesTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str +test:str*range=(b, m)'))
 
             # Range against a integer
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:int', -1)
-                node = await snap.addNode('test:int', 0)
-                node = await snap.addNode('test:int', 1)
-                node = await snap.addNode('test:int', 2)
+            valus = (-1, 0, 1, 2)
+            self.len(4, await core.nodes('for $valu in $vals {[test:int=$valu]}', opts={'vars': {'vals': valus}}))
             self.len(3, await core.nodes('test:int*range=(0, 2)'))
             self.len(3, await core.nodes('test:int +test:int*range=(0, 2)'))
-
             self.len(1, await core.nodes('test:int*range=(-1, -1)'))
             self.len(1, await core.nodes('test:int +test:int*range=(-1, -1)'))
 
@@ -1225,11 +1173,10 @@ class TypesTest(s_t_utils.SynTest):
             self.raises(s_exc.BadCmprValu,
                         t.cmpr, '2015', 'range=', tick)
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '2014'})
-                node = await snap.addNode('test:str', 'b', {'tick': '2015'})
-                node = await snap.addNode('test:str', 'c', {'tick': '2016'})
-                node = await snap.addNode('test:str', 'd', {'tick': 'now'})
+            self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
+            self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
+            self.len(1, await core.nodes('[(test:str=c :tick=2016)]'))
+            self.len(1, await core.nodes('[(test:str=d :tick=now)]'))
 
             nodes = await core.nodes('test:str:tick=2014')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
@@ -1325,10 +1272,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=(2000, "?+1 day")')
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 't1', {'tick': '2018/12/02 23:59:59.000'})
-                node = await snap.addNode('test:str', 't2', {'tick': '2018/12/03'})
-                node = await snap.addNode('test:str', 't3', {'tick': '2018/12/03 00:00:01.000'})
+            self.len(1, await core.nodes('[(test:str=t1 :tick="2018/12/02 23:59:59.000")]'))
+            self.len(1, await core.nodes('[(test:str=t2 :tick="2018/12/03")]'))
+            self.len(1, await core.nodes('[(test:str=t3 :tick="2018/12/03 00:00:01.000")]'))
 
             self.eq(0, await core.count('test:str:tick*range=(2018/12/01, "+24 hours")'))
             self.eq(2, await core.count('test:str:tick*range=(2018/12/01, "+48 hours")'))
@@ -1437,15 +1383,18 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '2014'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
-                node = await snap.addNode('test:str', 'b', {'tick': '2015'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
-                node = await snap.addNode('test:str', 'c', {'tick': '2016'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
-                node = await snap.addNode('test:str', 'd', {'tick': 'now'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
+            nodes = await core.nodes('[test:str=a :tick=2014]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            nodes = await core.nodes('[test:str=b :tick=2015]')
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, nodes)
+            nodes = await core.nodes('[test:str=c :tick=2016]')
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, nodes)
+            nodes = await core.nodes('[test:str=d :tick=now]')
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, nodes)
 
             q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
             nodes = await core.nodes(q)
