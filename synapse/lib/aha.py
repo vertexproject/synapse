@@ -746,7 +746,7 @@ class AhaCell(s_cell.Cell):
         svcpath = ('aha', 'svcfull', svcname)
         svcitem = await self.jsonstor.getPathObj(svcpath)
         if svcitem is None:
-            raise s_exc.NoSuchName(mesg=f'No AHA service is currently named "{svcname}".')
+            raise s_exc.NoSuchName(mesg=f'No AHA service is currently named "{svcname}".', name=svcname)
         return svcitem
 
     @s_nexus.Pusher.onPushAuto('aha:svc:del')
