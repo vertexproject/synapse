@@ -213,7 +213,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
 
 async def getAhaProxy(urlinfo):
     '''
-    Return a telepath proxy by looking up a host from an aha registry.
+    Return a telepath proxy by looking up a host from an AHA registry.
     '''
     ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=5)
 
