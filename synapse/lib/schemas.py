@@ -207,7 +207,7 @@ reqValidAhaPoolDef = s_config.getJsValidator({
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'services': {'type': 'object', 'patternProperties': {
             '.+': {'type': 'object', 'properties': {
-                'created': {'type': 'number'},
+                'created': {'type': 'number', 'minval': 0},
                 'creator': {'type': 'string', 'pattern': s_config.re_iden},
             },
             'required': ['creator', 'created'],
