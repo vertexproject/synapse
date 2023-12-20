@@ -1,5 +1,21 @@
 import synapse.lib.config as s_config
+import synapse.lib.msgpack as s_msgpack
 
+
+easyPermSchema = {
+    'type': 'object',
+    'properties': {
+        'users': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+    },
+    'required': ['users', 'roles'],
+}
 
 _HttpExtAPIConfSchema = {
     'type': 'object',
@@ -47,5 +63,81 @@ _HttpExtAPIConfSchema = {
     'additionalProperties': False
 }
 
-
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
+
+_CronJobSchema = {
+    'type': 'object',
+    'properties': {
+        'storm': {'type': 'string'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'doc': {'type': 'string'},
+        'incunit': {
+            'oneOf': [
+                {'type': 'null'},
+                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
+            ]
+        },
+        'incvals': {
+            'type': ['array', 'number', 'null'],
+            'items': {'type': 'number'}
+        },
+        'reqs': {
+            'oneOf': [
+                {
+                    '$ref': '#/definitions/req',
+                },
+                {
+                    'type': ['array'],
+                    'items': {'$ref': '#/definitions/req'},
+                },
+            ]
+        },
+    },
+    'additionalProperties': False,
+    'required': ['creator', 'storm'],
+    'dependencices': {
+        'incvals': ['incunit'],
+        'incunit': ['incvals'],
+    },
+    'definitions': {
+        'req': {
+            'type': 'object',
+            'properties': {
+                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+            }
+        }
+    }
+}
+
+reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
+reqValidVault = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'type': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
+        'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'permissions': s_msgpack.deepcopy(easyPermSchema),
+        'secrets': {'type': 'object'},
+        'configs': {'type': 'object'},
+    },
+    'additionalProperties': False,
+    'required': [
+        'iden',
+        'name',
+        'type',
+        'scope',
+        'owner',
+        'permissions',
+        'secrets',
+        'configs',
+    ],
+})

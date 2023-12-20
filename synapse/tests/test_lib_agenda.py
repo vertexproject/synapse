@@ -449,7 +449,7 @@ class AgendaTest(s_t_utils.SynTest):
                     guid2 = adef.get('iden')
                     appt = agenda.appts[guid2]
                     appt.lasterrs.append('error happened')
-                    await agenda._storeAppt(appt)
+                    await appt.save()
 
                     # Add an appt with an invalid query
                     cdef = {'creator': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
@@ -773,13 +773,12 @@ class AgendaTest(s_t_utils.SynTest):
                         if len(mesgs) == 2:
                             break
 
+                    await core01.sync()
+
                     cron00 = await core00.callStorm('return($lib.cron.list())')
                     cron01 = await core01.callStorm('return($lib.cron.list())')
-                    # both should have the job, but only one should have run
-                    self.len(1, cron00)
-                    self.eq(cron00[0]['lastresult'], 'finished successfully with 0 nodes')
-                    self.len(1, cron01)
-                    self.none(cron01[0]['lastresult'])
+
+                    self.eq(cron00, cron01)
 
                     start = mesgs[0]
                     stop = mesgs[1]
@@ -789,3 +788,35 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(start['info']['iden'], cron00[0]['iden'])
                     self.eq(stop['info']['iden'], cron00[0]['iden'])
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+                    nodes = await core00.nodes('syn:cron')
+                    self.len(1, nodes)
+
+                    msgs = await core00.stormlist('syn:cron [ :name=foo :doc=bar ]')
+                    self.stormHasNoWarnErr(msgs)
+                    await core01.sync()
+
+                    nodes = await core01.nodes('syn:cron')
+                    self.len(1, nodes)
+                    self.eq(nodes[0].get('name'), 'foo')
+                    self.eq(nodes[0].get('doc'), 'bar')
+
+                    appt = await core01.agenda.get(nodes[0].ndef[1])
+                    self.eq(appt.name, 'foo')
+                    self.eq(appt.doc, 'bar')
+
+            with self.getLoggerStream('synapse.lib.agenda') as stream:
+                async with self.getTestCore(dirn=path00) as core00:
+                    appts = core00.agenda.list()
+                    self.len(1, appts)
+                    appt = appts[0][1]
+
+                    edits = {
+                        'invalid': 'newp',
+                    }
+                    await core00.addCronEdits(appt.iden, edits)
+
+                stream.seek(0)
+                data = stream.read()
+                self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)

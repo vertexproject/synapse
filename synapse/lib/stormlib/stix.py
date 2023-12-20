@@ -998,7 +998,7 @@ class LibStixImport(s_stormtypes.Lib):
     async def _callStorm(self, text, varz):
 
         query = await self.runt.snap.core.getStormQuery(text)
-        async with self.runt.getSubRuntime(query, opts={'vars': varz}) as runt:
+        async with self.runt.getCmdRuntime(query, opts={'vars': varz}) as runt:
             try:
                 async for _ in runt.execute():
                     await asyncio.sleep(0)
@@ -1406,7 +1406,7 @@ class StixBundle(s_stormtypes.Prim):
 
         opts = {'vars': {'bundle': self}}
         query = await self.runt.snap.core.getStormQuery(text)
-        async with self.runt.getSubRuntime(query, opts=opts) as runt:
+        async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 
             async def genr():
                 yield node, runt.initPath(node)
