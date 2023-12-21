@@ -4080,10 +4080,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Args:
             useriden (str): User iden value.
             name (str): Name of the API key.
-            duration (int): Duration of time for the API key to be valid ( in milliseconds ).
+            duration (int or None): Duration of time for the API key to be valid ( in milliseconds ).
 
         Returns:
-            tuple: A tuple of the secret API key value and the API Key metadata information.
+            tuple: A tuple of the secret API key value and the API key metadata information.
         '''
         user = await self.auth.reqUser(useriden)
         iden, token, shadow = await s_passwd.generateApiKey()
@@ -4106,7 +4106,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:add', kdef)
 
-        logger.info(f'Created HTTP API Key {iden} for {user.name}, {name=}',
+        logger.info(f'Created HTTP API key {iden} for {user.name}, {name=}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
                                                  status='MODIFY'))
 
@@ -4183,11 +4183,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def checkUserApiKey(self, key):
         '''
-        Check if a user API Key is valid.
+        Check if a user API key is valid.
 
         Notes:
             If the key is not valid, the dictionary will contain a ``mesg`` key.
-            If the key is valid, the dictionar will contain the user def in a ``udef`` key,
+            If the key is valid, the dictionary will contain the user def in a ``udef`` key,
             and the key metadata in a ``kdef`` key.
 
         Args:
@@ -4198,32 +4198,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         isok, valu = s_passwd.parseApiKey(key)
         if isok is False:
-            return False, {'mesg': 'API Key is malformed.'}
+            return False, {'mesg': 'API key is malformed.'}
 
         iden, secv = valu
 
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
-            return False, {'mesg': f'API Key does not exist: {iden}'}
+            return False, {'mesg': f'API key does not exist: {iden}'}
 
         user = kdef.get('user')
         udef = await self.getUserDef(user)
         if udef is None: # pragma: no cover
-            return False, {'mesg': f'User does not exist for API Key: {iden}', 'user': user}
+            return False, {'mesg': f'User does not exist for API key: {iden}', 'user': user}
 
         if udef.get('locked'):
-            return False, {'mesg': f'User associated with API Key is locked: {iden}',
+            return False, {'mesg': f'User associated with API key is locked: {iden}',
                            'user': user, 'name': udef.get('name')}
 
         if ((expires := kdef.get('expires')) is not None):
             if s_common.now() > expires:
-                return False, {'mesg': f'API Key is expired: {iden}',
+                return False, {'mesg': f'API key is expired: {iden}',
                                'user': user, 'name': udef.get('name')}
 
         shadow = kdef.pop('shadow')
         valid = await s_passwd.checkShadowV2(secv, shadow)  # TODO Timecache this API call
         if valid is False:
-            return False, {'mesg': f'API Key shadow mismatch: {iden}',
+            return False, {'mesg': f'API key shadow mismatch: {iden}',
                            'user': user, 'name': udef.get('name')}
 
         return True, {'kdef': kdef, 'udef': udef}
@@ -4241,11 +4241,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             dict: An updated key metadata dictionary.
         '''
         if key not in ('name',):
-            raise s_exc.BadArg(mesg=f'Cannot set {key} on user API Keys.', name=key)
+            raise s_exc.BadArg(mesg=f'Cannot set {key} on user API keys.', name=key)
 
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
-            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot modify it: {iden}', iden=iden)
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist, cannot modify it: {iden}', iden=iden)
         useriden = kdef.get('user')
         user = await self.auth.reqUser(useriden)
 
@@ -4260,7 +4260,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._push('user:apikey:edit', kdef.get('user'), iden, vals)
 
-        logger.info(f'Updated HTTP API Key {iden} for {user.name}, set {key}={valu}',
+        logger.info(f'Updated HTTP API key {iden} for {user.name}, set {key}={valu}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
                                                  status='MODIFY'))
 
@@ -4272,7 +4272,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         lkey = s_common.uhex(user) + b'apikey' + s_common.uhex(iden)
         buf = self.slab.get(lkey, db=self.usermetadb)
         if buf is None:  # pragma: no cover
-            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
         self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
@@ -4291,11 +4291,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
-            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
         useriden = kdef.get('user')
         user = await self.auth.reqUser(useriden)
         ret = await self._push('user:apikey:del', useriden, iden)
-        logger.info(f'Deleted HTTP API Key {iden} for {user.name}',
+        logger.info(f'Deleted HTTP API key {iden} for {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
                                                  status='MODIFY'))
         return ret

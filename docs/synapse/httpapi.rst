@@ -51,7 +51,7 @@ API Key Support
 ~~~~~~~~~~~~~~~
 
 A Cortex user can create their own API key via Storm. The following is an example
-of generating an user API key:
+of generating a user API key:
 
   ::
 
