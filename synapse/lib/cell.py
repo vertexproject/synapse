@@ -4050,7 +4050,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return (True, ret)
 
     async def addUserApiKey(self, useriden, name, duration=None):
+        '''
+        Add an API key for a user.
 
+        Notes:
+            The secret API key is only available once.
+
+        Args:
+            useriden (str): User iden value.
+            name (str): Name of the API key.
+            duration (int): Duration of time for the API key to be valid ( in milliseconds ).
+
+        Returns:
+            tuple: A tuple of the secret API key value and the API Key metadata information.
+        '''
         user = await self.auth.reqUser(useriden)
         iden, token, shadow = await s_passwd.generateApiKey()
         now = s_common.now()
@@ -4092,6 +4105,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Get a user API key via iden.
 
+        Notes:
+            This contains the raw value. Callers are responsible for removing the ``shadow`` key.
+
         Args:
             iden (str): The key iden.
 
@@ -4120,11 +4136,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         vals = []
         prefix = s_common.uhex(user.iden) + b'apikey'
         for lkey, valu in self.slab.scanByPref(prefix, db=self.usermetadb):
-            useriden, suffix = lkey[:16], lkey[16:]
-            if suffix.startswith(b'apikey'):
-                kdef = s_msgpack.un(valu)
-                kdef.pop('shadow')
-                vals.append(kdef)
+            kdef = s_msgpack.un(valu)
+            kdef.pop('shadow')
+            vals.append(kdef)
             await asyncio.sleep(0)
         return vals
 
@@ -4136,16 +4150,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             tuple: Useriden, kdef values
         '''
         # yield all users API keys
-        for lkey, valu in self.slab.scanByFull(db=self.usermetadb):
-            useriden, suffix = lkey[:16], lkey[16:]
-            if suffix.startswith(b'apikey'):
-                kdef = s_msgpack.un(valu)
-                kdef.pop('shadow')
-                yield (s_common.ehex(useriden), kdef)
+        for keyiden, useriden in self.slab.scanByFull(db=self.apikeydb):
+            lkey = useriden + b'apikey' + keyiden
+            valu = self.slab.get(lkey, db=self.usermetadb)
+            kdef = s_msgpack.un(valu)
+            kdef.pop('shadow')
+            yield kdef
             await asyncio.sleep(0)
 
     async def checkUserApiKey(self, key):
-        isok, valu = s_passwd.parseApiKey(key)  # TODO Timecache this API call
+        '''
+        Check if a user API Key is valid.
+
+        Notes:
+            If the key is not valid, the dictionary will contain a ``mesg`` key.
+            If the key is valid, the dictionar will contain the user def in a ``udef`` key,
+            and the key metadata in a ``kdef`` key.
+
+        Args:
+            key (str): The API key to check.
+
+        Returns:
+            tuple: Tuple of two items, a boolean if the key is valid and a dictionary.
+        '''
+        isok, valu = s_passwd.parseApiKey(key)
         if isok is False:
             return False, {'mesg': 'API Key is malformed.'}
 
@@ -4164,7 +4192,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False, {'mesg': f'User associated with API Key is locked: {iden}',
                            'user': user, 'name': udef.get('name')}
 
-        if (expires := kdef.get('expires') is not None):
+        if ((expires := kdef.get('expires')) is not None):
             if s_common.now() > expires:
                 return False, {'mesg': f'API Key is expired: {iden}',
                                'user': user, 'name': udef.get('name')}
@@ -4178,6 +4206,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return True, {'kdef': kdef, 'udef': udef}
 
     async def modUserApiKey(self, iden, key, valu):
+        '''
+        Update a value in the user API key metadata.
+
+        Args:
+            iden (str): Iden of the key to update.
+            key (str): Name of the valu to update.
+            valu: The new value.
+
+        Returns:
+            dict: An updated key metadata dictionary.
+        '''
+        if key not in ('name',):
+            raise s_exc.BadArg(mesg=f'Cannot set {key} on user API Keys.', name=key)
+
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot modify it: {iden}', iden=iden)
@@ -4189,8 +4231,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
         if key == 'name':
             vals['name'] = valu
-        else:
-            raise s_exc.BadArg(mesg=f'Cannot set {key} on user API Keys.', name=key)
 
         kdef.update(vals)
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
@@ -4205,6 +4245,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return kdef
 
     async def regenerateUserApiKey(self, iden, duration=None):
+        '''
+        Regenerate the secret for an existing API key.
+
+        Notes:
+            The secret API key is only available once.
+
+        Args:
+            iden (str): The iden of the API key to regenerate.
+            duration (int): Duration of time for the API key to be valid ( in milliseconds ).
+
+        Returns:
+            tuple: A tuple of the new secret API key value and the updated API Key metadata information.
+        '''
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot regenerated it: {iden}', iden=iden)
@@ -4252,6 +4305,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return kdef
 
     async def delUserApiKey(self, iden):
+        '''
+        Delete an existing API key.
+
+        Args:
+            iden (str): The iden of the API key to delete.
+
+        Returns:
+            bool: True indicating the key was deleted.
+        '''
         kdef = await self.getUserApiKey(iden)
         if kdef is None:
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
@@ -4268,8 +4330,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = s_common.uhex(user)
         iden = s_common.uhex(iden)
 
-        self.slab.pop(iden, db=self.apikeydb)
-        self.slab.pop(user + b'apikey' + iden, db=self.usermetadb)
+        self.slab.delete(iden, db=self.apikeydb)
+        self.slab.delete(user + b'apikey' + iden, db=self.usermetadb)
         # TODO Timecache clear
         return True
 
@@ -4282,7 +4344,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             # Special handling for certain meta which has secondary indexes
             if suffix.startswith(b'apikey'):
                 key_iden = suffix[6:]
-                self.slab.pop(key_iden, db=self.apikeydb)
+                self.slab.delete(key_iden, db=self.apikeydb)
                 # TODO Timecache clear
-            self.slab.pop(lkey, db=self.usermetadb)
+            self.slab.delete(lkey, db=self.usermetadb)
             await asyncio.sleep(0)

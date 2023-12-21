@@ -2438,18 +2438,18 @@ class CellTest(s_t_utils.SynTest):
             self.eq(valu, {'mesg': 'API Key is malformed.'})
 
             allkeys = []
-            async for (useriden, kdef) in cell.getApiKeys():
-                allkeys.append((useriden, kdef))
+            async for kdef in cell.getApiKeys():
+                allkeys.append(kdef)
             self.len(2, allkeys)
             _kdefs = [rtdf0, bkdf0]
-            for useriden, kdef in allkeys:
-                self.eq(useriden, root)
+            for kdef in allkeys:
+                self.eq(kdef.get('user'), root)
                 self.isin(kdef, _kdefs)
                 _kdefs.remove(kdef)
             self.len(0, _kdefs)
 
             rootkeys = await cell.listUserApiKeys(root)
-            self.eq([kdef for useriden, kdef in allkeys], rootkeys)
+            self.eq(allkeys, rootkeys)
 
             lowkeys = await cell.listUserApiKeys(lowuser)
             self.len(0, lowkeys)
@@ -2501,10 +2501,13 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('ok', answ['status'])
 
             # Verify duration arg for regeneration is applied
-            rtk2, rtdf2 = await cell.regenerateUserApiKey(rtdf0.get('iden'), duration=5)
-            self.eq(rtdf2.get('expires'), rtdf2.get('updated') + 5)
+            rtk2, rtdf2 = await cell.regenerateUserApiKey(rtdf0.get('iden'), duration=200)
+            self.eq(rtdf2.get('expires'), rtdf2.get('updated') + 200)
 
-            await asyncio.sleep(0.02)
+            isok, info = await cell.checkUserApiKey(rtk2)
+            self.true(isok)
+
+            await asyncio.sleep(0.4)
 
             isok, info = await cell.checkUserApiKey(rtk2)
             self.false(isok)
@@ -2569,8 +2572,8 @@ class CellTest(s_t_utils.SynTest):
 
                 # We have bunch of API keys we can list
                 allkeys = []
-                async for (useriden, kdef) in cell.getApiKeys():
-                    allkeys.append((useriden, kdef))
+                async for kdef in cell.getApiKeys():
+                    allkeys.append(kdef)
                 self.len(5 + 2, allkeys)  # Root has two, lowuser has 5
 
                 # Lock users cannot use their API Keys
