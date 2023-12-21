@@ -6,6 +6,53 @@
 Synapse Changelog
 *****************
 
+
+v2.157.0 - 2023-12-21
+=====================
+
+Features and Enhancements
+-------------------------
+- Added vaults feature for storing and sharing secret values (such as API
+  keys) and associated configuration settings. Vaults can be shared with and
+  used by another user without them being able to see the enclosed secret
+  values.
+  (`#3319 <https://github.com/vertexproject/synapse/pull/3319>`_)
+  (`#3461 <https://github.com/vertexproject/synapse/pull/3461>`_)
+- Added Storm commands to interact with vaults: ``vaults.*``.q
+  (`#3319 <https://github.com/vertexproject/synapse/pull/3319>`_)
+- Added storm library to interact with vaults: ``$lib.vaults.*``.
+  (`#3319 <https://github.com/vertexproject/synapse/pull/3319>`_)
+- Add merge request voting and history tracking for full View merges.
+  (`#3466 <https://github.com/vertexproject/synapse/pull/3466>`_)
+  (`#3473 <https://github.com/vertexproject/synapse/pull/3473>`_)
+  (`#3475 <https://github.com/vertexproject/synapse/pull/3475>`_)
+- Add service pooling support to Aha. This allows for dynamic service
+  topologies and distributed Telepath API calls.
+  (`#3353 <https://github.com/vertexproject/synapse/pull/3353>`_)
+- Add user managed API keys that can be used to access HTTP API endpoints.
+  (`#3470 <https://github.com/vertexproject/synapse/pull/3470>`_)
+- Added an ``--optsfile`` option to the Storm CLI tool. This can be used to
+  specify opts to the CLI tool via YAML. See :ref:`dev_storm_opts`  for
+  details about available options.
+  (`#3468 <https://github.com/vertexproject/synapse/pull/3468>`_)
+- Cron status changes are now persisted through the Nexus.
+  (`#3460 <https://github.com/vertexproject/synapse/pull/3460>`_)
+- Add a ``show:storage`` option to the Storm runtime opts to include the
+  storage node data in the ``node`` message.
+  (`#3471 <https://github.com/vertexproject/synapse/pull/3471>`_)
+
+Bugfixes
+--------
+- Log a warning message when calling the Python ``User.pack(packroles=True)``
+  method when a user role is missing from the Auth subsystem. A missing
+  role previously caused an ``AttributeError`` exception.
+  (`#3469 <https://github.com/vertexproject/synapse/pull/3469>`_)
+- Ensure the Nexus ``view:detach`` event is idempotent.
+  (`#3474 <https://github.com/vertexproject/synapse/pull/3474>`_)
+- Fix an issue where Storm subqueries containing non-runtsafe values could
+  potentially not execute.
+  (`#3443 <https://github.com/vertexproject/synapse/pull/3443>`_)
+
 v2.156.0 - 2023-12-08
 =====================
 
