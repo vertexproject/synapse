@@ -44,18 +44,44 @@ Authentication
 
 Most Synapse HTTP APIs require an authenticated user. HTTP API endpoints requiring
 authentication may be accessed using either HTTP Basic authentication via the HTTP
-"Authorization" header or as part of an authenticated session.
+"Authorization" header, using an API Key with the "X-API-KEY" header, or as part of
+an authenticated session.
 
-To create and use an authenticated session, the HTTP client library must support
-cookies.
+API Key Support
+~~~~~~~~~~~~~~~
+
+A Cortex user can create their own API key via Storm. The following is an example
+of generating an user API key:
+
+  ::
+
+    storm> ($key, $info)= $lib.auth.users.byname($lib.user.name()).genApiKey('Test Key') $lib.print($key)
+    XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+
+This API Key can then be used to make HTTP API calls. The following example shows
+the use of ``curl`` and ``jq`` to make a Storm call with the API key and then format
+the response:
+
+  ::
+
+    $ curl -k -s -H "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
+    --data '{"query": "return($lib.user.name())"}' \
+    https://localhost:4443/api/v1/storm/call | jq
+
+    {
+      "status": "ok",
+      "result": "root"
+    }
+
 
 /api/v1/login
 ~~~~~~~~~~~~~
 
-The login API endpoint may be used to create an authenticated session.  This
-session may then be used to call other HTTP API endpoints as the authenticated user.
-This expects a ``user`` and ``passwd`` provided in the body of a ``POST`` request.
-The reusable session cookie is returned in a ``Set-Cookie`` header.
+The login API endpoint may be used to create an authenticated session. To create and use an
+authenticated session, the HTTP client library must support cookies. This session may then be
+used to call other HTTP API endpoints as the authenticated user. This expects a ``user`` and
+``passwd`` provided in the body of a ``POST`` request. The reusable session cookie is returned
+in a ``Set-Cookie`` header.
 
 Both of the Python examples use session managers which manage the session cookie automatically.
 
