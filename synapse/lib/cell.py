@@ -4185,7 +4185,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         user = kdef.get('user')
         udef = await self.getUserDef(user)
-        if udef is None:
+        if udef is None: # pragma: no cover
             return False, {'mesg': f'User does not exist for API Key: {iden}', 'user': user}
 
         if udef.get('locked'):
