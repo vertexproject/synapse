@@ -1203,8 +1203,9 @@ class Client(s_base.Base):
         return ret
 
     async def _initTeleLink(self, urlinfo):
-
-        self._t_proxy = await openinfo(urlinfo, **self._t_opts)
+        info = urlinfo.copy()
+        info.update(self._t_opts)
+        self._t_proxy = await openinfo(info)
         self._t_methinfo = self._t_proxy.methinfo
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
