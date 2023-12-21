@@ -1238,6 +1238,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.permdefs = None
         self.permlook = None
 
+    def getDmonUser(self):
+        '''
+        Return the user IDEN of a telepath caller who invoked the current task.
+        ( defaults to returning current root user )
+        '''
+        sess = s_scope.get('sess', None)
+        if sess is None:
+            return self.auth.rootuser.iden
+
+        if sess.user is None: # pragma: no cover
+            return self.auth.rootuser.iden
+
+        return sess.user.iden
+
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
         # we inherit from Pusher to make the Cell a Base subclass
@@ -1704,6 +1718,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 self.modCellConf({'mirror': turl})
                 await self.nexsroot.startup()
+
+    async def reqAhaProxy(self, timeout=None):
+        if self.ahaclient is None:
+            mesg = 'AHA is not configured on this service.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+        return await self.ahaclient.proxy(timeout=timeout)
 
     async def _setAhaActive(self):
 
@@ -3915,6 +3935,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': s_version.verstring,
             },
             'cell': {
+                'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,

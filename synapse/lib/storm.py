@@ -2140,6 +2140,10 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
+    def reqAdmin(self, gateiden=None, mesg=None):
+        if not self.asroot:
+            self.user.reqAdmin(gateiden=gateiden, mesg=mesg)
+
     def confirm(self, perms, gateiden=None, default=None):
         '''
         Raise AuthDeny if the user doesn't have the permission.

@@ -200,6 +200,24 @@ reqValidVote = s_config.getJsValidator({
     'additionalProperties': False,
 })
 
+reqValidAhaPoolDef = s_config.getJsValidator({
+    'type': 'object', 'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'created': {'type': 'number', 'minval': 0},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'services': {'type': 'object', 'patternProperties': {
+            '.+': {'type': 'object', 'properties': {
+                'created': {'type': 'number', 'minval': 0},
+                'creator': {'type': 'string', 'pattern': s_config.re_iden},
+            },
+            'required': ['creator', 'created'],
+            'additionalProperties': False,
+        }}},
+    },
+    'additionalProperties': False,
+    'required': ['name', 'creator', 'created', 'services'],
+})
+
 _cellUserApiKeySchema = {
     'type': 'object',
     'properties': {

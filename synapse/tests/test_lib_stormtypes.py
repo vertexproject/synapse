@@ -6425,3 +6425,41 @@ words\tword\twrd'''
 
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().fork())', opts=opts)
+
+            # setup a new merge and make a mirror...
+            forkdef = await core.getView().fork()
+            fork = core.getView(forkdef.get('iden'))
+
+            opts = {'view': fork.iden}
+            await core.stormlist('[ inet:ipv4=5.5.5.5 ]', opts=opts)
+            await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            # hamstring the runViewMerge method on the new view
+            async def fake():
+                return
+            fork.runViewMerge = fake
+
+            # vote to merge and set it off....
+            opts = {'view': fork.iden, 'user': visi.iden}
+            await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
+
+            await core.sync()
+
+            await core.runBackup(name='lead00', wait=True)
+            await core.runBackup(name='mirror00', wait=True)
+
+            # test that when a leader restarts it fires and completes the merge
+            dirn = s_common.genpath(core.dirn, 'backups', 'lead00')
+            async with self.getTestCore(dirn=dirn) as lead:
+                while lead.getView(fork.iden) is not None:
+                    await asyncio.sleep(0.1)
+                self.len(1, await lead.nodes('inet:ipv4=5.5.5.5'))
+
+            # test that a mirror starts without firing the merge and then fires it on promotion
+            dirn = s_common.genpath(core.dirn, 'backups', 'mirror00')
+            async with self.getTestCore(conf={'mirror': core.getLocalUrl()}, dirn=dirn) as mirror:
+                await mirror.sync()
+                view = mirror.getView(fork.iden)
+                await mirror.promote(graceful=False)
+                self.true(await view.waitfini(3))
+                self.len(1, await mirror.nodes('inet:ipv4=5.5.5.5'))
