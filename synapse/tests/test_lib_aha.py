@@ -1135,8 +1135,6 @@ class AhaTest(s_test.SynTest):
 
                     core00 = await base.enter_context(self.addSvcToAha(aha, 'core', s_cortex.Cortex, dirn=dirn02))
 
-                    # FIXME seems to be an AHA race in dropping the certs from provisioning in addSvcToAha?
-
                     msgs = await core00.stormlist('aha.pool.list')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('0 pools', msgs)
