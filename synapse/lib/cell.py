@@ -4134,11 +4134,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             dict: The key dictionary; or none.
         '''
-        iden = s_common.uhex(iden)
-        user = self.slab.get(iden, db=self.apikeydb)
+        lkey = s_common.uhex(iden)
+        user = self.slab.get(lkey, db=self.apikeydb)
         if user is None:
             return None
-        buf = self.slab.get(user + b'apikey' + iden, db=self.usermetadb)  # None here would be a nexus state inconsistency
+        buf = self.slab.get(user + b'apikey' + lkey, db=self.usermetadb)
+        if buf is None:  # pragma: no cover
+            logger.warning(f'Missing API key {iden} from user metadata for {s_common.ehex(user)}')
+            return None
         kdef = s_msgpack.un(buf)  # This includes the shadow key
         return kdef
 
@@ -4255,7 +4258,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef.update(vals)
         kdef = s_schemas.reqValidUserApiKeyDef(kdef)
 
-        await self._push('user:apikey:update', kdef.get('user'), iden, vals)
+        await self._push('user:apikey:edit', kdef.get('user'), iden, vals)
 
         logger.info(f'Updated HTTP API Key {iden} for {user.name}, set {key}={valu}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
@@ -4264,11 +4267,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef.pop('shadow')
         return kdef
 
-    @s_nexus.Pusher.onPush('user:apikey:update')
+    @s_nexus.Pusher.onPush('user:apikey:edit')
     async def _setUserApiKey(self, user, iden, vals):
         lkey = s_common.uhex(user) + b'apikey' + s_common.uhex(iden)
         buf = self.slab.get(lkey, db=self.usermetadb)
-        if buf is None: # pragma: no cover
+        if buf is None:  # pragma: no cover
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
