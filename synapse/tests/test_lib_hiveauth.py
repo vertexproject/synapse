@@ -31,6 +31,12 @@ class AuthTest(s_test.SynTest):
 
             self.nn(user)
 
+            with self.raises(s_exc.AuthDeny):
+                user.reqAdmin()
+
+            with self.raises(s_exc.AuthDeny):
+                user.reqAdmin(gateiden='newp')
+
             self.false(user.info.get('admin'))
             self.len(0, user.info.get('rules'))
             self.len(1, user.info.get('roles'))
@@ -38,6 +44,7 @@ class AuthTest(s_test.SynTest):
             await user.setAdmin(True)
             self.true(user.info.get('admin'))
             self.true(user.allowed(('foo', 'bar')))
+            user.reqAdmin()
 
             await user.addRule((True, ('foo',)))
             self.true(user.allowed(('foo', 'bar')))
