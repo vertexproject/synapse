@@ -2,6 +2,7 @@ import os
 import ssl
 import sys
 import time
+import base64
 import signal
 import socket
 import asyncio
@@ -2441,6 +2442,12 @@ class CellTest(s_t_utils.SynTest):
             isok, valu = await cell.checkUserApiKey(rtk0 + 'newp')
             self.false(isok)
             self.eq(valu, {'mesg': 'API key is malformed.'})
+
+            badkey = base64.b64encode(s_common.uhex(rtdf0.get('iden')) + b'X' * 16, altchars=b'-_').decode('utf-8')
+            isok, valu = await cell.checkUserApiKey(badkey)
+            self.false(isok)
+            self.eq(valu, {'mesg': f'API key shadow mismatch: {rtdf0.get("iden")}',
+                           'user': root, 'name': 'root'})
 
             allkeys = []
             async for kdef in cell.getApiKeys():
