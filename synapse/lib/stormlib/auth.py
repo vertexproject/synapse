@@ -1012,18 +1012,18 @@ class User(s_stormtypes.Prim):
         {'name': 'genApiKey', 'desc': '''Generate a new API key for the user.
 
         Notes:
-            The secret API Key returned by this function cannot be accessed again.
+            The secret API key returned by this function cannot be accessed again.
         ''',
          'type': {'type': 'function', '_funcname': '_methGenApiKey',
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the API key.'},
                       {'name': 'duration', 'type': 'integer', 'default': None,
-                       'desc': 'The duration that key is valid for, in milliseconds.'},
+                       'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list, containing the secret API Key and a dictionary containing metadata about the key.'}}},
-        {'name': 'getApiKey', 'desc': 'Get information about a users existing API key.',
+                              'desc': 'A list, containing the secret API key and a dictionary containing metadata about the key.'}}},
+        {'name': 'getApiKey', 'desc': "Get information about a user's existing API key.",
          'type': {'type': 'function', '_funcname': '_methGetApiKey',
                   'args': (
                       {'name': 'iden', 'type': 'str',
@@ -1035,8 +1035,8 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methListApiKeys',
                   'args': (),
                   'returns': {'type': 'list',
-                              'desc': 'A list of dictionaries containing metadata about the key.'}}},
-        {'name': 'modApiKey', 'desc': 'Modify metadata about the API key.',
+                              'desc': 'A list of dictionaries containing metadata about each key.'}}},
+        {'name': 'modApiKey', 'desc': 'Modify metadata about an existing API key.',
          'type': {'type': 'function', '_funcname': '_methModApiKey',
                   'args': (
                       {'name': 'iden', 'type': 'str',
@@ -1048,7 +1048,7 @@ class User(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'dict',
                               'desc': 'An updated dictionary with metadata about the key.'}}},
-        {'name': 'delApiKey', 'desc': 'Delete the users existing API key.',
+        {'name': 'delApiKey', 'desc': 'Delete an existing API key.',
          'type': {'type': 'function', '_funcname': '_methDelApiKey',
                   'args': (
                       {'name': 'iden', 'type': 'str',
