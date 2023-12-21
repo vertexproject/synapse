@@ -1023,7 +1023,7 @@ class User(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list, containing the secret API Key and a dictionary containing metadata about the key.'}}},
-        {'name': 'getqApiKey', 'desc': 'Get information about a users existing API key.',
+        {'name': 'getApiKey', 'desc': 'Get information about a users existing API key.',
          'type': {'type': 'function', '_funcname': '_methGetApiKey',
                   'args': (
                       {'name': 'iden', 'type': 'str',

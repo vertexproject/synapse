@@ -4271,7 +4271,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'shadow': shadow,
             'updated': now
         }
-        kdef['shadow'] = shadow
 
         if duration is None:
             vals['expires'] = None
