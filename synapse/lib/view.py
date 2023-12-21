@@ -391,7 +391,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return approvals >= quorum.get('count')
 
-    @s_nexus.Pusher.onPushAuto('view:detach')
     async def detach(self):
         '''
         Detach the view from its parent but do not change the layers.
@@ -400,6 +399,11 @@ class View(s_nexus.Pusher):  # type: ignore
         if not self.parent:
             mesg = 'A view with no parent is already detached.'
             raise s_exc.BadArg(mesg=mesg)
+
+        return await self._push('view:detach')
+
+    @s_nexus.Pusher.onPush('view:detach')
+    async def _detach(self):
 
         quorum = self.parent.info.get('quorum')
         if quorum is not None:
