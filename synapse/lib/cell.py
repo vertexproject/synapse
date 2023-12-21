@@ -2872,8 +2872,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
-            # TODO FIXME curv value before release
-            s_common.deprecated('auth:ctor cell config option')
+            s_common.deprecated('auth:ctor cell config option', curv='2.157.0')
             ctor = s_dyndeps.getDynLocal(authctor)
             auth = await ctor(self)
         else:
@@ -4097,7 +4096,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'shadow': shadow,
         }
 
-        if duration:
+        if duration is not None:
             if duration < 1:
                 raise s_exc.BadArg(mesg='Duration must be equal or greater than 1', name='duration')
             kdef['expires'] = now + duration
@@ -4170,7 +4169,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Get all API keys in the cell.
 
         Yields:
-            tuple: Useriden, kdef values
+            tuple: kdef values
         '''
         # yield all users API keys
         for keyiden, useriden in self.slab.scanByFull(db=self.apikeydb):
@@ -4221,7 +4220,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                'user': user, 'name': udef.get('name')}
 
         shadow = kdef.pop('shadow')
-        valid = await s_passwd.checkShadowV2(secv, shadow)  # TODO Timecache this API call
+        valid = await s_passwd.checkShadowV2(secv, shadow)
         if valid is False:
             return False, {'mesg': f'API key shadow mismatch: {iden}',
                            'user': user, 'name': udef.get('name')}
@@ -4276,7 +4275,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
         self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
-        # TODO Timecache clear
         return kdef
 
     async def delUserApiKey(self, iden):
@@ -4307,7 +4305,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.slab.delete(iden, db=self.apikeydb)
         self.slab.delete(user + b'apikey' + iden, db=self.usermetadb)
-        # TODO Timecache clear
         return True
 
     async def _onUserDelEvnt(self, evnt):
@@ -4321,6 +4318,5 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if suffix.startswith(b'apikey'):
                 key_iden = suffix[6:]
                 self.slab.delete(key_iden, db=self.apikeydb)
-                # TODO Timecache clear
             self.slab.delete(lkey, db=self.usermetadb)
             await asyncio.sleep(0)

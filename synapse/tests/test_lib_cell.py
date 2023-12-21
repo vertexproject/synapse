@@ -2440,7 +2440,7 @@ class CellTest(s_t_utils.SynTest):
 
             isok, valu = await cell.checkUserApiKey(rtk0 + 'newp')
             self.false(isok)
-            self.eq(valu, {'mesg': 'API Key is malformed.'})
+            self.eq(valu, {'mesg': 'API key is malformed.'})
 
             allkeys = []
             async for kdef in cell.getApiKeys():
@@ -2477,6 +2477,8 @@ class CellTest(s_t_utils.SynTest):
             self.eq(rtdf0_new.get('name'), 'Haha Key')
 
             # Verify duration arg for expiration is applied
+            with self.raises(s_exc.BadArg):
+                await cell.addUserApiKey(root, 'newp', duration=0)
             rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200)
             self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200)
 
@@ -2487,7 +2489,7 @@ class CellTest(s_t_utils.SynTest):
 
             isok, info = await cell.checkUserApiKey(rtk1)
             self.false(isok)
-            self.isin('API Key is expired', info.get('mesg'))
+            self.isin('API key is expired', info.get('mesg'))
 
             # Expired tokens fail...
             async with self.getHttpSess(port=hport) as sess:
@@ -2554,7 +2556,7 @@ class CellTest(s_t_utils.SynTest):
                     allkeys.append(kdef)
                 self.len(5 + 2, allkeys)  # Root has two, lowuser has 5
 
-                # Lock users cannot use their API Keys
+                # Lock users cannot use their API keys
                 await cell.setUserLocked(lowuser, True)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
