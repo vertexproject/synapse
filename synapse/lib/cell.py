@@ -4268,7 +4268,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _setUserApiKey(self, user, iden, vals):
         lkey = s_common.uhex(user) + b'apikey' + s_common.uhex(iden)
         buf = self.slab.get(lkey, db=self.usermetadb)
-        if buf is None:
+        if buf is None: # pragma: no cover
             raise s_exc.NoSuchIden(mesg=f'User API Key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
