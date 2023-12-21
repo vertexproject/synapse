@@ -4309,7 +4309,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _onUserDelEvnt(self, evnt):
         # Call callback for handling user:del events
-        user = evnt[1].get('iden')
+        udef = evnt[1].get('udef')
+        user = udef.get('iden')
         ukey = s_common.uhex(user)
         for lkey, buf in self.slab.scanByPref(ukey, db=self.usermetadb):
             suffix = lkey[16:]

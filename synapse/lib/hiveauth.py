@@ -543,6 +543,7 @@ class Auth(s_nexus.Pusher):
         if user is None:
             return
 
+        udef = user.pack()
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
 
@@ -553,7 +554,7 @@ class Auth(s_nexus.Pusher):
 
         await user.fini()
         await self.node.hive.pop(path)
-        await self.fire('user:del', iden=iden, name=user.name)
+        await self.fire('user:del', udef=udef)
         await self.feedBeholder('user:del', {'iden': iden})
 
     def _getUsersInRole(self, role):
