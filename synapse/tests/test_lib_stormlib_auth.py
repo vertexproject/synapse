@@ -1163,12 +1163,6 @@ class StormLibAuthTest(s_test.SynTest):
             self.eq(_rtdf0.get('iden'), rtdf0.get('iden'))
             self.gt(_rtdf0.get('updated'), rtdf0.get('updated'))
 
-            q = '$u=$lib.auth.users.byname(root) return($u.regenerateApiKey($iden))'
-            _rtk0, _rtdf0 = await core.callStorm(q, opts=opts)
-            self.ne(_rtk0, rtk0)
-            self.eq(_rtdf0.get('iden'), rtdf0.get('iden'))
-            self.gt(_rtdf0.get('updated'), rtdf0.get('updated'))
-
             q = '$u=$lib.auth.users.byname(root) return($u.delApiKey($iden))'
             self.true(await core.callStorm(q, opts=opts))
 
@@ -1197,10 +1191,6 @@ class StormLibAuthTest(s_test.SynTest):
                 await core.callStorm(q, opts=lowuser_opts)
 
             q = 'return($lib.auth.users.byname(lowuser).listApiKeys())'
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(q, opts=lowuser_opts)
-
-            q = 'return($lib.auth.users.byname(lowuser).regenerateApiKey($iden))'
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm(q, opts=lowuser_opts)
 
@@ -1239,22 +1229,14 @@ class StormLibAuthTest(s_test.SynTest):
                 _kdefs.remove(kdef)
             self.len(0, _kdefs)
 
-            q = 'return($lib.auth.users.byname(lowuser).regenerateApiKey($iden, duration=1000000))'
-            lowuser_opts = {'user': lowuser, 'vars': {'iden': ntdf0.get('iden')}}
-            _ntk0, _ntdf0 = await core.callStorm(q, opts=lowuser_opts)
-            self.ne(_ntk0, ntk0)
-            self.eq(_ntdf0.get('iden'), ntdf0.get('iden'))
-            self.gt(_ntdf0.get('updated'), ntdf0.get('updated'))
-            self.eq(_ntdf0.get('expires'), _ntdf0.get('updated') + 1000000)
-
             await asyncio.sleep(0.001)
             q = 'return($lib.auth.users.byname(lowuser).modApiKey($iden, name, ohmy))'
             lowuser_opts = {'user': lowuser, 'vars': {'iden': ntdf0.get('iden')}}
-            _ntdf0_2 = await core.callStorm(q, opts=lowuser_opts)
-            self.eq(_ntdf0_2.get('iden'), _ntdf0.get('iden'))
-            self.gt(_ntdf0_2.get('updated'), ntdf0.get('updated'))
-            self.eq(_ntdf0_2.get('expires'), _ntdf0.get('expires'))
-            self.eq(_ntdf0_2.get('name'), 'ohmy')
+            _ntdf0 = await core.callStorm(q, opts=lowuser_opts)
+            self.eq(_ntdf0.get('iden'), ntdf0.get('iden'))
+            self.gt(_ntdf0.get('updated'), ntdf0.get('updated'))
+            self.eq(_ntdf0.get('expires'), ntdf0.get('expires'))
+            self.eq(_ntdf0.get('name'), 'ohmy')
 
             q = 'return($lib.auth.users.byname(lowuser).delApiKey($iden))'
             self.true(await core.callStorm(q, opts=lowuser_opts))
@@ -1284,10 +1266,6 @@ class StormLibAuthTest(s_test.SynTest):
                 self.isin(kdef, _kdefs)
                 _kdefs.remove(kdef)
             self.len(0, _kdefs)
-
-            q = 'return($lib.auth.users.byname(root).regenerateApiKey($iden))'
-            _, _rtdf1 = await core.callStorm(q, opts=lowuser_opts)
-            self.eq(_rtdf1.get('iden'), rtdf1.get('iden'))
 
             q = 'return($lib.auth.users.byname(root).modApiKey($iden, name, hahah))'
             _rtdf1_2 = await core.callStorm(q, opts=lowuser_opts)

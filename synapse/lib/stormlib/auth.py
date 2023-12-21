@@ -1048,19 +1048,6 @@ class User(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'dict',
                               'desc': 'An updated dictionary with metadata about the key.'}}},
-        {'name': 'regenerateApiKey', 'desc': '''Regenerate a new secret API key for an existing key.
-
-        Notes:
-            The secret API Key returned by this function cannot be accessed again.''',
-         'type': {'type': 'function', '_funcname': '_methRegenApiKey',
-                  'args': (
-                      {'name': 'iden', 'type': 'str',
-                       'desc': 'The iden of the API key.'},
-                      {'name': 'duration', 'type': 'integer', 'default': None,
-                       'desc': 'The duration that key is valid for, in milliseconds.'},
-                  ),
-                  'returns': {'type': 'list',
-                              'desc': 'A list, containing the new API Key and a dictionary containing updated metadata about the key.'}}},
         {'name': 'delApiKey', 'desc': 'Delete the users existing API key.',
          'type': {'type': 'function', '_funcname': '_methDelApiKey',
                   'args': (
@@ -1131,7 +1118,6 @@ class User(s_stormtypes.Prim):
             'getApiKey': self._methGetApiKey,
             'listApiKeys': self._methListApiKeys,
             'modApiKey': self._methModApiKey,
-            'regenerateApiKey': self._methRegenApiKey,
             'delApiKey': self._methDelApiKey,
         }
 
@@ -1333,15 +1319,6 @@ class User(s_stormtypes.Prim):
             return await self.runt.snap.core.modUserApiKey(iden, name, valu)
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
         return await self.runt.snap.core.modUserApiKey(iden, name, valu)
-
-    async def _methRegenApiKey(self, iden, duration=None):
-        iden = await s_stormtypes.tostr(iden)
-        duration = await s_stormtypes.toint(duration, noneok=True)
-        if self.runt.user.iden == self.valu:
-            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
-            return await self.runt.snap.core.regenerateUserApiKey(iden, duration=duration)
-        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
-        return await self.runt.snap.core.regenerateUserApiKey(iden, duration=duration)
 
     async def _methDelApiKey(self, iden):
         iden = await s_stormtypes.tostr(iden)

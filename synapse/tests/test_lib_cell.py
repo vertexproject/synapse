@@ -2428,7 +2428,7 @@ class CellTest(s_t_utils.SynTest):
             rtk0, rtdf0 = await cell.addUserApiKey(root, name='Test Token')
             bkk0, bkdf0 = await cell.addUserApiKey(root, name='Backup Token')
 
-            self.none(rtdf0.get('expires'))
+            self.notin('exipres', rtdf0)
 
             async with cell.getLocalProxy() as prox:
                 isok, valu = await prox.checkUserApiKey(rtk0)
@@ -2472,49 +2472,20 @@ class CellTest(s_t_utils.SynTest):
                 answ = await resp.json()
                 self.eq('ok', answ['status'])
 
-            # Regenerate the token
-            rtk1, rtdf1 = await cell.regenerateUserApiKey(rtdf0.get('iden'))
-            self.ne(rtk0, rtk1)
-            # Immutable fields are the same
-            self.eq(rtdf0.get('iden'), rtdf1.get('iden'))
-            self.eq(rtdf0.get('user'), rtdf1.get('user'))
-            self.eq(rtdf0.get('created'), rtdf1.get('created'))
-            self.eq(rtdf0.get('name'), rtdf1.get('name'))
-            # Modtime is increased
-            self.lt(rtdf0.get('updated'), rtdf1.get('updated'))
-            # Expires is unchanged - no duration given when regenerating
-            self.eq(rtdf0.get('expires'), rtdf1.get('expires'))
-
             # Change the token name
-            rtdf1_new = await cell.modUserApiKey(rtdf1.get('iden'), 'name', 'Haha Key')
-            self.eq(rtdf1_new.get('name'), 'Haha Key')
+            rtdf0_new = await cell.modUserApiKey(rtdf0.get('iden'), 'name', 'Haha Key')
+            self.eq(rtdf0_new.get('name'), 'Haha Key')
 
-            async with self.getHttpSess(port=hport) as sess:
+            # Verify duration arg for expiration is applied
+            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200)
+            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200)
 
-                # Old token failes
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers0,
-                                       json={'user': lowuser})
-                self.eq(401, resp.status)
-                answ = await resp.json()
-                self.eq('err', answ['status'])
-
-                # New token works
-                headers1 = {'X-API-KEY': rtk1}
-                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers1,
-                                       json={'user': lowuser})
-                answ = await resp.json()
-                self.eq('ok', answ['status'])
-
-            # Verify duration arg for regeneration is applied
-            rtk2, rtdf2 = await cell.regenerateUserApiKey(rtdf0.get('iden'), duration=200)
-            self.eq(rtdf2.get('expires'), rtdf2.get('updated') + 200)
-
-            isok, info = await cell.checkUserApiKey(rtk2)
+            isok, info = await cell.checkUserApiKey(rtk1)
             self.true(isok)
 
             await asyncio.sleep(0.4)
 
-            isok, info = await cell.checkUserApiKey(rtk2)
+            isok, info = await cell.checkUserApiKey(rtk1)
             self.false(isok)
             self.isin('API Key is expired', info.get('mesg'))
 
@@ -2522,12 +2493,14 @@ class CellTest(s_t_utils.SynTest):
             async with self.getHttpSess(port=hport) as sess:
 
                 # Expired token fails
-                headers2 = {'X-API-KEY': rtk2}
+                headers2 = {'X-API-KEY': rtk1}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
                 self.eq(401, resp.status)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
+
+            await cell.delUserApiKey(rtdf1.get('iden'))
 
             rtk3, rtdf3 = await cell.addUserApiKey(root, name='Test Token 3')
 
@@ -2612,7 +2585,7 @@ class CellTest(s_t_utils.SynTest):
                     kdef = s_msgpack.un(val)
                     vals.add(kdef.get('iden'))
             self.eq(i, 2)
-            self.eq(vals, {bkdf0.get('iden'), rtdf2.get('iden')})
+            self.eq(vals, {bkdf0.get('iden'), rtdf0.get('iden')})
 
             i = 0
             users = set()
@@ -2627,11 +2600,12 @@ class CellTest(s_t_utils.SynTest):
                 await cell.modUserApiKey(bkdf0.get('iden'), 'shadow', {'hehe': 'haha'})
 
             newp = s_common.guid()
-            with self.raises(s_exc.NoSuchIden):
-                await cell.modUserApiKey(newp, 'name', 'newp')
+
+            with self.raises(s_exc.NoSuchUser):
+                await cell.addUserApiKey(newp, 'newp')
 
             with self.raises(s_exc.NoSuchIden):
-                await cell.regenerateUserApiKey(newp)
+                await cell.modUserApiKey(newp, 'name', 'newp')
 
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)

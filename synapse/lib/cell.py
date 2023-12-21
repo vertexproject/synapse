@@ -4095,7 +4095,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'created': now,
             'updated': now,
             'shadow': shadow,
-            'expires': None,
         }
 
         if duration:
@@ -4264,53 +4263,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         kdef.pop('shadow')
         return kdef
-
-    async def regenerateUserApiKey(self, iden, duration=None):
-        '''
-        Regenerate the secret for an existing API key.
-
-        Notes:
-            The secret API key is only available once.
-
-        Args:
-            iden (str): The iden of the API key to regenerate.
-            duration (int): Duration of time for the API key to be valid ( in milliseconds ).
-
-        Returns:
-            tuple: A tuple of the new secret API key value and the updated API Key metadata information.
-        '''
-        kdef = await self.getUserApiKey(iden)
-        if kdef is None:
-            raise s_exc.NoSuchIden(mesg=f'User API Key does not exist, cannot regenerated it: {iden}', iden=iden)
-        useriden = kdef.get('user')
-        user = await self.auth.reqUser(useriden)
-
-        _, token, shadow = await s_passwd.generateApiKey(iden=iden)
-
-        now = s_common.now()
-        vals = {
-            'shadow': shadow,
-            'updated': now
-        }
-
-        if duration is None:
-            vals['expires'] = None
-        else:
-            if duration < 1:
-                raise s_exc.BadArg(mesg='Duration must be equal or greater than 1', name='duration')
-            vals['expires'] = now + duration
-
-        kdef.update(vals)
-        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
-
-        await self._push('user:apikey:update', kdef.get('user'), iden, vals)
-
-        logger.info(f'Regenerated HTTP API Key {iden} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
-                                                 status='MODIFY'))
-
-        kdef.pop('shadow')
-        return token, kdef
 
     @s_nexus.Pusher.onPush('user:apikey:update')
     async def _setUserApiKey(self, user, iden, vals):
