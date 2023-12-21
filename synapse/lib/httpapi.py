@@ -341,10 +341,6 @@ class HandlerBase:
 
         udef = info.get('udef')
 
-        # Would be nice to know when an API key was being used to auth...
-        # self.logAuthIssue(mesg=f'User access token use: {tdef.get("iden")}',
-        #                   user=udef.get('iden'), username=udef.get('name'), level=logging.DEBUG)
-
         self.web_useriden = udef.get('iden')
         self.web_username = udef.get('name')
         return self.web_useriden
