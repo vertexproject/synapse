@@ -18,9 +18,9 @@ Features and Enhancements
   values.
   (`#3319 <https://github.com/vertexproject/synapse/pull/3319>`_)
   (`#3461 <https://github.com/vertexproject/synapse/pull/3461>`_)
-- Added Storm commands to interact with vaults: ``vaults.*``.q
+- Added Storm commands to interact with vaults: ``vaults.*``.
   (`#3319 <https://github.com/vertexproject/synapse/pull/3319>`_)
-- Added storm library to interact with vaults: ``$lib.vaults.*``.
+- Added Storm library to interact with vaults: ``$lib.vaults.*``.
   (`#3319 <https://github.com/vertexproject/synapse/pull/3319>`_)
 - Add merge request voting and history tracking for full View merges.
   (`#3466 <https://github.com/vertexproject/synapse/pull/3466>`_)
