@@ -1009,7 +1009,66 @@ class User(s_stormtypes.Prim):
          'desc': "Get a dictionary representing the user's persistent variables.",
          'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
                   'returns': {'type': 'auth:user:vars'}}},
-        # TODO - Add API Key functions
+        {'name': 'genApiKey', 'desc': '''Generate a new API key for the user.
+
+        Notes:
+            The secret API Key returned by this function cannot be accessed again.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methGenApiKey',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the API key.'},
+                      {'name': 'duration', 'type': 'integer', 'default': None,
+                       'desc': 'The duration that key is valid for, in milliseconds.'},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'A list, containing the secret API Key and a dictionary containing metadata about the key.'}}},
+        {'name': 'getqApiKey', 'desc': 'Get information about a users existing API key.',
+         'type': {'type': 'function', '_funcname': '_methGetApiKey',
+                  'args': (
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the API key.'},
+                  ),
+                  'returns': {'type': 'dict',
+                              'desc': 'A dictionary containing metadata about the key.'}}},
+        {'name': 'listApiKeys', 'desc': 'Get information about all the API keys the user has.',
+         'type': {'type': 'function', '_funcname': '_methListApiKeys',
+                  'args': (),
+                  'returns': {'type': 'list',
+                              'desc': 'A list of dictionaries containing metadata about the key.'}}},
+        {'name': 'modApiKey', 'desc': 'Modify metadata about the API key.',
+         'type': {'type': 'function', '_funcname': '_methModApiKey',
+                  'args': (
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the API key.'},
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the valu to update.'},
+                      {'name': 'valu', 'type': 'any',
+                       'desc': 'The new value of the API key.'},
+                  ),
+                  'returns': {'type': 'dict',
+                              'desc': 'An updated dictionary with metadata about the key.'}}},
+        {'name': 'regenerateApiKey', 'desc': '''Regenerate a new secret API key for an existing key.
+
+        Notes:
+            The secret API Key returned by this function cannot be accessed again.''',
+         'type': {'type': 'function', '_funcname': '_methRegenApiKey',
+                  'args': (
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the API key.'},
+                      {'name': 'duration', 'type': 'integer', 'default': None,
+                       'desc': 'The duration that key is valid for, in milliseconds.'},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'A list, containing the new API Key and a dictionary containing updated metadata about the key.'}}},
+        {'name': 'delApiKey', 'desc': 'Delete the users existing API key.',
+         'type': {'type': 'function', '_funcname': '_methDelApiKey',
+                  'args': (
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the API key.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True when the key was deleted.'}}},
     )
     _storm_typename = 'auth:user'
     _ismutable = False
@@ -1244,6 +1303,7 @@ class User(s_stormtypes.Prim):
         self.runt.confirm(('auth', 'user', 'set', 'apikey'))
         return await self.runt.snap.core.addUserApiKey(self.valu, name, duration=duration)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methGetApiKey(self, iden):
         iden = await s_stormtypes.tostr(iden)
         if self.runt.user.iden == self.valu:
@@ -1255,6 +1315,7 @@ class User(s_stormtypes.Prim):
         valu.pop('shadow', None)
         return valu
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methListApiKeys(self):
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
