@@ -343,6 +343,11 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.delUserRule(visi.iden, rule)
                     self.notin(rule, visi.info.get('rules'))
 
+                self.eq(echo.getDmonUser(), echo.auth.rootuser.iden)
+
+                with self.raises(s_exc.NeedConfValu):
+                    await echo.reqAhaProxy()
+
     async def test_cell_unix_sock(self):
 
         async with self.getTestCore() as core:
