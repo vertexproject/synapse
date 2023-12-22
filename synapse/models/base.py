@@ -176,7 +176,7 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'The note type.'}),
 
                     ('text', ('str', {}), {
-                        'disp': {'hint': 'text'},
+                        'disp': {'hint': 'text', 'syntax': 'markdown'},
                         'doc': 'The analyst authored note text.'}),
 
                     ('author', ('ps:contact', {}), {

@@ -1237,6 +1237,22 @@ class StormTest(s_t_utils.SynTest):
             self.false(await core.callStorm('return(("Foo" ~= "(?-i:foo)"))'))
             self.true(await core.callStorm('return(("Foo" ~= "(?-i:Foo)"))'))
 
+            async with await core.view.snap(user=visi) as snap:
+                query = await core.getStormQuery('')
+                async with snap.getStormRuntime(query) as runt:
+                    with self.raises(s_exc.AuthDeny):
+                        runt.reqAdmin(gateiden='cortex')
+
+            await core.stormlist('[ inet:fqdn=vertex.link ]')
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            opts = {'view': fork, 'show:storage': True}
+            msgs = await core.stormlist('inet:fqdn=vertex.link [ +#foo ]', opts=opts)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+            self.len(1, nodes)
+            self.nn(nodes[0][1]['storage'][1]['props']['.created'])
+            self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:

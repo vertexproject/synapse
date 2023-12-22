@@ -1009,6 +1009,53 @@ class User(s_stormtypes.Prim):
          'desc': "Get a dictionary representing the user's persistent variables.",
          'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
                   'returns': {'type': 'auth:user:vars'}}},
+        {'name': 'genApiKey', 'desc': '''Generate a new API key for the user.
+
+        Notes:
+            The secret API key returned by this function cannot be accessed again.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methGenApiKey',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the API key.'},
+                      {'name': 'duration', 'type': 'integer', 'default': None,
+                       'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'A list, containing the secret API key and a dictionary containing metadata about the key.'}}},
+        {'name': 'getApiKey', 'desc': "Get information about a user's existing API key.",
+         'type': {'type': 'function', '_funcname': '_methGetApiKey',
+                  'args': (
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the API key.'},
+                  ),
+                  'returns': {'type': 'dict',
+                              'desc': 'A dictionary containing metadata about the key.'}}},
+        {'name': 'listApiKeys', 'desc': 'Get information about all the API keys the user has.',
+         'type': {'type': 'function', '_funcname': '_methListApiKeys',
+                  'args': (),
+                  'returns': {'type': 'list',
+                              'desc': 'A list of dictionaries containing metadata about each key.'}}},
+        {'name': 'modApiKey', 'desc': 'Modify metadata about an existing API key.',
+         'type': {'type': 'function', '_funcname': '_methModApiKey',
+                  'args': (
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the API key.'},
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the valu to update.'},
+                      {'name': 'valu', 'type': 'any',
+                       'desc': 'The new value of the API key.'},
+                  ),
+                  'returns': {'type': 'dict',
+                              'desc': 'An updated dictionary with metadata about the key.'}}},
+        {'name': 'delApiKey', 'desc': 'Delete an existing API key.',
+         'type': {'type': 'function', '_funcname': '_methDelApiKey',
+                  'args': (
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the API key.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True when the key was deleted.'}}},
     )
     _storm_typename = 'auth:user'
     _ismutable = False
@@ -1067,6 +1114,11 @@ class User(s_stormtypes.Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
             'getAllowedReason': self._methGetAllowedReason,
+            'genApiKey': self._methGenApiKey,
+            'getApiKey': self._methGetApiKey,
+            'listApiKeys': self._methListApiKeys,
+            'modApiKey': self._methModApiKey,
+            'delApiKey': self._methDelApiKey,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1227,6 +1279,54 @@ class User(s_stormtypes.Prim):
     async def _methUserSetLocked(self, locked):
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
         await self.runt.snap.core.setUserLocked(self.valu, await s_stormtypes.tobool(locked))
+
+    async def _methGenApiKey(self, name, duration=None):
+        name = await s_stormtypes.tostr(name)
+        duration = await s_stormtypes.toint(duration, noneok=True)
+        if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+            return await self.runt.snap.core.addUserApiKey(self.valu, name, duration=duration)
+        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+        return await self.runt.snap.core.addUserApiKey(self.valu, name, duration=duration)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methGetApiKey(self, iden):
+        iden = await s_stormtypes.tostr(iden)
+        if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+            valu = await self.runt.snap.core.getUserApiKey(iden)
+        else:
+            self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+            valu = await self.runt.snap.core.getUserApiKey(iden)
+        valu.pop('shadow', None)
+        return valu
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methListApiKeys(self):
+        if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+            return await self.runt.snap.core.listUserApiKeys(self.valu)
+
+        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+        return await self.runt.snap.core.listUserApiKeys(self.valu)
+
+    async def _methModApiKey(self, iden, name, valu):
+        iden = await s_stormtypes.tostr(iden)
+        name = await s_stormtypes.tostr(name)
+        valu = await s_stormtypes.toprim(valu)
+        if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+            return await self.runt.snap.core.modUserApiKey(iden, name, valu)
+        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+        return await self.runt.snap.core.modUserApiKey(iden, name, valu)
+
+    async def _methDelApiKey(self, iden):
+        iden = await s_stormtypes.tostr(iden)
+        if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+            return await self.runt.snap.core.delUserApiKey(iden)
+        self.runt.confirm(('auth', 'user', 'set', 'apikey'))
+        return await self.runt.snap.core.delUserApiKey(iden)
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
@@ -1581,7 +1681,9 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'self', 'set', 'passwd'), 'gate': 'cortex',
          'desc': 'Permits a user to change their own password.',
          'default': True},
-
+        {'perm': ('auth', 'self', 'set', 'apikey'), 'gate': 'cortex',
+         'desc': 'Permits a user to manage their API keys.',
+         'default': True},
         {'perm': ('auth', 'user', 'grant'), 'gate': 'cortex',
          'desc': 'Controls granting roles to a user.'},
         {'perm': ('auth', 'user', 'revoke'), 'gate': 'cortex',
@@ -1607,7 +1709,8 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'user', 'set', 'profile', '<name>'), 'gate': 'cortex',
          'desc': 'Permits a user to set profile information.',
          'ex': 'auth.user.set.profile.fullname'},
-
+        {'perm': ('auth', 'user', 'set', 'apikey'), 'gate': 'cortex',
+         'desc': 'Permits a user to manage API keys for other users. USE WITH CAUTUON!'},
         {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
         {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',

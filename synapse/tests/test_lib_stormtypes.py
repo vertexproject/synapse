@@ -6269,3 +6269,197 @@ words\tword\twrd'''
             with self.raises(s_exc.NoSuchTagProp):
                 q = 'return($lib.view.get().getTagPropCount(foo, newp, valu=2))'
                 await core.callStorm(q, opts=forkopts)
+
+    async def test_view_quorum(self):
+
+        async with self.getTestCore() as core:
+
+            root = core.auth.rootuser
+            visi = await core.auth.addUser('visi')
+            newp = await core.auth.addUser('newp')
+
+            await visi.addRule((True, ('view', 'add')))
+            await visi.addRule((True, ('view', 'read')))
+
+            await newp.addRule((True, ('view', 'add')))
+            await newp.addRule((True, ('view', 'read')))
+
+            ninjas = await core.auth.addRole('ninjas')
+
+            with self.raises(s_exc.BadState):
+                core.getView().reqParentQuorum()
+
+            vdef = await core.getView().fork()
+            with self.raises(s_exc.BadState):
+                core.getView(vdef['iden']).reqParentQuorum()
+
+            with self.raises(s_exc.AuthDeny):
+                opts = {'user': visi.iden, 'vars': {'role': ninjas.iden}}
+                await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
+
+            opts = {'vars': {'role': ninjas.iden}}
+            quorum = await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
+
+            # coverage mop up for edge cases...
+            with self.raises(s_exc.CantMergeView):
+                await core.getView(vdef['iden']).mergeAllowed()
+
+            await core.getView(vdef['iden']).detach()
+
+            fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            msgs = await core.stormlist('[ inet:fqdn=vertex.link ]', opts={'view': fork00})
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('inet:fqdn')
+            self.len(0, nodes)
+
+            with self.raises(s_exc.SynErr):
+                await core.callStorm('$lib.view.get().merge()', opts={'view': fork00})
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.view.get().setMergeRequest()', opts={'user': visi.iden, 'view': fork00})
+
+            merge = await core.callStorm('return($lib.view.get().setMergeRequest(comment=woot))', opts={'view': fork00})
+            self.nn(merge['iden'])
+            self.nn(merge['created'])
+            self.eq(merge['comment'], 'woot')
+            self.eq(merge['creator'], core.auth.rootuser.iden)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.view.get().setMergeVote()', opts={'user': visi.iden, 'view': fork00})
+
+            await visi.grant(ninjas.iden)
+            await newp.grant(ninjas.iden)
+
+            opts = {'user': visi.iden, 'view': fork00}
+            vote = await core.callStorm('return($lib.view.get().setMergeVote(approved=(false), comment=fixyourstuff))', opts=opts)
+            self.nn(vote['offset'])
+            self.nn(vote['created'])
+            self.false(vote['approved'])
+            self.eq(vote['user'], visi.iden)
+            self.eq(vote['comment'], 'fixyourstuff')
+
+            opts = {'user': newp.iden, 'view': fork00}
+            vote = await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
+            self.nn(vote['offset'])
+            self.nn(vote['created'])
+            self.true(vote['approved'])
+            self.eq(vote['user'], newp.iden)
+
+            with self.raises(s_exc.AuthDeny):
+                opts = {'user': newp.iden, 'view': fork00, 'vars': {'visi': visi.iden}}
+                await core.callStorm('return($lib.view.get().delMergeVote(useriden=$visi))', opts=opts)
+
+            forkview = core.getView(fork00)
+
+            # removing the last veto triggers the merge
+            opts = {'user': visi.iden, 'view': fork00}
+            await core.callStorm('return($lib.view.get().delMergeVote())', opts=opts)
+
+            self.true(forkview.merging)
+            self.true(forkview.layers[0].readonly)
+
+            self.true(await forkview.waitfini(timeout=12))
+
+            self.none(core.getView(fork00))
+            nodes = await core.nodes('inet:fqdn')
+            self.len(2, nodes)
+            self.len(1, await core.callStorm('$list = ([]) for $merge in $lib.view.get().getMerges() { $list.append($merge) } fini { return($list) }'))
+
+            # test out the delMergeRequest logic / cleanup
+            forkdef = await core.getView().fork()
+
+            fork = core.getView(forkdef.get('iden'))
+
+            opts = {'view': fork.iden}
+            self.nn(await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts))
+
+            # confirm that you may not re-parent to a view with a merge request
+            layr = await core.addLayer()
+            vdef = await core.addView({'layers': (layr['iden'],)})
+            with self.raises(s_exc.BadState):
+                await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
+
+            opts = {'view': fork.iden, 'user': visi.iden}
+            self.nn(await core.callStorm('return($lib.view.get().setMergeVote(approved=(false)))', opts=opts))
+            self.len(1, [vote async for vote in fork.getMergeVotes()])
+
+            opts = {'view': fork.iden}
+            self.nn(await core.callStorm('return($lib.view.get().delMergeRequest())', opts=opts))
+            self.len(0, [vote async for vote in fork.getMergeVotes()])
+
+            # test coverage for beholder progress events...
+            forkdef = await core.getView().fork()
+            fork = core.getView(forkdef.get('iden'))
+
+            opts = {'view': fork.iden}
+            await core.stormlist('[ inet:ipv4=1.2.3.0/20 ]', opts=opts)
+            await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            waiter = core.waiter(7, 'cell:beholder')
+
+            opts = {'view': fork.iden, 'user': visi.iden}
+            await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
+
+            msgs = await waiter.wait(timeout=3)
+            self.eq(msgs[-2][1]['event'], 'view:merge:prog')
+            self.eq(msgs[-1][1]['event'], 'view:merge:fini')
+
+            # test coverage for bad state for merge request
+            fork00 = await core.getView().fork()
+            fork01 = await core.getView(fork00['iden']).fork()
+
+            opts = {'view': fork00['iden']}
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            await core.delView(fork01['iden'])
+            await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            core.getView().layers[0].readonly = True
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            core.getView().layers[0].readonly = False
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().fork())', opts=opts)
+
+            # setup a new merge and make a mirror...
+            forkdef = await core.getView().fork()
+            fork = core.getView(forkdef.get('iden'))
+
+            opts = {'view': fork.iden}
+            await core.stormlist('[ inet:ipv4=5.5.5.5 ]', opts=opts)
+            await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            # hamstring the runViewMerge method on the new view
+            async def fake():
+                return
+            fork.runViewMerge = fake
+
+            # vote to merge and set it off....
+            opts = {'view': fork.iden, 'user': visi.iden}
+            await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
+
+            await core.sync()
+
+            await core.runBackup(name='lead00', wait=True)
+            await core.runBackup(name='mirror00', wait=True)
+
+            # test that when a leader restarts it fires and completes the merge
+            dirn = s_common.genpath(core.dirn, 'backups', 'lead00')
+            async with self.getTestCore(dirn=dirn) as lead:
+                while lead.getView(fork.iden) is not None:
+                    await asyncio.sleep(0.1)
+                self.len(1, await lead.nodes('inet:ipv4=5.5.5.5'))
+
+            # test that a mirror starts without firing the merge and then fires it on promotion
+            dirn = s_common.genpath(core.dirn, 'backups', 'mirror00')
+            async with self.getTestCore(conf={'mirror': core.getLocalUrl()}, dirn=dirn) as mirror:
+                await mirror.sync()
+                view = mirror.getView(fork.iden)
+                await mirror.promote(graceful=False)
+                self.true(await view.waitfini(3))
+                self.len(1, await mirror.nodes('inet:ipv4=5.5.5.5'))

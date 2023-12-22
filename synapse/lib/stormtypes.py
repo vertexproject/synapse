@@ -480,7 +480,7 @@ class StormType:
         if valu is not s_common.novalu:
             return valu
 
-        raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
+        raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}] on type {self._storm_typename}', name=name, styp=self.__class__.__name__)
 
     async def _derefGet(self, name):
         gtor = self.gtors.get(name)
@@ -5369,7 +5369,7 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        async with self.runt.getSubRuntime(query, opts=opts) as runt:
+        async with self.runt.getCmdRuntime(query, opts=opts) as runt:
             async for item in runt.execute():
                 yield item
 
@@ -5989,10 +5989,17 @@ class PathVars(Prim):
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
+        runt = s_scope.get('runt')
+
         if valu is undef:
             await self.path.popVar(name)
+            if runt:
+                await runt.popVar(name)
             return
+
         await self.path.setVar(name, valu)
+        if runt:
+            await runt.setVar(name, valu)
 
     async def iter(self):
         # prevent "edit while iter" issues
@@ -6987,6 +6994,19 @@ class View(Prim):
                     Set the list of layer idens for a non-forked view. Layers are specified
                     in precedence order with the first layer in the list being the write layer.
 
+                quorum (dict)
+                    A dictionary of the quorum settings which require users to vote on merges.
+                    {
+                        "count": <int>,
+                        "roles": [ <roleid>, ... ]
+                    }
+                    Once quorum is enabled for a view, any forks must use the setMergeRequest()
+                    API to request that the child view is merged. The $view.addMergeVote() API
+                    is used for users to add their votes if they have been granted one of the
+                    roles listed. Once the number of approvals are met and there are no vetoes, a
+                    background process will kick off which merges the nodes and ultimately deletes
+                    the view and top layer.
+
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
 
@@ -7127,6 +7147,46 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': 'detach',
                   'args': (),
                   'returns': {'type': 'null', }}},
+
+        {'name': 'setMergeRequest', 'desc': 'Setup a merge request for the view in the current state.',
+         'type': {'type': 'function', '_funcname': 'setMergeRequest',
+                  'args': (
+                      {'name': 'comment', 'type': 'str', 'default': None,
+                       'desc': 'A text comment to include in the merge request.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The newly created merge request.'}}},
+        {'name': 'delMergeRequest', 'desc': 'Remove the existing merge request.',
+         'type': {'type': 'function', '_funcname': 'delMergeRequest',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The deleted merge request.'}}},
+        {'name': 'setMergeVote', 'desc': 'Register a vote for or against the current merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeVote',
+                  'args': (
+                      {'name': 'approved', 'type': 'boolean', 'default': True,
+                       'desc': 'Set to (true) to approve the merge or (false) to veto it.'},
+                      {'name': 'comment', 'type': 'str', 'default': None,
+                       'desc': 'A comment attached to the vote.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The vote record that was created.'}}},
+        {'name': 'delMergeVote', 'desc': '''
+            Remove a previously created merge vote.
+
+            Notes:
+                The default use case removes a vote cast by the current user. Specifying the useriden
+                parameter allows you to remove a vote cast by another user but requires global admin
+                permissions.
+         ''',
+         'type': {'type': 'function', '_funcname': 'delMergeVote',
+                  'args': (
+                      {'name': 'useriden', 'type': 'str', 'default': None,
+                       'desc': 'Delete a merge vote by a different user.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The vote record that was removed.'}}},
+        {'name': 'getMerges', 'desc': 'Yields previously successful merges into the view.',
+         'type': {'type': 'function', '_funcname': 'getMerges',
+                  'args': (),
+                  'returns': {'name': 'Yields', 'type': 'dict',
+                              'desc': 'Yields previously successful merges into the view.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7163,6 +7223,12 @@ class View(Prim):
             'getPropCount': self._methGetPropCount,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
+
+            'getMerges': self.getMerges,
+            'delMergeVote': self.delMergeVote,
+            'setMergeVote': self.setMergeVote,
+            'delMergeRequest': self.delMergeRequest,
+            'setMergeRequest': self.setMergeRequest,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7298,6 +7364,8 @@ class View(Prim):
 
     async def _methViewSet(self, name, valu):
 
+        view = self._reqView()
+
         name = await tostr(name)
 
         if name in ('name', 'desc', 'parent'):
@@ -7310,6 +7378,9 @@ class View(Prim):
                 self.runt.snap.core.reqView(valu, mesg='The parent view must already exist.')
                 self.runt.confirm(('view', 'read'), gateiden=valu)
                 self.runt.confirm(('view', 'fork'), gateiden=valu)
+
+        elif name == 'quorum':
+            valu = await toprim(valu)
 
         elif name == 'nomerge':
             valu = await tobool(valu)
@@ -7342,12 +7413,12 @@ class View(Prim):
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        view = self.runt.snap.core.reqView(self.valu.get('iden'))
-
         self.runt.confirm(('view', 'set', name), gateiden=view.iden)
-        await view.setViewInfo(name, valu)
+        retn = await view.setViewInfo(name, valu)
 
-        self.valu[name] = valu
+        self.valu[name] = retn
+
+        return retn
 
     @stormfunc(readonly=True)
     async def _methViewRepr(self):
@@ -7397,11 +7468,10 @@ class View(Prim):
         '''
         Merge a forked view back into its parent.
         '''
+        view = self._reqView()
+        view.reqNoParentQuorum()
         force = await tobool(force)
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        todo = s_common.todo('merge', useriden=useriden, force=force)
-        await self.runt.dyncall(viewiden, todo)
+        return await view.merge(useriden=self.runt.user.iden, force=force)
 
     async def _methWipeLayer(self):
         '''
@@ -7411,6 +7481,71 @@ class View(Prim):
         viewiden = self.valu.get('iden')
         view = self.runt.snap.core.getView(viewiden)
         await view.wipeLayer(useriden=useriden)
+
+    async def getMerges(self):
+        view = self._reqView()
+        async for merge in view.getMerges():
+            yield merge
+
+    async def delMergeRequest(self):
+
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Deleting a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        return await view.delMergeRequest()
+
+    async def setMergeRequest(self, comment=None):
+
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Creating a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        mreq = {'creator': self.runt.user.iden}
+
+        if comment is not None:
+            mreq['comment'] = await tostr(comment)
+
+        return await view.setMergeRequest(mreq)
+
+    async def setMergeVote(self, approved=True, comment=None):
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        reqroles = set(quorum.get('roles', ()))
+        userroles = set(self.runt.user.info.get('roles', ()))
+
+        if not reqroles & userroles:
+            mesg = 'You are not a member of a role with voting privileges for this merge request.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        vote = {'user': self.runt.user.iden, 'approved': await tobool(approved)}
+
+        if comment is not None:
+            vote['comment'] = await tostr(comment)
+
+        return await view.setMergeVote(vote)
+
+    async def delMergeVote(self, useriden=None):
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        useriden = await tostr(useriden, noneok=True)
+
+        if not self.runt.isAdmin() and useriden is not None:
+            mesg = 'Only a global admin may delete a vote for another user.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        if useriden is None:
+            useriden = self.runt.user.iden
+
+        return await view.delMergeVote(useriden)
 
 @registry.registerLib
 class LibTrigger(Lib):

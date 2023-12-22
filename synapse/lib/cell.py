@@ -42,6 +42,8 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -645,6 +647,10 @@ class CellApi(s_base.Base):
     async def popUserProfInfo(self, iden, name, default=None):
         return await self.cell.popUserProfInfo(iden, name, default=default)
 
+    @adminapi()
+    async def checkUserApiKey(self, key):
+        return await self.cell.checkUserApiKey(key)
+
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -1141,6 +1147,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(root)
 
         await self._initCellSlab(readonly=readonly)
+        self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
+        self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
+        self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
 
         self.hive = await self._initCellHive()
 
@@ -1228,6 +1237,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def _clearPermDefs(self):
         self.permdefs = None
         self.permlook = None
+
+    def getDmonUser(self):
+        '''
+        Return the user IDEN of a telepath caller who invoked the current task.
+        ( defaults to returning current root user )
+        '''
+        sess = s_scope.get('sess', None)
+        if sess is None:
+            return self.auth.rootuser.iden
+
+        if sess.user is None: # pragma: no cover
+            return self.auth.rootuser.iden
+
+        return sess.user.iden
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
@@ -1696,6 +1719,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.modCellConf({'mirror': turl})
                 await self.nexsroot.startup()
 
+    async def reqAhaProxy(self, timeout=None):
+        if self.ahaclient is None:
+            mesg = 'AHA is not configured on this service.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+        return await self.ahaclient.proxy(timeout=timeout)
+
     async def _setAhaActive(self):
 
         if self.ahaclient is None:
@@ -1728,6 +1757,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
         except Exception as e:  # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
+
+    def isActiveCoro(self, iden):
+        return self.activecoros.get(iden) is not None
 
     def addActiveCoro(self, func, iden=None, base=None):
         '''
@@ -1787,14 +1819,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         func = cdef.get('func')
 
         async def wrap():
-            while not self.isfini:
+            while not self.isfini and self.isActiveCoro(iden):
                 try:
                     await func()
-                except asyncio.CancelledError:
-                    raise
                 except Exception:  # pragma no cover
                     logger.exception(f'activeCoro Error: {func}')
-                    await asyncio.sleep(1)
+                    await self.waitfini(1)
 
         cdef['task'] = self.schedCoro(wrap())
 
@@ -2842,10 +2872,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
+            s_common.deprecated('auth:ctor cell config option', curv='2.157.0')
             ctor = s_dyndeps.getDynLocal(authctor)
-            return await ctor(self)
+            auth = await ctor(self)
+        else:
+            auth = await self._initCellHiveAuth()
 
-        return await self._initCellHiveAuth()
+        # Add callbacks
+        self.on('user:del', self._onUserDelEvnt)
+
+        return auth
 
     def getCellNexsRoot(self):
         # the "cell scope" nexusroot only exists if we are *not* embedded
@@ -3898,6 +3934,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': s_version.verstring,
             },
             'cell': {
+                'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,
@@ -4031,3 +4068,255 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return s_common.retnexc(e)
         logger.debug(f'Completed cell reload system {name}')
         return (True, ret)
+
+    async def addUserApiKey(self, useriden, name, duration=None):
+        '''
+        Add an API key for a user.
+
+        Notes:
+            The secret API key is only available once.
+
+        Args:
+            useriden (str): User iden value.
+            name (str): Name of the API key.
+            duration (int or None): Duration of time for the API key to be valid ( in milliseconds ).
+
+        Returns:
+            tuple: A tuple of the secret API key value and the API key metadata information.
+        '''
+        user = await self.auth.reqUser(useriden)
+        iden, token, shadow = await s_passwd.generateApiKey()
+        now = s_common.now()
+        kdef = {
+            'iden': iden,
+            'name': name,
+            'user': user.iden,
+            'created': now,
+            'updated': now,
+            'shadow': shadow,
+        }
+
+        if duration is not None:
+            if duration < 1:
+                raise s_exc.BadArg(mesg='Duration must be equal or greater than 1', name='duration')
+            kdef['expires'] = now + duration
+
+        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
+
+        await self._push('user:apikey:add', kdef)
+
+        logger.info(f'Created HTTP API key {iden} for {user.name}, {name=}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
+
+        kdef.pop('shadow')
+        return token, kdef
+
+    @s_nexus.Pusher.onPush('user:apikey:add')
+    async def _genUserApiKey(self, kdef):
+        iden = s_common.uhex(kdef.get('iden'))
+        user = s_common.uhex(kdef.get('user'))
+        self.slab.put(iden, user, db=self.apikeydb)
+        lkey = user + b'apikey' + iden
+        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+
+    async def getUserApiKey(self, iden):
+        '''
+        Get a user API key via iden.
+
+        Notes:
+            This contains the raw value. Callers are responsible for removing the ``shadow`` key.
+
+        Args:
+            iden (str): The key iden.
+
+        Returns:
+            dict: The key dictionary; or none.
+        '''
+        lkey = s_common.uhex(iden)
+        user = self.slab.get(lkey, db=self.apikeydb)
+        if user is None:
+            return None
+        buf = self.slab.get(user + b'apikey' + lkey, db=self.usermetadb)
+        if buf is None:  # pragma: no cover
+            logger.warning(f'Missing API key {iden} from user metadata for {s_common.ehex(user)}')
+            return None
+        kdef = s_msgpack.un(buf)  # This includes the shadow key
+        return kdef
+
+    async def listUserApiKeys(self, useriden):
+        '''
+        Get all the API keys for a user.
+
+        Args:
+            useriden (str): The user iden.
+
+        Returns:
+            list: A list of kdef values.
+        '''
+        user = await self.auth.reqUser(useriden)
+        vals = []
+        prefix = s_common.uhex(user.iden) + b'apikey'
+        for lkey, valu in self.slab.scanByPref(prefix, db=self.usermetadb):
+            kdef = s_msgpack.un(valu)
+            kdef.pop('shadow')
+            vals.append(kdef)
+            await asyncio.sleep(0)
+        return vals
+
+    async def getApiKeys(self):
+        '''
+        Get all API keys in the cell.
+
+        Yields:
+            tuple: kdef values
+        '''
+        # yield all users API keys
+        for keyiden, useriden in self.slab.scanByFull(db=self.apikeydb):
+            lkey = useriden + b'apikey' + keyiden
+            valu = self.slab.get(lkey, db=self.usermetadb)
+            kdef = s_msgpack.un(valu)
+            kdef.pop('shadow')
+            yield kdef
+            await asyncio.sleep(0)
+
+    async def checkUserApiKey(self, key):
+        '''
+        Check if a user API key is valid.
+
+        Notes:
+            If the key is not valid, the dictionary will contain a ``mesg`` key.
+            If the key is valid, the dictionary will contain the user def in a ``udef`` key,
+            and the key metadata in a ``kdef`` key.
+
+        Args:
+            key (str): The API key to check.
+
+        Returns:
+            tuple: Tuple of two items, a boolean if the key is valid and a dictionary.
+        '''
+        isok, valu = s_passwd.parseApiKey(key)
+        if isok is False:
+            return False, {'mesg': 'API key is malformed.'}
+
+        iden, secv = valu
+
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            return False, {'mesg': f'API key does not exist: {iden}'}
+
+        user = kdef.get('user')
+        udef = await self.getUserDef(user)
+        if udef is None: # pragma: no cover
+            return False, {'mesg': f'User does not exist for API key: {iden}', 'user': user}
+
+        if udef.get('locked'):
+            return False, {'mesg': f'User associated with API key is locked: {iden}',
+                           'user': user, 'name': udef.get('name')}
+
+        if ((expires := kdef.get('expires')) is not None):
+            if s_common.now() > expires:
+                return False, {'mesg': f'API key is expired: {iden}',
+                               'user': user, 'name': udef.get('name')}
+
+        shadow = kdef.pop('shadow')
+        valid = await s_passwd.checkShadowV2(secv, shadow)
+        if valid is False:
+            return False, {'mesg': f'API key shadow mismatch: {iden}',
+                           'user': user, 'name': udef.get('name')}
+
+        return True, {'kdef': kdef, 'udef': udef}
+
+    async def modUserApiKey(self, iden, key, valu):
+        '''
+        Update a value in the user API key metadata.
+
+        Args:
+            iden (str): Iden of the key to update.
+            key (str): Name of the valu to update.
+            valu: The new value.
+
+        Returns:
+            dict: An updated key metadata dictionary.
+        '''
+        if key not in ('name',):
+            raise s_exc.BadArg(mesg=f'Cannot set {key} on user API keys.', name=key)
+
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist, cannot modify it: {iden}', iden=iden)
+        useriden = kdef.get('user')
+        user = await self.auth.reqUser(useriden)
+
+        vals = {
+            'updated': s_common.now()
+        }
+        if key == 'name':
+            vals['name'] = valu
+
+        kdef.update(vals)
+        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
+
+        await self._push('user:apikey:edit', kdef.get('user'), iden, vals)
+
+        logger.info(f'Updated HTTP API key {iden} for {user.name}, set {key}={valu}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
+
+        kdef.pop('shadow')
+        return kdef
+
+    @s_nexus.Pusher.onPush('user:apikey:edit')
+    async def _setUserApiKey(self, user, iden, vals):
+        lkey = s_common.uhex(user) + b'apikey' + s_common.uhex(iden)
+        buf = self.slab.get(lkey, db=self.usermetadb)
+        if buf is None:  # pragma: no cover
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
+        kdef = s_msgpack.un(buf)
+        kdef.update(vals)
+        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        return kdef
+
+    async def delUserApiKey(self, iden):
+        '''
+        Delete an existing API key.
+
+        Args:
+            iden (str): The iden of the API key to delete.
+
+        Returns:
+            bool: True indicating the key was deleted.
+        '''
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
+        useriden = kdef.get('user')
+        user = await self.auth.reqUser(useriden)
+        ret = await self._push('user:apikey:del', useriden, iden)
+        logger.info(f'Deleted HTTP API key {iden} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
+        return ret
+
+    @s_nexus.Pusher.onPush('user:apikey:del')
+    async def _delUserApiKey(self, user, iden):
+        user = s_common.uhex(user)
+        iden = s_common.uhex(iden)
+
+        self.slab.delete(iden, db=self.apikeydb)
+        self.slab.delete(user + b'apikey' + iden, db=self.usermetadb)
+        return True
+
+    async def _onUserDelEvnt(self, evnt):
+        # Call callback for handling user:del events
+        udef = evnt[1].get('udef')
+        user = udef.get('iden')
+        ukey = s_common.uhex(user)
+        for lkey, buf in self.slab.scanByPref(ukey, db=self.usermetadb):
+            suffix = lkey[16:]
+            # Special handling for certain meta which has secondary indexes
+            if suffix.startswith(b'apikey'):
+                key_iden = suffix[6:]
+                self.slab.delete(key_iden, db=self.apikeydb)
+            self.slab.delete(lkey, db=self.usermetadb)
+            await asyncio.sleep(0)

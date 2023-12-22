@@ -543,6 +543,7 @@ class Auth(s_nexus.Pusher):
         if user is None:
             return
 
+        udef = user.pack()
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
 
@@ -553,6 +554,7 @@ class Auth(s_nexus.Pusher):
 
         await user.fini()
         await self.node.hive.pop(path)
+        await self.fire('user:del', udef=udef)
         await self.feedBeholder('user:del', {'iden': iden})
 
     def _getUsersInRole(self, role):
@@ -861,7 +863,14 @@ class HiveUser(HiveRuler):
 
         roles = self.info.get('roles', ())
         if packroles:
-            roles = [self.auth.role(r).pack() for r in roles]
+            _roles = []
+            for r in roles:
+                role = self.auth.role(r)
+                if role is None:
+                    logger.error(f'User {self.iden} ({self.name}) contains a missing role: {r}')
+                    continue
+                _roles.append(role.pack())
+            roles = _roles
 
         return {
             'type': 'user',
@@ -1113,6 +1122,18 @@ class HiveUser(HiveRuler):
             return False
 
         return gateinfo.get('admin', False)
+
+    def reqAdmin(self, gateiden=None, mesg=None):
+
+        if self.isAdmin(gateiden=gateiden):
+            return
+
+        if mesg is None:
+            mesg = 'This action requires global admin permissions.'
+            if gateiden is not None:
+                mesg = f'This action requires admin permissions on gate: {gateiden}'
+
+        raise s_exc.AuthDeny(mesg=mesg, user=self.iden, username=self.name)
 
     def isArchived(self):
         return self.info.get('archived')
