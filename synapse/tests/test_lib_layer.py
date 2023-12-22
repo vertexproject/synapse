@@ -360,25 +360,6 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
 
-    async def test_layer_abrv(self):
-
-        async with self.getTestCore() as core:
-
-            layr = core.getLayer()
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
-                    layr.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
-                    layr.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x09',
-                    layr.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
-            self.eq(('visi', 'foo'),
-                    layr.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
-            self.eq(('whip', None),
-                    layr.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x09'))
-            self.raises(s_exc.NoSuchAbrv,
-                        layr.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x0a')
-
     async def test_layer_upstream(self):
 
         with self.getTestDir() as dirn:

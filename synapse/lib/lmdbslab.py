@@ -226,6 +226,10 @@ class SlabAbrv:
         for byts in self.slab.scanKeysByPref(pref, db=self.name2abrv):
             yield byts
 
+    def iterByPref(self, pref):
+        for byts in self.slab.scanByPref(pref, db=self.name2abrv):
+            yield byts
+
     def items(self):
         for byts, abrv in self.slab.scanByFull(db=self.name2abrv):
             yield byts, abrv

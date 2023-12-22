@@ -963,6 +963,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # Initialize our storage and views
         await self._initCoreAxon()
 
+        await self._initLayerV3Stor()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -981,7 +982,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.agenda)
 
         await self._initStormGraphs()
-        await self._initLayerV3Stor()
 
         self.trigson = self.conf.get('trigger:enable')
 
@@ -1994,6 +1994,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.onfini(self.v3stor.fini)
 
+        self.verbabrv = self.v3stor.getNameAbrv('verbabrv')
+        self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
+
         self.nidrefs = self.v3stor.initdb('nidrefs', integerkey=True)
         self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
         self.nid2buid = self.v3stor.initdb('nid2buid', integerkey=True)
@@ -2055,6 +2058,32 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.v3stor.put(nid, refs.to_bytes(8), db=self.nidrefs)
         return refs
+
+    @s_cache.memoizemethod()
+    def getIndxAbrv(self, indx, *args):
+        return self.indxabrv.bytsToAbrv(indx + s_msgpack.en(args))
+
+    @s_cache.memoizemethod()
+    def setIndxAbrv(self, indx, *args):
+        return self.indxabrv.setBytsToAbrv(indx + s_msgpack.en(args))
+
+    @s_cache.memoizemethod()
+    def getAbrvIndx(self, abrv):
+        byts = self.indxabrv.abrvToByts(abrv)
+        return s_msgpack.un(byts[2:])
+
+    @s_cache.memoizemethod()
+    def getVerbAbrv(self, verb):
+        return self.verbabrv.bytsToAbrv(verb.encode())
+
+    @s_cache.memoizemethod()
+    def setVerbAbrv(self, verb):
+        return self.verbabrv.setBytsToAbrv(verb.encode())
+
+    @s_cache.memoizemethod()
+    def getAbrvVerb(self, abrv):
+        byts = self.verbabrv.abrvToByts(abrv)
+        return byts.decode()
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
