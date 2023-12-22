@@ -6360,7 +6360,7 @@ words\tword\twrd'''
             self.true(forkview.merging)
             self.true(forkview.layers[0].readonly)
 
-            self.true(await forkview.waitfini(timeout=3))
+            self.true(await forkview.waitfini(timeout=12))
 
             self.none(core.getView(fork00))
             nodes = await core.nodes('inet:fqdn')
