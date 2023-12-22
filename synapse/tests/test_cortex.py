@@ -858,7 +858,7 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 self.len(0, await core.nodes('media:news -(*)> $(0)'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.NoSuchForm):
                 self.len(0, await core.nodes('media:news -(*)> test:newp'))
 
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')

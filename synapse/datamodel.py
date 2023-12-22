@@ -599,9 +599,53 @@ class Model:
             if form.startswith(prefix):
                 forms.append(form)
 
-        forms.sort()
-        self.formprefixcache[prefix] = forms
+        if forms:
+            forms.sort()
+            self.formprefixcache[prefix] = forms
         return forms
+
+    def reqFormsByPrefix(self, prefix, extra=None):
+        forms = self.getFormsByPrefix(prefix)
+        if not forms:
+            mesg = f'No forms match prefix {prefix}.'
+            exc = s_exc.NoSuchForm(name=prefix, mesg=mesg)
+            if extra is not None:
+                exc = extra(exc)
+            raise exc
+
+        return forms
+
+    def reqFormsByLook(self, name, extra=None):
+        if (form := self.form(name)) is not None:
+            return (form.name,)
+
+        if (forms := self.formsbyiface.get(name)) is not None:
+            return forms
+
+        if name.endswith('*'):
+            return self.reqFormsByPrefix(name[:-1], extra=extra)
+
+        exc = s_exc.NoSuchForm.init(name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
+
+    def reqPropsByLook(self, name, extra=None):
+        if (forms := self.formsbyiface.get(name)) is not None:
+            return forms
+
+        if (props := self.ifaceprops.get(name)) is not None:
+            return props
+
+        if name.endswith('*'):
+            return self.reqFormsByPrefix(name[:-1], extra=extra)
+
+        exc = s_exc.NoSuchProp.init(name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def getTypeClone(self, typedef):
 

@@ -1636,21 +1636,12 @@ class LiftFormTagProp(LiftOper):
 
         formname, tag, prop = await self.kids[0].compute(runt, path)
 
-        form = runt.model.form(formname)
-        if not form:
-            forms = runt.model.formsbyiface.get(formname)
+        forms = runt.model.reqFormsByLook(formname, self.kids[0].addExcInfo)
 
-            if forms is None and formname.endswith('*'):
+        def cmprkey(node):
+            return node.getTagProp(tag, prop)
 
-                forms = runt.model.getFormsByPrefix(formname[:-1])
-                if not forms:
-                    mesg = f'No forms match pattern {formname}.'
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name=formname, mesg=mesg))
-
-            if not forms:
-                raise self.kids[0].kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
-        else:
-            forms = (form.name,)
+        genrs = []
 
         if len(self.kids) == 3:
 
@@ -1658,14 +1649,15 @@ class LiftFormTagProp(LiftOper):
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             for form in forms:
-                async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse):
-                    yield node
+                genrs.append(runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
 
-            return
+        else:
 
-        for form in forms:
-            async for node in runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse):
-                yield node
+            for form in forms:
+                genrs.append(runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse))
+
+        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
+            yield node
 
 class LiftTagTag(LiftOper):
     '''
@@ -1717,23 +1709,14 @@ class LiftFormTag(LiftOper):
 
         formname = await self.kids[0].compute(runt, path)
 
-        form = runt.model.form(formname)
-        if not form:
-            forms = runt.model.formsbyiface.get(formname)
-
-            if forms is None and formname.endswith('*'):
-
-                forms = runt.model.getFormsByPrefix(formname[:-1])
-                if not forms:
-                    mesg = f'No forms match pattern {formname}.'
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name=formname, mesg=mesg))
-
-            if not forms:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
-        else:
-            forms = (form.name,)
+        forms = runt.model.reqFormsByLook(formname, self.kids[0].addExcInfo)
 
         tag = await self.kids[1].compute(runt, path)
+
+        def cmprkey(node):
+            return node.tags.get(tag, (0, 0))
+
+        genrs = []
 
         if len(self.kids) == 4:
 
@@ -1741,14 +1724,14 @@ class LiftFormTag(LiftOper):
             valu = await toprim(await self.kids[3].compute(runt, path))
 
             for form in forms:
-                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
-                    yield node
+                genrs.append(runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse))
 
-            return
+        else:
+            for form in forms:
+                genrs.append(runt.snap.nodesByTag(tag, form=form, reverse=self.reverse))
 
-        for form in forms:
-            async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
-                yield node
+        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
+            yield node
 
 class LiftProp(LiftOper):
 
@@ -1764,19 +1747,7 @@ class LiftProp(LiftOper):
                 yield node
             return
 
-        proplist = runt.model.formsbyiface.get(name)
-        if proplist is None:
-            proplist = runt.model.ifaceprops.get(name)
-
-        if proplist is None and name.endswith('*'):
-
-            proplist = runt.model.getFormsByPrefix(name[:-1])
-            if not proplist:
-                mesg = f'No forms match pattern {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
-
-        if proplist is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
 
         props = []
         for propname in proplist:
@@ -2352,23 +2323,8 @@ class FormPivot(PivotOper):
             proplist = None
             if isinstance(name, list):
                 proplist = name
-
-            if proplist is None:
-                proplist = runt.model.formsbyiface.get(name)
-
-            if proplist is None:
-                proplist = runt.model.ifaceprops.get(name)
-
-            if proplist is None and name.endswith('*'):
-
-                proplist = runt.model.getFormsByPrefix(name[:-1])
-                if not proplist:
-                    mesg = f'No forms match pattern {name}.'
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
-
-            if proplist is None:
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+            else:
+                proplist = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
 
             pgenrs = []
             for propname in proplist:
@@ -2521,8 +2477,7 @@ class PropPivot(PivotOper):
                 proplist = runt.model.ifaceprops.get(name)
 
             if proplist is None:
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
             pgenrs = []
             for propname in proplist:
@@ -2974,10 +2929,7 @@ class HasAbsPropCond(Cond):
             return cond
 
         if name.endswith('*'):
-            formlist = runt.model.getFormsByPrefix(name[:-1])
-            if not formlist:
-                mesg = f'No forms match pattern {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
+            formlist = runt.model.reqFormsByPrefix(name[:-1], extra=self.kids[0].addExcInfo)
 
             async def cond(node, path):
                 return node.form.name in formlist
@@ -3007,8 +2959,7 @@ class HasAbsPropCond(Cond):
 
             return cond
 
-        mesg = f'No property named {name}.'
-        raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+        raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
 class ArrayCond(Cond):
 
@@ -3021,8 +2972,7 @@ class ArrayCond(Cond):
 
             prop = node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
             if not prop.type.isarray:
                 mesg = f'Array filter syntax is invalid for non-array prop {name}.'
@@ -3103,8 +3053,7 @@ class AbsPropCond(Cond):
 
             return cond
 
-        mesg = f'No property named {name}.'
-        raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+        raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
 class TagValuCond(Cond):
 
@@ -4226,21 +4175,8 @@ class N1Walk(Oper):
                     formprops[prop.form.name][prop.name] = prop
                 continue
 
-            if (formlist := runt.model.formsbyiface.get(destform)) is not None:
-                forms.update(formlist)
-                continue
-
-            if destform.endswith('*'):
-                formlist = runt.model.getFormsByPrefix(destform[:-1])
-                if formlist:
-                    forms.update(formlist)
-                    continue
-
-                mesg = f'No forms match pattern {destform}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=destform))
-
-            mesg = f'walk operation expects dest to be a form or interface got: {destform!r}'
-            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+            formlist = runt.model.reqFormsByLook(destform, extra=self.kids[0].addExcInfo)
+            forms.update(formlist)
 
         if cmpr is None:
             async def destfilt(node, path, cmprvalu):
