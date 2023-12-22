@@ -29,6 +29,7 @@ Features and Enhancements
 - Add service pooling support to Aha. This allows for dynamic service
   topologies and distributed Telepath API calls.
   (`#3353 <https://github.com/vertexproject/synapse/pull/3353>`_)
+  (`#3477 <https://github.com/vertexproject/synapse/pull/3477>`_)
 - Add user managed API keys that can be used to access HTTP API endpoints.
   (`#3470 <https://github.com/vertexproject/synapse/pull/3470>`_)
 - Added an ``--optsfile`` option to the Storm CLI tool. This can be used to
