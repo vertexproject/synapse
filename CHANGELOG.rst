@@ -26,7 +26,7 @@ Features and Enhancements
   (`#3466 <https://github.com/vertexproject/synapse/pull/3466>`_)
   (`#3473 <https://github.com/vertexproject/synapse/pull/3473>`_)
   (`#3475 <https://github.com/vertexproject/synapse/pull/3475>`_)
-- Add service pooling support to Aha. This allows for dynamic service
+- Add service pooling support to AHA. This allows for dynamic service
   topologies and distributed Telepath API calls.
   (`#3353 <https://github.com/vertexproject/synapse/pull/3353>`_)
   (`#3477 <https://github.com/vertexproject/synapse/pull/3477>`_)
