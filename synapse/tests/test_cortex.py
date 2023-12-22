@@ -7285,7 +7285,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_taxonomy_migr(self):
 
-        async with self.getRegrCore('2.149.0-taxonomy-rename') as core:
+        async with self.getRegrCore('2.157.0-taxonomy-rename') as core:
 
             self.true(core.cellvers.get('cortex:extmodel') >= 1)
 
