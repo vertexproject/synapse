@@ -1713,25 +1713,20 @@ class LiftFormTag(LiftOper):
 
         tag = await self.kids[1].compute(runt, path)
 
-        def cmprkey(node):
-            return node.tags.get(tag, (0, 0))
-
-        genrs = []
-
         if len(self.kids) == 4:
 
             cmpr = await self.kids[2].compute(runt, path)
             valu = await toprim(await self.kids[3].compute(runt, path))
 
             for form in forms:
-                genrs.append(runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse))
+                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
+                    yield node
 
-        else:
-            for form in forms:
-                genrs.append(runt.snap.nodesByTag(tag, form=form, reverse=self.reverse))
+            return
 
-        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
-            yield node
+        for form in forms:
+            async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
+                yield node
 
 class LiftProp(LiftOper):
 
