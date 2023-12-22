@@ -756,10 +756,10 @@ class AstTest(s_test.SynTest):
 
                 it:screenshot=(nohost,)
 
-                inet:dns:a=(vertex.link, 1.2.3.4)
-                inet:dns:aaaa=(vertex.link, 1::)
-                inet:dns:mx=(vertex.link, foo.com)
-                inet:dns:ns=(vertex.link, bar.com)
+                (inet:dns:a=(vertex.link, 1.2.3.4) +#bar:score=4)
+                (inet:dns:aaaa=(vertex.link, 1::) +#bar:score=2)
+                (inet:dns:mx=(vertex.link, foo.com) +#bar:score=3)
+                (inet:dns:ns=(vertex.link, bar.com) +#bar:score=1)
                 +#foo:score=5
             ]'''
             await core.nodes(q)
@@ -788,6 +788,18 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('inet:dns*#foo:score=5'))
             self.len(4, await core.nodes('inet:dns:*#foo:score=5'))
             self.len(2, await core.nodes('inet:dns:a*#foo:score=5'))
+
+            lval = 0
+            for node in await core.nodes('inet:dns*#bar:score'):
+                valu = node.getTagProp('bar', 'score')
+                self.gt(valu, lval)
+                lval = valu
+
+            lval = 0
+            for node in await core.nodes('inet:dns*#bar:score>0'):
+                valu = node.getTagProp('bar', 'score')
+                self.gt(valu, lval)
+                lval = valu
 
             self.len(4, await core.nodes('.created +inet:dns*'))
             self.len(4, await core.nodes('.created +inet:dns:*'))
