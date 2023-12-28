@@ -1,5 +1,21 @@
 import synapse.lib.config as s_config
+import synapse.lib.msgpack as s_msgpack
 
+
+easyPermSchema = {
+    'type': 'object',
+    'properties': {
+        'users': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+    },
+    'required': ['users', 'roles'],
+}
 
 _HttpExtAPIConfSchema = {
     'type': 'object',
@@ -67,3 +83,181 @@ _LayerPushPullSchema = {
 }
 reqValidPush = s_config.getJsValidator(_LayerPushPullSchema)
 reqValidPull = reqValidPush
+
+_CronJobSchema = {
+    'type': 'object',
+    'properties': {
+        'storm': {'type': 'string'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'doc': {'type': 'string'},
+        'incunit': {
+            'oneOf': [
+                {'type': 'null'},
+                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
+            ]
+        },
+        'incvals': {
+            'type': ['array', 'number', 'null'],
+            'items': {'type': 'number'}
+        },
+        'reqs': {
+            'oneOf': [
+                {
+                    '$ref': '#/definitions/req',
+                },
+                {
+                    'type': ['array'],
+                    'items': {'$ref': '#/definitions/req'},
+                },
+            ]
+        },
+    },
+    'additionalProperties': False,
+    'required': ['creator', 'storm'],
+    'dependencices': {
+        'incvals': ['incunit'],
+        'incunit': ['incvals'],
+    },
+    'definitions': {
+        'req': {
+            'type': 'object',
+            'properties': {
+                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
+            }
+        }
+    }
+}
+
+reqValidCronDef = s_config.getJsValidator(_CronJobSchema)
+reqValidVault = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'type': {'type': 'string', 'pattern': '^.{1,128}$'},
+        'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
+        'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'permissions': s_msgpack.deepcopy(easyPermSchema),
+        'secrets': {'type': 'object'},
+        'configs': {'type': 'object'},
+    },
+    'additionalProperties': False,
+    'required': [
+        'iden',
+        'name',
+        'type',
+        'scope',
+        'owner',
+        'permissions',
+        'secrets',
+        'configs',
+    ],
+})
+
+reqValidView = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'nomerge': {'type': 'boolean'},
+        'merging': {'type': 'boolean'},
+        'layers': {
+            'type': 'array',
+            'items': {'type': 'string', 'pattern': s_config.re_iden},
+            'minItems': 1,
+            'uniqueItems': True
+        },
+        'quorum': {
+            'type': 'object',
+            'properties': {
+                'roles': {'type': 'array', 'items': {
+                    'type': 'string',
+                    'pattern': s_config.re_iden},
+                    'uniqueItems': True
+                },
+                'count': {'type': 'number', 'minimum': 1},
+            },
+            'required': ['count', 'roles'],
+            'additionalProperties': False,
+        },
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'parent', 'creator', 'layers'],
+})
+
+reqValidMerge = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'number', 'minval': 0},
+        'comment': {'type': 'string'},
+    },
+    'required': ['iden', 'creator', 'created'],
+    'additionalProperties': False,
+})
+
+reqValidVote = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'offset': {'type': 'number', 'minval': 0},
+        'created': {'type': 'number', 'minval': 0},
+        'approved': {'type': 'boolean'},
+        'comment': {'type': 'string'},
+    },
+    'required': ['user', 'offset', 'created', 'approved'],
+    'additionalProperties': False,
+})
+
+reqValidAhaPoolDef = s_config.getJsValidator({
+    'type': 'object', 'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'created': {'type': 'number', 'minval': 0},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'services': {'type': 'object', 'patternProperties': {
+            '.+': {'type': 'object', 'properties': {
+                'created': {'type': 'number', 'minval': 0},
+                'creator': {'type': 'string', 'pattern': s_config.re_iden},
+            },
+            'required': ['creator', 'created'],
+            'additionalProperties': False,
+        }}},
+    },
+    'additionalProperties': False,
+    'required': ['name', 'creator', 'created', 'services'],
+})
+
+_cellUserApiKeySchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'updated': {'type': 'integer', 'minimum': 0},
+        'expires': {'type': 'integer', 'minimum': 1},
+        'shadow': {
+            'type': 'object',
+        },
+    },
+    'additionalProperties': False,
+    'required': [
+        'iden',
+        'name',
+        'user',
+        'created',
+        'updated',
+        'shadow',
+    ],
+}
+reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)

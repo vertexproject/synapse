@@ -696,6 +696,9 @@ class SubQuery(Oper):
         if len(kids):
             self.text = kids[0].getAstText()
 
+    def isRuntSafe(self, runt):
+        return True
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -725,11 +728,7 @@ class SubQuery(Oper):
 
         retn = []
 
-        opts = {}
-        if path is not None:
-            opts['vars'] = path.vars.copy()
-
-        async with runt.getSubRuntime(self.kids[0], opts=opts) as runt:
+        async with runt.getSubRuntime(self.kids[0]) as runt:
             async for valunode, valupath in runt.execute():
 
                 retn.append(valunode.ndef[1])
@@ -888,7 +887,7 @@ class TryCatch(AstNode):
                 async for subi in block.run(runt, agen):
                     yield subi
 
-        if count == 0 and self.isRuntSafe(runt):
+        if count == 0:
             try:
                 async for item in self.kids[0].run(runt, genr):
                     yield item
@@ -1812,8 +1811,7 @@ class RawPivot(PivotOper):
     async def run(self, runt, genr):
         query = self.kids[0]
         async for node, path in genr:
-            opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query) as subr:
                 async for node, path in subr.execute():
                     yield node, path
 
@@ -1897,6 +1895,9 @@ class N1WalkNPivo(PivotOut):
     async def run(self, runt, genr):
 
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             async for item in self.getPivsOut(runt, node, path):
                 yield item
@@ -2016,6 +2017,9 @@ class N2WalkNPivo(PivotIn):
     async def run(self, runt, genr):
 
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             async for item in self.getPivsIn(runt, node, path):
                 yield item
@@ -3060,6 +3064,10 @@ class PropValue(Value):
                                                     name=name, form=path.node.form.name))
 
             valu = path.node.get(name)
+            if isinstance(valu, (dict, list, tuple)):
+                # these get special cased because changing them affects the node
+                # while it's in the pipeline but the modification doesn't get stored
+                valu = s_msgpack.deepcopy(valu)
             return prop, valu
 
         # handle implicit pivot properties
@@ -3081,6 +3089,10 @@ class PropValue(Value):
                                                 name=name, form=node.form.name))
 
             if i >= imax:
+                if isinstance(valu, (dict, list, tuple)):
+                    # these get special cased because changing them affects the node
+                    # while it's in the pipeline but the modification doesn't get stored
+                    valu = s_msgpack.deepcopy(valu)
                 return prop, valu
 
             form = runt.model.forms.get(prop.type.name)
@@ -3932,6 +3944,13 @@ class EditUnivDel(Edit):
 
 class N1Walk(Oper):
 
+    def __init__(self, astinfo, kids=(), isjoin=False):
+        Oper.__init__(self, astinfo, kids=kids)
+        self.isjoin = isjoin
+
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
+
     async def walkNodeEdges(self, runt, node, verb=None):
         async for _, iden in node.iterEdgesN1(verb=verb):
             buid = s_common.uhex(iden)
@@ -3989,6 +4008,9 @@ class N1Walk(Oper):
             return False
 
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             verbs = await self.kids[0].compute(runt, path)
             verbs = await s_stormtypes.toprim(verbs)
@@ -4062,8 +4084,7 @@ class EditEdgeAdd(Edit):
 
             allowed(verb)
 
-            opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query) as subr:
 
                 if self.n2:
                     async for subn, subp in subr.execute():
@@ -4127,8 +4148,7 @@ class EditEdgeDel(Edit):
 
             allowed(verb)
 
-            opts = {'vars': path.vars.copy()}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getSubRuntime(query) as subr:
                 if self.n2:
                     async for subn, subp in subr.execute():
                         if subn.form.isrunt:

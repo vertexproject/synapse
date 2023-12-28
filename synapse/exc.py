@@ -116,6 +116,8 @@ class BadArg(SynErr):
     ''' Improper function arguments '''
     pass
 
+class BadState(SynErr): pass
+
 class BadFileExt(SynErr): pass
 class BadIndxValu(SynErr): pass
 class BadMesgVers(SynErr): pass
@@ -311,7 +313,6 @@ class StepTimeout(SynErr):
 class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
 
-class TeleRedir(SynErr): pass
 class FatalErr(SynErr):
     '''
     Raised when a fatal error has occurred which an application cannot recover from.

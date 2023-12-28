@@ -1115,3 +1115,193 @@ class AhaTest(s_test.SynTest):
                     online = svcinfo.get('online')
                     self.nn(online)
                     self.true(ready)
+
+    async def test_aha_service_pools(self):
+
+        async with self.getTestAhaProv() as aha:
+
+            import synapse.cortex as s_cortex
+
+            async with await s_base.Base.anit() as base:
+
+                with self.getTestDir() as dirn:
+
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+                    dirn02 = s_common.genpath(dirn, 'cell02')
+
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00', s_cell.Cell, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01', s_cell.Cell, dirn=dirn01))
+
+                    core00 = await base.enter_context(self.addSvcToAha(aha, 'core', s_cortex.Cortex, dirn=dirn02))
+
+                    msgs = await core00.stormlist('aha.pool.list')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('0 pools', msgs)
+
+                    msgs = await core00.stormlist('aha.pool.add pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+
+                    with self.raises(s_exc.BadArg):
+                        await s_telepath.open('aha://pool00...')
+
+                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                    poolinfo = await aha.getAhaPool('pool00...')
+                    self.len(1, poolinfo['services'])
+
+                    msgs = await core00.stormlist('aha.pool.list')
+                    self.stormIsInPrint('Pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('    00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('1 pools', msgs)
+
+                    async with await s_telepath.open('aha://pool00...') as pool:
+
+                        waiter = pool.waiter('svc:add', 2)
+
+                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (01...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                        await waiter.wait(timeout=3)
+
+                        poolinfo = await aha.getAhaPool('pool00...')
+                        self.len(2, poolinfo['services'])
+
+                        self.nn(poolinfo['created'])
+                        self.nn(poolinfo['services']['00.loop.vertex.link']['created'])
+                        self.nn(poolinfo['services']['01.loop.vertex.link']['created'])
+
+                        self.eq(core00.auth.rootuser.iden, poolinfo['creator'])
+                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['00.loop.vertex.link']['creator'])
+                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['01.loop.vertex.link']['creator'])
+
+                        proxy00 = await pool.proxy(timeout=3)
+                        run00 = await (await pool.proxy(timeout=3)).getCellRunId()
+                        run01 = await (await pool.proxy(timeout=3)).getCellRunId()
+                        self.ne(run00, run01)
+
+                        waiter = pool.waiter('pool:reset', 1)
+
+                        ahaproxy = await pool.aha.proxy()
+                        await ahaproxy.fini()
+
+                        await waiter.wait(timeout=3)
+
+                        # wait for the pool to be notified of the topology change
+                        waiter = pool.waiter('svc:del', 1)
+
+                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (00...) removed from service pool (pool00.loop.vertex.link)', msgs)
+
+                        await waiter.wait(timeout=3)
+                        run00 = await (await pool.proxy(timeout=3)).getCellRunId()
+                        self.eq(run00, await (await pool.proxy(timeout=3)).getCellRunId())
+
+                        poolinfo = await aha.getAhaPool('pool00...')
+                        self.len(1, poolinfo['services'])
+
+                    msgs = await core00.stormlist('aha.pool.del pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Removed AHA service pool: pool00.loop.vertex.link', msgs)
+
+    async def test_aha_reprovision(self):
+        with self.withNexusReplay() as stack:
+            with self.getTestDir() as dirn:
+                aha00dirn = s_common.gendir(dirn, 'aha00')
+                aha01dirn = s_common.gendir(dirn, 'aha01')
+                svc0dirn = s_common.gendir(dirn, 'svc00')
+                svc1dirn = s_common.gendir(dirn, 'svc01')
+                async with await s_base.Base.anit() as cm:
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': 'loop.vertex.link',
+                        'provision:listen': 'ssl://aha.loop.vertex.link:0'
+                    }
+                    name = aconf.get('aha:name')
+                    netw = aconf.get('aha:network')
+                    dnsname = f'{name}.{netw}'
+
+                    aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    addr, port = aha.provdmon.addr
+                    # update the config to reflect the dynamically bound port
+                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+                    # do this config ex-post-facto due to port binding...
+                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
+                    await cm.enter_context(svc0)
+
+                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
+                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
+                    await cm.enter_context(svc1)
+
+                    # Ensure that services have connected
+                    await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
+                    await svc1.sync()
+
+                    # Get Aha services
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    self.true(ready)
+
+                    await aha.fini()
+
+                # Now re-deploy the AHA Service and re-provision the two cells
+                # with the same AHA configuration
+                async with await s_base.Base.anit() as cm:
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': 'loop.vertex.link',
+                        'provision:listen': 'ssl://aha.loop.vertex.link:0'
+                    }
+                    name = aconf.get('aha:name')
+                    netw = aconf.get('aha:network')
+                    dnsname = f'{name}.{netw}'
+
+                    aha = await s_aha.AhaCell.anit(aha01dirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    addr, port = aha.provdmon.addr
+                    # update the config to reflect the dynamically bound port
+                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+                    # do this config ex-post-facto due to port binding...
+                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
+                    await cm.enter_context(svc0)
+
+                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
+                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
+                    await cm.enter_context(svc1)
+
+                    # Ensure that services have connected
+                    await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
+                    await svc1.sync()
+
+                    # Get Aha services
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    self.true(ready)

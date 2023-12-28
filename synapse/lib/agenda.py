@@ -16,63 +16,11 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.config as s_config
 import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
 logger = logging.getLogger(__name__)
-
-reqValidCdef = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'storm': {'type': 'string'},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string'},
-        'doc': {'type': 'string'},
-        'incunit': {
-            'oneOf': [
-                {'type': 'null'},
-                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
-            ]
-        },
-        'incvals': {
-            'type': ['array', 'number', 'null'],
-            'items': {'type': 'number'}
-        },
-        'reqs': {
-            'oneOf': [
-                {
-                    '$ref': '#/definitions/req',
-                },
-                {
-                    'type': ['array'],
-                    'items': {'$ref': '#/definitions/req'},
-                },
-            ]
-        },
-    },
-    'additionalProperties': False,
-    'required': ['creator', 'storm'],
-    'dependencices': {
-        'incvals': ['incunit'],
-        'incunit': ['incvals'],
-    },
-    'definitions': {
-        'req': {
-            'type': 'object',
-            'properties': {
-                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-            }
-        }
-    }
-})
 
 def _dayofmonth(hardday, month, year):
     '''
@@ -307,6 +255,21 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
+
+    _synced_attrs = {
+        'doc',
+        'name',
+        'enabled',
+        'errcount',
+        'nexttime',
+        'lasterrs',
+        'isrunning',
+        'lastresult',
+        'startcount',
+        'laststarttime',
+        'lastfinishtime',
+    }
+
     def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None):
         self.doc = ''
         self.name = ''
@@ -333,7 +296,7 @@ class _Appt:
         self.isrunning = False  # whether it is currently running
         self.startcount = 0  # how many times query has started
         self.errcount = 0  # how many times this appt failed
-        self.lasterrs = collections.deque((), maxlen=5)
+        self.lasterrs = []
         self.laststarttime = None
         self.lastfinishtime = None
         self.lastresult = None
@@ -388,7 +351,7 @@ class _Appt:
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
             'lastresult': self.lastresult,
-            'lasterrs': list(self.lasterrs)
+            'lasterrs': list(self.lasterrs[:5])
         }
 
     @classmethod
@@ -442,21 +405,25 @@ class _Appt:
         if not self.recs:
             self._recidxnexttime = None
             self.nexttime = None
-            return
 
-    async def setDoc(self, text, nexs=False):
-        '''
-        Set the doc field of an appointment.
-        '''
-        self.doc = text
-        await self._save(nexs=nexs)
+        return self.nexttime
 
-    async def setName(self, text, nexs=False):
-        self.name = text
-        await self._save(nexs=nexs)
+    async def edits(self, edits):
+        for name, valu in edits.items():
+            if name not in self.__class__._synced_attrs:
+                extra = await self.stor.core.getLogExtra(name=name, valu=valu)
+                logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
+                continue
 
-    async def _save(self, nexs=False):
-        await self.stor._storeAppt(self, nexs=nexs)
+            else:
+                setattr(self, name, valu)
+
+        await self.save()
+
+    async def save(self):
+        full = self.stor._hivenode.full + (self.iden,)
+        stordict = self.pack()
+        await self.stor.core.hive.set(full, stordict)
 
 class Agenda(s_base.Base):
     '''
@@ -559,17 +526,6 @@ class Agenda(s_base.Base):
         self.appts[iden] = appt
         if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
-
-    async def _storeAppt(self, appt, nexs=False):
-        ''' Store a single appointment '''
-        full = self._hivenode.full + (appt.iden,)
-        stordict = appt.pack()
-
-        # Don't store ephemeral props
-        for prop in ('startcount', 'errcount', 'lasterrs'):
-            stordict.pop(prop, None)
-
-        await self.core.hive.set(full, stordict, nexs=nexs)
 
     @staticmethod
     def _dictproduct(rdict):
@@ -682,7 +638,7 @@ class Agenda(s_base.Base):
 
         appt.doc = cdef.get('doc', '')
 
-        await self._storeAppt(appt)
+        await appt.save()
 
         return appt.pack()
 
@@ -708,7 +664,7 @@ class Agenda(s_base.Base):
             raise s_exc.NoSuchIden()
 
         appt.enabled = False
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def mod(self, iden, query):
         '''
@@ -727,7 +683,7 @@ class Agenda(s_base.Base):
         appt.query = query
         appt.enabled = True  # in case it was disabled for a bad query
 
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def move(self, croniden, viewiden):
         '''
@@ -739,7 +695,7 @@ class Agenda(s_base.Base):
 
         appt.view = viewiden
 
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def delete(self, iden):
         '''
@@ -795,7 +751,11 @@ class Agenda(s_base.Base):
             while self.apptheap and self.apptheap[0].nexttime <= now:
 
                 appt = heapq.heappop(self.apptheap)
-                appt.updateNexttime(now)
+                nexttime = appt.updateNexttime(now)
+                edits = {
+                    'nexttime': nexttime,
+                }
+                await self.core.addCronEdits(appt.iden, edits)
 
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
@@ -860,22 +820,27 @@ class Agenda(s_base.Base):
         task.onfini(functools.partial(self._running_tasks.remove, task))
 
     async def _markfailed(self, appt, reason):
-        appt.lastfinishtime = appt.laststarttime = self._getNowTick()
-        appt.startcount += 1
-        appt.isrunning = False
-        appt.lastresult = f'Failed due to {reason}'
-        if not self.isfini:
-            await self._storeAppt(appt, nexs=True)
+        now = self._getNowTick()
+        edits = {
+            'laststarttime': now,
+            'lastfinishtime': now,
+            'startcount': appt.startcount + 1,
+            'isrunning': False,
+            'lastresult': f'Failed due to {reason}',
+        }
+        await self.core.addCronEdits(appt.iden, edits)
 
     async def _runJob(self, user, appt):
         '''
         Actually run the storm query, updating the appropriate statistics and results
         '''
         count = 0
-        appt.isrunning = True
-        appt.laststarttime = self._getNowTick()
-        appt.startcount += 1
-        await self._storeAppt(appt, nexs=True)
+        edits = {
+            'isrunning': True,
+            'laststarttime': self._getNowTick(),
+            'startcount': appt.startcount + 1,
+        }
+        await self.core.addCronEdits(appt.iden, edits)
 
         with s_provenance.claim('cron', iden=appt.iden):
             logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
@@ -908,17 +873,26 @@ class Agenda(s_base.Base):
             finally:
                 finishtime = self._getNowTick()
                 if not success:
-                    appt.errcount += 1
                     appt.lasterrs.append(result)
+                    edits = {
+                        'errcount': appt.errcount + 1,
+                        # we only care about the last five errors
+                        'lasterrs': list(appt.lasterrs[-5:]),
+                    }
+                    await self.core.addCronEdits(appt.iden, edits)
+
                 took = finishtime - starttime
                 mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
                        f'took {took:.3f}s'
                 logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
                                                      'result': result, 'username': user.name, 'took': took}})
-                appt.lastfinishtime = finishtime
-                appt.isrunning = False
-                appt.lastresult = result
+                edits = {
+                    'lastfinishtime': finishtime,
+                    'isrunning': False,
+                    'lastresult': result,
+                }
+                await self.core.addCronEdits(appt.iden, edits)
+
                 if not self.isfini:
                     # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
-                    await self._storeAppt(appt, nexs=True)

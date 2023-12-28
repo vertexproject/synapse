@@ -68,9 +68,10 @@ class CsvToolTest(s_t_utils.SynTest):
             argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
             outp = self.getTestOutp()
 
-            await s_csvtool.main(argv, outp=outp)
+            self.eq(0, await s_csvtool.main(argv, outp=outp))
             outp.expect('oh hai')
             outp.expect('2 nodes')
+            outp.expect('node:edits')  # node edits are present in debug output
 
             with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
                 outp = self.getTestOutp()

@@ -278,6 +278,11 @@ class HandlerBase:
 
             return iden
 
+        # Check for API Keys
+        key = self.request.headers.get('X-API-KEY')
+        if key is not None:
+            return await self.handleApiKeyAuth()
+
         return await self.handleBasicAuth()
 
     async def handleBasicAuth(self):
@@ -321,6 +326,20 @@ class HandlerBase:
         if not await authcell.tryUserPasswd(name, passwd):
             self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return None
+
+        self.web_useriden = udef.get('iden')
+        self.web_username = udef.get('name')
+        return self.web_useriden
+
+    async def handleApiKeyAuth(self):
+        authcell = self.getAuthCell()
+        key = self.request.headers.get('X-API-KEY')
+        isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
+        if isok is False:
+            self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
+            return
+
+        udef = info.get('udef')
 
         self.web_useriden = udef.get('iden')
         self.web_username = udef.get('name')
@@ -518,7 +537,7 @@ class StormV1(StormHandler):
         if opts is None:
             return
 
-        opts.setdefault('editformat', 'splices')
+        opts.setdefault('editformat', 'nodeedits')
 
         async for mesg in self.getCore().storm(query, opts=opts):
             self.write(json.dumps(mesg))
@@ -611,48 +630,6 @@ class ReqValidStormV1(StormHandler):
             return self.sendRestErr(e.__class__.__name__, mesg)
         else:
             return self.sendRestRetn(valid)
-
-class WatchSockV1(WebSocket):
-    '''
-    A web-socket based API endpoint for distributing cortex tag events.
-
-    Deprecated.
-    '''
-    async def onWatchMesg(self, byts):
-        # Note: This API handler is intended to be used on a heavy Cortex object.
-        try:
-
-            wdef = json.loads(byts)
-            iden = wdef.get('view', self.cell.view.iden)
-
-            perm = ('watch', 'view', iden)
-            await self._reqUserAllow(perm)
-
-            async with self.cell.watcher(wdef) as watcher:
-
-                await self.xmit('init')
-
-                async for mesg in watcher:
-                    await self.xmit(mesg[0], **mesg[1])
-
-                # pragma: no cover
-                # (this would only happen on slow-consumer)
-                await self.xmit('fini')
-
-        except s_exc.SynErr as e:
-
-            text = e.get('mesg', str(e))
-            await self.xmit('errx', code=e.__class__.__name__, mesg=text)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception as e:
-            await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
-
-    async def on_message(self, byts):
-        s_common.deprdate('/api/v1/watch HTTP API', s_common._splicedepr)
-        self.cell.schedCoro(self.onWatchMesg(byts))
 
 class BeholdSockV1(WebSocket):
 
