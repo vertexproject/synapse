@@ -1006,6 +1006,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
+            (2, self._storLayrFeedDefaults),
         ), nexs=False)
 
     async def _storUpdateMacros(self):
@@ -1384,7 +1385,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
-            (2, self._updateLayrFeedDefaults),
         ))
 
     async def _addAllLayrRead(self):
@@ -1392,22 +1392,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
 
-    async def _updateLayrFeedDefaults(self):
+    async def _storLayrFeedDefaults(self):
+
         for layer in list(self.layers.values()):
-
             layrinfo = layer.layrinfo  # type: s_hive.HiveDict
-            pushs = layrinfo.get('pushes', {})
 
-            for pdef in pushs.values():
-                pdef.setdefault('chunk:size', 1_000)
-                pdef.setdefault('queue:size', 10_000)
-            await layrinfo.set('pushes', pushs)
+            pushs = layrinfo.get('pushs', {})
+            if pushs:
+                for pdef in pushs.values():
+                    pdef.setdefault('chunk:size', 1_000)
+                    pdef.setdefault('queue:size', 10_000)
+                await layrinfo.set('pushs', pushs, nexs=False)
 
             pulls = layrinfo.get('pulls', {})
-            for pdef in pulls.values():
-                pdef.setdefault('chunk:size', 1_000)
-                pdef.setdefault('queue:size', 10_000)
-            await layrinfo.set('pulls', pushs)
+            if pulls:
+                pulls = layrinfo.get('pulls', {})
+                for pdef in pulls.values():
+                    pdef.setdefault('chunk:size', 1_000)
+                    pdef.setdefault('queue:size', 10_000)
+                await layrinfo.set('pulls', pulls, nexs=False)
 
     async def initServiceRuntime(self):
 
