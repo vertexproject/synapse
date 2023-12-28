@@ -1384,12 +1384,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
+            (2, self._updateLayrFeedSchemas),
         ))
 
     async def _addAllLayrRead(self):
         layriden = self.getView().layers[0].iden
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
+
+    async def _updateLayrFeedSchemas(self):
+        for layer in list(self.layers.values()):
+
+            layrinfo = layer.layrinfo  # type: s_hive.HiveDict
+            pushs = layrinfo.get('pushes', {})
+
+            for pdef in pushs.values():
+                pdef.setdefault('chunk:size', 1_000)
+                pdef.setdefault('queue:size', 10_000)
+            await layrinfo.set('pushes', pushs)
+
+            pulls = layrinfo.get('pulls', {})
+            for pdef in pulls.values():
+                pdef.setdefault('chunk:size', 1_000)
+                pdef.setdefault('queue:size', 10_000)
+            await layrinfo.set('pulls', pushs)
 
     async def initServiceRuntime(self):
 
@@ -4782,8 +4800,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = pdef.get('iden')
         user = pdef.get('user')
         gvar = f'push:{iden}'
-        # FIXME Make a cortex storage migration that sets
-        # these default values.
+        # TODO Remove the defaults in 3.0.0
         csize = pdef.get('chunk:size', 1_000)
         qsize = pdef.get('queue:size', 10_000)
 
