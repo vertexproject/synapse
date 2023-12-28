@@ -175,7 +175,7 @@ class SlabAbrv:
     def __init__(self, slab, name):
 
         self.slab = slab
-        self.name2abrv = slab.initdb(f'{name}:byts2abrv')
+        self.name2abrv = slab.initdb(f'{name}:byts2abrv', dupsort=True, dupfixed=True, integerdup=True)
         self.abrv2name = slab.initdb(f'{name}:abrv2byts')
 
         self.offs = 0
@@ -194,24 +194,28 @@ class SlabAbrv:
 
     @s_cache.memoizemethod()
     def bytsToAbrv(self, byts):
-        if len(byts) > 256:
-            byts = byts[:248] + xxhash.xxh64(byts).digest
+        if len(byts) < 256:
+            if (abrv := self.slab.get(byts, db=self.name2abrv)) is None:
+                raise s_exc.NoSuchAbrv
 
-        abrv = self.slab.get(byts, db=self.name2abrv)
-        if abrv is None:
+            return abrv
+
+        indx = byts[:248] + xxhash.xxh64(byts).digest
+        for abrv in self.slab.scanByDups(indx, db=self.name2abrv):
+            if self.slab.get(abrv, db=self.abrv2name) == byts:
+                return abrv
+        else:
             raise s_exc.NoSuchAbrv
 
-        return abrv
-
     def setBytsToAbrv(self, byts):
-        realbyts = byts
-        if len(byts) > 256:
-            byts = byts[:248] + xxhash.xxh64(byts).digest
-
         try:
             return self.bytsToAbrv(byts)
         except s_exc.NoSuchAbrv:
             pass
+
+        realbyts = byts
+        if len(byts) > 255:
+            byts = byts[:248] + xxhash.xxh64(byts).digest
 
         abrv = s_common.int64en(self.offs)
 
@@ -222,25 +226,19 @@ class SlabAbrv:
 
         return abrv
 
-    def names(self):
-        for byts in self.slab.scanKeys(db=self.name2abrv):
-            yield byts.decode()
-
-    def keys(self):
-        for byts in self.slab.scanKeys(db=self.name2abrv):
-            yield byts
-
-    def keysByPref(self, pref):
-        for byts in self.slab.scanKeysByPref(pref, db=self.name2abrv):
-            yield byts
-
     def iterByPref(self, pref):
-        for byts in self.slab.scanByPref(pref, db=self.name2abrv):
-            yield byts
+        for byts, abrv in self.slab.scanByPref(pref, db=self.name2abrv):
+            if len(byts) == 256:
+                return self.slab.get(abrv, db=abrv2name), abrv
+            else:
+                yield byts, abrv
 
     def items(self):
         for byts, abrv in self.slab.scanByFull(db=self.name2abrv):
-            yield byts, abrv
+            if len(byts) == 256:
+                return self.slab.get(abrv, db=abrv2name), abrv
+            else:
+                yield byts, abrv
 
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
