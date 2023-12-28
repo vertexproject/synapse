@@ -3142,7 +3142,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes('test:str +#taga*:score*min>=2023')
 
             with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str +#taga:score*min>=2023')
+                await core.nodes('test:str +#tagaa:score*min>=2023')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$tag=taga* test:str +#$tag:score=2023')
@@ -3158,6 +3158,79 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
+
+    async def test_ast_subtypes(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('ival', ('ival', {}), {})
+            opts = {'vars': {
+                'ival1': ('2020-01-01, 2025-01-02'),
+                'ival2': ('2022-01-01, 2024-01-02'),
+                'ival3': ('2023-01-01, 2026-01-02'),
+                'ival4': ('2021-01-01, 2022-01-02'),
+                'ival5': ('2025-01-01, ?')
+            }}
+            await core.nodes('''[
+                (ou:campaign=* :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
+                (ou:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
+                (ou:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
+                (ou:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
+                (ou:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
+                (ou:campaign=*)
+                test:ival=$ival1
+                test:ival=$ival2
+                test:ival=$ival3
+                test:ival=$ival4
+                test:ival=$ival5
+            ]''', opts=opts)
+
+            self.len(1, await core.nodes('test:ival +test:ival*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag:ival*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period*min=2020'))
+
+            ival = core.model.type('ival')
+
+            async def check(lift, prop, tag, getr):
+                last = 0
+                nodes = await core.nodes(lift)
+                self.len(5, nodes)
+                for node in await core.nodes(lift):
+                    if prop is None:
+                        valu = node.ndef[1]
+                    elif tag is None:
+                        valu = node.get(prop)
+                    else:
+                        valu = node.getTagProp(tag, prop)
+
+                    valu = getr(valu)
+                    self.ge(valu, last, msg=f'{valu}>={last} failed for lift {lift}')
+                    last = valu
+
+            tests = (
+                ('test:ival', None, None),
+                ('#tag', '#tag', None),
+                ('#tag:ival', 'ival', 'tag'),
+                ('ou:campaign#tag', '#tag', None),
+                ('ou:campaign#tag:ival', 'ival', 'tag'),
+                ('ou:campaign:period', 'period', None),
+            )
+
+            for (lift, prop, tag) in tests:
+                await check(f'{lift}*min', prop, tag, ival._getMin)
+                await check(f'{lift}*max', prop, tag, ival._getMax)
+                await check(f'{lift}*duration', prop, tag, ival._getDuration)
+
+            queries = (
+                'ou:campaign:period*min=2020 return(:period*min)',
+                'ou:campaign#tag*min=2020 return(#tag*min)',
+                'ou:campaign#tag:ival*min=2020 return(#tag:ival*min)'
+            )
+
+            for query in queries:
+                self.eq(1577836800000, await core.callStorm(query))
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

@@ -1599,7 +1599,11 @@ class LiftTag(LiftOper):
 
             return
 
-        async for node in runt.snap.nodesByTag(tag, reverse=self.reverse):
+        subtype = None
+        if len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
+
+        async for node in runt.snap.nodesByTag(tag, reverse=self.reverse, subtype=subtype):
             yield node
 
 class LiftByArray(LiftOper):
@@ -1633,7 +1637,11 @@ class LiftTagProp(LiftOper):
 
             return
 
-        async for node in runt.snap.nodesByTagProp(None, tag, prop, reverse=self.reverse):
+        subtype = None
+        if len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
+
+        async for node in runt.snap.nodesByTagProp(None, tag, prop, reverse=self.reverse, subtype=subtype):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -1658,7 +1666,11 @@ class LiftFormTagProp(LiftOper):
 
             return
 
-        async for node in runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse):
+        subtype = None
+        if len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
+
+        async for node in runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse, subtype=subtype):
             yield node
 
 class LiftTagTag(LiftOper):
@@ -1725,7 +1737,11 @@ class LiftFormTag(LiftOper):
 
             return
 
-        async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
+        subtype = None
+        if len(self.kids) == 3:
+            subtype = await self.kids[2].compute(runt, path)
+
+        async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse, subtype=subtype):
             yield node
 
 class LiftProp(LiftOper):
@@ -1739,10 +1755,12 @@ class LiftProp(LiftOper):
             mesg = f'No property named {name}.'
             raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
-        assert len(self.kids) == 1
+        subtype = None
+        if len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
 
         # check if we can optimize a form lift
-        if prop.isform:
+        if subtype is None and prop.isform:
             async for hint in self.getRightHints(runt, path):
                 if hint[0] == 'tag':
                     tagname = hint[1].get('name')
@@ -1781,7 +1799,7 @@ class LiftProp(LiftOper):
                         yield node
                     return
 
-        async for node in runt.snap.nodesByProp(name, reverse=self.reverse):
+        async for node in runt.snap.nodesByProp(name, reverse=self.reverse, subtype=subtype):
             yield node
 
     async def getRightHints(self, runt, path):
@@ -2384,7 +2402,7 @@ class PropPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            srcprop, valu = await self.kids[0].getPropAndValu(runt, path)
+            srctype, valu = await self.kids[0].getTypeAndValu(runt, path)
             if valu is None:
                 # all filters must sleep
                 await asyncio.sleep(0)
@@ -2393,7 +2411,7 @@ class PropPivot(PivotOper):
             # TODO cache/bypass normalization in loop!
             try:
                 # pivoting from an array prop to a non-array prop needs an extra loop
-                if srcprop.type.isarray and not prop.type.isarray:
+                if srctype.isarray and not prop.type.isarray:
 
                     for arrayval in valu:
                         async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
@@ -2401,7 +2419,7 @@ class PropPivot(PivotOper):
 
                     continue
 
-                if prop.type.isarray and not srcprop.type.isarray:
+                if prop.type.isarray and not srctype.isarray:
                     genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
                 else:
                     genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
@@ -2868,9 +2886,18 @@ class AbsPropCond(Cond):
             mesg = f'No property named {name}.'
             raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
-        ctor = prop.type.getCmprCtor(cmpr)
+        ptyp = prop.type
+        subtype = None
+
+        if isinstance(self.kids[1], ByNameCmpr):
+            cmprname = self.kids[1].getName()
+            if (subtype := prop.type.subtypes.get(cmprname)) is not None:
+                (ptyp, getr) = subtype
+                cmpr = self.kids[1].getCmpr()
+
+        ctor = ptyp.getCmprCtor(cmpr)
         if ctor is None:
-            raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
+            raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
         if prop.isform:
 
@@ -2880,8 +2907,10 @@ class AbsPropCond(Cond):
                     return False
 
                 val1 = node.ndef[1]
-                val2 = await self.kids[2].compute(runt, path)
+                if subtype is not None:
+                    val1 = getr(val1)
 
+                val2 = await self.kids[2].compute(runt, path)
                 return ctor(val2)(val1)
 
             return cond
@@ -2890,6 +2919,9 @@ class AbsPropCond(Cond):
             val1 = node.get(prop.name)
             if val1 is None:
                 return False
+
+            if subtype is not None:
+                val1 = getr(val1)
 
             val2 = await self.kids[2].compute(runt, path)
             return ctor(val2)(val1)
@@ -2902,12 +2934,20 @@ class TagValuCond(Cond):
 
         lnode, cnode, rnode = self.kids
 
-        ival = runt.model.type('ival')
-
         cmpr = await cnode.compute(runt, None)
-        cmprctor = ival.getCmprCtor(cmpr)
+
+        ptyp = runt.model.type('ival')
+        subtype = None
+
+        if isinstance(cnode, ByNameCmpr):
+            cmprname = cnode.getName()
+            if (subtype := ptyp.subtypes.get(cmprname)) is not None:
+                (ptyp, getr) = subtype
+                cmpr = cnode.getCmpr()
+
+        cmprctor = ptyp.getCmprCtor(cmpr)
         if cmprctor is None:
-            raise cnode.addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name))
+            raise cnode.addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
@@ -2917,7 +2957,12 @@ class TagValuCond(Cond):
                     raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
 
                 valu = await rnode.compute(runt, path)
-                return cmprctor(valu)(node.getTag(name))
+
+                tval = node.getTag(name)
+                if subtype is not None:
+                    tval = getr(tval)
+
+                return cmprctor(valu)(tval)
 
             return cond
 
@@ -2930,14 +2975,22 @@ class TagValuCond(Cond):
             cmpr = cmprctor(valu)
 
             async def cond(node, path):
-                return cmpr(node.getTag(name))
+                tval = node.getTag(name)
+                if subtype is not None:
+                    tval = getr(tval)
+                return cmpr(tval)
 
             return cond
 
         # it's a runtime value...
         async def cond(node, path):
-            valu = await self.kids[2].compute(runt, path)
-            return cmprctor(valu)(node.getTag(name))
+            valu = await rnode.compute(runt, path)
+
+            tval = node.getTag(name)
+            if subtype is not None:
+                tval = getr(tval)
+
+            return cmprctor(valu)(tval)
 
         return cond
 
@@ -2950,9 +3003,20 @@ class RelPropCond(Cond):
         cmpr = await self.kids[1].compute(runt, None)
         valukid = self.kids[2]
 
+        cmprname = None
+        if isinstance(self.kids[1], ByNameCmpr):
+            cmprname = self.kids[1].getName()
+            realcmpr = self.kids[1].getCmpr()
+
         async def cond(node, path):
 
-            prop, valu = await self.kids[0].getPropAndValu(runt, path)
+            subtype = None
+            propcmpr = cmpr
+            if cmprname is not None and await self.kids[0].hasSubType(runt, path, cmprname):
+                subtype = cmprname
+                propcmpr = realcmpr
+
+            vtyp, valu = await self.kids[0].getTypeAndValu(runt, path, subtype=subtype)
             if valu is None:
                 return False
 
@@ -2963,9 +3027,9 @@ class RelPropCond(Cond):
             if xval is None:
                 return False
 
-            ctor = prop.type.getCmprCtor(cmpr)
+            ctor = vtyp.getCmprCtor(propcmpr)
             if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=propcmpr, name=vtyp.name))
 
             func = ctor(xval)
             return func(valu)
@@ -2998,7 +3062,12 @@ class TagPropCond(Cond):
 
     async def getCondEval(self, runt):
 
-        cmpr = await self.kids[2].compute(runt, None)
+        fullcmpr = await self.kids[2].compute(runt, None)
+
+        cmprname = None
+        if isinstance(self.kids[2], ByNameCmpr):
+            cmprname = self.kids[2].getName()
+            subcmpr = self.kids[2].getCmpr()
 
         async def cond(node, path):
 
@@ -3014,16 +3083,29 @@ class TagPropCond(Cond):
                 mesg = f'No such tag property: {name}'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=name, mesg=mesg))
 
-            # TODO cache on (cmpr, valu) for perf?
-            valu = await self.kids[3].compute(runt, path)
-
-            ctor = prop.type.getCmprCtor(cmpr)
-            if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
-
             curv = node.getTagProp(tag, name)
             if curv is None:
                 return False
+
+            # TODO cache on (cmpr, valu) for perf?
+            valu = await self.kids[3].compute(runt, path)
+
+            cmpr = fullcmpr
+            ptyp = prop.type
+            subtype = None
+
+            if cmprname is not None:
+                if (subtype := ptyp.subtypes.get(cmprname)) is not None:
+                    (ptyp, getr) = subtype
+                    cmpr = subcmpr
+
+            ctor = ptyp.getCmprCtor(cmpr)
+            if ctor is None:
+                raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
+
+            if subtype is not None:
+                curv = getr(curv)
+
             return ctor(valu)(curv)
 
         return cond
@@ -3081,11 +3163,24 @@ class PropValue(Value):
     def isRuntSafeAtom(self, runt):
         return False
 
-    async def getPropAndValu(self, runt, path):
+    async def hasSubType(self, runt, path, subtype):
+        name = await self.kids[0].compute(runt, path)
+        prop = path.node.form.props.get(name)
+        if prop is None:
+            mesg = f'No property named {name}.'
+            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
+                                                name=name, form=path.node.form.name))
+
+        return subtype in prop.type.subtypes
+
+    async def getTypeAndValu(self, runt, path, subtype=None):
         if not path:
             return None, None
 
         name = await self.kids[0].compute(runt, path)
+
+        if subtype is None and len(self.kids) > 1:
+            subtype = await self.kids[1].compute(runt, path)
 
         ispiv = name.find('::') != -1
         if not ispiv:
@@ -3097,11 +3192,14 @@ class PropValue(Value):
                                                     name=name, form=path.node.form.name))
 
             valu = path.node.get(name)
+            if subtype is not None:
+                return prop.type.getSubType(subtype, valu)
+
             if isinstance(valu, (dict, list, tuple)):
                 # these get special cased because changing them affects the node
                 # while it's in the pipeline but the modification doesn't get stored
                 valu = s_msgpack.deepcopy(valu)
-            return prop, valu
+            return prop.type, valu
 
         # handle implicit pivot properties
         names = name.split('::')
@@ -3126,7 +3224,7 @@ class PropValue(Value):
                     # these get special cased because changing them affects the node
                     # while it's in the pipeline but the modification doesn't get stored
                     valu = s_msgpack.deepcopy(valu)
-                return prop, valu
+                return prop.type, valu
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
@@ -3137,7 +3235,7 @@ class PropValue(Value):
                 return None, None
 
     async def compute(self, runt, path):
-        prop, valu = await self.getPropAndValu(runt, path)
+        ptyp, valu = await self.getTypeAndValu(runt, path)
         return valu
 
 class RelPropValue(PropValue):
@@ -3155,8 +3253,15 @@ class TagValue(Value):
         return False
 
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
-        return path.node.getTag(valu)
+        name = await self.kids[0].compute(runt, path)
+
+        valu = path.node.getTag(name)
+
+        if len(self.kids) > 1:
+            subtype = await self.kids[1].compute(runt, path)
+            (_, valu) = runt.model.type('ival').getSubType(subtype, valu)
+
+        return valu
 
 class TagProp(Value):
 
@@ -3176,7 +3281,20 @@ class FormTagProp(Value):
 class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
-        return path.node.getTagProp(tag, prop)
+
+        valu = path.node.getTagProp(tag, prop)
+
+        if len(self.kids) > 1:
+            subtype = await self.kids[1].compute(runt, path)
+
+            tprop = runt.model.getTagProp(prop)
+            if tprop is None:
+                mesg = f'No such tag property: {prop}'
+                raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=prop, mesg=mesg))
+
+            (_, valu) = tprop.type.getSubType(subtype, valu)
+
+        return valu
 
 class CallArgs(Value):
 
@@ -3188,6 +3306,18 @@ class CallKwarg(CallArgs):
 
 class CallKwargs(CallArgs):
     pass
+
+class SubProp(Value):
+    def prepare(self):
+        self.isconst = isinstance(self.kids[0], Const)
+        if self.isconst:
+            self.constval = self.kids[0].value()
+
+    async def compute(self, runt, path):
+        if self.isconst:
+            return self.constval
+
+        return await self.kids[0].compute(runt, path)
 
 class VarValue(Value):
 
@@ -3598,6 +3728,13 @@ class VarList(Const):
 
 class Cmpr(Const):
     pass
+
+class ByNameCmpr(Const):
+    def getName(self):
+        return self.kids[0].valu
+
+    def getCmpr(self):
+        return self.kids[1].valu
 
 class Bool(Const):
     pass

@@ -8,6 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import lmdb
+import xxhash
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -193,6 +194,9 @@ class SlabAbrv:
 
     @s_cache.memoizemethod()
     def bytsToAbrv(self, byts):
+        if len(byts) > 256:
+            byts = byts[:248] + xxhash.xxh64(byts).digest
+
         abrv = self.slab.get(byts, db=self.name2abrv)
         if abrv is None:
             raise s_exc.NoSuchAbrv
@@ -200,6 +204,10 @@ class SlabAbrv:
         return abrv
 
     def setBytsToAbrv(self, byts):
+        realbyts = byts
+        if len(byts) > 256:
+            byts = byts[:248] + xxhash.xxh64(byts).digest
+
         try:
             return self.bytsToAbrv(byts)
         except s_exc.NoSuchAbrv:
@@ -210,7 +218,7 @@ class SlabAbrv:
         self.offs += 1
 
         self.slab.put(byts, abrv, db=self.name2abrv)
-        self.slab.put(abrv, byts, db=self.abrv2name)
+        self.slab.put(abrv, realbyts, db=self.abrv2name)
 
         return abrv
 

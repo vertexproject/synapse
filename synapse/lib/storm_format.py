@@ -13,6 +13,7 @@ TerminalPygMap = {
     'BOOL': p_t.Keyword,
     'BREAK': p_t.Keyword,
     'BYNAME': p_t.Operator,
+    'BYNAMECMPR': p_t.Operator,
     'CASEBARE': p_t.Literal.String,
     'CCOMMENT': p_t.Comment,
     'CMDOPT': p_t.Literal.String,
