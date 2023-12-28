@@ -1384,7 +1384,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
-            (2, self._updateLayrFeedSchemas),
+            (2, self._updateLayrFeedDefaults),
         ))
 
     async def _addAllLayrRead(self):
@@ -1392,7 +1392,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
 
-    async def _updateLayrFeedSchemas(self):
+    async def _updateLayrFeedDefaults(self):
         for layer in list(self.layers.values()):
 
             layrinfo = layer.layrinfo  # type: s_hive.HiveDict
