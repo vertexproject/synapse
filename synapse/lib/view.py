@@ -1638,8 +1638,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 return False
             return props.get(prop) is not None
 
-        genrs = [layr.liftByProp(form, prop, reverse=reverse) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse, indx=indx):
+        genrs = [layr.liftByProp(form, prop, reverse=reverse, indx=indx) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
     async def liftByFormValu(self, form, cmprvals, reverse=False):

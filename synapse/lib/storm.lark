@@ -367,7 +367,7 @@ tagpropvalu: (tagprop | tagpropwithspace) subprop?
 _COLONDOLLAR: /(?<!\w|\'|\"):\$/
 relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) subprop?
 univpropvalu: univprop subprop?
-subprop: _SUBPROP (VARTOKN | _varvalu)
+subprop: _SUBPROP VARTOKN
 _SUBPROP.2: /(?<!\s)\*(?=[a-z]+)(?![a-z]+[@?!<>^~=]*[<>=])/
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"

@@ -3309,15 +3309,10 @@ class CallKwargs(CallArgs):
 
 class SubProp(Value):
     def prepare(self):
-        self.isconst = isinstance(self.kids[0], Const)
-        if self.isconst:
-            self.constval = self.kids[0].value()
+        self.valu = self.kids[0].value()
 
     async def compute(self, runt, path):
-        if self.isconst:
-            return self.constval
-
-        return await self.kids[0].compute(runt, path)
+        return self.valu
 
 class VarValue(Value):
 

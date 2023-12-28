@@ -2440,14 +2440,14 @@ class AstTest(s_test.SynTest):
         origprop = s_snap.Snap.nodesByProp
         origvalu = s_snap.Snap.nodesByPropValu
 
-        async def checkProp(self, name, reverse=False):
+        async def checkProp(self, name, reverse=False, subtype=None):
             calls.append(('prop', name))
-            async for node in origprop(self, name):
+            async for node in origprop(self, name, reverse=reverse, subtype=subtype):
                 yield node
 
         async def checkValu(self, name, cmpr, valu, reverse=False):
             calls.append(('valu', name, cmpr, valu))
-            async for node in origvalu(self, name, cmpr, valu):
+            async for node in origvalu(self, name, cmpr, valu, reverse=reverse):
                 yield node
 
         with mock.patch('synapse.lib.snap.Snap.nodesByProp', checkProp):
