@@ -3185,13 +3185,16 @@ class AstTest(s_test.SynTest):
                 test:ival=$ival5
             ]''', opts=opts)
 
-            self.len(1, await core.nodes('test:ival +test:ival*min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +#tag*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag*max=?'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag*duration=?'))
             self.len(1, await core.nodes('ou:campaign.created +#tag:ival*min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +:period*min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period*min=2020'))
             self.len(1, await core.nodes('$var=tag ou:campaign.created +#$var*min=2020'))
             self.len(1, await core.nodes('$valu=2020 ou:campaign.created +#tag*min=$valu'))
+            self.len(1, await core.nodes('test:ival +test:ival*min=2020'))
+            self.len(1, await core.nodes('test:ival +test:ival*max=?'))
 
             self.len(0, await core.nodes('#newp*min'))
 
@@ -3245,6 +3248,9 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('test:ival +test:ival*min=2020 | delnode')
             self.len(0, await core.nodes('test:ival +test:ival*min=2020'))
+
+            await core.nodes('test:ival +test:ival*max=? | delnode')
+            self.len(0, await core.nodes('test:ival +test:ival*max=?'))
 
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('#tag*newp')
