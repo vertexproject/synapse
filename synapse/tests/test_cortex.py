@@ -1318,6 +1318,9 @@ class CortexTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchTagProp):
                     await core.nodes('test:int=10 +#foo.bar:score=66')
 
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.nodes('test:int=10 $lib.print(#foo.bar:score)')
+
                 with self.raises(s_exc.NoSuchType):
                     await core.addTagProp('derp', ('derp', {}), {})
 

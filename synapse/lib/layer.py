@@ -2763,11 +2763,12 @@ class Layer(s_nexus.Pusher):
 
             if reverse:
                 scan = self.layrslab.scanByRangeBack
+                pkeymin = self.ivaltimetype.fullbyts
+                pkeymax = self.ivaltimetype.getIntIndx(0)
             else:
                 scan = self.layrslab.scanByRange
-
-            pkeymin = self.ivaltimetype.getIntIndx(0)
-            pkeymax = self.ivaltimetype.fullbyts
+                pkeymin = self.ivaltimetype.getIntIndx(0)
+                pkeymax = self.ivaltimetype.fullbyts
 
             for lkey, nid in scan(abrv + pkeymin, abrv + pkeymax, db=self.indxdb):
                 yield lkey, nid, self.genStorNodeRef(nid)

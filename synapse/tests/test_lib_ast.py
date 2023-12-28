@@ -3190,24 +3190,35 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('ou:campaign.created +#tag:ival*min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +:period*min=2020'))
             self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period*min=2020'))
+            self.len(1, await core.nodes('$var=tag ou:campaign.created +#$var*min=2020'))
+            self.len(1, await core.nodes('$valu=2020 ou:campaign.created +#tag*min=$valu'))
+
+            self.len(0, await core.nodes('#newp*min'))
 
             ival = core.model.type('ival')
 
             async def check(lift, prop, tag, getr):
-                last = 0
-                nodes = await core.nodes(lift)
-                self.len(5, nodes)
-                for node in await core.nodes(lift):
-                    if prop is None:
-                        valu = node.ndef[1]
-                    elif tag is None:
-                        valu = node.get(prop)
+                for rev in (False, True):
+                    if rev:
+                        lift = f'reverse({lift})'
+                        nodes = await core.nodes(lift)
+                        nodes.reverse()
                     else:
-                        valu = node.getTagProp(tag, prop)
+                        nodes = await core.nodes(lift)
 
-                    valu = getr(valu)
-                    self.ge(valu, last, msg=f'{valu}>={last} failed for lift {lift}')
-                    last = valu
+                    last = 0
+                    self.len(5, nodes)
+                    for node in nodes:
+                        if prop is None:
+                            valu = node.ndef[1]
+                        elif tag is None:
+                            valu = node.get(prop)
+                        else:
+                            valu = node.getTagProp(tag, prop)
+
+                        valu = getr(valu)
+                        self.ge(valu, last, msg=f'{valu}>={last} failed for lift {lift}')
+                        last = valu
 
             tests = (
                 ('test:ival', None, None),
@@ -3231,6 +3242,18 @@ class AstTest(s_test.SynTest):
 
             for query in queries:
                 self.eq(1577836800000, await core.callStorm(query))
+
+            await core.nodes('test:ival +test:ival*min=2020 | delnode')
+            self.len(0, await core.nodes('test:ival +test:ival*min=2020'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('#tag*newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('ou:campaign:period*newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('ou:campaign $lib.print(:period*newp)')
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

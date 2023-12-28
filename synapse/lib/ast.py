@@ -3010,13 +3010,7 @@ class RelPropCond(Cond):
 
         async def cond(node, path):
 
-            subtype = None
-            propcmpr = cmpr
-            if cmprname is not None and await self.kids[0].hasSubType(runt, path, cmprname):
-                subtype = cmprname
-                propcmpr = realcmpr
-
-            vtyp, valu = await self.kids[0].getTypeAndValu(runt, path, subtype=subtype)
+            vtyp, valu = await self.kids[0].getTypeAndValu(runt, path)
             if valu is None:
                 return False
 
@@ -3026,6 +3020,11 @@ class RelPropCond(Cond):
 
             if xval is None:
                 return False
+
+            propcmpr = cmpr
+            if cmprname is not None and cmprname in vtyp.subtypes:
+                (vtyp, valu) = vtyp.getSubType(cmprname, valu)
+                propcmpr = realcmpr
 
             ctor = vtyp.getCmprCtor(propcmpr)
             if ctor is None:
@@ -3163,23 +3162,14 @@ class PropValue(Value):
     def isRuntSafeAtom(self, runt):
         return False
 
-    async def hasSubType(self, runt, path, subtype):
-        name = await self.kids[0].compute(runt, path)
-        prop = path.node.form.props.get(name)
-        if prop is None:
-            mesg = f'No property named {name}.'
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                name=name, form=path.node.form.name))
-
-        return subtype in prop.type.subtypes
-
-    async def getTypeAndValu(self, runt, path, subtype=None):
+    async def getTypeAndValu(self, runt, path):
         if not path:
             return None, None
 
         name = await self.kids[0].compute(runt, path)
 
-        if subtype is None and len(self.kids) > 1:
+        subtype = None
+        if len(self.kids) > 1:
             subtype = await self.kids[1].compute(runt, path)
 
         ispiv = name.find('::') != -1
@@ -3282,16 +3272,15 @@ class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
 
+        tprop = runt.model.getTagProp(prop)
+        if tprop is None:
+            mesg = f'No such tag property: {prop}'
+            raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=prop, mesg=mesg))
+
         valu = path.node.getTagProp(tag, prop)
 
         if len(self.kids) > 1:
             subtype = await self.kids[1].compute(runt, path)
-
-            tprop = runt.model.getTagProp(prop)
-            if tprop is None:
-                mesg = f'No such tag property: {prop}'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=prop, mesg=mesg))
-
             (_, valu) = tprop.type.getSubType(subtype, valu)
 
         return valu
