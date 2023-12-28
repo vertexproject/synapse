@@ -200,8 +200,8 @@ class SlabAbrv:
 
             return abrv
 
-        indx = byts[:248] + xxhash.xxh64(byts).digest
-        for abrv in self.slab.scanByDups(indx, db=self.name2abrv):
+        indx = byts[:248] + xxhash.xxh64_digest(byts)
+        for (_, abrv) in self.slab.scanByDups(indx, db=self.name2abrv):
             if self.slab.get(abrv, db=self.abrv2name) == byts:
                 return abrv
         else:
@@ -215,7 +215,7 @@ class SlabAbrv:
 
         realbyts = byts
         if len(byts) > 255:
-            byts = byts[:248] + xxhash.xxh64(byts).digest
+            byts = byts[:248] + xxhash.xxh64_digest(byts)
 
         abrv = s_common.int64en(self.offs)
 
@@ -229,14 +229,14 @@ class SlabAbrv:
     def iterByPref(self, pref):
         for byts, abrv in self.slab.scanByPref(pref, db=self.name2abrv):
             if len(byts) == 256:
-                return self.slab.get(abrv, db=abrv2name), abrv
+                yield self.slab.get(abrv, db=self.abrv2name), abrv
             else:
                 yield byts, abrv
 
     def items(self):
         for byts, abrv in self.slab.scanByFull(db=self.name2abrv):
             if len(byts) == 256:
-                return self.slab.get(abrv, db=abrv2name), abrv
+                yield self.slab.get(abrv, db=self.abrv2name), abrv
             else:
                 yield byts, abrv
 
