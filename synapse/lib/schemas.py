@@ -73,9 +73,9 @@ _LayerPushPullSchema = {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'queue:size': {'type': 'integer', 'default': 10_000,
-                       'exclusiveMinimum': 1},
+                       'minimum': 1},
         'chunk:size': {'type': 'integer', 'default': 1_000,
-                         'exclusiveMinimum': 1}
+                         'minimum': 1}
 
     },
     'additionalProperties': True,
