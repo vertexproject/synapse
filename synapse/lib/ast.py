@@ -3210,6 +3210,9 @@ class PropValue(Value):
                                                 name=name, form=node.form.name))
 
             if i >= imax:
+                if subtype is not None:
+                    return prop.type.getSubType(subtype, valu)
+
                 if isinstance(valu, (dict, list, tuple)):
                     # these get special cased because changing them affects the node
                     # while it's in the pipeline but the modification doesn't get stored

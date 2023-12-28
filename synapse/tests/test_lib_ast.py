@@ -3172,12 +3172,13 @@ class AstTest(s_test.SynTest):
                 'ival5': ('2025-01-01, ?')
             }}
             await core.nodes('''[
-                (ou:campaign=* :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
+                (ou:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
                 (ou:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
                 (ou:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
                 (ou:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
                 (ou:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
                 (ou:campaign=*)
+                (ou:contribution=* :campaign=(c1,))
                 test:ival=$ival1
                 test:ival=$ival2
                 test:ival=$ival3
@@ -3241,6 +3242,7 @@ class AstTest(s_test.SynTest):
                 'ou:campaign:period*min=2020 return(:period*min)',
                 'ou:campaign#tag*min=2020 return(#tag*min)',
                 'ou:campaign#tag:ival*min=2020 return(#tag:ival*min)'
+                'ou:contribution return(:campaign::period*min)'
             )
 
             for query in queries:
