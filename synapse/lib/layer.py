@@ -2557,13 +2557,12 @@ class Layer(s_nexus.Pusher):
 
     async def getFormCounts(self):
         formcounts = {}
-        for byts in self.core.indxabrv.keysByPref(INDX_PROP):
+
+        for byts, abrv in self.core.indxabrv.iterByPref(INDX_PROP):
             (form, prop) = s_msgpack.un(byts[2:])
-            if prop is None:
-                abrv = self.core.indxabrv.bytsToAbrv(byts)
-                valu = self.indxcounts.get(abrv)
-                if valu > 0:
-                    formcounts[form] = valu
+
+            if prop is None and (valu := self.indxcounts.get(abrv)) > 0:
+                formcounts[form] = valu
 
         return formcounts
 
@@ -2771,7 +2770,7 @@ class Layer(s_nexus.Pusher):
             pkeymax = self.ivaltimetype.fullbyts
 
             for lkey, nid in scan(abrv + pkeymin, abrv + pkeymax, db=self.indxdb):
-                yield nid, nid, self.genStorNodeRef(nid)
+                yield lkey, nid, self.genStorNodeRef(nid)
 
         else:
             try:
@@ -2786,7 +2785,7 @@ class Layer(s_nexus.Pusher):
 
             for lkey, nid in scan(abrv, db=self.indxdb):
                 # yield <sortkey>, <nid>, <SodeEnvl>
-                yield nid, nid, self.genStorNodeRef(nid)
+                yield lkey, nid, self.genStorNodeRef(nid)
 
     async def liftByTagValu(self, tag, cmprvals, form=None, reverse=False):
 
@@ -2845,7 +2844,7 @@ class Layer(s_nexus.Pusher):
             scan = self.layrslab.scanByPref
 
         for lval, nid in scan(abrv, db=self.indxdb):
-            yield nid, nid, self.genStorNodeRef(nid)
+            yield lval, nid, self.genStorNodeRef(nid)
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
         '''
@@ -2872,7 +2871,7 @@ class Layer(s_nexus.Pusher):
 
         for lval, nid in scan(abrv, db=self.indxdb):
             sref = self.genStorNodeRef(nid)
-            yield nid, nid, sref
+            yield lval, nid, sref
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals, reverse=False):

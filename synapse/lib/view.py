@@ -1679,8 +1679,14 @@ class View(s_nexus.Pusher):  # type: ignore
                 yield nid, [sref]
             return
 
+        def filt(sode):
+            tags = sode.get('tags')
+            if tags is None:
+                return False
+            return tags.get(tag) is not None
+
         genrs = [layr.liftByTag(tag, form=form, reverse=reverse, indx=indx) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs, reverse=reverse):
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
     async def liftByTagValu(self, tag, cmprvals, form=None, reverse=False):
