@@ -3241,7 +3241,7 @@ class AstTest(s_test.SynTest):
             queries = (
                 'ou:campaign:period*min=2020 return(:period*min)',
                 'ou:campaign#tag*min=2020 return(#tag*min)',
-                'ou:campaign#tag:ival*min=2020 return(#tag:ival*min)'
+                'ou:campaign#tag:ival*min=2020 return(#tag:ival*min)',
                 'ou:contribution return(:campaign::period*min)'
             )
 
