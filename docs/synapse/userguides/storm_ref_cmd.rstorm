@@ -175,8 +175,7 @@ The ``storm.aha.pool.add`` command creates a new AHA service pool.
 
 **Syntax:**
 
-.. storm-cli:: aha.pool.add
-
+.. storm-cli:: aha.pool.add --help
 
 
 .. _storm-aha-pool-del:
@@ -185,7 +184,7 @@ The ``storm.aha.pool.del`` command deletes an AHA service pool configuration.
 
 **Syntax:**
 
-.. storm-cli:: aha.pool.del
+.. storm-cli:: aha.pool.del --help
 
 
 .. _storm-aha-pool-list:
@@ -194,7 +193,7 @@ The ``storm.aha.pool.list`` command lists AHA service pools and their associated
 
 **Syntax:**
 
-.. storm-cli:: aha.pool.list
+.. storm-cli:: aha.pool.list --help
 
 
 .. _storm-aha-pool-svc-add:
@@ -203,7 +202,7 @@ The ``storm.aha.pool.svc.add`` command adds a service to an existing AHA service
 
 **Syntax:**
 
-.. storm-cli:: aha.pool.svc.add
+.. storm-cli:: aha.pool.svc.add --help
 
 
 .. _storm-aha-pool-svc-del:
@@ -212,7 +211,7 @@ The ``storm.aha.pool.svc.del`` command removes a service from an existing AHA se
 
 **Syntax:**
 
-.. storm-cli:: aha.pool.svc.del
+.. storm-cli:: aha.pool.svc.del --help
 
 
 .. _storm-auth:
