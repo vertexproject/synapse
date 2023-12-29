@@ -729,6 +729,15 @@ Ingest Tool
 
 See :ref:`gloss-tool-ingest`.
 
+.. _gloss-interface:
+
+Interface
+---------
+
+In Synapse, an interface is a data model element that defines a set of secondary properties that are common to a
+subset of related forms. Forms that should have the set of secondary properties can be defined so as to "inherit"
+the interface and its properties, as opposed to explicitly declaring each property on every form.
+
 .. _gloss-inst-know:
 
 Instance Knowledge

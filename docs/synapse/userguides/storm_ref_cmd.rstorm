@@ -65,6 +65,7 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
   of greater interest to Synapse administrators or developers.
 
 - `help`_
+- `aha`_
 - `auth`_
 - `background`_
 - `batch`_
@@ -148,6 +149,70 @@ The ``help`` command can also be used to inspect information about :ref:`stormty
 **Syntax:**
 
 .. storm-cli:: help --help
+
+
+.. _storm-aha:
+
+aha
+---
+
+Storm includes ``aha.*`` commands that allow you to work with Synapse's `AHA service`_, specifically with AHA
+service pools.
+
+- `aha.pool.add`_
+- `aha.pool.del`_
+- `aha.pool.list`_
+- `aha.pool.svc.add`_
+- `aha.pool.svc.del`_
+
+Help for individual ``auth.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. _storm-aha-pool-add:
+
+The ``storm.aha.pool.add`` command creates a new AHA service pool.
+
+**Syntax:**
+
+.. storm-cli:: aha.pool.add
+
+
+
+.. _storm-aha-pool-del:
+
+The ``storm.aha.pool.del`` command deletes an AHA service pool configuration.
+
+**Syntax:**
+
+.. storm-cli:: aha.pool.del
+
+
+.. _storm-aha-pool-list:
+
+The ``storm.aha.pool.list`` command lists AHA service pools and their associated services.
+
+**Syntax:**
+
+.. storm-cli:: aha.pool.list
+
+
+.. _storm-aha-pool-svc-add:
+
+The ``storm.aha.pool.svc.add`` command adds a service to an existing AHA service pool.
+
+**Syntax:**
+
+.. storm-cli:: aha.pool.svc.add
+
+
+.. _storm-aha-pool-svc-del:
+
+The ``storm.aha.pool.svc.del`` command removes a service from an existing AHA service pool.
+
+**Syntax:**
+
+.. storm-cli:: aha.pool.svc.del
 
 
 .. _storm-auth:
@@ -2772,4 +2837,6 @@ and yields ``inet:urlfile`` nodes and the retrieved content (``file:bytes``) is 
 
 .. storm-cli:: wget --help
 
+
+.. _AHA service: https://synapse.docs.vertex.link/en/latest/synapse/deploymentguide.html#deploy-aha-service
 .. _changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
