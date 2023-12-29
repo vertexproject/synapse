@@ -105,7 +105,6 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `service`_
 - `sleep`_
 - `spin`_
-- `splice`_
 - `stats`_
 - `tag`_
 - `tee`_
@@ -171,6 +170,9 @@ Help for individual ``auth.*`` commands can be displayed using:
 
 .. _storm-aha-pool-add:
 
+aha.pool.add
+++++++++++++
+
 The ``storm.aha.pool.add`` command creates a new AHA service pool.
 
 **Syntax:**
@@ -179,6 +181,9 @@ The ``storm.aha.pool.add`` command creates a new AHA service pool.
 
 
 .. _storm-aha-pool-del:
+
+aha.pool.del
+++++++++++++
 
 The ``storm.aha.pool.del`` command deletes an AHA service pool configuration.
 
@@ -189,6 +194,9 @@ The ``storm.aha.pool.del`` command deletes an AHA service pool configuration.
 
 .. _storm-aha-pool-list:
 
+aha.pool.list
++++++++++++++
+
 The ``storm.aha.pool.list`` command lists AHA service pools and their associated services.
 
 **Syntax:**
@@ -198,6 +206,9 @@ The ``storm.aha.pool.list`` command lists AHA service pools and their associated
 
 .. _storm-aha-pool-svc-add:
 
+aha.pool.svc.add
+++++++++++++++++
+
 The ``storm.aha.pool.svc.add`` command adds a service to an existing AHA service pool.
 
 **Syntax:**
@@ -206,6 +217,9 @@ The ``storm.aha.pool.svc.add`` command adds a service to an existing AHA service
 
 
 .. _storm-aha-pool-svc-del:
+
+aha.pool.svc.del
+++++++++++++++++
 
 The ``storm.aha.pool.svc.del`` command removes a service from an existing AHA service pool.
 
