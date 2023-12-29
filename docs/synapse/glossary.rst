@@ -1665,6 +1665,18 @@ Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gl
 
 See :ref:`storm-adv-vars` for a more detailed discussion of variables.
 
+
+.. _gloss-vault:
+
+Vault
+-----
+
+In Synapse, a vault is a protected storage mechanism that allows you to store secret values (such as API keys) and
+any associated configuration settings. Vaults support permissions and can be shared with other users or roles.
+Granting 'read' access to a vault allows someone to use the vault contents without allowing them to see the
+vault's secret values.
+
+
 .. _gloss-view:
 
 View
