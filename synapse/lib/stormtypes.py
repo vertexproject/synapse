@@ -6230,7 +6230,8 @@ class Layer(Prim):
                        'default': 0, },
                       {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the pusher.',
                        'default': 10_000},
-                      {'name': 'chunk_size', 'type': 'int', 'desc': 'The chunk size of the pusher.',
+                      {'name': 'chunk_size', 'type': 'int',
+                       'desc': 'The chunk size of the pusher when pushing edits.',
                        'default': 1_000}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the push definition.', }}},
@@ -6247,7 +6248,8 @@ class Layer(Prim):
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to begin from.', 'default': 0, },
                       {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the puller.',
                        'default': 10_000},
-                      {'name': 'chunk_size', 'type': 'int', 'desc': 'The chunk size of the puller.',
+                      {'name': 'chunk_size', 'type': 'int',
+                       'desc': 'The chunk size of the puller when consuming edits.',
                        'default': 1_000}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the pull definition.', }}},
