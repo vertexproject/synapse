@@ -524,6 +524,41 @@ Example:
 
         opts = {'ndefs': ndefs}
 
+nexsoffs
+--------
+
+Wait for the Cortex to reach the specified Nexus offset before executing the query.
+This is intended for internal use when offloading queries to a mirror.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'nexsoffs': 7759195}
+
+nexstimeout
+-----------
+
+Timeout (in seconds) to wait for the Cortex to reach the Nexus offset specified by ``nexsoffs``.
+This is intended for internal use when offloading queries to a mirror.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'nexstimeout': 5}
+
+nomirror
+--------
+
+If Storm query offloading is configured, this can be set to ``true`` to force the query
+to be run on the local Cortex rather than a mirror.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'nomirror': True}
 
 path
 ----
