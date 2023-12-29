@@ -405,10 +405,8 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPush('view:detach')
     async def _detach(self):
 
-        quorum = self.parent.info.get('quorum')
-        if quorum is not None:
-            # remove any pending merge requests or votes
-            await self._delMergeMeta()
+        # remove any pending merge requests or votes
+        await self._delMergeMeta()
 
         self.parent = None
         await self.info.pop('parent')

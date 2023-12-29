@@ -217,3 +217,28 @@ reqValidAhaPoolDef = s_config.getJsValidator({
     'additionalProperties': False,
     'required': ['name', 'creator', 'created', 'services'],
 })
+
+_cellUserApiKeySchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'updated': {'type': 'integer', 'minimum': 0},
+        'expires': {'type': 'integer', 'minimum': 1},
+        'shadow': {
+            'type': 'object',
+        },
+    },
+    'additionalProperties': False,
+    'required': [
+        'iden',
+        'name',
+        'user',
+        'created',
+        'updated',
+        'shadow',
+    ],
+}
+reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)

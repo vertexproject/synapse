@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1115,3 +1116,183 @@ class StormLibAuthTest(s_test.SynTest):
 
             gates = await core.callStorm('return($lib.auth.gates.list())')
             self.isin(viewiden, [g['iden'] for g in gates])
+
+    async def test_stormlib_auth_apikey(self):
+
+        async with self.getTestCore() as core:
+
+            await core.auth.rootuser.setPasswd('root')
+            root = core.auth.rootuser.iden
+
+            lowuser = await core.addUser('lowuser')
+            lowuser = lowuser.get('iden')
+
+            hhost, hport = await core.addHttpsPort(0, host='127.0.0.1')
+
+            ltk0, ltdf0 = await core.addUserApiKey(lowuser, 'test')
+
+            q = '$u=$lib.auth.users.byname(root) return($u.genApiKey("Test Key"))'
+            rtk0, rtdf0 = await core.callStorm(q)
+            q = '$u=$lib.auth.users.byname(root) return($u.genApiKey("Backup Key"))'
+            bkk0, bkdf0 = await core.callStorm(q)
+
+            self.notin('shadow', rtdf0)
+            self.eq(rtdf0.get('name'), 'Test Key')
+            self.eq(rtdf0.get('user'), root)
+            self.nn(rtdf0.get('iden'))
+            self.gt(rtdf0.get('updated'), 0)
+            self.none(rtdf0.get('expires'))
+
+            q = '$u=$lib.auth.users.byname(root) return($u.listApiKeys())'
+            rootkeys = await core.callStorm(q)
+            self.len(2, rootkeys)
+            _kdefs = [rtdf0, bkdf0]
+            for kdef in rootkeys:
+                self.isin(kdef, _kdefs)
+                _kdefs.remove(kdef)
+            self.len(0, _kdefs)
+
+            opts = {'vars': {'iden': rtdf0.get('iden')}}
+            q = '$u=$lib.auth.users.byname(root) return( $u.getApiKey($iden) )'
+            _rtdf0 = await core.callStorm(q, opts=opts)
+            self.eq(rtdf0, _rtdf0)
+
+            q = '$u=$lib.auth.users.byname(root) return( $u.modApiKey($iden, name, "heheKey!") )'
+            _rtdf0 = await core.callStorm(q, opts=opts)
+            self.eq(_rtdf0.get('name'), 'heheKey!')
+            self.eq(_rtdf0.get('iden'), rtdf0.get('iden'))
+            self.gt(_rtdf0.get('updated'), rtdf0.get('updated'))
+
+            q = '$u=$lib.auth.users.byname(root) return($u.delApiKey($iden))'
+            self.true(await core.callStorm(q, opts=opts))
+
+            q = '$u=$lib.auth.users.byname(root) return($u.listApiKeys())'
+            rootkeys = await core.callStorm(q)
+            self.eq(rootkeys, (bkdf0,))
+
+            # Root can get API keys for other users
+            q = '$u=$lib.auth.users.byname(lowuser) return($u.listApiKeys())'
+            lowkeys = await core.callStorm(q)
+            self.len(1, lowkeys)
+            self.eq(lowkeys, (ltdf0,))
+            q = '$u=$lib.auth.users.byname(lowuser) return($u.getApiKey($iden))'
+            _ltdf0 = await core.callStorm(q, opts={'vars': {'iden': ltdf0.get('iden')}})
+            self.eq(_ltdf0, ltdf0)
+
+            # Perms tests - lowuser is denied from managing their API keys
+            lowuser_opts = {'user': lowuser, 'vars': {'iden': ltdf0.get('iden')}}
+            await core.addUserRule(lowuser, (False, ('auth', 'self', 'set', 'apikey')))
+            q = 'return($lib.auth.users.byname(lowuser).genApiKey(newp))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=lowuser_opts)
+
+            q = 'return($lib.auth.users.byname(lowuser).getApiKey($iden))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=lowuser_opts)
+
+            q = 'return($lib.auth.users.byname(lowuser).listApiKeys())'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=lowuser_opts)
+
+            q = 'return($lib.auth.users.byname(lowuser).modApiKey($iden, name, wow))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=lowuser_opts)
+
+            q = 'return($lib.auth.users.byname(lowuser).delApiKey($iden))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=lowuser_opts)
+
+            # Not allowed to manage others API keys by default
+            q = 'return($lib.auth.users.byname(root).genApiKey(newp))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=lowuser_opts)
+
+            # Remove the deny permission
+            await core.delUserRule(lowuser, (False, ('auth', 'self', 'set', 'apikey')))
+            ntk0, ntdf0 = await core.callStorm('return($lib.auth.users.byname(lowuser).genApiKey(weee, duration=10))',
+                                               opts=lowuser_opts)
+            self.nn(ntk0)
+            self.eq(ntdf0.get('name'), 'weee')
+            self.eq(ntdf0.get('expires'), ntdf0.get('updated') + 10)  # really short but...example...
+            self.eq(ntdf0.get('created'), ntdf0.get('updated'))
+
+            q = 'return($lib.auth.users.byname(lowuser).getApiKey($iden))'
+            _ltdf0 = await core.callStorm(q, opts=lowuser_opts)
+            self.eq(_ltdf0, ltdf0)
+
+            q = '$u=$lib.auth.users.byname(lowuser) return($u.listApiKeys())'
+            lowkeys = await core.callStorm(q, opts=lowuser_opts)
+            self.len(2, lowkeys)
+            _kdefs = [ltdf0, ntdf0]
+            for kdef in lowkeys:
+                self.isin(kdef, _kdefs)
+                _kdefs.remove(kdef)
+            self.len(0, _kdefs)
+
+            await asyncio.sleep(0.001)
+            q = 'return($lib.auth.users.byname(lowuser).modApiKey($iden, name, ohmy))'
+            lowuser_opts = {'user': lowuser, 'vars': {'iden': ntdf0.get('iden')}}
+            _ntdf0 = await core.callStorm(q, opts=lowuser_opts)
+            self.eq(_ntdf0.get('iden'), ntdf0.get('iden'))
+            self.gt(_ntdf0.get('updated'), ntdf0.get('updated'))
+            self.eq(_ntdf0.get('expires'), ntdf0.get('expires'))
+            self.eq(_ntdf0.get('name'), 'ohmy')
+
+            q = 'return($lib.auth.users.byname(lowuser).delApiKey($iden))'
+            self.true(await core.callStorm(q, opts=lowuser_opts))
+
+            q = '$u=$lib.auth.users.byname(lowuser) return($u.listApiKeys())'
+            lowkeys = await core.callStorm(q, opts=lowuser_opts)
+            self.len(1, lowkeys)
+            self.eq(lowkeys, (ltdf0,))
+
+            # Perm allows lowuser to manage others API keys
+            await core.addUserRule(lowuser, (True, ('auth', 'user', 'set', 'apikey')))
+
+            _, rtdf1 = await core.callStorm('return($lib.auth.users.byname(root).genApiKey(weee, duration=10))',
+                                            opts=lowuser_opts)
+            self.eq(rtdf1.get('user'), root)
+            lowuser_opts = {'user': lowuser, 'vars': {'iden': rtdf1.get('iden')}}
+
+            q = 'return($lib.auth.users.byname(root).getApiKey($iden))'
+            _rtdf1 = await core.callStorm(q, opts=lowuser_opts)
+            self.eq(_rtdf1, rtdf1)
+
+            q = '$u=$lib.auth.users.byname(root) return($u.listApiKeys())'
+            rootkeys = await core.callStorm(q, opts=lowuser_opts)
+            self.len(2, rootkeys)
+            _kdefs = [bkdf0, rtdf1]
+            for kdef in rootkeys:
+                self.isin(kdef, _kdefs)
+                _kdefs.remove(kdef)
+            self.len(0, _kdefs)
+
+            q = 'return($lib.auth.users.byname(root).modApiKey($iden, name, hahah))'
+            _rtdf1_2 = await core.callStorm(q, opts=lowuser_opts)
+            self.eq(_rtdf1_2.get('iden'), _rtdf1.get('iden'))
+            self.eq(_rtdf1_2.get('name'), 'hahah')
+
+            q = 'return($lib.auth.users.byname(root).delApiKey($iden))'
+            self.true(await core.callStorm(q, opts=lowuser_opts))
+
+            q = '$u=$lib.auth.users.byname(root) return($u.listApiKeys())'
+            rootkeys = await core.callStorm(q, opts=lowuser_opts)
+            self.len(1, rootkeys)
+            self.eq(rootkeys, (bkdf0,))
+
+            # API keys work to identify the user
+            async with self.getHttpSess(port=hport) as sess:
+
+                headers0 = {'X-API-KEY': bkk0}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/storm/call', headers=headers0,
+                                       json={'query': 'return( $lib.user.name() )'})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+                self.eq('root', answ['result'])
+
+                headers0 = {'X-API-KEY': ltk0}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/storm/call', headers=headers0,
+                                       json={'query': 'return( $lib.user.name() )'})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+                self.eq('lowuser', answ['result'])
