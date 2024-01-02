@@ -1253,7 +1253,7 @@ Runtsafe
 
 Short for "runtime safe". Runtsafe refers to the use of variables within Storm. A variable that is **runtsafe** has a
 value that will not change based on the specific node passing through the Storm pipeline. A variable whose value is
-explcitly set, such as ``$fqdn = woot.com`` is an example of a runtsafe varaible.
+explicitly set, such as ``$fqdn = woot.com`` is an example of a runtsafe varaible.
 
 Contrast with :ref:`gloss-non-runtsafe`.
 
