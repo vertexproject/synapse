@@ -7,16 +7,23 @@
 Storm Reference - Storm Commands
 ================================
 
-Storm commands are built-in or custom commands that can be used natively within the Synapse Storm
-tool / Storm CLI (see :ref:`syn-tools-storm`).
+Storm commands are built-in or custom commands that can be used natively within Synapse Storm queries.
 
-.. NOTE::
-  
-  The Storm tool / Storm CLI provides a native Storm interpreter and is the preferred tool for
-  interacting with a Synapse Cortex from the CLI.
+**Built-in commands** are native to the Storm library and loaded by default within a given Cortex.
+Built-in commands comprise a set of helper commands that perform a variety of specialized tasks that
+are useful regardless of the types of data stored in Synapse or the types of analysis performed.
 
+**Custom commands** are Storm commands that have been added to a Cortex to invoke the execution of
+dynamically loaded modules. Synapse **Power-Ups** (:ref:`gloss-power-up`) are examples of modules that
+may install additional Storm commands to implement functionality specific to that Power-Up (such as
+querying a third-party data source to automatically ingest and model the data in Synapse).
 
-The pipe symbol ( ``|`` ) is used with Storm commands to:
+.. _storm-ref-cmd-pipe:
+
+Storm Commands and the Pipe Character
+-------------------------------------
+
+The pipe character ( ``|`` ) is used with Storm commands to:
 
 - Return to Storm query syntax after running a Storm command.
 - Separate individual Storm commands and their parameters (i.e., if you are "chaining" multiple
@@ -35,20 +42,23 @@ The query above:
 - performs a live DNS query for the FQDN's A, AAAA, and NS records, and
 - pivots from the FQDN to any associated DNS A records.
 
-The pipe is used to separate the two ``nettools.*`` commands, and to separate the ``nettools.dns``
-command and its switches from the subsequent query operation (the pivot).
+The pipe is used:
 
-An additional pipe character can optionally be placed between the initial lift (``inet:fqdn=woot.com``)
-and the ``nettools.whois`` command, but is not required.
+- to separate the two ``nettools.*`` commands, and
+- to separate the ``nettools.dns`` command and its switches from the subsequent query operation (the pivot).
 
-**Built-in commands** are native to the Storm library and loaded by default within a given Cortex.
-Built-in commands comprise a set of helper commands that perform a variety of specialized tasks that
-are useful regardless of the types of data stored in Synapse or the types of analysis performed.
+.. TIP::
+  
+  A pipe character is **not** required between a Storm operation and any **initial** Storm command (e.g., between
+  the ``inet:fqdn=woot.com`` lift operation and the subsequent ``nettools.whois`` command in the example
+  above). A pipe character can **optionally** be placed in this location (some users may find it easier to
+  remember the "rules" for pipe use as "place a pipe between Storm operations and Storm commands"), but is
+  not necessary.
 
-**Custom commands** are Storm commands that have been added to a Cortex to invoke the execution of
-dynamically loaded modules. Synapse **Power-Ups** (:ref:`gloss-power-up`) are examples of modules that
-may install additional Storm commands to implement additional functionality specific to that Power-Up
-(such as querying a third-party data source to automatically ingest and model the data in Synapse).
+.. _storm-cmd-ref:
+
+Storm Command Reference
+-----------------------
 
 The full list of Storm commands (built-in and custom) available in a given instance of Synapse can
 be displayed with the ``help`` command.
@@ -91,6 +101,7 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `merge`_
 - `min`_
 - `model`_
+- `movenodes`_
 - `movetag`_
 - `nodes`_
 - `note`_
@@ -529,7 +540,7 @@ The ``copyto`` command allows you to copy nodes from the current view to a speci
 are copied to the write layer (the topmost layer) in the target view.
 
 When copying nodes, the history of the node (i.e., changes to the node, timestamps, associated user) in
-the source view (the view layer(s)) is preserved; the changes written to the target view's write layer
+the **source** view (the view layer(s)) is preserved; the changes written to the **target** view's write layer
 are owned by the user executing the ``copyto`` command.
 
 See the :ref:`storm-movenodes` command to move nodes between layers in the same layer stack.
@@ -1767,7 +1778,7 @@ edge (``n1 -(*)> n2``), then the edge is also moved.
 
 Sodes are fully removed from the source layer(s) and added to (or merged with existing nodes in)
 the target layer. The history of the node (i.e., changes to the node, timestamps, associated user) in
-the source layer is preserved; the changes written to the target layer are owned by the user executing
+the **source** layer is preserved; the changes written to the **target** layer are owned by the user executing
 the ``movenodes`` command.
 
 By default (i.e., if you do not specify a source and / or target layer), ``movenodes`` will migrate

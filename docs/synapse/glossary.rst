@@ -132,6 +132,15 @@ Column, Embed
 In :ref:`gloss-optic`, a column in Tabular display mode that displays a **property value from an adjacent or nearby
 node**.
 
+.. _gloss-col-path-var:
+
+Column, Path Variable
+---------------------
+
+In :ref:`gloss-optic`, a column in Tabular display mode that displays **arbitrary data in a column** by defining
+the data as a :ref:`gloss-variable` (a path variable or "path var") within a Storm query.
+
+
 .. _gloss-col-prop:
 
 Column, Property
@@ -344,12 +353,14 @@ See :ref:`gloss-graph-directed`.
 Display Mode
 ------------
 
-In :ref:`gloss-optic`, a means of visualizing data using the :ref:`gloss-research-tool`. Optic supports four display modes, namely:
+In :ref:`gloss-optic`, a means of visualizing data using the :ref:`gloss-research-tool`. Optic supports the following display modes:
 
 - **Tabular mode,** which displays data and tags in tables (rows of results with configurable columns).
 - **Force Graph mode,** which projects data into a directed graph-like view of nodes and their interconnections.
 - **Statistics (stats) mode,** which automatically summarizes data using histogram (bar) and sunburst charts.
 - **Geospatial mode,** which can be used to plot geolocation data on a map projection.
+- **Tree Graph mode,** which displays nodes as a series of vertical "cards" and their property-based links to other nodes.
+- **Timeline mode,** which displays nodes with a time property in time sequence order.
 
 .. _gloss-dmon:
 
@@ -985,6 +996,13 @@ A package is a set of commands and library code used to implement a :ref:`gloss-
 service is loaded into a Cortex, the Cortex verifies that the service is legitimate and then requests the service's
 packages in order to load any extended Storm commands associated with the service and any library code used to
 implement the service.
+
+.. _gloss-path-var-col:
+
+Path Variable Column
+--------------------
+
+See :ref:`gloss-col-path-var`.
 
 .. _gloss-permission:
 
