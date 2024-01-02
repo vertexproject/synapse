@@ -1475,6 +1475,16 @@ Tag Glob Column
 
 See :ref:`gloss-col-tagglob`.
 
+.. _gloss-taxonomy:
+
+Taxonomy
+--------
+
+In Synapse, a taxonomy is a user-defined set of hierarchical categories that can optionally be used to further
+classify particular objects (forms). Taxonomies use a dotted namespace (similar to tags). Forms that support
+a taxonomy will have a secondary property whose :ref:`gloss-type` is the taxonomy for that form (e.g., an
+``ou:industry`` form has a ``:type`` secondary property whose type is ``ou:industry:type:taxonomy``).
+
 .. _gloss-telepath:
 
 Telepath
