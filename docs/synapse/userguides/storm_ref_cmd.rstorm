@@ -1267,9 +1267,9 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 intersect
 ---------
 
-The ``intersect`` command returns the intersection of the results from performing a pivot operation
-on multiple inbound nodes. In other words, ``intersect`` will return the subset of pivot results
-that are **common** to each of the inbound nodes.
+The ``intersect`` command returns the intersection of the results from performing a pivot and/or traversal
+operation on multiple inbound nodes. In other words, ``intersect`` will return the subset of results that
+are **common** to each of the inbound nodes.
 
 **Syntax:**
 
