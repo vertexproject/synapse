@@ -126,7 +126,7 @@ class Node(NodeBase):
         '''
         Return a list of the raw storage nodes for each layer.
         '''
-        return await self.snap.view.getStorNodes(self.nid)
+        return copy.deepcopy(self.sodes)
 
     def getByLayer(self):
         '''

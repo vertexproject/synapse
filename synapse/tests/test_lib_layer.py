@@ -360,25 +360,6 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
 
-    async def test_layer_abrv(self):
-
-        async with self.getTestCore() as core:
-
-            layr = core.getLayer()
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
-                    layr.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
-                    layr.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x09',
-                    layr.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
-            self.eq(('visi', 'foo'),
-                    layr.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
-            self.eq(('whip', None),
-                    layr.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x09'))
-            self.raises(s_exc.NoSuchAbrv,
-                        layr.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x0a')
-
     async def test_layer_upstream(self):
 
         with self.getTestDir() as dirn:
@@ -1650,7 +1631,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('ou:campaign:period*min>=2022-01-01'))
             self.len(2, await core.nodes('ou:campaign:period*min>2022-01-01'))
             self.len(1, await core.nodes('ou:campaign:period*min@=2020'))
-            self.len(3, await core.nodes('ou:campaign:period*min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('ou:campaign:period*min@=(2020-01-01, 2022-01-01)'))
 
             self.len(1, await core.nodes('reverse(ou:campaign:period*min=2020-01-01)'))
             self.len(3, await core.nodes('reverse(ou:campaign:period*min<2022-01-01)'))
@@ -1658,14 +1639,14 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('reverse(ou:campaign:period*min>=2022-01-01)'))
             self.len(2, await core.nodes('reverse(ou:campaign:period*min>2022-01-01)'))
             self.len(1, await core.nodes('reverse(ou:campaign:period*min@=2020)'))
-            self.len(3, await core.nodes('reverse(ou:campaign:period*min@=(2020-01-01, 2022-01-01))'))
+            self.len(2, await core.nodes('reverse(ou:campaign:period*min@=(2020-01-01, 2022-01-01))'))
 
             self.len(1, await core.nodes('ou:campaign:period*max=2020-01-02'))
             self.len(2, await core.nodes('ou:campaign:period*max<2022-05-01'))
             self.len(3, await core.nodes('ou:campaign:period*max<=2022-05-01'))
             self.len(3, await core.nodes('ou:campaign:period*max>=2022-05-01'))
             self.len(2, await core.nodes('ou:campaign:period*max>2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign:period*max@=(2020-01-02, 2022-05-01)'))
+            self.len(2, await core.nodes('ou:campaign:period*max@=(2020-01-02, 2022-05-01)'))
             self.len(1, await core.nodes('ou:campaign:period*max=?'))
 
             self.len(1, await core.nodes('ou:campaign:period*duration=1D'))
@@ -1688,15 +1669,15 @@ class LayerTest(s_t_utils.SynTest):
             self.len(4, await core.nodes('ou:campaign#foo*min<=2022-01-01'))
             self.len(3, await core.nodes('ou:campaign#foo*min>=2022-01-01'))
             self.len(2, await core.nodes('ou:campaign#foo*min>2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign#foo*min@=(2020-01-01, 2022-01-01)'))
-            self.len(3, await core.nodes('reverse(ou:campaign#foo*min@=(2020-01-01, 2022-01-01))'))
+            self.len(2, await core.nodes('ou:campaign#foo*min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('reverse(ou:campaign#foo*min@=(2020-01-01, 2022-01-01))'))
 
             self.len(1, await core.nodes('ou:campaign#foo*max=2020-01-02'))
             self.len(2, await core.nodes('ou:campaign#foo*max<2022-05-01'))
             self.len(3, await core.nodes('ou:campaign#foo*max<=2022-05-01'))
             self.len(3, await core.nodes('ou:campaign#foo*max>=2022-05-01'))
             self.len(2, await core.nodes('ou:campaign#foo*max>2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign#foo*max@=(2020-01-02, 2022-05-01)'))
+            self.len(2, await core.nodes('ou:campaign#foo*max@=(2020-01-02, 2022-05-01)'))
             self.len(1, await core.nodes('ou:campaign#foo*max=?'))
 
             self.len(1, await core.nodes('ou:campaign#foo*duration=1D'))
@@ -1719,15 +1700,15 @@ class LayerTest(s_t_utils.SynTest):
             self.len(4, await core.nodes('ou:campaign#bar:footime*min<=2022-01-01'))
             self.len(3, await core.nodes('ou:campaign#bar:footime*min>=2022-01-01'))
             self.len(2, await core.nodes('ou:campaign#bar:footime*min>2022-01-01'))
-            self.len(3, await core.nodes('ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01)'))
-            self.len(3, await core.nodes('reverse(ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01))'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('reverse(ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01))'))
 
             self.len(1, await core.nodes('ou:campaign#bar:footime*max=2020-01-02'))
             self.len(2, await core.nodes('ou:campaign#bar:footime*max<2022-05-01'))
             self.len(3, await core.nodes('ou:campaign#bar:footime*max<=2022-05-01'))
             self.len(3, await core.nodes('ou:campaign#bar:footime*max>=2022-05-01'))
             self.len(2, await core.nodes('ou:campaign#bar:footime*max>2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign#bar:footime*max@=(2020-01-02, 2022-05-01)'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*max@=(2020-01-02, 2022-05-01)'))
             self.len(1, await core.nodes('ou:campaign#bar:footime*max=?'))
 
             self.len(1, await core.nodes('ou:campaign#bar:footime*duration=1D'))

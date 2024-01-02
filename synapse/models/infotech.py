@@ -2508,7 +2508,7 @@ class ItModule(s_module.CoreModule):
                 ('it:app:yara:rule', {}, (
 
                     ('text', ('str', {}), {
-                        'disp': {'hint': 'text'},
+                        'disp': {'hint': 'text', 'syntax': 'yara'},
                         'doc': 'The YARA rule text.'}),
 
                     ('ext:id', ('str', {}), {
