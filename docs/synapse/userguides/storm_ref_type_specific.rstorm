@@ -533,7 +533,7 @@ before manually creating one.
   commands simplify secondary property deconfliction and node creation for several common
   guid nodes.
   
-  For example, the :ref:`storm-gen-org` command takes an organization name as input (e.g,
+  For example, the :ref:`storm-gen-ou-org` command takes an organization name as input (e.g,
   "vertex"), checks for any ``ou:org`` nodes with that name (i.e., in the ``:name`` or
   ``:names`` properties) and either lifts the existing node, or creates a new one.
   
