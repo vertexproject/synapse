@@ -6,6 +6,28 @@
 Synapse Changelog
 *****************
 
+v2.158.0 - 2024-01-03
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Update the allowed versions of the``fastjsonschema``, ``idna``, and ``pygments``
+  libraries. Update the pinned version of the ``aiosmtplib`` library.
+  (`#3478 <https://github.com/vertexproject/synapse/pull/3478>`_)
+
+Bugfixes
+--------
+- Fix a bug where the ``role:add`` and ``user:add`` Nexus handlers could raise
+  an exception when being called by a service mirror.
+  (`#3483 <https://github.com/vertexproject/synapse/pull/3483>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm command reference guide.
+  (`#3481 <https://github.com/vertexproject/synapse/pull/3481>`_)
+- Update the Synapse glossary.
+  (`#3481 <https://github.com/vertexproject/synapse/pull/3481>`_)
 
 v2.157.0 - 2023-12-21
 =====================
