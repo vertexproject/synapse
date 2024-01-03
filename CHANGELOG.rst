@@ -11,7 +11,6 @@ v2.158.0 - 2024-01-03
 
 Features and Enhancements
 -------------------------
-
 - Update the allowed versions of the``fastjsonschema``, ``idna``, ``pygments``,
   and ``aiosmtplib`` libraries.
   (`#3478 <https://github.com/vertexproject/synapse/pull/3478>`_)
