@@ -3936,7 +3936,11 @@ class LibTelepath(Lib):
         scheme = url.split('://')[0]
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
             self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
-        return Proxy(self.runt, await self.runt.getTeleProxy(url))
+        try:
+            return Proxy(self.runt, await self.runt.getTeleProxy(url))
+        except Exception as e:
+            mesg = f'Failed to connect to Telepath service: "{s_urlhelp.sanitizeUrl(url)}" error: {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 @registry.registerType
 class Proxy(StormType):
