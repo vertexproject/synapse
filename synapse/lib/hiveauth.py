@@ -491,7 +491,7 @@ class Auth(s_nexus.Pusher):
 
         user = self.usersbyname.get(name)
         if user is not None:
-            return user
+            return
 
         node = await self.node.open(('users', iden))
         await node.set(name)
@@ -517,7 +517,7 @@ class Auth(s_nexus.Pusher):
 
         role = self.rolesbyname.get(name)
         if role is not None:
-            return role
+            return
 
         node = await self.node.open(('roles', iden))
         await node.set(name)
