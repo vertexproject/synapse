@@ -1628,7 +1628,7 @@ class LiftByArray(LiftOper):
 
         relname = props[0].name
         def cmprkey(node):
-            return node.props.get(relname)
+            return node.get(relname)
 
         genrs = []
         for prop in props:
@@ -1787,7 +1787,7 @@ class LiftProp(LiftOper):
 
         relname = props[0].name
         def cmprkey(node):
-            return node.props.get(relname)
+            return node.get(relname)
 
         genrs = []
         for prop in props:
@@ -1888,7 +1888,7 @@ class LiftPropBy(LiftOper):
 
             relname = props[0].name
             def cmprkey(node):
-                return node.props.get(relname)
+                return node.get(relname)
 
             genrs = []
             for prop in props:
