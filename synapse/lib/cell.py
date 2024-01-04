@@ -2596,7 +2596,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return user.name
 
     async def hasHttpSess(self, iden):
-        return bool(await self.getHttpSessDict(iden))
+        return self.sessstor.has(iden)
 
     async def genHttpSess(self, iden):
 
