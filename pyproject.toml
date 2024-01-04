@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.157.0'
+version = '2.158.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -32,12 +32,12 @@ dependencies = [
     'aiohttp>=3.8.1,<4.0',
     'aiohttp-socks>=0.8.0,<0.9.0',
     'aioimaplib>=1.0.1,<1.1.0',
-    'aiosmtplib>=2.0.0,<2.1.0',
+    'aiosmtplib>=3.0.0,<3.1.0',
     'prompt-toolkit>=3.0.4,<3.1.0',
     'lark==1.1.8',
-    'Pygments>=2.7.4,<2.17.0',
+    'Pygments>=2.7.4,<2.18.0',
     'packaging>=20.0,<24.0',
-    'fastjsonschema>=2.18.0,<2.19.0',
+    'fastjsonschema>=2.18.0,<2.20.0',
     'stix2-validator>=3.0.0,<4.0.0',
     'vcrpy>=4.3.1,<5.2.0',
     'base58>=2.1.0,<2.2.0',
@@ -48,7 +48,7 @@ dependencies = [
     'cbor2>=5.4.1,<5.6.0',
     'bech32==1.2.0',
     'oauthlib>=3.2.1,<4.0.0',
-    'idna>=3.3,<3.5',
+    'idna>=3.6,<3.7',
     'python-dateutil>=2.8,<3.0',
     'pytz>=2023.3,<2024.1',
     'beautifulsoup4[html5lib]>=4.11.1,<5.0',
