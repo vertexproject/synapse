@@ -1770,12 +1770,12 @@ class LiftFormTag(LiftOper):
         subtype = None
         if len(self.kids) == 3:
             subtype = await self.kids[2].compute(runt, path)
-            
+
         # TODO fix cmprkey for merggenr
-        
+
         for form in forms:
             genrs.append(runt.snap.nodesByTag(tag, form=form, reverse=self.reverse, subtype=subtype))
-                
+
         async for node in s_common.merggenr2(genrs, reverse=self.reverse):
             yield node
 
@@ -1784,11 +1784,11 @@ class LiftProp(LiftOper):
     async def lift(self, runt, path):
 
         name = await tostr(await self.kids[0].compute(runt, path))
-        
+
         subtype = None
         if len(self.kids) == 2:
             subtype = await self.kids[1].compute(runt, path)
-            
+
         prop = runt.model.props.get(name)
         if prop is not None:
             async for node in self.proplift(prop, runt, path, subtype=subtype):
@@ -1796,11 +1796,11 @@ class LiftProp(LiftOper):
             return
 
         proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
-        
+
         props = []
         for propname in proplist:
             props.append(runt.model.props.get(propname))
-            
+
         if len(props) == 1 or props[0].isform:
             for prop in props:
                 async for node in self.proplift(prop, runt, path, subtype=subtype):
@@ -3049,9 +3049,9 @@ class AbsPropCond(Cond):
 
         name = await self.kids[0].compute(runt, None)
         cmpr = await self.kids[1].compute(runt, None)
-        
+
         subtype = None
-            
+
         prop = runt.model.props.get(name)
         if prop is not None:
             ptyp = prop.type
@@ -3060,7 +3060,7 @@ class AbsPropCond(Cond):
                 if (subtype := prop.type.subtypes.get(cmprname)) is not None:
                     (ptyp, getr) = subtype
                     cmpr = self.kids[1].getCmpr()
-            
+
             ctor = ptyp.type.getCmprCtor(cmpr)
             if ctor is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
@@ -3102,7 +3102,7 @@ class AbsPropCond(Cond):
 
             prop = runt.model.props.get(proplist[0])
             relname = prop.name
-            
+
             ptyp = prop.type
             if isinstance(self.kids[1], ByNameCmpr):
                 cmprname = self.kids[1].getName()
