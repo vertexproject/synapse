@@ -799,7 +799,7 @@ Remove Tag Timestamps
 +++++++++++++++++++++
 
 To remove a tag timestamp from a tag, you must remove the tag element that contains the timestamp. The tag element
-can be re-added without the timestamp or property if needed.
+can be re-added without the timestamp if needed.
 
 
 .. _tag-prop-del:
