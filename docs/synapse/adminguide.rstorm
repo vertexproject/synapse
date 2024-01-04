@@ -680,6 +680,18 @@ Synapse assumes an implicit default ``deny all`` as the final rule evaluated whe
   the new permission is given a "default allow" that can then be specifically denied if necessary.
 
 
+.. admin_available_perms:
+
+Available Permissions
+~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`storm-auth-perms-list` command can be used to display the set of permissions available in your Cortex.
+This includes native Synapse permissions as well as any permissions associated with other packages and services.
+
+Sample output for this command can be seen under :ref:`admin_cortex_perms`. The permissions available on your
+Cortex may vary depending on the services and packages installed (e.g., such as Power-Ups).
+
+
 .. admin_global_perms:
 
 Global (Cortex) Permissions
