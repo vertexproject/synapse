@@ -329,7 +329,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of log event types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -436,7 +436,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A version control system type taxonomy.',
-                    'interfaces': ('taxonomy',)
+                    'interfaces': ('meta:taxonomy',)
                 }),
                 ('it:dev:repo:label', ('guid', {}), {
                     'doc': 'A developer selected label.',
@@ -476,7 +476,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
                     'doc': 'A software type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:prod:softid', ('guid', {}), {
                     'doc': 'An identifier issued to a given host by a specific software application.'}),
@@ -489,7 +489,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:prod:hardwaretype', ('taxonomy', {}), {
                     'doc': 'An IT hardware type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),

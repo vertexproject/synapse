@@ -45,7 +45,7 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A GUID for a contact info record.',
                 }),
                 ('ps:contact:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of contact types.',
                 }),
                 ('ps:contactlist', ('guid', {}), {
@@ -61,7 +61,7 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A specific skill which a person or organization may have.'
                 }),
                 ('ps:skill:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of skill types.',
                 }),
                 ('ps:proficiency', ('guid', {}), {
