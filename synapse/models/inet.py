@@ -1214,7 +1214,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An individual network connection between a given source and destination.'}),
 
                     ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('taxonomy',),
+                        'interfaces': ('meta:taxonomy',),
                         'doc': 'A taxonomy of network tunnel types.'}),
 
                     ('inet:tunnel', ('guid', {}), {
