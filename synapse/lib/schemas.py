@@ -199,3 +199,46 @@ reqValidVote = s_config.getJsValidator({
     'required': ['user', 'offset', 'created', 'approved'],
     'additionalProperties': False,
 })
+
+reqValidAhaPoolDef = s_config.getJsValidator({
+    'type': 'object', 'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'created': {'type': 'number', 'minval': 0},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'services': {'type': 'object', 'patternProperties': {
+            '.+': {'type': 'object', 'properties': {
+                'created': {'type': 'number', 'minval': 0},
+                'creator': {'type': 'string', 'pattern': s_config.re_iden},
+            },
+            'required': ['creator', 'created'],
+            'additionalProperties': False,
+        }}},
+    },
+    'additionalProperties': False,
+    'required': ['name', 'creator', 'created', 'services'],
+})
+
+_cellUserApiKeySchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'updated': {'type': 'integer', 'minimum': 0},
+        'expires': {'type': 'integer', 'minimum': 1},
+        'shadow': {
+            'type': 'object',
+        },
+    },
+    'additionalProperties': False,
+    'required': [
+        'iden',
+        'name',
+        'user',
+        'created',
+        'updated',
+        'shadow',
+    ],
+}
+reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)

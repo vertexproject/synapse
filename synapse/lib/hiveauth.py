@@ -491,7 +491,7 @@ class Auth(s_nexus.Pusher):
 
         user = self.usersbyname.get(name)
         if user is not None:
-            return user
+            return
 
         node = await self.node.open(('users', iden))
         await node.set(name)
@@ -517,7 +517,7 @@ class Auth(s_nexus.Pusher):
 
         role = self.rolesbyname.get(name)
         if role is not None:
-            return role
+            return
 
         node = await self.node.open(('roles', iden))
         await node.set(name)
@@ -543,6 +543,7 @@ class Auth(s_nexus.Pusher):
         if user is None:
             return
 
+        udef = user.pack()
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
 
@@ -553,6 +554,7 @@ class Auth(s_nexus.Pusher):
 
         await user.fini()
         await self.node.hive.pop(path)
+        await self.fire('user:del', udef=udef)
         await self.feedBeholder('user:del', {'iden': iden})
 
     def _getUsersInRole(self, role):
@@ -1120,6 +1122,18 @@ class HiveUser(HiveRuler):
             return False
 
         return gateinfo.get('admin', False)
+
+    def reqAdmin(self, gateiden=None, mesg=None):
+
+        if self.isAdmin(gateiden=gateiden):
+            return
+
+        if mesg is None:
+            mesg = 'This action requires global admin permissions.'
+            if gateiden is not None:
+                mesg = f'This action requires admin permissions on gate: {gateiden}'
+
+        raise s_exc.AuthDeny(mesg=mesg, user=self.iden, username=self.name)
 
     def isArchived(self):
         return self.info.get('archived')

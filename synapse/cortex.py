@@ -55,6 +55,7 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
 import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
@@ -954,6 +955,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCortexExtHttpApi()
 
         self.model = s_datamodel.Model()
+
+        await self._bumpCellVers('cortex:extmodel', (
+            (1, self._migrateTaxonomyIface),
+        ), nexs=False)
 
         # Perform module loading
         await self._loadCoreMods()
@@ -2807,6 +2812,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
 
+    async def _migrateTaxonomyIface(self):
+
+        extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
+
+        for formname, basetype, typeopts, typeinfo in extforms.values():
+            try:
+                ifaces = typeinfo.get('interfaces')
+
+                if ifaces and 'taxonomy' in ifaces:
+                    logger.warning(f'Migrating taxonomy interface on form {formname} to meta:taxonomy.')
+
+                    ifaces = set(ifaces)
+                    ifaces.remove('taxonomy')
+                    ifaces.add('meta:taxonomy')
+                    typeinfo['interfaces'] = tuple(ifaces)
+
+                    await extforms.set(formname, (formname, basetype, typeopts, typeinfo))
+
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'Taxonomy migration error for form: {formname} (skipped).')
+
     async def _loadExtModel(self):
 
         self.extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
@@ -3013,6 +3039,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:form:add')
     async def _addForm(self, formname, basetype, typeopts, typeinfo):
+
+        ifaces = typeinfo.get('interfaces')
+
+        if ifaces and 'taxonomy' in ifaces:
+            logger.warning(f'{formname} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
+
+            ifaces = set(ifaces)
+            ifaces.remove('taxonomy')
+            ifaces.add('meta:taxonomy')
+            typeinfo['interfaces'] = tuple(ifaces)
+
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, {}, ())
 
@@ -3692,6 +3729,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_aha.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_stormlib_gen.stormcmds:
