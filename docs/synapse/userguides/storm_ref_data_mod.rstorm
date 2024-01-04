@@ -7,14 +7,14 @@
 Storm Reference - Data Modification
 ===================================
 
-Storm can be used to directly modify data in Synapse by:
+Storm can be used to modify data in Synapse by:
 
 - adding or deleting nodes;
 - setting, modifying, or deleting properties on nodes; 
 - adding or deleting light edges; and 
 - adding or deleting tags from nodes (including tag timestamps or tag properties).
 
-The ability to create or modify data on the fly givs users a powerful degree of flexibility and efficiency.
+The ability to create or modify data on the fly gives users a powerful degree of flexibility and efficiency.
 
 .. WARNING::
   
@@ -129,7 +129,7 @@ See :ref:`data-mod-combo` below for examples showing the use of edit brackets wi
 
 The Storm "try" operator can be used in edit operations when setting properties ( ``?=`` ) or adding tags ( ``+?#`` ).
 
-Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attepmt to ensure
+Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attempt to ensure
 that a value "makes sense" for the property in question - that the value you specify for an ``inet:ipv4`` node looks
 reasonably like an IPv4 address (and not an FQDN or URL). If you try to set a property value that does not pass
 Synapse's type enforcement validation, Synapse will generate a ``BadTypeValu`` error. The error will cause the
@@ -252,11 +252,11 @@ Operation to add the specified node(s) to a Cortex.
 
 *Create a GUID node by specifying a list of string values used to generate a predictable guid:*
 
-.. storm-pre:: [ risk:threat=(mandiant,apt1) ]
+.. storm-pre:: [ risk:threat=(mandiant, apt1) ]
 
 ::
   
-  [ risk:threat=(mandiant,apt1) ]
+  [ risk:threat=(mandiant, apt1) ]
 
 
 .. TIP::
@@ -642,7 +642,13 @@ Synapse supports the use of :ref:`tag-timestamps` and :ref:`tag-properties` to p
 
 .. TIP::
   
-  You can optionally use the :ref:`edit-try` ( ``+?#`` ) when setting or modifying tag timestamps or tag properties.
+  You can optionally use the :ref:`edit-try` when setting or modifying tag timestamps or tag properties.
+  
+  - When using the try operator with tag timestamps, the operator is used with the tag name ( ``+?#<tag>=<time>``
+    or ``+?#<tag>=(<min_time>,<max_time>)`` ).
+  - When using the try operator with a tag property, the operator is used with the tag property value
+    ( ``+#<tag>:<tagprop>?=<pval>`` ).
+  
   Note that the tag and tag timestamp(s) or the tag and tag property are evaluated as a whole; if any
   part of the tag expression is invalid, the full edit operation will fail. For example, when attempting
   to add a tag with timestamps where the tag is valid but the timestamp values are not, neither the tag nor the
@@ -656,7 +662,7 @@ Add tag timestamps:
 
 Add tag property:
 
-*<query>* **[ +#** | **+?#** *<tag>* **:** *<tagprop>* **=** *<pval>* ... **]**
+*<query>* **[ +#** *<tag>* **:** *<tagprop>* **=** | **?=** *<pval>* ... **]**
 
 **Examples:**
 
@@ -683,7 +689,7 @@ Add tag property:
   :ref:`storm-ref-type-specific` for details on interval behavior and working with intervals.
 
 
-*Add tag with custom tag property:*
+*Add tag with custom tag property and value:*
 
 .. storm-pre:: $tagpropinfo = $lib.dict(doc="A risk tagprop.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
 ::
@@ -713,7 +719,7 @@ To "change" the tag applied to a node, you must add the new tag and delete the o
 .. TIP::
   
   The Storm :ref:`storm-movetag` command can be used to modify tags in bulk - that is, migrate an entire set of tags
-  (i.e., effectively "rename" the tags creating and applying new tags and removing the old ones) or move a tag to a
+  (i.e., effectively "rename" the tags by creating and applying new tags and removing the old ones) or move a tag to a
   different tag tree.
 
 .. _tag-prop-mod:
@@ -722,6 +728,11 @@ Modify Tag Timestamps or Tag Properties
 +++++++++++++++++++++++++++++++++++++++
 
 Tag timestamps or tag properties can be modified using the same syntax used to add the timestamp or property.
+
+.. TIP::
+  
+  Tag timestamps are intervals (ival types). See the :ref:`type-ival` section of the
+  :ref:`storm-ref-type-specific` for details on interval behavior when modifying interval values.
 
 
 .. _tag-del:
@@ -782,13 +793,37 @@ Removing a tag from a node differs from deleting the node representing a tag (a 
   parent tags that do not have other children).
 
 
+.. _tag-time-del:
+
+Remove Tag Timestamps
++++++++++++++++++++++
+
+To remove a tag timestamp from a tag, you must remove the tag element that contains the timestamp. The tag element
+can be re-added without the timestamp or property if needed.
+
+
 .. _tag-prop-del:
 
-Remove Tag Timestamps or Tag Properties
-+++++++++++++++++++++++++++++++++++++++
+Remove Tag Properties
++++++++++++++++++++++
 
-To remove a tag timestamp or a tag property from a tag, you must delete the tag element that contains the timestamp
-or property. The tag element can be re-added without the timestamp or property if needed.
+Removing a tag property deletes the property and any property value. The tag element to which the property was
+appended will remain.
+
+**Syntax:**
+
+Remove a tag property:
+
+*<query>* **[ -#** *<tag>* **:** *<tagprop>* ... **]**
+
+**Example:**
+
+*Remove the custom tag property ':risk' from a tag:*
+
+.. storm-pre:: inet:fqdn=woot.com [ -#rep.symantec:risk ]
+::
+
+    <inet:fqdn> [ -#rep.symantec:risk ]
 
 
 .. _data-mod-combo:
@@ -830,7 +865,7 @@ The following examples illustrate the differences in Storm behavior when using :
 with :ref:`edit-parens`.
 
 When performing simple edit operations (i.e., Storm queries that add / modify a single node, or apply a tag to
-the nodes retrieved by a Storm lift operation) users can generaally use edit brackets alone without delimiting
+the nodes retrieved by a Storm lift operation) users can generally use edit brackets alone without delimiting
 edit operations within additional edit parentheses (edit parens).
 
 Edit parens may be necessary when creating and modifying multiple nodes in a single query, or performing
