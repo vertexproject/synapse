@@ -3267,7 +3267,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:prop:add')
     async def _addFormProp(self, form, prop, tdef, info):
-        if (_form := self.model.form(form)) is not None and _form.prop(prop):
+        if (_form := self.model.form(form)) is not None and _form.prop(prop) is not None:
             return
 
         _prop = self.model.addFormProp(form, prop, tdef, info)
