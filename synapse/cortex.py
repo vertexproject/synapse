@@ -3230,7 +3230,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:form:del')
     async def _delForm(self, formname):
-        if self.model.form(formname) is not None:
+        if self.model.form(formname) is None:
             return
 
         for layr in self.layers.values():
