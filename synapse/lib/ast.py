@@ -1690,14 +1690,15 @@ class LiftFormTagProp(LiftOper):
             for form in forms:
                 genrs.append(runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
 
-        else:
-
-        subtype = None
-        if len(self.kids) == 2:
+        elif len(self.kids) == 2:
             subtype = await self.kids[1].compute(runt, path)
 
-        for form in forms:
-            genrs.append(runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse, subtype=subtype))
+            for form in forms:
+                genrs.append(runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse, subtype=subtype))
+
+        else:
+            for form in forms:
+                genrs.append(runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -1754,6 +1755,7 @@ class LiftFormTag(LiftOper):
 
         forms = runt.model.reqFormsByLook(formname, self.kids[0].addExcInfo)
 
+        genrs = []
         tag = await self.kids[1].compute(runt, path)
 
         if len(self.kids) == 4:
@@ -1762,21 +1764,32 @@ class LiftFormTag(LiftOper):
             valu = await toprim(await self.kids[3].compute(runt, path))
 
             for form in forms:
-                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
-                    yield node
+                genrs.append(runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse))
 
-            return
+            def cmprkey(node):
+                return node.getTag(tag, defval=(0, 0))
 
-        subtype = None
-        if len(self.kids) == 3:
+        elif len(self.kids) == 3:
+            ptyp = runt.model.type('ival')
             subtype = await self.kids[2].compute(runt, path)
+            if (styp := ptyp.subtypes.get(subtype)) is None:
+                raise s_exc.NoSuchType(name=subtype, mesg=f'Invalid subtype {subtype} for tag ival.')
+            (ptyp, getr) = styp
 
-        # TODO fix cmprkey for merggenr
+            for form in forms:
+                genrs.append(runt.snap.nodesByTag(tag, form=form, reverse=self.reverse, subtype=subtype))
 
-        for form in forms:
-            genrs.append(runt.snap.nodesByTag(tag, form=form, reverse=self.reverse, subtype=subtype))
+            def cmprkey(node):
+                return getr(node.getTag(tag, defval=(0, 0)))
 
-        async for node in s_common.merggenr2(genrs, reverse=self.reverse):
+        else:
+            for form in forms:
+                genrs.append(runt.snap.nodesByTag(tag, form=form, reverse=self.reverse))
+
+            def cmprkey(node):
+                return node.getTag(tag, defval=(0, 0))
+
+        async for node in s_common.merggenr2(genrs, cmprkey=cmprkey, reverse=self.reverse):
             yield node
 
 class LiftProp(LiftOper):
@@ -3061,7 +3074,7 @@ class AbsPropCond(Cond):
                     (ptyp, getr) = subtype
                     cmpr = self.kids[1].getCmpr()
 
-            ctor = ptyp.type.getCmprCtor(cmpr)
+            ctor = ptyp.getCmprCtor(cmpr)
             if ctor is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
