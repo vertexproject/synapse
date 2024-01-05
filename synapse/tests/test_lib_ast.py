@@ -3354,6 +3354,8 @@ class AstTest(s_test.SynTest):
                 test:ival=$ival3
                 test:ival=$ival4
                 test:ival=$ival5
+                (test:hasiface=foo :seen=$ival1)
+                (test:hasiface=bar :seen=$ival2)
             ]''', opts=opts)
 
             self.len(1, await core.nodes('ou:campaign.created +#tag*min=2020'))
@@ -3366,6 +3368,7 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('$valu=2020 ou:campaign.created +#tag*min=$valu'))
             self.len(1, await core.nodes('test:ival +test:ival*min=2020'))
             self.len(1, await core.nodes('test:ival +test:ival*max=?'))
+            self.len(1, await core.nodes('test:hasiface +test:interface:seen*min=2020'))
 
             self.len(0, await core.nodes('#newp*min'))
 
@@ -3426,6 +3429,9 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('#tag*newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('ou:campaign#tag*newp')
 
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('ou:campaign:period*newp')
