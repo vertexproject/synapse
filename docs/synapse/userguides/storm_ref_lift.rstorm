@@ -164,7 +164,7 @@ Lift by Extended Property
 
 An :ref:`gloss-extended-prop` is a custom property that has been added to the Synapse data model to capture specialized data
 for a given form. To avoid potential namespace collisions with standard properties, we recommend naming extended properties
-using an underscore followed by a vendor or source name as the first property namespace element.
+using an underscore followed by a source of vendor name as the first property namespace element.
 
 **Examples:**
 
@@ -178,7 +178,7 @@ using an underscore followed by a vendor or source name as the first property na
 
 .. NOTE::
   
-  The ``:_virustotal:reputation`` extended property is added to the Synapse data model by the Synapse-VirusTotal Power-Up.
+  The ``:_virustotal:reputation`` extended property is added to the Synapse data model by the `Synapse-VirusTotal`_ Power-Up.
 
 
 .. _lift-prop-standard:
@@ -194,7 +194,7 @@ A "lift by property value" operation returns the node(s) whose property matches 
 
 A "lift by property value" can be performed using primary, secondary, universal, or extended properties.
 
-In Synapse, we define **standard comparison operators** as the following set of mathematical operators:
+In Synapse, we define **standard comparison operators** as the following set of operators:
 
 - equal to ( ``=`` )
 - less than ( ``<`` )
@@ -208,13 +208,13 @@ complex Storm queries (such as automation or Storm-based ingest queries).
 
 The most commonly used standard comparison operator is the equal to ( ``=`` ) operator. Comparison operators that
 expect a **quantity** (i.e., the inequality symbools ``<``, ``>``, ``<=``, and ``>=``) can only be used with
-properties whose type is a numeric value (e.g., integers, dates/times, etc.)
+properties whose type supports the comparison (e.g., integers, dates/times, etc.)
 
 .. TIP::
   
   IP addresses (``inet:ipv4`` and ``inet:ipv6`` nodes) are stored as their decimal integer equivalents,
-  (even though they are represented (displayed) in familiar "human readable" format), so the various
-  inequality operators can be used with IPv4 and IPv6 properties.
+  (even though they are displayed in familiar "dotted decimal" format), and can be used with the various
+  inequality operators.
 
 
 .. _lift-prop-std-primary:
@@ -244,7 +244,7 @@ Lift by Primary Property Value
   
   inet:dns:a=(woot.com, 1.2.3.4)
 
-*Lift the organization node whose primary property is the specified :ref:`gloss-guid`:*
+*Lift the organization node whose primary property is the specified guid (globally unique identifier):*
 
 .. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :alias=vertex ]
 .. storm-pre:: ou:org=4b0c2c5671874922ce001d69215d032f
@@ -255,10 +255,10 @@ Lift by Primary Property Value
 *Lift the Autonomus System (inet:asn) nodes whose AS number is less than 50:*
 
 .. storm-pre:: [ ( inet:asn=49 :name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :name=stanford ) ( inet:asn=71 :name=hp-internet-as ) ]
-.. storm-pre:: inet:asn > 50
+.. storm-pre:: inet:asn < 50
 ::
   
-  inet:asn > 50
+  inet:asn < 50
 
 
 .. _lift-prop-std-secondary:
@@ -280,40 +280,40 @@ Lift by Secondary Property Value
   
   ou:org:alias = vertex
 
-*Lift all DNS A records for the FQDN "sb.hugesoft.org":*
+*Lift all DNS A records for the FQDN "hugesoft.org":*
 
-.. storm-pre:: [ ( inet:dns:a=(sb.hugesoft.org, 69.195.129.72) .seen=(2014/03/22 00:00:00, 2014/03/22 00:00:00.001) ) (inet:dns:a=(sb.hugesoft.org, 103.224.212.219) .seen=(2023/10/04 22:59:10.973, 2023/10/04 22:59:10.974) ) ]
-.. storm-pre:: inet:dns:a:fqdn = sb.hugesoft.org
+.. storm-pre:: [ ( inet:dns:a=(hugesoft.org, 69.195.129.72) .seen=(2014/03/22 00:00:00, 2014/03/22 00:00:00.001) ) (inet:dns:a=(hugesoft.org, 103.224.212.219) .seen=(2023/10/04 22:59:10.973, 2023/10/04 22:59:10.974) ) ]
+.. storm-pre:: inet:dns:a:fqdn = hugesoft.org
 ::
   
-  inet:dns:a:fqdn = sb.hugesoft.org
+  inet:dns:a:fqdn = hugesoft.org
 
-*Lift all the files with a PE compiled time of "1992-06-19 22:22:17":*
+*Lift all the files with a PE compiled time of 1992-06-19 22:22:17:*
 
 .. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"]
-.. storm-pre:: file:bytes:mime:pe:compiled = "1992/06/19 22:22:17"
+.. storm-pre:: file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
 ::
   
-  file:bytes:mime:pe:compiled = "1992/06/19 22:22:17"
+  file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
 
 *Lift all the files with a PE compiled time that falls within the year 2019:*
 
 .. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/03/26 11:14:00.000' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2019/06/12 22:02:16.000' ) ]
-.. storm-pre:: file:bytes:mime:pe:compiled=2019*
+.. storm-pre:: file:bytes:mime:pe:compiled = 2019*
 ::
   
-  file:bytes:mime:pe:compiled=2019*
+  file:bytes:mime:pe:compiled = 2019*
 
 
 *Lift files whose size is less than than 1MB:*
 
-.. storm-pre:: [file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384 ]
-.. storm-pre:: file:bytes:size<1000000
+.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384 ]
+.. storm-pre:: file:bytes:size < 1000000
 ::
   
-  file:bytes:size > 1000000
+  file:bytes:size < 1000000
 
-*Lift domain WHOIS records where the domain was registered (created) after January 1, 2023:*
+*Lift domain WHOIS records for FQDNs registered (created) after January 1, 2023:*
 
 .. storm-pre:: [ inet:whois:rec=(financialtimes365.com, '2023/01/01 21:46:23') :created='2023/01/01 19:31:29' ]
 .. storm-pre:: inet:whois:rec:created > 2023/01/01
@@ -324,10 +324,10 @@ Lift by Secondary Property Value
 *Lift PE files that were compiled during the year 2012 or earlier:*
 
 .. storm-pre:: [ file:bytes=sha256:a142625512e5372a1728595be19dbee23eea50524b4827cb64ed5aaeaaa0270b :mime:pe:compiled='2010/01/07 02:53:12.000']
-.. storm-pre:: file:bytes:mime:pe:compiled<=2012*
+.. storm-pre:: file:bytes:mime:pe:compiled <= 2012*
 ::
   
-  file:bytes:mime:pe:compiled<=2012*
+  file:bytes:mime:pe:compiled <= 2012*
 
 *Lift contact data (ps:contact nodes) for individuals where the date of birth (:dob property) is January 1, 1990 or later:*
 
@@ -360,10 +360,10 @@ Lift by Universal Property Value
 *Lift all FQDNs created after January 1, 2024:*
 
 .. storm-pre:: [ inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com ]
-.. storm-pre:: inet:fqdn.created>=2024/01/01
+.. storm-pre:: inet:fqdn.created >= 2024/01/01
 ::
   
-  inet:fqdn.created>=2024/01/01
+  inet:fqdn.created >= 2024/01/01
 
 .. TIP::
   
@@ -385,14 +385,10 @@ Lift by Extended Property Value
 *Lift all files with a VirusTotal "reputation" score less than -50:*
 
 .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
-.. storm-pre:: file:bytes:_virustotal:reputation<-50
+.. storm-pre:: file:bytes:_virustotal:reputation < -50
 ::
   
-  file:bytes:_virustotal:reputation<-50
-
-.. NOTE::
-  
-  The ``:_virustotal:reputation`` extended property is added to the Synapse data model by the Synapse-VirusTotal Power-Up.
+  file:bytes:_virustotal:reputation < -50
 
 
 .. _lift-prop-extended:
@@ -410,7 +406,15 @@ Storm supports a set of extended comparison operators (comparators) for speciali
 - `Lift by Proximity (*near=)`_
 - `Lift by (Arrays) (*[ ])`_
 
-Each comparison operator can be used with any kind of property (primary, secondary, universal, or
+Just as with standard comparison operators, lifting by property value with extended comparison operators
+requires:
+
+- the form name or full property name (i.e., the combined form and property name) that you will use to lift
+  the node(s);
+- a :ref:`gloss-comp-operator` to specify how the property value should be evaluated; and
+- the property value.
+
+Each extended comparison operator can be used with any kind of property (primary, secondary, universal, or
 extended) whose :ref:`gloss-type` is appropriate for the comparison used.
 
 .. _lift-regex:
@@ -422,7 +426,7 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 
 .. TIP::
   
-  `Lift by Prefix (^=)`_ is supported for string types and can be used to match the beginning of string properties.
+  `Lift by Prefix (^=)`_ can be used to match the beginning of string-based properties.
 
 **Syntax:**
 
@@ -442,10 +446,10 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 *Lift all organizations whose name contains a string that starts with "v", followed by 0 or more characters, followed by "x":*
 
 .. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :alias=vertex) (ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground) ]
-.. storm-pre:: ou:org:name~='^v.*x'
+.. storm-pre:: ou:org:name ~= '^v.*x'
 ::
   
-  ou:org:name~='^v.*x'
+  ou:org:name ~= '^v.*x'
 
 
 .. _lift-prefix:
@@ -464,7 +468,7 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
   :ref:`type-inet-fqdn` nodes are indexed in reverse string order so cannot be lifted using the prefix extended
   operator. However, reverse indexing allows wildcard ( ``*`` ) matching of the beginning of any FQDN string.
   
-  See the relevant sections in the :ref:`type-inet-fqdn` section of the :ref:`storm-ref-type-specific` guide for details.
+  See the relevant sections in the :ref:`storm-ref-type-specific` guide for details.
 
 **Syntax:**
 
@@ -475,26 +479,26 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 *Lift all email addresses that start with "abuse":*
 
 .. storm-pre:: [ inet:email=abuse@1and1.com inet:email=abuse.tor-exit@posteo.org ]
-.. storm-pre:: inet:email^=abuse
+.. storm-pre:: inet:email ^= abuse
 ::
   
-  inet:email^=abuse
+  inet:email ^= abuse
 
 *Lift all organizations whose name starts with "ministry":*
 
 .. storm-pre:: [ (ou:org=a7f31ce9809e103ddedf36c1e1e91249 :name='ministry for foreign affairs of finland') (ou:org=1560dc4129405e18fd32f30b6f01fa1f :name='ministry of finance of ukraine') ]
-.. storm-pre:: ou:org:name^=ministry
+.. storm-pre:: ou:org:name ^= ministry
 ::
   
-  ou:org:name^=ministry
+  ou:org:name ^= ministry
 
 *Lift all tags (syn:tag) nodes in the "rep.alienvault" tree where the third tag element starts with the numeral "0":*
 
 .. storm-pre:: [ syn:tag=rep.alienvault.0_day syn:tag=rep.alienvault.0ktapus ]
-.. storm-pre:: syn:tag^=rep.alienvault.0
+.. storm-pre:: syn:tag ^= rep.alienvault.0
 ::
   
-  syn:tag^=rep.alienvault.0
+  syn:tag ^= rep.alienvault.0
 
 .. TIP::
   
@@ -502,11 +506,11 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
   not constrained to dot boundaries. In other words, a prefix lift used with tags can match a partial tag
   element. The query above will match all of the following tags:
   
-  ``syn:tag=rep.alienvault.0_day``
-  ``syn:tag=rep.alienvault.0_days``
-  ``syn:tag=rep.alienvault.0day``
-  ``syn:tag=rep.alienvault.0days``
-  ``syn:tag=rep.alienvault.0ktapus``
+  - syn:tag=rep.alienvault.0_day
+  - syn:tag=rep.alienvault.0_days
+  - syn:tag=rep.alienvault.0day
+  - syn:tag=rep.alienvault.0days
+  - syn:tag=rep.alienvault.0ktapus
 
 
 .. _lift-interval:
@@ -514,7 +518,7 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 Lift by Time or Interval (@=)
 +++++++++++++++++++++++++++++
 
-Synapse supports numerous forms whose properties are date / time values (*<ptype>* = *<time>*) or
+Many forms include properties that are date / time values (*<ptype>* = *<time>*) or
 time windows / intervals (*<ptype>* = *<ival>*). The time/interval extended comparator ``@=`` is
 used to lift nodes based on comparisons among various combinations of times and intervals.
 
@@ -536,50 +540,50 @@ used to lift nodes based on comparisons among various combinations of times and 
 *Lift all DNS A records whose .seen values fall between July 1, 2022 and August 1, 2022:*
 
 .. storm-pre:: [ inet:dns:a=(easymathpath.com, 135.125.78.187) .seen=(2021/09/12 00:00:00, 2023/08/08 01:50:54.001) ]
-.. storm-pre:: inet:dns:a.seen@=(2022/07/01, 2022/08/01)
+.. storm-pre:: inet:dns:a.seen @= ( 2022/07/01, 2022/08/01 )
 ::
   
-  inet:dns:a.seen@=(2022/07/01, 2022/08/01)
+  inet:dns:a.seen @= ( 2022/07/01, 2022/08/01 )
 
 *Lift all DNS requests that occurred on May 3, 2023 (between 05/03/2023 00:00:00 and 05/03/2023 23:59:59):*
 
 .. storm-pre:: [ inet:dns:request="*" :time="2023/05/03 21:09:04.000" :query:name:fqdn=vertex.link ]
-.. storm-pre:: inet:dns:request:time@=("2023/05/03 00:00:00", "2023/05/04 00:00:00")
+.. storm-pre:: inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ::
   
-  inet:dns:request:time@=("2023/05/03 00:00:00", "2023/05/04 00:00:00")
+  inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 
 .. TIP:
   
   Because the ``inet:dns:request:time`` property is a single date / time value, the following query
   would also work:
   
-  ``inet:dns:request:time=2023/05/03*``
+  ``inet:dns:request:time = 2023/05/03*``
 
 
 *Lift the WHOIS email nodes that were observed between July 1, 2023 and the present:*
 
 .. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ]
-.. storm-pre:: inet:whois:email.seen@=(2023/07/01, now)
+.. storm-pre:: inet:whois:email.seen @= ( 2023/07/01, now )
 ::
   
-  inet:whois:email.seen@=(2023/07/01, now)
+  inet:whois:email.seen @= ( 2023/07/01, now )
 
 *Lift the network flows that occurred within the past day:*
 
 .. storm-pre:: [ inet:flow="*" :time=now ]
-.. storm-pre:: inet:flow:time@=(now,'-1 day')
+.. storm-pre:: inet:flow:time @= ( now, '-1 day' )
 ::
   
-  inet:flow:time@=(now,'-1 day')
+  inet:flow:time @= ( now, '-1 day' )
 
 *Lift all the FQDNs that were owned / controlled by Threat Group 43 between January 1, 2022 and July 1, 2023:*
 
 .. storm-pre:: [ inet:fqdn=evil.com +#cno.threat.t43.own=(2021/12/15, 2022/12/15) ] 
-.. storm-pre:: inet:fqdn#cno.threat.t43.own@=(2022/01/01, 2023/07/01)
+.. storm-pre:: inet:fqdn#cno.threat.t43.own @= ( 2022/01/01, 2023/07/01 )
 ::
   
-  inet:fqdn#cno.threat.t43.own@=(2022/01/01, 2023/07/01)
+  inet:fqdn#cno.threat.t43.own @= ( 2022/01/01, 2023/07/01 )
 
 **Usage Notes:**
 
@@ -587,26 +591,28 @@ used to lift nodes based on comparisons among various combinations of times and 
   comparison purposes but the maximum value is **not**. This is equivalent to "greater than or equal to
   *<min>* and less than *<max>*". This behavior differs from that of the ``*range=`` operator, which includes
   **both** the minimum and maximum.
-- When specifying an interval with the ``@=`` operator to lift nodes based on an interval property (comparing
-  an interval to an interval), Storm returns nodes whose interval value has **any** overlap with the specified
-  interval.
+- **Comparing intervals to intervals:** when using an interval with the ``@=`` operator to lift nodes based on
+  an interval property, Synapse returns nodes whose interval value has **any** overlap with the specified
+  interval. For example:
 
-  - For example, a lift interval of September 1, 2018 to October 1, 2018 (2018/09/01, 2018/10/01) will match nodes with any of the following intervals:
+  - A lift interval of September 1, 2018 to October 1, 2018 ( 2018/09/01, 2018/10/01 ) will match nodes with any
+    of the following intervals:
   
-    - August 12, 2018 to September 6, 2018.
-    - September 13, 2018 to September 17, 2018.
-    - September 30, 2018 to November 5, 2018.
+    - August 12, 2018 to September 6, 2018 ( 2018/08/12, 2018/09/06 ).
+    - September 13, 2018 to September 17, 2018 ( 2018/09/13, 2018/09/17 ).
+    - September 30, 2018 to November 5, 2018 ( 2018/09/30, 2018/11/05 ).
 
-- When specifying an interval with the ``@=`` operator to lift nodes based on a time property (comparing an interval
-  to a time), Storm returns nodes whose time value falls within the specified interval.
-- When specifying a time with the ``@=`` operattor to lift nodes based on a time property (comparing a time to a time),
-  Storm returns nodes whose timestamp is an **exact match** of the specified time. While interval ( ``@=`` ) syntax is
+- **Comparing intervals to times:** When using an interval with the ``@=`` operator to lift nodes based on a time
+  property, Synapse returns nodes whose time value falls within the specified interval.
+- **Comparing times to times:** When using a time with the ``@=`` operattor to lift nodes based on a time property,
+  Synapse returns nodes whose timestamp is an **exact match** of the specified time. While interval ( ``@=`` ) syntax is
   supported for comparing times to other times, the regular equals comparator ( ``=`` ) can also be used and is more
   straightforward.
-- When specifying date / time and interval, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
+- When specifying date / time and interval values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
   and wildcard values (e.g., ``YYYY/MM*``). Wildcard time syntax may provide a simpler and more intuitive means to specify
   some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.
-- Time-based keywords (such as ``now``) and relative time syntax (``+-1 hour``, ``-7 days``) can be used for interval values.
+- Time-based keywords (such as ``now``) and relative time syntax (expressions such as ``+-1 hour`` or ``-7 days``) can be used
+  for interval values.
 
   See the type-specific documentation for :ref:`type-time` and :ref:`type-ival` types for a detailed discussion of these behaviors.
 
@@ -623,7 +629,9 @@ within a specified range of values. The comparator can be used with types such a
   
   The ``*range=`` operator can be used with both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
   in their decimal integer format). However, :ref:`type-inet-ipv4` nodes can also be lifted directly by
-  specifying an IPv4 range using the equal to ( ``=`` ) operator (e.g., ``inet:ipv4 = 192.168.0.0-192.168.0.10``).
+  specifying an IPv4 range using the equal to ( ``=`` ) operator. For example:
+  
+  ``inet:ipv4 = 192.168.0.0-192.168.0.10``
   
   The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
   (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
@@ -638,39 +646,39 @@ within a specified range of values. The comparator can be used with types such a
 *Lift all files whose size is between 1000 and 100000 bytes:*
 
 .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000]
-.. storm-pre:: file:bytes:size*range=(1000, 100000)
+.. storm-pre:: file:bytes:size *range= ( 1000, 100000 )
 ::
   
-  file:bytes:size*range=(1000,100000)
+  file:bytes:size *range= ( 1000, 100000 )
 
 *Lift all files whose VirusTotal "reputation" score is between -20 and 20:*
 
 .. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ]
-.. storm-pre:: file:bytes:_virustotal:reputation*range=(-16, 8)
+.. storm-pre:: file:bytes:_virustotal:reputation *range= ( -20, 20 )
 ::
   
-  file:bytes:_virustotal:reputation*range=(-16, 8)
+  file:bytes:_virustotal:reputation *range= ( -20, 20 )
 
 *Lift all domain WHOIS records that were captured / retrieved between November 29, 2013 and June 14, 2016:*
 
 .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ]
-.. storm-pre:: inet:whois:rec:asof*range=(2013/11/29, 2016/06/14)
+.. storm-pre:: inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 ::
   
-  inet:whois:rec:asof*range=(2013/11/29, 2016/06/14)
+  inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-*Lift all DNS requests made within one day of 12/01/2021:*
+*Lift all DNS requests made within one day of December 1, 2021:*
 
 .. storm-pre:: [ inet:dns:request="*" :time="2021/11/30 21:09:04.000"]
-.. storm-cli:: inet:dns:request:time*range=(2018/12/01, '+-1 day')
+.. storm-pre:: inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
 ::
   
-  inet:dns:request:time*range=(2018/12/01, '+-1 day')
+  inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
 
 
 **Usage Notes:**
 
-- When specifying a range, both the minimum and maximum values are included in the range. This is the
+- When specifying a range, **both** the minimum and maximum values are included in the range. This is the
   equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
 - When specifying a range of time values, Synapse allows the use of both lower resolution values (e.g.,
   ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range values.
@@ -681,9 +689,9 @@ within a specified range of values. The comparator can be used with types such a
 - When using keywords (such as ``now``) or relative values (such as ``-1 hour``) to specify a range of
   times, the first value in the range is calculated relative to the current time and the second value
   is calculated relative to the first value. 
-- If you specify a range value that is nonsencical or exclusionary (such as ``( 47, 16)``), Synapse
-  will **not** generate an error and will simply fail to return results (i.e., no value is both greater
-  than 47 and less than 16).
+- If you specify a range value that is nonsencical or exclusionary (such as ``( 47, 16 )``), Synapse
+  will **not** generate an error and will simply fail to return results. (The expression is syntacticaly
+  correct, but no value is both greater than 47 and less than 16).
 
 .. _lift-set:
 
@@ -702,26 +710,26 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
 *Lift organization names matching any of the specified values:*
 
 .. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ]
-.. storm-pre:: ou:name*in=(fsb, gru, svr)
+.. storm-pre:: ou:name *in= ( fsb, gru, svr )
 ::
   
-  ou:name*in=(fsb, gru, svr)
+  ou:name *in= ( fsb, gru, svr )
 
 *Lift all IPv4 addresses associated with any of the specified Autonomous System (AS) numbers:*
 
 .. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ]
-.. storm-pre:: inet:ipv4:asn*in=(9009, 20473, 44477)
+.. storm-pre:: inet:ipv4:asn *in= ( 9009, 20473, 44477 )
 ::
   
-  inet:ipv4:asn*in=(9009, 20473, 44477)
+  inet:ipv4:asn *in= ( 9009, 20473, 44477 )
 
-*Lift all tags (syn:tag nodes) that end in any of the specified string values:*
+*Lift all tags (syn:tag nodes) whose final tag element matches any of the specified string values:*
 
 .. storm-pre:: [ syn:tag=rep.talos.plugx syn:tag=rep.eset.korplug syn:tag=rep.mandiant.sogu syn:tag=rep.alienvault.kaba ]
-.. storm-pre:: syn:tag:base*in=(plugx, korplug, sogu, kaba)
+.. storm-pre:: syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 ::
   
-  syn:tag:base*in=(plugx, korplug, sogu, kaba)
+  syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 
 
 .. _lift-proximity:
@@ -738,13 +746,13 @@ supports proximity based on geospatial location (i.e., nodes within a given radi
 
 **Examples:**
 
-*Lift all locations (``geo:place`` nodes) within 500 meters of the Russian Cryptographic Museum (where the coordinates 55.83069,37.59781 represent the Museum's location):*
+*Lift all locations (geo:place nodes) within 500 meters of the Russian Cryptographic Museum (where the coordinates 55.83069,37.59781 represent the Museum's location):*
 
 .. storm-pre:: [ ( geo:place="*" :latlong="55.83088, 37.59962" :name="concern avtomatika" ) ]
-.. storm-pre:: geo:place:latlong*near=((55.83069,37.59781),500m)
+.. storm-pre:: geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 ::
   
-  geo:place:latlong*near=((55.83069,37.59781),500m)
+  geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 
 **Usage Notes:**
 
@@ -755,9 +763,9 @@ supports proximity based on geospatial location (i.e., nodes within a given radi
   - Centimeters (cm)
   - Millimeters (mm)
 
-- Numeric values of less than 1 (e.g., 0.5km) must be specified with a leading zero.
+- Numeric values of less than 1 must be specified with a leading zero (e.g., 0.5km).
 - The ``*near=`` comparator works for geospatial data by lifting nodes within a square bounding box centered at *<lat>,<long>*,
-  then filters the nodes to be returned by ensuring that they are within the great-circle distance given by the *<radius>* argument.
+  then filters the nodes returned by ensuring that they are within the great-circle distance given by the *<radius>* argument.
 
 
 .. _lift-by-arrays:
@@ -779,29 +787,29 @@ without needing to know the exact order or values of the array itself.
 *Lift the x509 certificates (crypto:x509:cert nodes) that reference FQDNs ending with ".xyz":*
 
 .. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(woot.biz, woot.xyz)]
-.. storm-pre:: crypto:x509:cert:identities:fqdns*[='*.xyz']
+.. storm-pre:: crypto:x509:cert:identities:fqdns *[ = '*.xyz' ]
 ::
   
-  crypto:x509:cert:identities:fqdns*[='*.xyz']
+  crypto:x509:cert:identities:fqdns *[ = '*.xyz' ]
 
 *Lift the MITRE ATT&CK groups whose names include the string 'bear':*
 
 .. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ]
-.. storm-pre:: it:mitre:attack:group:names*[~=bear]
+.. storm-pre:: it:mitre:attack:group:names *[ ~= bear ]
 ::
   
-  it:mitre:attack:group:names*[~=bear]
+  it:mitre:attack:group:names *[ ~= bear ]
 
 **Usage Notes:**
 
 - The comparison operator used must be valid for lift operations for the type used in the array. For example,
-  :ref:`type-inet-fqdn` suffix matching (i.e., ``crypto:x509:cert:identities:fqdns*[="*.com"]``), can be used
-  when lifting arrays consisting of domains, but the prefix operator (``^=``), which is only valid when
+  :ref:`type-inet-fqdn` suffix matching (i.e., ``crypto:x509:cert:identities:fqdns *[ = '*.com' ]``), can be used
+  when lifting arrays consisting of domains, but the prefix operator ( ``^=`` ), which is only valid when
   **filtering** ``inet:fqdns``, cannot.
 - The standard equals ( ``=`` ) operator can be used to filter nodes based on array properties, but the value
-  specified must **exactly match** the **full** property value in question:
-
-  - For example: ``ou:org:names=("the vertex project","the vertex project llc",vertex)``
+  specified must **exactly match** the **full** property value in question. For example:
+  
+  ``ou:org:names=( "the vertex project", "the vertex project llc", vertex )``
 
 - See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional details.
 
@@ -812,10 +820,12 @@ Tag Lifts
 ---------
 
 Tags in Synapse can represent observations or assessments. They are used to provide context to nodes (in the
-form of "labels" applied to nodes) and to group related nodes (nodes with similar context).
+form of "labels" applied to nodes) and to group related nodes.
 
-Storm supports lifting nodes based on the tag(s) applied to the node, as well as various specialized lifts
-related to tag timestamps, tag properties, and partial tag matches.
+Storm supports lifting nodes based on the tag(s) applied to the node, as well lifting based on tag timestamps,
+tag properties, or tag property values.
+
+The "hashtag" symbol ( ``#`` ) is used to specify a tag name when lifting by tag.
 
 .. _lift-by-tag:
 
@@ -848,7 +858,7 @@ A "lift by tag" operation lifts **all** nodes that have the specified tag.
 
 .. TIP::
   
-  Tags are hierarchical and each tag element is its own tag; the tag ``#cno.infra.anon`` consists of the tags ``#cno``,
+  Tags are hierarchical, and each tag element is its own tag; the tag ``#cno.infra.anon`` consists of the tags ``#cno``,
   ``#cno.infra``, and ``#cno.infra.anon``. Lifting nodes using a tag "higher up" in the tag hierarchy will lift all
   nodes with specified tag or any tag "lower down" in the hierarchy. In other words, lifting by ``#cno.infra.anon``
   will lift "anonymized" infrastructure, whether the infrastructure is a VPN (``#cno.infra.anon.vpn``), a TOR node
@@ -859,8 +869,7 @@ A "lift by tag" operation lifts **all** nodes that have the specified tag.
 Lift Form by Tag
 ++++++++++++++++
 
-Lifting by tag alone will return any / all nodes with the assocaited tag. Lift form by tag is used to return only 
-specific nodes with the tag.
+Lift form by tag lifts only those nodes of the specified form that have a particular tag.
 
 **Syntax:**
 
@@ -901,37 +910,39 @@ Lift Using Tag Timestamps
 +++++++++++++++++++++++++
 
 A tag timestamp can be thought of as a specialized "property" of a tag that happens to be a date / time range
-(interval). You can lift nodes based on tag timestamps using any comparison operator supported by interval
+(interval). You can lift nodes based on tag timestamp values using any comparison operator supported by interval
 (:ref:`type-ival` types). The time / interval extended operator ( ``@=`` ) is used most often, but equal to
-( ``=`` ) can also be used for **exact** matches.
+( ``=`` ) can also be used to **exact** match the values in the interval.
+
+See :ref:`lift-interval` for additional detail on the use of the ``@=`` operator.
 
 **Syntax:**
 
 [ *<form>* ] **#** *<tag>* **@=** *<time>* | **(** *<min_time>* **,** *<max_time>* **)**
 
-*Lift any nodes that were assocaited with anonymous VPN infrastructure between December 1, 2023 and January 1, 2024:*
+*Lift any nodes that were associated with anonymous VPN infrastructure between December 1, 2023 and January 1, 2024:*
 
 .. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ipv6=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ]
-.. storm-pre:: #cno.infra.anon.vpn.airvpn@=(2023/12/01,2024/01/01)
+.. storm-pre:: #cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ::
   
-  #cno.infra.anon.vpn.airvpn@=(2023/12/01,2024/01/01)
+  #cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 
-*Lift the FQDNs that were associated with Threat Cluster 15 as of October 30, 2021:*
+*Lift the FQDNs that were owned / controlled by Threat Cluster 15 as of October 30, 2021:*
 
 .. storm-pre:: [ inet:fqdn=ronthecat.com +#cno.threat.t15.own=(2020/09/12, 2022/09/12) ]
-.. storm-pre:: inet:fqdn#cno.threat.t15.own@=2021/10/30
+.. storm-pre:: inet:fqdn#cno.threat.t15.own @= 2021/10/30
 ::
   
-  inet:fqdn#cno.threat.t15.own@=2021/10/30
+  inet:fqdn#cno.threat.t15.own @= 2021/10/30
 
 *Lift the IP addresses that were TOR exit nodes between April 1, 2023 and July 1, 2023:*
 
 .. storm-pre:: [ ( inet:ipv4=185.29.8.215 +#cno.infra.anon.tor.exit=(2023/05/08 14:30:51, 2024/01/04 22:05:03) ) ( inet:ipv4=91.208.162.197 +#cno.infra.anon.tor.exit=(2023/03/14 15:00:25, 2023/09/12 15:35:57) ) ]
-.. storm-pre:: inet:ipv4#cno.infra.anon.tor.exit@=(2023/04/01,2023/07/01)
+.. storm-pre:: inet:ipv4#cno.infra.anon.tor.exit @= ( 2023/04/01, 2023/07/01 )
 ::
   
-  inet:ipv4#cno.infra.anon.tor.exit@=(2023/04/01,2023/07/01)
+  inet:ipv4#cno.infra.anon.tor.exit @= ( 2023/04/01, 2023/07/01 )
 
 .. _lift-tag-prop:
 
@@ -970,8 +981,9 @@ whose tags have a specific tag property (regardless of the value of the property
 
 .. NOTE::
   
-  You must specify a tag associated with the tag property. It is not possible to lift nodes based on a tag
-  property present on **any** tag (e.g., ``#:risk`` or ``inet:fqdn#:risk`` will generate ``BadSyntax`` errors).
+  You must specify a tag associated with the tag property. It is not possible to lift nodes based on a particular
+  tag property being present on **any** tag (e.g., Storm queries such as ``#:risk`` or ``inet:fqdn#:risk`` will
+  generate ``BadSyntax`` errors).
 
 
 .. _lift-tag-prop-value:
@@ -997,37 +1009,34 @@ more complex Storm queries (such as automation or Storm-based ingest queries).
 *Lift any nodes with a ":risk" property value of 100 as reported by ESET:*
 
 .. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ]
-.. storm-pre:: #rep.eset:risk=100
+.. storm-pre:: #rep.eset:risk = 100
 ::
   
-  #rep.eset:risk=100
+  #rep.eset:risk = 100
 
 *Lift all FQDNs with a ":risk" property value greater than 90 as reported by domaintools:*
 
 .. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ]
-.. storm-pre:: inet:fqdn#rep.domaintools:risk>90
+.. storm-pre:: inet:fqdn#rep.domaintools:risk > 90
 ::
   
-  inet:fqdn#rep.domaintools:risk>90
+  inet:fqdn#rep.domaintools:risk > 90
 
 *Lift all FQDNs with a ":risk" property with a value between 45 and 70 as reported by Symantec:*
 
 .. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ]
-.. storm-pre:: inet:fqdn#rep.symantec:risk*range=(45, 70)
+.. storm-pre:: inet:fqdn#rep.symantec:risk *range= ( 45, 70 )
 ::
   
-  inet:fqdn#rep.symantec:risk*range=(45, 70)
+  inet:fqdn#rep.symantec:risk *range= ( 45, 70 )
 
-
-
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 
 .. _lift-tag-recursive:
 
 Recursive Tag Lift (##)
 +++++++++++++++++++++++
 
-Tags can be applied to ``syn:tag`` nodes to record additional information about the information represented by
+Tags can be applied to ``syn:tag`` nodes to record additional information about the the observation represented by
 the ``syn:tag`` node itself. In other words, tags (labels) can be used to provide additional context about tags
 (``syn:tag`` nodes).
 
@@ -1037,11 +1046,14 @@ The ability to "tag the tags" can be used to represent certain types of analytic
 - ``syn:tag`` nodes representing malware or tools can be tagged with their assessed availability (e.g., public,
   private, private but shared, etc.)
 
-A recursive tag lift will lift all nodes with the specified tag. If the lift operation returns any ``syn:tag``
-nodes (i.e., that were tagged with the specified tag), then Synapse lifts all nodes tagged with **those** tags
-and adds them to the results. If the next set of lifts returns additional ``syn:tag`` nodes, Synapse will
-repeat the process until no more ``syn:tag`` nodes are lifted. The final result set includes all of the nodes
-that were lifted recursively, but will **not** include any lifted ``syn:tag`` nodes themselves.
+A recursive tag lift retrieves all nodes with the specified tag. If the results include any ``syn:tag`` nodes,
+the recursive lift will also lift any nodes with those tags. The process continues until no more ``syn:tag``
+nodes are returned.
+
+The final result set returned by a recursive tag lift includes all of the nodes that were lifted recursively,
+but will **not** include any lifted ``syn:tag`` nodes themselves.
+
+The "double hashtag" symbol ( ``##`` ) is used to specify a recursive tag lift.
 
 **Syntax:**
 
@@ -1049,11 +1061,10 @@ that were lifted recursively, but will **not** include any lifted ``syn:tag`` no
 
 **Example:**
 
-You are using a "availability" tags to show the general availability of malware or tools reported by Mandiant
-(e.g., ``#rep.mandiant.fallchill`` or ``#rep.mandiant.badpotato``). You add the appropriate "availability" tag
-(such as ``#rep.mandiant.avail.public``) to the ``syn:tag`` node that represents the associated malware
-family. For example, ``syn:tag=rep.mandiant.gh0st`` is tagged ``#rep.mandiant.avail.public`` because Mandiant
-reported that the source code for the Gh0st backdoor is publicly available.
+You are using "availability" tags to show the general availability of malware or tools reported by Mandiant.
+You add the appropriate "availability" tag to the ``syn:tag`` node that represents the associated malware.
+For example, you apply the tag ``#rep.mandiant.avail.public`` to the node ``syn:tag=rep.mandiant.gh0st``
+because Mandiant reported that the source code for the Gh0st backdoor is publicly available.
 
 *Lift all the nodes (e.g., indicators of compromise) associated with any malware family or tool that Mandiant reports is publicly available:*
 
@@ -1065,25 +1076,25 @@ reported that the source code for the Gh0st backdoor is publicly available.
 
 The query above will:
 
-- Lift all nodes tagged ``#rep.mandiant.avail.public`` - i.e., ``syn:tag`` nodes for Mandiant tools / malware
-  families assessed to be publicly available (e.g., ``syn:tag=rep.mandiant.gh0st`` or ``syn:tag=rep.mandiant.beacon``).
+- Lift all nodes tagged ``#rep.mandiant.avail.public``, such as ``syn:tag`` nodes for tools or malware families
+  that Mandiant assesses are publicly available (e.g., ``syn:tag=rep.mandiant.gh0st`` or ``syn:tag=rep.mandiant.beacon``).
 - Lift any nodes tagged with those tags (e.g., ``#rep.mandiant.gh0st`` or ``#rep.mandiant.beacon``). This would
   typically include IOCs such as hashes, FQDNs, IPv4s, URLs, etc.
-- If any nodes tagged ``#rep.mandiant.gh0st``, etc. are ``syn:tag`` nodes, repeat the process, continuing
-  until no more ``syn:tag`` nodes are lifted.
+- If any nodes tagged with the additional tags (``#rep.mandiant.gh0st``, etc.) are ``syn:tag`` nodes, repeat the
+  process, continuing until no more ``syn:tag`` nodes are lifted.
 - Return the recursively lifted set of nodes (excluding any ``syn:tag`` nodes).
 
 .. NOTE::
   
   "Tag the tags" is one approach to provide context to things that tags represent and may be suitable for some
-  use cases. However, the Synapse data model now includes forms to represent objects or concepts that are
+  use cases. However, the Synapse data model now includes **forms** to represent objects or concepts that are
   commonly associated with tags, and that can be linked to their associated tag via a ``:tag`` secondary
   property. For example, a ``risk:tool:software`` node can represent Mandiant's reporting on Gh0st malware,
   with a ``:tag`` property that could be set to ``rep.mandiant.gh0st``. The node can be used to record
   additional context about Mandiant's Gh0st, including things like availability, alternate names used in
-  reporting, and so on. In short, using a form with secondary properties to provide "context" gives you
-  greater flexibility to record that context and simplifies lifting, filtering, and pivoting across
-  similar nodes.
+  reporting, and so on. In short, using a form with secondary properties to provide "context" (that is still
+  linked to an associated tag) gives you greater flexibility to record that context and simplifies lifting,
+  filtering, and pivoting across similar nodes.
   
   See :ref:`analytical-tags-asnodes` for a brief discussion of this concept, or the `User Guide`_ for the
   `Vertex-Threat-Intel`_ Power-Up (in particular, the `Threat Intel Model`_ section) for additional examples.
@@ -1095,10 +1106,13 @@ The query above will:
 -----------------
 
 Synapse indexes property values so that data (nodes) can be lifted (retrieved) and returned quickly. By default,
-lift results are returned in lexical order (sorted in ascending order), based on the property specified in the lift
-(primary, secondary, universal, or extended) and the way the property is indexed.
+lift results are returned in lexical order (i.e., sorted in ascending order), based on the property specified in
+the lift (primary, secondary, universal, or extended) and the way the property is indexed.
 
-The ``reverse`` keyword can be used to return the specified nodes in reverse lexical order (sorted in descending order).
+The ``reverse`` keyword can be used to return the specified nodes in reverse lexical order (i.e., sorted in descending
+order). To perform a "reverse" lift, specify the ``reverse`` keyword and enclose the lift operation in parentheses.
+
+A "reverse" lift can be followed by additional Storm operations (pivots, filters, commands) just like a "normal" lift.
 
 **Syntax:**
 
@@ -1107,15 +1121,17 @@ The ``reverse`` keyword can be used to return the specified nodes in reverse lex
 
 **Examples:**
 
-*Lift inet:ipv4 nodes (sorted descending based on the integer value of the inet:ipv4 primary property):*
-
-.. storm-pre:: [ inet:ipv4=255.255.255.255 inet:ipv4=223.159.33.195 inet:ipv4=198.42.76.23 inet:ipv4=52.16.48.7 inet:ipv4=40.250.10.120 inet:ipv4=12.163.57.22 ]
-.. storm-cli:: reverse ( inet:ipv4 )
-
 *Lift inet:ipv4 nodes with a :loc property (sorted descending based on the :loc property value):*
 
 .. storm-pre:: [ (inet:ipv4=197.155.229.194 :loc=zw.ha.harare) (inet:ipv4=41.221.147.14 :loc=zw) (inet:ipv4=41.164.23.42 :loc=za.wc.worcester) (inet:ipv4=155.254.9.3 :loc='us.mt.three forks') (inet:ipv4=102.64.66.222 :loc='tz.02.dar es salaam') ]
 .. storm-cli:: reverse ( inet:ipv4:loc )
+
+
+*Lift five inet:ipv4 nodes (sorted descending based on the integer value of the inet:ipv4 primary property):*
+
+.. storm-pre:: [ inet:ipv4=255.255.255.255 inet:ipv4=223.159.33.195 inet:ipv4=198.42.76.23 inet:ipv4=52.16.48.7 inet:ipv4=40.250.10.120 inet:ipv4=12.163.57.22 ]
+.. storm-cli:: reverse ( inet:ipv4 ) | limit 5
+
 
 *Lift the five most recently-created inet:email nodes (sorted descending by the .created property value):*
 
@@ -1129,17 +1145,11 @@ The ``reverse`` keyword can be used to return the specified nodes in reverse lex
   behavior). For example, FQDN strings (``inet:fqdn`` types) are reversed before being indexed.
   
   Where specialized indexing is used, both "normal" and "reverse" lifts still return nodes in lexical
-  or reverse lexical order (respectively), those these results may not appear "as expected" based on
-  the custom criteria used to index the nodes.
+  or reverse lexical order, respectively. However, the "sort order" of the results may not be apparent,
+  based on the custom criteria used to index the nodes.
   
   See the :ref:`storm-ref-type-specific` section for details on some type-specific behaviors, including
   any custom indexing for the listed types.
-
-
-**Usage notes:**
-
-- The lift operation to be performed must follow the ``reverse`` keyword and be enclosed within parentheses.
-- A "reverse" lift can be followed by additional storm operations (pivots, filters, Storm commands, etc.), just like a "normal" lift.
 
 
 .. _lift-try:
@@ -1147,31 +1157,39 @@ The ``reverse`` keyword can be used to return the specified nodes in reverse lex
 "Try" Operator
 --------------
 
-The Storm "try" operator can be used in lift operations that use the "equals" ( ``=`` ) comparison operator.
+The Storm "try" operator ( ``?=`` ) can be used in lift operations as an alternative to the equal to ( ``=`` )
+comparison operator.
 
 Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attepmt to ensure
 that a value "makes sense" for the property in question - that the value you specify for an ``inet:ipv4`` node looks
 reasonably like an IPv4 address (and not an FQDN or URL). If you try to lift a set of nodes using a property value that
-does not pass Synapse's type enforcement validation, Synapse will generate a ``BadTypeValu`` error. The error will cause
-the currently executing Storm query to halt and stop processing:
+does not pass Synapse's type enforcement validation, Synapse will generate an error. The error will cause the currently
+executing Storm query to halt and stop processing. For example, the following query halts based on the bad value
+(``evil.com``) provided for an ``inet:ipv4`` node:
 
-.. storm-pre:: [inet:ipv4=8.8.8.8]
+.. storm-pre:: [ inet:ipv4=8.8.8.8 ]
 .. storm-fail:: true
 .. storm-cli:: inet:ipv4 = evil.com inet:ipv4 = 8.8.8.8
+.. storm-fail:: false
 
 When using the try operator ( ``?=`` ), Synapse will to attempt (try) to lift the node(s) using the specified property
-value. However, instead of halting in the event of a ``BadTypeValu`` error, Synapse will ignore the error (silently fail
-on that specific lift operation) but continue processing the rest of the Storm query:
+value. However, instead of halting in the event of an error, Synapse will ignore the error (silently fail on that
+specific lift operation) but continue processing the rest of the Storm query. Using the try operator below, Synapse
+ignores the bad value for the first IPv4 address but returns the second one:
 
 .. storm-cli:: inet:ipv4 ?= evil.com inet:ipv4 ?= 8.8.8.8
 
-The try operator is useful for more complex Storm queries or Storm-based automation (see :ref:`storm-ref-automation`),
-where a single badly-formatted lift operation (potentially relying on input or data from a third-party data source)
-could cause the query to fail in the middle.
+The try operator is generally not necessary for interactive Storm queries. However, it can be very useful for more
+complex Storm queries or Storm-based automation (see :ref:`storm-ref-automation`), where a single badly-formatted
+lift operation (potentially relying on input or data from a third-party data source) could cause the query to fail
+during execution.
+
 
 **Syntax:**
 
-*<form>[:<prop>]* **?=** *<pval>*
+*<form>* **?=** *<valu>*
+
+*<form>* **:** *<prop>* **?=** *<pval>*
 
 .. TIP::
   
@@ -1180,31 +1198,27 @@ could cause the query to fail in the middle.
 
 **Examples:**
 
-- Try to lift the MD5 node ``174cc541c8d9e1accef73025293923a6``:
+*Try to lift the MD5 node 174cc541c8d9e1accef73025293923a6:*
 
-.. storm-pre:: [hash:md5 = 174cc541c8d9e1accef73025293923a6]
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
+.. storm-pre:: [ hash:md5 = 174cc541c8d9e1accef73025293923a6 ]
 .. storm-cli::  hash:md5 ?= 174cc541c8d9e1accef73025293923a6
 
 
-- Try to lift the DNS nodes whose ``inet:dns:a:ipv4`` secondary property value equals ``'192.168.0.100'``. Notice that an error message is not displayed, despite an invalid IPv4 address ``'192.168.0.1000'`` being entered:
+*Try to lift the DNS A nodes whose :ipv4 property is 192.168.0.100:*
 
-.. storm-cli:: inet:dns:a:ipv4 ?= 192.168.0.1000
-
-
-- Try to lift the email address nodes ``'jack@soso.net'`` and ``'jane@goodgirl.com'``. Notice that despite the first email address being entered incorrectly, the error message is suppressed, and the query executes to completion.
-
-.. storm-pre:: [inet:email="jane@goodgirl.com"]
-.. storm-opts:: {}
-.. storm-cli:: inet:email ?= "jack[at]soso.net" inet:email ?= "jane@goodgirl.com"
+.. storm-pre:: [ inet:dns:a=(woot.com,192.168.0.100) ]
+.. storm-cli:: inet:dns:a:ipv4 ?= 192.168.0.100
 
 
-**Usage Notes:**
+*Try to lift the email address nodes for ron@vertex.link and ozzie@vertex.link:*
 
-- Because the try operator supresses ``BadTypeValu`` errors, the operator should not be used in cases where
-  notification of these errors is needed.
+Notice that despite the first email address being entered incorrectly, the error message is suppressed, and the query executes to completion.
+
+.. storm-pre:: [ inet:email=ron@vertex.link inet:email=ozzie@vertex.link ]
+.. storm-cli:: inet:email ?= 'ron[at]vertex.link' inet:email ?= 'ozzie@vertex.link'
 
 
+.. _Synapse-VirusTotal: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html
 .. _User Guide: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/ugoverview.html
 .. _Vertex-Threat-Intel: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/index.html
 .. _Threat Intel Model: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/ugmodel.html
