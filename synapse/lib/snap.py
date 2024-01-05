@@ -994,12 +994,9 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-
-            found = 0
             async for (buid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers, reverse=reverse):
                 node = await self._joinSodes(buid, sodes)
                 if node is not None:
-                    found += 1
                     yield node
 
             return
