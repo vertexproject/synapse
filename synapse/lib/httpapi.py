@@ -278,6 +278,11 @@ class HandlerBase:
 
             return iden
 
+        # Check for API Keys
+        key = self.request.headers.get('X-API-KEY')
+        if key is not None:
+            return await self.handleApiKeyAuth()
+
         return await self.handleBasicAuth()
 
     async def handleBasicAuth(self):
@@ -321,6 +326,20 @@ class HandlerBase:
         if not await authcell.tryUserPasswd(name, passwd):
             self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return None
+
+        self.web_useriden = udef.get('iden')
+        self.web_username = udef.get('name')
+        return self.web_useriden
+
+    async def handleApiKeyAuth(self):
+        authcell = self.getAuthCell()
+        key = self.request.headers.get('X-API-KEY')
+        isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
+        if isok is False:
+            self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
+            return
+
+        udef = info.get('udef')
 
         self.web_useriden = udef.get('iden')
         self.web_username = udef.get('name')
