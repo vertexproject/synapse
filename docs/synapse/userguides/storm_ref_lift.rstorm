@@ -305,7 +305,7 @@ Lift by Secondary Property Value
   file:bytes:mime:pe:compiled = 2019*
 
 
-*Lift files whose size is less than than 1MB:*
+*Lift files whose size is less than 1MB:*
 
 .. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :size=16384 ]
 .. storm-pre:: file:bytes:size < 1000000
@@ -351,6 +351,24 @@ Lift by Secondary Property Value
 Lift by Universal Property Value
 ++++++++++++++++++++++++++++++++
 
+Synapse has two built-in universal properties:
+
+- ``.created`` (a time) which represents the date and time a node was created in Synapse; and
+- ``.seen`` (an interval), a pair of date / time values that can optionally be used to represent
+  when a node existed or was observed.
+
+Times (date / time values) are stored as integers (epoch milliseconds) in Synapse and can be lifted using any
+standard comparison operator.
+
+Because intervals are a pair of date / time values, they can only be lifted using the equal to ( ``=`` )
+standard comparison operator to specify an **exact** match for the interval values.
+
+The :ref:`lift-interval` and :ref:`lift-range` extended comparison operators provide additional flexibility
+when llfting by times and intervals.
+
+See also the :ref:`type-time` and :ref:`type-ival` sections of the :ref:`storm-ref-type-specific` guide for
+additional details on working with times and intervals in Synapse.
+
 **Syntax:**
 
 *<form>* **.** *<prop>* *<operator>* *<pval>*
@@ -365,11 +383,6 @@ Lift by Universal Property Value
   
   inet:fqdn.created >= 2024/01/01
 
-.. TIP::
-  
-  The :ref:`lift-interval` extended comparison operator provides additional flexibility when lifting
-  by :ref:`type-time` and :ref:`type-ival` (interval) properties, including the ability to lift based
-  on a date range.
 
 .. _lift-prop-std-extended:
 
