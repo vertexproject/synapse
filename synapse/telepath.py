@@ -1010,6 +1010,9 @@ class Pool(s_base.Base):
 
         self.onfini(fini)
 
+    def size(self):
+        return len(self.clients)
+
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
         svcinfo = mesg[1].get('svcinfo')

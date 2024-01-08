@@ -7909,7 +7909,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Offloading Storm query', data)
                     self.isin('Unable to get proxy', data)
 
                     with self.getLoggerStream('synapse') as stream:
@@ -7917,7 +7916,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Offloading Storm query', data)
                     self.isin('Unable to get proxy', data)
 
                     core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf=conf))
@@ -7933,3 +7931,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                     data = stream.read()
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
+
+                    waiter = core01.querymirror.waiter('svc:del', 1)
+                    msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
+
+                    await waiter.wait(timeout=3)
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core01.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Query mirror pool is empty', data)

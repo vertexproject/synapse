@@ -5236,6 +5236,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return mirropts
 
     async def _getMirrorProxy(self):
+        if isinstance(self.querymirror, s_telepath.Pool) and self.querymirror.size() == 0:
+            mesg = 'Query mirror pool is empty, running locally instead.'
+            logger.warning(mesg)
+            return None
+
         proxy = None
         try:
             timeout = self.querymirroropts.get('conntimeout')
@@ -5251,11 +5256,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.querymirror is not None and not opts.get('nomirror'):
             extra = await self.getLogExtra(text=text)
-            logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
-
             proxy = await self._getMirrorProxy()
 
             if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
                 mirropts = await self._getMirrorOpts(opts)
 
                 try:
@@ -5281,11 +5286,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.querymirror is not None and not opts.get('nomirror'):
             extra = await self.getLogExtra(text=text)
-            logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
-
             proxy = await self._getMirrorProxy()
 
             if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
                 mirropts = await self._getMirrorOpts(opts)
 
                 try:
