@@ -389,6 +389,10 @@ additional details on working with times and intervals in Synapse.
 Lift by Extended Property Value
 +++++++++++++++++++++++++++++++
 
+When lifting by extended property value, you can use any standard comparison operator supported by the
+property's type. For example, if the extended property is a string, only the equal to ( ``=`` ) standard
+operator is supported. If the extended property is an integer, any of the standard operators can be used.
+
 **Syntax:**
 
 *<form>* **:_** *<prop>* *<operator>* *<pval>*
