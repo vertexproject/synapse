@@ -594,13 +594,6 @@ used to lift nodes based on comparisons among various combinations of times and 
   
   inet:flow:time @= ( now, '-1 day' )
 
-*Lift all the FQDNs that were owned / controlled by Threat Group 43 between January 1, 2022 and July 1, 2023:*
-
-.. storm-pre:: [ inet:fqdn=evil.com +#cno.threat.t43.own=(2021/12/15, 2022/12/15) ] 
-.. storm-pre:: inet:fqdn#cno.threat.t43.own @= ( 2022/01/01, 2023/07/01 )
-::
-  
-  inet:fqdn#cno.threat.t43.own @= ( 2022/01/01, 2023/07/01 )
 
 **Usage Notes:**
 
