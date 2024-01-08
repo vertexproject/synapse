@@ -7835,7 +7835,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     conf = {
                         'storm:query:mirror:url': 'aha://pool00...',
-                        'storm:query:mirror:timeout': 1
+                        'storm:query:mirror:conntimeout': 1,
+                        'storm:query:mirror:nexstimeout': 1
                     }
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
                     provinfo = {'mirror': '00.core'}

@@ -855,10 +855,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'type': 'boolean',
         },
         'storm:query:mirror:url': {
-            'description': 'Telepath URL for a Cortex mirror or AHA pool to offload Storm queries to. This is an experimental option and should not be used in production.',
+            'description': 'EXPERIMENTAL: Telepath URL for a Cortex mirror or AHA pool to offload Storm queries to.',
             'type': 'string',
         },
-        'storm:query:mirror:timeout': {
+        'storm:query:mirror:conntimeout': {
+            'description': 'Timeout to wait when connecting to a mirror.',
+            'type': 'integer'
+        },
+        'storm:query:mirror:nexstimeout': {
             'description': 'Timeout to wait for a mirror to catch up before running a query on the leader.',
             'type': 'integer'
         },
@@ -935,7 +939,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.querymirrorurl = self.conf.get('storm:query:mirror:url')
         if self.querymirrorurl is not None:
             self.querymirroropts = {
-                'timeout': self.conf.get('storm:query:mirror:timeout')
+                'conntimeout': self.conf.get('storm:query:mirror:conntimeout'),
+                'nexstimeout': self.conf.get('storm:query:mirror:nexstimeout')
             }
 
         self.libroot = (None, {}, {})
@@ -5224,16 +5229,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return i
 
     async def _getMirrorOpts(self, opts):
-        mirropts = copy.deepcopy(opts)
+        mirropts = s_msgpack.deepcopy(opts)
         mirropts['nomirror'] = True
         mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
-        mirropts['nexstimeout'] = self.querymirroropts.get('timeout')
+        mirropts['nexstimeout'] = self.querymirroropts.get('nexstimeout')
         return mirropts
 
     async def _getMirrorProxy(self):
         proxy = None
         try:
-            proxy = await self.querymirror.proxy(timeout=3)
+            timeout = self.querymirroropts.get('conntimeout')
+            proxy = await self.querymirror.proxy(timeout=timeout)
         except (TimeoutError, s_exc.IsFini):
             mesg = 'Unable to get proxy for query mirror, running locally instead.'
             logger.warning(mesg)
