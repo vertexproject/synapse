@@ -614,10 +614,9 @@ used to lift nodes based on comparisons among various combinations of times and 
 
 - **Comparing intervals to times:** When using an interval with the ``@=`` operator to lift nodes based on a time
   property, Synapse returns nodes whose time value falls within the specified interval.
-- **Comparing times to times:** When using a time with the ``@=`` operattor to lift nodes based on a time property,
-  Synapse returns nodes whose timestamp is an **exact match** of the specified time. While interval ( ``@=`` ) syntax is
-  supported for comparing times to other times, the regular equals comparator ( ``=`` ) can also be used and is more
-  straightforward.
+- **Comparing times to times:** When using a time with the ``@=`` operator to filter nodes based on a time property,
+  Synapse returns nodes whose timestamp is an **exact match** of the specified time. In other words, in this case
+  the interval comparator ( ``@=`` ) behaves like the equal to comparator ( ``=`` ).
 - When specifying date / time and interval values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
   and wildcard values (e.g., ``YYYY/MM*``). Wildcard time syntax may provide a simpler and more intuitive means to specify
   some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.
