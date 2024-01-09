@@ -618,24 +618,24 @@ of times and intervals.
 .. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email.seen @= ( 2023/07/01, now )
 ::
   
-  +inet:whois:email.seen @= ( 2023/07/01, now )
+  <query> +inet:whois:email.seen @= ( 2023/07/01, now )
 
 .. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +.seen @= ( 2023/07/01, now )
 ::
   
-  +.seen @= ( 2023/07/01, now )
+  <query> +.seen @= ( 2023/07/01, now )
 
 *Filter the current working set to only include the network flows (inet:flow nodes) that occurred within the past day:*
 
 .. storm-pre:: [ inet:flow="*" :time=now ] +inet:flow:time @= ( now, '-1 day' )
 ::
   
-  +inet:flow:time @= ( now, '-1 day' )
+  <query> +inet:flow:time @= ( now, '-1 day' )
 
 .. storm-pre:: [ inet:flow="*" :time=now ] +:time @= ( now, '-1 day' )
 ::
   
-  +:time @= ( now, '-1 day' )
+  <query> +:time @= ( now, '-1 day' )
 
 
 **Usage Notes:**
@@ -703,58 +703,53 @@ fall within a specified range of values. The comparator can be used with types s
 
 **Examples:**
 
-*Filter by primary property in range:*
+*Filter the current working set to exclude files (file:bytes nodes) whose size is between 1000 and 100000 bytes:*
 
-- Filter results to include all IP addresses between 192.168.0.0 and 192.168.0.10:
-
-.. storm-pre:: inet:ipv4 +inet:ipv4*range=(192.168.0.0, 192.168.0.10)
+.. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -file:bytes:size *range= ( 1000, 100000 )
 ::
-    
-    <query> +inet:ipv4*range=(192.168.0.0, 192.168.0.10)
+  
+  <query> -file:bytes:size *range= ( 1000, 100000 )
 
-
-*Filter by secondary property in range:*
-
-- Filter results to include files whose size in bytes is within the specified range:
-
-.. storm-pre:: file:bytes +file:bytes:size*range=(1000, 100000)
+.. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=2000] -:size *range= ( 1000, 100000 )
 ::
-    
-    <query> +file:bytes:size*range=(1000, 100000)
+  
+  <query> -:size *range= ( 1000, 100000 )
 
+*Filter the current working set to only include files (file:bytes nodes) whose VirusTotal "reputation" score is between -20 and 20:*
 
-.. storm-pre:: file:bytes +:size*range=(1000, 100000)
+.. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +file:bytes:_virustotal:reputation *range= ( -20, 20 )
 ::
-    
-    <query> +:size*range=(1000, 100000)
+  
+  <query> +file:bytes:_virustotal:reputation *range= ( -20, 20 )
 
-
-- Filter results to include WHOIS records that were captured between the specified dates:
-
-.. storm-pre:: inet:whois:rec +inet:whois:rec:asof*range=(2013/11/29, 2016/06/14) 
+.. storm-pre:: [ ( file:bytes=sha256:d231f3b6d6e4c56cb7f149cbc0178f7b80448c24f14dced5a864015512b0ba1f :_virustotal:reputation=-16 ) ( file:bytes=sha256:d0e526a19497117a854f1ac9a9347f7621709afc3548c2e6a46b19e833578eac :_virustotal:reputation=8 ) ] +:_virustotal:reputation *range= ( -20, 20 )
 ::
-    
-    <query> +inet:whois:rec:asof*range=(2013/11/29, 2016/06/14)
+  
+  <query> +:_virustotal:reputation *range= ( -20, 20 )
 
+*Filter the current working set to exclude domain WHOIS records (inet:whois:rec nodes) that were captured / retrieved between November 29, 2013 and June 14, 2016:*
 
-.. storm-pre:: inet:whois:rec +:asof*range=(2013/11/29, 2016/06/14) 
+.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 ::
-    
-    <query> +:asof*range=(2013/11/29, 2016/06/14)
+  
+  <query> -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-
-- Filter results to include DNS requests made within 1 day of December 1, 2018:
-
-.. storm-pre:: inet:dns:request +inet:dns:request:time*range=(2018/12/01, "+-1 day")
+.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -:asof *range= ( 2013/11/29, 2016/06/14 )
 ::
-    
-    <query> +inet:dns:request:time*range=(2018/12/01, "+-1 day")
+  
+  <query> -:asof *range= ( 2013/11/29, 2016/06/14 )
 
+*Filter the current working set to only include DNS requests (inet:dns:request nodes) made within one day of December 1, 2021:*
 
-.. storm-pre:: inet:dns:request +:time*range=(2018/12/01, "+-1 day")
+.. storm-pre:: [ inet:dns:request="*" :time="2021/11/30 21:09:04.000"] +inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
 ::
-    
-    <query> +:time*range=(2018/12/01, "+-1 day")
+  
+  <query> +inet:dns:request:time *range= ( 2021/12/01, '+-1 day' )
+
+.. storm-pre:: [ inet:dns:request="*" :time="2021/11/30 21:09:04.000"] +:time *range= ( 2021/12/01, '+-1 day' )
+::
+  
+  <query> +:time *range= ( 2021/12/01, '+-1 day' )
 
 
 **Usage Notes:**
@@ -763,15 +758,20 @@ fall within a specified range of values. The comparator can be used with types s
   range (the equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
   This behavior is slightly different than that for time interval (``@=``), which includes the minimum
   but not the maximum.
-- The ``*range=`` extended comparator can be used with time types, although the time / interval extended
-  comparator ( ``@=`` ) is preferred.
 - When specifying a range of time values, Synapse allows you to use either lower resolution values
   (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range
-  values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify
+  values. In some cases, plain wildcard time syntax may provide a simpler and more intuitive means to specify
   some time ranges. For example ``+inet:whois:rec:asof=2018*`` (or ``+:asof=2018*``) is equivalent to
   ``+inet:whois:rec:asof*range=('2018/01/01', '2018/12/31 23:59:59.999')`` (or
   ``+:asof*range=('2018/01/01', '2018/12/31 23:59:59.999')``).  See the type-specific documentation for
   :ref:`type-time` types for a detailed discussion of these behaviors.
+- When using keywords (such as ``now``) or relative values (such as ``-1 hour``) to specify a range of
+  times, the first value in the range is calculated relative to the current time and the second value
+  is calculated relative to the first value. 
+- If you specify a range value that is nonsencical or exclusionary (such as ``( 47, 16 )``), Synapse
+  will **not** generate an error and will simply fail to return results. (The expression is syntacticaly
+  correct, but no value is both greater than 47 and less than 16).
+
 
 .. _filter-set:
 
@@ -783,48 +783,42 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 **Syntax:**
 
-*<query>* **+** | **-** *<form>* | *<prop>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
+*<query>* **+** | **-** *<form>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
+
+*<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
 
 **Examples:**
 
-*Filter by primary property in set:*
+*Filter the current working set to exclude organization names (ou:name nodes) matching any of the specified values:*
 
-- Filter results to include IP addresses matching any of the specified values:
-
-.. storm-pre:: inet:ipv4 +inet:ipv4*in=(127.0.0.1, 192.168.0.100, 255.255.255.254)
+.. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ] -ou:name *in= ( fsb, gru, svr )
 ::
-    
-    <query> +inet:ipv4*in=(127.0.0.1, 192.168.0.100, 255.255.255.254)
+  
+  <query> -ou:name *in= ( fsb, gru, svr )
 
+*Filter the current working set to only include IPv4 addresses associated with any of the specified Autonomous System (AS) numbers:*
 
-*Filter by secondary property in set:*
-
-- Filter results to include files whose size in bytes matches any of the specified values:
-
-.. storm-pre:: file:bytes +file:bytes:size*in=(4096, 16384, 65536)
+.. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ] +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
 ::
-    
-    <query> +file:bytes:size*in=(4096, 16384, 65536)
+  
+  <query> +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
 
-
-.. storm-pre:: file:bytes +:size*in=(4096, 16384, 65536)
+.. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ] +:asn *in= ( 9009, 20473, 44477 )
 ::
-    
-    <query> +:size*in=(4096, 16384, 65536)
+  
+  <query> +:asn *in= ( 9009, 20473, 44477 )
 
+*Filter the current working set to only include tags (syn:tag nodes) whose final tag element matches any of the specified string values:*
 
-- Filter results to exclude tags that end in ``foo``, ``bar``, or ``baz``:
-
-.. storm-pre:: [syn:tag=foo.bar.baz] -syn:tag:base*in=(foo, bar, baz)
+.. storm-pre:: [ syn:tag=rep.talos.plugx syn:tag=rep.eset.korplug syn:tag=rep.mandiant.sogu syn:tag=rep.alienvault.kaba ] +syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 ::
-    
-    <query> -syn:tag:base*in=(foo, bar, baz)
+  
+  <query> +syn:tag:base *in= ( plugx, korplug, sogu, kaba )
 
-
-.. storm-pre:: syn:tag -:base*in=(foo, bar, baz)
+.. storm-pre:: [ syn:tag=rep.talos.plugx syn:tag=rep.eset.korplug syn:tag=rep.mandiant.sogu syn:tag=rep.alienvault.kaba ] +:base *in= ( plugx, korplug, sogu, kaba )
 ::
-    
-    <query> -:base*in=(foo, bar, baz)
+  
+  <query> +:base *in= ( plugx, korplug, sogu, kaba )
 
 
 .. _filter-proximity:
@@ -832,42 +826,21 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 Filter by Proximity (\*near=)
 +++++++++++++++++++++++++++++
 
-The proximity extended comparator (``*near=``) supports filtering nodes by "nearness" to another node
-based on a specified property type. Currently, ``*near=`` supports proximity based on geospatial
-location (that is, nodes within a given radius of a specified latitude / longitude).
+The proximity extended comparator (``*near=``) supports filtering nodes by "nearness" to another node. Currently, ``*near=``
+supports proximity based on geospatial location (i.e., nodes within a given radius of a specified latitude / longitude).
 
 **Syntax:**
 
-*<query>* **+** | **-** *<form>* | *<prop>* ***near = ((** *<lat>* **,** *<long>* **),** *<radius>* **)**
+*<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* ***near = ((** *<lat>* **,** *<long>* **),** *<radius>* **)**
 
 **Examples:**
 
-*Filter by proximity:*
+*Filter the current working set to only include locations (geo:place nodes) within 500 meters of the Russian Cryptographic Museum (where the coordinates 55.83069,37.59781 represent the Museum's location):*
 
-- Filter results to include only Acme Corporation offices within 1 km of a specific coffee shop:
-
-.. storm-pre:: [geo:place="*" :latlong="37.7825315,-122.4236523"] +geo:place:latlong*near=((47.6050632,-122.3339756),1km)
+.. storm-pre:: [ ( geo:place="*" :latlong="55.83088, 37.59962" :name="concern avtomatika" ) ] +geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 ::
   
-  <query> +geo:place:latlong*near=((47.6050632,-122.3339756),1 km)
-
-.. storm-pre:: geo:place +:latlong*near=((47.6050632,-122.3339756),1 km)
-::
-  
-  <query> +:latlong*near=((47.6050632,-122.3339756),1 km)
-
-
-- Filter results to include only Acme Corporation offices within 1 mile of a specific coffee shop:
-
-.. storm-pre:: geo:place +geo:place:latlong*near=((47.6050632,-122.3339756), 1 mile)
-::
-  
-  <query> +geo:place:latlong*near=((47.6050632,-122.3339756), 1 mile)
-
-.. storm-pre:: geo:place +:latlong*near=((47.6050632,-122.3339756), 1 mile)
-::
-  
-  <query> +:latlong*near=((47.6050632,-122.3339756), 1 mile)
+  <query> +geo:place:latlong *near= ( (55.83069, 37.59781), 500m )
 
 
 **Usage Notes:**
@@ -885,53 +858,47 @@ location (that is, nodes within a given radius of a specified latitude / longitu
   - Yards (yard / yards)
   - Feet (foot / feet)
 
-- When specifying a radius, values of less than 1 must be specified with a leading zero (e.g., ``0.5 km``
-  is valid; ``.5 km`` is not).
-
-- The ``*near=`` comparator works by identifying nodes within a square bounding box centered at
-  *<lat>, <long>*, then filters the nodes to be returned by ensuring that they are within the great-circle
-  distance given by the *<radius>* argument.
+- Numeric values of less than 1 must be specified with a leading zero (e.g., 0.5 km).
+- The ``*near=`` comparator works for geospatial data by lifting nodes within a square bounding box centered at *<lat>,<long>*,
+  then filters the nodes returned by ensuring that they are within the great-circle distance given by the *<radius>* argument.
 
 .. _filter-by-arrays:
 
 Filter by (Arrays) (\*[ ])
 ++++++++++++++++++++++++++
 
-Storm uses a special "by" syntax to filter (or lift) by comparison with one or more elements of an
-:ref:`type-array` type. The syntax consists of an asterisk ( ``*`` ) preceding a set of square brackets
-( ``[ ]`` ), where the square brackets contain a comparison operator and a value that can match one or
-more elements in the array. This allows users to match any value in the array list without needing to
-know the exact order or values of the array itself.
+Storm uses a special syntax to filter (or lift) by comparison with one or more elements of an :ref:`type-array` type. The syntax
+consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets contain a comparison
+operator and a value that can match one or more elements in the array. This allows users to match any value in the array list
+without needing to know the exact order or values of the array itself.
+
+.. NOTE:
+  
+  When filtering based on a value in an array property, you must use the relative name of the property. The full property
+  name (i.e., the combined form and property) is not supported for this type of filter.
 
 **Syntax:**
 
-*<query>* **+** | **-** *<prop>* ***[** *<operator>* *<pval>* **]**
+*<query>* **+** | **-** **:** | **.** | **:_** *<prop>* ***[** *<operator>* *<pval>* **]**
 
 **Examples:**
 
-- Filter results to include only x509 certificates that reference a specific email address:
+*Filter the current working set to only include the x509 certificates (crypto:x509:cert nodes) that reference FQDNs ending with ".xyz":*
 
-.. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com]
+.. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(woot.biz, woot.xyz)] +:identities:fqdns *[ = '*.xyz' ]
 ::
-    
-    <query> +:identities:emails*[=root@localhost.localdomain]
+  
+  <query> +:identities:fqdns *[ = '*.xyz' ]
 
+*Filter the current working set to exclude the MITRE ATT&CK groups (it:mitre:attack:group nodes) whose names include the string 'bear':*
 
-- Filter results to exclude organizations whose names start with "ministry":
-
-.. storm-pre:: ou:org -:names*[^=ministry]
+.. storm-pre:: [ (it:mitre:attack:group=G0035 :names=(berserk bear, crouching yeti, dragonfly, dymalloy, energetic bear, iron liberty, temp.isotope, tg-4192)) (it:mitre:attack:group=G0074 :names=(berserk bear, dragonfly 2.0, dymalloy, iron liberty)) ] -:names *[ ~= bear ]
 ::
-    
-    <query> -:names*[^=ministry]
+  
+  <query> -:names *[ ~= bear ]
 
 
 **Usage Notes:**
-
-- Filter operations using secondary properties of type :ref:`type-array` must specify the property
-  using its relative property name. Filtering using the full property syntax will generate an error.
-
-  - ``ou:org | limit 10 | +:names*[=vertex]`` is valid syntax.
-  - ``ou:org | limit 10 | +ou:org:names*[=vertex]`` is invalid syntax.
 
 - The comparison operator used must be valid for filter operations for the type used in the array.
 - The standard equals ( ``=`` ) operator can be used to filter nodes based on array properties, but
@@ -944,123 +911,194 @@ know the exact order or values of the array itself.
 - See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional
   details on working with arrays.
 
+
+.. _tag-filter:
+
+Tag Filters
+-----------
+
+Tags in Synapse can represent observations or assessments. They are used to provide context to nodes (in the
+form of "labels" applied to nodes) and to group related nodes.
+
+Storm supports filtering nodes based on the tag(s) applied to the node (including the use of wildcards and
+tag globs), as well filtering based on tag timestamps, tag properties, or tag property values.
+
+The "hashtag" symbol ( ``#`` ) is used to specify a tag name when filtering by tag.
+
 .. _filter-tag:
 
 Filter by Tag (#)
 +++++++++++++++++
 
-The tag extended comparator (``#``) supports filtering nodes based on the tags applied to a node.
-You can filter based on a given tag or on the timestamps associated with a given tag (using the
-interval comparator, ``@=``).
-
-.. NOTE::
-  
-  You can also use "filter by tag" to filter nodes based on any tags with tag properties, or tags
-  with tag properties and specific tag property values, if tag properties are present in your data
-  model.
-  
-  :ref:`tag-properties` are still supported by Synapse, but their use has largely been deprecated
-  in favor of extended model properties where needed.
-
+A "filter by tag" operation downselects the current working set to include (or exclude) all nodes with
+the specified tag.
 
 **Syntax:**
 
 *<query>* **+** | **-** **#** *<tag>*
 
-*<query>* **+** | **-** **#** *<tag>* **@=** *<time>* | **(** *<min>* **,** *<max>* **)**
+*Filter the current working set to exclude all nodes that ESET associates with Sednit:*
+
+.. storm-pre:: [ inet:fqdn=kg-news.org inet:ipv4=92.114.92.125 +#rep.eset.sednit ] -#rep.eset.sednit
+::
+  
+  <query> -#rep.eset.sednit
+
+*Filter the current working set to only include nodes associated with anonymized infrastructure:*
+
+.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ipv4=104.244.73.193 +#cno.infra.anon.tor.exit) ] +#cno.infra.anon
+::
+  
+  <query> +#cno.infra.anon
+
+.. TIP::
+  
+  Tags are hierarchical, and each tag element is its own tag; the tag ``#cno.infra.anon`` consists of the tags ``#cno``,
+  ``#cno.infra``, and ``#cno.infra.anon``. Filtering nodes using a tag "higher up" in the tag hierarchy will include
+  (or exclude) nodes with specified tag or any tag "lower down" in the hierarchy. In other words, filtering by ``#cno.infra.anon``
+  will filter all "anonymized" infrastructure, whether the infrastructure is a VPN (``#cno.infra.anon.vpn``), a TOR node
+  (``#cno.infra.anon.tor``), or an anonymous proxy (``#cno.infra.anon.proxy``).
+
+
+.. _filter-tag-wildcard:
+
+Filter by Tag (Wildcard) <------- um wut
+++++++++++++++++++++++++
+
+The wildcard (asterisk) character ( ``*`` ) can be used in a tag filter expression to represent any single
+tag element. Multiple wildcards can be used in a single filter expression.
+
+**Syntax:**
+
+*<query>* **+** | **-** **#** *<tag_element>* | ***** [ **.** *<tag_element>* | ***** ... ]
 
 **Examples:**
 
-*Filter by tag:*
-
-- Filter results to include only nodes that ESET says are part of the Seduploader malware family:
+*Filter the current working set to 
 
 
-.. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +#rep.eset.seduploader
+
+.. _filter-tag-timestamp:
+
+Filter Using Tag Timestamp Values
++++++++++++++++++++++++++++++++++
+
+A tag timestamp can be thought of as a specialized "property" of a tag that happens to be a date / time range
+(interval). You can filter nodes based on tag timestamp values using any comparison operator supported by interval
+(:ref:`type-ival` types). The time / interval extended operator ( ``@=`` ) is used most often, but equal to
+( ``=`` ) can also be used to **exact** match the values in the interval.
+
+See :ref:`filter-interval` for additional detail on the use of the ``@=`` operator.
+
+.. NOTE::
+  
+  It is not currently possible to filter generically based on "tags that have timestamps" vs. "tags that do not
+  have timestamps".
+
+**Syntax:**
+
+*<query>* **+** | **-** **#** *<tag>* **@=** *<time>* | **(** *<min_time>* **,** *<max_time>* **)**
+
+*Filter the current result set to only include nodes that were associated with anonymous VPN infrastructure between December 1, 2023 and January 1, 2024:*
+
+.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ipv6=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ] +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ::
-    
-    <query> +#rep.eset.seduploader
+  
+  <query> +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 
+*Filter the current working set to only include nodes that were owned / controlled by Threat Cluster 15 as of October 30, 2021:*
 
-- Filter results to exclude nodes tagged as being associated with the TOR network:
-
-
-.. storm-pre:: inet:ipv4 -#cno.infra.anon.tor
+.. storm-pre:: [ inet:fqdn=ronthecat.com +#cno.threat.t15.own=(2020/09/12, 2022/09/12) ] +#cno.threat.t15.own @= 2021/10/30
 ::
-    
-    <query> -#cno.infra.anon.tor
+  
+  <query> +#cno.threat.t15.own @= 2021/10/30
+
+.. _filter-tag-prop:
+
+Filter Using Tag Properties
++++++++++++++++++++++++++++
+
+:ref:`tag-properties` can be used to provide additional context to tags. Storm supports filter nodes
+whose tags have a specific tag property (regardless of the value of the property).
+
+.. NOTE::
+  
+  In many cases, information previously recorded using a tag property is better suited to the use of
+  an :ref:`gloss-extended-prop`.
 
 
-- Filter results to exclude nodes tagged as sinkholes:
+**Syntax:**
+
+*<query>* **+** | **-** **#** *<tag>* **:** *<tagprop>*
 
 
-.. storm-pre:: inet:ipv4 -#cno.infra.dns.sinkhole
+*Filter the current working set to only include nodes with a ":risk" property reported by Symantec:*
+
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk
 ::
-    
-    <query> -#cno.infra.dns.sinkhole
+  
+  <query> +#rep.symantec:risk
+  
+.. NOTE::
+  
+  You must specify a tag associated with the tag property. It is not possible to filter nodes based on a particular
+  tag property being present on **any** tag (e.g., Storm queries such as ``+#:risk`` will generate ``BadSyntax`` errors).
 
 
-*Filter by tag and time:*
+.. _filter-tag-prop-value:
 
-- Filter results to include only nodes that were associated with TOR infrastructure as of December 12, 2019:
+Filter Using Tag Property Values
+++++++++++++++++++++++++++++++++
+
+Storm supports filtering nodes based on the value of a tag property (similar to filtering by the value of a node property).
+
+You can filter nodes based on tag property values using any comparison operator supported by the property's :ref:`gloss-type`.
+For example, if the tag property is defined as an integer (``int``) type, you can use any comparison operator supported
+by integers.
+
+**Syntax:**
+
+*<query>* **+** | **-** **#** *<tag>* **:** *<tagprop>* *<operator>* *<pval>*
 
 
-.. storm-pre:: inet:fqdn +#cno.infra.anon.tor@=2019/12/12
+*Filter the current working set to include nodes with a ":risk" property value of 100 as reported by ESET:*
+
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ] +#rep.eset:risk = 100
 ::
-    
-    <query> +#cno.infra.anon.tor@=2019/12/12
+  
+  <query> +#rep.eset:risk = 100
 
+*Filter the current working set to exclude nodes with a ":risk" property value less than 90 as reported by domaintools:*
 
-*Filter by tag and time interval:*
-
-- Filter results to include only those nodes associated with sinkhole infrastructure between January 1,
-  2017 and January 1, 2018:
-
-
-.. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com]
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ] -#rep.domaintools:risk < 90
 ::
-    
-    <query> +#cno.infra.dns.sinkhole@=(2017/01/01, 2018/01/01)
+  
+  <query> -#rep.domaintools:risk < 90
 
+*Filter the current working set to include nodes with a ":risk" property with a value between 45 and 70 as reported by Symantec:*
 
-- Filter results to exclude nodes associated with threat cluster 17 after January 1, 2019:
-
-
-.. storm-pre:: inet:fqdn -#cno.threat.t17.own@=(2019/01/01, now)
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk *range= ( 45, 70 )
 ::
-    
-    <query> -#cno.threat.t17.own@=(2019/01/01, now)
+  
+  <query> +#rep.symantec:risk *range= ( 45, 70 )
 
-
-
-- Filter results to include only those nodes (e.g., IP addresses) that were associated with TOR network
-  infrastructure between June 1, 2016 and September 30, 2016 (note the interval here applies to the
-  timestamps for the **tag** that indicates a node was associated with TOR):
-
-.. storm-pre:: inet:ipv4=1.2.3.4 +#cno.infra.anon.tor@=(2016/06/01, 2016/09/30)
-::
-    
-    <query> +#cno.infra.anon.tor@=(2016/06/01, 2016/09/30)
-
-
-
-**Usage Notes**
-
-- When filtering by tag, you can only specify a single tag (though you can specify a tag "higher up"
-  in a tag tree to encompass any / all tags lower in the tree - e.g., ``+#foo.bar`` will include any
-  nodes with the tag ``#foo.bar.hurr``, ``#foo.bar.derp``, etc.). To filter on multiple different tags,
-  use `Compound Filters`_.
-- Tag timestamps are interval (``ival``) types. See the :ref:`type-time` and :ref:`type-ival` sections
-  of the :ref:`storm-ref-type-specific` document for additional details on working with times and intervals.
 
 .. _filter-compound:
 
 Compound Filters
 ----------------
 
-Storm allows you to use the logical operators **and**, **or**, and **not** (including **and not**) to
-construct compound filters. You can use parentheses to group portions of the filter statement to indicate
-order of precedence and clarify logical operations when evaluating the filter.
+Storm supports the use of the logical operators **and**, **or**, and **not** (including **and not**) to construct
+compound filters. You can use parentheses to group portions of the filter statement to indicate order of precedence
+and clarify logical operations when evaluating the filter.
+
+.. NOTE::
+  
+  - Logical operators must be specified in lower case.
+  - Synapse evalutes compound filters **in order from left to right**. Depending on the filter, left-to-right order
+    may differ from the standard Boolean order of operations (**not** then **and** then **or**).
+  - Parentheses should be used to logically group portions of the filter statement if necessary to clarify order of
+    operations.
 
 **Syntax:**
 
@@ -1068,47 +1106,33 @@ order of precedence and clarify logical operations when evaluating the filter.
 
 **Examples:**
 
-- Filter results to exclude files that are less than or equal to 16384 bytes in size and were compiled
-  prior to January 1, 2014:
+*Filter the current working set to exclude files (file:bytes nodes) that are less than or equal to 16384 bytes in size and were compiled prior to January 1, 2014:*
 
 .. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
 ::
-    
-    <query> -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
+  
+  <query> -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
 
-
-.. storm-pre:: file:bytes -(:size <= 16384 and :mime:pe:compiled < 2014/01/01)
+.. storm-pre:: file:bytes -( :size <= 16384 and :mime:pe:compiled < 2014/01/01 )
 ::
-    
-    <query> -(:size <= 16384 and :mime:pe:compiled < 2014/01/01)
+  
+  <query> -(:size <= 16384 and :mime:pe:compiled < 2014/01/01)
 
 
-- Filter results to include only files or domains that ESET claims are associated with Sednit:
+*Filter the current working set to only include files (file:bytes nodes) or domains (inet:fqdn nodes) that ESET associates with Sednit:*
 
-
-.. storm-pre:: .created +((file:bytes or inet:fqdn) and #rep.eset.sednit)
+.. storm-pre:: .created +( ( file:bytes or inet:fqdn ) and #rep.eset.sednit )
 ::
-    
-    <query> +((file:bytes or inet:fqdn) and #rep.eset.sednit)
+  
+  <query> +( ( file:bytes or inet:fqdn ) and #rep.eset.sednit )
 
 
-- Filter results to include only files and domains that ESET claims are associated with Sednit that are **not**
-  sinkholed:
+*Filter the current working set to include only files (file:bytes nodes) and domains (inet:fqdn nodes) that ESET associates with Sednit that are **not** sinkholed:*
 
 .. storm-pre:: .created +((file:bytes or inet:fqdn) and (#rep.eset.sednit and not #cno.infra.dns.sinkhole))
 ::
-    
-    <query> +((file:bytes or inet:fqdn) and (#rep.eset.sednit and not #cno.infra.dns.sinkhole))
-
-
-**Usage Notes:**
-
-- Logical operators must be specified in lower case.
-- Synapse evalutes compound filters **in order from left to right**. Depending on the specific filter,
-  left-to-right order may differ from the standard Boolean order of operations (**not** then **and**
-  then **or**).
-- Parentheses should be used to logically group portions of the filter statement if necessary to
-  clarify order of operations.
+  
+  <query> +( ( file:bytes or inet:fqdn ) and ( #rep.eset.sednit and not #cno.infra.dns.sinkhole ) )
 
 
 .. _filter-subquery:
@@ -1116,30 +1140,28 @@ order of precedence and clarify logical operations when evaluating the filter.
 Subquery Filters
 ----------------
 
-You can use Storm's subquery syntax (:ref:`storm-ref-subquery`) to create filters. A subquery
-(enclosed in curly braces ( ``{ }`` ) ) can be placed within a larger Storm query.
+You can use Storm's subquery syntax (:ref:`storm-ref-subquery`) to create filters. A subquery (enclosed in
+curly braces ( ``{ }`` ) ) can be placed within a larger Storm query.
 
 When nodes are passed to a subquery filter, they are evaluated against the filter's criteria:
 
 - Nodes are **excluded** ("consumed", discarded) if they evaluate **false.**
 - Nodes are **included** (not "consumed", retained) if they evaluate **true.**
 
-Most filter operations in Storm will modify (reduce) your current set of nodes based on some
-criteria of the **nodes themselves** (e.g., a node's form, property, or tag).
+Most filter operations in Storm will modify (reduce) your current set of nodes based on some criteria of the
+**nodes themselves** (e.g., a node's form, property, or tag).
 
-Subquery filters allow you to filter your **current** set of nodes based on some criteria of
-**nearby** nodes. You use the subquery filter to effectively "look ahead" at nodes one or more
-pivots away from your current nodes, and filter your current nodes based on the properties
-of those "nearby" nodes.
+Subquery filters allow you to filter your **current** set of nodes based on some criteria of **nearby** nodes.
+You use the subquery filter to effectively "look ahead" at nodes one or more pivots away from your current nodes,
+and filter your current nodes based on the properties of those "nearby" nodes.
 
-The subquery pivot operation (used to "look ahead" at other nodes) is effectively performed in
-the background (without navigating away from your current working set), which provides a more
-powerful and efficent way to filter your data. (The alternative would be to **actually** navigate
-to the nearby nodes, filter those nodes, and then navigate **back** to the data you are interested in.)
+The subquery pivot operation (used to "look ahead" at other nodes) is effectively performed in the background
+(without navigating away from your current working set), which provides a more powerful and efficent way to
+filter your data. (The alternative would be to **actually** navigate to the nearby nodes, filter those nodes,
+and then navigate **back** to the data you are interested in.)
 
-You can optionally use a mathematical comparison operation with a subquery filter, in order to
-filter your current set of nodes based on the **number of results** returned by executing the
-subfilter's Storm query (see example below).
+You can optionally use a standard (mathematical) comparison operator with a subquery filter, in order to filter
+your current set of nodes based on the **number of results** returned by executing the subfilter's Storm query.
 
 Refer to the :ref:`storm-ref-subquery` guide for additional information on subqueries and subquery filters.
 
@@ -1147,45 +1169,79 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 
 *<query>* **+** | **-** **{** *<query>* **}**
 
-*<query>* **+** | **-** **{** *<query>* **}** [ *<mathematical operator>* *<value>* ]
+*<query>* **+** | **-** **{** *<query>* **}** [ *<standard operator>* *<value>* ]
 
 **Examples:**
 
-- From an initial set of domains, filter results to only those domains that resolve to an IP address
-  that Trend Micro associates with the Pawn Storm threat group (i.e., an IP address tagged
-  ``#rep.trend.pawnstorm``):
+*Filter your current working set of FQDNs (inet:fqdn nodes) to only FQDNs that have resolved to an IPv4 address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged ``#rep.trend.pawnstorm``):*
 
 .. storm-pre:: inet:fqdn +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#rep.trend.pawnstorm }
 ::
+  
+  <inet:fqdn> +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#rep.trend.pawnstorm }
 
-    <inet:fqdn> +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#rep.trend.pawnstorm }
+The subquery filter above takes the inbound ``inet:fqdn`` nodes and (within the subquery):
+- pivots to the associated DNS A records (``inet:dns:a`` nodes);
+- pivots to the asssociated IPv4 addresses (``inet:ipv4`` nodes);
+- checks the IPv4 for the presence of a ``#rep.trend.pawnstorm`` tag.
+
+The subquery filter returns only those ``inet:fqdn`` nodes where, if you performed the operations
+within the subquery, **would** (based on the inclusive filter) result in an ``inet:ipv4`` node with a
+``#rep.trend.pawnstorm`` tag.
 
 
-- From an initial set of IPv4 addresses, filter results to only those IPv4s registered to an Autonomous
-  System (AS) whose name starts with "makonix":
+*Filter your current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-.. storm-pre:: inet:ipv4 +{ :asn -> inet:asn +:name^="makonix" }
+.. storm-pre:: inet:ipv4 -{ :asn -> inet:asn +:name ^= makonix }
 ::
+  
+  <inet:ipv4> -{ :asn -> inet:asn +:name ^= makonix }
 
-    <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
+The subquery filter above takes the inbound ``inet:ipv4`` nodes and (within the subquery):
+- pivots to the associated ``inet:asn`` nodes; and
+- checks the ``inet:asn`` nodes for a ``:name`` value that starts with "makonix".
 
-
-- From an initial set of ``file:bytes`` nodes, filter results to only those that are detected as
-  malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with
-  10 or more ``it:av:filehit`` nodes):
+The subquery filter returns only those ``inet:ipv4`` nodes where, if you performed the operations
+within the subquery, **would not** (based on the exclusive filter) result in an ``inet:asn`` node
+with a ``:name`` value starting with "makonix".
+ 
+*Filter your current working set of files (file:bytes nodes) to include only files that are detected as malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with   10 or more ``it:av:filehit`` nodes):*
 
 .. storm-pre:: file:bytes +{ -> it:av:filehit }>=10
 ::
+  
+  <file:bytes> +{ -> it:av:filehit }>=10
 
-    <file:bytes> +{ -> it:av:filehit }>=10
+The subquery filter above takes the inbound ``file:bytes`` nodes and (within the subquery):
+- pivots to the associated ``it:av:filehit`` nodes; and
+- counts the number of ``it:av:filehit`` nodes for each file.
 
-- From an initial set of x509 certificates (``crypto:x509:cert``), filter results to only those
-  certificates linked to more than one FQDN (``inet:fqdn``) identity:
+The subquery filter returns only those ``file:bytes`` nodes with more than 10 ``it:av:filehit`` nodes.
 
-.. storm-pre:: [ ( crypto:x509:cert=* :identities:fqdns=(woot.com,) ) ( crypto:x509:cert=* :identities:fqdns=(hurr.net, derp.org) ) ] +{ :identities:fqdns -> inet:fqdn }>1
+*Filter your current working set of x509 certificates (crypto:x509:cert nodes) to only include certificates linked to more than one FQDN (inet:fqdn) identity:*
+
+
+
+<crypto:x509:cert> +{ :identities:fqdns -> inet:fqdn }>1
+
+
+
+
+
+
+*Filter your current working set of x509 certificates (crypto:x509:cert nodes) to only include certificates that were used to sign more than one file:*
+
+.. storm-pre:: [ crypto:x509:cert=00006baf61871a06cc63f6772a41046f crypto:x509:signedfile=(00006baf61871a06cc63f6772a41046f,sha256:aa69e6c8485e5bae788bb427a17f96cd148b6f2d965ab825450e96133dddd5cc) ( crypto:x509:cert=00cec256a66d72e4d9a10f90f5f9fa9b crypto:x509:signedfile=(00cec256a66d72e4d9a10f90f5f9fa9b,sha256:7f8f310241aa93dee7b4c0e97c1d30b8e50e96ffec619288de13f25d2ca555c7) crypto:x509:signedfile=(00cec256a66d72e4d9a10f90f5f9fa9b,sha256:3a8263b607897e6754604e08b62b088ab2443df57146dee8f709193c454cd573) ] +{ -> crypto:x509:signedfile }>1
 ::
   
-  <crypto:x509:cert> +{ :identities:fqdns -> inet:fqdn }>1
+  <crypto:x509:cert> +{ -> crypto:x509:signedfile }>1
+
+The subquery filter takes the inbound ``crypto:x509:signedfile`` nodes and (within the subquery):
+- pivots to the associated ``crypto:x509:signedfile``nodes; and
+- counts the number of ``crypto:x509:signedfile`` nodes associated with each certificate.
+
+The subquery filter returns only those ``crypto:x509:cert`` nodes with more than one associated
+``crypto:x509:signedfile`` node.
 
 
 .. _filter-expression:
@@ -1193,10 +1249,10 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 Expression Filters
 ------------------
 
-You can filter your current set of data (nodes) based on the evaluation of a particular expression.
-Expression filters are useful when you need to compute a value that you want to use for the filter,
-or when you want to filter based on a value that may change (e.g., when using Storm queries that
-assign variables - see :ref:`storm-adv-vars`).
+An expression filter is used to downselect your current working set based on the evaluation of a particular
+expression. Expression filters are useful when you need to compute a value that you want to use for the filter,
+or when you want to filter based on a value that may change (e.g., when using Storm queries that assign variables
+- see :ref:`storm-adv-vars`).
 
 **Syntax:**
 
@@ -1205,9 +1261,7 @@ assign variables - see :ref:`storm-adv-vars`).
 
 **Examples:**
 
-- From an initial set of network flows (``inet:flow`` nodes), filter results to only those flows where
-  the total number of bytes transferred in the flow between the source (``inet:flow:src:txbytes``) and
-  destination (``inet:flow:dst:txbytes``) is greater than 100MB (~100,000,000 bytes):
+*Filter your current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (``inet:flow:src:txbytes``) and destination (``inet:flow:dst:txbytes``) is greater than 100MB (~100,000,000 bytes):*
 
 .. storm-pre:: [ ( inet:flow=* :src:txbytes=60000000 :dst:txbytes=60000000 ) ( inet:flow=* :src:txbytes=1024 :dst:txbytes=4096 ) ] +$( :src:txbytes + :dst:txbytes >=100000000 )
 ::
@@ -1215,13 +1269,13 @@ assign variables - see :ref:`storm-adv-vars`).
   <inet:flow> +$( :src:txbytes + :dst:txbytes >=100000000 )
 
 
-- From an initial set of x509 certificates (``crypto:x509:cert``), filter results to only those
+*Filter your current working set of x509 certificates (crypto:x509:cert nodes) to exclude any certificates that are linked to more than one FQDN identity:*
   certificates linked to more than one FQDN (``inet:fqdn``) identity:
 
-.. storm-pre:: [ ( crypto:x509:cert=* :identities:fqdns=(woot.com,) ) ( crypto:x509:cert=* :identities:fqdns=(hurr.net, derp.org) ) ] $fqdns=:identities:fqdns +$( $fqdns.size() > 1 )
+.. storm-pre:: [ ( crypto:x509:cert=* :identities:fqdns=(woot.com,) ) ( crypto:x509:cert=* :identities:fqdns=(hurr.net, derp.org) ) ] $fqdns=:identities:fqdns -$( $fqdns.size() > 1 )
 ::
   
-  <crypto:x509:cert> $fqdns=:identities:fqdns +$( $fqdns.size() > 1 )
+  <crypto:x509:cert> $fqdns=:identities:fqdns -$( $fqdns.size() > 1 )
 
 This example assigns the list of domains in the ``crypto:x509:cert:identities:fqdns`` property to the
 user-defined variable ``$fqdns``, computes the number of domains in the list using :ref:`stormprims-list-size`,
