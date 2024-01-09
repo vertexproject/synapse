@@ -544,7 +544,7 @@ of times and intervals.
 
 *<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
 
-*<query>* **+** | **-** [ *<form>* **:** | **.** | **:_** *<prop>* **@=** *<time>*
+*<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* **@=** *<time>*
 
 **Examples:**
 
@@ -674,12 +674,32 @@ Filter by Range (\*range=)
 ++++++++++++++++++++++++++
 
 The range extended comparator (``*range=``) supports filtering nodes whose *<form> = <valu>* or *<prop> = <pval>*
-fall within a specified range of values. The comparator can be used with types such as integers and times,
-including types that are extensions of those types, such as IP addresses.
+fall within a specified range of values. The comparator can be used with types such as integers and times.
+
+.. NOTE::
+  
+  The ``*range=`` operator can be used to filter both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
+  as decimal integers and strings, respectively). However, ranges of :ref:`type-inet-ipv4` and ``inet:ipv6``
+  nodes can also be filtered directly by specifying a the lower and upper addresses in the range using
+  ``<min>-<max>`` format. For example:
+  
+  ``+inet:ipv4 = 192.168.0.0-192.168.0.10``
+  or
+  ``+:ipv4 = 192.168.0.0-192.168.0.10``
+  
+  Because IPv6 nodes are stored as strings, the range must be enclosed in quotes:
+  
+  ``+inet:ipv6 = "::0-ff::ff"
+  ``+:ipv6 = "::0-ff::ff"
+    
+  The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
+  (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
 
 **Syntax:**
 
-*<query>* **+** | **-** *<form>* | *<prop>* ***range = (** *<range_min>* **,** *<range_max>* **)**
+*<query>* **+** | **-** *<form>* ***range = (** *<range_min>* **,** *<range_max>* **)**
+
+*<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* ***range = (** *<range_min>* **,** *<range_max>* **)**
 
 **Examples:**
 
