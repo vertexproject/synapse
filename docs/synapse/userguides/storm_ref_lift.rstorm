@@ -636,11 +636,16 @@ within a specified range of values. The comparator can be used with types such a
 
 .. NOTE::
   
-  The ``*range=`` operator can be used with both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
-  in their decimal integer format). However, :ref:`type-inet-ipv4` nodes can also be lifted directly by
-  specifying an IPv4 range using the equal to ( ``=`` ) operator. For example:
+  The ``*range=`` operator can be used to lift both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
+  as decimal integers and strings, respectively). However, ranges of :ref:`type-inet-ipv4` and ``inet:ipv6``
+  nodes can also be lifted directly by specifying a the lower and upper addresses in the range using
+  ``<min>-<max>`` format. For example:
   
   ``inet:ipv4 = 192.168.0.0-192.168.0.10``
+  
+  Because IPv6 nodes are stored as strings, the range must be enclosed in quotes:
+  
+  ``inet:ipv6 = "::0-ff::ff"
   
   The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
   (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
