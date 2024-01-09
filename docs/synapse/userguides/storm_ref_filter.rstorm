@@ -1,9 +1,9 @@
 .. highlight:: none
 
 .. storm-cortex:: default
-.. storm-pre:: $propinfo = $lib.dict(doc="The VirusTotal reputation score.") $lib.model.ext.addFormProp(file:bytes, _virustotal:reputation, (int, $lib.dict()), $propinfo)
-.. storm-pre:: $propinfo = $lib.dict(doc="Boolean which records whether the organization is a threat group.") $lib.model.ext.addFormProp(ou:org, _vertex:threatintel:isthreat, (bool, $lib.dict()), $propinfo)
-.. storm-pre:: $tagpropinfo = $lib.dict(doc="A risk tagprop.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo)
+.. storm-pre:: $propinfo = ({"doc": "The VirusTotal reputation score."}) $lib.model.ext.addFormProp(file:bytes, _virustotal:reputation, (int, $lib.dict()), $propinfo)
+.. storm-pre:: $propinfo = ({"doc": "Boolean which records whether the organization is a threat group."}) $lib.model.ext.addFormProp(ou:org, _vertex:threatintel:isthreat, (bool, $lib.dict()), $propinfo)
+.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo)
 
 .. _storm-ref-filter:
 
@@ -960,22 +960,118 @@ the specified tag.
   (``#cno.infra.anon.tor``), or an anonymous proxy (``#cno.infra.anon.proxy``).
 
 
-.. _filter-tag-wildcard:
+.. _filter-tag-globs:
 
-Filter by Tag (Wildcard) <------- um wut
-++++++++++++++++++++++++
+Filter by Tag Globs
++++++++++++++++++++
 
-The wildcard (asterisk) character ( ``*`` ) can be used in a tag filter expression to represent any single
-tag element. Multiple wildcards can be used in a single filter expression.
+Synapse supports filtering based on the set of tags that match a specified glob expression using single ( ``*`` )
+or double ( ``**`` ) asterisks, or a combination of the two.
+
+The single asterisk and double asterisk behave differently, and it is important to keep this difference
+in mind:
+
+- The asterisk ( ``*`` ) represents an arbitrary string that matches a single tag element (i.e., one element
+  as bounded by the tag's "dot" ( ``.`` ) separators).
+- The double asterisk ( ``**`` ) represents an arbitrary string match anywhere in the tag.
+
+Another way to look at this is that the single asterisk is constrained by the tag's "dot" boundaries, but
+the double asterisk is not.
 
 **Syntax:**
 
-*<query>* **+** | **-** **#** *<tag_element>* | ***** [ **.** *<tag_element>* | ***** ... ]
+*<query>* **+** | **-** **#** *<tag_element>* | ***** [ **.** *<tag_element>* | *****  ... ]
+
+*<query>* **+** | **-** **#** *<string>* | ****** [ *<string>* | ****** ... ]
 
 **Examples:**
 
-*Filter the current working set to 
+*Filter the current working set to exclude any nodes tagged as "seduploader" by any third-party reporting organization:*
 
+.. storm-pre:: [ inet:fqdn=woot.com +#rep.eset.seduploader +#rep.paloalto.seduploader +#rep.kaspersky.sednit ] -#rep.*.seduploader
+::
+  
+  <query> -#rep.*.seduploader
+
+To record assessments made by third parties, The Vertex Project uses ``rep`` ("reported by") as the root tag element,
+followed by a tag element for the reporting organization (e.g., ``rep.eset``), followed by the name of the "thing"
+reported (in this case, the ``seduploader`` malware family).
+
+The tag glob filter above uses the single asterisk to match any tag element in the second position, and will match tags such as:
+
+- rep.eset.seduploader
+- rep.paloalto.seduploader
+...etc.
+
+*Filter the current working set to exclude any nodes tagged as "seduploader" either internally or by any third-party reporting organization:*
+
+.. storm-pre:: [ inet:fqdn=woot.com +#rep.eset.seduploader +#rep.paloalto.seduploader +#rep.kaspersky.sednit ] -#*.*.seduploader
+::
+  
+  <query> -#*.*.seduploader
+
+The Vertex Project uses the ``cno`` root tag to represent our own internal assessments (and distinguish them from
+third party-assessments), and the ``mal`` element to represent assessments related to malware. The tag glob filter
+above uses two single asterisks to match any element in both the first and second positions, and will match all of
+the following:
+
+- rep.eset.seduploader
+- rep.paloalto.seduploader
+- cno.mal.seduploader
+...etc.
+
+
+*Filter the current working set to include any nodes reported by Microsoft whose tags end in "blizzard":
+
+.. storm-pre:: [ ( inet:fqdn=lotorgas.ru +#rep.microsoft.aqua_blizzard ) ( inet:fqdn=justiceua.org +#rep.microsoft.cadet_blizzard ) ( inet:fqdn=actblues.com +#rep.microsoft.forest_blizzard ) ( inet:fqdn=scandefinform.com +#rep.microsoft.star_blizzard ) ] +#rep.microsoft.**blizzard
+::
+  
+  <query> +#rep.microsoft.**blizzard
+
+The tag glob filter above uses a double asterisk to match any Microsoft tag (tag that begins ``rep.microsoft``)
+that ends in "blizzard", regardless of tag depth. The filter will match all of the following:
+
+- rep.microsoft.aqua_blizzard
+- rep.microsoft.cadet_blizzard
+- rep.microsoft.forest_blizzard
+- rep.microsoft.very.long.tag.thatendswithblizzard
+..etc.
+
+*Filter the current working set to exclude any nodes tagged with any tag that starts with "cno" and is followed by any string:*
+
+.. storm-pre:: [ ( inet:ipv4=93.90.223.185 +#cno.infra.dns.sink.hole ) ( inet:fqdn=vertex.link +#cno ) ]] -#cno**
+::
+  
+  <query> -#cno**
+
+The tag glob filter above uses a double asterisk to match any string following "cno". The filter will match all of
+the following:
+
+- cno.mal
+- cno.threat.t42
+- cnocno.you_get_a_cno.and_you_get_a_cno
+
+.. NOTE::
+  
+  The double asterisk must match "something" - the filter above will **not** match a node that has the tag ``#cno``.
+
+
+*Filter the current working set to include any nodes tagged with any "APT" group by any third-party reporting organization:*
+
+.. storm-pre:: [ ( inet:fqdn=www.autoapec.com +#rep.alienvault.apt30 ) ( inet:fqdn=intuitstatistic.com +#rep.mandiant.apt28 ) ( inet:fqdn=supportus.mefound.com +#rep.pwc.apt10 ) ] +#rep.*.apt**
+::
+  
+  <query> +#rep.*.apt**
+
+The tag glob filter above uses both a single and double asterisk. The single asterisk matches any tag element in the second
+position; the double asterisk matches any string following "apt" in the third element. The filter will match all of the
+following:
+
+- rep.alienvault.apt30
+- rep.malwarebazaar.apt_malware_exe_dll_ps1
+- rep.mandiant.apt28
+- rep.pwc.apt10
+...etc.
 
 
 .. _filter-tag-timestamp:
