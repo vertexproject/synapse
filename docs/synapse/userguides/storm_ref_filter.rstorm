@@ -560,124 +560,113 @@ of times and intervals.
   
   +.seen @= ( 2022/07/01, 2022/08/01 )
 
+*Filter the current working set to only include DNS requests (inet:dns:request nodes) that occurred on May 3, 2023 (between 05/03/2023 00:00:00 and 05/03/2023 23:59:59):*
 
-
-
-
-
-
-
-*Filter by comparing a time to an interval:*
-
-- Filter results to include only those DNS request nodes whose requests occurred between 2:00 PM November
-  12, 2017 and 9:30 AM November 14, 2017:
-
-.. storm-pre:: [inet:dns:request="*" :time="2018/03/03 21:09:04.000"] +inet:dns:request:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
+.. storm-pre:: [ inet:dns:request="*" :time="2023/05/03 21:09:04.000" :query:name:fqdn=vertex.link ] +inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ::
-    
-    <query> +inet:dns:request:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
+  
+  +inet:dns:request:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 
-
-.. storm-pre:: inet:dns:request +:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
+.. storm-pre:: [ inet:dns:request="*" :time="2023/05/03 21:09:04.000" :query:name:fqdn=vertex.link ] +:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
 ::
-    
-    <query> +:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
+  
+  +:time @= ( '2023/05/03 00:00:00', '2023/05/04 00:00:00' )
+
+.. TIP:
+  
+  Because the ``inet:dns:request:time`` property is a single date / time value, the following filters
+  would also work:
+  
+  ``+inet:dns:request:time = 2023/05/03*``
+  ``+:time = 2023/05/03*``
 
 
-*Filter by comparing an interval to a time:*
+*Filter the current working set to only include DNS A records (inet:dns:a nodes) whose resolution time window includes the date December 1, 2023:*
 
-- Filter results to include only those DNS A records whose resolution time windows include the date
-  December 1, 2017:
-
-.. storm-pre:: inet:dns:a +inet:dns:a.seen@=2017/12/01
+.. storm-pre:: inet:dns:a +inet:dns:a.seen @= 2023/12/01
 ::
-    
-    <query> +inet:dns:a.seen@=2017/12/01
-
+  
+  <query> +inet:dns:a.seen @= 2017/12/01
 
 .. storm-pre:: inet:dns:a +.seen@=2017/12/01
 ::
-    
-    <query> +.seen@=2017/12/01
+  
+  <query> +.seen @= 2017/12/01
 
 
-*Filter by comparing a time to a time:*
+*Filter results to include only those domain WHOIS records (inet:whois:rec nodes) where the domain was registered (created) **exactly** on March 19, 2019 at 5:00 UTC:*
 
-- Filter results to include only those WHOIS records whose domain was registered (created) **exactly**
-  on March 19, 1986 at 5:00 AM:
-
-.. storm-pre:: inet:whois:rec +inet:whois:rec:created@="1986/03/19 05:00:00"
+.. storm-pre:: inet:whois:rec +inet:whois:rec:created @= '2019/03/19 05:00:00'
 ::
-    
-    <query> +inet:whois:rec:created@="1986/03/19 05:00:00"
+  
+  <query> +inet:whois:rec:created @= '2019/03/19 05:00:00'
 
 
-.. storm-pre:: inet:whois:rec +:created@="1986/03/19 05:00:00"
+.. storm-pre:: inet:whois:rec +:created @= '2019/03/19 05:00:00'
 ::
-    
-    <query> +:created@="1986/03/19 05:00:00"
+  
+  <query> +:created @= '2019/03/19 05:00:00'
+
+.. NOTE::
+  
+  When comparing a single time value to a time property, the ``@=`` comparator behaves just like the
+  equal to ( ``=`` ) operator.
 
 
-*Filter using an interval with relative times:*
+*Filtter the current working set tto only include WHOIS email nodes (inet:whois:email) that were observed between July 1, 2023 and the present:*
 
-- Filter results to include only those ``inet:whois:email`` nodes that were observed between
-  January 1, 2018 and the present:
-
-.. storm-pre:: [inet:whois:email=(usnewssite.com, contact@privacyprotect.org) .seen=(2008/07/10 00:00:00.000, 2020/06/29 00:00:00.001)] +inet:whois:email.seen@=(2018/01/01, now)
+.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email.seen @= ( 2023/07/01, now )
 ::
-    
-    <query> +inet:whois:email.seen@=(2018/01/01, now)
+  
+  +inet:whois:email.seen @= ( 2023/07/01, now )
 
-
-.. storm-pre:: inet:whois:email +.seen@=(2018/01/01, now)
+.. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +.seen @= ( 2023/07/01, now )
 ::
-    
-    <query> +.seen@=(2018/01/01, now)
+  
+  +.seen @= ( 2023/07/01, now )
 
+*Filter the current working set to only include the network flows (inet:flow nodes) that occurred within the past day:*
 
-- Filter results to include only DNS requests whose requests occurred within one week after October 15, 2018:
-
-.. storm-pre:: inet:dns:request +inet:dns:request:time@=(2018/10/15, "+ 7 days")
+.. storm-pre:: [ inet:flow="*" :time=now ] +inet:flow:time @= ( now, '-1 day' )
 ::
-    
-    <query> +inet:dns:request:time@=(2018/10/15, "+ 7 days")
+  
+  +inet:flow:time @= ( now, '-1 day' )
 
-
-.. storm-pre:: inet:dns:request +:time@=(2018/10/15, "+ 7 days")
+.. storm-pre:: [ inet:flow="*" :time=now ] +:time @= ( now, '-1 day' )
 ::
-    
-    <query> +:time@=(2018/10/15, "+ 7 days")
+  
+  +:time @= ( now, '-1 day' )
 
 
 **Usage Notes:**
 
-- When specifying an interval, the minimum value is **included** in the interval but the maximum value
-  is **excluded** (the equivalent of "greater than or equal to *<min>* and less than *<max>*"). This
-  behavior is slightly different than that for ``*range=``, which includes **both** the minimum and
-  maximum.
-- When comparing an **interval to an interval,** Storm will return nodes whose interval has **any**
-  overlap with the specified interval.
+- When specifying an interval with the ``@=`` operator, the minimum value is included in the interval for
+  comparison purposes but the maximum value is **not**. This is equivalent to "greater than or equal to
+  *<min>* and less than *<max>*". This behavior differs from that of the ``*range=`` operator, which includes
+  **both** the minimum and maximum.
+- **Comparing intervals to intervals:** when using an interval with the ``@=`` operator to filter nodes based on
+  an interval property, Synapse returns nodes whose interval value has **any** overlap with the specified
+  interval. For example:
 
-  - For example, a filter interval of September 1, 2018 to October 1, 2018 (2018/09/01, 2018/10/01) will
-    match nodes with **any** of the following intervals:
+  - A lift interval of September 1, 2018 to October 1, 2018 ( 2018/09/01, 2018/10/01 ) will match nodes with any
+    of the following intervals:
   
-    - 2018/08/12 to 2018/09/06 (range overlaps with the `<min>` value).
-    - 2018/09/13 to 2018/09/17 (range falls between `<min>` and `<max>` values).
-    - 2018/09/30 to 2018/11/05 (range overlaps with the `<max>` value).
+    - August 12, 2018 to September 6, 2018 ( 2018/08/12, 2018/09/06 ).
+    - September 13, 2018 to September 17, 2018 ( 2018/09/13, 2018/09/17 ).
+    - September 30, 2018 to November 5, 2018 ( 2018/09/30, 2018/11/05 ).
 
-- When comparing a **time to an interval,** Storm will return nodes whose timestamp falls **within** the
-  specified interval.
-- When comparing a **time to a time,** Storm will return nodes whose timestamp is an **exact match.** 
-  Interval syntax (e.g.,  ``:time@=<time>`` ) syntax is supported when specifying an exact time match,
-  although you can simply use the equals comparator instead (e.g., ``:time=<time>`` ).
-- Because tags can have optional timestamps (min / max interval values), interval filters can also be
-  used to filter based on tag timestamps.
-- When specifying interval date/time values, Synapse allows you to use either lower resolution values
-  (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum interval
-  values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify
-  some intervals. For example ``+inet:whois:rec:asof=2018*`` (or ``+:asof=2018*``) is equivalent to
-  ``+inet:whois:rec:asof@=('2018/01/01', '2019/01/01')`` (or ``+:asof@=('2018/01/01, '2019/01/01')``).
-  See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
+- **Comparing intervals to times:** When using an interval with the ``@=`` operator to lift nodes based on a time
+  property, Synapse returns nodes whose time value falls within the specified interval.
+- **Comparing times to times:** When using a time with the ``@=`` operattor to filter nodes based on a time property,
+  Synapse returns nodes whose timestamp is an **exact match** of the specified time. In other words, in this case
+  the interval comparator ( ``@=`` ) behaves like the equal to comparator ( ``=`` ).
+- When specifying date / time and interval values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
+  and wildcard values (e.g., ``YYYY/MM*``). Wildcard time syntax may provide a simpler and more intuitive means to specify
+  some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.
+- Time-based keywords (such as ``now``) and relative time syntax (expressions such as ``+-1 hour`` or ``-7 days``) can be used
+  for interval values.
+
+  See the type-specific documentation for :ref:`type-time` and :ref:`type-ival` types for a detailed discussion of these behaviors.
 
 .. _filter-range:
 
