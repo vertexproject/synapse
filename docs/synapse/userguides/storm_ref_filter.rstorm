@@ -146,7 +146,7 @@ Filter by Universal Property
 
 **Example:**
 
-*Filter the current working set to only include DNS A records (inet:dns:a nodes) tthat have a .seen property:*
+*Filter the current working set to only include DNS A records (inet:dns:a nodes) that have a .seen property:*
 
 .. storm-pre:: [ (inet:dns:a=(vertex.link,1.1.1.1) .seen=('2016/06/01 12:22:47.234', '2017/06/10 02:44:55.437')) (inet:dns:a=(vertex.link,2.2.2.2)) ] +inet:dns:a.seen
 ::
@@ -613,7 +613,7 @@ of times and intervals.
   equal to ( ``=`` ) operator.
 
 
-*Filtter the current working set tto only include WHOIS email nodes (inet:whois:email) that were observed between July 1, 2023 and the present:*
+*Filter the current working set to only include WHOIS email nodes (inet:whois:email) that were observed between July 1, 2023 and the present:*
 
 .. storm-pre:: [ inet:whois:email=(tfxdccssl.net, abuse@dynadot.com) .seen=(2013/12/13 00:00:00, 2023/07/30 04:05:15.001) ] +inet:whois:email.seen @= ( 2023/07/01, now )
 ::
@@ -657,7 +657,7 @@ of times and intervals.
 
 - **Comparing intervals to times:** When using an interval with the ``@=`` operator to lift nodes based on a time
   property, Synapse returns nodes whose time value falls within the specified interval.
-- **Comparing times to times:** When using a time with the ``@=`` operattor to filter nodes based on a time property,
+- **Comparing times to times:** When using a time with the ``@=`` operator to filter nodes based on a time property,
   Synapse returns nodes whose timestamp is an **exact match** of the specified time. In other words, in this case
   the interval comparator ( ``@=`` ) behaves like the equal to comparator ( ``=`` ).
 - When specifying date / time and interval values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``),
@@ -1173,7 +1173,7 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 
 **Examples:**
 
-*Filter your current working set of FQDNs (inet:fqdn nodes) to only FQDNs that have resolved to an IPv4 address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged ``#rep.trend.pawnstorm``):*
+*Filter the current working set of FQDNs (inet:fqdn nodes) to only FQDNs that have resolved to an IPv4 address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged ``#rep.trend.pawnstorm``):*
 
 .. storm-pre:: inet:fqdn +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#rep.trend.pawnstorm }
 ::
@@ -1190,7 +1190,7 @@ within the subquery, **would** (based on the inclusive filter) result in an ``in
 ``#rep.trend.pawnstorm`` tag.
 
 
-*Filter your current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
+*Filter the current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
 
 .. storm-pre:: inet:ipv4 -{ :asn -> inet:asn +:name ^= makonix }
 ::
@@ -1204,8 +1204,13 @@ The subquery filter above takes the inbound ``inet:ipv4`` nodes and (within the 
 The subquery filter returns only those ``inet:ipv4`` nodes where, if you performed the operations
 within the subquery, **would not** (based on the exclusive filter) result in an ``inet:asn`` node
 with a ``:name`` value starting with "makonix".
- 
-*Filter your current working set of files (file:bytes nodes) to include only files that are detected as malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with   10 or more ``it:av:filehit`` nodes):*
+
+.. TIP::
+  
+  See :ref:`embed-prop-syntax` below for an alternative way to perform this query using embedded property syntax.
+
+
+*Filter the current working set of files (file:bytes nodes) to include only files that are detected as malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with   10 or more ``it:av:filehit`` nodes):*
 
 .. storm-pre:: file:bytes +{ -> it:av:filehit }>=10
 ::
@@ -1218,30 +1223,22 @@ The subquery filter above takes the inbound ``file:bytes`` nodes and (within the
 
 The subquery filter returns only those ``file:bytes`` nodes with more than 10 ``it:av:filehit`` nodes.
 
-*Filter your current working set of x509 certificates (crypto:x509:cert nodes) to only include certificates linked to more than one FQDN (inet:fqdn) identity:*
+*Filter the current working set of x509 certificates (crypto:x509:cert nodes) to only include certificates linked to more than one FQDN (inet:fqdn) identity:*
 
-
-
-<crypto:x509:cert> +{ :identities:fqdns -> inet:fqdn }>1
-
-
-
-
-
-
-*Filter your current working set of x509 certificates (crypto:x509:cert nodes) to only include certificates that were used to sign more than one file:*
-
-.. storm-pre:: [ crypto:x509:cert=00006baf61871a06cc63f6772a41046f crypto:x509:signedfile=(00006baf61871a06cc63f6772a41046f,sha256:aa69e6c8485e5bae788bb427a17f96cd148b6f2d965ab825450e96133dddd5cc) ( crypto:x509:cert=00cec256a66d72e4d9a10f90f5f9fa9b crypto:x509:signedfile=(00cec256a66d72e4d9a10f90f5f9fa9b,sha256:7f8f310241aa93dee7b4c0e97c1d30b8e50e96ffec619288de13f25d2ca555c7) crypto:x509:signedfile=(00cec256a66d72e4d9a10f90f5f9fa9b,sha256:3a8263b607897e6754604e08b62b088ab2443df57146dee8f709193c454cd573) ] +{ -> crypto:x509:signedfile }>1
+.. storm-pre:: [ ( crypto:x509:cert=* :identities:fqdns=(woot.com,) ) ( crypto:x509:cert=* :identities:fqdns=(hurr.net, derp.org) ) ] +{ :identities:fqdns -> inet:fqdn }>1
 ::
   
-  <crypto:x509:cert> +{ -> crypto:x509:signedfile }>1
+  <crypto:x509:cert> +{ :identities:fqdns -> inet:fqdn }>1
 
-The subquery filter takes the inbound ``crypto:x509:signedfile`` nodes and (within the subquery):
-- pivots to the associated ``crypto:x509:signedfile``nodes; and
-- counts the number of ``crypto:x509:signedfile`` nodes associated with each certificate.
+The subquery filter above takes the inbound ``crypto:x509:cert`` nodes and (within the subquery):
+- uses the ``:identities:fqdns`` array property to pivot to any associated FQDNs (``inet:fqdn`` nodes); and
+- counts the number of ``inet:fqdn`` nodes associated with each certificate.
 
-The subquery filter returns only those ``crypto:x509:cert`` nodes with more than one associated
-``crypto:x509:signedfile`` node.
+The subquery filter returns only those ``crypto:x509:cert`` nodes associated with more than one FQDN.
+
+.. TIP::
+  
+  See :ref:`filter-expression` below for an alternative way to perform this query using an expression filter.
 
 
 .. _filter-expression:
@@ -1261,16 +1258,7 @@ or when you want to filter based on a value that may change (e.g., when using St
 
 **Examples:**
 
-*Filter your current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (``inet:flow:src:txbytes``) and destination (``inet:flow:dst:txbytes``) is greater than 100MB (~100,000,000 bytes):*
-
-.. storm-pre:: [ ( inet:flow=* :src:txbytes=60000000 :dst:txbytes=60000000 ) ( inet:flow=* :src:txbytes=1024 :dst:txbytes=4096 ) ] +$( :src:txbytes + :dst:txbytes >=100000000 )
-::
-  
-  <inet:flow> +$( :src:txbytes + :dst:txbytes >=100000000 )
-
-
-*Filter your current working set of x509 certificates (crypto:x509:cert nodes) to exclude any certificates that are linked to more than one FQDN identity:*
-  certificates linked to more than one FQDN (``inet:fqdn``) identity:
+*Filter the current working set of x509 certificates (crypto:x509:cert nodes) to only include certificates linked to more than one FQDN (inet:fqdn) identity:*
 
 .. storm-pre:: [ ( crypto:x509:cert=* :identities:fqdns=(woot.com,) ) ( crypto:x509:cert=* :identities:fqdns=(hurr.net, derp.org) ) ] $fqdns=:identities:fqdns -$( $fqdns.size() > 1 )
 ::
@@ -1283,31 +1271,39 @@ and checks to see if the result is greater than 1.
 
 (See the :ref:`stormtypes_index` for additional detail on Storm types and Storm libraries.)
 
-.. NOTE::
+.. TIP::
     
-    This certificates example is identical to the final example under :ref:`filter-subquery` above, and
-    shows an alternate way to return the same data.
+    This certificate example is identical to the final example under :ref:`filter-subquery` above, and
+    shows an alternative way to return the same data.
     
     The expression filter above is more efficient than the subquery filter because the expression
-    filter simply evaluates the expression, where the subquery filter needs to pivot to the adjacent
-    nodes in order to evaluate the results. This difference in performance is negligible for small
-    data sets but more pronounced when working with large numbers of nodes.
+    filter simply evaluates the expression ("what is the size of the ``:identities:fqdns`` array property?"),
+    where the subquery filter needs to pivot to the adjacent nodes in order to evaluate the results. This
+    difference in performance is negligible for small data sets but more pronounced when working with large
+    numbers of nodes.
+
+*Filter the current working set of network flows (inet:flow nodes) to only include flows where the total number of bytes transferred in the flow between the source (``inet:flow:src:txbytes``) and destination (``inet:flow:dst:txbytes``) is greater than 100MB (~100,000,000 bytes):*
+
+.. storm-pre:: [ ( inet:flow=* :src:txbytes=60000000 :dst:txbytes=60000000 ) ( inet:flow=* :src:txbytes=1024 :dst:txbytes=4096 ) ] +$( :src:txbytes + :dst:txbytes >=100000000 )
+::
+  
+  <inet:flow> +$( :src:txbytes + :dst:txbytes >=100000000 )
 
 
-- From the set of nodes associated with any threat group or threat cluster (e.g., tagged
-  ``#cno.threat.<threat_name>``), filter results to those nodes that are attributed to more than one
-  threat (e.g., that have more than one ``#cno.threat.<threat_name>`` tag. This may identify nodes that
-  are incorrectly attributed to more than one group; or instances where two threat clusters overlap,
-  which may indicate that the clusters actually represent a single set of activity):
+*Filter the current set of nodes associated with **any** threat group or threat cluster (e.g., tagged ``#cno.threat.<threat_name>``), to include only those nodes that are attributed to more than one threat (e.g., that have more than one ``#cno.threat.<threat_name>`` tag:*
+
+.. TIP::
+  
+  This query may identify nodes that are incorrectly attributed to more than one group, or instances where two threat clusters overlap
+  (which may indicate that the clusters actually represent a single set of activity).
 
 .. storm-pre:: [ ( inet:ipv4=4.4.4.4 +#cno.threat.foo ) ( inet:ipv4=7.7.7.7 +#cno.threat.hurr +#cno.threat.derp ) ] +$( $node.globtags(cno.threat.*).size() > 1 )
 ::
   
   #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
 
-This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that
-match the specified expression (``cno.threat.*``) and :ref:`stormprims-list-size` to count the number
-of matches.
+This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that match the specified expression
+(``cno.threat.*``) and :ref:`stormprims-list-size` to count the number of matches.
 
 
 .. _embed_prop_syntax:
@@ -1326,7 +1322,9 @@ secondary-to-secondary property pivot (see :ref:`storm-ref-pivot`). The syntax e
 - The **form** for that secondary property (i.e., ``inet:asn``), to
 - A **secondary property** (or property value) of that **target form** (such as ``inet:asn:name``).
 
-This process can be repeated to reference properties of forms more than one pivot away.
+.. TIP::
+  
+  This process can be repeated to reference properties of forms more than one pivot away.
 
 Despite its similarity to a pivot operation, embedded property syntax is commonly used for:
 
@@ -1337,59 +1335,88 @@ Despite its similarity to a pivot operation, embedded property syntax is commonl
 
 **Syntax:**
 
-*<query>* [ **+ | -** ] **:** *<prop>* **::** *<prop>*
+*<query>* [ **+ | -** ] **:** *<prop>* **::** *<prop>* [ **::** *<prop>* ... ]
 
-*<query>* [ **+ | -** ] **:** *<prop>* **::** *<prop>* **=** *<pval>*
+*<query>* [ **+ | -** ] **:** *<prop>* [ **::** *<prop>* ... ] **::** *<prop>* *<operator>* *<pval>*
 
 .. NOTE::
   
   In Storm, the leading colon (i.e., the colon before the name of the initial secondary property) is
-  **required**. When using this syntax to create an embed column in Optic, the initial colon should be
-  **omitted** (i.e., ``asn::name`` vs ``:asn::name``). Optic will prepend the initial colon for you.
+  **required**. When using this syntax to create an embed column in Optic (the Synapse UI), the
+  initial colon should be **omitted** (i.e., ``asn::name`` vs ``:asn::name``). Optic will prepend the
+  initial colon for you.
 
 
-**Examples:**
+**Filter Examples:**
 
+The examples below illustrate the use of embedded property syntax in a filter expresssion.
 
-*Filter Example - Single Pivot*
+*Filter the current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-- From an initial set of IPv4 addresses, filter results to only those IPv4s registered to an Autonomous
-  System (AS) whose name starts with "makonix":
-
-.. storm-pre:: [ (inet:ipv4=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] +:asn::name^="makonix"
+.. storm-pre:: [ (inet:ipv4=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] +:asn::name ^= makonix
 ::
+  
+  <inet:ipv4> +:asn::name ^= makonix
 
-    <inet:ipv4> +:asn::name^="makonix"
+.. TIP::
+  
+  This example is an alternative way to return the same data as the second example under :ref:`filter-subquery`
+  above:
+  
+  ::
+    
+    <inet:ipv4> +{ :asn -> inet:asn +:name ^= makonix }
+  
 
-Note that this example of embedded property syntax is equivalent to the following subquery filter
-(referenced above):
+*Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a file that has a PDB path (:mime:pe:pdbpath property):*
+
+.. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath
 
 ::
+  
+  <it:exec:file:add> +:sandbox:file::mime:pe:pdbpath
 
-    <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
+The ``:sandbox:file`` property of an ``it:exec:file:add`` node represents the file (``file:bytes`` node) that
+was executed in the sandbox environment. If this filter were written as a subquery filter, the pivot syntax
+within the subquery would look like this:
 
-
-*Filter Example - Multiple Pivots*
-
-- From an initial set of ``it:exec:file:read`` operations, filter results to only those operations where
-  the base file name of the PDB path of the file performing the read operation is ``moonclient2.pdb``:
-
-.. storm-pre:: [ ( it:exec:file:read=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 ) ( file:bytes=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 :mime:pe:pdbpath='e:/code/moon1.5/release/moonclient2.pdb' ) ] +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
 ::
+  
+  <it:exec:file:add> +{ :sandbox:file -> file:bytes +:mime:pe:pdbpath }
 
-  <it:exec:file:read> +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
+Instead, embedded property syntax is used to represent the pivot from the ``:sandbox:file`` property of the
+``it:exec:file:add`` node, to the associated ``file:bytes`` node, to the file's ``:mime:pe:pdbpath`` property.
 
 
-*Variable Assignment Example*
+*Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a self-extracting RAR file (i.e., a file with a PDB path whose base file name is sfxrar.pdb):*
 
-- Set the variable ``$name`` to the name of the Autonomous System (AS) associated with a given IPv4
-  address:
+.. storm-pre:: [ ( it:exec:file:add=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 ) ( file:bytes=sha256:176f7f28dd671da3b3dde38ae92a74cee223c802b5399a482a44930422fd5575 :mime:pe:pdbpath='d:/projects/winrar/sfx/build/sfxrar32/release/sfxrar.pdb' ) ] +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb
+::
+  
+  <it:exec:file:add> +:sandbox:file::mime:pe:pdbpath::base = sfxrar.pdb
+
+This example expands on the previous example to use two instances of embedded property syntax. If this
+filter were written as a subquery filter, the pivot syntax within the subquery would look like this:
+
+::
+  
+  <it:exec:file:add> +{ :sandbox:file -> file:bytes :mime:pe:pdbpath -> file:path +:base = sfxrar.pdb }
+
+Instead, embedded property syntax is used to represent the pivots from:
+- the ``:sandbox:file`` property of the ``it:exec:file:add`` node, to the associated ``file:bytes`` node, to its ``:mime:pe:pdbpath`` property; and
+- the ``:mime:pe:pdbpath`` property of the ``file:bytes`` node, to the associated ``file:path`` node, to its ``:base`` property.
+
+
+**Variable Assignment Example:**
+
+Embedded property syntax can also be used when assigning variables (see :ref:`storm-adv-vars`).
+
+*Set the variable $name to the name of the Autonomous System (AS) associated with a given IPv4 address:*
 
 .. storm-pre:: inet:ipv4 $name=:asn::name
 ::
+  
+  <inet:ipv4> $name=:asn::name
 
-    <inet:ipv4> $name=:asn::name
-    
-    
-    
+   
 .. _Vertex-Threat-Intel: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/index.html
