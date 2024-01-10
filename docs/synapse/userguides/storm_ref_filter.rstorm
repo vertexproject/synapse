@@ -663,7 +663,6 @@ of times and intervals.
     - August 12, 2018 to September 6, 2018 ( 2018/08/12, 2018/09/06 ).
     - September 13, 2018 to September 17, 2018 ( 2018/09/13, 2018/09/17 ).
     - September 30, 2018 to November 5, 2018 ( 2018/09/30, 2018/11/05 ).
-
 - **Comparing intervals to times:** When using an interval with the ``@=`` operator to lift nodes based on a time
   property, Synapse returns nodes whose time value falls within the specified interval.
 - **Comparing times to times:** When using a time with the ``@=`` operator to filter nodes based on a time property,
@@ -674,7 +673,7 @@ of times and intervals.
   some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.
 - Time-based keywords (such as ``now``) and relative time syntax (expressions such as ``+-1 hour`` or ``-7 days``) can be used
   for interval values.
-
+  
   See the type-specific documentation for :ref:`type-time` and :ref:`type-ival` types for a detailed discussion of these behaviors.
 
 .. _filter-range:
@@ -1356,7 +1355,7 @@ Expression Filters
 ------------------
 
 An expression filter is used to downselect your current working set based on the evaluation of a particular
-expression. Expression filters are useful when;
+expression. Expression filters are useful when:
 
 - you need to compute a value that you want to use for the filter, or
 - when you want to filter based on a value that may change (e.g., when using Storm queries that assign variables;
@@ -1403,18 +1402,52 @@ and checks to see if the result is greater than 1.
 
 *Filter the current set of nodes associated with any threat group or threat cluster (e.g., tagged ``#cno.threat.<threat_name>``), to include only those nodes that are attributed to more than one threat (e.g., that have more than one #cno.threat.<threat_name> tag):*
 
-.. TIP::
-  
-  This query may identify nodes that are incorrectly attributed to more than one group, or instances where two threat clusters overlap
-  (which may indicate that the clusters actually represent a single set of activity).
-
 .. storm-pre:: [ ( inet:ipv4=4.4.4.4 +#cno.threat.foo ) ( inet:ipv4=7.7.7.7 +#cno.threat.hurr +#cno.threat.derp ) ] +$( $node.globtags(cno.threat.*).size() > 1 )
 ::
   
   #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
 
-This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that match the specified expression
-(``cno.threat.*``) and :ref:`stormprims-list-size` to count the number of matches.
+This query may identify nodes that are incorrectly attributed to more than one group, or instances where
+two or more threat clusters overlap (which may indicate that the clusters actually represent a single set
+of activity).
+
+This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that match
+the specified expression (``cno.threat.*``) and :ref:`stormprims-list-size` to count the number of matches.
+
+*Filter the current working set of DNS A records (inet:dns:a nodes) to only include those whose .seen interval falls WITHIN the past 30 day window (e.g., where the <min> value of the .seen interval is greater than or equal to the date 30 days in the past:*
+
+.. storm-pre:: [ ( inet:dns:a = ( woot.com, 4.4.4.4 ) .seen = now ) ] $now = $lib.time.now() $30d = 2592000000 $start = $( $now - $30d ) inet:dns:a.seen @= ( $now, -30 days ) ( $min, $max ) = .seen +$( $min >= $start )
+::
+  
+  $now = $lib.time.now()
+  $30d = 2592000000
+  $start = $( $now - $30d )
+  inet:dns:a.seen @= ( $now, -30 days )
+  ( $min, $max ) = .seen
+  +$( $min >= $start )
+
+The interval comparison operator ( ``@=`` ) will lift or filter interval properties (such as ``.seen``) if
+the node's interval has **any overlap** with the comparison value. Using current Storm syntax, this means
+it is not possible to directly lift or filter for interval values that fall **within** the comparison interval
+value.
+
+The above query uses **variables** (see :ref:`storm-adv-vars`) to calculate the date/time exactly 30 days
+prior to the current date/time ("now", obtained using the :ref:`stormlibs-lib-time-now` library) and uses
+an expression filter to ensure that the *<min>* value of the node's ``.seen`` property is more recent than
+"30 days ago".
+
+The query is repeated here with inline comments to note what each line is doing:
+
+::
+  
+  $now = $lib.time.now()                //Set the variable $now to the current date/time, as retrieved by $lib.time.now()
+  $30d = 2592000000                     //Set the variable $30d to the value of "30 days" in Unix epoch milliseconds
+                                        //e.g., 60s * 60m * 24h * 30d * 1000ms = 2592000000ms
+  $start = $( $now - $30d )             //Set the variable $start to the date/time found by evaluating the expression $now - $30d
+  inet:dns:a.seen @= ( $now, -30 days ) //Lift all inet:dns:a nodes whose .seen property has any **overlap** with the past 30 days
+  ( $min, $max ) = .seen                //Set the variables $min and $max to the individual date/times of the .seen interval
+  +$( $min >= $start )                  //Use an expression filter to ensure that the $min time of the node's .seen value is
+                                        //greater than or equal to "30 days ago"
 
 
 .. _embed_prop_syntax:
