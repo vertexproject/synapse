@@ -1,8 +1,8 @@
 .. highlight:: none
 
 .. storm-cortex:: default
-.. storm-pre:: $propinfo = $lib.dict(doc="The VirusTotal reputation score.") $lib.model.ext.addFormProp(file:bytes, _virustotal:reputation, (int, $lib.dict()), $propinfo)
-.. storm-pre:: $tagpropinfo = $lib.dict(doc="A risk tagprop.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo)
+.. storm-pre:: $propinfo = ({"doc": "The VirusTotal reputation score."}) $lib.model.ext.addFormProp(file:bytes, _virustotal:reputation, (int, ({})), $propinfo)
+.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(risk, (int, ({})), $tagpropinfo)
 
 
 .. _storm-ref-lift:
@@ -75,8 +75,9 @@ Lift by Property
 ----------------
 
 A "lift by property" operation returns all nodes that **have** the specified :ref:`data-props` set, regardless of the property value.
-This type of lift requires the full name (i.e., the combined form and property name) of the property you want to use to lift the nodes.
-A "lift by property" can be performed using secondary, universal, or extended properties.
+When lifting by secondary or extended property, this type of lift requires the full name (i.e., the combined form and property name)
+of the property you want to use to lift the nodes. When lifting by universal property, the form name is only needed if you want to
+lift nodes of a specific form that have the universal property.
 
 .. _lift-prop-second:
 
@@ -113,11 +114,13 @@ Lift by Universal Property
 
 **Syntax:**
 
-*<form>* **.** *<prop>*
+[ *<form>* ] **.** *<prop>*
 
-**.** *<prop>*
+A :ref:`gloss-universal-prop` applies to and can be used by any node. Synapse uses two universal properties:
 
-A :ref:`gloss-universal-prop` applies to and can be used by any node.
+ - ``.created``, a time (date/time) value representing when a node was created in Synapse.
+ - ``.seen``, an interval (pair of date/time values) that can be used optionally to represent "when" the
+   object represented by a node existed or was observed.
 
 **Examples:**
 
@@ -143,12 +146,9 @@ A :ref:`gloss-universal-prop` applies to and can be used by any node.
   
   .created
 
-**Usage notes:**
-
-- The ``.seen`` universal property can optionally be used by any node.
-- To lift any node (i.e., nodes of any form) that **have** a universal property set, you only need to specify
-  the property name with its leading dot (e.g., ``.seen``).
-- Because the ``.created`` property is automatically set for every node when it is first added to Synapse,
+.. TIP::
+  
+  Because the ``.created`` property is automatically set for every node when it is first added to Synapse,
   lifting by the ``.created`` property effectively lifts every node in Synapse (technically, every node in the
   current :ref:`gloss-view`).
 
@@ -163,12 +163,13 @@ Lift by Extended Property
 *<form>* **:_** *<prop>*
 
 An :ref:`gloss-extended-prop` is a custom property that has been added to the Synapse data model to capture specialized data
-for a given form. To avoid potential namespace collisions with standard properties, we recommend naming extended properties
-using an underscore followed by a source of vendor name as the first property namespace element.
+for a given form. To avoid potential namespace collisions with standard properties, extended property names must begin with
+an underscore. In addition, we recommend using the name of the source or vendor of the property data as the first property
+namespace element.
 
 **Examples:**
 
-*Lift all of the files (file:bytes) nodes that have a VirustTotal "reputation" extended property (:_virustotal:reputation property):*
+*Lift all of the files (file:bytes) nodes that have a VirusTotal "reputation" extended property (:_virustotal:reputation property):*
 
 .. storm-pre:: [ file:bytes=sha256:87b7e57140e790b6602c461472ddc07abf66d07a3f534cdf293d4b73922406fe :size=188928 :mime='application/vnd.microsoft.portable-executable' :_virustotal:reputation=-427 ]
 .. storm-pre:: file:bytes:_virustotal:reputation
@@ -212,10 +213,20 @@ properties whose type supports the comparison (e.g., integers, dates/times, etc.
 
 .. TIP::
   
-  IP addresses (``inet:ipv4`` and ``inet:ipv6`` nodes) are stored as their decimal integer equivalents,
-  (even though they are displayed in familiar "dotted decimal" format), and can be used with the various
-  inequality operators.
-
+  IPv4 addresses (``inet:ipv4`` nodes) are stored as their decimal integer equivalents (even though they are
+  displayed in familiar "dotted decimal" format), and can be used with the various inequality operators:
+  
+  ::
+    
+    inet:ipv4 < 192.168.0.0
+  
+  IPv6 addresses (``inet:ipv6`` nodes) are stored as strings due to limitations with msgpack, but can be
+  used with the various inequality operators if enclosed in single or double quotes:
+  
+  ::
+    
+    inet:ipv6 >= '::0'
+  
 
 .. _lift-prop-std-primary:
 
@@ -231,10 +242,10 @@ Lift by Primary Property Value
 *Lift the FQDN vertex.link:*
 
 .. storm-pre:: [ inet:fqdn=vertex.link ]
-.. storm-pre:: inet:fqdn=vertex.link
+.. storm-pre:: inet:fqdn = vertex.link
 ::
   
-  inet:fqdn=vertex.link
+  inet:fqdn = vertex.link
 
 *Lift the DNS A record showing that domain woot.com resolved to IP 1.2.3.4:*
 
@@ -242,17 +253,17 @@ Lift by Primary Property Value
 .. storm-pre:: inet:dns:a = (woot.com, 1.2.3.4)
 ::
   
-  inet:dns:a=(woot.com, 1.2.3.4)
+  inet:dns:a = (woot.com, 1.2.3.4)
 
 *Lift the organization node whose primary property is the specified guid (globally unique identifier):*
 
 .. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :alias=vertex ]
-.. storm-pre:: ou:org=4b0c2c5671874922ce001d69215d032f
+.. storm-pre:: ou:org = 4b0c2c5671874922ce001d69215d032f
 ::
   
-  ou:org=4b0c2c5671874922ce001d69215d032f
+  ou:org = 4b0c2c5671874922ce001d69215d032f
 
-*Lift the Autonomus System (inet:asn) nodes whose AS number is less than 50:*
+*Lift the Autonomous System (inet:asn) nodes whose AS number is less than 50:*
 
 .. storm-pre:: [ ( inet:asn=49 :name='us-national-institute-of-standards-and-technology' ) ( inet:asn=32 :name=stanford ) ( inet:asn=71 :name=hp-internet-as ) ]
 .. storm-pre:: inet:asn < 50
@@ -371,17 +382,23 @@ additional details on working with times and intervals in Synapse.
 
 **Syntax:**
 
-*<form>* **.** *<prop>* *<operator>* *<pval>*
+[ *<form>* ] **.** *<prop>* *<operator>* *<pval>*
 
 **Examples:**
 
-*Lift all FQDNs created after January 1, 2024:*
+*Lift all nodes created after January 1, 2024:*
 
-.. storm-pre:: [ inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com ]
-.. storm-pre:: inet:fqdn.created >= 2024/01/01
+.. storm-pre:: .created >= 2024/01/01
 ::
   
-  inet:fqdn.created >= 2024/01/01
+  .created >= 2024/01/01
+
+*Lift all DNS A records (inet:dns:a nodes) whose .seen property exactly matches the specified interval:*
+
+.. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) .seen=('2023/11/19 12:11:42.041', '2023/12/27 08:05:47.776') ] inet:dns:a.seen = ('2023/11/19 12:11:42.041', '2023/12/27 08:05:47.776')
+::
+  
+  inet:dns:a.seen = ('2023/11/19 12:11:42.041', '2023/12/27 08:05:47.776')
 
 
 .. _lift-prop-std-extended:
@@ -443,7 +460,9 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 
 .. TIP::
   
-  `Lift by Prefix (^=)`_ can be used to match the beginning of string-based properties.
+  `Lift by Prefix (^=)`_ can be used to match the beginning of string-based properties. It is much
+  faster than lifting by regex for start-of-string matches and should be used instead of a regular
+  expression lift where possible.
 
 **Syntax:**
 
@@ -638,14 +657,14 @@ within a specified range of values. The comparator can be used with types such a
   
   The ``*range=`` operator can be used to lift both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
   as decimal integers and strings, respectively). However, ranges of :ref:`type-inet-ipv4` and ``inet:ipv6``
-  nodes can also be lifted directly by specifying a the lower and upper addresses in the range using
+  nodes can also be lifted directly by specifying the lower and upper addresses in the range using
   ``<min>-<max>`` format. For example:
   
   ``inet:ipv4 = 192.168.0.0-192.168.0.10``
   
   Because IPv6 nodes are stored as strings, the range must be enclosed in quotes:
   
-  ``inet:ipv6 = "::0-ff::ff"
+  ``inet:ipv6 = "::0-ff::ff"``
   
   The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
   (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
@@ -770,14 +789,18 @@ supports proximity based on geospatial location (i.e., nodes within a given radi
 
 **Usage Notes:**
 
-- Radius can be specified in the following metric units:
+- Radius can be specified in the following metric units. The terms recognized by Storm are listed in parentheses. For
+  example, radius can be specified as `2 km` or `0.5 meters` or `6 feet`:
   
-  - Kilometers (km)
-  - Meters (m)
-  - Centimeters (cm)
-  - Millimeters (mm)
+  - Kilometers (km / kilometer / kilometers)
+  - Meters (m / meter / meters)
+  - Centimeters (cm / centimeter / centimeters)
+  - Millimeters (mm / millimeter / millimeters)
+  - Miles (mile / miles)
+  - Yards (yard / yards)
+  - Feet (foot / feet)
 
-- Numeric values of less than 1 must be specified with a leading zero (e.g., 0.5km).
+- Radius values of less than 1 must be specified with a leading zero (e.g., 0.5km).
 - The ``*near=`` comparator works for geospatial data by lifting nodes within a square bounding box centered at *<lat>,<long>*,
   then filters the nodes returned by ensuring that they are within the great-circle distance given by the *<radius>* argument.
 
@@ -1130,7 +1153,7 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
 
 **Syntax:**
 
-**reverse (** *<query>* **)**
+**reverse (** *<lift>* **)**
 
 
 **Examples:**
@@ -1174,7 +1197,7 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
 The Storm "try" operator ( ``?=`` ) can be used in lift operations as an alternative to the equal to ( ``=`` )
 comparison operator.
 
-Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attepmt to ensure
+Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attempt to ensure
 that a value "makes sense" for the property in question - that the value you specify for an ``inet:ipv4`` node looks
 reasonably like an IPv4 address (and not an FQDN or URL). If you try to lift a set of nodes using a property value that
 does not pass Synapse's type enforcement validation, Synapse will generate an error. The error will cause the currently
