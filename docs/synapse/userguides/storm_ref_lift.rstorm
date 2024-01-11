@@ -375,7 +375,7 @@ Because intervals are a pair of date / time values, they can only be lifted usin
 standard comparison operator to specify an **exact** match for the interval values.
 
 The :ref:`lift-interval` and :ref:`lift-range` extended comparison operators provide additional flexibility
-when llfting by times and intervals.
+when lifting by times and intervals.
 
 See also the :ref:`type-time` and :ref:`type-ival` sections of the :ref:`storm-ref-type-specific` guide for
 additional details on working with times and intervals in Synapse.
@@ -789,8 +789,9 @@ supports proximity based on geospatial location (i.e., nodes within a given radi
 
 **Usage Notes:**
 
-- Radius can be specified in the following metric units. The terms recognized by Storm are listed in parentheses. For
-  example, radius can be specified as `2 km` or `0.5 meters` or `6 feet`:
+- Radius can be specified in the following units. The terms recognized by Storm are listed in parentheses. For
+  example, radius can be specified as 2km or '2 km' or '0.5 meters' or '6 feet' (distance expressions that
+  contain spaces need to be enclosed in single or double quotes):
   
   - Kilometers (km / kilometer / kilometers)
   - Meters (m / meter / meters)
