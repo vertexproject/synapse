@@ -541,6 +541,7 @@ class VaultConfigs(s_stormtypes.Prim):
 
     async def deref(self, name):
         vault = self.runt.snap.core.reqVault(self.valu)
+        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_READ)
 
         name = await s_stormtypes.tostr(name)
 
@@ -549,6 +550,8 @@ class VaultConfigs(s_stormtypes.Prim):
 
     async def iter(self):
         vault = self.runt.snap.core.reqVault(self.valu)
+        self.runt.confirmEasyPerm(vault, s_cell.PERM_READ)
+
         data = vault.get(self._vault_field_name)
 
         for item in data.items():
@@ -561,19 +564,23 @@ class VaultConfigs(s_stormtypes.Prim):
 
     async def stormrepr(self):
         vault = self.runt.snap.core.reqVault(self.valu)
+        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_READ)
         data = vault.get(self._vault_field_name)
         return repr(data)
 
     def value(self):
         vault = self.runt.snap.core.reqVault(self.valu)
+        self.runt.confirmEasyPerm(vault, s_cell.PERM_READ)
         return vault.get(self._vault_field_name)
 
 class VaultSecrets(VaultConfigs):
     _vault_field_name = 'secrets'
     _vault_perm = s_cell.PERM_EDIT
 
+    @s_stormtypes.stormfunc(readonly=False)
     async def setitem(self, name, valu):
         vault = self.runt.snap.core.reqVault(self.valu)
+        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_EDIT)
 
         name = await s_stormtypes.tostr(name)
 
