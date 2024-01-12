@@ -29,6 +29,28 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://cwe.mitre.org/data/definitions/120.html')
             self.eq(nodes[0].get('parents'), ('CWE-119',))
 
+            self.eq(r'foo\:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=asdf]')
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
+
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
+
+            nodes = await core.nodes('''[
+                it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*'))
+            self.eq(nodes[0].get('part'), 'a')
+            self.eq(nodes[0].get('vendor'), 'microsoft')
+            self.eq(nodes[0].get('product'), 'internet_explorer')
+            self.eq(nodes[0].get('version'), '8.0.6001')
+            self.eq(nodes[0].get('update'), 'beta')
+
             nodes = await core.nodes('''[
                 it:mitre:attack:group=G0100
                     :org={[ ou:org=* :name=visicorp ]}
@@ -1498,28 +1520,6 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_infotech_cpes(self):
 
         async with self.getTestCore() as core:
-            self.eq(r'foo\:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
-
-            with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=asdf]')
-
-            with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
-
-            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
-
-            nodes = await core.nodes('''[
-                it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
-            ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*'))
-            self.eq(nodes[0].get('part'), 'a')
-            self.eq(nodes[0].get('vendor'), 'microsoft')
-            self.eq(nodes[0].get('product'), 'internet_explorer')
-            self.eq(nodes[0].get('version'), '8.0.6001')
-            self.eq(nodes[0].get('update'), 'beta')
-
             cpe23 = core.model.type('it:sec:cpe')
             cpe22 = core.model.type('it:sec:cpe:v2_2')
 
@@ -1546,7 +1546,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:/a:vertex:synapse'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
 
-            # Test 2.2 -> 2.3 conversions
+            # Test 2.2->2.3 and 2.3->2.2 conversions
             filename = s_t_files.getAssetPath('cpedata.json')
             with open(filename, 'r') as fp:
                 cpedata = json.load(fp)
@@ -1556,7 +1556,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 norm, info = cpe23.norm(_cpe22)
                 self.eq(norm, _cpe23)
 
-                # Norm cpe23 and check
+                # Norm cpe23 and check the cpe22 conversion
                 norm, info = cpe23.norm(_cpe23)
                 v2_2 = info['subs']['v2_2']
 

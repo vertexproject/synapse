@@ -119,9 +119,7 @@ def cpe_pack(edition, sw_edition, target_sw, target_hw, other):
     if (sw_edition in UNSPECIFIED and target_sw in UNSPECIFIED and target_hw in UNSPECIFIED and other in UNSPECIFIED):
         return edition
 
-    ret = ['', '', '', '', '']
-
-    ret[0] = edition
+    ret = [edition, '', '', '', '']
 
     if sw_edition not in UNSPECIFIED:
         ret[1] = sw_edition
@@ -237,15 +235,15 @@ class Cpe23Str(s_types.Str):
             parts.extend(['*' for _ in range(extsize)])
 
             v2_2 = copy.copy(parts)
-            v2_2 = [cpe_unescape(part) for part in parts]
-
             for idx, part in enumerate(v2_2):
                 if part == '*':
                     v2_2[idx] = ''
+                    continue
 
-            v2_2 = [cpe_quote(part) for part in v2_2]
+                part = cpe_unescape(part)
+                v2_2[idx] = cpe_quote(part)
 
-            packed = cpe_pack(
+            v2_2[PART_IDX_EDITION] = cpe_pack(
                 v2_2[PART_IDX_EDITION],
                 v2_2[PART_IDX_SW_EDITION],
                 v2_2[PART_IDX_TARGET_SW],
@@ -253,7 +251,6 @@ class Cpe23Str(s_types.Str):
                 v2_2[PART_IDX_OTHER]
             )
 
-            v2_2[PART_IDX_EDITION] = packed
             v2_2 = v2_2[:7]
 
         elif text.startswith('cpe:/'):
