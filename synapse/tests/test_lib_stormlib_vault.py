@@ -190,6 +190,14 @@ class StormlibVaultTest(s_test.SynTest):
             q = 'return($lib.vault.get($giden).configs)'
             self.eq(await core.callStorm(q, opts=opts), {'server': 'gvault'})
 
+            # Set config item without EDIT perms
+            # fixme: this should fail?
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            q = '$configs=$lib.vault.get($giden).configs $configs.foo=bar return($configs)'
+            self.eq(await core.callStorm(q, opts=opts), {'server': 'gvault', 'foo': 'bar'})
+            q = '$configs=$lib.vault.get($giden).configs $configs.foo=$lib.undef return($configs)'
+            self.eq(await core.callStorm(q, opts=opts), {'server': 'gvault'})
+
             # replace configs
             opts = {'vars': {'giden': giden}}
             q = '$lib.vault.get($giden).configs = ({"server": "foobar"}) return($lib.vault.get($giden).configs)'
@@ -225,6 +233,68 @@ class StormlibVaultTest(s_test.SynTest):
             ret = await core.callStorm('return($lib.vault.list())', opts=opts)
             vaults = [k async for k in ret]
             self.len(0, vaults)
+
+            # Runtime asroot
+
+            await core.addStormPkg({
+                'name': 'vpkg',
+                'version': '0.0.1',
+                'modules': [
+                    {
+                        'name': 'vmod',
+                        'asroot': True,
+                        'storm': '''
+                            function setSecret(iden, key, valu) {
+                                $secrets = $lib.vault.get($iden).secrets
+                                $secrets.$key = $valu
+                                return($secrets)
+                            }
+
+                            function smashSecrets(iden, dict) {
+                                $vault = $lib.vault.get($iden)
+                                $vault.secrets = $dict
+                                return($vault.secrets)
+                            }
+
+                            function setConfig(iden, key, valu) {
+                                $configs = $lib.vault.get($iden).configs
+                                $configs.$key = $valu
+                                return($configs)
+                            }
+
+                            function smashConfigs(iden, dict) {
+                                $vault = $lib.vault.get($iden)
+                                $vault.configs = $dict
+                                return($vault.configs)
+                            }
+                        '''
+                    },
+                ],
+            })
+
+            await core.nodes('auth.user.addrule visi1 storm.asroot.mod.vmod')
+
+            # fixme: these should pass?
+
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            q = 'return($lib.import(vmod).setSecret($giden, foo, bar))'
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, {'apikey': 'foobar', 'foo': 'bar'})
+
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            q = 'return($lib.import(vmod).smashSecrets($giden, ({"apikey": "new"})))'
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, {'apikey': 'new'})
+
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            q = 'return($lib.import(vmod).setConfig($giden, foo, bar))'
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, {'server': 'foobar', 'foo': 'bar'})
+
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            q = 'return($lib.import(vmod).smashConfigs($giden, ({"server": "new"})))'
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, {'server': 'new'})
 
     async def test_stormlib_vault_cmds(self):
         async with self.getTestCore() as core:
