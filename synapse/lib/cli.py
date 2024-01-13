@@ -1,4 +1,5 @@
 import os
+import copy
 import json
 import signal
 import asyncio
@@ -12,6 +13,7 @@ from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.completion import Completer, Completion
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -247,6 +249,7 @@ class Cli(s_base.Base):
 
         self.echoline = False
         self.colorsenabled = False
+        self.completer = None
 
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
@@ -312,7 +315,11 @@ class Cli(s_base.Base):
             except OSError:  # pragma: no cover
                 logger.warning(f'Unable to create file at {histfp}, cli history will not be stored.')
 
-            self.sess = PromptSession(history=history)
+            completer = None
+            if isinstance(self.completer, CliCompleter):
+                completer = self.completer
+
+            self.sess = PromptSession(history=history, completer=completer)
 
         if text is None:
             text = self.cmdprompt

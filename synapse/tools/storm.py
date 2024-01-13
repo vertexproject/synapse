@@ -5,6 +5,9 @@ import asyncio
 import logging
 import argparse
 
+import lark
+import prompt_toolkit as p_t
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -215,6 +218,37 @@ class ExportCmd(StormCliCmd):
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
 
+class StormCompleter(p_t.completion.Completer):
+    def __init__(self):
+        self._parser = s_parser.LarkParser
+
+    def get_completions(self, document, complete_event):
+        if not complete_event.completion_requested:
+            return []
+
+        interact = self._parser.parse_interactive(document.text, start='query')
+
+        try:
+            interact.exhaust_lexer()
+        except lark.exceptions.UnexpectedToken:
+            return []
+
+        accepts = interact.accepts()
+
+        completions = []
+
+        if 'PROPS' in accepts:
+            completions.extend(self._get_forms())
+
+        if 'TAGSEGNOVAR' in accepts:
+            completions.extend(self._get_tags())
+
+        if 'CMDNAME' in accepts:
+            completions.extend(self._get_cmds())
+
+        return (p_t.completion.Completion(k[len(currtokn):], display=k) for k in completions if k.startswith(currtokn))
+
+
 class StormCli(s_cli.Cli):
 
     histfile = 'storm_history'
@@ -225,6 +259,19 @@ class StormCli(s_cli.Cli):
 
         self.indented = False
         self.cmdprompt = 'storm> '
+
+        self.completer = StormCompleter()
+        cmds = await self.item.callStorm('$cmds = ([]) syn:cmd $cmds.append($node) fini { return($cmds) }')
+        tags = await self.item.callStorm('$tags = ([]) syn:tag $tags.append($node) fini { return($tags) }')
+
+        for cmd in cmds:
+            self.completer.add(cmd)
+
+        for tag in tags:
+            self.completer.add(f'#{tag}')
+
+        for text in ['inet:fqdn', 'inet:ipv4', '$lib.false', 'mitre.attack.translate']:
+            self.completer.add(text)
 
         self.stormopts = {'repr': True}
 
