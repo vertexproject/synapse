@@ -2165,6 +2165,10 @@ class LibAxon(Lib):
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
+        gateiden = self.runt.snap.wlyr.iden
+        self.runt.confirm(('node', 'add', 'file:bytes'), gateiden=gateiden)
+        self.runt.confirm(('node', 'add', 'inet:urlfile'), gateiden=gateiden)
+
         resp = await self.wget(*args, **kwargs)
         code = resp.get('code')
 
