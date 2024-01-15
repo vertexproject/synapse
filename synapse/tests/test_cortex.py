@@ -4361,12 +4361,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('node', 'del')))
 
-            # should still deny because node has tag we can't delete
-            with self.raises(s_exc.AuthDeny):
-                await core.nodes('test:str=foo | delnode', opts=opts)
-
-            await visi.addRule((True, ('node', 'tag', 'del', 'lol')))
-
             self.len(0, await core.nodes('test:str=foo | delnode', opts=opts))
 
             with self.raises(s_exc.CantDelNode):

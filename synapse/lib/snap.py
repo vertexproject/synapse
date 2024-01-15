@@ -19,7 +19,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
@@ -44,15 +43,83 @@ class ProtoNode:
         self.tagprops = {}
         self.nodedata = {}
 
+        self.delnode = False
+        self.tombnode = False
         self.tagdels = set()
+        self.tagtombs = set()
         self.propdels = set()
+        self.proptombs = set()
         self.tagpropdels = set()
+        self.tagproptombs = set()
         self.edgedels = set()
+        self.edgetombs = set()
+        self.edgetombdels = set()
+        self.nodedatadels = set()
+        self.nodedatatombs = set()
+
+        if self.node is not None:
+            self.nid = self.node.nid
+        else:
+            self.nid = None
+
+        self.multilayer = len(self.ctx.snap.layers) > 1
 
     def iden(self):
         return s_common.ehex(self.buid)
 
+    def istomb(self):
+        if self.tombnode:
+            return True
+
+        if self.node is not None:
+            return self.node.istomb()
+
+        return False
+
+    def getNodeDelEdits(self):
+
+        edits = []
+        sode = self.node.sodes[0]
+
+        if self.delnode:
+            edits.append((s_layer.EDIT_NODE_DEL, (self.valu, self.form.type.stortype), ()))
+            if (tags := sode.get('tags')) is not None:
+                for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
+                    edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
+
+            if (props := sode.get('props')) is not None:
+                for name in props.keys():
+                    prop = self.form.props.get(name)
+                    edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype), ()))
+
+            if (tagprops := sode.get('tagprops')) is not None:
+                for tag, props in tagprops.items():
+                    for name in props.keys():
+                        prop = self.ctx.snap.core.model.getTagProp(name)
+                        edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()))
+
+        if self.tombnode:
+            edits.append((s_layer.EDIT_NODE_TOMB, (), ()))
+
+            if (tags := sode.get('antitags')) is not None:
+                for tag in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
+                    edits.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,), ()))
+
+            if (props := sode.get('antiprops')) is not None:
+                for prop in props.keys():
+                    edits.append((s_layer.EDIT_PROP_TOMB_DEL, (prop,), ()))
+
+            if (tagprops := sode.get('antitagprops')) is not None:
+                for tag, props in tagprops.items():
+                    for name in props.keys():
+                        edits.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name), ()))
+
+        return (self.buid, self.form.name, edits)
+
     def getNodeEdit(self):
+
+        if self.delnode or self.tombnode:
+            return self.getNodeDelEdits()
 
         edits = []
 
@@ -67,11 +134,17 @@ class ProtoNode:
             prop = self.form.props.get(name)
             edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype), ()))
 
+        for name in self.proptombs:
+            edits.append((s_layer.EDIT_PROP_TOMB, (name,), ()))
+
         for name, valu in self.tags.items():
             edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
 
         for name in sorted(self.tagdels, key=lambda t: len(t), reverse=True):
             edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
+
+        for name in self.tagtombs:
+            edits.append((s_layer.EDIT_TAG_TOMB, (name,), ()))
 
         for verb, n2iden in self.edges:
             edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
@@ -79,15 +152,28 @@ class ProtoNode:
         for verb, n2iden in self.edgedels:
             edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()))
 
+        for verb, n2iden in self.edgetombs:
+            edits.append((s_layer.EDIT_EDGE_TOMB, (verb, n2iden), ()))
+
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype), ()))
+
         for (tag, name) in self.tagpropdels:
             prop = self.ctx.snap.core.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()))
 
+        for (tag, name) in self.tagproptombs:
+            edits.append((s_layer.EDIT_TAGPROP_TOMB, (tag, name), ()))
+
         for name, valu in self.nodedata.items():
             edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+
+        for name in self.nodedatadels:
+            edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+
+        for name in self.nodedatatombs:
+            edits.append((s_layer.EDIT_NODEDATA_TOMB, (name,), ()))
 
         if not edits:
             return None
@@ -119,13 +205,25 @@ class ProtoNode:
             self.edgedels.remove(tupl)
             return True
 
-        if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+        if tupl in self.edgetombs:
+            self.edgetombs.remove(tupl)
+            return True
+
+        if self.node is None:
+            self.edges.add(tupl)
+            return True
+
+        stoplayr = self.node.valulayr() + 1
+        if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden), stop=stoplayr):
             self.edges.add(tupl)
             return True
 
         return False
 
     async def delEdge(self, verb, n2iden):
+
+        if self.node is None:
+            return
 
         if not isinstance(verb, str):
             mesg = f'delEdge() got an invalid type for verb: {verb}'
@@ -143,18 +241,78 @@ class ProtoNode:
             return False
 
         tupl = (verb, n2iden)
-        if tupl in self.edgedels:
+        if tupl in self.edgedels or tupl in self.edgetombs:
             return False
 
         if tupl in self.edges:
             self.edges.remove(tupl)
             return True
 
-        if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
-            self.edgedels.add(tupl)
-            return True
+        n2buid = s_common.uhex(n2iden)
 
-        return False
+        if not self.multilayer:
+            if await self.ctx.snap.hasNodeEdge(self.buid, verb, n2buid):
+                self.edgedels.add(tupl)
+                return True
+            return False
+
+        if self.nid is not None:
+            n1nid = self.nid
+        else:
+            n1nid = self.ctx.snap.core.getNidByBuid(self.buid)
+            if n1nid is None:
+                return False
+
+        n2nid = self.ctx.snap.core.getNidByBuid(n2buid)
+        if n2nid is None:
+            return False
+
+        retn = await self.ctx.snap.layers[0].hasNodeEdge(n1nid, verb, n2nid)
+        if retn is False:
+            return
+
+        if retn:
+            self.edgedels.add(tupl)
+
+        stoplayr = self.node.valulayr() + 1
+        for layr in self.ctx.snap.layers[1:stoplayr]:
+            if (retn := await layr.hasNodeEdge(n1nid, verb, n2nid)) is not None:
+                if retn:
+                    self.edgetombs.add(tupl)
+                return
+
+    async def delEdgesN2(self, meta=None):
+        '''
+        Delete edge data from the SnapEditor's write layer where this is the dest node.
+        '''
+        if self.nid is not None:
+            n2nid = self.nid
+        else:
+            n2nid = self.ctx.snap.core.getNidByBuid(self.buid)
+            if n2nid is None:
+                return
+
+        dels = []
+        n2iden = self.iden()
+
+        async for abrv, n1nid, tomb in self.ctx.snap.layers[0].iterNodeEdgesN2(n2nid):
+            verb = self.ctx.snap.core.getAbrvVerb(abrv)
+            n1ndef = self.ctx.snap.core.getNidNdef(n1nid)
+            n1buid = s_common.buid(n1ndef)
+
+            if tomb:
+                edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, n2iden), ())]
+            else:
+                edit = [((s_layer.EDIT_EDGE_DEL), (verb, n2iden), ())]
+
+            dels.append((n1buid, n1ndef[0], edit))
+
+            if len(dels) >= 1000:
+                await self.ctx.snap.saveNodeEdits(dels, meta=meta)
+                dels.clear()
+
+        if dels:
+            await self.ctx.snap.saveNodeEdits(dels, meta=meta)
 
     async def getData(self, name):
 
@@ -181,6 +339,28 @@ class ProtoNode:
 
         self.nodedata[name] = valu
 
+    async def popData(self, name):
+
+        if not self.multilayer:
+            valu = await self.ctx.snap.getNodeData(self.buid, name, defv=s_common.novalu)
+            if valu is not s_common.novalu:
+                self.nodedatadels.add(name)
+
+            return valu
+
+        (ok, valu, tomb) = await self.ctx.snap.layers[0].getNodeData(self.buid, name)
+        if (ok and not tomb):
+            self.nodedatadels.add(name)
+
+        if tomb:
+            return s_common.novalu
+
+        valu = await self.ctx.snap.getNodeDataFromLayers(self.buid, name, strt=1, defv=s_common.novalu)
+        if valu is not s_common.novalu:
+            self.nodedatatombs.add(name)
+
+        return valu
+
     async def _getRealTag(self, tag):
 
         normtupl = await self.ctx.snap.getTagNorm(tag)
@@ -197,8 +377,8 @@ class ProtoNode:
 
     def getTag(self, tag, defval=None):
 
-        if tag in self.tagdels:
-            return None
+        if tag in self.tagdels or tag in self.tagtombs:
+            return defval
 
         curv = self.tags.get(tag)
         if curv is not None:
@@ -242,13 +422,14 @@ class ProtoNode:
         valu = s_time.ival(*valu, *curv)
         self.tags[tagnode.valu] = valu
         self.tagdels.discard(tagnode.valu)
+        self.tagtombs.discard(tagnode.valu)
 
         return tagnode
 
     def getTagNames(self):
         alltags = set(self.tags.keys())
         alltags.update(set(self.node.getTagNames()))
-        return alltags - self.tagdels
+        return alltags - self.tagdels - self.tagtombs
 
     def _getTagTree(self):
 
@@ -274,18 +455,40 @@ class ProtoNode:
         return root
 
     def _delTag(self, name):
-        self.tagdels.add(name)
+
         self.tags.pop(name, None)
 
-        for prop in self.getTagProps(name):
-            self.tagpropdels.add((name, prop))
-            self.tagprops.pop((name, prop), None)
+        if not self.multilayer:
+            if self.node is not None and (tags := self.node.sodes[0].get('tags')) is not None and name in tags:
+                self.tagdels.add(name)
+
+            for prop in self.getTagProps(name):
+                self.tagpropdels.add((name, prop))
+                self.tagprops.pop((name, prop), None)
+            return
+
+        if self.node is not None:
+            if (tags := self.node.sodes[0].get('tags')) is not None and name in tags:
+                self.tagdels.add(name)
+
+            if self.node.hasTagInLayers(name, strt=1):
+                self.tagtombs.add(name)
+
+            for (prop, layr) in self.getTagPropsWithLayer(name):
+                if layr == 0:
+                    self.tagpropdels.add((name, prop))
+
+                if layr > 0 or (self.node is not None and self.node.hasTagPropInLayers(tag, prop, strt=1)):
+                    self.tagproptombs.add((name, prop))
+
+        return True
 
     async def delTag(self, tag):
 
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
+        tree = None
 
         if len(path) > 1:
 
@@ -295,7 +498,8 @@ class ProtoNode:
             prune = await self.ctx.snap.core.getTagPrune(parent)
             if prune:
 
-                tree = self._getTagTree()
+                if tree is None:
+                    tree = self._getTagTree()
 
                 for prunetag in reversed(prune):
 
@@ -318,7 +522,7 @@ class ProtoNode:
             if tname.startswith(pref):
                 self._delTag(tname)
 
-        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+        if self.getTag(name) is not None:
             self._delTag(name)
 
         return True
@@ -327,26 +531,51 @@ class ProtoNode:
         props = set()
         for (tagn, prop) in self.tagprops:
             if tagn == tag:
-                props.add(tagn)
+                props.add(prop)
 
         if self.node is not None:
             for prop in self.node.getTagProps(tag):
-                if (tag, prop) not in self.tagpropdels:
+                if (tag, prop) not in self.tagpropdels and (tag, prop) not in (self.tagproptombs):
                     props.add(prop)
 
         return(props)
 
-    def getTagProp(self, tag, name):
+    def getTagPropsWithLayer(self, tag):
+        props = set()
+        for (tagn, prop) in self.tagprops:
+            if tagn == tag:
+                props.add((prop, 0))
 
-        if (tag, name) in self.tagpropdels:
-            return None
+        if self.node is not None:
+            for (prop, layr) in self.node.getTagPropsWithLayer(tag):
+                if (tag, prop) not in self.tagpropdels and (tag, prop) not in (self.tagproptombs):
+                    props.add((prop, layr))
+
+        return(props)
+
+    def getTagProp(self, tag, name, defv=None):
+
+        if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
+            return defv
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
             return curv
 
         if self.node is not None:
-            return self.node.getTagProp(tag, name)
+            return self.node.getTagProp(tag, name, defval=defv)
+
+    def getTagPropWithLayer(self, tag, name, defv=None):
+
+        if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
+            return defv, None
+
+        curv = self.tagprops.get((tag, name))
+        if curv is not None:
+            return curv, 0
+
+        if self.node is not None:
+            return self.node.getTagPropWithLayer(tag, name, defval=defv)
 
     async def setTagProp(self, tag, name, valu):
 
@@ -371,8 +600,9 @@ class ProtoNode:
         if curv == norm:
             return
 
-        self.tagpropdels.discard((tagnode.valu, name))
         self.tagprops[(tagnode.valu, name)] = norm
+        self.tagpropdels.discard((tagnode.valu, name))
+        self.tagproptombs.discard((tagnode.valu, name))
 
     async def delTagProp(self, tag, name):
 
@@ -381,27 +611,46 @@ class ProtoNode:
             mesg = f'Tagprop {name} does not exist in this Cortex.'
             return await self.ctx.snap._raiseOnStrict(s_exc.NoSuchTagProp, mesg, name=name)
 
-        curv = self.getTagProp(tag, name)
+        (curv, layr) = self.getTagPropWithLayer(tag, name)
         if curv is None:
             return False
 
-        self.tagpropdels.add((tag, name))
         self.tagprops.pop((tag, name), None)
+
+        if layr == 0:
+            self.tagpropdels.add((tag, name))
+
+        if self.multilayer:
+            if layr > 0 or (self.node is not None and self.node.hasTagPropInLayers(tag, name, strt=1)):
+                self.tagproptombs.add((tag, name))
 
         return True
 
-    def get(self, name):
+    def get(self, name, defv=None):
 
         # get the current value including the pending prop sets
-        if name in self.propdels:
-            return None
+        if name in self.propdels or name in self.proptombs:
+            return defv
 
-        curv = self.props.get(name)
-        if curv is not None:
+        curv = self.props.get(name, s_common.novalu)
+        if curv is not s_common.novalu:
             return curv
 
         if self.node is not None:
-            return self.node.get(name)
+            return self.node.get(name, defv=defv)
+
+    def getWithLayer(self, name, defv=None):
+
+        # get the current value including the pending prop sets
+        if name in self.propdels or name in self.proptombs:
+            return defv, None
+
+        curv = self.props.get(name, s_common.novalu)
+        if curv is not s_common.novalu:
+            return curv, 0
+
+        if self.node is not None:
+            return self.node.getWithLayer(name, defv=defv)
 
     async def _set(self, prop, valu, norminfo=None):
 
@@ -451,6 +700,7 @@ class ProtoNode:
 
         self.props[prop.name] = valu
         self.propdels.discard(prop.name)
+        self.proptombs.discard(prop.name)
 
         return valu, norminfo
 
@@ -492,7 +742,8 @@ class ProtoNode:
             await self.ctx.snap._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name, form=self.form.name)
             return False
 
-        if self.get(name) is None:
+        (valu, layr) = self.getWithLayer(name, defv=s_common.novalu)
+        if valu is s_common.novalu:
             return False
 
         if prop.info.get('ro'):
@@ -500,8 +751,14 @@ class ProtoNode:
             await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
             return False
 
-        self.propdels.add(name)
         self.props.pop(name, None)
+
+        if layr == 0:
+            self.propdels.add(name)
+
+        if self.multilayer:
+            if layr > 0 or (self.node is not None and self.node.hasInLayers(name, strt=1)):
+                self.proptombs.add(name)
 
         return True
 
@@ -535,6 +792,20 @@ class ProtoNode:
                 ops.append(self.ctx.getAddNodeOps(addname, addvalu, norminfo=addinfo))
 
         return ops
+
+    async def delete(self):
+        if self.node is None or self.istomb():
+            return
+
+        if self.node.sodes[0].get('valu') is not None:
+            self.delnode = True
+
+        for sode in self.node.sodes[1:]:
+            if sode.get('valu') is not None:
+                self.tombnode = True
+                return
+            elif sode.get('antivalu') is not None:
+                return
 
 class SnapEditor:
     '''
@@ -719,8 +990,8 @@ class Snap(s_base.Base):
         self.view = view
         self.user = user
 
-        self.layers = list(reversed(view.layers))
-        self.wlyr = self.layers[-1]
+        self.layers = view.layers
+        self.wlyr = self.layers[0]
 
         self.readonly = self.wlyr.readonly
 
@@ -871,7 +1142,7 @@ class Snap(s_base.Base):
         self._warnonce_keys.add(mesg)
         await self.warn(mesg, log, **info)
 
-    async def getNodeByBuid(self, buid):
+    async def getNodeByBuid(self, buid, tombs=False):
         '''
         Retrieve a node tuple by binary id.
 
@@ -886,10 +1157,10 @@ class Snap(s_base.Base):
         if nid is None:
             return None
 
-        return await self._joinStorNode(nid)
+        return await self._joinStorNode(nid, tombs=tombs)
 
-    async def getNodeByNid(self, nid):
-        return await self._joinStorNode(nid)
+    async def getNodeByNid(self, nid, tombs=False):
+        return await self._joinStorNode(nid, tombs=tombs)
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -937,15 +1208,23 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def _joinStorNode(self, nid):
+    async def _joinStorNode(self, nid, tombs=False):
 
         node = self.livenodes.get(nid)
         if node is not None:
             await asyncio.sleep(0)
+
+            if not tombs and node.istomb():
+                return None
             return node
 
-        # must do this in view layer order not our reversed order
-        soderefs = [layr.genStorNodeRef(nid) for layr in self.view.layers]
+        soderefs = []
+        for layr in self.layers:
+            sref = layr.genStorNodeRef(nid)
+            if tombs is False and sref.sode.get('antivalu') is not None:
+                return None
+
+            soderefs.append(sref)
 
         return await self._joinSodes(nid, soderefs)
 
@@ -1204,9 +1483,15 @@ class Snap(s_base.Base):
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
 
-                if etyp == s_layer.EDIT_NODE_DEL:
+                if etyp == s_layer.EDIT_NODE_DEL or etyp == s_layer.EDIT_NODE_TOMB:
                     callbacks.append((node.form.wasDeleted, (node,), {}))
                     callbacks.append((self.view.runNodeDel, (node,), {}))
+                    continue
+
+                if etyp == s_layer.EDIT_NODE_TOMB_DEL:
+                    if node.istomb():
+                        callbacks.append((node.form.wasAdded, (node,), {}))
+                        callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
 
                 if etyp == s_layer.EDIT_PROP_SET:
@@ -1222,6 +1507,20 @@ class Snap(s_base.Base):
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
                     continue
 
+                if etyp == s_layer.EDIT_PROP_TOMB_DEL:
+
+                    (name,) = parms
+
+                    if (oldv := node.get(name)) is not None:
+                        prop = node.form.props.get(name)
+                        if prop is None:  # pragma: no cover
+                            logger.warning(f'saveNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form.full}')
+                            continue
+
+                        callbacks.append((prop.wasSet, (node, oldv), {}))
+                        callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
+                    continue
+
                 if etyp == s_layer.EDIT_PROP_DEL:
 
                     (name, oldv, stype) = parms
@@ -1229,6 +1528,23 @@ class Snap(s_base.Base):
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
                         logger.warning(f'saveNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form.full}')
+                        continue
+
+                    callbacks.append((prop.wasDel, (node, oldv), {}))
+                    callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
+                    continue
+
+                if etyp == s_layer.EDIT_PROP_TOMB:
+
+                    (name,) = parms
+
+                    oldv = node.getFromLayers(name, stop=-1, defv=s_common.novalu)
+                    if oldv is s_common.novalu:
+                        continue
+
+                    prop = node.form.props.get(name)
+                    if prop is None:  # pragma: no cover
+                        logger.warning(f'saveNodeEdits got EDIT_PROP_TOMB for bad prop {name} on form {node.form.full}')
                         continue
 
                     callbacks.append((prop.wasDel, (node, oldv), {}))
@@ -1243,6 +1559,14 @@ class Snap(s_base.Base):
                     callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
+                if etyp == s_layer.EDIT_TAG_TOMB_DEL:
+                    (tag,) = parms
+
+                    if node.hasTag(tag):
+                        callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
+                        callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
+                    continue
+
                 if etyp == s_layer.EDIT_TAG_DEL:
 
                     (tag, oldv) = parms
@@ -1251,10 +1575,22 @@ class Snap(s_base.Base):
                     callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
-                if etyp == s_layer.EDIT_TAGPROP_SET:
+                if etyp == s_layer.EDIT_TAG_TOMB:
+
+                    (tag,) = parms
+
+                    oldv = node.getTagFromLayers(tag, stop=-1, defval=s_common.novalu)
+                    if oldv is s_common.novalu:
+                        continue
+
+                    callbacks.append((self.view.runTagDel, (node, tag, oldv), {}))
+                    callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
-                if etyp == s_layer.EDIT_TAGPROP_DEL:
+                if etyp == s_layer.EDIT_TAGPROP_SET or etyp == s_layer.EDIT_TAGPROP_TOMB_DEL:
+                    continue
+
+                if etyp == s_layer.EDIT_TAGPROP_DEL or etyp == s_layer.EDIT_TAGPROP_TOMB:
                     continue
 
                 if etyp == s_layer.EDIT_NODEDATA_SET:
@@ -1262,9 +1598,18 @@ class Snap(s_base.Base):
                     node.nodedata[name] = data
                     continue
 
+                if etyp == s_layer.EDIT_NODEDATA_TOMB_DEL:
+                    name = parms[0]
+                    if (data := await node.getData(name, s_common.novalu)) is not s_common.novalu:
+                        node.nodedata[name] = data
+                    continue
+
                 if etyp == s_layer.EDIT_NODEDATA_DEL:
                     name, oldv = parms
                     node.nodedata.pop(name, None)
+                    continue
+
+                if etyp == s_layer.EDIT_NODEDATA_TOMB:
                     continue
 
                 if etyp == s_layer.EDIT_EDGE_ADD:
@@ -1272,7 +1617,14 @@ class Snap(s_base.Base):
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
                     callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
 
-                if etyp == s_layer.EDIT_EDGE_DEL:
+                if etyp == s_layer.EDIT_EDGE_TOMB_DEL:
+                    verb, n2iden = parms
+                    stoplayr = node.valulayr() + 1
+                    if await self.hasNodeEdge(buid, verb, s_common.uhex(n2iden), stop=stoplayr):
+                        n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                        callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
+
+                if etyp == s_layer.EDIT_EDGE_DEL or etyp == s_layer.EDIT_EDGE_TOMB:
                     verb, n2iden = parms
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
                     callbacks.append((self.view.runEdgeDel, (node, verb, n2), {}))
@@ -1283,6 +1635,36 @@ class Snap(s_base.Base):
             await self.fire('node:edits', edits=nodeedits)
 
         return saveoff, nodeedits
+
+    async def delTombstone(self, buid, tombtype, tombinfo):
+
+        nid = self.core.getNidByBuid(buid)
+        ndef = self.ctx.snap.core.getNidNdef(nid)
+
+        if tombtype == s_layer.INDX_PROP:
+            (form, prop) = tombinfo
+            if prop is None:
+                edit = [((s_layer.EDIT_NODE_TOMB_DEL), (), ())]
+            else:
+                edit = [((s_layer.EDIT_PROP_TOMB_DEL), (prop,), ())]
+
+        elif tombtype == s_layer.INDX_TAG:
+            (form, tag) = tombinfo
+            edit = [((s_layer.EDIT_TAG_TOMB_DEL), (tag,), ())]
+
+        elif tombtype == s_layer.INDX_TAGPROP:
+            (form, tag, prop) = tombinfo
+            edit = [((s_layer.EDIT_TAGPROP_TOMB_DEL), (tag, prop), ())]
+
+        elif tombtype == s_layer.INDX_NODEDATA:
+            (name,) = tombinfo
+            edit = [((s_layer.EDIT_NODEDATA_TOMB_DEL), (name,), ())]
+
+        elif tombtype == s_layer.INDX_NODEDATA:
+            (verb, n2iden) = tombinfo
+            edit = [((s_layer.EDIT_NODEDATA_TOMB_DEL), (verb, n2iden), ())]
+
+        await self.saveNodeEdits([(buid, ndef[0], edit)])
 
     async def addNode(self, name, valu, props=None, norminfo=None):
         '''
@@ -1526,71 +1908,127 @@ class Snap(s_base.Base):
 
             yield s_node.RuntNode(self, pode)
 
-    async def iterNodeEdgesN1(self, nid, verb=None):
+    async def iterNodeEdgesN1(self, nid, verb=None, strt=0, stop=None):
 
         last = None
-        gens = [layr.iterNodeEdgesN1(nid, verb=verb) for layr in self.layers]
+        gens = [layr.iterNodeEdgesN1(nid, verb=verb) for layr in self.layers[strt:stop]]
 
-        async for edge in s_common.merggenr2(gens):
-
-            if edge == last: # pragma: no cover
-                await asyncio.sleep(0)
+        async for item in s_common.merggenr2(gens, cmprkey=lambda x: x[:2]):
+            edge = item[:2]
+            if edge == last:
                 continue
 
+            await asyncio.sleep(0)
             last = edge
-            yield edge
+
+            if item[-1]:
+                continue
+
+            if verb is None:
+                yield self.core.getAbrvVerb(edge[0]), edge[1]
+            else:
+                yield verb, edge[1]
 
     async def iterNodeEdgesN2(self, nid, verb=None):
 
         last = None
-        gens = [layr.iterNodeEdgesN2(nid, verb=verb) for layr in self.layers]
 
-        async for edge in s_common.merggenr2(gens):
+        async def wrap_liftgenr(lidn, genr):
+            async for abrv, n1nid, tomb in genr:
+                yield abrv, n1nid, lidn, tomb
 
-            if edge == last: # pragma: no cover
-                await asyncio.sleep(0)
+        gens = []
+        for indx, layr in enumerate(self.layers):
+            gens.append(wrap_liftgenr(indx, layr.iterNodeEdgesN2(nid, verb=verb)))
+
+        async for (abrv, n1nid, indx, tomb) in s_common.merggenr2(gens, cmprkey=lambda x: x[:3]):
+            if (abrv, n1nid) == last:
                 continue
 
-            last = edge
-            yield edge
+            await asyncio.sleep(0)
+            last = (abrv, n1nid)
 
-    async def hasNodeEdge(self, n1nid, verb, n2nid):
-        for layr in self.layers:
-            if await layr.hasNodeEdge(n1nid, verb, n2nid):
-                return True
-        return False
+            if tomb:
+                continue
 
-    async def iterEdgeVerbs(self, n1nid, n2nid):
+            if indx > 0:
+                for layr in self.layers[0:indx]:
+                    sode = layr._getStorNode(n1nid)
+                    if sode.get('antivalu') is not None:
+                        break
+                else:
+                    if verb is None:
+                        yield self.core.getAbrvVerb(abrv), n1nid
+                    else:
+                        yield verb, n1nid
+
+            else:
+                if verb is None:
+                    yield self.core.getAbrvVerb(abrv), n1nid
+                else:
+                    yield verb, n1nid
+
+    async def hasNodeEdge(self, n1buid, verb, n2buid, strt=0, stop=None):
+        n1nid = self.core.getNidByBuid(n1buid)
+        if n1nid is None:
+            return False
+
+        n2nid = self.core.getNidByBuid(n2buid)
+        if n2nid is None:
+            return False
+
+        for layr in self.layers[strt:stop]:
+            if (retn := await layr.hasNodeEdge(n1nid, verb, n2nid)) is not None:
+                return retn
+
+    async def iterEdgeVerbs(self, n1nid, n2nid, strt=0, stop=None):
 
         last = None
-        gens = [layr.iterEdgeVerbs(n1nid, n2nid) for layr in self.layers]
+        gens = [layr.iterEdgeVerbs(n1nid, n2nid) for layr in self.layers[strt:stop]]
 
-        async for verb in s_common.merggenr2(gens):
-
-            if verb == last: # pragma: no cover
-                await asyncio.sleep(0)
+        async for abrv, tomb in s_common.merggenr2(gens, cmprkey=lambda x: x[0]):
+            if abrv == last:
                 continue
 
-            last = verb
-            yield verb
+            await asyncio.sleep(0)
+            last = abrv
+
+            if tomb:
+                continue
+
+            yield self.core.getAbrvVerb(abrv)
 
     async def hasNodeData(self, buid, name):
         '''
-        Return True if the buid has nodedata set on it under the given name
-        False otherwise
+        Return True if the buid has nodedata set on it under the given name,
+        False otherwise.
         '''
-        for layr in reversed(self.layers):
-            if await layr.hasNodeData(buid, name):
-                return True
+        for layr in self.layers:
+            if (retn := await layr.hasNodeData(buid, name)) is not None:
+                return retn
         return False
 
     async def getNodeData(self, buid, name, defv=None):
         '''
-        Get nodedata from closest to write layer, no merging involved
+        Get nodedata from closest to write layer, no merging involved.
         '''
-        for layr in reversed(self.layers):
-            ok, valu = await layr.getNodeData(buid, name)
+        for layr in self.layers:
+            ok, valu, tomb = await layr.getNodeData(buid, name)
             if ok:
+                if tomb:
+                    return defv
+                return valu
+        return defv
+
+    async def getNodeDataFromLayers(self, buid, name, strt=0, stop=None, defv=None):
+        '''
+        Get nodedata from closest to write layer, within a specific set of layers.
+        '''
+        for layr in self.layers[strt:stop]:
+            ok, valu, tomb = await layr.getNodeData(buid, name)
+            if ok:
+                if tomb:
+                    return defv
                 return valu
         return defv
 
@@ -1598,28 +2036,36 @@ class Snap(s_base.Base):
         '''
         Returns:  Iterable[Tuple[str, Any]]
         '''
-        async with self.core.getSpooledSet() as sset:
+        last = None
+        gens = [layr.iterNodeData(nid) for layr in self.layers]
 
-            for layr in reversed(self.layers):
+        async for abrv, valu, tomb in s_common.merggenr2(gens, cmprkey=lambda x: x[0]):
+            if abrv == last:
+                continue
 
-                async for name, valu in layr.iterNodeData(nid):
-                    if name in sset:
-                        continue
+            await asyncio.sleep(0)
+            last = abrv
 
-                    await sset.add(name)
-                    yield name, valu
+            if tomb:
+                continue
+
+            yield self.core.getAbrvIndx(abrv)[0], valu
 
     async def iterNodeDataKeys(self, nid):
         '''
         Yield each data key from the given node by nid.
         '''
-        async with self.core.getSpooledSet() as sset:
+        last = None
+        gens = [layr.iterNodeDataKeys(nid) for layr in self.layers]
 
-            for layr in reversed(self.layers):
+        async for abrv, tomb in s_common.merggenr2(gens, cmprkey=lambda x: x[0]):
+            if abrv == last:
+                continue
 
-                async for name in layr.iterNodeDataKeys(nid):
-                    if name in sset:
-                        continue
+            await asyncio.sleep(0)
+            last = abrv
 
-                    await sset.add(name)
-                    yield name
+            if tomb:
+                continue
+
+            yield self.core.getAbrvIndx(abrv)[0]

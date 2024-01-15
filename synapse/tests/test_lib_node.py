@@ -383,7 +383,7 @@ class NodeTest(s_t_utils.SynTest):
 
             self.eq(123, await node.popData('foo'))
             self.none(await node.getData('foo'))
-            self.none(await node.popData('foo'))
+            self.eq(await node.popData('foo'), s_common.novalu)
 
             self.eq((4, 5, 6), await node.getData('bar'))
 
@@ -473,6 +473,7 @@ class NodeTest(s_t_utils.SynTest):
             edits = [m[1] for m in msgs if m[0] == 'node:edits']
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, edits)
+
             self.len(1, edits[0]['edits'][0][2])
 
             self.len(1, nodes)

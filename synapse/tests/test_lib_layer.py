@@ -1148,6 +1148,218 @@ class LayerTest(s_t_utils.SynTest):
                         ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
                 ])
 
+    async def test_layer_tombstone(self):
+
+        async with self.getTestCore() as core:
+
+            async def checkempty(opts=None):
+                nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=opts)
+                self.len(1, nodes)
+                self.none(nodes[0].get('asn'))
+                self.none(nodes[0].get('#foo.tag'))
+                self.none(nodes[0].getTagProp('bar.tag', 'score'))
+
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=opts))
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=opts))
+
+                self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=opts))
+                self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=opts))
+
+            async def hastombs(opts=None):
+                q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint("('inet:ipv4', 'asn')", msgs)
+                self.stormIsInPrint("foo.tag", msgs)
+                self.stormIsInPrint("'bar.tag', 'score'", msgs)
+                self.stormIsInPrint("'bar'", msgs)
+                self.stormIsInPrint("'foo'", msgs)
+                self.stormIsInPrint("'foodata'", msgs)
+
+            async def notombs(opts=None):
+                q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+                msgs = await core.stormlist(q, opts=opts)
+                self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            addq = '''[
+            inet:ipv4=1.2.3.4
+                :asn=4
+                +#foo.tag=2024
+                +#bar.tag:score=5
+                +(bar)> {[ it:dev:str=n1 ]}
+                <(foo)+ {[ it:dev:str=n2 ]}
+            ]
+            $node.data.set(foodata, bar)
+            '''
+
+            delq = '''
+            inet:ipv4=1.2.3.4
+            [   -:asn
+                -#foo.tag
+                -#bar.tag:score
+                -(bar)> {[ it:dev:str=n1 ]}
+                <(foo)- {[ it:dev:str=n2 ]}
+            ]
+            $node.data.pop(foodata)
+            '''
+
+            self.len(1, await core.nodes(addq))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts=viewopts2)
+            self.none(nodes[0].get('asn'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(4, nodes[0].get('asn'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ :asn=5 ]', opts=viewopts2)
+            self.eq(5, nodes[0].get('asn'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts=viewopts2)
+            self.none(nodes[0].get('asn'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.tag ]', opts=viewopts2)
+            self.none(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.nn(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.tag=2020 ]', opts=viewopts2)
+            self.nn(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.tag ]', opts=viewopts2)
+            self.none(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#bar.tag:score ]', opts=viewopts2)
+            self.none(nodes[0].getTagProp('bar.tag', 'score'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(5, nodes[0].getTagProp('bar.tag', 'score'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#bar.tag:score=6 ]', opts=viewopts2)
+            self.eq(6, nodes[0].getTagProp('bar.tag', 'score'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#bar.tag:score ]', opts=viewopts2)
+            self.none(nodes[0].getTagProp('bar.tag', 'score'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
+
+            self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=viewopts2))
+
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+            self.len(1, await core.nodes('yield $lib.lift.byNodeData(foodata)'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.set(foodata, baz)', opts=viewopts2)
+            self.eq('baz', await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=viewopts2))
+
+            self.len(1, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
+
+            self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=viewopts2))
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ +(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)+ { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *'))
+
+            await hastombs(opts=viewopts2)
+
+            await view2.merge()
+            await checkempty()
+            await notombs()
+
+            await view2.wipeLayer()
+            await notombs(opts=viewopts2)
+
+            self.len(1, await core.nodes(addq))
+
+            await core.nodes(delq, opts=viewopts2)
+            await hastombs(opts=viewopts2)
+
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
+            # deleting a node clears its other tombstones
+            msgs = await core.stormlist('for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }', opts=viewopts2)
+
+            self.stormIsInPrint("('inet:ipv4', None)", msgs)
+            self.stormNotInPrint("('inet:ipv4', 'asn')", msgs)
+            self.stormNotInPrint("foo.tag", msgs)
+            self.stormNotInPrint("'bar.tag', 'score'", msgs)
+            self.stormNotInPrint("'bar'", msgs)
+            self.stormNotInPrint("'foodata'", msgs)
+
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+
+            await view2.merge()
+            await notombs()
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            await view2.wipeLayer()
+            await notombs(opts=viewopts2)
+
+            viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
+            view3 = core.getView(viewiden3)
+            viewopts3 = {'view': viewiden3}
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts3)
+
+            await checkempty(opts=viewopts3)
+            await hastombs(opts=viewopts3)
+
+            await view3.merge()
+
+            # tombstones should merge down since they still have values to cover
+            await checkempty(opts=viewopts2)
+            await hastombs(opts=viewopts2)
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode')
+
+            await core.nodes(addq, opts=viewopts2)
+            await notombs(opts=viewopts2)
+
+            await core.nodes(delq, opts=viewopts3)
+            await checkempty(opts=viewopts3)
+            await hastombs(opts=viewopts3)
+
+            await view3.merge()
+
+            # no tombstones should merge since the base layer has no values
+            await checkempty(opts=viewopts2)
+            await notombs(opts=viewopts2)
+
+            # node re-added above a tombstone is empty
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
+            await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
+
+            await checkempty(opts=viewopts3)
+
     # async def test_layer_form_by_buid(self):
 
     #     async with self.getTestCore() as core:

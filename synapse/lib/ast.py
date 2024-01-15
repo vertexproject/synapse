@@ -505,6 +505,8 @@ class SubGraph:
             n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             n2delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
+            # TODO: update this for tombstones
+
             # load the existing graph as already done
             for iden in existing:
                 nid = runt.snap.core.getNidByBuid(s_common.uhex(iden))

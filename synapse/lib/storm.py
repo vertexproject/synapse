@@ -3509,6 +3509,9 @@ class DiffCmd(Cmd):
             return
 
         async for nid, sode in runt.snap.view.layers[0].getStorNodes():
+            if sode.get('antivalu') is not None:
+                continue
+
             node = await runt.snap.getNodeByNid(nid)
             if node is not None:
                 yield node, runt.initPath(node)
@@ -3540,7 +3543,8 @@ class CopyToCmd(Cmd):
 
         iden = await s_stormtypes.tostr(self.opts.view)
 
-        view = runt.snap.core.getView(iden)
+        core = runt.snap.core
+        view = core.getView(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
@@ -3740,8 +3744,13 @@ class MergeCmd(Cmd):
 
     async def _checkNodePerms(self, node, sode, runt):
 
+        core = runt.snap.core
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
+
+        if sode.get('antivalu') is not None:
+            runt.confirm(('node', 'del', node.form.name), gateiden=layr1)
+            return
 
         if sode.get('valu') is not None:
             runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
@@ -3752,10 +3761,18 @@ class MergeCmd(Cmd):
             runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
             runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
 
+        for name in sode.get('antiprops', {}).keys():
+            full = node.form.prop(name).full
+            runt.confirm(('node', 'prop', 'del', full), gateiden=layr1)
+
         for tag, valu in sode.get('tags', {}).items():
             tagperm = tuple(tag.split('.'))
             runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
             runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+
+        for tag in sode.get('antitags', {}).keys():
+            tagperm = tuple(tag.split('.'))
+            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr1)
 
         for tag, tagdict in sode.get('tagprops', {}).items():
             for prop, (valu, stortype) in tagdict.items():
@@ -3763,14 +3780,26 @@ class MergeCmd(Cmd):
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.nid):
-            runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-            runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+        for tag, tagdict in sode.get('antitagprops', {}).items():
+            for prop in tagdict.keys():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr1)
 
-        async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.nid):
-            verb = edge[0]
-            runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-            runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+        async for name, tomb in runt.snap.view.layers[0].iterNodeDataKeys(node.nid):
+            if tomb:
+                runt.confirm(('node', 'data', 'pop', name), gateiden=layr1)
+            else:
+                runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+
+        async for abrv, n2nid, tomb in runt.snap.view.layers[0].iterNodeEdgesN1(node.nid):
+            verb = core.getAbrvVerb(abrv)
+
+            if tomb:
+                runt.confirm(('node', 'edge', 'del', verb), gateiden=layr1)
+            else:
+                runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3784,6 +3813,7 @@ class MergeCmd(Cmd):
         tagfilter = self._getTagFilter()
         propfilter = self._getPropFilter()
 
+        core = runt.snap.core
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
 
@@ -3794,7 +3824,7 @@ class MergeCmd(Cmd):
 
             async def diffgenr():
                 async for nid, sode in runt.snap.view.layers[0].getStorNodes():
-                    node = await runt.snap.getNodeByNid(nid)
+                    node = await runt.snap.getNodeByNid(nid, tombs=True)
                     if node is not None:
                         yield node, runt.initPath(node)
 
@@ -3843,17 +3873,43 @@ class MergeCmd(Cmd):
                 else:
                     # avoid merging a tag if the node won't exist below us
                     if onlytags:
+                        skip = True
                         for undr in sodes[1:]:
                             if undr.get('valu') is not None:
+                                skip = False
                                 break
-                        else:
+                            elif undr.get('antivalu') is not None:
+                                break
+
+                        if skip:
                             continue
 
                 protonode = None
                 delnode = False
                 if not onlytags or form == 'syn:tag':
-                    valu = sode.get('valu')
-                    if valu is not None:
+
+                    if (valu := sode.get('antivalu')) is not None:
+                        if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
+                            continue
+
+                        if not self.opts.apply:
+                            valurepr = node.form.type.repr(valu[0])
+                            await runt.printf(f'{nodeiden} DELETE {form} = {valurepr}')
+                        else:
+                            protonode = await editor.getNodeByBuid(node.buid)
+                            if protonode is None:
+                                continue
+
+                            await protonode.delEdgesN2(meta=meta)
+                            await protonode.delete()
+
+                            subs.append((s_layer.EDIT_NODE_TOMB_DEL, ()))
+
+                            await sync()
+                            runt.snap.clearCachedNode(node.buid)
+                        continue
+
+                    if (valu := sode.get('valu')) is not None:
 
                         if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
                             continue
@@ -3908,6 +3964,12 @@ class MergeCmd(Cmd):
                         else:
                             await protonode.set(name, valu)
                             subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                    for name in sode.get('antiprops', {}).keys():
+                        if not self.opts.apply:
+                            await runt.printf(f'{nodeiden} DELETE {form}:{name}')
+                        else:
+                            await protonode.pop(name)
+                            subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,), ()))
 
                 if self.opts.apply and protonode is None:
                     protonode = await editor.addNode(form, node.ndef[1], norminfo={})
@@ -3918,7 +3980,6 @@ class MergeCmd(Cmd):
                         if tagfilter and tagfilter(tag):
                             continue
 
-                        tagperm = tuple(tag.split('.'))
                         if not self.opts.apply:
                             valurepr = ''
                             if valu != (None, None):
@@ -3929,13 +3990,23 @@ class MergeCmd(Cmd):
                             await protonode.addTag(tag, valu)
                             subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
+                    for tag in sode.get('antitags', {}).keys():
+
+                        if tagfilter and tagfilter(tag):
+                            continue
+
+                        if not self.opts.apply:
+                            await runt.printf(f'{nodeiden} DELETE {form}#{tag}')
+                        else:
+                            await protonode.delTag(tag)
+                            subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,), ()))
+
                     for tag, tagdict in sode.get('tagprops', {}).items():
 
                         if tagfilter and tagfilter(tag):
                             continue
 
                         for prop, (valu, stortype) in tagdict.items():
-                            tagperm = tuple(tag.split('.'))
                             if not self.opts.apply:
                                 valurepr = repr(valu)
                                 await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
@@ -3943,28 +4014,60 @@ class MergeCmd(Cmd):
                                 await protonode.setTagProp(tag, prop, valu)
                                 subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
+                    for tag, tagdict in sode.get('antitagprops', {}).items():
+
+                        if tagfilter and tagfilter(tag):
+                            continue
+
+                        for prop in tagdict.keys():
+                            if not self.opts.apply:
+                                await runt.printf(f'{nodeiden} DELETE {form}#{tag}:{prop}')
+                            else:
+                                await protonode.delTagProp(tag, prop)
+                                subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop), ()))
+
                 if not onlytags or form == 'syn:tag':
 
                     layr = runt.snap.view.layers[0]
-                    async for name, valu in layr.iterNodeData(node.nid):
-                        if not self.opts.apply:
-                            valurepr = repr(valu)
-                            await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+                    async for abrv, valu, tomb in layr.iterNodeData(node.nid):
+                        name = core.getAbrvIndx(abrv)[0]
+                        if tomb:
+                            if not self.opts.apply:
+                                await runt.printf(f'{nodeiden} {form} DATA delete {name}')
+                            else:
+                                await protonode.popData(name)
+                                subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,), ()))
+                                if len(subs) >= 1000:
+                                    await asyncio.sleep(0)
                         else:
-                            await protonode.setData(name, valu)
-                            subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
-                            if len(subs) >= 1000:
-                                await asyncio.sleep(0)
+                            if not self.opts.apply:
+                                valurepr = repr(valu)
+                                await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+                            else:
+                                await protonode.setData(name, valu)
+                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                                if len(subs) >= 1000:
+                                    await asyncio.sleep(0)
 
-                    async for name, n2nid in layr.iterNodeEdgesN1(node.nid):
-                        dest = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
-                        if not self.opts.apply:
-                            await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                    async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(node.nid):
+                        verb = core.getAbrvVerb(abrv)
+                        dest = s_common.ehex(core.getBuidByNid(n2nid))
+                        if tomb:
+                            if not self.opts.apply:
+                                await runt.printf(f'{nodeiden} {form} -({verb})> {dest}')
+                            else:
+                                await protonode.delEdge(verb, dest)
+                                subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, dest), ()))
+                                if len(subs) >= 1000:
+                                    await asyncio.sleep(0)
                         else:
-                            await protonode.addEdge(name, dest)
-                            subs.append((s_layer.EDIT_EDGE_DEL, (name, dest), ()))
-                            if len(subs) >= 1000:
-                                await asyncio.sleep(0)
+                            if not self.opts.apply:
+                                await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
+                            else:
+                                await protonode.addEdge(verb, dest)
+                                subs.append((s_layer.EDIT_EDGE_DEL, (verb, dest), ()))
+                                if len(subs) >= 1000:
+                                    await asyncio.sleep(0)
 
                 if delnode:
                     subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
@@ -4133,7 +4236,8 @@ class MoveNodesCmd(Cmd):
             for layr in self.lyrs.keys():
                 sodes[layr] = self.lyrs[layr].getStorNode(node.nid)
                 layrkeys = set()
-                async for name in self.lyrs[layr].iterNodeDataKeys(node.nid):
+                async for abrv, tomb in self.lyrs[layr].iterNodeDataKeys(node.nid):
+                    name = runt.snap.core.getAbrvIndx(abrv)[0]
                     layrkeys.add(name)
                 layrdata[layr] = layrkeys
 
@@ -4298,9 +4402,12 @@ class MoveNodesCmd(Cmd):
                     if not self.opts.apply:
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
                     else:
-                        (retn, valu) = await self.lyrs[layr].getNodeData(node.buid, name)
+                        (retn, valu, tomb) = await self.lyrs[layr].getNodeData(node.buid, name)
                         if retn:
-                            self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                            if tomb:
+                                self.adds.append((s_layer.EDIT_NODEDATA_TOMB, (name,), ()))
+                            else:
+                                self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
                             ecnt += 1
 
                         await asyncio.sleep(0)
@@ -4328,19 +4435,26 @@ class MoveNodesCmd(Cmd):
 
         for iden, layr in self.lyrs.items():
             if not iden == self.destlayr:
-                async for (verb, nid) in layr.iterNodeEdgesN1(node.nid):
-                    # TODO local edits vs compat edits?
-                    edge = (verb, s_common.ehex(layr.core.getBuidByNid(nid)))
-                    n2node = await node.snap.getNodeByNid(nid)
+                async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(node.nid):
+                    verb = layr.core.getAbrvVerb(abrv)
+                    dest = s_common.ehex(layr.core.getBuidByNid(n2nid))
 
-                    if not self.opts.apply:
-                        name, dest = edge
-                        await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({name})> {dest}')
-                        await self.runt.printf(f'{iden} delete {nodeiden} {form} +({name})> {dest}')
+                    if tomb:
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form} +({verb})> {dest}')
+                        else:
+                            self.adds.append((s_layer.EDIT_EDGE_DEL, (verb, dest), ()))
+                            self.subs[iden].append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, dest), ()))
+                            ecnt += 2
+
                     else:
-                        self.adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                        self.subs[iden].append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                        ecnt += 2
+                        if not self.opts.apply:
+                            await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({verb})> {dest}')
+                            await self.runt.printf(f'{iden} delete {nodeiden} {form} +({verb})> {dest}')
+                        else:
+                            self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, dest), ()))
+                            self.subs[iden].append((s_layer.EDIT_EDGE_DEL, (verb, dest), ()))
+                            ecnt += 2
 
                     if ecnt >= 1000:
                         await self._sync(node, meta)
@@ -4575,19 +4689,18 @@ class DelNodeCmd(Cmd):
 
         async for node, path in genr:
 
-            # make sure we can delete the tags...
-            for tag in node.getTagNames():
-                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
-
             runt.layerConfirm(('node', 'del', node.form.name))
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.get('sha256')
+
+                await node.delete(force=force)
+
                 if sha256:
                     sha256b = s_common.uhex(sha256)
                     await axon.del_(sha256b)
-
-            await node.delete(force=force)
+            else:
+                await node.delete(force=force)
 
             await asyncio.sleep(0)
 
