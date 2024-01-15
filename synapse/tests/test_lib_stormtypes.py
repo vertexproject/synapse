@@ -5764,6 +5764,11 @@ words\tword\twrd'''
 
         async with self.getTestCore() as core:
 
+            mainview = await core.callStorm('return($lib.view.get().iden)')
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            mainlayr = core.getView(mainview).layers[0].iden
+
             visi = await core.auth.addUser('visi')
             await visi.setPasswd('secret')
 
@@ -5808,11 +5813,24 @@ words\tword\twrd'''
 
             # urlfile
 
+            opts['view'] = mainview
             scmd = 'yield $lib.axon.urlfile($url, ssl=$lib.false) return($node)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('node', 'add', 'file:bytes')), gateiden=mainlayr)
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('node', 'add', 'inet:urlfile')), gateiden=mainlayr)
             self.nn(await core.callStorm(scmd, opts=opts))
+
+            # won't work in another view
+            opts['view'] = forkview
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+            opts.pop('view')
+
             await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
 
             await visi.addRule((True, ('axon', 'wget')))
