@@ -421,9 +421,6 @@ class StormCli(s_cli.Cli):
         self.indented = False
         self.cmdprompt = 'storm> '
 
-        self.completer = StormCompleter(self)
-        await self.completer.anit()
-
         self.stormopts = {'repr': True}
 
         if opts is not None:
@@ -618,6 +615,9 @@ async def main(argv, outp=s_output.stdout):
         async with await s_telepath.openurl(opts.cortex) as proxy:
 
             async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
+                completer = StormCompleter(cli)
+                await completer.anit()
+                cli.completer = completer
 
                 if opts.onecmd:
                     await cli.runCmdLine(opts.onecmd)
