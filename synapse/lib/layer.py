@@ -4533,13 +4533,13 @@ class Layer(s_nexus.Pusher):
             for prop, (valu, stortype) in sode.get('props', {}).items():
                 edits.append((EDIT_PROP_SET, (prop, valu, None, stortype), ()))
 
-            for prop, valu in sode.get('antiprops', {}).items():
+            for prop in sode.get('antiprops', {}).keys():
                 edits.append((EDIT_PROP_TOMB, (prop,), ()))
 
             for tag, tagv in sode.get('tags', {}).items():
                 edits.append((EDIT_TAG_SET, (tag, tagv, None), ()))
 
-            for tag, tagv in sode.get('antitags', {}).items():
+            for tag in sode.get('antitags', {}).keys():
                 edits.append((EDIT_TAG_TOMB, (tag,), ()))
 
             for tag, propdict in sode.get('tagprops', {}).items():
@@ -4547,7 +4547,7 @@ class Layer(s_nexus.Pusher):
                     edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
 
             for tag, propdict in sode.get('antitagprops', {}).items():
-                for prop, valu in propdict.items():
+                for prop in propdict.keys():
                     edits.append((EDIT_TAGPROP_TOMB, (tag, prop), ()))
 
             async for abrv, valu, tomb in self.iterNodeData(nid):
@@ -4664,12 +4664,12 @@ class Layer(s_nexus.Pusher):
         nid = sode.get('nid')
         for lkey, _ in self.dataslab.scanByPref(nid, db=self.nodedata):
             await asyncio.sleep(0)
-            abrv = lkey[8:-1]
             self._incSodeRefs(buid, sode, inc=-1)
-
             self.dataslab.delete(lkey, db=self.nodedata)
-            self.dataslab.delete(abrv + lkey[-1:], nid, db=self.dataname)
-            self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
+            self.dataslab.delete(lkey[8:], nid, db=self.dataname)
+
+            if lkey[-1:] == FLAG_TOMB:
+                self.layrslab.delete(INDX_TOMB + lkey[8:-1], nid, db=self.indxdb)
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))
@@ -4905,7 +4905,7 @@ def getNodeEditPerms(nodeedits):
                 yield (permoffs, ('node', 'prop', 'set', f'{form}:{info[0]}'))
                 continue
 
-            if edit == EDIT_PROP_DEL or edit == EDIT_PROP_DEL:
+            if edit == EDIT_PROP_DEL or edit == EDIT_PROP_TOMB:
                 yield (permoffs, ('node', 'prop', 'del', f'{form}:{info[0]}'))
                 continue
 

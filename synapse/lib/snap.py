@@ -535,7 +535,7 @@ class ProtoNode:
 
         if self.node is not None:
             for prop in self.node.getTagProps(tag):
-                if (tag, prop) not in self.tagpropdels and (tag, prop) not in (self.tagproptombs):
+                if (tag, prop) not in self.tagpropdels and (tag, prop) not in self.tagproptombs:
                     props.add(prop)
 
         return(props)
@@ -548,7 +548,7 @@ class ProtoNode:
 
         if self.node is not None:
             for (prop, layr) in self.node.getTagPropsWithLayer(tag):
-                if (tag, prop) not in self.tagpropdels and (tag, prop) not in (self.tagproptombs):
+                if (tag, prop) not in self.tagpropdels and (tag, prop) not in self.tagproptombs:
                     props.add((prop, layr))
 
         return(props)
@@ -1489,7 +1489,7 @@ class Snap(s_base.Base):
                     continue
 
                 if etyp == s_layer.EDIT_NODE_TOMB_DEL:
-                    if node.istomb():
+                    if not node.istomb():
                         callbacks.append((node.form.wasAdded, (node,), {}))
                         callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
@@ -1538,7 +1538,7 @@ class Snap(s_base.Base):
 
                     (name,) = parms
 
-                    oldv = node.getFromLayers(name, stop=-1, defv=s_common.novalu)
+                    oldv = node.getFromLayers(name, strt=1, defv=s_common.novalu)
                     if oldv is s_common.novalu:
                         continue
 
@@ -1579,7 +1579,7 @@ class Snap(s_base.Base):
 
                     (tag,) = parms
 
-                    oldv = node.getTagFromLayers(tag, stop=-1, defval=s_common.novalu)
+                    oldv = node.getTagFromLayers(tag, strt=1, defval=s_common.novalu)
                     if oldv is s_common.novalu:
                         continue
 
