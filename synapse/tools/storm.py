@@ -6,7 +6,7 @@ import logging
 import argparse
 
 import lark
-import prompt_toolkit as p_t
+import prompt_toolkit
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -218,36 +218,197 @@ class ExportCmd(StormCliCmd):
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
 
-class StormCompleter(p_t.completion.Completer):
-    def __init__(self):
+def cmplgenr(completions, offset=0):
+    for (value, display) in completions:
+        yield prompt_toolkit.completion.Completion(value[offset:], display=display)
+
+class StormCompleter(prompt_toolkit.completion.Completer):
+    def __init__(self, cli):
+        self._cli = cli
         self._parser = s_parser.LarkParser
 
+        self.initialized = False
+
+        # These are all the possible completions. Their format should be as follows:
+        # (<name>, <display>)
+
+        # ('misp.event.add', '[cmd] misp.event.add - Add Synapse nodes to a MISP server.')
+        self._cmds = []
+
+        # ('lib.cast', '[lib] $lib.cast(name: str, valu: any) - Normalize a value as a Synapse Data Model Type.')
+        # ('lib.debug', '[lib] $lib.debug - True if the current runtime has debugging enabled.')
+        self._libs = []
+
+        # ('misp.test', '[tag] #misp.test')
+        self._tags = []
+
+        # ('inet:fqdn', '[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).')
+        # ('inet:fqdn:domain', '[prop] inet:fqdn:domain - The parent domain for the FQDN.')
+        self._forms = []
+        self._props = []
+
+    async def anit(self):
+        if not self._cmds:
+            q = '''
+            $cmds = ([])
+            syn:cmd
+            $cmds.append(($node.repr(), :doc))
+            fini {
+                return($cmds)
+            }
+            '''
+            cmds = await self._cli.item.callStorm(q)
+            for cmd in cmds:
+                name, doc = cmd
+                self._cmds.append((name, f'[cmd] {name} - {doc}'))
+                self._cmds.sort(key=lambda x: x[0])
+
+        if not self._tags:
+            q = '''
+            $tags = ([])
+            syn:tag
+            $tags.append($node.repr())
+            fini {
+                return($tags)
+            }
+            '''
+            tags = await self._cli.item.callStorm(q)
+            for tag in tags:
+                self._tags.append((tag, f'[tag] {tag}'))
+                self._tags.sort(key=lambda x: x[0])
+
+        if not self._forms:
+            q = '''
+            $forms = ([])
+            $props = ([])
+            syn:prop
+            { -:relname $forms.append(($node.repr(), :doc)) }
+            { +:relname $props.append(($node.repr(), :doc)) }
+            fini {
+                return(($forms, $props))
+            }
+            '''
+            forms, props = await self._cli.item.callStorm(q)
+
+            for form in forms:
+                name, doc = form
+                self._forms.append((name, f'[form] {name} - {doc}'))
+                self._forms.sort(key=lambda x: x[0])
+
+            for prop in props:
+                name, doc = prop
+                self._props.append((name, f'[prop] {name} - {doc}'))
+                self._props.sort(key=lambda x: x[0])
+
+        if not self._libs:
+            info = await self._cli.item.getCoreInfoV2()
+            libraries = info['stormdocs']['libraries']
+            for library in libraries:
+                basename = '.'.join(library['path'])
+
+                for local in library['locals']:
+                    libname = '.'.join((basename, local['name']))
+                    name = libname
+                    desc = local['desc'].strip().split('\n')[0]
+                    libtype = local['type']
+                    if isinstance(libtype, dict) and local['type']['type'] == 'function':
+                        args = local['type'].get('args')
+                        if args:
+                            params = []
+                            for arg in args:
+                                argname = arg['name']
+                                argtype = arg['type']
+
+                                params.append(f'{argname}: {argtype}')
+
+                            params = ', '.join(params)
+                            name = f'{name}({params})'
+                        else:
+                            name = f'{name}()'
+
+                    self._libs.append((libname, f'[lib] {name} - {desc}'))
+
+        self._libs.sort(key=lambda x: x[0])
+
+    def flush(self):
+        self._tags = []
+
     def get_completions(self, document, complete_event):
-        if not complete_event.completion_requested:
+        if not complete_event.completion_requested or not document.text:
             return []
 
+        text = document.text.strip()
+        last = text.split(' ')[-1]
+
+        # If the last character is a pipe, suggest the command list
+        if document.text.strip()[-1] == '|':
+            return cmplgenr(self._cmds)
+
+        # Parse the input
         interact = self._parser.parse_interactive(document.text, start='query')
 
         try:
-            interact.exhaust_lexer()
+            # Try to lex the input
+            tokens = interact.exhaust_lexer()
         except lark.exceptions.UnexpectedToken:
-            return []
+            # Some inputs cause an UnexpectedToken exception. Some of the examples are:
+            #   'inet:'
+            #   'inet:fqdn.'
+            #   '[inet:fqdn +#'
+            completions = []
 
-        accepts = interact.accepts()
+            # Trying to complete a form or prop
+            if text[-1] == ':':
+                completions.extend([k for k in self._forms if k[0].startswith(last)])
+                completions.extend([k for k in self._props if k[0].startswith(last)])
+                return cmplgenr(completions, offset=len(last))
+
+            # Trying to complete a universal prop
+            elif text[-1] == '.':
+                completions = [k for k in self._props if k[0].startswith(last)]
+                return cmplgenr(completions, offset=len(last))
+
+            elif text[-1] == '#':
+                return cmplgenr(self._tags)
+
+            return []
 
         completions = []
 
-        if 'PROPS' in accepts:
-            completions.extend(self._get_forms())
+        token = tokens[-1]
 
-        if 'TAGSEGNOVAR' in accepts:
-            completions.extend(self._get_tags())
+        # Match tags
+        if token.type in ('_HASH', '_MATCHHASH', 'TAGSEGNOVAR'):
+            return cmplgenr(self._tags)
 
-        if 'CMDNAME' in accepts:
-            completions.extend(self._get_cmds())
+        # Match libs
+        if token.type in ('DOLLAR', 'VARTOKN', 'DOT'):
+            if last.startswith('$lib'):
+                name = last[1:]
+                completions = [k for k in self._libs if k[0].startswith(name)]
+                return cmplgenr(completions, offset=len(last) - 1)
 
-        return (p_t.completion.Completion(k[len(currtokn):], display=k) for k in completions if k.startswith(currtokn))
+        # Match cmds, forms, props
+        if token.type in ('CMDNAME', 'PROPS'):
+            completions.extend(self._cmds)
+            completions.extend(self._forms)
+            completions.extend(self._props)
 
+        completions = [k for k in completions if k[0].startswith(token.value)]
+        return cmplgenr(completions, offset=len(token.value))
+
+    async def get_completions_async(self, document, complete_event):
+        # Only complete on TAB and if there is input
+        if not complete_event.completion_requested or not document.text:
+            return
+
+        # Initialize completions
+        if not self.initialized or not self._tags:
+            await self.anit()
+            self.initialized = True
+
+        for item in self.get_completions(document, complete_event):
+            yield item
 
 class StormCli(s_cli.Cli):
 
@@ -260,18 +421,8 @@ class StormCli(s_cli.Cli):
         self.indented = False
         self.cmdprompt = 'storm> '
 
-        self.completer = StormCompleter()
-        cmds = await self.item.callStorm('$cmds = ([]) syn:cmd $cmds.append($node) fini { return($cmds) }')
-        tags = await self.item.callStorm('$tags = ([]) syn:tag $tags.append($node) fini { return($tags) }')
-
-        for cmd in cmds:
-            self.completer.add(cmd)
-
-        for tag in tags:
-            self.completer.add(f'#{tag}')
-
-        for text in ['inet:fqdn', 'inet:ipv4', '$lib.false', 'mitre.attack.translate']:
-            self.completer.add(text)
+        self.completer = StormCompleter(self)
+        await self.completer.anit()
 
         self.stormopts = {'repr': True}
 

@@ -14,6 +14,7 @@ from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.shortcuts import CompleteStyle
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -249,6 +250,7 @@ class Cli(s_base.Base):
 
         self.echoline = False
         self.colorsenabled = False
+
         self.completer = None
 
         if isinstance(self.item, s_base.Base):
@@ -315,11 +317,12 @@ class Cli(s_base.Base):
             except OSError:  # pragma: no cover
                 logger.warning(f'Unable to create file at {histfp}, cli history will not be stored.')
 
-            completer = None
-            if isinstance(self.completer, CliCompleter):
-                completer = self.completer
-
-            self.sess = PromptSession(history=history, completer=completer)
+            self.sess = PromptSession(
+                history=history,
+                completer=self.completer,
+                complete_while_typing=False,
+                reserve_space_for_menu=5,
+            )
 
         if text is None:
             text = self.cmdprompt
@@ -389,6 +392,9 @@ class Cli(s_base.Base):
                 coro = self.runCmdLine(line)
                 self.cmdtask = self.schedCoro(coro)
                 await self.cmdtask
+
+                if self.completer:
+                    self.completer.flush()
 
             except KeyboardInterrupt:
 
