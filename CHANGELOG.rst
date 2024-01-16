@@ -19,7 +19,7 @@ Automatic Migrations
 Features and Enhancements
 -------------------------
 - Add support for lifting, pivoting, and filtering using wildcards, lists,
-  variables, and interfaces.
+  variables, and interfaces as form and property names.
   (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
 - Migrate the name of the ``taxonomy`` interface to ``meta:taxonomy``.
   (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
