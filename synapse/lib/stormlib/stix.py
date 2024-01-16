@@ -872,6 +872,7 @@ class LibStixImport(s_stormtypes.Lib):
         if config is None:
             config = stixingest
 
+        bundle = await s_stormtypes.toprim(bundle)
         config = await s_stormtypes.toprim(config)
 
         config.setdefault('bundle', {})
