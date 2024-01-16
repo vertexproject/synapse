@@ -326,7 +326,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
                         else:
                             name = f'{name}()'
 
-                    self._libs.append((libname, f'[lib] {name} - {desc}'))
+                    self._libs.append((libname, f'[lib] ${name} - {desc}'))
 
         self._libs.sort(key=lambda x: x[0])
 
@@ -334,9 +334,6 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         self._tags = []
 
     def get_completions(self, document, complete_event):
-        if not complete_event.completion_requested or not document.text:
-            return []
-
         text = document.text.strip()
         last = text.split(' ')[-1]
 
@@ -615,13 +612,15 @@ async def main(argv, outp=s_output.stdout):
         async with await s_telepath.openurl(opts.cortex) as proxy:
 
             async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
-                completer = StormCompleter(cli)
-                await completer.anit()
-                cli.completer = completer
 
                 if opts.onecmd:
                     await cli.runCmdLine(opts.onecmd)
                     return
+
+                # Add this after onecmd so we don't initialize the completer yet
+                completer = StormCompleter(cli)
+                cli.completer = completer
+                await completer.anit()
 
                 # pragma: no cover
                 cli.colorsenabled = True

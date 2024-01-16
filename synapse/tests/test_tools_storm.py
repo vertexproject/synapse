@@ -226,6 +226,9 @@ class StormCliTest(s_test.SynTest):
                 event = CompleteEvent(completion_requested=True)
                 return await s_test.alist(completer.get_completions_async(document, event))
 
+            vals = await get_completions('')
+            self.len(0, vals)
+
             # Check completion of forms/props
             vals = await get_completions('inet:fq')
             self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
@@ -236,6 +239,10 @@ class StormCliTest(s_test.SynTest):
             self.isin(Completion('dn:issuffix', display='[prop] inet:fqdn:issuffix - True if the FQDN is considered a suffix.'), vals)
             self.isin(Completion('dn:iszone', display='[prop] inet:fqdn:iszone - True if the FQDN is considered a zone.'), vals)
             self.isin(Completion('dn:zone', display='[prop] inet:fqdn:zone - The zone level parent for this FQDN.'), vals)
+
+            vals = await get_completions('inet:fqdn.')
+            self.isin(Completion('seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
+            self.isin(Completion('created', display='[prop] inet:fqdn.created - The time the node was created in the cortex.'), vals)
 
             vals = await get_completions('[inet:fq')
             self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
@@ -257,6 +264,15 @@ class StormCliTest(s_test.SynTest):
             await core.stormlist('[inet:ipv4=1.2.3.5 +#rep.foo.bar]')
             await core.stormlist('[inet:ipv4=1.2.3.6 +#rep.bar]')
             await core.stormlist('[inet:ipv4=1.2.3.7 +#rep.baz]')
+
+            # Check the completer cache loading/flushing
+            self.len(0, completer._tags)
+            await get_completions('inet:ipv4#')
+            self.len(5, completer._tags)
+            completer.flush()
+            self.len(0, completer._tags)
+            await completer.anit()
+            self.len(5, completer._tags)
 
             # Check completion of tags
             vals = await get_completions('inet:ipv4#')
@@ -290,3 +306,24 @@ class StormCliTest(s_test.SynTest):
             vals = await get_completions('inet:ipv4 +#rep.foo | ')
             self.isin(Completion('spin', display='[cmd] spin - Iterate through all query results, but do not yield any.'), vals)
             self.isin(Completion('uniq', display='[cmd] uniq - Filter nodes by their uniq iden values.'), vals)
+
+            # Check completion of libs
+            vals = await get_completions('inet:ipv4 $li')
+            self.len(0, vals)
+
+            vals = await get_completions('inet:ipv4 $lib')
+            self.isin(
+                Completion(
+                    '.auth.easyperm.allowed',
+                    display='[lib] $lib.auth.easyperm.allowed(edef: dict, level: str) - Check if the current user has a permission level in an easy perm dictionary.'
+                ),
+                vals
+            )
+
+            self.isin(
+                Completion(
+                    '.vault.list',
+                    display='[lib] $lib.vault.list() - List vaults accessible to the current user.'
+                ),
+                vals
+            )
