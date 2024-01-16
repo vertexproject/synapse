@@ -29,7 +29,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Prevent re-adding extended model elemtnts in Nexus handlers.
+- Prevent re-adding extended model elements in Nexus handlers.
   (`#3486 <https://github.com/vertexproject/synapse/pull/3486>`_)
 - Add missing permissions checks on the ``$lib.axon.urlfile()`` API. This now
   requires the ``node.add.file:bytes`` and ``node.add.inet:urlfile``
@@ -38,7 +38,7 @@ Bugfixes
 - Fix the permission checking for Vaults to check the Storm runtime ``asroot``
   status.
   (`#3492 <https://github.com/vertexproject/synapse/pull/3492>`_)
-- Fix an issue with ``lib.stix.import.ingest()`` not converting is ``bundle``
+- Fix an issue with ``$lib.stix.import.ingest()`` not converting ``bundle``
   to a dictionary.
   (`#3495 <https://github.com/vertexproject/synapse/pull/3495>`_)
 
