@@ -961,6 +961,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model = s_datamodel.Model()
 
+        await self._bumpCellVers('cortex:extmodel', (
+            (1, self._migrateTaxonomyIface),
+        ), nexs=False)
+
         # Perform module loading
         await self._loadCoreMods()
         await self._loadExtModel()
@@ -2960,6 +2964,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
 
+    async def _migrateTaxonomyIface(self):
+
+        extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
+
+        for formname, basetype, typeopts, typeinfo in extforms.values():
+            try:
+                ifaces = typeinfo.get('interfaces')
+
+                if ifaces and 'taxonomy' in ifaces:
+                    logger.warning(f'Migrating taxonomy interface on form {formname} to meta:taxonomy.')
+
+                    ifaces = set(ifaces)
+                    ifaces.remove('taxonomy')
+                    ifaces.add('meta:taxonomy')
+                    typeinfo['interfaces'] = tuple(ifaces)
+
+                    await extforms.set(formname, (formname, basetype, typeopts, typeinfo))
+
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'Taxonomy migration error for form: {formname} (skipped).')
+
     async def _loadExtModel(self):
 
         self.extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
@@ -3138,6 +3163,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:univ:add')
     async def _addUnivProp(self, name, tdef, info):
+        base = '.' + name
+        if base in self.model.props:
+            return
+
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
@@ -3166,6 +3195,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:form:add')
     async def _addForm(self, formname, basetype, typeopts, typeinfo):
+        if self.model.form(formname) is not None:
+            return
+
+        ifaces = typeinfo.get('interfaces')
+
+        if ifaces and 'taxonomy' in ifaces:
+            logger.warning(f'{formname} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
+
+            ifaces = set(ifaces)
+            ifaces.remove('taxonomy')
+            ifaces.add('meta:taxonomy')
+            typeinfo['interfaces'] = tuple(ifaces)
+
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, {}, ())
 
@@ -3188,6 +3230,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:form:del')
     async def _delForm(self, formname):
+        if self.model.form(formname) is None:
+            return
 
         for layr in self.layers.values():
             async for item in layr.iterFormRows(formname):
@@ -3223,6 +3267,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:prop:add')
     async def _addFormProp(self, form, prop, tdef, info):
+        if (_form := self.model.form(form)) is not None and _form.prop(prop) is not None:
+            return
+
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \

@@ -15,7 +15,7 @@ class PolModule(s_module.CoreModule):
                         'doc': 'A node which tracks the immigration status of a contact.'}),
 
                     ('pol:immigration:status:type:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('taxonomy',),
+                        'interfaces': ('meta:taxonomy',),
                         'doc': 'A taxonomy of immigration types.'}),
 
                     ('pol:vitals', ('guid', {}), {
