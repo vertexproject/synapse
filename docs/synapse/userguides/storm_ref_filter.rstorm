@@ -288,7 +288,7 @@ Filter by Secondary Property Value
 
 *Filter the current working set to exclude any files (file:bytes nodes) with a PE compiled time of 1992-06-19 22:22:17:*
 
-.. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000") ] -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
+.. storm-pre:: [ (file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17") (file:bytes=sha256:f85e153151e2d8379d57e66047fa65fff537db0f455effa92a2abb09a70e52fb :mime:pe:compiled="2024/01/08 04:30:16") ] -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
 ::
   
   <query> -file:bytes:mime:pe:compiled = '1992/06/19 22:22:17'
@@ -394,7 +394,7 @@ operator is supported. If the extended property is an integer, any of the standa
 
 **+** | **-** [ *<form>* ] **:_** *<prop>* *<operator>* *<pval>*
 
-*Filter the current working set to include only those organizations (ou:org nodes) are categorized as threats:*
+*Filter the current working set to include only those organizations (ou:org nodes) which are categorized as threats:*
 
 .. storm-pre:: [ ( ou:org=* :name=vertex :_vertex:threatintel:isthreat=0 ) ( ou:org=* :name=fsb :_vertex:threatintel:isthreat=1 ) ] +ou:org:_vertex:threatintel:isthreat = true
 ::
@@ -500,8 +500,8 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
   Extended string types that support dotted notation (such as the :ref:`type-loc` or :ref:`type-syn-tag` types)
   have custom behaviors with respect to lifting and filtering by prefix.
   
-  :ref:`type-inet-fqdn` nodes are indexed in reverse string order so cannot be filtered using the prefix extended
-  operator. However, reverse indexing allows wildcard ( ``*`` ) matching of the beginning of any FQDN string.
+  :ref:`type-inet-fqdn` nodes are indexed in reverse string order so cannot be **lifted** using the prefix extended
+  operator. However, they can be **filtered** by prefix.
   
   See the relevant sections in the :ref:`storm-ref-type-specific` guide for details.
 
@@ -961,9 +961,9 @@ the specified tag.
   
   Tags are hierarchical, and each tag element is its own tag; the tag ``#cno.infra.anon`` consists of the tags ``#cno``,
   ``#cno.infra``, and ``#cno.infra.anon``. Filtering nodes using a tag "higher up" in the tag hierarchy will include
-  (or exclude) nodes with specified tag or any tag "lower down" in the hierarchy. In other words, filtering by ``#cno.infra.anon``
-  will filter all "anonymized" infrastructure, whether the infrastructure is a VPN (``#cno.infra.anon.vpn``), a TOR node
-  (``#cno.infra.anon.tor``), or an anonymous proxy (``#cno.infra.anon.proxy``).
+  (or exclude) nodes with the specified tag or any tag "lower down" in the hierarchy. In other words, filtering by
+  ``#cno.infra.anon`` will filter all "anonymized" infrastructure, whether the infrastructure is a VPN
+  (``#cno.infra.anon.vpn``), a TOR node (``#cno.infra.anon.tor``), or an anonymous proxy (``#cno.infra.anon.proxy``).
 
 
 .. _filter-tag-globs:
@@ -976,18 +976,18 @@ or double ( ``**`` ) asterisks, or a combination of the two.
 
 The single asterisk and double asterisk behave differently:
 
-- The asterisk ( ``*`` ) represents an arbitrary string that matches a single tag element (i.e., one element
-  as bounded by the tag's "dot" ( ``.`` ) separators).
-- The double asterisk ( ``**`` ) represents an arbitrary string match anywhere in the tag.
+- The asterisk ( ``*`` ) represents an arbitrary string that matches **within** a single tag element (i.e.,
+  one element as bounded by the tag's "dot" ( ``.`` ) separators).
+- The double asterisk ( ``**`` ) represents an arbitrary string match anywhere in the tag, including **across**
+  tag elements.
 
 Another way to look at this is that the single asterisk is constrained by the tag's "dot" boundaries, but
 the double asterisk is not.
 
 **Syntax:**
 
-*<query>* **+** | **-** **#** *<tag_element>* | ***** [ **.** *<tag_element>* | *****  ... ]
+*<query>* **+** | **-** **#** *<string>* | ***** | ****** [ **.** *<string>*  | ***** | ****** ... ]
 
-*<query>* **+** | **-** **#** *<string>* | ****** [ *<string>* | ****** ... ]
 
 **Examples:**
 
@@ -1008,6 +1008,29 @@ The tag glob filter above uses the single asterisk to match any tag element in t
 - ``rep.paloalto.seduploader``
 
 ...etc.
+
+*Filter the current working set to include any nodes tagged as "cobaltstrike" by any third-party reporting organization whose name begins with 'm':*
+
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.mandiant.cobaltstrike ) ( inet:fqdn=evil.com +#rep.microsoft.cobaltstrike ) ( inet:ipv4=1.1.1.1 +#rep.malwarebazaar.cobaltstrike ) ] +#rep.m*.cobaltstrike
+::
+  
+  <query> +#rep.m*.cobaltstrike
+
+The tag glob filter above uses the single asterisk to match any partial tag element in the second position
+that starts with 'm', and will match tags such as:
+
+- ``rep.malwarebazaar.cobaltstrike``
+- ``rep.mandiant.cobaltstrike``
+- ``rep.microsoft.cobaltstrike``
+
+.. TIP::
+  
+  The filter above would **not** match on a tag such as ``rep.malwarebazaar.3p.anyrun.cobaltstrike``, because
+  the string ``cobaltstrike`` is not the third tag element. A double asterisk, which matches across a tag's
+  "dot" boundaries, would match this tag as well as the example tags above:
+  
+  ``rep.m**cobaltstrike``
+
 
 *Filter the current working set to exclude any nodes tagged as "seduploader" either internally or by any third-party reporting organization:*
 
@@ -1066,22 +1089,26 @@ the following:
   The double asterisk must match "something" - the filter above will **not** match a node that simply has the tag ``#cno``.
 
 
-*Filter the current working set to include any nodes tagged with any "APT" group by any third-party reporting organization:*
+*Filter the current working set to include any nodes tagged by any third-party reporting organization where the tag contains the string "2017":*
 
-.. storm-pre:: [ ( inet:fqdn=www.autoapec.com +#rep.alienvault.apt30 ) ( inet:fqdn=intuitstatistic.com +#rep.mandiant.apt28 ) ( inet:fqdn=supportus.mefound.com +#rep.pwc.apt10 ) ] +#rep.*.apt**
+.. storm-pre:: [ ( file:bytes=sha256:f0aa64e048ba6e054e31b86ae0dfdaee0dcdab73e324e7bb926c9dccdee63a14 +#rep.vt.cve_2017_11882 ) ( hash:md5=806fad8aac92164f971c04bb4877c00f +#rep.alienvault.cve20178291 ) ( file:bytes=sha256:de6389e89062e049423ef018612df0734b94dfd9d9a4f3880ca6b8ff0bbbc4cc +#rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11182 ) ] +#rep.*.**2017**
 ::
   
-  <query> +#rep.*.apt**
+  <query> +#rep.*.**2017**
 
-The tag glob filter above uses both a single and double asterisk. The single asterisk matches any tag element in the second
-position; the double asterisk matches any string following "apt". The filter will match all of the following:
+The tag glob filter above uses both a single and double asterisk. The single asterisk matches any tag element
+in the second position; the double asterisk matches any string that includes "2017", including across "dot"
+boundaries. The filter will match all of the following:
 
-- ``rep.alienvault.apt30``
-- ``rep.mandiant.apt28``
-- ``rep.pwc.apt10``
-- ``rep.malwarebazaar.apt_malware_exe_dll_ps1``
+- ``rep.alienvault.cve20178291``
+- ``rep.malwarebazaar.3p.reversinglabs.document_ole_exploit_cve_2017_11882``
+- ``rep.vt.cve_2017_0199``
 
-...etc.
+.. NOTE::
+  
+  The double asterisk must match "something" - the filter above matches strings where "2017" appears
+  **between** other arbitrary characters. The filter would not match tags such as ``rep.foo.2017`` or
+  ``rep.bar.baz.cve2017``.
 
 
 .. _filter-tag-timestamp:
@@ -1316,7 +1343,7 @@ with a ``:name`` value starting with "makonix".
   See :ref:`embed_prop_syntax` for an alternative way to perform this query.
 
 
-*Filter the current working set of files (file:bytes nodes) to include only files that are detected as malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with   10 or more it:av:filehit nodes):*
+*Filter the current working set of files (file:bytes nodes) to include only files that are detected as malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with 10 or more it:av:filehit nodes):*
 
 .. storm-pre:: file:bytes +{ -> it:av:filehit }>=10
 ::
@@ -1440,14 +1467,14 @@ The query is repeated here with inline comments to note what each line is doing:
 
 ::
   
-  $now = $lib.time.now()                //Set the variable $now to the current date/time, as retrieved by $lib.time.now()
-  $30d = 2592000000                     //Set the variable $30d to the value of "30 days" in Unix epoch milliseconds
-                                        //e.g., 60s * 60m * 24h * 30d * 1000ms = 2592000000ms
-  $start = $( $now - $30d )             //Set the variable $start to the date/time found by evaluating the expression $now - $30d
-  inet:dns:a.seen @= ( $now, -30 days ) //Lift all inet:dns:a nodes whose .seen property has any **overlap** with the past 30 days
-  ( $min, $max ) = .seen                //Set the variables $min and $max to the individual date/times of the .seen interval
-  +$( $min >= $start )                  //Use an expression filter to ensure that the $min time of the node's .seen value is
-                                        //greater than or equal to "30 days ago"
+  $now = $lib.time.now()                // Set the variable $now to the current date/time, as retrieved by $lib.time.now()
+  $30d = 2592000000                     // Set the variable $30d to the value of "30 days" in Unix epoch milliseconds
+                                        // e.g., 60s * 60m * 24h * 30d * 1000ms = 2592000000ms
+  $start = $( $now - $30d )             // Set the variable $start to the date/time found by evaluating the expression $now - $30d
+  inet:dns:a.seen @= ( $now, -30 days ) // Lift all inet:dns:a nodes whose .seen property has any **overlap** with the past 30 days
+  ( $min, $max ) = .seen                // Set the variables $min and $max to the individual date/times of the .seen interval
+  +$( $min >= $start )                  // Use an expression filter to ensure that the $min time of the node's .seen value is
+                                        // greater than or equal to "30 days ago"
 
 
 .. _embed_prop_syntax:
