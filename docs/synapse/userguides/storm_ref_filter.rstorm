@@ -30,7 +30,11 @@ filters based on the criteria, comparison operator, or special handler used:
 
 .. TIP::
   
-  In most cases, you can filter using the same criteria used for lifts.
+  In general, you can filter using the same criteria and comparison operators used for lift operations.
+  Because filter operations act on a pre-selected **subset** of nodes, some additional methods are
+  available for filtering that would be less efficient for initial lift operations. For example, you
+  can filter FQDNs (``inet:fqdn``) nodes by prefix ( ``^=`` ), although you cannot lift FQDNs using
+  that operator. Similarly, you can :ref:`filter-tag-globs` but you cannot lift using that syntax.
 
 Storm also supports additional types of filters and filter operations:
 
@@ -1123,10 +1127,6 @@ A tag timestamp can be thought of as a specialized "property" of a tag that happ
 
 See :ref:`filter-interval` for additional detail on the use of the ``@=`` operator.
 
-.. NOTE::
-  
-  It is not currently possible to filter generically based on "tags that have timestamps" vs. "tags that do not
-  have timestamps".
 
 **Syntax:**
 
@@ -1146,6 +1146,27 @@ See :ref:`filter-interval` for additional detail on the use of the ``@=`` operat
   
   <query> +#cno.threat.t15.own @= 2021/10/30
 
+.. NOTE::
+  
+  While it is possible to filter based on "tags that have timestamps" or "tags that do not have timestamps",
+  it currently requires more advanced Storm syntax. For example, the following filter will **include** only
+  those nodes with the tag ``cno.threat.t15.own`` that **do not** have timestamps (``.0=$lib.null``):
+  
+  ``+$((#cno.threat.t15.own).0=$lib.null)``
+  
+  To filter out (exclude) nodes that do not have timestamps, use the minus sign ( ``-`` ) with the filter vs.
+  the plus sign.
+  
+  As an alternative to the expression above, you could specify a sufficiently large date range that would cover
+  all possible dates present on the tag; any tag without timestamps would not fall within the range. For example:
+  
+  ``+#cno.threat.t15.own@=(1900/01/01, ?)``
+  
+  ...where January 1, 1900 is an arbitrarily low date and ``?``` is used to represent the highest possible
+  time value. It is important to note that while this second method "works" (and may be easier to remember),
+  it acts as a workaround (vs. the expression above, which explicitly references "no timestamps" using ``$lib.null``).
+
+
 .. _filter-tag-prop:
 
 Filter Using Tag Properties
@@ -1162,7 +1183,7 @@ whose tags have a specific tag property (regardless of the value of the property
 
 **Syntax:**
 
-*<query>* **+** | **-** **#** *<tag>* **:** *<tagprop>*
+*<query>* **+** | **-** **#** *<tag>* | ***** **:** *<tagprop>*
 
 
 *Filter the current working set to only include nodes with a ":risk" property reported by Symantec:*
@@ -1171,11 +1192,23 @@ whose tags have a specific tag property (regardless of the value of the property
 ::
   
   <query> +#rep.symantec:risk
+
+*Filter the current working set to include nodes with a ":risk" property associated with any tag:*
+
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#**:risk
+::
   
-.. NOTE::
+  <query> +#**:risk
+
+.. TIP::
   
-  You must specify a tag associated with the tag property. It is not possible to filter nodes based on a particular
-  tag property being present on **any** tag (e.g., Storm queries such as ``+#:risk`` will generate ``BadSyntax`` errors).
+  When filtering based on the **existence** of a tag property, you can use tag glob syntax (see :ref:`filter-tag-globs`)
+  to specify the associated tags. So filters such as ``+#rep.*.*:risk`` or (per the above example) ``+#**:risk`` are supported.
+  
+  When filtering for a specific tag property that appears on **any** tag, either a double asterisk (tag glob, as above)
+  or single asterisk can be used, e.g.: ``+#*:risk``. The single asterisk in this instance is not a tag glob, but a special
+  syntax helper for this specific use case.  (That is, because entering ``+#*:risk`` instead of ``+#**:risk`` is a common
+  user error, Synapse automatically handles this case to "do what you mean".)
 
 
 .. _filter-tag-prop-value:
@@ -1188,6 +1221,12 @@ Storm supports filtering nodes based on the value of a tag property (similar to 
 You can filter nodes based on tag property values using any comparison operator supported by the property's :ref:`gloss-type`.
 For example, if the tag property is defined as an integer (``int``) type, you can use any comparison operator supported
 by integers.
+
+.. NOTE::
+  
+  Tag glob syntax (see :ref:`filter-tag-globs`) is **not** supported when filtering based on a tag property value. For
+  example, a filter such as ``+#rep.**:risk>20`` will generate a syntax error.
+
 
 **Syntax:**
 
@@ -1276,17 +1315,17 @@ Subquery Filters
 You can use Storm's subquery syntax (:ref:`storm-ref-subquery`) to create filters. A subquery (enclosed in
 curly braces ( ``{ }`` ) ) can be placed within a larger Storm query.
 
-When nodes are passed to a subquery filter, they are evaluated against the filter's criteria:
-
-- Nodes are **excluded** ("consumed", discarded) if they evaluate **false.**
-- Nodes are **included** (not "consumed", retained) if they evaluate **true.**
-
 Most filter operations in Storm will modify (reduce) your current set of nodes based on some criteria of the
 **nodes themselves** (e.g., a node's form, property, or tag).
 
 Subquery filters allow you to filter your **current** set of nodes based on some criteria of **nearby** nodes.
 You use the subquery filter to effectively "look ahead" at nodes one or more pivots away from your current nodes,
 and filter your current nodes based on the properties of those "nearby" nodes.
+
+When nodes are passed to a subquery filter, they are evaluated against the filter's criteria:
+
+- Nodes are **excluded** ("consumed", discarded) if they evaluate **false.**
+- Nodes are **included** (not "consumed", retained) if they evaluate **true.**
 
 The subquery pivot operation (used to "look ahead" at other nodes) is effectively performed in the background
 (without navigating away from your current working set), which provides a more powerful and efficent way to
@@ -1343,19 +1382,29 @@ with a ``:name`` value starting with "makonix".
   See :ref:`embed_prop_syntax` for an alternative way to perform this query.
 
 
-*Filter the current working set of files (file:bytes nodes) to include only files that are detected as malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with 10 or more it:av:filehit nodes):*
+*Filter the current working set of files (file:bytes nodes) to include only files that are detected as malicious in (10) or more scans (i.e., files that are associated with 10 or more it:av:scan:result nodes whose :verdict property value is "malicious"):*
 
-.. storm-pre:: file:bytes +{ -> it:av:filehit }>=10
+.. storm-pre:: file:bytes +{ -> it:av:scan:result +:verdict=malicious }>=10
 ::
   
-  <file:bytes> +{ -> it:av:filehit }>=10
+  <file:bytes> +{ -> it:av:scan:result +:verdict=malicious }>=10
 
 The subquery filter above takes the inbound ``file:bytes`` nodes and (within the subquery):
 
-- pivots to the associated ``it:av:filehit`` nodes; and
-- counts the number of ``it:av:filehit`` nodes for each file.
+- pivots to the associated ``it:av:scan:result`` nodes; and
+- filters the results to include only those nodes whose ``it:av:scan:result:verdict`` property value is ``malicious``; and
+- counts the number of resulting ``it:av:scan:result`` nodes for each file.
 
-The subquery filter returns only those ``file:bytes`` nodes with 10 or more ``it:av:filehit`` nodes.
+The subquery filter returns only those ``file:bytes`` nodes with 10 or more associated ``it:av:scan:result``
+nodes with a ``malicious`` verdict.
+
+.. TIP::
+  
+  This is a simplified example. ``it:av:scan:result`` nodes represent a scan performed at a given point in time;
+  the filter above does not provide any time constraints so will count any / all "malicious" results, regardless
+  of "when" the scan was performed. Results could include files detected as malicious by ten different vendors
+  during a single scan as well as files detected as malicious by only one vendor during ten different scans.
+
 
 *Filter the current working set of x509 certificates (crypto:x509:cert nodes) to only include certificates linked to more than one FQDN (inet:fqdn) identity:*
 
@@ -1443,13 +1492,12 @@ the specified expression (``cno.threat.*``) and :ref:`stormprims-list-size` to c
 
 *Filter the current working set of DNS A records (inet:dns:a nodes) to only include those whose .seen interval falls WITHIN the past 30 day window (e.g., where the <min> value of the .seen interval is greater than or equal to the date 30 days in the past:*
 
-.. storm-pre:: [ ( inet:dns:a = ( woot.com, 4.4.4.4 ) .seen = now ) ] $now = $lib.time.now() $30d = 2592000000 $start = $( $now - $30d ) inet:dns:a.seen @= ( $now, -30 days ) ( $min, $max ) = .seen +$( $min >= $start )
+.. storm-pre:: [ ( inet:dns:a = ( woot.com, 4.4.4.4 ) .seen = now ) ] $ival = $lib.cast( ival, ( now, -30 days ) ) ( $start, $stop ) = $ival inet:dns:a.seen @= $ival ( $min, $max ) = .seen +$( $min >= $start )
 ::
   
-  $now = $lib.time.now()
-  $30d = 2592000000
-  $start = $( $now - $30d )
-  inet:dns:a.seen @= ( $now, -30 days )
+  $ival = $lib.cast( ival, ( now, -30 days ) )
+  ( $start, $stop ) = $ival
+  inet:dns:a.seen @= $ival
   ( $min, $max ) = .seen
   +$( $min >= $start )
 
@@ -1459,22 +1507,23 @@ it is not possible to directly lift or filter for interval values that fall **wi
 value.
 
 The above query uses **variables** (see :ref:`storm-adv-vars`) to calculate the date/time exactly 30 days
-prior to the current date/time ("now", obtained using the :ref:`stormlibs-lib-time-now` library) and uses
-an expression filter to ensure that the *<min>* value of the node's ``.seen`` property is more recent than
-"30 days ago".
+prior to the current date/time ( ``$start`` and ``$stop`` ) and uses an expression filter to ensure that the
+*<min>* value of the node's ``.seen`` property is more recent than "30 days ago".
 
 The query is repeated here with inline comments to note what each line is doing:
 
 ::
   
-  $now = $lib.time.now()                // Set the variable $now to the current date/time, as retrieved by $lib.time.now()
-  $30d = 2592000000                     // Set the variable $30d to the value of "30 days" in Unix epoch milliseconds
-                                        // e.g., 60s * 60m * 24h * 30d * 1000ms = 2592000000ms
-  $start = $( $now - $30d )             // Set the variable $start to the date/time found by evaluating the expression $now - $30d
-  inet:dns:a.seen @= ( $now, -30 days ) // Lift all inet:dns:a nodes whose .seen property has any **overlap** with the past 30 days
-  ( $min, $max ) = .seen                // Set the variables $min and $max to the individual date/times of the .seen interval
-  +$( $min >= $start )                  // Use an expression filter to ensure that the $min time of the node's .seen value is
-                                        // greater than or equal to "30 days ago"
+  $ival = $lib.cast( ival, ( now, -30 days ) )  // Set the variable $ival to a pair of date/time values specified
+                                                // using the keyword "now" and the relative value "-30 days".
+  ( $start, $stop ) = $ival                     // Set the variables $start and $stop to the individual date/times
+                                                // from $ival.                                               
+  inet:dns:a.seen @= $ival                      // Lift all inet:dns:a nodes whose .seen property has any **overlap**
+                                                // with the past 30 days.
+  ( $min, $max ) = .seen                        // Set the variables $min and $max to the individual date/times of the
+                                                // .seen interval
+  +$( $min >= $start )                          // Use an expression filter to ensure that the $min time of the node's
+                                                // .seen value is greater than or equal to the $start time of "30 days ago".
 
 
 .. _embed_prop_syntax:
