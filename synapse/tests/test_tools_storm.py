@@ -1,5 +1,4 @@
 import os
-import subprocess
 import synapse.tests.utils as s_test
 
 from prompt_toolkit.document import Document

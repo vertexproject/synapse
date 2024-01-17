@@ -5,7 +5,6 @@ import asyncio
 import logging
 import argparse
 
-import lark
 import regex
 import prompt_toolkit
 
@@ -280,14 +279,12 @@ class StormCompleter(prompt_toolkit.completion.Completer):
             if doc:
                 doc = f' - {doc}'
             self._forms.append((name, f'[form] {name}{doc}'))
-            self._forms.sort(key=lambda x: x[0])
 
         for prop in props:
             name, doc = prop
             if doc:
                 doc = f' - {doc}'
             self._props.append((name, f'[prop] {name}{doc}'))
-            self._props.sort(key=lambda x: x[0])
 
         info = await self._cli.item.getCoreInfoV2()
 
@@ -327,6 +324,9 @@ class StormCompleter(prompt_toolkit.completion.Completer):
 
                 self._libs.append((libname, f'[lib] ${name} - {desc}'))
 
+        self._forms.sort(key=lambda x: x[0])
+        self._props.sort(key=lambda x: x[0])
+        self._cmds.sort(key=lambda x: x[0])
         self._libs.sort(key=lambda x: x[0])
 
         self.initialized = True
@@ -357,10 +357,9 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         return await self._cli.item.callStorm(q, opts=opts)
 
     def get_completions(self, document, complete_event):
-        # This is the sync version of this methods (vs get_completions_async()
+        # This is the sync version of this method (vs get_completions_async()
         # below). We don't need the sync version but the base class has this
-        # decorated as an abstract methods so it needs to be configured. Just
-        # pass here.
+        # decorated as an abstract method so it needs to be configured. Do nothing.
         pass
 
     async def _get_completions_async(self, document, complete_event):
@@ -371,13 +370,13 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         if text[-1] == '#':
             return cmplgenr(await self._get_tag_completions())
 
-        # Try to match tags
+        # Try to match partial tags
         match = tagre.search(text)
         if match:
             tag = match.group(1)
             return cmplgenr(await self._get_tag_completions(tag), prefix=tag)
 
-        # Try to match libs
+        # Try to match partial libs
         match = libre.search(text)
         if match:
             name = match.group(1)
