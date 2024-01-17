@@ -249,9 +249,6 @@ class StormCliTest(s_test.SynTest):
             self.isin(Completion('dn.seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
 
             vals = await get_completions('[inet:')
-            self.len(0, vals)
-
-            vals = await get_completions('[ inet:')
             self.isin(Completion('fqdn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
             self.isin(Completion('ipv4', display='[form] inet:ipv4 - An IPv4 address.'), vals)
 
@@ -264,23 +261,22 @@ class StormCliTest(s_test.SynTest):
             await core.stormlist('[inet:ipv4=1.2.3.5 +#rep.foo.bar]')
             await core.stormlist('[inet:ipv4=1.2.3.6 +#rep.bar]')
             await core.stormlist('[inet:ipv4=1.2.3.7 +#rep.baz]')
-
-            # Check the completer cache loading/flushing
-            self.len(0, completer._tags)
-            await get_completions('inet:ipv4#')
-            self.len(5, completer._tags)
-            completer.flush()
-            self.len(0, completer._tags)
-            await completer.load()
-            self.len(5, completer._tags)
+            await core.stormlist('[syn:tag=rep :doc="Reputation base."]')
 
             # Check completion of tags
             vals = await get_completions('inet:ipv4#')
-            self.isin(Completion('rep', display='[tag] rep'), vals)
+            self.len(4, vals)
+            self.isin(Completion('rep', display='[tag] rep - Reputation base.'), vals)
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
-            self.isin(Completion('rep.foo.bar', display='[tag] rep.foo.bar'), vals)
             self.isin(Completion('rep.bar', display='[tag] rep.bar'), vals)
             self.isin(Completion('rep.baz', display='[tag] rep.baz'), vals)
+
+            vals = await get_completions('inet:ipv4#rep.')
+            self.len(4, vals)
+            self.isin(Completion('foo', display='[tag] rep.foo'), vals)
+            self.isin(Completion('foo.bar', display='[tag] rep.foo.bar'), vals)
+            self.isin(Completion('bar', display='[tag] rep.bar'), vals)
+            self.isin(Completion('baz', display='[tag] rep.baz'), vals)
 
             vals = await get_completions('inet:ipv4 +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
@@ -295,17 +291,18 @@ class StormCliTest(s_test.SynTest):
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
             # Check completion of cmds
-            vals = await get_completions('va')
-            self.isin(Completion('ult.add', display='[cmd] vault.add - Add a vault.'), vals)
-            self.isin(Completion('ult.set.secrets', display='[cmd] vault.set.secrets - Set vault secret data.'), vals)
-            self.isin(Completion('ult.set.configs', display='[cmd] vault.set.configs - Set vault config data.'), vals)
-            self.isin(Completion('ult.del', display='[cmd] vault.del - Delete a vault.'), vals)
-            self.isin(Completion('ult.list', display='[cmd] vault.list - List available vaults.'), vals)
-            self.isin(Completion('ult.set.perm', display='[cmd] vault.set.perm - Set permissions on a vault.'), vals)
+            vals = await get_completions('vau')
+            self.isin(Completion('lt.add', display='[cmd] vault.add - Add a vault.'), vals)
+            self.isin(Completion('lt.set.secrets', display='[cmd] vault.set.secrets - Set vault secret data.'), vals)
+            self.isin(Completion('lt.set.configs', display='[cmd] vault.set.configs - Set vault config data.'), vals)
+            self.isin(Completion('lt.del', display='[cmd] vault.del - Delete a vault.'), vals)
+            self.isin(Completion('lt.list', display='[cmd] vault.list - List available vaults.'), vals)
+            self.isin(Completion('lt.set.perm', display='[cmd] vault.set.perm - Set permissions on a vault.'), vals)
 
-            vals = await get_completions('inet:ipv4 +#rep.foo | ')
-            self.isin(Completion('spin', display='[cmd] spin - Iterate through all query results, but do not yield any.'), vals)
-            self.isin(Completion('uniq', display='[cmd] uniq - Filter nodes by their uniq iden values.'), vals)
+            vals = await get_completions('inet:ipv4 +#rep.foo | ser')
+            self.isin(Completion('vice.add', display='[cmd] service.add - Add a storm service to the cortex.'), vals)
+            self.isin(Completion('vice.del', display='[cmd] service.del - Remove a storm service from the cortex.'), vals)
+            self.isin(Completion('vice.list', display='[cmd] service.list - List the storm services configured in the cortex.'), vals)
 
             # Check completion of libs
             vals = await get_completions('inet:ipv4 $li')

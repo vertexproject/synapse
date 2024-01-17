@@ -26,8 +26,6 @@ ERROR_COLOR = '#ff0066'
 WARNING_COLOR = '#f4e842'
 NODEEDIT_COLOR = "lightblue"
 
-tagre = regex.compile(r'#(?P<TAG>[\w+\.]+)$')
-
 welcome = '''
 Welcome to the Storm interpreter!
 
@@ -221,14 +219,30 @@ class ExportCmd(StormCliCmd):
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
 
-def cmplgenr(completions, offset=0):
-    for (value, display) in completions:
-        yield prompt_toolkit.completion.Completion(value[offset:], display=display)
+def cmplgenr(*genrs, prefix=''):
+    '''
+    Iterate over all the generators/iterators passed in as args and return Completions from them.
+    If prefix is specified, make sure the current item in the generator starts with the prefix value.
+    '''
+    for genr in genrs:
+        for (valu, display) in genr:
+            if prefix and not valu.startswith(prefix):
+                continue
+
+            completion = prompt_toolkit.completion.Completion(
+                valu[len(prefix):],
+                display=display
+            )
+
+            yield completion
+
+tagre = regex.compile(r'#(\w+[\w\.]*)$')
+libre = regex.compile(r'\$([a-z_][a-zA-Z0-9_\.]*)$')
+cmdpropre = regex.compile(r'([a-z_][a-z0-9_]+[a-z0-9_:\.]+)$')
 
 class StormCompleter(prompt_toolkit.completion.Completer):
     def __init__(self, cli):
         self._cli = cli
-        self._parser = s_parser.LarkParser
 
         self.initialized = False
 
@@ -263,12 +277,16 @@ class StormCompleter(prompt_toolkit.completion.Completer):
 
         for form in forms:
             name, doc = form
-            self._forms.append((name, f'[form] {name} - {doc}'))
+            if doc:
+                doc = f' - {doc}'
+            self._forms.append((name, f'[form] {name}{doc}'))
             self._forms.sort(key=lambda x: x[0])
 
         for prop in props:
             name, doc = prop
-            self._props.append((name, f'[prop] {name} - {doc}'))
+            if doc:
+                doc = f' - {doc}'
+            self._props.append((name, f'[prop] {name}{doc}'))
             self._props.sort(key=lambda x: x[0])
 
         info = await self._cli.item.getCoreInfoV2()
@@ -278,7 +296,9 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         for command in commands:
             name = command['name']
             doc = command['doc']
-            self._cmds.append((name, f'[cmd] {name} - {doc}'))
+            if doc:
+                doc = f' - {doc}'
+            self._cmds.append((name, f'[cmd] {name}{doc}'))
 
         # Process libs
         libraries = info['stormdocs']['libraries']
@@ -343,77 +363,42 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         # pass here.
         pass
 
-    async def _get_completions(self, document, complete_event):
+    async def _get_completions_async(self, document, complete_event):
+        # Note: Be careful when changing the order of matching in this function.
         text = document.text.strip()
-        last = text.split(' ')[-1]
 
-        # If the last character is a pipe, suggest the command list
-        if len(text) > 1 and text[-1] == '|':
-            return cmplgenr(self._cmds)
-
-        # Parse the input
-        interact = self._parser.parse_interactive(document.text, start='query')
-
-        try:
-            # Try to lex the input
-            tokens = interact.exhaust_lexer()
-        except lark.exceptions.UnexpectedToken:
-            # Some inputs cause an UnexpectedToken exception. Some of the examples are:
-            #   'inet:'
-            #   'inet:fqdn.'
-            #   '[inet:fqdn +#'
-            completions = []
-
-            # Trying to complete a form or prop
-            if text[-1] == ':':
-                completions.extend([k for k in self._forms if k[0].startswith(last)])
-                completions.extend([k for k in self._props if k[0].startswith(last)])
-                return cmplgenr(completions, offset=len(last))
-
-            # Trying to complete a universal prop
-            elif text[-1] == '.':
-                completions = [k for k in self._props if k[0].startswith(last)]
-                return cmplgenr(completions, offset=len(last))
-
-            elif text[-1] == '#':
-                return cmplgenr(await self._get_tag_completions())
-
-            return []
-
-        completions = []
-
-        token = tokens[-1]
-
-        # Match tags
-        if token.type in ('_HASH', '_MATCHHASH'):
+        # If the last character is a hash, suggest tags
+        if text[-1] == '#':
             return cmplgenr(await self._get_tag_completions())
 
-        if token.type in ('TAGSEGNOVAR', 'DOT'):
-            match = tagre.search(text)
-            if match:
-                tag = match.groupdict()['TAG']
-                tags = await self._get_tag_completions(tag)
-                return cmplgenr([k for k in tags if k[0].startswith(tag)], offset=len(tag))
+        # Try to match tags
+        match = tagre.search(text)
+        if match:
+            tag = match.group(1)
+            return cmplgenr(await self._get_tag_completions(tag), prefix=tag)
 
-        # Match libs
-        if token.type in ('DOLLAR', 'VARTOKN', 'DOT'):
-            if last.startswith('$lib'):
-                name = last[1:]
-                completions = [k for k in self._libs if k[0].startswith(name)]
-                return cmplgenr(completions, offset=len(last) - 1)
+        # Try to match libs
+        match = libre.search(text)
+        if match:
+            name = match.group(1)
+            if name.startswith('lib'):
+                return cmplgenr(self._libs, prefix=name)
+            else:
+                # Nothing else below starts with $ so return
+                return
 
-        # Match cmds, forms, props
-        if token.type in ('CMDNAME', 'PROPS'):
-            completions.extend(self._cmds)
-            completions.extend(self._forms)
-            completions.extend(self._props)
+        # Match on potential commands and props
+        match = cmdpropre.search(text)
+        if match:
+            valu = match.group(1)
+            if ':' in valu:
+                return cmplgenr(self._forms, self._props, prefix=valu)
 
-        completions = [k for k in completions if k[0].startswith(token.value)]
-        return cmplgenr(completions, offset=len(token.value))
+            return cmplgenr(self._cmds, self._forms, self._props, prefix=valu)
 
     async def get_completions_async(self, document, complete_event):
         # Only complete on TAB and if there is input
-        if not complete_event.completion_requested or not document.text:
+        if not complete_event.completion_requested or not document.text or not document.text.strip():
             return
 
         # Initialize completions
@@ -421,7 +406,11 @@ class StormCompleter(prompt_toolkit.completion.Completer):
             await self.load()
             self.initialized = True
 
-        for item in await self._get_completions(document, complete_event):
+        completions = await self._get_completions_async(document, complete_event)
+        if not completions:
+            return
+
+        for item in completions:
             yield item
 
 class StormCli(s_cli.Cli):
