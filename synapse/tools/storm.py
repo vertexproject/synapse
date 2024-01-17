@@ -363,9 +363,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         # This is the sync version of this method (vs get_completions_async()
         # below). We don't need the sync version but the base class has this
         # decorated as an abstract method so it needs to be configured. Do nothing.
-
-        # pragma: nocover
-        pass
+        pass  # pragma: nocover
 
     async def _get_completions_async(self, document, complete_event):
         # Note: Be careful when changing the order of matching in this function.
