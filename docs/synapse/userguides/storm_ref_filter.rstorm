@@ -1146,41 +1146,6 @@ See :ref:`filter-interval` for additional detail on the use of the ``@=`` operat
   
   <query> +#cno.threat.t15.own @= 2021/10/30
 
-.. NOTE::
-  
-  It is possible to filter based on "tags that have timestamps" or "tags that do not have timestamps". However, 
-  it currently requires more advanced Storm syntax. For example, the following filter will **include** only
-  those nodes with the tag ``cno.threat.t15.own`` that **do not** have timestamps (``.0=$lib.null``):
-  
-  ``+$(#cno.threat.t15.own and (#cno.threat.t15.own).0=$lib.null)``
-  
-  The filter above combines an **expression filter** (see :ref:`filter-expression`) and a **compound filter**
-  (see :ref:`filter-compound`). The expression filter evaluates any inbound node to:
-  
-  - check that the node includes the ``#cno.threat.t15.own`` tag, and
-  - check that the tag **does not** have timestamps ( using ``(#cno.threat.t15.own).0=$lib.null``).
-  
-  Without the first check to see whether a node **has** the tag ``#cno.threat.t15.own``, the filter would correctly
-  include tagged nodes with no timestamps, but would also include untagged nodes or nodes with different tags.
-  
-  To **exclude** nodes that have the tag but do not have timestamps, use the following filter expression:
-  
-  ``-$((#cno.threat.t15.own).0=$lib.null)``
-  
-  The exclusion filter will exclude nodes that do not have the ``#cno.threat.t15.own`` tag at all, as well as
-  nodes that have the tag, but no tag timestamps.
-  
-  As an alternative to the expressions above, you could use the time / interval extended operator ( ``@=`` ) 
-  to specify a sufficiently large date range that would cover all possible dates present on the tag; any tag
-  without timestamps would not fall within the range. For example:
-  
-  ``+#cno.threat.t15.own@=(1900/01/01, ?)``
-  
-  ...where January 1, 1900 is an arbitrarily low date and ``?`` is used to represent the highest possible
-  date / time value in Synapse. It is important to note that while this second method "generally works" (and
-  uses a syntax that may be easier to remember), it acts as a workaround (vs. the expressions above, which
-  explicitly reference "no timestamps" using ``$lib.null``).
-
 
 .. _filter-tag-prop:
 
