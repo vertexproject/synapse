@@ -633,15 +633,7 @@ async def main(argv, outp=s_output.stdout):
                 # Add this after onecmd so we don't initialize the completer yet
                 completer = StormCompleter(cli)
                 cli.completer = completer
-
-                # Load completions in the background
-                task = asyncio.create_task(completer.load())
-                task.add_done_callback(
-                    functools.partial(
-                        cli.printf,
-                        'Finished loading CLI completions - use <TAB> to for auto-completion.'
-                    )
-                )
+                await completer.load()
 
                 cli.colorsenabled = True
                 cli.printf(welcome)
