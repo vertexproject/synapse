@@ -262,32 +262,35 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         self._props = []
 
     async def load(self):
-        # Process forms/props
-        q = '''
-        $forms = ([])
-        $props = ([])
-        syn:prop
-        { -:relname $forms.append(($node.repr(), :doc)) }
-        { +:relname $props.append(($node.repr(), :doc)) }
-        fini {
-            return(($forms, $props))
-        }
-        '''
-        forms, props = await self._cli.item.callStorm(q)
-
-        for form in forms:
-            name, doc = form
-            if doc:
-                doc = f' - {doc}'
-            self._forms.append((name, f'[form] {name}{doc}'))
-
-        for prop in props:
-            name, doc = prop
-            if doc:
-                doc = f' - {doc}'
-            self._props.append((name, f'[prop] {name}{doc}'))
-
         info = await self._cli.item.getCoreInfoV2()
+        types = info['modeldict']['types']
+
+        # Process forms/props
+        for form in info['modeldict']['forms'].values():
+            formname = form['name']
+            formdoc = ''
+
+            formtype = types.get(formname)
+            if formtype:
+                forminfo = formtype.get('info')
+                if forminfo:
+                    formdoc = forminfo.get('doc')
+
+            if formdoc:
+                formdoc = f' - {formdoc}'
+
+            self._forms.append((formname, f'[form] {formname}{formdoc}'))
+
+            for prop in form['props'].values():
+                propname = prop['name']
+                if not propname.startswith('.'):
+                    propname = f':{propname}'
+
+                propdoc = prop.get('doc', '')
+                if propdoc:
+                    propdoc = f' - {propdoc}'
+
+                self._props.append((f'{formname}{propname}', f'[prop] {formname}{propname}{propdoc}'))
 
         # Process cmds
         commands = info['stormdocs']['commands']
