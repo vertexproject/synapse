@@ -1221,8 +1221,11 @@ class Snap(s_base.Base):
         soderefs = []
         for layr in self.layers:
             sref = layr.genStorNodeRef(nid)
-            if tombs is False and sref.sode.get('antivalu') is not None:
-                return None
+            if tombs is False:
+                if sref.sode.get('antivalu') is not None:
+                    return None
+                elif sref.sode.get('valu') is not None:
+                    tombs = True
 
             soderefs.append(sref)
 
@@ -1998,21 +2001,21 @@ class Snap(s_base.Base):
 
             yield self.core.getAbrvVerb(abrv)
 
-    async def hasNodeData(self, buid, name):
+    async def hasNodeData(self, buid, name, strt=0, stop=None):
         '''
         Return True if the buid has nodedata set on it under the given name,
         False otherwise.
         '''
-        for layr in self.layers:
+        for layr in self.layers[strt:stop]:
             if (retn := await layr.hasNodeData(buid, name)) is not None:
                 return retn
         return False
 
-    async def getNodeData(self, buid, name, defv=None):
+    async def getNodeData(self, buid, name, defv=None, strt=0, stop=None):
         '''
         Get nodedata from closest to write layer, no merging involved.
         '''
-        for layr in self.layers:
+        for layr in self.layers[strt:stop]:
             ok, valu, tomb = await layr.getNodeData(buid, name)
             if ok:
                 if tomb:

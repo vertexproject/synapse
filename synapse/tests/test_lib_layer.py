@@ -1338,6 +1338,18 @@ class LayerTest(s_t_utils.SynTest):
             await checkempty(opts=viewopts2)
             await hastombs(opts=viewopts2)
 
+            await view3.wipeLayer()
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3)
+            self.false(nodes[0].has('asn'))
+
+            bylayer = await core.callStorm('inet:ipv4=1.2.3.4 return($node.getByLayer())', opts=viewopts3)
+
+            layr = view2.layers[0].iden
+            self.eq(bylayer['props']['asn'], layr)
+            self.eq(bylayer['tags']['foo.tag'], layr)
+            self.eq(bylayer['tagprops']['bar.tag']['score'], layr)
+
             await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode')
 
             await core.nodes(addq, opts=viewopts2)
@@ -1353,12 +1365,64 @@ class LayerTest(s_t_utils.SynTest):
             await checkempty(opts=viewopts2)
             await notombs(opts=viewopts2)
 
+            await view3.wipeLayer()
+
             # node re-added above a tombstone is empty
             await core.nodes(addq)
             await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
-            await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
+            # test helpers above a node tombstone
+            node = nodes[0]
+
+            self.false(node.has('asn'))
+            self.false(node.hasInLayers('asn'))
+            self.eq((None, None), node.getWithLayer('asn'))
+            self.none(node.getFromLayers('asn'))
+            self.none(node.getFromLayers('loc', strt=2))
+
+            self.none(node.getTag('foo.tag'))
+            self.none(node.getTagFromLayers('foo.tag'))
+            self.none(node.getTagFromLayers('newp', strt=2))
+            self.false(node.hasTagInLayers('foo.tag'))
+
+            self.eq([], node.getTagProps('bar.tag'))
+            self.eq([], node.getTagPropsWithLayer('bar.tag'))
+            self.false(node.hasTagProp('bar.tag', 'score'))
+            self.false(node.hasTagPropInLayers('bar.tag', 'score'))
+            self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+
+            self.eq(['type', '.created'], list(nodes[0].getProps().keys()))
+            self.eq({}, node._getTagsDict())
+            self.eq({}, node._getTagPropsDict())
+
+            await view2.wipeLayer()
+            await core.nodes(delq, opts=viewopts2)
 
             await checkempty(opts=viewopts3)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3)
+
+            # test helpers above individual tombstones
+            node = nodes[0]
+
+            self.false(node.hasInLayers('asn'))
+            self.none(node.getFromLayers('asn'))
+
+            self.false(node.hasTagInLayers('foo.tag'))
+            self.none(node.getTagFromLayers('foo.tag'))
+
+            self.eq([], node.getTagProps('bar.tag'))
+            self.eq([], node.getTagPropsWithLayer('bar.tag'))
+            self.false(node.hasTagProp('bar.tag', 'score'))
+            self.false(node.hasTagPropInLayers('bar.tag', 'score'))
+            self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+            self.eq((None, None), node.getTagPropWithLayer('foo.tag', 'score'))
+
+            self.eq(['type', '.created'], list(nodes[0].getProps().keys()))
+            self.eq({}, node._getTagPropsDict())
 
     # async def test_layer_form_by_buid(self):
 

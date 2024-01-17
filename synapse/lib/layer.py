@@ -3822,6 +3822,9 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(INDX_TOMB + tp_abrv, nid, db=self.indxdb)
                     self._incSodeRefs(buid, sode, inc=-1)
 
+                    if len(antiprops) == 0:
+                        antitags.pop(tag)
+
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
 
@@ -3869,6 +3872,9 @@ class Layer(s_nexus.Pusher):
         oldv, oldt = tp_dict.pop(prop, (None, None))
         if oldv is None:
             return (), ()
+
+        if len(tp_dict) == 0:
+            sode['tagprops'].pop(tag)
 
         self._incSodeRefs(buid, sode, inc=-1)
 
@@ -3938,6 +3944,9 @@ class Layer(s_nexus.Pusher):
 
         if (antiprops := antitags.get(tag)) is None or antiprops.pop(prop, None) is None:
             return (), ()
+
+        if len(antiprops) == 0:
+            antitags.pop(tag)
 
         abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
         nid = sode.get('nid')

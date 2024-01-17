@@ -1730,39 +1730,25 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _genSrefList(self, nid, smap, filtercmpr=None):
         srefs = []
+        filt = True
         valufilt = True
 
-        if filtercmpr is not None:
-            filt = True
-            for layr in self.layers:
-                sref = smap.get(layr.iden)
-                if sref is None:
-                    sref = layr.genStorNodeRef(nid)
-                    if filt and filtercmpr(sref.sode):
+        for layr in self.layers:
+            if (sref := smap.get(layr.iden)) is None:
+                sref = layr.genStorNodeRef(nid)
+                if filt:
+                    if filtercmpr is not None and filtercmpr(sref.sode):
                         return
-                else:
-                    filt = False
-
-                if valufilt:
                     if sref.sode.get('antivalu') is not None:
                         return
-                    elif sref.sode.get('valu') is not None:
-                        valufilt = False
-
-                srefs.append(sref)
-
-            return srefs
-
-        for layr in self.layers:
-            sref = smap.get(layr.iden)
-            if sref is None:
-                sref = layr.genStorNodeRef(nid)
+            else:
+                filt = False
 
             if valufilt:
-                if sref.sode.get('antivalu') is not None:
-                    return
-                elif sref.sode.get('valu') is not None:
+                if sref.sode.get('valu') is not None:
                     valufilt = False
+                elif sref.sode.get('antivalu') is not None:
+                    return
 
             srefs.append(sref)
 
@@ -1967,31 +1953,15 @@ class View(s_nexus.Pusher):  # type: ignore
 
         genrs = [layr.liftByDataName(name) for layr in self.layers]
 
-        smap = {}
         lastnid = None
-        istomb = False
+        smap = {}
 
         async for nid, sref, tomb in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
             if not nid == lastnid or sref.layriden in smap:
                 if lastnid is not None and not istomb:
-                    srefs = []
-                    valufilt = True
-
-                    for layr in self.layers:
-                        if (sref := smap.get(layr.iden)) is None:
-                            sref = layr.genStorNodeRef(nid)
-
-                        if valufilt:
-                            if sref.sode.get('antivalu') is not None:
-                                return
-                            elif sref.sode.get('valu') is not None:
-                                valufilt = False
-
-                        srefs.append(sref)
-
-                    yield lastnid, srefs
-
-                    smap.clear()
+                    srefs = await self._genSrefList(lastnid, smap)
+                    if srefs is not None:
+                        yield lastnid, srefs
 
                 lastnid = nid
                 istomb = tomb
@@ -1999,19 +1969,6 @@ class View(s_nexus.Pusher):  # type: ignore
             smap[sref.layriden] = sref
 
         if lastnid is not None and not istomb:
-            srefs = []
-            valufilt = True
-
-            for layr in self.layers:
-                if (sref := smap.get(layr.iden)) is None:
-                    sref = layr.genStorNodeRef(nid)
-
-                if valufilt:
-                    if sref.sode.get('antivalu') is not None:
-                        return
-                    elif sref.sode.get('valu') is not None:
-                        valufilt = False
-
-                srefs.append(sref)
-
-            yield lastnid, srefs
+            srefs = await self._genSrefList(lastnid, smap)
+            if srefs is not None:
+                yield lastnid, srefs

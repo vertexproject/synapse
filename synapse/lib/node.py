@@ -134,6 +134,9 @@ class Node(NodeBase):
         '''
         retn = collections.defaultdict(dict)
         for indx, sode in enumerate(self.sodes):
+            if sode.get('antivalu') is not None:
+                return(retn)
+
             iden = self.snap.view.layers[indx].iden
 
             if sode.get('valu') is not None:
@@ -404,13 +407,13 @@ class Node(NodeBase):
 
     def get(self, name, defv=None):
         '''
-        Return a secondary property value from the Node.
+        Return a secondary property or tag value from the Node.
 
         Args:
-            name (str): The name of a secondary property.
+            name (str): The name of a secondary property or tag.
 
         Returns:
-            (obj): The secondary property value or None.
+            (obj): The secondary property or tag value, or None.
         '''
         if name.startswith('#'):
             return self.getTag(name[1:], defval=defv)
@@ -441,9 +444,6 @@ class Node(NodeBase):
             (obj): The secondary property value or None.
             (int): Index of the sode or None.
         '''
-        if name.startswith('#'):
-            return self.getTag(name[1:], defval=defv)
-
         for indx, sode in enumerate(self.sodes):
             if sode.get('antivalu') is not None:
                 return defv, None
@@ -460,9 +460,6 @@ class Node(NodeBase):
         return defv, None
 
     def getFromLayers(self, name, strt=0, stop=None, defv=None):
-        if name.startswith('#'):
-            return self.getTagFromLayers(name[1:], strt=strt, stop=stop, defval=defv)
-
         for sode in self.sodes[strt:stop]:
             if sode.get('antivalu') is not None:
                 return defv
@@ -650,6 +647,9 @@ class Node(NodeBase):
                     for propname in antiprops.keys():
                         retn[tagname].pop(propname, None)
 
+                        if len(retn[tagname]) == 0:
+                            retn.pop(tagname)
+
             if (tagprops := sode.get('tagprops')) is None:
                 continue
 
@@ -687,7 +687,7 @@ class Node(NodeBase):
 
         for sode in reversed(self.sodes):
             if sode.get('antivalu') is not None:
-                retn.clear()
+                propnames.clear()
                 continue
 
             if (antitags := sode.get('antitagprops')) is not None:
@@ -718,7 +718,7 @@ class Node(NodeBase):
             if (antitags := sode.get('antitagprops')) is not None:
                 if (antiprops := antitags.get(tag)) is not None:
                     for propname in antiprops.keys():
-                        props.pop(propname)
+                        props.pop(propname, None)
 
             if (tagprops := sode.get('tagprops')) is None:
                 continue
@@ -898,13 +898,23 @@ class Node(NodeBase):
     async def hasData(self, name):
         if name in self.nodedata:
             return True
-        return await self.snap.hasNodeData(self.buid, name)
+
+        if (valulayr := self.valulayr()) is None:
+            return
+
+        stoplayr = valulayr + 1
+        return await self.snap.hasNodeData(self.buid, name, stop=stoplayr)
 
     async def getData(self, name, defv=None):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
-        return await self.snap.getNodeData(self.buid, name, defv=defv)
+
+        if (valulayr := self.valulayr()) is None:
+            return
+
+        stoplayr = valulayr + 1
+        return await self.snap.getNodeData(self.buid, name, defv=defv, stop=stoplayr)
 
     async def setData(self, name, valu):
         async with self.snap.getNodeEditor(self) as protonode:
