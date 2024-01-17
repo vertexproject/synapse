@@ -606,7 +606,6 @@ class IPv6(s_types.Type):
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
 
-            addrtype = getAddrType(v6)
             subs = {
                 'type': getAddrType(v6),
                 'scope': getAddrScope(v6),
