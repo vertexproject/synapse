@@ -218,7 +218,6 @@ class StormCliTest(s_test.SynTest):
             cli = DummyStorm(core)
 
             completer = s_t_storm.StormCompleter(cli)
-            await completer.load()
 
             async def get_completions(text):
                 document = Document(text)

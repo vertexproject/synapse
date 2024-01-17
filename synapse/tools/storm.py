@@ -4,6 +4,7 @@ import copy
 import asyncio
 import logging
 import argparse
+import functools
 
 import regex
 import prompt_toolkit
@@ -360,6 +361,8 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         # This is the sync version of this method (vs get_completions_async()
         # below). We don't need the sync version but the base class has this
         # decorated as an abstract method so it needs to be configured. Do nothing.
+
+        # pragma: nocover
         pass
 
     async def _get_completions_async(self, document, complete_event):
@@ -622,12 +625,21 @@ async def main(argv, outp=s_output.stdout):
                     await cli.runCmdLine(opts.onecmd)
                     return
 
+                # pragma: no cover
+
                 # Add this after onecmd so we don't initialize the completer yet
                 completer = StormCompleter(cli)
                 cli.completer = completer
-                await completer.load()
 
-                # pragma: no cover
+                # Load completions in the background
+                task = asyncio.create_task(completer.load())
+                task.add_done_callback(
+                    functools.partial(
+                        cli.printf,
+                        'Finished loading CLI completions - use <TAB> to for auto-completion.'
+                    )
+                )
+
                 cli.colorsenabled = True
                 cli.printf(welcome)
 
