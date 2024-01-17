@@ -72,10 +72,6 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('inet:web:acct:signup:client:ipv6="::ffff:1.2.3.4"')
             self.len(2001, nodes)
 
-    async def test_modelrev_0_2_23(self):
-        async with self.getRegrCore('model-0.2.23') as core:
-            self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
-
     async def test_modelrev_0_2_3(self):
 
         async with self.getRegrCore('model-0.2.3') as core:
@@ -432,3 +428,7 @@ class ModelRevTest(s_tests.SynTest):
 
             for node in nodes:
                 self.eq(node.props.get('type'), 'shared')
+
+    async def test_modelrev_0_2_23(self):
+        async with self.getRegrCore('model-0.2.23') as core:
+            self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
