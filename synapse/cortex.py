@@ -2728,7 +2728,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     raise
                 except Exception:  # pragma: no cover
                     logger.warning(f'onload failed for package: {name}')
-                await self.fire('core:pkg:onload', pkg=name)
+                await self.fire('core:pkg:onload:complete', pkg=name)
             self.schedCoro(_onload())
 
     async def _dropStormPkg(self, pkgdef):
