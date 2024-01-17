@@ -60,7 +60,11 @@ class Node:
         ndef = self.bylayer.get('ndef')
         tags = {t: l for (t, l) in self.bylayer.get('tags', {}).items()}
         props = {p: l for (p, l) in self.bylayer.get('props', {}).items()}
-        tagprops = {p: l for (p, l) in self.bylayer.get('tagprops', {}).items()}
+
+        tagprops = {}
+        for tag, tprops in self.bylayer.get('tagprops', {}).items():
+            tagprops[tag] = {p: l for (p, l) in tprops.items()}
+
         return {'ndef': ndef, 'props': props, 'tags': tags, 'tagprops': tagprops}
 
     def __repr__(self):
