@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 22)
+maxvers = (0, 2, 23)
 
 class ModelRev:
 
@@ -36,6 +36,7 @@ class ModelRev:
             ((0, 2, 20), self.revModel_0_2_20),
             ((0, 2, 21), self.revModel_0_2_21),
             ((0, 2, 22), self.revModel_0_2_22),
+            ((0, 2, 23), self.revModel_0_2_23),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -728,6 +729,9 @@ class ModelRev:
 
     async def revModel_0_2_22(self, layers):
         await self._normFormSubs(layers, 'inet:ipv4', cmprvalu='100.64.0.0/10')
+
+    async def revModel_0_2_23(self, layers):
+        await self._normFormSubs(layers, 'inet:ipv6')
 
     async def runStorm(self, text, opts=None):
         '''
