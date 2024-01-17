@@ -1,5 +1,4 @@
 import os
-import copy
 import json
 import signal
 import asyncio
@@ -392,9 +391,6 @@ class Cli(s_base.Base):
                 coro = self.runCmdLine(line)
                 self.cmdtask = self.schedCoro(coro)
                 await self.cmdtask
-
-                if self.completer:
-                    self.completer.flush()
 
             except KeyboardInterrupt:
 

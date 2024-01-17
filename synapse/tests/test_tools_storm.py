@@ -219,7 +219,7 @@ class StormCliTest(s_test.SynTest):
             cli = DummyStorm(core)
 
             completer = s_t_storm.StormCompleter(cli)
-            await completer.anit()
+            await completer.load()
 
             async def get_completions(text):
                 document = Document(text)
@@ -271,7 +271,7 @@ class StormCliTest(s_test.SynTest):
             self.len(5, completer._tags)
             completer.flush()
             self.len(0, completer._tags)
-            await completer.anit()
+            await completer.load()
             self.len(5, completer._tags)
 
             # Check completion of tags

@@ -6,6 +6,7 @@ import logging
 import argparse
 
 import lark
+import regex
 import prompt_toolkit
 
 import synapse.exc as s_exc
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 ERROR_COLOR = '#ff0066'
 WARNING_COLOR = '#f4e842'
 NODEEDIT_COLOR = "lightblue"
+
+tagre = regex.compile(r'#(?P<TAG>[\w+\.]+)$')
 
 welcome = '''
 Welcome to the Storm interpreter!
@@ -239,106 +242,113 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         # ('lib.debug', '[lib] $lib.debug - True if the current runtime has debugging enabled.')
         self._libs = []
 
-        # ('misp.test', '[tag] #misp.test')
-        self._tags = []
-
         # ('inet:fqdn', '[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).')
         # ('inet:fqdn:domain', '[prop] inet:fqdn:domain - The parent domain for the FQDN.')
         self._forms = []
         self._props = []
 
-    async def anit(self):
-        if not self._cmds:
-            q = '''
-            $cmds = ([])
-            syn:cmd
-            $cmds.append(($node.repr(), :doc))
-            fini {
-                return($cmds)
-            }
-            '''
-            cmds = await self._cli.item.callStorm(q)
-            for cmd in cmds:
-                name, doc = cmd
-                self._cmds.append((name, f'[cmd] {name} - {doc}'))
-                self._cmds.sort(key=lambda x: x[0])
+    async def load(self):
+        # Process forms/props
+        q = '''
+        $forms = ([])
+        $props = ([])
+        syn:prop
+        { -:relname $forms.append(($node.repr(), :doc)) }
+        { +:relname $props.append(($node.repr(), :doc)) }
+        fini {
+            return(($forms, $props))
+        }
+        '''
+        forms, props = await self._cli.item.callStorm(q)
 
-        if not self._tags:
-            q = '''
-            $tags = ([])
-            syn:tag
-            $tags.append($node.repr())
-            fini {
-                return($tags)
-            }
-            '''
-            tags = await self._cli.item.callStorm(q)
-            for tag in tags:
-                self._tags.append((tag, f'[tag] {tag}'))
-                self._tags.sort(key=lambda x: x[0])
+        for form in forms:
+            name, doc = form
+            self._forms.append((name, f'[form] {name} - {doc}'))
+            self._forms.sort(key=lambda x: x[0])
 
-        if not self._forms:
-            q = '''
-            $forms = ([])
-            $props = ([])
-            syn:prop
-            { -:relname $forms.append(($node.repr(), :doc)) }
-            { +:relname $props.append(($node.repr(), :doc)) }
-            fini {
-                return(($forms, $props))
-            }
-            '''
-            forms, props = await self._cli.item.callStorm(q)
+        for prop in props:
+            name, doc = prop
+            self._props.append((name, f'[prop] {name} - {doc}'))
+            self._props.sort(key=lambda x: x[0])
 
-            for form in forms:
-                name, doc = form
-                self._forms.append((name, f'[form] {name} - {doc}'))
-                self._forms.sort(key=lambda x: x[0])
+        info = await self._cli.item.getCoreInfoV2()
 
-            for prop in props:
-                name, doc = prop
-                self._props.append((name, f'[prop] {name} - {doc}'))
-                self._props.sort(key=lambda x: x[0])
+        # Process cmds
+        commands = info['stormdocs']['commands']
+        for command in commands:
+            name = command['name']
+            doc = command['doc']
+            self._cmds.append((name, f'[cmd] {name} - {doc}'))
 
-        if not self._libs:
-            info = await self._cli.item.getCoreInfoV2()
-            libraries = info['stormdocs']['libraries']
-            for library in libraries:
-                basename = '.'.join(library['path'])
+        # Process libs
+        libraries = info['stormdocs']['libraries']
+        for library in libraries:
+            basename = '.'.join(library['path'])
 
-                for local in library['locals']:
-                    libname = '.'.join((basename, local['name']))
-                    name = libname
-                    desc = local['desc'].strip().split('\n')[0]
-                    libtype = local['type']
-                    if isinstance(libtype, dict) and local['type']['type'] == 'function':
-                        args = local['type'].get('args')
-                        if args:
-                            params = []
-                            for arg in args:
-                                argname = arg['name']
-                                argtype = arg['type']
+            for local in library['locals']:
+                libname = '.'.join((basename, local['name']))
+                name = libname
+                desc = local['desc'].strip().split('\n')[0]
+                libtype = local['type']
+                if isinstance(libtype, dict) and local['type']['type'] == 'function':
+                    args = local['type'].get('args')
+                    if args:
+                        params = []
+                        for arg in args:
+                            argname = arg['name']
+                            argtype = arg['type']
 
-                                params.append(f'{argname}: {argtype}')
+                            params.append(f'{argname}: {argtype}')
 
-                            params = ', '.join(params)
-                            name = f'{name}({params})'
-                        else:
-                            name = f'{name}()'
+                        params = ', '.join(params)
+                        name = f'{name}({params})'
+                    else:
+                        name = f'{name}()'
 
-                    self._libs.append((libname, f'[lib] ${name} - {desc}'))
+                self._libs.append((libname, f'[lib] ${name} - {desc}'))
 
         self._libs.sort(key=lambda x: x[0])
 
-    def flush(self):
-        self._tags = []
+        self.initialized = True
+
+    async def _get_tag_completions(self, prefix='', limit=100):
+        if not prefix:
+            depth = 1
+        else:
+            depth = prefix.count('.') + 1
+
+        q = '''
+        $rslt = $lib.list()
+        if ($prefix != '') { syn:tag=$lib.regex.replace("\\.$", '', $prefix) }
+        syn:tag^=$prefix
+        +:depth<=$depth
+        | uniq
+        | limit $limit
+        | $leaf = $lib.true { -> syn:tag:up | limit 1 | $leaf = $lib.false }
+        $doc = ''
+        if $node.props.doc {
+            $doc = ` - {$node.props.doc}`
+        }
+        $rslt.append(($node.value(), `[tag] {$node.value()}{$doc}`))
+        | spin
+        | return($rslt)
+        '''
+        opts = {'vars': {'prefix': prefix, 'limit': limit, 'depth': depth}}
+        return await self._cli.item.callStorm(q, opts=opts)
 
     def get_completions(self, document, complete_event):
+        # This is the sync version of this methods (vs get_completions_async()
+        # below). We don't need the sync version but the base class has this
+        # decorated as an abstract methods so it needs to be configured. Just
+        # pass here.
+        pass
+
+    async def _get_completions(self, document, complete_event):
         text = document.text.strip()
         last = text.split(' ')[-1]
 
         # If the last character is a pipe, suggest the command list
-        if document.text.strip()[-1] == '|':
+        if len(text) > 1 and text[-1] == '|':
             return cmplgenr(self._cmds)
 
         # Parse the input
@@ -366,7 +376,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
                 return cmplgenr(completions, offset=len(last))
 
             elif text[-1] == '#':
-                return cmplgenr(self._tags)
+                return cmplgenr(await self._get_tag_completions())
 
             return []
 
@@ -375,8 +385,15 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         token = tokens[-1]
 
         # Match tags
-        if token.type in ('_HASH', '_MATCHHASH', 'TAGSEGNOVAR'):
-            return cmplgenr(self._tags)
+        if token.type in ('_HASH', '_MATCHHASH'):
+            return cmplgenr(await self._get_tag_completions())
+
+        if token.type in ('TAGSEGNOVAR', 'DOT'):
+            match = tagre.search(text)
+            if match:
+                tag = match.groupdict()['TAG']
+                tags = await self._get_tag_completions(tag)
+                return cmplgenr([k for k in tags if k[0].startswith(tag)], offset=len(tag))
 
         # Match libs
         if token.type in ('DOLLAR', 'VARTOKN', 'DOT'):
@@ -400,11 +417,11 @@ class StormCompleter(prompt_toolkit.completion.Completer):
             return
 
         # Initialize completions
-        if not self.initialized or not self._tags:
-            await self.anit()
+        if not self.initialized:
+            await self.load()
             self.initialized = True
 
-        for item in self.get_completions(document, complete_event):
+        for item in await self._get_completions(document, complete_event):
             yield item
 
 class StormCli(s_cli.Cli):
@@ -620,7 +637,7 @@ async def main(argv, outp=s_output.stdout):
                 # Add this after onecmd so we don't initialize the completer yet
                 completer = StormCompleter(cli)
                 cli.completer = completer
-                await completer.anit()
+                await completer.load()
 
                 # pragma: no cover
                 cli.colorsenabled = True
