@@ -4,7 +4,6 @@ import copy
 import asyncio
 import logging
 import argparse
-import functools
 
 import regex
 import prompt_toolkit
