@@ -67,6 +67,8 @@ ipv6_multicast_scopes = {
     'ff0f:': 'reserved',
 }
 
+scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
+
 def getAddrScope(ipv6):
 
     if ipv6.is_loopback:
@@ -2091,7 +2093,7 @@ class InetModule(s_module.CoreModule):
                         ('type', ('str', {}), {
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
-                        ('scope', ('str', {}), {
+                        ('scope', ('str', {'enums': scopes_enum}), {
                             'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
 
                     )),
