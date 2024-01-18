@@ -5510,7 +5510,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                 user=user,
                                 info={'name': name,
                                       'view': view.iden,
-                                      'nitems': len(items) })
+                                      'nitems': len(items)})
 
         async with await self.snap(user=user, view=view) as snap:
             snap.strict = False
