@@ -29,7 +29,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://cwe.mitre.org/data/definitions/120.html')
             self.eq(nodes[0].get('parents'), ('CWE-119',))
 
-            self.eq(r'foo\:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
+            self.eq(r'foo:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
 
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')

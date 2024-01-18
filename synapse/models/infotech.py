@@ -264,7 +264,6 @@ class Cpe23Str(s_types.Str):
     def _normPyStr(self, valu):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
-            v2_3 = text
 
             parts = cpesplit(text[8:])
             if len(parts) > 11:
@@ -273,6 +272,8 @@ class Cpe23Str(s_types.Str):
 
             extsize = 11 - len(parts)
             parts.extend(['*' for _ in range(extsize)])
+
+            v2_3 = 'cpe:2.3:' + ':'.join(parts)
 
             v2_2 = copy.copy(parts)
             for idx, part in enumerate(v2_2):
