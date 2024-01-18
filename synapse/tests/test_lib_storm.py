@@ -864,6 +864,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq(('unicast', 1), sodes[1]['props']['type'])
             self.eq((56, 9), sodes[1]['props']['asn'])
 
+            nodes = await core.nodes('inet:ipv4=11.22.33.44 [ +#bar:score=200 ]', opts=opts)
+            bylayer = nodes[0].getByLayer()
+            self.eq(bylayer['tagprops']['bar']['score'], layr)
+
+            nodes = await core.nodes('inet:ipv4=11.22.33.44 [ -#bar:score ]', opts=opts)
+            bylayer = nodes[0].getByLayer()
+            self.none(bylayer['tagprops'].get('bar'))
+
             bylayer = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getByLayer())', opts=opts)
             self.ne(bylayer['ndef'], layr)
             self.eq(bylayer['props']['asn'], layr)

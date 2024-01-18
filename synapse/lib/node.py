@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -57,11 +58,7 @@ class Node:
         '''
         Return a dictionary that translates the node's bylayer dict to a primitive.
         '''
-        ndef = self.bylayer.get('ndef')
-        tags = {t: l for (t, l) in self.bylayer.get('tags', {}).items()}
-        props = {p: l for (p, l) in self.bylayer.get('props', {}).items()}
-        tagprops = {p: l for (p, l) in self.bylayer.get('tagprops', {}).items()}
-        return {'ndef': ndef, 'props': props, 'tags': tags, 'tagprops': tagprops}
+        return s_msgpack.deepcopy(self.bylayer)
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
