@@ -1556,6 +1556,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 norm, info = cpe23.norm(_cpe22)
                 self.eq(norm, _cpe23)
 
+                norm, info = cpe23.norm(_cpe23)
+                self.eq(norm, _cpe23)
+
                 # Norm cpe23 and check the cpe22 conversion
                 norm, info = cpe23.norm(_cpe23)
                 v2_2 = info['subs']['v2_2']

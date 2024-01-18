@@ -52,12 +52,50 @@ def cpe_escape(text):
     if text in ('*', '-'):
         return text
 
+    textlen = len(text)
+
     for idx, char in enumerate(text):
         if char not in FSB_ESCAPE_CHARS:
             ret += char
             continue
 
         escchar = f'\\{char}'
+
+        # The only character in the string
+        if idx == 0 and idx == textlen - 1:
+            ret += escchar
+            continue
+
+        # Handle the backslash as a special case
+        if char == '\\':
+            if idx == 0:
+                # Its the first character and escaping another special character
+                if text[idx + 1] in FSB_ESCAPE_CHARS:
+                    ret += char
+                else:
+                    ret += escchar
+
+                continue
+
+            if idx == textlen - 1:
+                # Its the last character and being escaped
+                if text[idx - 1] == '\\':
+                    ret += char
+                else:
+                    ret += escchar
+
+                continue
+
+            # The backslash is in the middle somewhere
+
+            # It's already escaped or it's escaping a special char
+            if text[idx - 1] == '\\' or text[idx + 1] in FSB_ESCAPE_CHARS:
+                ret += char
+                continue
+
+            # Lone backslash, escape it and move on
+            ret += escchar
+            continue
 
         # First char, no look behind
         if idx == 0:
