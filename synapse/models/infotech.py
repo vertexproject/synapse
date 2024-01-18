@@ -578,19 +578,15 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:exec:proc', ('guid', {}), {
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:thread', ('guid', {}), {
                     'doc': 'A thread executing in a process.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:loadlib', ('guid', {}), {
                     'doc': 'A library load event in a process.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:mmap', ('guid', {}), {
                     'doc': 'A memory mapped segment located in a process.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:cmd', ('str', {'strip': True}), {
                     'doc': 'A unique command-line string.',
@@ -605,50 +601,39 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:exec:mutex', ('guid', {}), {
                     'doc': 'A mutex created by a process at runtime.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:pipe', ('guid', {}), {
                     'doc': 'A named pipe created by a process at runtime.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:url', ('guid', {}), {
                     'doc': 'An instance of a host requesting a URL.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:bind', ('guid', {}), {
                     'doc': 'An instance of a host binding a listening port.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:fs:file', ('guid', {}), {
                     'doc': 'A file on a host.'
                 }),
                 ('it:exec:file:add', ('guid', {}), {
                     'doc': 'An instance of a host adding a file to a filesystem.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:file:del', ('guid', {}), {
                     'doc': 'An instance of a host deleting a file from a filesystem.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:file:read', ('guid', {}), {
                     'doc': 'An instance of a host reading a file from a filesystem.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:file:write', ('guid', {}), {
                     'doc': 'An instance of a host writing a file to a filesystem.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:reg:get', ('guid', {}), {
                     'doc': 'An instance of a host getting a registry key.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:reg:set', ('guid', {}), {
                     'doc': 'An instance of a host creating or setting a registry key.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:exec:reg:del', ('guid', {}), {
                     'doc': 'An instance of a host deleting a registry key.',
-                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:app:yara:rule', ('guid', {}), {
                     'doc': 'A YARA rule unique identifier.',
@@ -1936,12 +1921,21 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:cmd', {}, ()),
                 ('it:exec:proc', {}, (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.',
+                    }),
                     ('cmd', ('it:cmd', {}), {
                         'doc': 'The command string used to launch the process, including any command line parameters.',
                         'disp': {'hint': 'text'},
                     }),
                     ('pid', ('int', {}), {
                         'doc': 'The process ID.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The start time for the process.',
                     }),
                     ('name', ('str', {}), {
                         'doc': 'The display name specified by the process.',
@@ -1975,6 +1969,9 @@ class ItModule(s_module.CoreModule):
                     ('killedby', ('it:exec:proc', {}), {
                         'doc': 'The process which killed this process.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:query', {}, ()),
                 ('it:exec:query', {}, (
@@ -1990,6 +1987,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The offset of the last record consumed from the query.'}),
                 )),
                 ('it:exec:thread', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which contains the thread.',
+                    }),
                     ('created', ('time', {}), {
                         'doc': 'The time the thread was created.',
                     }),
@@ -2005,8 +2005,14 @@ class ItModule(s_module.CoreModule):
                     ('src:thread', ('it:exec:thread', {}), {
                         'doc': 'The thread which created this thread.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:loadlib', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process where the library was loaded.',
+                    }),
                     ('va', ('int', {}), {
                         'doc': 'The base memory address where the library was loaded in the process.',
                     }),
@@ -2022,8 +2028,14 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The library file that was loaded.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:mmap', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process where the memory was mapped.',
+                    }),
                     ('va', ('int', {}), {
                         'doc': 'The base memory address where the map was created in the process.',
                     }),
@@ -2051,20 +2063,65 @@ class ItModule(s_module.CoreModule):
                     ('hash:sha256', ('hash:sha256', {}), {
                         'doc': 'A SHA256 hash of the memory map. Bytes may optionally be present in the axon.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:mutex', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that created the mutex.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that created the mutex. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that created the mutex. May or may not be the same :exe specified in :proc, if present.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the mutex was created.',
+                    }),
                     ('name', ('it:dev:mutex', {}), {
                         'doc': 'The mutex string.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:pipe', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that created the named pipe.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that created the named pipe. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that created the named pipe. May or may not be the same :exe specified in :proc, if present.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the named pipe was created.',
+                    }),
                     ('name', ('it:dev:pipe', {}), {
                         'doc': 'The named pipe string.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:url', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that requested the URL.',
+                    }),
                     ('browser', ('it:prod:softver', {}), {
                         'doc': 'The software version of the browser.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that requested the URL. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that requested the URL. May or may not be the same :exe specified in :proc, if present.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the URL was requested.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that was requested.',
@@ -2093,8 +2150,23 @@ class ItModule(s_module.CoreModule):
                     ('client:port', ('inet:port', {}), {
                         'doc': 'The client port during the URL retrieval.'
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:bind', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that bound the listening port.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that bound the listening port. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that bound the listening port. May or may not be the same :exe specified in :proc, if present.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the port was bound.',
+                    }),
                     ('server', ('inet:server', {}), {
                         'doc': 'The inet:addr of the server when binding the port.'
                     }),
@@ -2106,6 +2178,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('server:port', ('inet:port', {}), {
                         'doc': 'The bound (listening) TCP port.'
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:fs:file', {}, (
@@ -2147,6 +2222,17 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:exec:file:add', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that created the new file.',
+                     }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that created the new file. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that created the new file. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was created.',
+                    }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was created.',
                     }),
@@ -2165,8 +2251,22 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was created.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:file:del', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that deleted the file.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that deleted the file. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that deleted the file. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was deleted.',
+                    }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was deleted.',
                     }),
@@ -2185,8 +2285,22 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was deleted.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:file:read', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that read the file.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that read the file. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that read the file. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was read.',
+                    }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was read.',
                     }),
@@ -2205,8 +2319,22 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was read.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:file:write', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that wrote to / modified the existing file.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that wrote to the file. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that wrote to the file. May or may not be the same :exe specified in :proc, if present.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the file was written to/modified.',
+                    }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was written to/modified.',
                     }),
@@ -2225,20 +2353,68 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was modified.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:reg:get', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that read the registry.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that read the registry. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that read the registry. May or may not be the same :exe referenced in :proc, if present.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the registry was read.',
+                    }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was read.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:reg:set', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that wrote to the registry.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that wrote to the registry. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that wrote to the registry. May or may not be the same :exe referenced in :proc, if present.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the registry was written to.',
+                    }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was written to.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:reg:del', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The main process executing code that deleted data from the registry.',
+                    }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host running the process that deleted data from the registry. Typically the same host referenced in :proc, if present.',
+                    }),
+                    ('exe', ('file:bytes', {}), {
+                        'doc': 'The specific file containing code that deleted data from the registry. May or may not be the same :exe referenced in :proc, if present.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the data from the registry was deleted.',
+                    }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was deleted.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
 
