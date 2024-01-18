@@ -4,7 +4,8 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
+
+import synapse.tests.test_lib_scrape as s_t_scrape
 
 logger = logging.getLogger(__name__)
 
@@ -2754,3 +2755,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
+
+    async def test_cpe_scrape_one_to_one(self):
+
+        async with self.getTestCore() as core:
+            q = '[it:sec:cpe=$valu]'
+            for _, valu in s_t_scrape.s_scrape.scrape(s_t_scrape.cpedata, ptype='it:sec:cpe'):
+                nodes = await core.nodes(q, opts={'vars': {'valu': valu}})
+                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.ndef[1], valu.lower())
