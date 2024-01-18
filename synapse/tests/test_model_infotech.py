@@ -1559,6 +1559,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                 norm, info = cpe23.norm(_cpe23)
                 self.eq(norm, _cpe23)
 
+                # No escaped characters in the secondary props
+                for name, valu in info.items():
+                    if name == 'v2_2':
+                        continue
+
+                    self.notin('\\', valu)
+
                 # Norm cpe23 and check the cpe22 conversion
                 norm, info = cpe23.norm(_cpe23)
                 v2_2 = info['subs']['v2_2']

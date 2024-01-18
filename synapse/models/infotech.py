@@ -264,6 +264,8 @@ class Cpe23Str(s_types.Str):
     def _normPyStr(self, valu):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
+            v2_3 = text
+
             parts = cpesplit(text[8:])
             if len(parts) > 11:
                 mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
@@ -290,6 +292,8 @@ class Cpe23Str(s_types.Str):
             )
 
             v2_2 = v2_2[:7]
+
+            parts = [cpe_unescape(k) for k in parts]
 
         elif text.startswith('cpe:/'):
             v2_2 = text
@@ -328,6 +332,10 @@ class Cpe23Str(s_types.Str):
                     parts[PART_IDX_OTHER] = other
 
             parts = [cpe_unquote(part) for part in parts]
+
+            escaped = [cpe_escape(part) for part in parts]
+            v2_3 = 'cpe:2.3:' + ':'.join(escaped)
+
         else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
@@ -347,8 +355,7 @@ class Cpe23Str(s_types.Str):
             'other': parts[PART_IDX_OTHER],
         }
 
-        escaped = [cpe_escape(part) for part in parts]
-        return 'cpe:2.3:' + ':'.join(escaped), {'subs': subs}
+        return v2_3, {'subs': subs}
 
 class SemVer(s_types.Int):
     '''
