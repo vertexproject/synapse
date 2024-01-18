@@ -1191,33 +1191,10 @@ class FeedV1(Handler):
 
         items = body.get('items')
         name = body.get('name', 'syn.nodes')
-
-        func = self.cell.getFeedFunc(name)
-        if func is None:
-            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.')
-
-        user = self.cell.auth.user(self.web_useriden)
-
-        view = self.cell.getView(body.get('view'), user)
-        if view is None:
-            return self.sendRestErr('NoSuchView', 'The specified view does not exist.')
-
-        wlyr = view.layers[0]
-        perm = ('feed:data', *name.split('.'))
-
-        if not user.allowed(perm, gateiden=wlyr.iden):
-            permtext = '.'.join(perm)
-            mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
-            return self.sendRestErr('AuthDeny', mesg)
+        view = body.get('view')
 
         try:
-
-            info = {'name': name, 'view': view.iden, 'nitems': len(items)}
-            await self.cell.boss.promote('feeddata', user=user, info=info)
-
-            async with await self.cell.snap(user=user, view=view) as snap:
-                snap.strict = False
-                await snap.addFeedData(name, items)
+            await self.getCore().addFeedData(name, items, viewiden=view, useriden=self.web_useriden)
 
             return self.sendRestRetn(None)
 

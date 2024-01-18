@@ -355,28 +355,9 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getFeedFuncs()
 
-    async def addFeedData(self, name, items, *, viewiden=None):
-
-        view = self.cell.getView(viewiden, user=self.user)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
-
-        wlyr = view.layers[0]
-        parts = name.split('.')
-
-        self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
-
-        await self.cell.boss.promote('feeddata',
-                                     user=self.user,
-                                     info={'name': name,
-                                           'view': view.iden,
-                                           'nitems': len(items),
-                                           })
-
-        async with await self.cell.snap(user=self.user, view=view) as snap:
-            with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
-                snap.strict = False
-                await snap.addFeedData(name, items)
+    async def addFeedData(self, name, items, *, viewiden=None, useriden=None):
+        opts = self._reqValidStormOpts({'user': useriden})
+        await self.cell.addFeedData(name, items, viewiden=viewiden, useriden=useriden)
 
     async def count(self, text, opts=None):
         '''
@@ -5503,7 +5484,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for node in snap.addNodes(nodedefs):
                 yield node
 
-    async def addFeedData(self, name, items, *, viewiden=None):
+    async def addFeedData(self, name, items, *, viewiden=None, useriden=None):
         '''
         Add data using a feed/parser function.
 
@@ -5514,11 +5495,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 If a view is not specified, the default view is used.
         '''
 
+        user = self._userFromOpts({'user': useriden})
+
         view = self.getView(viewiden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-        async with await self.snap(view=view) as snap:
+        wlyr = view.layers[0]
+        parts = name.split('.')
+
+        user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
+
+        await self.boss.promote('feeddata',
+                                user=user,
+                                info={'name': name,
+                                      'view': view.iden,
+                                      'nitems': len(items) })
+
+        async with await self.snap(user=user, view=view) as snap:
             snap.strict = False
             await snap.addFeedData(name, items)
 

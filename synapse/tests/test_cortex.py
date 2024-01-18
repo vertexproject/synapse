@@ -4483,6 +4483,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             podes.append(pack)
 
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
+            root = await core1.auth.getUserByName('root')
+            user = await core1.auth.addUser('lowuser')
+
+            async with core1.getLocalProxy(user='lowuser') as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.addFeedData('syn.nodes', podes, useriden=root.iden)
 
             await core1.addFeedData('syn.nodes', podes)
             self.len(4, await core1.nodes('test:int'))
