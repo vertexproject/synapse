@@ -623,20 +623,18 @@ async def main(argv, outp=s_output.stdout):
 
                 if opts.onecmd:
                     await cli.runCmdLine(opts.onecmd)
-                    return
 
-                # pragma: no cover
+                else:  # pragma: no cover
 
-                # Add this after onecmd so we don't initialize the completer yet
-                completer = StormCompleter(cli)
-                cli.completer = completer
-                await completer.load()
+                    completer = StormCompleter(cli)
+                    cli.completer = completer
+                    await completer.load()
 
-                cli.colorsenabled = True
-                cli.printf(welcome)
+                    cli.colorsenabled = True
+                    cli.printf(welcome)
 
-                await cli.addSignalHandlers()
-                await cli.runCmdLoop()
+                    await cli.addSignalHandlers()
+                    await cli.runCmdLoop()
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
