@@ -359,11 +359,11 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         opts = {'vars': {'prefix': prefix, 'limit': limit, 'depth': depth}}
         return await self._cli.item.callStorm(q, opts=opts)
 
-    def get_completions(self, document, complete_event):
+    def get_completions(self, document, complete_event):  # pragma: no cover
         # This is the sync version of this method (vs get_completions_async()
         # below). We don't need the sync version but the base class has this
         # decorated as an abstract method so it needs to be configured. Do nothing.
-        pass  # pragma: nocover
+        pass
 
     async def _get_completions_async(self, document, complete_event):
         # Note: Be careful when changing the order of matching in this function.
