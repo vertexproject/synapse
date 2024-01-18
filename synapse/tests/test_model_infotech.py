@@ -1546,6 +1546,25 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:/a:vertex:synapse'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
 
+            # Test cpe22 -> cpe23 escaping logic
+            norm, info = cpe23.norm('cpe:/a:%21')
+            self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:%5c%21')
+            self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:%5cb')
+            self.eq(norm, 'cpe:2.3:a:\\\\b:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:b%5c')
+            self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:b%5c%5c')
+            self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:b%5c%5cb')
+            self.eq(norm, 'cpe:2.3:a:b\\\\b:*:*:*:*:*:*:*:*:*')
+
             # Test 2.2->2.3 and 2.3->2.2 conversions
             filename = s_t_files.getAssetPath('cpedata.json')
             with open(filename, 'r') as fp:
