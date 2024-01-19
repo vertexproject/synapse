@@ -4487,6 +4487,11 @@ class Layer(s_nexus.Pusher):
             abrv = lkey[8:-1]
             yield abrv, lkey[-1:] == FLAG_TOMB
 
+    async def iterPropTombstones(self, form, prop):
+        abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
+        for _, nid in self.layrslab.scanByPref(INDX_TOMB + abrv, db=self.indxdb):
+            yield nid
+
     async def iterTombstones(self):
 
         for lkey in self.layrslab.scanKeysByPref(INDX_TOMB, db=self.indxdb):

@@ -1353,6 +1353,29 @@ class LayerTest(s_t_utils.SynTest):
             # use command to merge
             await core.nodes(addq)
             await core.nodes(delq, opts=viewopts2)
+
+            self.len(3, await core.nodes('diff', opts=viewopts2))
+            self.len(1, await core.nodes('diff --prop inet:ipv4:asn', opts=viewopts2))
+
+            msgs = await core.stormlist('merge --diff', opts=viewopts2)
+            self.stormIsInPrint('delete inet:ipv4:asn', msgs)
+            self.stormIsInPrint('delete inet:ipv4#foo.tag', msgs)
+            self.stormIsInPrint('delete inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint('delete inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint('delete inet:ipv4 -(bar)> ', msgs)
+
+            msgs = await core.stormlist('merge --diff --exclude-tags foo.*', opts=viewopts2)
+            self.stormNotInPrint('delete inet:ipv4#foo.tag', msgs)
+
+            msgs = await core.stormlist('merge --diff --exclude-tags bar.*', opts=viewopts2)
+            self.stormNotInPrint('delete inet:ipv4#bar.tag:score', msgs)
+
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) { $node.data.set($x, foo) }')
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) { $node.data.pop($x) }', opts=viewopts2)
+
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +($x)> { it:dev:str=n1 }]}')
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ -($x)> { it:dev:str=n1 }]}', opts=viewopts2)
+
             await core.nodes('merge --diff --apply', opts=viewopts2)
 
             await checkempty()
@@ -1360,6 +1383,7 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.nodes(addq)
             await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            self.len(0, await core.nodes('diff', opts=viewopts2))
             await core.nodes('merge --diff --apply', opts=viewopts2)
 
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
@@ -1403,6 +1427,19 @@ class LayerTest(s_t_utils.SynTest):
             viewopts3 = {'view': viewiden3}
 
             await core.nodes(addq)
+
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts3)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            await core.nodes('merge --diff --apply', opts=viewopts3)
+            msgs = await core.stormlist('merge --diff', opts=viewopts3)
+            self.stormIsInPrint('delete inet:ipv4 = 1.2.3.4', msgs)
+
+            await core.nodes('syn:tag=foo.tag | delnode', opts=viewopts3)
+            msgs = await core.stormlist('merge --diff --exclude-tags foo.*', opts=viewopts3)
+            self.stormNotInPrint('delete syn:tag = foo.tag', msgs)
+
+            await view2.wipeLayer()
+            await view3.wipeLayer()
 
             q = '''
             inet:ipv4=1.2.3.4
@@ -1482,6 +1519,10 @@ class LayerTest(s_t_utils.SynTest):
 
             layr = view3.layers[0].iden
             self.eq(bylayer, {'ndef': layr, 'props': {'type': layr, '.created': layr}})
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ +#nomerge ]', opts=viewopts3)
+            await core.nodes('merge --diff --apply --only-tags', opts=viewopts3)
+            self.len(1, await core.nodes('#nomerge', opts=viewopts3))
 
             await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts3)
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)

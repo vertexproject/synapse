@@ -4621,7 +4621,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.setTagModel('test', 'regex', (None, '[0-9]{4}'))
 
             # This tag doesn't match the regex but should still make the node
-            data = [(('test:int', 8), {'tags': {'test.12345': (None, None)}})]
+            data = [(
+                ('test:int', 8),
+                {'tags': {'test.12345': (None, None)},
+                 'tagprops': {'test.12345': {'score': (1, 1)}}}
+            )]
             await core1.addFeedData('syn.nodes', data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
