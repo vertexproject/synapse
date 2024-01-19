@@ -1335,6 +1335,54 @@ class LayerTest(s_t_utils.SynTest):
             await view2.wipeLayer()
             await notombs(opts=viewopts2)
 
+            # use command to merge
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('merge --diff --apply', opts=viewopts2)
+
+            await checkempty()
+            await notombs(opts=viewopts2)
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            await core.nodes('merge --diff --apply', opts=viewopts2)
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            await notombs(opts=viewopts2)
+
+            # use quorum to merge
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+
+            await core.nodes('auth.user.grant root all')
+
+            setq = '$lib.view.get().set(quorum, ({"count": 1, "roles": [$lib.auth.roles.byname(all).iden]}))'
+            await core.nodes(setq)
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            await checkempty()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
             viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
             view3 = core.getView(viewiden3)
             viewopts3 = {'view': viewiden3}

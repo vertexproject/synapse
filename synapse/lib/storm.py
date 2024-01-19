@@ -3903,7 +3903,7 @@ class MergeCmd(Cmd):
                             await protonode.delEdgesN2(meta=meta)
                             await protonode.delete()
 
-                            subs.append((s_layer.EDIT_NODE_TOMB_DEL, ()))
+                            subs.append((s_layer.EDIT_NODE_TOMB_DEL, (), ()))
 
                             await sync()
                             runt.snap.clearCachedNode(node.buid)

@@ -400,8 +400,8 @@ class View(s_nexus.Pusher):  # type: ignore
                             deledits = editor.getNodeEdits()
                             editor.protonodes.clear()
                             if deledits:
-                                deledits[2].extend(realedits)
-                                nodeedits.append(deledits)
+                                deledits[0][2].extend(realedits)
+                                nodeedits.extend(deledits)
                             else:
                                 nodeedits.append((buid, form, realedits))
 
