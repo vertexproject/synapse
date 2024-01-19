@@ -5092,8 +5092,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 async with await self.snap(user=user, view=view) as snap:
 
                     async for node, path in snap.storm(text, opts=opts):
-                        stoplayr = node.valulayr() + 1
-                        await spooldict.set(node.nid, (stoplayr, node.pack()))
+                        await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
 
                     for nid1, (stoplayr, pode1) in spooldict.items():
                         await asyncio.sleep(0)
