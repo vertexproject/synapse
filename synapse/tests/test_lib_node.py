@@ -383,7 +383,7 @@ class NodeTest(s_t_utils.SynTest):
 
             self.eq(123, await node.popData('foo'))
             self.none(await node.getData('foo'))
-            self.eq(await node.popData('foo'), s_common.novalu)
+            self.none(await node.popData('foo'))
 
             self.eq((4, 5, 6), await node.getData('bar'))
 
