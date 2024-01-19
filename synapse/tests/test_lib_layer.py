@@ -1263,6 +1263,8 @@ class LayerTest(s_t_utils.SynTest):
             self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=viewopts2))
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
 
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
+
             await core.nodes('inet:ipv4=1.2.3.4 [ -(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *'))
@@ -1299,6 +1301,17 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes(delq, opts=viewopts2)
             await hastombs(opts=viewopts2)
 
+            await core.nodes('''
+            $layr = $lib.layer.get()
+            for ($iden, $type, $info) in $layr.getTombstones() {
+                $layr.delTombstone($iden, $type, $info)
+            }''', opts=viewopts2)
+
+            await notombs(opts=viewopts2)
+
+            await core.nodes(delq, opts=viewopts2)
+            await hastombs(opts=viewopts2)
+
             await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts2)
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
 
@@ -1327,6 +1340,23 @@ class LayerTest(s_t_utils.SynTest):
             viewopts3 = {'view': viewiden3}
 
             await core.nodes(addq)
+
+            q = '''
+            inet:ipv4=1.2.3.4
+            for $edge in $node.edges(reverse=$lib.true) {
+                $lib.print($edge)
+            }
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(1, [m for m in msgs if m[0] == 'print'])
+
+            await core.nodes('it:dev:str=n2 | delnode', opts=viewopts2)
+
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            await view2.wipeLayer()
+
             await core.nodes(delq, opts=viewopts3)
 
             await checkempty(opts=viewopts3)
@@ -1374,6 +1404,10 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
             await checkempty(opts=viewopts3)
 
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts3)
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
             # test helpers above a node tombstone
             node = nodes[0]
 
@@ -1410,6 +1444,7 @@ class LayerTest(s_t_utils.SynTest):
 
             self.false(node.hasInLayers('asn'))
             self.none(node.getFromLayers('asn'))
+            self.eq((None, None), node.getWithLayer('asn'))
 
             self.false(node.hasTagInLayers('foo.tag'))
             self.none(node.getTagFromLayers('foo.tag'))
@@ -1418,11 +1453,17 @@ class LayerTest(s_t_utils.SynTest):
             self.eq([], node.getTagPropsWithLayer('bar.tag'))
             self.false(node.hasTagProp('bar.tag', 'score'))
             self.false(node.hasTagPropInLayers('bar.tag', 'score'))
+            self.false(node.hasTagPropInLayers('foo.tag', 'score'))
             self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
             self.eq((None, None), node.getTagPropWithLayer('foo.tag', 'score'))
 
             self.eq(['type', '.created'], list(nodes[0].getProps().keys()))
+            self.sorteq(['bar', 'bar.tag', 'foo'], list(node._getTagsDict().keys()))
             self.eq({}, node._getTagPropsDict())
+
+            self.len(0, await alist(node.iterData()))
+            self.len(0, await alist(node.iterDataKeys()))
+            self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.pop(foodata))', opts=viewopts3))
 
     # async def test_layer_form_by_buid(self):
 

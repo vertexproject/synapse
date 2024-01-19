@@ -4596,6 +4596,7 @@ class EditEdgeDel(Edit):
                         if nodeedits:
                             await runt.snap.saveNodeEdits([nodeedits])
                         node.edgedels.clear()
+                        node.edgetombs.clear()
 
         return node, path
 

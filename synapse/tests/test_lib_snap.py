@@ -622,6 +622,70 @@ class SnapTest(s_t_utils.SynTest):
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
 
+            await core.addTagProp('score', ('int', {}), {})
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            addq = '''[
+            inet:ipv4=1.2.3.4
+                :asn=4
+                +#foo.tag=2024
+                +#bar.tag:score=5
+                +(foo)> {[ it:dev:str=n2 ]}
+            ]
+            $node.data.set(foodata, bar)
+            '''
+            await core.nodes(addq)
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#baz.tag:score=6 ]', opts=viewopts2)
+
+            n2node = (await core.nodes('it:dev:str=n2'))[0]
+            n2buid = n2node.buid
+            n2iden = s_common.ehex(n2buid)
+            badiden = s_common.ehex(s_common.buid('newp'))
+
+            async with await view2.snap(user=root) as snap:
+                async with snap.getEditor() as editor:
+                    node = await editor.getNodeByBuid(nodes[0].buid)
+                    self.true(await node.delEdge('foo', n2iden))
+                    self.true(await node.addEdge('foo', n2iden))
+
+                    self.true(await node.delEdge('foo', n2iden))
+
+                    self.false(await node.addEdge('foo', badiden))
+                    self.false(await node.delEdge('foo', badiden))
+
+                    self.true(await node.setTagProp('cool.tag', 'score', 7))
+                    self.isin('score', node.getTagProps('cool.tag'))
+                    self.isin(('score', 0), node.getTagPropsWithLayer('cool.tag'))
+                    self.eq(7, node.getTagProp('cool.tag', 'score'))
+                    self.eq((7, 0), node.getTagPropWithLayer('cool.tag', 'score'))
+
+                    self.true(await node.delTag('bar.tag'))
+                    self.true(await node.delTag('baz.tag'))
+
+                    self.none(node.getTagProp('bar.tag', 'score'))
+                    self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+
+                    self.true(await node.set('asn', 7))
+                    self.true(await node.pop('asn'))
+                    self.none(node.get('asn'))
+                    self.eq((None, None), node.getWithLayer('asn'))
+
+                    self.eq('bar', await node.popData('foodata'))
+
+                self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
+
+                async with snap.getEditor() as editor:
+                    node = await editor.getNodeByBuid(nodes[0].buid)
+                    self.false(await node.delEdge('foo', n2iden))
+
+                    self.true(await node.set('asn', 5))
+
+                    n2node = await editor.getNodeByBuid(n2buid)
+                    await n2node.delEdgesN2()
+
     async def test_snap_subs_depth(self):
 
         async with self.getTestCore() as core:

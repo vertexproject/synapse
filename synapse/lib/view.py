@@ -1731,7 +1731,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _genSrefList(self, nid, smap, filtercmpr=None):
         srefs = []
         filt = True
-        valufilt = True
+        hasvalu = False
 
         for layr in self.layers:
             if (sref := smap.get(layr.iden)) is None:
@@ -1744,15 +1744,16 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 filt = False
 
-            if valufilt:
+            if not hasvalu:
                 if sref.sode.get('valu') is not None:
-                    valufilt = False
+                    hasvalu = True
                 elif sref.sode.get('antivalu') is not None:
                     return
 
             srefs.append(sref)
 
-        return srefs
+        if hasvalu:
+            return srefs
 
     async def _mergeLiftRows(self, genrs, filtercmpr=None, reverse=False):
         lastnid = None
