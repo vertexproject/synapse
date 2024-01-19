@@ -182,11 +182,7 @@ class Node(NodeBase):
             return await editor.delEdge(verb, n2nid)
 
     async def iterEdgesN1(self, verb=None):
-        if (valulayr := self.valulayr()) is None:
-            return
-
-        stoplayr = valulayr + 1
-        async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb, stop=stoplayr):
+        async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb, stop=self.lastlayr()):
             yield edge
 
     async def iterEdgesN2(self, verb=None):
@@ -194,11 +190,7 @@ class Node(NodeBase):
             yield edge
 
     async def iterEdgeVerbs(self, n2nid):
-        if (valulayr := self.valulayr()) is None:
-            return
-
-        stoplayr = valulayr + 1
-        async for verb in self.snap.iterEdgeVerbs(self.nid, n2nid, stop=stoplayr):
+        async for verb in self.snap.iterEdgeVerbs(self.nid, n2nid, stop=self.lastlayr()):
             yield verb
 
     async def storm(self, runt, text, opts=None, path=None):
@@ -387,12 +379,9 @@ class Node(NodeBase):
 
         return False
 
-    def valulayr(self):
+    def lastlayr(self):
         for indx, sode in enumerate(self.sodes):
             if sode.get('antivalu') is not None:
-                return None
-
-            if (valu := sode.get('valu')) is not None:
                 return indx
 
     def istomb(self):
@@ -899,22 +888,14 @@ class Node(NodeBase):
         if name in self.nodedata:
             return True
 
-        if (valulayr := self.valulayr()) is None:
-            return
-
-        stoplayr = valulayr + 1
-        return await self.snap.hasNodeData(self.buid, name, stop=stoplayr)
+        return await self.snap.hasNodeData(self.buid, name, stop=self.lastlayr())
 
     async def getData(self, name, defv=None):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
-        if (valulayr := self.valulayr()) is None:
-            return
-
-        stoplayr = valulayr + 1
-        return await self.snap.getNodeData(self.buid, name, defv=defv, stop=stoplayr)
+        return await self.snap.getNodeData(self.buid, name, defv=defv, stop=self.lastlayr())
 
     async def setData(self, name, valu):
         async with self.snap.getNodeEditor(self) as protonode:

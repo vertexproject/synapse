@@ -675,16 +675,32 @@ class SnapTest(s_t_utils.SynTest):
 
                     self.eq('bar', await node.popData('foodata'))
 
+                    manynode = await editor.addNode('it:dev:str', 'manyedges')
+                    for x in range(1001):
+                        await manynode.addEdge(str(x), node.iden())
+
                 self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
 
                 async with snap.getEditor() as editor:
                     node = await editor.getNodeByBuid(nodes[0].buid)
                     self.false(await node.delEdge('foo', n2iden))
+                    await node.delEdgesN2()
 
                     self.true(await node.set('asn', 5))
 
                     n2node = await editor.getNodeByBuid(n2buid)
                     await n2node.delEdgesN2()
+
+                    self.false(node.istomb())
+                    await node.delete()
+                    self.true(node.istomb())
+                    await node.delete()
+
+                    newnode = await editor.addNode('it:dev:str', 'new')
+                    self.false(newnode.istomb())
+                    self.false(await newnode.delEdge('foo', n2iden))
+
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(*)- *', opts=viewopts2))
 
     async def test_snap_subs_depth(self):
 

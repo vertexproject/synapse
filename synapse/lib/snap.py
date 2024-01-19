@@ -231,18 +231,15 @@ class ProtoNode:
         if toplayr is True:
             return False
 
-        stoplayr = self.node.valulayr() + 1
-        for layr in self.ctx.snap.layers[1:stoplayr]:
+        for layr in self.ctx.snap.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
-                if not undr:
-                    self.edges.add(tupl)
-                elif toplayr is False:
+                if undr and toplayr is False:
                     self.edgetombdels.add(tupl)
+                    return True
                 break
-        else:
-            self.edges.add(tupl)
 
-        return False
+        self.edges.add(tupl)
+        return True
 
     async def delEdge(self, verb, n2iden):
 
@@ -291,8 +288,7 @@ class ProtoNode:
         if toplayr is True:
             self.edgedels.add(tupl)
 
-        stoplayr = self.node.valulayr() + 1
-        for layr in self.ctx.snap.layers[1:stoplayr]:
+        for layr in self.ctx.snap.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr:
                     self.edgetombs.add(tupl)
@@ -1637,8 +1633,7 @@ class Snap(s_base.Base):
 
                 if etyp == s_layer.EDIT_EDGE_TOMB_DEL:
                     verb, n2iden = parms
-                    stoplayr = node.valulayr() + 1
-                    if await self.hasNodeEdge(buid, verb, s_common.uhex(n2iden), stop=stoplayr):
+                    if await self.hasNodeEdge(buid, verb, s_common.uhex(n2iden), stop=node.lastlayr()):
                         n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
                         callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
 

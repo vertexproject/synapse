@@ -1210,6 +1210,8 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes(addq))
 
+            self.false(await core.callStorm('[ test:str=newp ] return($node.data.has(foodata))'))
+
             nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts=viewopts2)
             self.none(nodes[0].get('asn'))
 
@@ -1315,6 +1317,19 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts2)
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
 
+            await core.nodes('''
+            $layr = $lib.layer.get()
+            for ($iden, $type, $info) in $layr.getTombstones() {
+                $layr.delTombstone($iden, $type, $info)
+            }''', opts=viewopts2)
+
+            await notombs(opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
             # deleting a node clears its other tombstones
             msgs = await core.stormlist('for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }', opts=viewopts2)
 
@@ -1404,11 +1419,22 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, [m for m in msgs if m[0] == 'print'])
 
             await view2.wipeLayer()
-
             await core.nodes(delq, opts=viewopts3)
 
             await checkempty(opts=viewopts3)
             await hastombs(opts=viewopts3)
+
+            q = 'for $edge in $lib.layer.get().getEdges() { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            q = 'inet:ipv4 for $edge in $lib.layer.get().getEdgesByN1($node.iden()) { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            q = 'inet:ipv4 for $edge in $lib.layer.get().getEdgesByN2($node.iden()) { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
 
             await view3.merge()
 
@@ -1452,6 +1478,11 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
             await checkempty(opts=viewopts3)
 
+            bylayer = await core.callStorm('inet:ipv4=1.2.3.4 return($node.getByLayer())', opts=viewopts3)
+
+            layr = view3.layers[0].iden
+            self.eq(bylayer, {'ndef': layr, 'props': {'type': layr, '.created': layr}})
+
             await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts3)
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
             await checkempty(opts=viewopts3)
@@ -1468,6 +1499,7 @@ class LayerTest(s_t_utils.SynTest):
             self.none(node.getTag('foo.tag'))
             self.none(node.getTagFromLayers('foo.tag'))
             self.none(node.getTagFromLayers('newp', strt=2))
+            self.false(node.hasTag('foo.tag'))
             self.false(node.hasTagInLayers('foo.tag'))
 
             self.eq([], node.getTagProps('bar.tag'))
@@ -1482,9 +1514,9 @@ class LayerTest(s_t_utils.SynTest):
 
             await view2.wipeLayer()
             await core.nodes(delq, opts=viewopts2)
-
             await checkempty(opts=viewopts3)
 
+            await core.nodes('inet:ipv4 [ -(bar)> {[ it:dev:str=n1 ]} ]', opts=viewopts3)
             nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3)
 
             # test helpers above individual tombstones
@@ -1494,6 +1526,7 @@ class LayerTest(s_t_utils.SynTest):
             self.none(node.getFromLayers('asn'))
             self.eq((None, None), node.getWithLayer('asn'))
 
+            self.false(node.hasTag('foo.tag'))
             self.false(node.hasTagInLayers('foo.tag'))
             self.none(node.getTagFromLayers('foo.tag'))
 
