@@ -454,6 +454,36 @@ class NodeTest(s_t_utils.SynTest):
             msgs = await core.stormlist(edgeq)
             self.len(1, [m for m in msgs if m[0] == 'print'])
 
+            q = '''
+            [test:str=delfoo test:str=delbar]
+            { test:str=delfoo [ +(bar)> { test:str=delbar } ] }
+            { test:str=delbar [ +(foo)> { test:str=delfoo } ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            foo, bar = nodes
+            fooedges = [edge async for edge in foo.iterEdgesN1()]
+            baredges = [edge async for edge in bar.iterEdgesN1()]
+
+            self.len(2, fooedges)
+            self.len(2, baredges)
+
+            msgs = await core.stormlist('test:str=delfoo | delnode')
+            self.stormIsInErr('Other nodes still have light edges to this node.', msgs)
+
+            nodes = await core.nodes('test:str=delfoo')
+            self.len(1, nodes)
+
+            msgs = await core.stormlist('test:str=delfoo | delnode --deledges')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=delfoo')
+            self.len(0, nodes)
+
+            msgs = await core.stormlist('test:str=delbar | delnode')
+            self.stormHasNoWarnErr(msgs)
+
     async def test_node_remove_missing_basetag(self):
 
         async with self.getTestCore() as core:
