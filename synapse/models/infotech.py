@@ -334,7 +334,12 @@ class Cpe23Str(s_types.Str):
 
             parts = [cpe_unquote(part) for part in parts]
 
+            # This feels a little uninuitive to escape parts for "escaped" and 
+            # unescape parts for "parts" but values in parts could be incorrectly 
+            # escaped or incorrectly unescaped so just do both.
             escaped = [cpe_escape(part) for part in parts]
+            parts = [cpe_unescape(part) for part in parts]
+
             v2_3 = 'cpe:2.3:' + ':'.join(escaped)
 
         else:
