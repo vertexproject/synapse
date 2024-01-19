@@ -430,5 +430,72 @@ class ModelRevTest(s_tests.SynTest):
                 self.eq(node.props.get('type'), 'shared')
 
     async def test_modelrev_0_2_23(self):
-        async with self.getRegrCore('model-0.2.23') as core:
-            self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
+
+        with self.getLoggerStream('synapse.lib.modelrev') as stream:
+            async with self.getRegrCore('model-0.2.23') as core:
+                self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
+
+                nodes = await core.nodes('it:sec:cpe:vendor=10web')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('edition'), '*')
+                self.eq(nodes[0].get('language'), '*')
+                self.eq(nodes[0].get('other'), '*')
+                self.eq(nodes[0].get('part'), 'a')
+                self.eq(nodes[0].get('product'), 'social_feed_for_instagram')
+                self.eq(nodes[0].get('sw_edition'), 'premium')
+                self.eq(nodes[0].get('target_hw'), '*')
+                self.eq(nodes[0].get('target_sw'), 'wordpress')
+                self.eq(nodes[0].get('update'), '*')
+                self.eq(nodes[0].get('v2_2'), 'cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~')
+                self.eq(nodes[0].get('vendor'), '10web')
+                self.eq(nodes[0].get('version'), '1.0.0')
+
+                nodes = await core.nodes('it:sec:cpe:vendor=1c')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('edition'), '*')
+                self.eq(nodes[0].get('language'), '*')
+                self.eq(nodes[0].get('other'), '*')
+                self.eq(nodes[0].get('part'), 'a')
+                self.eq(nodes[0].get('product'), '1c:enterprise')
+                self.eq(nodes[0].get('sw_edition'), '*')
+                self.eq(nodes[0].get('target_hw'), '*')
+                self.eq(nodes[0].get('target_sw'), '*')
+                self.eq(nodes[0].get('update'), '*')
+                # This isn't technically the right format for this v2_2 string but it's already been created that way
+                # and we don't modify the v2_2 string when norming and converting
+                self.eq(nodes[0].get('v2_2'), 'cpe:/a:1c:1c\\:enterprise:-')
+                self.eq(nodes[0].get('vendor'), '1c')
+                self.eq(nodes[0].get('version'), '-')
+
+                nodes = await core.nodes('it:sec:cpe:vendor=acurax')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('edition'), '*')
+                self.eq(nodes[0].get('language'), '*')
+                self.eq(nodes[0].get('other'), '*')
+                self.eq(nodes[0].get('part'), 'a')
+                self.eq(nodes[0].get('product'), 'under_construction_/_maintenance_mode')
+                self.eq(nodes[0].get('sw_edition'), '*')
+                self.eq(nodes[0].get('target_hw'), '*')
+                self.eq(nodes[0].get('target_sw'), 'wordpress')
+                self.eq(nodes[0].get('update'), '*')
+                self.eq(nodes[0].get('v2_2'), 'cpe:/a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~')
+                self.eq(nodes[0].get('vendor'), 'acurax')
+                self.eq(nodes[0].get('version'), '-')
+
+        stream.seek(0)
+        data = stream.read()
+        mesg = ''
+        mesg += 'Unable to migrate primary property for '
+        mesg += 'it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*" '
+        mesg += '(iden: af41e01d934925cd87c4647efb84c2426edba67ca80cd4c1c9b68dc4cb7d8456). Continuing to migrate '
+        mesg += 'secondary properties.'
+        self.isin(mesg, data)
+
+        mesg = ''
+        mesg += 'Unable to migrate primary property for '
+        mesg += 'it:sec:cpe="cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*" '
+        mesg += '(iden: 65fbe1477b34b4cf70c3e8657ef9b83e7ecb94471f1e6f676009ba6d31e188b3). Continuing to migrate '
+        mesg += 'secondary properties.'
+        self.isin(mesg, data)
+
+        self.notin('enterprise', data)
