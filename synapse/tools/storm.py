@@ -31,6 +31,8 @@ Welcome to the Storm interpreter!
 Local interpreter (non-storm) commands may be executed with a ! prefix:
     Use !quit to exit.
     Use !help to see local interpreter commands.
+
+Use the <Tab> key for suggestion/completion of forms, commands, and tags.
 '''
 class QuitCmd(s_cli.CmdQuit):
     '''
