@@ -4596,15 +4596,19 @@ class DelNodeCmd(Cmd):
             runt.layerConfirm(('node', 'del', node.form.name))
 
             if deledges:
-                edges = []
+                async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
+                    seenverbs = set()
 
-                async for (verb, n2iden) in node.iterEdgesN2():
-                    runt.layerConfirm(('node', 'edge', 'del', verb))
-                    edges.append((verb, n2iden))
+                    async for (verb, n2iden) in node.iterEdgesN2():
+                        if verb not in seenverbs:
+                            runt.layerConfirm(('node', 'edge', 'del', verb))
+                            seenverbs.add(verb)
+                        await edges.add((verb, n2iden))
 
-                for (verb, n2iden) in edges:
-                    n2 = await self.runt.snap.getNodeByBuid(s_common.uhex(n2iden))
-                    await n2.delEdge(verb, node.iden())
+                    async with self.runt.snap.getEditor() as editor:
+                        async for (verb, n2iden) in edges:
+                            n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
+                            await n2.delEdge(verb, node.iden())
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.props.get('sha256')
