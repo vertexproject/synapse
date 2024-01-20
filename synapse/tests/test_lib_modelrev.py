@@ -482,6 +482,22 @@ class ModelRevTest(s_tests.SynTest):
                 self.eq(nodes[0].get('vendor'), 'acurax')
                 self.eq(nodes[0].get('version'), '-')
 
+                # Customer reported string - VS-374
+                nodes = await core.nodes('it:sec:cpe:vendor=zyxel')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('edition'), '*')
+                self.eq(nodes[0].get('language'), '*')
+                self.eq(nodes[0].get('other'), '*')
+                self.eq(nodes[0].get('part'), 'o')
+                self.eq(nodes[0].get('product'), 'nas326_firmware')
+                self.eq(nodes[0].get('sw_edition'), '*')
+                self.eq(nodes[0].get('target_hw'), '*')
+                self.eq(nodes[0].get('target_sw'), '*')
+                self.eq(nodes[0].get('update'), '*')
+                self.eq(nodes[0].get('v2_2'), 'cpe:/o:zyxel:nas326_firmware:5.21%28aazf.14%29c0')
+                self.eq(nodes[0].get('vendor'), 'zyxel')
+                self.eq(nodes[0].get('version'), '5.21(aazf.14)c0')
+
         stream.seek(0)
         data = stream.read()
         mesg = ''
@@ -497,5 +513,11 @@ class ModelRevTest(s_tests.SynTest):
         mesg += '(iden: 65fbe1477b34b4cf70c3e8657ef9b83e7ecb94471f1e6f676009ba6d31e188b3). Continuing to migrate '
         mesg += 'secondary properties.'
         self.isin(mesg, data)
+
+        mesg = ''
+        mesg += 'Unable to migrate primary property for '
+        mesg += 'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*" '
+        mesg += '(iden: c49edb4294acf4a13b87c51b7f1dcc237b4dc5d47e46fe5b04a17fe394a2c784). Continuing to migrate '
+        mesg += 'secondary properties.'
 
         self.notin('enterprise', data)
