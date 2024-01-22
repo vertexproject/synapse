@@ -1317,6 +1317,9 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts2)
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
 
+            await core.nodes('[ inet:ipv4=1.2.3.4 ] | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
             await core.nodes('''
             $layr = $lib.layer.get()
             for ($iden, $type, $info) in $layr.getTombstones() {
@@ -1658,9 +1661,16 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(0, await alist(node.iterData()))
             self.len(0, await alist(node.iterDataKeys()))
+            self.false(0, await node.hasData('foodata'))
             self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.pop(foodata))', opts=viewopts3))
 
+            randbuid = s_common.buid('newp')
+            self.false((await view3.layers[0].hasNodeData(randbuid, 'foodata')))
+            self.false((await view3.layers[0].getNodeData(randbuid, 'foodata'))[0])
+
             self.len(0, await alist(view3.getEdges()))
+            self.len(0, await alist(view3.layers[1].getEdgeVerbs()))
+            self.len(2, await alist(view3.layers[2].getEdgeVerbs()))
 
             self.len(0, await core.nodes('inet:ipv4:asn', opts=viewopts3))
             self.len(0, await core.nodes('inet:ipv4:asn=4', opts=viewopts3))
