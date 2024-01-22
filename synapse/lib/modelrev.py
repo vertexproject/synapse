@@ -733,7 +733,6 @@ class ModelRev:
     async def revModel_0_2_23(self, layers):
         await self._normFormSubsByProp(layers, 'it:sec:cpe', 'v2_2')
 
-
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
