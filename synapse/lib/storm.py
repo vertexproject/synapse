@@ -2187,6 +2187,15 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def confirmEasyPerm(self, item, perm):
+        if not self.asroot:
+            self.snap.core._reqEasyPerm(item, self.user, perm)
+
+    def allowedEasyPerm(self, item, perm):
+        if self.asroot:
+            return True
+        return self.snap.core._hasEasyPerm(item, self.user, perm)
+
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:

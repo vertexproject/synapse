@@ -864,6 +864,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq(('unicast', 1), sodes[1]['props']['type'])
             self.eq((56, 9), sodes[1]['props']['asn'])
 
+            nodes = await core.nodes('inet:ipv4=11.22.33.44 [ +#bar:score=200 ]', opts=opts)
+            bylayer = nodes[0].getByLayer()
+            self.eq(bylayer['tagprops']['bar']['score'], layr)
+
+            nodes = await core.nodes('inet:ipv4=11.22.33.44 [ -#bar:score ]', opts=opts)
+            bylayer = nodes[0].getByLayer()
+            self.none(bylayer['tagprops'].get('bar'))
+
             bylayer = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getByLayer())', opts=opts)
             self.ne(bylayer['ndef'], layr)
             self.eq(bylayer['props']['asn'], layr)
@@ -2074,6 +2082,8 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
+            waiter = core.waiter(2, 'core:pkg:onload:complete')
+
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
@@ -2087,6 +2097,12 @@ class StormTest(s_t_utils.SynTest):
             self.isin("testload onload output: testwarn", buf)
             self.isin("No var with name: newp", buf)
             self.len(1, await core.nodes(f'ps:contact={cont}'))
+
+            evnts = await waiter.wait(timeout=2)
+            self.eq([
+                ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                ('core:pkg:onload:complete', {'pkg': 'testload'}),
+            ], evnts)
 
     async def test_storm_tree(self):
 

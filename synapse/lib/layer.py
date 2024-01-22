@@ -3712,7 +3712,9 @@ class Layer(s_nexus.Pusher):
         for lkey, _ in self.dataslab.scanByPref(nid, db=self.nodedata):
             await asyncio.sleep(0)
             self._incSodeRefs(buid, sode, inc=-1)
+
             self.dataslab.delete(lkey, db=self.nodedata)
+            self.dataslab.delete(abrv, nid, db=self.dataname)
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))

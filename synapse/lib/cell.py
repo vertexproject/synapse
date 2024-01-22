@@ -2595,6 +2595,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return defv
         return user.name
 
+    async def hasHttpSess(self, iden):
+        return self.sessstor.has(iden)
+
     async def genHttpSess(self, iden):
 
         # TODO age out http sessions
