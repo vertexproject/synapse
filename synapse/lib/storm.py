@@ -2188,8 +2188,10 @@ class Runtime(s_base.Base):
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def reqEditProp(self, prop):
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
-            return
+
+        if len(prop.setperms) > 1:
+            if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms[:-1]):
+                return
 
         self.confirm(prop.setperms[-1], gateiden=self.snap.wlyr.iden)
 
