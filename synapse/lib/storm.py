@@ -4608,7 +4608,8 @@ class DelNodeCmd(Cmd):
                     async with self.runt.snap.getEditor() as editor:
                         async for (verb, n2iden) in edges:
                             n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
-                            await n2.delEdge(verb, node.iden())
+                            if n2 is not None:
+                                await n2.delEdge(verb, node.iden())
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.props.get('sha256')
