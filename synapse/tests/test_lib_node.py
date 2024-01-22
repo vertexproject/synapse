@@ -484,25 +484,22 @@ class NodeTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:str=delbar | delnode')
             self.stormHasNoWarnErr(msgs)
 
-            nodes = await core.nodes('[test:str=delfoo test:str=delbar]')
-            self.len(2, nodes)
-            foo, bar = nodes
+            nodes = await core.nodes('[test:str=delfoo]')
+            self.len(1, nodes)
+            foo = nodes[0]
 
             q = '''
-            test:str=delbar
-            { for $ii in $lib.range(1200) {
-                $verb = `foo{$ii}`
-                [ +($verb)> { test:str=delfoo } ]
-            }}
+            for $ii in $lib.range(1200) {
+                $valu = `bar{$ii}`
+                [ test:str=$valu +(foo)> { test:str=delfoo } ]
+            }
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
 
             fooedges = [edge async for edge in foo.iterEdgesN2()]
-            baredges = [edge async for edge in bar.iterEdgesN1()]
 
             self.len(1200, fooedges)
-            self.len(1200, baredges)
 
             msgs = await core.stormlist('test:str=delfoo | delnode --deledges')
             self.stormHasNoWarnErr(msgs)
