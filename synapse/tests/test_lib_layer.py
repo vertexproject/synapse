@@ -1389,6 +1389,23 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
             await notombs(opts=viewopts2)
 
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await view2.merge()
+            await notombs()
+            await view2.wipeLayer()
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await view2.merge()
+            await notombs()
+            await view2.wipeLayer()
+
             # use quorum to merge
             await core.nodes(addq)
             await core.nodes(delq, opts=viewopts2)
@@ -1408,6 +1425,24 @@ class LayerTest(s_t_utils.SynTest):
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
 
+            await core.nodes('inet:ipv4=1.2.3.4 [ :asn=4 ]')
+            await core.nodes('inet:ipv4=1.2.3.4 [ :loc=us -:asn ]', opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]')
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(nodes[0].get('loc'), 'us')
+            self.none(nodes[0].get('asn'))
+            await notombs()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
             await core.nodes(addq)
             await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
 
@@ -1417,6 +1452,38 @@ class LayerTest(s_t_utils.SynTest):
             self.true(await view2.waitfini(timeout=5))
 
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            await notombs()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            await notombs()
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
@@ -1510,9 +1577,12 @@ class LayerTest(s_t_utils.SynTest):
 
             # node re-added above a tombstone is empty
             await core.nodes(addq)
+            await core.nodes('[ inet:ipv4=1.2.3.4 :loc=uk ]', opts=viewopts3)
             await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
+            self.len(0, await core.nodes('inet:ipv4:loc=uk', opts=viewopts3))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -:loc ]', opts=viewopts3)
             await checkempty(opts=viewopts3)
 
             bylayer = await core.callStorm('inet:ipv4=1.2.3.4 return($node.getByLayer())', opts=viewopts3)
@@ -1553,6 +1623,9 @@ class LayerTest(s_t_utils.SynTest):
             self.eq({}, node._getTagsDict())
             self.eq({}, node._getTagPropsDict())
 
+            self.len(0, await core.nodes('#bar.tag:score', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:score=5', opts=viewopts3))
+
             await view2.wipeLayer()
             await core.nodes(delq, opts=viewopts2)
             await checkempty(opts=viewopts3)
@@ -1586,6 +1659,19 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await alist(node.iterData()))
             self.len(0, await alist(node.iterDataKeys()))
             self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.pop(foodata))', opts=viewopts3))
+
+            self.len(0, await alist(view3.getEdges()))
+
+            self.len(0, await core.nodes('inet:ipv4:asn', opts=viewopts3))
+            self.len(0, await core.nodes('inet:ipv4:asn=4', opts=viewopts3))
+            self.len(0, await core.nodes('#foo.tag', opts=viewopts3))
+            self.len(0, await core.nodes('#foo.tag@=2024', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:score', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:score=5', opts=viewopts3))
+
+            await core.nodes('[ ou:goal=(foo,) :names=(foo, bar) ]')
+            await core.nodes('ou:goal=(foo,) [ -:names ]', opts=viewopts2)
+            self.len(0, await core.nodes('ou:goal:names*[=foo]', opts=viewopts2))
 
     # async def test_layer_form_by_buid(self):
 

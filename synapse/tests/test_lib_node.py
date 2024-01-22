@@ -473,7 +473,6 @@ class NodeTest(s_t_utils.SynTest):
             edits = [m[1] for m in msgs if m[0] == 'node:edits']
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, edits)
-
             self.len(1, edits[0]['edits'][0][2])
 
             self.len(1, nodes)
