@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 22)
+maxvers = (0, 2, 23)
 
 class ModelRev:
 
@@ -36,6 +36,7 @@ class ModelRev:
             ((0, 2, 20), self.revModel_0_2_20),
             ((0, 2, 21), self.revModel_0_2_21),
             ((0, 2, 22), self.revModel_0_2_22),
+            ((0, 2, 23), self.revModel_0_2_23),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -729,6 +730,10 @@ class ModelRev:
     async def revModel_0_2_22(self, layers):
         await self._normFormSubs(layers, 'inet:ipv4', cmprvalu='100.64.0.0/10')
 
+    async def revModel_0_2_23(self, layers):
+        await self._normFormSubsByProp(layers, 'it:sec:cpe', 'v2_2')
+
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -989,6 +994,99 @@ class ModelRev:
 
                     if len(nodeedits) >= 1000:  # pragma: no cover
                         await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normFormSubsByProp(self, layers, formname, propname):
+        # This is basically self._normFormSubs but instead of norming subs based on the primary property value, we are
+        # normalizing subs based on the value of a secondary property
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        subprops = {}
+
+        form = self.core.model.form(formname)
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            genr = layr.liftByProp(form.name, propname)
+
+            async for _, buid, sode in genr:
+
+                sodevalu = sode.get('valu')
+                if sodevalu is None: # pragma: no cover
+                    continue
+
+                formvalu = sodevalu[0]
+
+                props = sode.get('props')
+                if props is None:
+                    continue  # pragma: no cover
+
+                propvalu = props.get(propname)
+                if propvalu is None: # pragma: no cover
+                    continue
+
+                propvalu = propvalu[0]
+
+                try:
+                    norm, info = form.type.norm(propvalu)
+                except s_exc.BadTypeValu as e: # pragma: no cover
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Skipping {formname}={formvalu} : {oldm}')
+                    continue
+
+                if norm != formvalu:
+                    iden = s_common.ehex(buid)
+                    mesg = f'Unable to migrate primary property for {formname}="{formvalu}" (iden: {iden}). Continuing to migrate secondary properties.'
+                    logger.warning(mesg)
+
+                edits = []
+                subs = info.get('subs')
+                if subs is None:
+                    continue
+
+                for subname, subvalu in subs.items():
+
+                    subprop = subprops.get(subname, s_common.novalu)
+                    if subprop is s_common.novalu:
+                        subprop = subprops[subname] = self.core.model.prop(f'{formname}:{subname}')
+
+                    if subprop is None: # pragma: no cover
+                        continue
+
+                    try:
+                        subnorm, subinfo = subprop.type.norm(subvalu)
+                    except s_exc.BadTypeValu as e: # pragma: no cover
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
+                        continue
+
+                    subcurv = props.get(subprop.name)
+                    if subcurv is not None:
+                        if subcurv[1] != subprop.type.stortype: # pragma: no cover
+                            logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')
+                            continue
+                        subcurv = subcurv[0]
+
+                    if subcurv == subnorm:
+                        continue
+
+                    edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
+
+                if not edits: # pragma: no cover
+                    continue
+
+                nodeedits.append((buid, formname, edits))
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
 
             if nodeedits:
                 await save()
