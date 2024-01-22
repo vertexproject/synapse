@@ -136,16 +136,10 @@ class RiskModule(s_module.CoreModule):
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
 
-                (('it:prod:softver', 'has', 'risk:vuln'), {
-                    'doc': 'The software version is vulnerable to the vulnerability.'}),
-                (('it:sec:cpe', 'has', 'risk:vuln'), {
-                    'doc': 'The software version represented by the CPE is vulnerable to the vulnerability.'}),
-
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
                 (('risk:threat', 'targets', 'ou:industry'), {
                     'doc': 'The threat cluster targets the industry.'}),
-
 
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target node.'}),
