@@ -814,7 +814,8 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
-                        'doc': 'The username associated with the account'}),
+                        'doc': 'The username associated with the account',
+                    }),
                     ('contact', ('ps:contact', {}), {
                         'doc': 'Additional contact information associated with this account.',
                     }),
