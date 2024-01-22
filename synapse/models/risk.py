@@ -136,6 +136,11 @@ class RiskModule(s_module.CoreModule):
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
 
+                (('it:prod:softver', 'has', 'risk:vuln'), {
+                    'doc': 'The software is vulnerable to the vulnerability.'}),
+                (('it:sec:cpe', 'has', 'risk:vuln'), {
+                    'doc': 'The software version represented by the CPE is vulnerable to the vulnerability.'}),
+
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
                 (('risk:threat', 'targets', 'ou:industry'), {
@@ -311,6 +316,12 @@ class RiskModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the vulnerability.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'The severity of the vulnerability.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of the vulnerability.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the vulnerability.'}),
