@@ -3714,7 +3714,7 @@ class Layer(s_nexus.Pusher):
             self._incSodeRefs(buid, sode, inc=-1)
 
             self.dataslab.delete(lkey, db=self.nodedata)
-            self.dataslab.delete(abrv, nid, db=self.dataname)
+            self.dataslab.delete(lkey[8:], nid, db=self.dataname)
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))
