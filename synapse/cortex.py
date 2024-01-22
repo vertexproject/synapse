@@ -1315,9 +1315,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
              'desc': 'Controls setting any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
-             'ex': 'node.prop.set.inet:ipv4:asn',
-             'desc': 'Controls setting a specific property on a node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<form>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4',
+             'desc': 'Controls setting all properties of a form of node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<form>', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4.asn',
+             'desc': 'Controls setting a specific property of a form of node in a layer.'},
 
             {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
              'desc': 'Controls removing any prop on any node in a layer.'},

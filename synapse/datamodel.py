@@ -109,8 +109,11 @@ class Prop:
             self.isext = name.startswith('._')
         self.isform = False     # for quick Prop()/Form() detection
 
-        self.setperm = ('node', 'prop', 'set', self.full)
         self.delperm = ('node', 'prop', 'del', self.full)
+        self.setperms = (
+            ('node', 'prop', 'set', self.full),
+            ('node', 'prop', 'set', form.name, self.name),
+        )
 
         self.form = form
         self.type = None

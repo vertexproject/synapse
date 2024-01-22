@@ -2187,6 +2187,10 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def reqEditProp(self, prop):
+        if not self.allowed(prop.setperms[0], gateiden=self.snap.wlyr.iden):
+            self.confirm(prop.setperms[1], gateiden=self.snap.wlyr.iden)
+
     def confirmEasyPerm(self, item, perm):
         if not self.asroot:
             self.snap.core._reqEasyPerm(item, self.user, perm)
@@ -3569,7 +3573,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.props.keys():
-                    runt.confirm(node.form.props[name].setperm, gateiden=layriden)
+                    runt.reqEditProp(node.form.props[name])
 
                 for tag in node.tags.keys():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
