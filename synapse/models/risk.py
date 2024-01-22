@@ -137,7 +137,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The tool uses the vulnerability.'}),
 
                 (('it:prod:softver', 'has', 'risk:vuln'), {
-                    'doc': 'The software is vulnerable to the vulnerability.'}),
+                    'doc': 'The software version is vulnerable to the vulnerability.'}),
                 (('it:sec:cpe', 'has', 'risk:vuln'), {
                     'doc': 'The software version represented by the CPE is vulnerable to the vulnerability.'}),
 
