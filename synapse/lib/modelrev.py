@@ -1041,11 +1041,6 @@ class ModelRev:
                     logger.warning(f'Skipping {formname}={formvalu} : {oldm}')
                     continue
 
-                if norm != formvalu:
-                    iden = s_common.ehex(buid)
-                    mesg = f'Unable to migrate primary property for {formname}="{formvalu}" (iden: {iden}). Continuing to migrate secondary properties.'
-                    logger.warning(mesg)
-
                 edits = []
                 subs = info.get('subs')
                 if subs is None:
