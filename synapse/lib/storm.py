@@ -5576,7 +5576,9 @@ class EdgesDelCmd(Cmd):
             n2iden = node.iden()
             async for (v, n1iden) in node.iterEdgesN2(verb):
                 n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
-                await n1.delEdge(v, n2iden)
+                if n1 is not None:
+                    await n1.delEdge(v, n2iden)
+
         else:
             async for (v, n2iden) in node.iterEdgesN1(verb):
                 await node.delEdge(v, n2iden)
