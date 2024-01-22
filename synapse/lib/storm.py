@@ -4609,7 +4609,9 @@ class DelNodeCmd(Cmd):
                         async for (verb, n2iden) in edges:
                             n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
                             if n2 is not None:
-                                await n2.delEdge(verb, node.iden())
+                                if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
+                                    await self.runt.snap.applyNodeEdits(editor.getNodeEdits())
+                                    editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.props.get('sha256')

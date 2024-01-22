@@ -484,6 +484,32 @@ class NodeTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:str=delbar | delnode')
             self.stormHasNoWarnErr(msgs)
 
+            nodes = await core.nodes('[test:str=delfoo test:str=delbar]')
+            self.len(2, nodes)
+            foo, bar = nodes
+
+            q = '''
+            test:str=delbar
+            { for $ii in $lib.range(1200) {
+                $verb = `foo{$ii}`
+                [ +($verb)> { test:str=delfoo } ]
+            }}
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            fooedges = [edge async for edge in foo.iterEdgesN2()]
+            baredges = [edge async for edge in bar.iterEdgesN1()]
+
+            self.len(1200, fooedges)
+            self.len(1200, baredges)
+
+            msgs = await core.stormlist('test:str=delfoo | delnode --deledges')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=delfoo')
+            self.len(0, nodes)
+
     async def test_node_remove_missing_basetag(self):
 
         async with self.getTestCore() as core:
