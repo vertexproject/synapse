@@ -24,6 +24,24 @@ class BaseTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('meta:event -> meta:event:taxonomy'))
             self.len(1, await core.nodes('meta:event +:title=Hehe +:summary=Haha +:time=20220322 +:duration=120 +:type=hehe.haha +:timeline'))
 
+    async def test_model_base_meta_taxonomy(self):
+        async with self.getTestCore() as core:
+            q = '''
+            $info = ({"doc": "test taxonomy", "interfaces": ["meta:taxonomy"]})
+            $lib.model.ext.addForm(_test:taxonomy, taxonomy, ({}), $info)
+            '''
+            await core.callStorm(q)
+            nodes = await core.nodes('[_test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('_test:taxonomy', 'foo.bar.baz.'))
+            self.eq(node.get('title'), 'title words')
+            self.eq(node.get('desc'), 'a test taxonomy')
+            self.eq(node.get('sort'), 1)
+            self.eq(node.get('base'), 'baz')
+            self.eq(node.get('depth'), 2)
+            self.eq(node.get('parent'), 'foo.bar.')
+
     async def test_model_base_note(self):
 
         async with self.getTestCore() as core:

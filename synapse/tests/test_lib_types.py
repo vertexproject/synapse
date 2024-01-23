@@ -906,36 +906,34 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(1, await core.count('test:int:loc^=""'))
             self.eq(0, await core.count('test:int:loc^=23'))
 
-    def test_ndef(self):
-        model = s_datamodel.Model()
-        model.addDataModels([('test', s_t_utils.testmodel)])
-        t = model.type('test:ndef')
+    async def test_ndef(self):
+        async with self.getTestCore() as core:
+            t = core.model.type('test:ndef')
 
-        norm, info = t.norm(('test:str', 'Foobar!'))
-        self.eq(norm, ('test:str', 'Foobar!'))
-        self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
-                       'subs': {'form': 'test:str'}})
+            norm, info = t.norm(('test:str', 'Foobar!'))
+            self.eq(norm, ('test:str', 'Foobar!'))
+            self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
+                           'subs': {'form': 'test:str'}})
 
-        rval = t.repr(('test:str', 'Foobar!'))
-        self.eq(rval, ('test:str', 'Foobar!'))
-        rval = t.repr(('test:int', 1234))
-        self.eq(rval, ('test:int', '1234'))
+            rval = t.repr(('test:str', 'Foobar!'))
+            self.eq(rval, ('test:str', 'Foobar!'))
+            rval = t.repr(('test:int', 1234))
+            self.eq(rval, ('test:int', '1234'))
 
-        self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
-        self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
-        self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
+            self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
+            self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
+            self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
-    def test_nodeprop(self):
-        model = s_datamodel.Model()
-        model.addDataModels([('test', s_t_utils.testmodel)])
-        t = model.type('nodeprop')
+    async def test_nodeprop(self):
+        async with self.getTestCore() as core:
+            t = core.model.type('nodeprop')
 
-        expected = (('test:str', 'This is a sTring'), {'subs': {'prop': 'test:str'}})
-        self.eq(t.norm('test:str=This is a sTring'), expected)
-        self.eq(t.norm(('test:str', 'This is a sTring')), expected)
+            expected = (('test:str', 'This is a sTring'), {'subs': {'prop': 'test:str'}})
+            self.eq(t.norm('test:str=This is a sTring'), expected)
+            self.eq(t.norm(('test:str', 'This is a sTring')), expected)
 
-        self.raises(s_exc.NoSuchProp, t.norm, ('test:str:newp', 'newp'))
-        self.raises(s_exc.BadTypeValu, t.norm, ('test:str:tick', '2020', 'a wild argument appears'))
+            self.raises(s_exc.NoSuchProp, t.norm, ('test:str:newp', 'newp'))
+            self.raises(s_exc.BadTypeValu, t.norm, ('test:str:tick', '2020', 'a wild argument appears'))
 
     def test_range(self):
         model = s_datamodel.Model()

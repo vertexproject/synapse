@@ -858,7 +858,7 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 self.len(0, await core.nodes('media:news -(*)> $(0)'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.NoSuchForm):
                 self.len(0, await core.nodes('media:news -(*)> test:newp'))
 
             nodes = await core.nodes('$types = (refs,hehe) inet:ipv4 <($types)- *')
@@ -7282,6 +7282,35 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.ne(-1, mrevstart)
             self.ne(-1, dmonstart)
             self.lt(mrevstart, dmonstart)
+
+    async def test_cortex_taxonomy_migr(self):
+
+        async with self.getRegrCore('2.157.0-taxonomy-rename') as core:
+
+            self.true(core.cellvers.get('cortex:extmodel') >= 1)
+
+            self.len(4, await core.nodes('meta:taxonomy'))
+
+            nodes = await core.nodes('meta:taxonomy:desc')
+            self.len(2, nodes)
+            self.eq(nodes[0].props.get('desc'), 'another old interface')
+            self.eq(nodes[1].props.get('desc'), 'old interface')
+
+            self.none(core.model.ifaces.get('taxonomy'))
+            self.none(core.model.formsbyiface.get('taxonomy'))
+
+            q = '''
+            $typeinfo = ({'interfaces': ['taxonomy']})
+            $lib.model.ext.addForm(_auto:taxonomy, taxonomy, ({}), $typeinfo)
+            [ _auto:taxonomy=auto.foo :desc='automatically updated']
+            '''
+            await core.nodes(q)
+
+            self.len(1, await core.nodes('meta:taxonomy:desc="automatically updated"'))
+
+            self.none(core.model.ifaces.get('taxonomy'))
+            self.none(core.model.formsbyiface.get('taxonomy'))
+            self.isin('_auto:taxonomy', core.model.formsbyiface.get('meta:taxonomy'))
 
     async def test_cortex_vaults(self):
         '''

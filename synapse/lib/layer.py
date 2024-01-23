@@ -4169,7 +4169,10 @@ class Layer(s_nexus.Pusher):
         Remove all node data for a buid
         '''
         for lkey, _ in self.dataslab.scanByPref(buid, db=self.nodedata):
+            abrv = lkey[32:]
+            buid = lkey[:32]
             self.dataslab.delete(lkey, db=self.nodedata)
+            self.dataslab.delete(abrv, buid, db=self.dataname)
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))

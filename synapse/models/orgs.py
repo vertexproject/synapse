@@ -34,14 +34,14 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
                 ('ou:conttype', ('taxonomy', {}), {
                     'doc': 'A contract type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('ou:contract:type', ('str', {'enum': contracttypes}), {
                     'deprecated': True,
@@ -51,7 +51,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An industry classification type.',
                 }),
                 ('ou:industry:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'An industry type taxonomy.',
                 }),
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
@@ -138,7 +138,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A goal name.',
                 }),
                 ('ou:goal:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of goal types.',
                 }),
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
@@ -147,7 +147,7 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:camptype', ('taxonomy', {}), {
                     'doc': 'An campaign type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A campaign name.'}),
@@ -165,7 +165,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A specific technique used to achieve a goal.',
                 }),
                 ('ou:technique:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
                 }),
                 ('ou:id:type', ('guid', {}), {
@@ -192,12 +192,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
                     'doc': 'A taxonomy of job types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('ou:employment', ('taxonomy', {}), {
                     'ex': 'fulltime.salary',
                     'doc': 'An employment type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',

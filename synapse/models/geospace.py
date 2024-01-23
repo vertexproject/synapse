@@ -411,7 +411,7 @@ class GeoModule(s_module.CoreModule):
 
                     ('geo:place:taxonomy', ('taxonomy', {}), {
                         'doc': 'A taxonomy of place types.',
-                        'interfaces': ('taxonomy',),
+                        'interfaces': ('meta:taxonomy',),
                     }),
 
                     ('geo:address', ('str', {'lower': True, 'onespace': True}), {

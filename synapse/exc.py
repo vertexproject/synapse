@@ -228,7 +228,7 @@ class NoSuchForm(SynErr):
     @classmethod
     def init(cls, name, mesg=None):
         if mesg is None:
-            mesg = f'No form named {name}'
+            mesg = f'No form named {name}.'
         return NoSuchForm(mesg=mesg, name=name)
 
 class NoSuchProp(SynErr):
@@ -236,7 +236,7 @@ class NoSuchProp(SynErr):
     @classmethod
     def init(cls, name, mesg=None):
         if mesg is None:
-            mesg = f'No property named {name}'
+            mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
 
 class NoSuchAbrv(SynErr): pass

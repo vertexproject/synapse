@@ -1,6 +1,8 @@
 import os
-import subprocess
 import synapse.tests.utils as s_test
+
+from prompt_toolkit.document import Document
+from prompt_toolkit.completion import Completion, CompleteEvent
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -206,3 +208,135 @@ class StormCliTest(s_test.SynTest):
                 outp = s_output.OutPutStr()
                 await s_t_storm.main(('--optsfile', optsfile, url, 'file:bytes'), outp=outp)
                 self.isin('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', str(outp))
+
+    async def test_storm_tab_completion(self):
+        class DummyStorm:
+            def __init__(self, core):
+                self.item = core
+                self.stormopts = {}
+
+        async with self.getTestCore() as core:
+            cli = DummyStorm(core)
+
+            completer = s_t_storm.StormCompleter(cli)
+
+            async def get_completions(text):
+                document = Document(text)
+                event = CompleteEvent(completion_requested=True)
+                return await s_test.alist(completer.get_completions_async(document, event))
+
+            vals = await get_completions('')
+            self.len(0, vals)
+
+            # Check completion of forms/props
+            vals = await get_completions('inet:fq')
+            self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
+            self.isin(Completion('dn.seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
+            self.isin(Completion('dn.created', display='[prop] inet:fqdn.created - The time the node was created in the cortex.'), vals)
+            self.isin(Completion('dn:domain', display='[prop] inet:fqdn:domain - The parent domain for the FQDN.'), vals)
+            self.isin(Completion('dn:host', display='[prop] inet:fqdn:host - The host part of the FQDN.'), vals)
+            self.isin(Completion('dn:issuffix', display='[prop] inet:fqdn:issuffix - True if the FQDN is considered a suffix.'), vals)
+            self.isin(Completion('dn:iszone', display='[prop] inet:fqdn:iszone - True if the FQDN is considered a zone.'), vals)
+            self.isin(Completion('dn:zone', display='[prop] inet:fqdn:zone - The zone level parent for this FQDN.'), vals)
+
+            vals = await get_completions('inet:fqdn.')
+            self.isin(Completion('seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
+            self.isin(Completion('created', display='[prop] inet:fqdn.created - The time the node was created in the cortex.'), vals)
+
+            vals = await get_completions('[inet:fq')
+            self.isin(Completion('dn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
+            self.isin(Completion('dn.seen', display='[prop] inet:fqdn.seen - The time interval for first/last observation of the node.'), vals)
+
+            vals = await get_completions('[inet:')
+            self.isin(Completion('fqdn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
+            self.isin(Completion('ipv4', display='[form] inet:ipv4 - An IPv4 address.'), vals)
+
+            # No tags to return
+            vals = await get_completions('inet:ipv4#')
+            self.len(0, vals)
+
+            # Add some tags
+            await core.stormlist('[inet:ipv4=1.2.3.4 +#rep.foo]')
+            await core.stormlist('[inet:ipv4=1.2.3.5 +#rep.foo.bar]')
+            await core.stormlist('[inet:ipv4=1.2.3.6 +#rep.bar]')
+            await core.stormlist('[inet:ipv4=1.2.3.7 +#rep.baz]')
+            await core.stormlist('[syn:tag=rep :doc="Reputation base."]')
+
+            # Check completion of tags
+            vals = await get_completions('inet:ipv4#')
+            self.len(4, vals)
+            self.isin(Completion('rep', display='[tag] rep - Reputation base.'), vals)
+            self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
+            self.isin(Completion('rep.bar', display='[tag] rep.bar'), vals)
+            self.isin(Completion('rep.baz', display='[tag] rep.baz'), vals)
+
+            vals = await get_completions('inet:ipv4#rep.')
+            self.len(4, vals)
+            self.isin(Completion('foo', display='[tag] rep.foo'), vals)
+            self.isin(Completion('foo.bar', display='[tag] rep.foo.bar'), vals)
+            self.isin(Completion('bar', display='[tag] rep.bar'), vals)
+            self.isin(Completion('baz', display='[tag] rep.baz'), vals)
+
+            vals = await get_completions('inet:ipv4 +#')
+            self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
+
+            vals = await get_completions('inet:ipv4 -#')
+            self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
+
+            vals = await get_completions('[inet:ipv4 +#')
+            self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
+
+            vals = await get_completions('inet:ipv4 { +#')
+            self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
+
+            # Tag completion is view sensitive
+            fork = await core.callStorm('return(  $lib.view.get().fork().iden )')
+            await core.nodes('[syn:tag=rep.fork]', opts={'view': fork})
+
+            vals = await get_completions('test:str#rep.f')
+            self.len(2, vals)
+            self.isin(Completion('oo', display='[tag] rep.foo'), vals)
+            self.isin(Completion('oo.bar', display='[tag] rep.foo.bar'), vals)
+
+            cli.stormopts['view'] = fork
+            vals = await get_completions('test:str#rep.f')
+            self.len(3, vals)
+            self.isin(Completion('oo', display='[tag] rep.foo'), vals)
+            self.isin(Completion('ork', display='[tag] rep.fork'), vals)
+            self.isin(Completion('oo.bar', display='[tag] rep.foo.bar'), vals)
+            cli.stormopts.pop('view')
+
+            # Check completion of cmds
+            vals = await get_completions('vau')
+            self.isin(Completion('lt.add', display='[cmd] vault.add - Add a vault.'), vals)
+            self.isin(Completion('lt.set.secrets', display='[cmd] vault.set.secrets - Set vault secret data.'), vals)
+            self.isin(Completion('lt.set.configs', display='[cmd] vault.set.configs - Set vault config data.'), vals)
+            self.isin(Completion('lt.del', display='[cmd] vault.del - Delete a vault.'), vals)
+            self.isin(Completion('lt.list', display='[cmd] vault.list - List available vaults.'), vals)
+            self.isin(Completion('lt.set.perm', display='[cmd] vault.set.perm - Set permissions on a vault.'), vals)
+
+            vals = await get_completions('inet:ipv4 +#rep.foo | ser')
+            self.isin(Completion('vice.add', display='[cmd] service.add - Add a storm service to the cortex.'), vals)
+            self.isin(Completion('vice.del', display='[cmd] service.del - Remove a storm service from the cortex.'), vals)
+            self.isin(Completion('vice.list', display='[cmd] service.list - List the storm services configured in the cortex.'), vals)
+
+            # Check completion of libs
+            vals = await get_completions('inet:ipv4 $li')
+            self.len(0, vals)
+
+            vals = await get_completions('inet:ipv4 $lib')
+            self.isin(
+                Completion(
+                    '.auth.easyperm.allowed',
+                    display='[lib] $lib.auth.easyperm.allowed(edef: dict, level: str) - Check if the current user has a permission level in an easy perm dictionary.'
+                ),
+                vals
+            )
+
+            self.isin(
+                Completion(
+                    '.vault.list',
+                    display='[lib] $lib.vault.list() - List vaults accessible to the current user.'
+                ),
+                vals
+            )

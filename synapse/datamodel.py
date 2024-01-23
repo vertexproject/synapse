@@ -11,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
@@ -18,6 +19,8 @@ import synapse.lib.grammar as s_grammar
 logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
+
+PREFIX_CACHE_SIZE = 1000
 
 class TagProp:
 
@@ -450,10 +453,12 @@ class Model:
 
         self.propsbytype = collections.defaultdict(list)  # name: Prop()
         self.arraysbytype = collections.defaultdict(list)
-        # TODO use this for <nodes> -> foo:iface
+        self.ifaceprops = collections.defaultdict(list)
         self.formsbyiface = collections.defaultdict(list)
         self.edgesbyn1 = collections.defaultdict(list)
         self.edgesbyn2 = collections.defaultdict(list)
+
+        self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
@@ -571,22 +576,6 @@ class Model:
             'doc': 'The time the node was created in the cortex.',
         })
 
-        self.addIface('taxonomy', {
-            'doc': 'Properties common to taxonomies.',
-            'props': (
-                ('title', ('str', {}), {'doc': 'A brief title of the definition.'}),
-                ('summary', ('str', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use title/desc.',
-                    'disp': {'hint': 'text'}}),
-                ('desc', ('str', {}), {'doc': 'A definition of the taxonomy entry.', 'disp': {'hint': 'text'}}),
-                ('sort', ('int', {}), {'doc': 'A display sort order for siblings.', }),
-                ('base', ('taxon', {}), {'ro': True, 'doc': 'The base taxon.', }),
-                ('depth', ('int', {}), {'ro': True, 'doc': 'The depth indexed from 0.', }),
-                ('parent', ('$self', {}), {'ro': True, 'doc': 'The taxonomy parent.', }),
-            ),
-        })
-
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
@@ -599,6 +588,64 @@ class Model:
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
                 if not (isinstance(pname, tuple))]
+
+    def getFormsByPrefix(self, prefix):
+        forms = self.formprefixcache.get(prefix)
+        if forms is not None:
+            return forms
+
+        forms = []
+        for form in self.forms:
+            if form.startswith(prefix):
+                forms.append(form)
+
+        if forms:
+            forms.sort()
+            self.formprefixcache[prefix] = forms
+        return forms
+
+    def reqFormsByPrefix(self, prefix, extra=None):
+        forms = self.getFormsByPrefix(prefix)
+        if not forms:
+            mesg = f'No forms match prefix {prefix}.'
+            exc = s_exc.NoSuchForm(name=prefix, mesg=mesg)
+            if extra is not None:
+                exc = extra(exc)
+            raise exc
+
+        return forms
+
+    def reqFormsByLook(self, name, extra=None):
+        if (form := self.form(name)) is not None:
+            return (form.name,)
+
+        if (forms := self.formsbyiface.get(name)) is not None:
+            return forms
+
+        if name.endswith('*'):
+            return self.reqFormsByPrefix(name[:-1], extra=extra)
+
+        exc = s_exc.NoSuchForm.init(name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
+
+    def reqPropsByLook(self, name, extra=None):
+        if (forms := self.formsbyiface.get(name)) is not None:
+            return forms
+
+        if (props := self.ifaceprops.get(name)) is not None:
+            return props
+
+        if name.endswith('*'):
+            return self.reqFormsByPrefix(name[:-1], extra=extra)
+
+        exc = s_exc.NoSuchProp.init(name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def getTypeClone(self, typedef):
 
@@ -815,6 +862,8 @@ class Model:
         for ifname in form.type.info.get('interfaces', ()):
             self._addFormIface(form, ifname)
 
+        self.formprefixcache.clear()
+
         return form
 
     def delForm(self, formname):
@@ -833,10 +882,12 @@ class Model:
             self.arraysbytype[form.type.arraytype.name].remove(form)
 
         for ifname in form.ifaces.keys():
-            self.formsbyiface[ifname].remove(form)
+            self.formsbyiface[ifname].remove(formname)
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
+
+        self.formprefixcache.clear()
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
@@ -904,14 +955,18 @@ class Model:
             mesg = f'Form {form.name} depends on non-existant interface: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
+        if iface.get('deprecated'):
+            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
+            logger.warning(mesg)
+
         for propname, typedef, propinfo in iface.get('props', ()):
             if typedef[0] == '$self':
                 typedef = (form.name, typedef[1])
-            self._addFormProp(form, propname, typedef, propinfo)
+            prop = self._addFormProp(form, propname, typedef, propinfo)
+            self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
-        # TODO use this to allow storm: +foo:iface
         form.ifaces[name] = iface
-        self.formsbyiface[name].append(form)
+        self.formsbyiface[name].append(form.name)
 
         for ifname in iface.get('interfaces', ()):
             self._addFormIface(form, ifname)

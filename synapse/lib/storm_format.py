@@ -4,8 +4,6 @@ import pygments.lexer   # type: ignore
 import pygments.token as p_t  # type: ignore
 
 TerminalPygMap = {
-    'ABSPROP': p_t.Name,
-    'ABSPROPNOUNIV': p_t.Name,
     'ALLTAGS': p_t.Operator,
     'AND': p_t.Keyword,
     'BACKQUOTE': p_t.Punctuation,
@@ -83,6 +81,7 @@ TerminalPygMap = {
     'WHILE': p_t.Keyword,
     'WHITETOKN': p_t.Literal.String,
     'WILDCARD': p_t.Name,
+    'WILDPROPS': p_t.Name,
     'WILDTAGSEGNOVAR': p_t.Name,
     'YIELD': p_t.Keyword,
     '_ARRAYCONDSTART': p_t.Punctuation,

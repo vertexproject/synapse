@@ -1683,7 +1683,9 @@ class HttpApiTest(s_tests.SynTest):
                 async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
 
                     iden = s_common.guid()
+                    self.false(await core00.hasHttpSess(iden))
                     sess00 = await core00.genHttpSess(iden)
+                    self.true(await core00.hasHttpSess(iden))
                     await sess00.set('foo', 'bar')
                     self.eq('bar', sess00.info.get('foo'))
 
@@ -1701,6 +1703,7 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.none(await core00.getHttpSessDict(iden))
                     self.none(await core01.getHttpSessDict(iden))
+                    self.false(await core00.hasHttpSess(iden))
 
                     self.none(core00.sessions.get(iden))
                     self.none(core01.sessions.get(iden))
