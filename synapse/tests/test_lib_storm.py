@@ -3457,6 +3457,20 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_edges_del(self):
         async with self.getTestCore() as core:
+            view = await core.callStorm('return ($lib.view.get().fork().iden)')
+            opts = {'view': view}
+
+            await core.nodes('[test:int=8191 test:int=127]')
+            await core.stormlist('test:int=127 | [ <(refs)+ { test:int=8191 } ]', opts=opts)
+
+            # Delete the N1 out from under the fork
+            msgs = await core.stormlist('test:int=8191 | delnode')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('test:int=127 | edges.del * --n2', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+        async with self.getTestCore() as core:
 
             await core.nodes('[ test:str=test1 +(refs)> { [test:int=7 test:int=8] } ]')
             await core.nodes('[ test:str=test1 +(seen)> { [test:int=7 test:int=8] } ]')
