@@ -5,6 +5,9 @@ import asyncio
 import logging
 import argparse
 
+import regex
+import prompt_toolkit
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -28,6 +31,8 @@ Welcome to the Storm interpreter!
 Local interpreter (non-storm) commands may be executed with a ! prefix:
     Use !quit to exit.
     Use !help to see local interpreter commands.
+
+Use the <Tab> key for suggestion/completion of forms, commands, and tags.
 '''
 class QuitCmd(s_cli.CmdQuit):
     '''
@@ -214,6 +219,203 @@ class ExportCmd(StormCliCmd):
 
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
+
+def cmplgenr(*genrs, prefix=''):
+    '''
+    Iterate over all the generators/iterators passed in as args and return Completions from them.
+    If prefix is specified, make sure the current item in the generator starts with the prefix value.
+    '''
+    for genr in genrs:
+        for (valu, display) in genr:
+            if prefix and not valu.startswith(prefix):
+                continue
+
+            completion = prompt_toolkit.completion.Completion(
+                valu[len(prefix):],
+                display=display
+            )
+
+            yield completion
+
+tagre = regex.compile(r'#(\w+[\w\.]*)$')
+libre = regex.compile(r'\$([a-z_][a-zA-Z0-9_\.]*)$')
+cmdpropre = regex.compile(r'([a-z_][a-z0-9_]+[a-z0-9_:\.]+)$')
+
+class StormCompleter(prompt_toolkit.completion.Completer):
+    def __init__(self, cli):
+        self._cli = cli
+
+        self.initialized = False
+
+        # These are all the possible completions. Their format should be as follows:
+        # (<name>, <display>)
+
+        # ('misp.event.add', '[cmd] misp.event.add - Add Synapse nodes to a MISP server.')
+        self._cmds = []
+
+        # ('lib.cast', '[lib] $lib.cast(name: str, valu: any) - Normalize a value as a Synapse Data Model Type.')
+        # ('lib.debug', '[lib] $lib.debug - True if the current runtime has debugging enabled.')
+        self._libs = []
+
+        # ('inet:fqdn', '[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).')
+        # ('inet:fqdn:domain', '[prop] inet:fqdn:domain - The parent domain for the FQDN.')
+        self._forms = []
+        self._props = []
+
+    async def load(self):
+        info = await self._cli.item.getCoreInfoV2()
+        types = info['modeldict']['types']
+
+        # Process forms/props
+        for form in info['modeldict']['forms'].values():
+            formname = form['name']
+            formdoc = ''
+
+            formtype = types.get(formname)
+            if formtype:
+                forminfo = formtype.get('info')
+                if forminfo:
+                    formdoc = forminfo.get('doc')
+
+            if formdoc:
+                formdoc = f' - {formdoc}'
+
+            self._forms.append((formname, f'[form] {formname}{formdoc}'))
+
+            for prop in form['props'].values():
+                propname = prop['name']
+                if not propname.startswith('.'):
+                    propname = f':{propname}'
+
+                propdoc = prop.get('doc', '')
+                if propdoc:
+                    propdoc = f' - {propdoc}'
+
+                self._props.append((f'{formname}{propname}', f'[prop] {formname}{propname}{propdoc}'))
+
+        # Process cmds
+        commands = info['stormdocs']['commands']
+        for command in commands:
+            name = command['name']
+            doc = command['doc']
+            if doc:
+                doc = f' - {doc}'
+            self._cmds.append((name, f'[cmd] {name}{doc}'))
+
+        # Process libs
+        libraries = info['stormdocs']['libraries']
+        for library in libraries:
+            basename = '.'.join(library['path'])
+
+            for local in library['locals']:
+                libname = '.'.join((basename, local['name']))
+                name = libname
+                desc = local['desc'].strip().split('\n')[0]
+                libtype = local['type']
+                if isinstance(libtype, dict) and local['type']['type'] == 'function':
+                    args = local['type'].get('args')
+                    if args:
+                        params = []
+                        for arg in args:
+                            argname = arg['name']
+                            argtype = arg['type']
+
+                            params.append(f'{argname}: {argtype}')
+
+                        params = ', '.join(params)
+                        name = f'{name}({params})'
+                    else:
+                        name = f'{name}()'
+
+                self._libs.append((libname, f'[lib] ${name} - {desc}'))
+
+        self._forms.sort(key=lambda x: x[0])
+        self._props.sort(key=lambda x: x[0])
+        self._cmds.sort(key=lambda x: x[0])
+        self._libs.sort(key=lambda x: x[0])
+
+        self.initialized = True
+
+    async def _get_tag_completions(self, prefix='', limit=100):
+        if not prefix:
+            depth = 1
+        else:
+            depth = prefix.count('.') + 1
+
+        q = '''
+        $rslt = $lib.list()
+        if ($prefix != '') { syn:tag=$lib.regex.replace("\\.$", '', $prefix) }
+        syn:tag^=$prefix
+        +:depth<=$depth
+        | uniq
+        | limit $limit
+        | $leaf = $lib.true { -> syn:tag:up | limit 1 | $leaf = $lib.false }
+        $doc = ''
+        if $node.props.doc {
+            $doc = ` - {$node.props.doc}`
+        }
+        $rslt.append(($node.value(), `[tag] {$node.value()}{$doc}`))
+        | spin
+        | return($rslt)
+        '''
+        opts = {'vars': {'prefix': prefix, 'limit': limit, 'depth': depth}}
+        return await self._cli.item.callStorm(q, opts=opts)
+
+    def get_completions(self, document, complete_event):  # pragma: no cover
+        # This is the sync version of this method (vs get_completions_async()
+        # below). We don't need the sync version but the base class has this
+        # decorated as an abstract method so it needs to be configured. Do nothing.
+        pass
+
+    async def _get_completions_async(self, document, complete_event):
+        # Note: Be careful when changing the order of matching in this function.
+        text = document.text.strip()
+
+        # If the last character is a hash, suggest tags
+        if text[-1] == '#':
+            return cmplgenr(await self._get_tag_completions())
+
+        # Try to match partial tags
+        match = tagre.search(text)
+        if match:
+            tag = match.group(1)
+            return cmplgenr(await self._get_tag_completions(tag), prefix=tag)
+
+        # Try to match partial libs
+        match = libre.search(text)
+        if match:
+            name = match.group(1)
+            if name.startswith('lib'):
+                return cmplgenr(self._libs, prefix=name)
+            else:
+                # Nothing else below starts with $ so return
+                return
+
+        # Match on potential commands and props
+        match = cmdpropre.search(text)
+        if match:
+            valu = match.group(1)
+            if ':' in valu:
+                return cmplgenr(self._forms, self._props, prefix=valu)
+
+            return cmplgenr(self._cmds, self._forms, self._props, prefix=valu)
+
+    async def get_completions_async(self, document, complete_event):
+        # Only complete on TAB and if there is input
+        if not complete_event.completion_requested or not document.text or not document.text.strip():
+            return
+
+        # Initialize completions
+        if not self.initialized:
+            await self.load()
+            self.initialized = True
+
+        completions = await self._get_completions_async(document, complete_event)
+        if not completions:
+            return
+
+        for item in completions:
+            yield item
 
 class StormCli(s_cli.Cli):
 
@@ -423,14 +625,18 @@ async def main(argv, outp=s_output.stdout):
 
                 if opts.onecmd:
                     await cli.runCmdLine(opts.onecmd)
-                    return
 
-                # pragma: no cover
-                cli.colorsenabled = True
-                cli.printf(welcome)
+                else:  # pragma: no cover
 
-                await cli.addSignalHandlers()
-                await cli.runCmdLoop()
+                    completer = StormCompleter(cli)
+                    cli.completer = completer
+                    await completer.load()
+
+                    cli.colorsenabled = True
+                    cli.printf(welcome)
+
+                    await cli.addSignalHandlers()
+                    await cli.runCmdLoop()
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
