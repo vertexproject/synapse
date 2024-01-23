@@ -294,7 +294,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
                 self._props.append((f'{formname}{propname}', f'[prop] {formname}{propname}{propdoc}'))
 
         # Process cmds
-        commands = info['stormdocs']['commands']
+        commands = info['stormdocs'].get('commands', ())
         for command in commands:
             name = command['name']
             doc = command['doc']
@@ -349,8 +349,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         +:depth<=$depth
         | uniq
         | limit $limit
-        | $leaf = $lib.true { -> syn:tag:up | limit 1 | $leaf = $lib.false }
-        $doc = ''
+        | $doc = ''
         if $node.props.doc {
             $doc = ` - {$node.props.doc}`
         }
@@ -359,6 +358,9 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         | return($rslt)
         '''
         opts = {'vars': {'prefix': prefix, 'limit': limit, 'depth': depth}}
+        view = self._cli.stormopts.get('view')
+        if view:
+            opts['view'] = view
         return await self._cli.item.callStorm(q, opts=opts)
 
     def get_completions(self, document, complete_event):  # pragma: no cover
