@@ -2195,7 +2195,7 @@ class Runtime(s_base.Base):
         if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
             return
 
-        self.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
 
@@ -2205,7 +2205,7 @@ class Runtime(s_base.Base):
         if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
             return
 
-        self.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm):
         if not self.asroot:
