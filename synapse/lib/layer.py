@@ -1677,17 +1677,17 @@ class Layer(s_nexus.Pusher):
     def _testDelTagStor(self, nid, form, tag):
         sode = self._getStorNode(nid)
         sode['tags'].pop(tag, None)
-        self.setSodeDirty(nid, sode)
+        self.dirty[nid] = sode
 
     def _testDelPropStor(self, nid, form, prop):
         sode = self._getStorNode(nid)
         sode['props'].pop(prop, None)
-        self.setSodeDirty(nid, sode)
+        self.dirty[nid] = sode
 
     def _testDelFormValuStor(self, nid, form):
         sode = self._getStorNode(nid)
         sode['valu'] = None
-        self.setSodeDirty(nid, sode)
+        self.dirty[nid] = sode
 
     def _testAddPropIndx(self, nid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
@@ -1831,7 +1831,7 @@ class Layer(s_nexus.Pusher):
                 sode = self._genStorNode(nid)
                 sode.setdefault('form', form)
                 sode['tags'][tag] = (None, None)
-                self.setSodeDirty(nid, sode)
+                self.dirty[nid] = sode
             elif autofix == 'index':
                 self.layrslab.delete(lkey, nid, db=self.bytag)
 
@@ -2310,9 +2310,6 @@ class Layer(s_nexus.Pusher):
         byts = self.propabrv.abrvToByts(abrv)
         return s_msgpack.un(byts)
 
-    def setSodeDirty(self, nid, sode):
-        self.dirty[nid] = sode
-
     async def _onLayrSlabCommit(self, mesg):
         await self._saveDirtySodes()
 
@@ -2771,7 +2768,7 @@ class Layer(s_nexus.Pusher):
         sode['valu'] = valt
         sode['form'] = form
 
-        self.setSodeDirty(nid, sode)
+        self.dirty[nid] = sode
 
         abrv = self.setPropAbrv(form, None)
 
@@ -2837,7 +2834,7 @@ class Layer(s_nexus.Pusher):
         await self._delNodeEdges(nid, sode)
 
         if not self.mayDelNid(nid, sode):
-            self.setSodeDirty(nid, sode)
+            self.dirty[nid] = sode
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
@@ -2894,7 +2891,7 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(univabrv + oldi, nid, db=self.byprop)
 
         sode['props'][prop] = (valu, stortype)
-        self.setSodeDirty(nid, sode)
+        self.dirty[nid] = sode
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -2959,7 +2956,7 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(univabrv + indx, nid, db=self.byprop)
 
         if not self.mayDelNid(nid, sode):
-            self.setSodeDirty(nid, sode)
+            self.dirty[nid] = sode
 
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
@@ -2987,7 +2984,7 @@ class Layer(s_nexus.Pusher):
         formabrv = self.setPropAbrv(form, None)
 
         sode['tags'][tag] = valu
-        self.setSodeDirty(nid, sode)
+        self.dirty[nid] = sode
 
         self.layrslab.put(tagabrv + formabrv, nid, db=self.bytag)
 
@@ -3010,7 +3007,7 @@ class Layer(s_nexus.Pusher):
         self.layrslab.delete(tagabrv + formabrv, nid, db=self.bytag)
 
         if not self.mayDelNid(nid, sode):
-            self.setSodeDirty(nid, sode)
+            self.dirty[nid] = sode
 
         return (
             (EDIT_TAG_DEL, (tag, oldv), ()),
@@ -3054,7 +3051,7 @@ class Layer(s_nexus.Pusher):
             sode['tagprops'][tag] = {}
 
         sode['tagprops'][tag][prop] = (valu, stortype)
-        self.setSodeDirty(nid, sode)
+        self.dirty[nid] = sode
 
         kvpairs = []
         for indx in self.getStorIndx(stortype, valu):
@@ -3083,7 +3080,7 @@ class Layer(s_nexus.Pusher):
             sode['tagprops'].pop(tag)
 
         if not self.mayDelNid(nid, sode):
-            self.setSodeDirty(nid, sode)
+            self.dirty[nid] = sode
 
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
@@ -3152,8 +3149,8 @@ class Layer(s_nexus.Pusher):
         sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) + 1
         n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) + 1
 
-        self.setSodeDirty(nid, sode)
-        self.setSodeDirty(n2nid, n2sode)
+        self.dirty[nid] = sode
+        self.dirty[n2nid] = n2sode
 
         n1n2nid = nid + n2nid
 
@@ -3191,7 +3188,7 @@ class Layer(s_nexus.Pusher):
             sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) - 1
 
         if not self.mayDelNid(nid, sode):
-            self.setSodeDirty(nid, sode)
+            self.dirty[nid] = sode
 
         if (newvalu := n2sode['n2verbs'].get(verb, 0) - 1) == 0:
             n2sode['n2verbs'].pop(verb)
@@ -3199,7 +3196,7 @@ class Layer(s_nexus.Pusher):
             n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) - 1
 
         if not self.mayDelNid(n2nid, n2sode):
-            self.setSodeDirty(n2nid, n2sode)
+            self.dirty[n2nid] = n2sode
 
         return (
             (EDIT_EDGE_DEL, (verb, n2nid), ()),
@@ -3234,7 +3231,7 @@ class Layer(s_nexus.Pusher):
             n2sode = self._genStorNode(n2nid)
             n2sode['n2verbs'][venc] = n2sode['n2verbs'].get(venc, 0) - 1
 
-            self.setSodeDirty(n2nid, n2sode)
+            self.dirty[n2nid] = n2sode
 
     def getStorIndx(self, stortype, valu):
 

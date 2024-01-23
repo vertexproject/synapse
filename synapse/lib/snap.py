@@ -105,10 +105,6 @@ class ProtoNode:
             self.edgedels.remove(tupl)
             return True
 
-        if self.nid is None:
-            self.edges.add(tupl)
-            return True
-
         if not await self.ctx.snap.hasNodeEdge(self.nid, verb, n2nid):
             self.edges.add(tupl)
             return True
@@ -136,9 +132,6 @@ class ProtoNode:
         if tupl in self.edges:
             self.edges.remove(tupl)
             return True
-
-        if self.nid is None:
-            return False
 
         if tupl in self.edgedels:
             return False
@@ -479,7 +472,7 @@ class SnapEditor:
             return ()
 
         buid = s_common.buid(ndef)
-        nid = await self.snap.core.genBuidNid(buid, ndef=ndef)
+        nid = await self.snap.core.genBuidNid(buid, ndef)
         node = await self.snap.getNodeByNid(nid)
         if node is not None:
             return ()
@@ -518,7 +511,7 @@ class SnapEditor:
             return protonode
 
         buid = s_common.buid(ndef)
-        nid = await self.snap.core.genBuidNid(buid, ndef=ndef)
+        nid = await self.snap.core.genBuidNid(buid, ndef)
         node = await self.snap.getNodeByNid(nid)
 
         protonode = ProtoNode(self, nid, buid, form, norm, node)

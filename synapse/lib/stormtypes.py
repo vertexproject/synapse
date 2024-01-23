@@ -5832,6 +5832,9 @@ class Node(Prim):
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
         nid = self.valu.snap.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
 
         await self.valu.addEdge(verb, nid)
 
@@ -5843,6 +5846,9 @@ class Node(Prim):
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
         nid = self.valu.snap.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
 
         await self.valu.delEdge(verb, nid)
 

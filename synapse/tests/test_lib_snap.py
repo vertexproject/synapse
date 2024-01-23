@@ -611,9 +611,11 @@ class SnapTest(s_t_utils.SynTest):
                     self.false(await news.addEdge(1, fqdn.nid))
                     self.false(await news.addEdge('pwns', 1))
                     self.false(await news.addEdge('pwns', 'bar'))
+                    self.false(await news.addEdge('pwns', fqdn.nid[:7]))
                     self.false(await news.delEdge(1, fqdn.nid))
                     self.false(await news.delEdge('pwns', 1))
                     self.false(await news.delEdge('pwns', 'bar'))
+                    self.false(await news.delEdge('pwns', fqdn.nid[:7]))
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 

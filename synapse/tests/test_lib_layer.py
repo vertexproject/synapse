@@ -131,7 +131,7 @@ class LayerTest(s_t_utils.SynTest):
             asn = sode['props']['asn']
             sode['props']['asn'] = (asn[0], 8675309)
 
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -139,7 +139,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoStorTypeForProp')
 
             sode['props'] = None
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
             errors = [e async for e in core.getLayer().verify()]
             self.len(4, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
@@ -168,7 +168,7 @@ class LayerTest(s_t_utils.SynTest):
             sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props']['names'] = (names[0], 8675309)
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
 
             scanconf = {'include': [('ps:contact', 'names')]}
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
@@ -180,7 +180,7 @@ class LayerTest(s_t_utils.SynTest):
             sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props'] = {}
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
 
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
             self.len(3, errors)
@@ -189,7 +189,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[2][0], 'NoValuForPropArrayIndex')
 
             sode['props'] = None
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
             errors = [e async for e in core.getLayer().verify()]
             self.len(5, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
@@ -309,7 +309,7 @@ class LayerTest(s_t_utils.SynTest):
             sode = layr._getStorNode(nid)
             score = sode['tagprops']['foo']['score']
             sode['tagprops']['foo']['score'] = (score[0], 8675309)
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -318,7 +318,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr._getStorNode(nid)
             sode['tagprops']['foo'] = {}
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -327,7 +327,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr._getStorNode(nid)
             sode['tagprops'] = {}
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -336,7 +336,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr._getStorNode(nid)
             sode['tagprops'] = None
-            layr.setSodeDirty(nid, sode)
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)

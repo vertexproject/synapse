@@ -4570,6 +4570,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
+            data = [(('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=fake')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterEdgesN1())
+
             data = [(('syn:cmd', 'newp'), {})]
             await core1.addFeedData('syn.nodes', data)
             self.len(0, await core1.nodes('syn:cmd=newp'))

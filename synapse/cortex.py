@@ -2023,7 +2023,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self.v3stor.get(buid, db=self.buid2nid)
 
     @s_nexus.Pusher.onPush('nid:add')
-    async def _onGenBuidNid(self, buid, ndef=None):
+    async def _onGenBuidNid(self, buid, ndef):
         nid = self.v3stor.get(buid, db=self.buid2nid)
         if nid is not None:
             return nid
@@ -2033,18 +2033,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.v3stor.put(nid, buid, db=self.nid2buid)
         self.v3stor.put(buid, nid, db=self.buid2nid)
-
-        if ndef is not None:
-            self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+        self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
         return nid
 
-    async def genBuidNid(self, buid, ndef=None):
+    async def genBuidNid(self, buid, ndef):
         nid = self.v3stor.get(buid, db=self.buid2nid)
         if nid is not None:
             return nid
 
-        return await self._push('nid:add', buid, ndef=ndef)
+        return await self._push('nid:add', buid, ndef)
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)

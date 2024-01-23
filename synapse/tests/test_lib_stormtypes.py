@@ -5958,6 +5958,13 @@ words\tword\twrd'''
             with self.raises(s_exc.BadCast):
                 await core.nodes('ou:industry $node.delEdge(foo, bar)')
 
+            fakebuid = s_common.ehex(s_common.buid('newp'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(f'ou:industry $node.addEdge(foo, {fakebuid})')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes(f'ou:industry $node.delEdge(foo, {fakebuid})')
+
     async def test_storm_layer_lift(self):
 
         async with self.getTestCore() as core:
