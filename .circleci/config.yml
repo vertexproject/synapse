@@ -590,7 +590,6 @@ workflows:
             branches:
               only:
                 - master
-                - feat_pdef_tunable
 
       - build_docker_tag:
           requires:
