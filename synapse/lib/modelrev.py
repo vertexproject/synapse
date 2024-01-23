@@ -731,6 +731,7 @@ class ModelRev:
         await self._normFormSubs(layers, 'inet:ipv4', cmprvalu='100.64.0.0/10')
 
     async def revModel_0_2_23(self, layers):
+        await self._normFormSubs(layers, 'inet:ipv6')
         await self._normFormSubsByProp(layers, 'it:sec:cpe', 'v2_2')
 
     async def runStorm(self, text, opts=None):

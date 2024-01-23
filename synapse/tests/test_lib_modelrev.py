@@ -430,8 +430,8 @@ class ModelRevTest(s_tests.SynTest):
                 self.eq(node.props.get('type'), 'shared')
 
     async def test_modelrev_0_2_23(self):
-
         async with self.getRegrCore('model-0.2.23') as core:
+            self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
 
             nodes = await core.nodes('it:sec:cpe:vendor=10web')
             self.len(1, nodes)
