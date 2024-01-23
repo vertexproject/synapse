@@ -28,6 +28,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
@@ -6239,10 +6240,10 @@ class Layer(Prim):
                       {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from',
                        'default': 0, },
                       {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the pusher.',
-                       'default': 10_000},
+                       'default': s_const.layer_pdef_qsize},
                       {'name': 'chunk_size', 'type': 'int',
                        'desc': 'The chunk size of the pusher when pushing edits.',
-                       'default': 1_000}
+                       'default': s_const.layer_pdef_csize}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the push definition.', }}},
         {'name': 'delPush', 'desc': 'Remove a push config from the layer.',
@@ -6257,10 +6258,10 @@ class Layer(Prim):
                       {'name': 'url', 'type': 'str', 'desc': 'The telepath URL to a layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to begin from.', 'default': 0, },
                       {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the puller.',
-                       'default': 10_000},
+                       'default': s_const.layer_pdef_qsize},
                       {'name': 'chunk_size', 'type': 'int',
                        'desc': 'The chunk size of the puller when consuming edits.',
-                       'default': 1_000}
+                       'default': s_const.layer_pdef_csize}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the pull definition.', }}},
         {'name': 'delPull', 'desc': 'Remove a pull config from the layer.',
@@ -6578,7 +6579,7 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
         return await layr.getMirrorStatus()
 
-    async def _addPull(self, url, offs=0, queue_size=10_000, chunk_size=1_000):
+    async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
         offs = await toint(offs)
         queue_size = await toint(queue_size)
@@ -6622,7 +6623,7 @@ class Layer(Prim):
         todo = s_common.todo('delLayrPull', layriden, iden)
         await self.runt.dyncall('cortex', todo)
 
-    async def _addPush(self, url, offs=0, queue_size=10_000, chunk_size=1_000):
+    async def _addPush(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
         offs = await toint(offs)
         queue_size = await toint(queue_size)

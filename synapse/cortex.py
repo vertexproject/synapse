@@ -23,6 +23,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
@@ -1404,16 +1405,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             pushs = layrinfo.get('pushs', {})
             if pushs:
                 for pdef in pushs.values():
-                    pdef.setdefault('chunk:size', 1_000)
-                    pdef.setdefault('queue:size', 10_000)
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_csize)
                 await layrinfo.set('pushs', pushs, nexs=False)
 
             pulls = layrinfo.get('pulls', {})
             if pulls:
                 pulls = layrinfo.get('pulls', {})
                 for pdef in pulls.values():
-                    pdef.setdefault('chunk:size', 1_000)
-                    pdef.setdefault('queue:size', 10_000)
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
                 await layrinfo.set('pulls', pulls, nexs=False)
 
     async def initServiceRuntime(self):
@@ -4851,9 +4852,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = pdef.get('iden')
         user = pdef.get('user')
         gvar = f'push:{iden}'
-        # TODO Remove the defaults in 3.0.0
-        csize = pdef.get('chunk:size', 1_000)
-        qsize = pdef.get('queue:size', 10_000)
+
+        csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
+        qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
 
         async with await s_base.Base.anit() as base:
 

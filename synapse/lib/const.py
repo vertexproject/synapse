@@ -39,3 +39,7 @@ day = hour * 24
 week = day * 7
 month = day * 30
 year = day * 365
+
+# function specific constants shared across multiple files
+layer_pdef_csize = 1_000
+layer_pdef_qsize = 10_000
