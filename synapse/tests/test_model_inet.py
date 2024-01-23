@@ -4,7 +4,6 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
 
@@ -987,11 +986,13 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            info = {'subs': {'type': 'loopback'}}
+            info = {'subs': {'type': 'loopback', 'scope': 'link-local'}}
             self.eq(t.norm('::1'), ('::1', info))
             self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', info))
 
-            info = {'subs': {'type': 'private'}}
+            self.eq(t.norm('ff01::1'), ('ff01::1', {'subs': {'type': 'multicast', 'scope': 'interface-local'}}))
+
+            info = {'subs': {'type': 'private', 'scope': 'global'}}
             self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', info))
             self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), ('2001:db8::ff00:42:8329', info))
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
