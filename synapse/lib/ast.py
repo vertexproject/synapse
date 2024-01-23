@@ -4007,7 +4007,7 @@ class EditPropSet(Edit):
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
-                runt.reqEditProp(prop)
+                runt.confirmPropSet(prop)
 
             isarray = isinstance(prop.type, s_types.Array)
 
@@ -4086,7 +4086,7 @@ class EditPropDel(Edit):
                 exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
                 raise self.kids[0].addExcInfo(exc)
 
-            runt.layerConfirm(('node', 'prop', 'del', prop.full))
+            runt.confirmPropDel(prop)
 
             await node.pop(name)
 

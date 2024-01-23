@@ -2187,13 +2187,27 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
-    def reqEditProp(self, prop):
+    def confirmPropSet(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
 
         if len(prop.setperms) > 1:
             if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms[:-1]):
                 return
 
         self.confirm(prop.setperms[-1], gateiden=self.snap.wlyr.iden)
+
+    def confirmPropDel(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if len(prop.delperms) > 1:
+            if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms[:-1]):
+                return
+
+        self.confirm(prop.delperms[-1], gateiden=self.snap.wlyr.iden)
 
     def confirmEasyPerm(self, item, perm):
         if not self.asroot:
@@ -3577,7 +3591,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.props.keys():
-                    runt.reqEditProp(node.form.props[name])
+                    runt.confirmPropSet(node.form.props[name])
 
                 for tag in node.tags.keys():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
@@ -3771,9 +3785,9 @@ class MergeCmd(Cmd):
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
-            full = node.form.prop(name).full
-            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+            prop = node.form.prop(name)
+            runt.confirmPropDel(prop, layriden=layr0)
+            runt.confirmPropSet(prop, layriden=layr1)
 
         for tag, valu in sode.get('tags', {}).items():
             tagperm = tuple(tag.split('.'))
