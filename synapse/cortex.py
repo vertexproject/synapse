@@ -4852,7 +4852,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = pdef.get('iden')
         user = pdef.get('user')
         gvar = f'push:{iden}'
-
+        # TODO Remove the defaults in 3.0.0
         csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
         qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
 
