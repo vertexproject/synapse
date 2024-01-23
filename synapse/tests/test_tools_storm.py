@@ -213,6 +213,7 @@ class StormCliTest(s_test.SynTest):
         class DummyStorm:
             def __init__(self, core):
                 self.item = core
+                self.stormopts = {}
 
         async with self.getTestCore() as core:
             cli = DummyStorm(core)
@@ -287,6 +288,23 @@ class StormCliTest(s_test.SynTest):
 
             vals = await get_completions('inet:ipv4 { +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
+
+            # Tag completion is view sensitive
+            fork = await core.callStorm('return(  $lib.view.get().fork().iden )')
+            await core.nodes('[syn:tag=rep.fork]', opts={'view': fork})
+
+            vals = await get_completions('test:str#rep.f')
+            self.len(2, vals)
+            self.isin(Completion('oo', display='[tag] rep.foo'), vals)
+            self.isin(Completion('oo.bar', display='[tag] rep.foo.bar'), vals)
+
+            cli.stormopts['view'] = fork
+            vals = await get_completions('test:str#rep.f')
+            self.len(3, vals)
+            self.isin(Completion('oo', display='[tag] rep.foo'), vals)
+            self.isin(Completion('ork', display='[tag] rep.fork'), vals)
+            self.isin(Completion('oo.bar', display='[tag] rep.foo.bar'), vals)
+            cli.stormopts.pop('view')
 
             # Check completion of cmds
             vals = await get_completions('vau')
