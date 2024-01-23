@@ -158,15 +158,15 @@ class Node(NodeBase):
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def addEdge(self, verb, n2iden):
+    async def addEdge(self, verb, n2nid):
 
         async with self.snap.getNodeEditor(self) as editor:
-            return await editor.addEdge(verb, n2iden)
+            return await editor.addEdge(verb, n2nid)
 
-    async def delEdge(self, verb, n2iden):
+    async def delEdge(self, verb, n2nid):
 
         async with self.snap.getNodeEditor(self) as editor:
-            return await editor.delEdge(verb, n2iden)
+            return await editor.delEdge(verb, n2nid)
 
 #        n2iden = s_common.ehex(self.snap.core.getBuidByNid(n2nid))
 #        nodeedits = (
@@ -428,7 +428,7 @@ class Node(NodeBase):
         if not edits:
             return False
 
-        await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
         return True
 
     def hasTag(self, name):
@@ -645,7 +645,7 @@ class Node(NodeBase):
         '''
         edits = await self._getTagDelEdits(tag, init=init)
         if edits:
-            nodeedit = (self.buid, self.form.name, edits)
+            nodeedit = (self.nid, self.form.name, edits)
             await self.snap.saveNodeEdits((nodeedit,))
 
     def _getTagPropDel(self, tag):
@@ -742,7 +742,7 @@ class Node(NodeBase):
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
         )
 
-        await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
 
     async def delete(self, force=False):
         '''
@@ -787,7 +787,7 @@ class Node(NodeBase):
 
             async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
 
-                if refr.buid == self.buid:
+                if refr.nid == self.nid:
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
@@ -815,31 +815,31 @@ class Node(NodeBase):
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
         )
 
-        await self.snap.saveNodeEdits(((self.buid, formname, edits),))
-        self.snap.livenodes.pop(self.buid, None)
+        await self.snap.saveNodeEdits(((self.nid, formname, edits),))
+        self.snap.livenodes.pop(self.nid, None)
 
     async def hasData(self, name):
         if name in self.nodedata:
             return True
-        return await self.snap.hasNodeData(self.buid, name)
+        return await self.snap.hasNodeData(self.nid, name)
 
     async def getData(self, name, defv=None):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
-        return await self.snap.getNodeData(self.buid, name, defv=defv)
+        return await self.snap.getNodeData(self.nid, name, defv=defv)
 
     async def setData(self, name, valu):
         async with self.snap.getNodeEditor(self) as protonode:
             await protonode.setData(name, valu)
 
     async def popData(self, name):
-        retn = await self.snap.getNodeData(self.buid, name)
+        retn = await self.snap.getNodeData(self.nid, name)
 
         edits = (
             (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
         )
-        await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
 
         return retn
 
@@ -862,6 +862,8 @@ class RuntNode(NodeBase):
         self.pode = pode
         self.buid = s_common.buid(self.ndef)
         self.form = snap.core.model.form(self.ndef[0])
+
+        self.nid = self.buid
 
     def get(self, name, defv=None):
         return self.pode[1]['props'].get(name, defv)
@@ -891,11 +893,11 @@ class RuntNode(NodeBase):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
-    async def addEdge(self, verb, n2iden):
+    async def addEdge(self, verb, n2nid):
         mesg = f'You can not add an edge to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
-    async def delEdge(self, verb, n2iden):
+    async def delEdge(self, verb, n2nid):
         mesg = f'You can not delete an edge from a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 

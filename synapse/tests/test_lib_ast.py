@@ -2968,7 +2968,7 @@ class AstTest(s_test.SynTest):
 
             # node creation + 2 batches of edits
             nextoffs = await core.getView().layers[0].getEditIndx()
-            self.eq(strtoffs + 3, nextoffs)
+            self.eq(strtoffs + 4, nextoffs)
 
             q = '''
             inet:ipv4=1.2.3.4

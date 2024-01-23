@@ -1999,15 +1999,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.onfini(self.v3stor.fini)
 
-        # TODO move sodes to being keyed by nid integerkey=True
-        self.nidrefs = self.v3stor.initdb('nidrefs', integerkey=True)
         self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
         self.nid2buid = self.v3stor.initdb('nid2buid', integerkey=True)
         self.buid2nid = self.v3stor.initdb('buid2nid')
 
         self.nextnid = 0
-        # TODO is it safe to potentially reuse nids if the last one is removed?
-        byts = self.v3stor.lastkey(db=self.nidrefs)
+        byts = self.v3stor.lastkey(db=self.nid2buid)
         if byts is not None:
             self.nextnid = int.from_bytes(byts) + 1
 
@@ -2025,42 +2022,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getNidByBuid(self, buid):
         return self.v3stor.get(buid, db=self.buid2nid)
 
-    def genBuidNid(self, buid, inc=1):
-
+    @s_nexus.Pusher.onPush('nid:add')
+    async def _onGenBuidNid(self, buid, ndef=None):
         nid = self.v3stor.get(buid, db=self.buid2nid)
         if nid is not None:
-            refsbyts = self.v3stor.get(nid, db=self.nidrefs)
-            refs = int.from_bytes(refsbyts) + inc
-            self.v3stor.put(nid, refs.to_bytes(8), db=self.nidrefs)
             return nid
 
         nid = self.nextnid.to_bytes(8)
         self.nextnid += 1
 
         self.v3stor.put(nid, buid, db=self.nid2buid)
-        self.v3stor.put(nid, inc.to_bytes(8), db=self.nidrefs)
-
         self.v3stor.put(buid, nid, db=self.buid2nid)
+
+        if ndef is not None:
+            self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
         return nid
 
-    def incBuidNid(self, nid, inc=1):
+    async def genBuidNid(self, buid, ndef=None):
+        nid = self.v3stor.get(buid, db=self.buid2nid)
+        if nid is not None:
+            return nid
 
-        refsbyts = self.v3stor.get(nid, db=self.nidrefs)
-        if refsbyts is None:
-            return 0
-
-        refs = int.from_bytes(refsbyts) + inc
-
-        if refs <= 0:
-            buid = self.v3stor.pop(nid, db=self.nid2buid)
-            self.v3stor.delete(nid, db=self.nidrefs)
-            self.v3stor.delete(nid, db=self.nid2ndef)
-            self.v3stor.delete(buid, db=self.buid2nid)
-            return 0
-
-        self.v3stor.put(nid, refs.to_bytes(8), db=self.nidrefs)
-        return refs
+        return await self._push('nid:add', buid, ndef=ndef)
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -3281,8 +3265,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
-        async for item in layr.syncNodeEdits(offs, wait=wait):
-            yield item
+        async for (offs, nodeedits) in layr.syncNodeEdits(offs, wait=wait):
+            extedits = []
+            for edit in nodeedits:
+                extedits.append((self.getBuidByNid(edit[0]),) + edit[1:])
+
+            yield (offs, extedits)
 
     async def syncLayersEvents(self, offsdict=None, wait=True):
         '''
@@ -5743,7 +5731,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
+        Yields nid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes

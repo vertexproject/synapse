@@ -90,7 +90,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoValuForPropIndex')
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(3, errors)
+            self.len(2, errors)
 
             core.getLayer()._testDelFormValuStor(nid, 'inet:ipv4')
             errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', None)]
@@ -131,7 +131,7 @@ class LayerTest(s_t_utils.SynTest):
             asn = sode['props']['asn']
             sode['props']['asn'] = (asn[0], 8675309)
 
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -139,14 +139,13 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoStorTypeForProp')
 
             sode['props'] = None
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(5, errors)
+            self.len(4, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoValuForPropIndex')
             self.eq(errors[2][0], 'NoValuForPropIndex')
             self.eq(errors[3][0], 'NoValuForPropIndex')
-            self.eq(errors[4][0], 'InvalidRefCount')
 
         # Check arrays
         async with self.getTestCore() as core:
@@ -169,7 +168,7 @@ class LayerTest(s_t_utils.SynTest):
             sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props']['names'] = (names[0], 8675309)
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
 
             scanconf = {'include': [('ps:contact', 'names')]}
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
@@ -181,7 +180,7 @@ class LayerTest(s_t_utils.SynTest):
             sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props'] = {}
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
 
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
             self.len(3, errors)
@@ -190,15 +189,14 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[2][0], 'NoValuForPropArrayIndex')
 
             sode['props'] = None
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(6, errors)
+            self.len(5, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoValuForPropArrayIndex')
             self.eq(errors[2][0], 'NoValuForPropArrayIndex')
             self.eq(errors[3][0], 'NoValuForPropIndex')
             self.eq(errors[4][0], 'NoValuForPropIndex')
-            self.eq(errors[5][0], 'InvalidRefCount')
 
             await core.nodes('ps:contact | delnode --force')
 
@@ -264,9 +262,8 @@ class LayerTest(s_t_utils.SynTest):
 
             config = {'scans': {'tagindex': {'autofix': 'index'}}}
             errors = [e async for e in core.getLayer().verify(config=config)]
-            self.len(2, errors)
+            self.len(1, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
-            self.eq(errors[1][0], 'InvalidRefCount')
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
@@ -275,7 +272,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            errors = [e async for e in layr.verifyAllBuids()]
+            errors = [e async for e in layr.verifyAllNids()]
             self.len(0, errors)
 
             errors = [e async for e in layr.verifyAllProps()]
@@ -312,7 +309,7 @@ class LayerTest(s_t_utils.SynTest):
             sode = layr._getStorNode(nid)
             score = sode['tagprops']['foo']['score']
             sode['tagprops']['foo']['score'] = (score[0], 8675309)
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -321,17 +318,16 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr._getStorNode(nid)
             sode['tagprops']['foo'] = {}
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(3, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoValuForTagPropIndex')
             self.eq(errors[1][0], 'NoValuForTagPropIndex')
-            self.eq(errors[2][0], 'InvalidRefCount')
 
             sode = layr._getStorNode(nid)
             sode['tagprops'] = {}
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -340,7 +336,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr._getStorNode(nid)
             sode['tagprops'] = None
-            layr.setSodeDirty(sode)
+            layr.setSodeDirty(nid, sode)
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -852,7 +848,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.getLayer()
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
 
-            buid = nodes[0].buid
+            nid = nodes[0].nid
             ival = nodes[0].get('.seen')
             tick = nodes[0].get('.created')
             tagv = nodes[0].getTag('foo.bar')
@@ -861,7 +857,7 @@ class LayerTest(s_t_utils.SynTest):
             newtagv = (tagv[0] + 100, tagv[1] - 100)
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
+                (nid, 'inet:ipv4', (
                     (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL), ()),
                 )),
             ]
@@ -871,7 +867,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +.seen=(2012,2014)'))
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
+                (nid, 'inet:ipv4', (
                     (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
                 )),
             ]
@@ -882,7 +878,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tick, nodes[0].get('.created'))
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
+                (nid, 'inet:ipv4', (
                     (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
                 )),
             ]
@@ -896,7 +892,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tick - 200, nodes[0].get('.created'))
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
+                (nid, 'inet:ipv4', (
                     (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv), ()),
                 )),
             ]
@@ -1126,31 +1122,31 @@ class LayerTest(s_t_utils.SynTest):
             mdef = {'forms': ['test:str']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()),
-                (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+                (strnode.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+                (strnode.nid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8), ()),
             ])
 
             mdef = {'props': ['.seen']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
             self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()),
             ])
 
             mdef = {'props': ['inet:ipv4:asn']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
             self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64), ()),
             ])
 
             mdef = {'tags': ['foo.bar']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival), ()),
             ])
 
             mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
@@ -1158,9 +1154,9 @@ class LayerTest(s_t_utils.SynTest):
             for mdef in mdefs:
                 events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
                 self.eq(events, [
-                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
+                    (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
                         ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()),
-                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
+                    (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
                         ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
                 ])
 
@@ -1393,25 +1389,25 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:ipv4=1 :asn=10 .seen=(2016, 2017) +#foo=(2020, 2021) +#foo:score=42]')
             self.len(1, nodes)
-            buid1 = nodes[0].buid
+            nid1 = nodes[0].nid
 
             nodes = await core.nodes('[inet:ipv4=2 :asn=20 .seen=(2015, 2016) +#foo=(2019, 2020) +#foo:score=41]')
             self.len(1, nodes)
-            buid2 = nodes[0].buid
+            nid2 = nodes[0].nid
 
             nodes = await core.nodes('[inet:ipv4=3 :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99]')
             self.len(1, nodes)
-            buid3 = nodes[0].buid
+            nid3 = nodes[0].nid
 
             nodes = await core.nodes('[test:str=yolo]')
             self.len(1, nodes)
-            strbuid = nodes[0].buid
+            strnid = nodes[0].nid
 
             nodes = await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}})
             self.len(1, nodes)
-            strbuid2 = nodes[0].buid
+            strnid2 = nodes[0].nid
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             layr = core.view.layers[0]
             rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
 
@@ -1424,7 +1420,7 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             rows = await alist(layr.iterUnivRows('.seen'))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
@@ -1433,13 +1429,13 @@ class LayerTest(s_t_utils.SynTest):
 
             # iterFormRows
             rows = await alist(layr.iterFormRows('inet:ipv4'))
-            self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
+            self.eq([(nid1, 1), (nid2, 2), (nid3, 3)], rows)
 
             rows = await alist(layr.iterFormRows('inet:ipv4', stortype=s_layer.STOR_TYPE_U32, startvalu=2))
-            self.eq([(buid2, 2), (buid3, 3)], rows)
+            self.eq([(nid2, 2), (nid3, 3)], rows)
 
             rows = await alist(layr.iterFormRows('test:str', stortype=s_layer.STOR_TYPE_UTF8, startvalu='yola'))
-            self.eq([(strbuid, 'yolo'), (strbuid2, 'z' * 500)], rows)
+            self.eq([(strnid, 'yolo'), (strnid2, 'z' * 500)], rows)
 
             # iterTagRows
             expect = (
@@ -1448,7 +1444,7 @@ class LayerTest(s_t_utils.SynTest):
                 (tm('2018', '2020'), 'inet:ipv4'),
             )
 
-            # FIXME discuss iterTagRows no longer being buid sorted...
+            # FIXME discuss iterTagRows no longer being nid sorted...
             rows = await alist(layr.iterTagRows('foo'))
             self.sorteq(expect, [row[1] for row in rows])
 
@@ -1462,9 +1458,9 @@ class LayerTest(s_t_utils.SynTest):
             self.eq([], rows)
 
             expect = [
-                (buid2, 41,),
-                (buid1, 42,),
-                (buid3, 99,),
+                (nid2, 41,),
+                (nid1, 42,),
+                (nid3, 99,),
             ]
 
             rows = await alist(layr.iterTagPropRows('foo', 'newp'))

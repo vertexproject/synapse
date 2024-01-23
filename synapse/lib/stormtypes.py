@@ -5794,11 +5794,7 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetStorNodes(self):
-        sodes = await self.valu.getStorNodes()
-        for sode in sodes:
-            if (nid := sode.get('nid')) is not None:
-                sode['nid'] = s_common.ehex(nid)
-        return sodes
+        return await self.valu.getStorNodes()
 
     @stormfunc(readonly=True)
     def _methGetByLayer(self):
@@ -5835,7 +5831,9 @@ class Node(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        await self.valu.addEdge(verb, iden)
+        nid = self.valu.snap.core.getNidByBuid(s_common.uhex(iden))
+
+        await self.valu.addEdge(verb, nid)
 
     async def _methNodeDelEdge(self, verb, iden):
         verb = await tostr(verb)
@@ -5844,7 +5842,9 @@ class Node(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        await self.valu.delEdge(verb, iden)
+        nid = self.valu.snap.core.getNidByBuid(s_common.uhex(iden))
+
+        await self.valu.delEdge(verb, nid)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
@@ -6800,18 +6800,18 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(layriden)
 
         async for nid, sode in layr.getStorNodes():
-            if (nid := sode.get('nid')) is not None:
-                sode['nid'] = s_common.ehex(nid)
-
-            yield (self.runt.snap.core.getBuidByNid(nid), sode)
+            yield (s_common.ehex(self.runt.snap.core.getBuidByNid(nid)), sode)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getEdges():
-            yield item
+
+        async for n1nid, verb, n2nid in layr.getEdges():
+            n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+            n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
+            yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
     async def getEdgesByN1(self, nodeid):
@@ -6819,7 +6819,6 @@ class Layer(Prim):
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-
         layr = self.runt.snap.core.getLayer(layriden)
 
         n1nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
@@ -6832,7 +6831,6 @@ class Layer(Prim):
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-
         layr = self.runt.snap.core.getLayer(layriden)
 
         n2nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
@@ -7309,8 +7307,11 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
-        todo = s_common.todo('getFormCounts')
-        return await self.viewDynCall(todo, ('view', 'read'))
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getFormCounts()
 
     @stormfunc(readonly=True)
     async def _methGetPropCount(self, propname, valu=undef):
@@ -7362,28 +7363,24 @@ class View(Prim):
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
-        todo = s_common.todo('getEdges', verb=verb)
-        async for edge in self.viewDynIter(todo, ('view', 'read')):
-            yield edge
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        async for n1nid, verb, n2nid in view.getEdges():
+            n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+            n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
+            yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
-        todo = s_common.todo('getEdgeVerbs')
-        async for verb in self.viewDynIter(todo, ('view', 'read')):
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        async for verb in view.getEdgeVerbs():
             yield verb
-
-    async def viewDynIter(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
-            yield item
-
-    async def viewDynCall(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):

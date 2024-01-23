@@ -1784,8 +1784,6 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
-                    snap.cachebuids = False
-
                     snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
                     self.err_evnt.clear()
@@ -3612,11 +3610,7 @@ class CopyToCmd(Cmd):
                             runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
                             verbs[verb] = True
 
-                        n2node = await snap.getNodeByNid(n2nid)
-                        if n2node is None:
-                            continue
-
-                        await proto.addEdge(verb, s_common.ehex(n2node.buid))
+                        await proto.addEdge(verb, n2nid)
 
                     # for the reverse edges, we'll need to make edits to the n1 node
                     async for verb, n1nid in node.iterEdgesN2():
@@ -3627,7 +3621,7 @@ class CopyToCmd(Cmd):
 
                         n1proto = await editor.getNodeByNid(n1nid)
                         if n1proto is not None:
-                            await n1proto.addEdge(verb, s_common.ehex(node.buid))
+                            await n1proto.addEdge(verb, node.nid)
 
                 yield node, path
 
@@ -3837,7 +3831,7 @@ class MergeCmd(Cmd):
                         await runt.snap.view.parent.saveNodeEdits(addedits, meta=meta)
 
                     if subs:
-                        subedits = [(node.buid, node.form.name, subs)]
+                        subedits = [(node.nid, node.form.name, subs)]
                         await runt.snap.saveNodeEdits(subedits, meta=meta)
                         subs.clear()
 
@@ -3966,12 +3960,12 @@ class MergeCmd(Cmd):
                                 await asyncio.sleep(0)
 
                     async for name, n2nid in layr.iterNodeEdgesN1(node.nid):
-                        dest = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
                         if not self.opts.apply:
+                            dest = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
                             await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
                         else:
-                            await protonode.addEdge(name, dest)
-                            subs.append((s_layer.EDIT_EDGE_DEL, (name, dest), ()))
+                            await protonode.addEdge(name, n2nid)
+                            subs.append((s_layer.EDIT_EDGE_DEL, (name, n2nid), ()))
                             if len(subs) >= 1000:
                                 await asyncio.sleep(0)
 
@@ -3980,8 +3974,8 @@ class MergeCmd(Cmd):
 
                 await sync()
 
-                runt.snap.clearCachedNode(node.buid)
-                yield await runt.snap.getNodeByBuid(node.buid), path
+                runt.snap.clearCachedNode(node.nid)
+                yield await runt.snap.getNodeByNid(node.nid), path
 
 class MoveNodesCmd(Cmd):
     '''
@@ -4172,7 +4166,7 @@ class MoveNodesCmd(Cmd):
             await self._moveEdges(node, meta)
 
             for layr, valu in delnodes:
-                edit = [(node.buid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu, ())])]
+                edit = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu, ())])]
                 await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
             # we may yield the same node because the edits are reflected in it now...
@@ -4184,13 +4178,13 @@ class MoveNodesCmd(Cmd):
             return
 
         if self.adds:
-            addedits = [(node.buid, node.form.name, self.adds)]
+            addedits = [(node.nid, node.form.name, self.adds)]
             await self.lyrs[self.destlayr].saveNodeEdits(addedits, meta=meta)
             self.adds.clear()
 
         for srclayr, edits in self.subs.items():
             if edits:
-                subedits = [(node.buid, node.form.name, edits)]
+                subedits = [(node.nid, node.form.name, edits)]
                 await self.lyrs[srclayr].saveNodeEdits(subedits, meta=meta)
                 edits.clear()
 
@@ -4307,7 +4301,7 @@ class MoveNodesCmd(Cmd):
                     if not self.opts.apply:
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
                     else:
-                        (retn, valu) = await self.lyrs[layr].getNodeData(node.buid, name)
+                        (retn, valu) = await self.lyrs[layr].getNodeData(node.nid, name)
                         if retn:
                             self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
                             ecnt += 1
@@ -4338,17 +4332,14 @@ class MoveNodesCmd(Cmd):
         for iden, layr in self.lyrs.items():
             if not iden == self.destlayr:
                 async for (verb, nid) in layr.iterNodeEdgesN1(node.nid):
-                    # TODO local edits vs compat edits?
-                    edge = (verb, s_common.ehex(layr.core.getBuidByNid(nid)))
-                    n2node = await node.snap.getNodeByNid(nid)
 
                     if not self.opts.apply:
-                        name, dest = edge
-                        await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({name})> {dest}')
-                        await self.runt.printf(f'{iden} delete {nodeiden} {form} +({name})> {dest}')
+                        dest = s_common.ehex(layr.core.getBuidByNid(nid))
+                        await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({verb})> {dest}')
+                        await self.runt.printf(f'{iden} delete {nodeiden} {form} +({verb})> {dest}')
                     else:
-                        self.adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                        self.subs[iden].append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                        self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, nid), ()))
+                        self.subs[iden].append((s_layer.EDIT_EDGE_DEL, (verb, nid), ()))
                         ecnt += 2
 
                     if ecnt >= 1000:
@@ -4431,12 +4422,12 @@ class UniqCmd(Cmd):
             else:
                 async for node, path in genr:
 
-                    if node.buid in uniqset:
+                    if node.nid in uniqset:
                         # all filters must sleep
                         await asyncio.sleep(0)
                         continue
 
-                    await uniqset.add(node.buid)
+                    await uniqset.add(node.nid)
                     yield node, path
 
 class MaxCmd(Cmd):
@@ -5448,7 +5439,7 @@ class ScrapeCmd(Cmd):
                             mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                             await runt.warn(mesg)
                         else:
-                            await node.addEdge('refs', nnode.iden())
+                            await node.addEdge('refs', nnode.nid)
 
                     if self.opts.doyield:
                         yield nnode, npath
@@ -5510,7 +5501,7 @@ class LiftByVerb(Cmd):
                 if n2 in idenset:
                     continue
                 await idenset.add(n2)
-                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n2))
+                node = await self.runt.snap.getNodeByNid(n2)
                 if node:
                     yield node
         else:
@@ -5518,7 +5509,7 @@ class LiftByVerb(Cmd):
                 if n1 in idenset:
                     continue
                 await idenset.add(n1)
-                node = await self.runt.snap.getNodeByBuid(s_common.uhex(n1))
+                node = await self.runt.snap.getNodeByNid(n1)
                 if node:
                     yield node
 
@@ -5575,14 +5566,13 @@ class EdgesDelCmd(Cmd):
 
     async def delEdges(self, node, verb, n2=False):
         if n2:
-            n2iden = node.iden()
+            n2nid = node.nid
             async for (v, n1nid) in node.iterEdgesN2(verb):
                 n1 = await self.runt.snap.getNodeByNid(n1nid)
-                await n1.delEdge(v, n2iden)
+                await n1.delEdge(v, n2nid)
         else:
             async for (v, n2nid) in node.iterEdgesN1(verb):
-                n2buid = self.runt.snap.core.getBuidByNid(n2nid)
-                await node.delEdge(v, s_common.ehex(n2buid))
+                await node.delEdge(v, n2nid)
 
     async def execStormCmd(self, runt, genr):
 
@@ -5886,8 +5876,8 @@ class IntersectCmd(Cmd):
 
                 # Note: The intersection works by counting the # of nodes inbound to the command.
                 # For each node which is emitted from the pivot, we increment a counter, mapping
-                # the buid -> count. We then iterate over the counter, and only yield nodes which
-                # have a buid -> count equal to the # of inbound nodes we consumed.
+                # the nid -> count. We then iterate over the counter, and only yield nodes which
+                # have a nid -> count equal to the # of inbound nodes we consumed.
 
                 count = 0
                 async for node, path in genr:
@@ -5896,22 +5886,22 @@ class IntersectCmd(Cmd):
                     async with runt.getSubRuntime(query) as subr:
                         subg = s_common.agen((node, path))
                         async for subn, subp in subr.execute(genr=subg):
-                            curv = counters.get(subn.buid)
+                            curv = counters.get(subn.nid)
                             if curv is None:
-                                await counters.set(subn.buid, 1)
+                                await counters.set(subn.nid, 1)
                             else:
-                                await counters.set(subn.buid, curv + 1)
-                            await pathvars.set(subn.buid, await s_stormtypes.toprim(subp.vars))
+                                await counters.set(subn.nid, curv + 1)
+                            await pathvars.set(subn.nid, await s_stormtypes.toprim(subp.vars))
                             await asyncio.sleep(0)
 
-                for buid, hits in counters.items():
+                for nid, hits in counters.items():
 
                     if hits != count:
                         await asyncio.sleep(0)
                         continue
 
-                    node = await runt.snap.getNodeByBuid(buid)
+                    node = await runt.snap.getNodeByNid(nid)
                     if node is not None:
                         path = runt.initPath(node)
-                        path.vars.update(pathvars.get(buid))
+                        path.vars.update(pathvars.get(nid))
                         yield (node, path)

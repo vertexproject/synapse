@@ -59,19 +59,19 @@ class SnapTest(s_t_utils.SynTest):
 
     async def test_same_node_different_object(self):
         '''
-        Test the problem in which a live node might be evicted out of the snap's buidcache causing two node
+        Test the problem in which a live node might be evicted out of the snap's nidcache causing two node
         objects to be representing the same logical thing.
 
         Also tests that creating a node then querying it back returns the same object
         '''
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                nodebuid = None
-                snap.buidcache = collections.deque(maxlen=10)
+                nodenid = None
+                snap.nidcache = collections.deque(maxlen=10)
 
                 async def doit():
-                    nonlocal nodebuid
-                    # Reduce the buid cache so we don't have to make 100K nodes
+                    nonlocal nodenid
+                    # Reduce the nid cache so we don't have to make 100K nodes
 
                     node0 = await snap.addNode('test:int', 0)
 
@@ -79,16 +79,16 @@ class SnapTest(s_t_utils.SynTest):
 
                     # Test write then read coherency
 
-                    self.eq(node0.buid, node.buid)
+                    self.eq(node0.nid, node.nid)
                     self.eq(id(node0), id(node))
-                    nodebuid = node.buid
+                    nodenid = node.nid
 
                     # Test read, then a bunch of reads, then read coherency
 
                     await alist(snap.addNodes([(('test:int', x), {}) for x in range(1, 20)]))
                     nodes = await alist(snap.nodesByProp('test:int'))
 
-                    self.eq(nodes[0].buid, node0.buid)
+                    self.eq(nodes[0].nid, node0.nid)
                     self.eq(id(nodes[0]), id(node0))
                     node._test = True
 
@@ -99,7 +99,7 @@ class SnapTest(s_t_utils.SynTest):
                 await alist(snap.addNodes([(('test:int', x), {}) for x in range(20, 30)]))
 
                 node = await snap.getNodeByNdef(('test:int', 0))
-                self.eq(nodebuid, node.buid)
+                self.eq(nodenid, node.nid)
                 self.true(hasattr(node, '_test'))
 
     async def test_addNodes(self):
@@ -576,20 +576,20 @@ class SnapTest(s_t_utils.SynTest):
                 async with snap.getEditor() as editor:
                     fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
                     news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
-                    self.false(await news.addEdge('refs', s_common.ehex(fqdn.buid)))
+                    self.false(await news.addEdge('refs', fqdn.nid))
                     self.len(0, editor.getNodeEdits())
 
-                    self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
-                    self.false(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    self.true(await news.addEdge('pwns', fqdn.nid))
+                    self.false(await news.addEdge('pwns', fqdn.nid))
                     nodeedits = editor.getNodeEdits()
                     self.len(1, nodeedits)
                     self.len(1, nodeedits[0][2])
 
-                    self.true(await news.delEdge('pwns', s_common.ehex(fqdn.buid)))
+                    self.true(await news.delEdge('pwns', fqdn.nid))
                     nodeedits = editor.getNodeEdits()
                     self.len(0, nodeedits)
 
-                    self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    self.true(await news.addEdge('pwns', fqdn.nid))
                     nodeedits = editor.getNodeEdits()
                     self.len(1, nodeedits)
                     self.len(1, nodeedits[0][2])
@@ -597,21 +597,21 @@ class SnapTest(s_t_utils.SynTest):
                 async with snap.getEditor() as editor:
                     news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
 
-                    self.true(await news.delEdge('pwns', s_common.ehex(fqdn.buid)))
-                    self.false(await news.delEdge('pwns', s_common.ehex(fqdn.buid)))
+                    self.true(await news.delEdge('pwns', fqdn.nid))
+                    self.false(await news.delEdge('pwns', fqdn.nid))
                     nodeedits = editor.getNodeEdits()
                     self.len(1, nodeedits)
                     self.len(1, nodeedits[0][2])
 
-                    self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    self.true(await news.addEdge('pwns', fqdn.nid))
                     nodeedits = editor.getNodeEdits()
                     self.len(0, nodeedits)
 
                     snap.strict = False
-                    self.false(await news.addEdge(1, s_common.ehex(fqdn.buid)))
+                    self.false(await news.addEdge(1, fqdn.nid))
                     self.false(await news.addEdge('pwns', 1))
                     self.false(await news.addEdge('pwns', 'bar'))
-                    self.false(await news.delEdge(1, s_common.ehex(fqdn.buid)))
+                    self.false(await news.delEdge(1, fqdn.nid))
                     self.false(await news.delEdge('pwns', 1))
                     self.false(await news.delEdge('pwns', 'bar'))
 

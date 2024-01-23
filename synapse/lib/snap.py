@@ -29,8 +29,9 @@ class ProtoNode:
     TODO: This could eventually fully mirror the synapse.lib.node.Node API and be used
           to slipstream into sections of the pipeline to facilitate a bulk edit / transaction
     '''
-    def __init__(self, ctx, buid, form, valu, node):
+    def __init__(self, ctx, nid, buid, form, valu, node):
         self.ctx = ctx
+        self.nid = nid
         self.form = form
         self.valu = valu
         self.buid = buid
@@ -77,26 +78,26 @@ class ProtoNode:
         if not edits:
             return None
 
-        return (self.buid, self.form.name, edits)
+        return (self.nid, self.form.name, edits)
 
-    async def addEdge(self, verb, n2iden):
+    async def addEdge(self, verb, n2nid):
 
         if not isinstance(verb, str):
             mesg = f'addEdge() got an invalid type for verb: {verb}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not isinstance(n2iden, str):
-            mesg = f'addEdge() got an invalid type for n2iden: {n2iden}'
+        if not isinstance(n2nid, bytes):
+            mesg = f'addEdge() got an invalid type for n2nid: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'addEdge() got an invalid node iden: {n2iden}'
+        if len(n2nid) != 8:
+            mesg = f'addEdge() got an invalid node id: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        tupl = (verb, n2iden)
+        tupl = (verb, n2nid)
         if tupl in self.edges:
             return False
 
@@ -104,38 +105,45 @@ class ProtoNode:
             self.edgedels.remove(tupl)
             return True
 
-        if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+        if self.nid is None:
+            self.edges.add(tupl)
+            return True
+
+        if not await self.ctx.snap.hasNodeEdge(self.nid, verb, n2nid):
             self.edges.add(tupl)
             return True
 
         return False
 
-    async def delEdge(self, verb, n2iden):
+    async def delEdge(self, verb, n2nid):
 
         if not isinstance(verb, str):
             mesg = f'delEdge() got an invalid type for verb: {verb}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not isinstance(n2iden, str):
-            mesg = f'delEdge() got an invalid type for n2iden: {n2iden}'
+        if not isinstance(n2nid, bytes):
+            mesg = f'delEdge() got an invalid type for n2nid: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'delEdge() got an invalid node iden: {n2iden}'
+        if len(n2nid) != 8:
+            mesg = f'delEdge() got an invalid node id: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        tupl = (verb, n2iden)
-        if tupl in self.edgedels:
-            return False
-
+        tupl = (verb, n2nid)
         if tupl in self.edges:
             self.edges.remove(tupl)
             return True
 
-        if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+        if self.nid is None:
+            return False
+
+        if tupl in self.edgedels:
+            return False
+
+        if await self.ctx.snap.layers[-1].hasNodeEdge(self.nid, verb, n2nid):
             self.edgedels.add(tupl)
             return True
 
@@ -471,11 +479,12 @@ class SnapEditor:
             return ()
 
         buid = s_common.buid(ndef)
-        node = await self.snap.getNodeByBuid(buid)
+        nid = await self.snap.core.genBuidNid(buid, ndef=ndef)
+        node = await self.snap.getNodeByNid(nid)
         if node is not None:
             return ()
 
-        protonode = ProtoNode(self, buid, form, norm, node)
+        protonode = ProtoNode(self, nid, buid, form, norm, node)
 
         self.protonodes[ndef] = protonode
 
@@ -496,7 +505,7 @@ class SnapEditor:
     def loadNode(self, node):
         protonode = self.protonodes.get(node.ndef)
         if protonode is None:
-            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node)
+            protonode = ProtoNode(self, node.nid, node.buid, node.form, node.ndef[1], node)
             self.protonodes[node.ndef] = protonode
         return protonode
 
@@ -509,9 +518,10 @@ class SnapEditor:
             return protonode
 
         buid = s_common.buid(ndef)
-        node = await self.snap.getNodeByBuid(buid)
+        nid = await self.snap.core.genBuidNid(buid, ndef=ndef)
+        node = await self.snap.getNodeByNid(nid)
 
-        protonode = ProtoNode(self, buid, form, norm, node)
+        protonode = ProtoNode(self, nid, buid, form, norm, node)
 
         self.protonodes[ndef] = protonode
 
@@ -695,8 +705,8 @@ class Snap(s_base.Base):
         self.nodecache.clear()
         self.livenodes.clear()
 
-    def clearCachedNode(self, buid):
-        self.livenodes.pop(buid, None)
+    def clearCachedNode(self, nid):
+        self.livenodes.pop(nid, None)
 
     async def keepalive(self, period):
         while not await self.waitfini(period):
@@ -995,7 +1005,7 @@ class Snap(s_base.Base):
         callbacks = []
 
         # hold a reference to  all the nodes about to be edited...
-        nodes = {e[0]: await self.getNodeByBuid(e[0]) for e in edits}
+        nodes = {e[0]: await self.getNodeByNid(e[0]) for e in edits if e[0] is not None}
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
@@ -1003,11 +1013,11 @@ class Snap(s_base.Base):
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for buid, form, edits in nodeedits:
+        for nid, form, edits in nodeedits:
 
-            node = nodes.get(buid)
+            node = nodes.get(nid)
             if node is None:
-                node = await self.getNodeByBuid(buid)
+                node = await self.getNodeByNid(nid)
 
             if node is None:
                 continue
@@ -1085,13 +1095,13 @@ class Snap(s_base.Base):
                     continue
 
                 if etyp == s_layer.EDIT_EDGE_ADD:
-                    verb, n2iden = parms
-                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    verb, n2nid = parms
+                    n2 = await self.getNodeByNid(n2nid)
                     callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
 
                 if etyp == s_layer.EDIT_EDGE_DEL:
-                    verb, n2iden = parms
-                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    verb, n2nid = parms
+                    n2 = await self.getNodeByNid(n2nid)
                     callbacks.append((self.view.runEdgeDel, (node, verb, n2), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
@@ -1126,7 +1136,7 @@ class Snap(s_base.Base):
                 return None
 
         # the newly constructed node is cached
-        return await self.getNodeByBuid(protonode.buid)
+        return await self.getNodeByNid(protonode.nid)
 
     async def addFeedNodes(self, name, items):
         '''
@@ -1293,11 +1303,18 @@ class Snap(s_base.Base):
                     if n2proto is None:
                         continue
 
-                    n2iden = n2proto.iden()
+                    n2nid = n2proto.nid
 
-                await protonode.addEdge(verb, n2iden)
+                elif isinstance(n2iden, str) and s_common.isbuidhex(n2iden):
+                    n2nid = self.core.getNidByBuid(s_common.uhex(n2iden))
+                    if n2nid is None:
+                        continue
+                else:
+                    continue
 
-        return await self.getNodeByBuid(protonode.buid)
+                await protonode.addEdge(verb, n2nid)
+
+        return await self.getNodeByNid(protonode.nid)
 
     async def getRuntNodes(self, prop, cmprvalu=None):
 
@@ -1391,22 +1408,22 @@ class Snap(s_base.Base):
             last = verb
             yield verb
 
-    async def hasNodeData(self, buid, name):
+    async def hasNodeData(self, nid, name):
         '''
-        Return True if the buid has nodedata set on it under the given name
+        Return True if the nid has nodedata set on it under the given name
         False otherwise
         '''
         for layr in reversed(self.layers):
-            if await layr.hasNodeData(buid, name):
+            if await layr.hasNodeData(nid, name):
                 return True
         return False
 
-    async def getNodeData(self, buid, name, defv=None):
+    async def getNodeData(self, nid, name, defv=None):
         '''
         Get nodedata from closest to write layer, no merging involved
         '''
         for layr in reversed(self.layers):
-            ok, valu = await layr.getNodeData(buid, name)
+            ok, valu = await layr.getNodeData(nid, name)
             if ok:
                 return valu
         return defv

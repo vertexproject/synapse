@@ -502,7 +502,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             async for offs, triginfo in self.trigqueue.gets(0):
 
-                buid = triginfo.get('buid')
+                nid = triginfo.get('nid')
                 varz = triginfo.get('vars')
                 trigiden = triginfo.get('trig')
 
@@ -512,7 +512,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     async with await self.snap(trig.user) as snap:
-                        node = await snap.getNodeByBuid(buid)
+                        node = await snap.getNodeByNid(nid)
                         if node is None:
                             continue
 
@@ -529,7 +529,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getStorNodes(self, nid):
         '''
-        Return a list of storage nodes for the given buid in layer order.
+        Return a list of storage nodes for the given nid in layer order.
         NOTE: This returns a COPY of the storage node and will not receive updates!
         '''
         return [layr.getStorNode(nid) for layr in self.layers]
