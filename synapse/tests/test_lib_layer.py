@@ -1974,7 +1974,7 @@ class LayerTest(s_t_utils.SynTest):
                 self.eq(readlayr.meta.get('version'), writelayr.meta.get('version'))
 
     async def test_push_pull_default_migration(self):
-        async with self.getRegrCore('2.157.0-layr-pdefs') as core:
+        async with self.getRegrCore('2.159.0-layr-pdefs') as core:
             def_tree = await core.saveHiveTree(('cortex', 'layers', '507ebf7e6ec7aadc47ace6f1f8f77954'))
             dst_tree = await core.saveHiveTree(('cortex', 'layers', '9bf7a3adbf69bd16832529ab1fcd1c83'))
 

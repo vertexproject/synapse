@@ -1406,7 +1406,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if pushs:
                 for pdef in pushs.values():
                     pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                    pdef.setdefault('queue:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
                 await layrinfo.set('pushs', pushs, nexs=False)
 
             pulls = layrinfo.get('pulls', {})
