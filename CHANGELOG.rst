@@ -6,6 +6,56 @@
 Synapse Changelog
 *****************
 
+v2.159.0 - 2024-01-16
+=====================
+
+Automatic Migrations
+--------------------
+- Update any extended model elements which used the ``taxonomy`` interface
+  to now use the ``meta:taxonomy`` interface.
+  (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Add support for lifting, pivoting, and filtering using wildcards, lists,
+  variables, and interfaces as form and property names.
+  (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
+- Migrate the name of the ``taxonomy`` interface to ``meta:taxonomy``.
+  (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
+- Update the pinned version of the ``lark`` library to ``1.1.9`` for
+  compatibility with Python 3.11.7.
+  (`#3488 <https://github.com/vertexproject/synapse/pull/3488>`_)
+
+Bugfixes
+--------
+- Prevent re-adding extended model elements in Nexus handlers.
+  (`#3486 <https://github.com/vertexproject/synapse/pull/3486>`_)
+- Add missing permissions checks on the ``$lib.axon.urlfile()`` API. This now
+  requires the ``node.add.file:bytes`` and ``node.add.inet:urlfile``
+  permissions.
+  (`#3490 <https://github.com/vertexproject/synapse/pull/3490>`_)
+- Fix the permission checking for Vaults to check the Storm runtime ``asroot``
+  status.
+  (`#3492 <https://github.com/vertexproject/synapse/pull/3492>`_)
+- Fix an issue with ``$lib.stix.import.ingest()`` not converting ``bundle``
+  to a dictionary.
+  (`#3495 <https://github.com/vertexproject/synapse/pull/3495>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the ``reverse`` keyword.
+  (`#3487 <https://github.com/vertexproject/synapse/pull/3487>`_)
+- Clarify the use of the "try" operator ( ``+?`` ) in edit operations.
+  (`#3482 <https://github.com/vertexproject/synapse/pull/3482>`_)
+  (`#3487 <https://github.com/vertexproject/synapse/pull/3487>`_)
+- Update Storm lift documentation to add additional examples and clarify
+  existing documentation.
+  (`#3487 <https://github.com/vertexproject/synapse/pull/3487>`_)
+- Update Storm data modification documentation to add additional examples and
+  clarify existing documentation.
+  (`#3482 <https://github.com/vertexproject/synapse/pull/3482>`_)
+
 v2.158.0 - 2024-01-03
 =====================
 

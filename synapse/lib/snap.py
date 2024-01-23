@@ -892,8 +892,10 @@ class Snap(s_base.Base):
                     for tagprop, (valu, stype) in propdict.items():
                         if tag not in tagprops:
                             tagprops[tag] = {}
+                            bylayer['tagprops'][tag] = {}
+
                         tagprops[tag][tagprop] = valu
-                        bylayer['tagprops'][tagprop] = layr
+                        bylayer['tagprops'][tag][tagprop] = layr
 
             stordata = sode.get('nodedata')
             if stordata is not None:
@@ -1227,17 +1229,19 @@ class Snap(s_base.Base):
                     (tag, prop, valu, oldv, stype) = parms
                     if tag not in node.tagprops:
                         node.tagprops[tag] = {}
+                        node.bylayer['tagprops'][tag] = {}
                     node.tagprops[tag][prop] = valu
-                    node.bylayer['tags'][(tag, prop)] = wlyr.iden
+                    node.bylayer['tagprops'][tag][prop] = wlyr.iden
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:
                     (tag, prop, oldv, stype) = parms
                     if tag in node.tagprops:
                         node.tagprops[tag].pop(prop, None)
+                        node.bylayer['tagprops'][tag].pop(prop, None)
                         if not node.tagprops[tag]:
                             node.tagprops.pop(tag, None)
-                    node.bylayer['tags'].pop((tag, prop), None)
+                            node.bylayer['tagprops'].pop(tag, None)
                     continue
 
                 if etyp == s_layer.EDIT_NODEDATA_SET:

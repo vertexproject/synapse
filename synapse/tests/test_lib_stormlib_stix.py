@@ -333,6 +333,16 @@ class StormLibStixTest(s_test.SynTest):
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'oasis-example-00.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
+            # self.stormHasNoWarnErr(msgs)
+            self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
+            self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
+
+            # Pass in a heavy dict object
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            stix = s_common.yamlload(self.getTestFilePath('stix_import', 'oasis-example-00.json'))
+            q = '''init { $data = ({"id": $stix.id, "type": $stix.type, "objects": $stix.objects}) }
+            yield $lib.stix.import.ingest($data)'''
+            msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
             self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
 

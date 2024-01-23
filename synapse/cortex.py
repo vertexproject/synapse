@@ -2759,6 +2759,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     raise
                 except Exception:  # pragma: no cover
                     logger.warning(f'onload failed for package: {name}')
+                await self.fire('core:pkg:onload:complete', pkg=name)
             self.schedCoro(_onload())
 
     async def _dropStormPkg(self, pkgdef):
@@ -5568,10 +5569,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             dict: A Dictionary of storm documentation information.
         '''
 
+        cmds = []
+
+        for name, cmd in self.stormcmds.items():
+            entry = {
+                'name': name,
+                'doc': cmd.getCmdBrief(),
+            }
+
+            if cmd.pkgname:
+                entry['package'] = cmd.pkgname
+
+            if cmd.svciden:
+                entry['svciden'] = cmd.svciden
+
+            cmds.append(entry)
+
         ret = {
             'libraries': s_stormtypes.registry.getLibDocs(),
             'types': s_stormtypes.registry.getTypeDocs(),
-            # 'cmds': ...  # TODO - support cmd docs
+            'commands': cmds,
             # 'packages': ...  # TODO - Support inline information for packages?
         }
         return ret

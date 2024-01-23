@@ -141,7 +141,6 @@ class RiskModule(s_module.CoreModule):
                 (('risk:threat', 'targets', 'ou:industry'), {
                     'doc': 'The threat cluster targets the industry.'}),
 
-
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target node.'}),
                 (('risk:threat', 'uses', None), {
@@ -311,6 +310,12 @@ class RiskModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the vulnerability.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'The severity of the vulnerability.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of the vulnerability.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the vulnerability.'}),
