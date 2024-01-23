@@ -4567,12 +4567,15 @@ class DelNodeCmd(Cmd):
         pars.add_argument('--delbytes', default=False, action='store_true',
                           help='For file:bytes nodes, remove the bytes associated with the '
                                'sha256 property from the axon as well if present.')
+        pars.add_argument('--deledges', default=False, action='store_true',
+                          help='Delete N2 light edges before deleting the node.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
         force = await s_stormtypes.tobool(self.opts.force)
         delbytes = await s_stormtypes.tobool(self.opts.delbytes)
+        deledges = await s_stormtypes.tobool(self.opts.deledges)
 
         if force:
             if runt.user is not None and not runt.isAdmin():
@@ -4591,6 +4594,24 @@ class DelNodeCmd(Cmd):
                 runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
+
+            if deledges:
+                async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
+                    seenverbs = set()
+
+                    async for (verb, n2iden) in node.iterEdgesN2():
+                        if verb not in seenverbs:
+                            runt.layerConfirm(('node', 'edge', 'del', verb))
+                            seenverbs.add(verb)
+                        await edges.add((verb, n2iden))
+
+                    async with self.runt.snap.getEditor() as editor:
+                        async for (verb, n2iden) in edges:
+                            n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
+                            if n2 is not None:
+                                if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
+                                    await self.runt.snap.applyNodeEdits(editor.getNodeEdits())
+                                    editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.props.get('sha256')
