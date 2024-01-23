@@ -2192,22 +2192,20 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if len(prop.setperms) > 1:
-            if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms[:-1]):
-                return
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+            return
 
-        self.confirm(prop.setperms[-1], gateiden=self.snap.wlyr.iden)
+        self.raisePermDeny(prop.setperms[-1], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if len(prop.delperms) > 1:
-            if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms[:-1]):
-                return
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+            return
 
-        self.confirm(prop.delperms[-1], gateiden=self.snap.wlyr.iden)
+        self.raisePermDeny(prop.delperms[-1], gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm):
         if not self.asroot:
