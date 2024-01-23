@@ -1018,12 +1018,6 @@ class ModelRev:
 
             async for _, buid, sode in genr:
 
-                sodevalu = sode.get('valu')
-                if sodevalu is None: # pragma: no cover
-                    continue
-
-                formvalu = sodevalu[0]
-
                 props = sode.get('props')
                 if props is None:
                     continue  # pragma: no cover
@@ -1038,7 +1032,7 @@ class ModelRev:
                     norm, info = form.type.norm(propvalu)
                 except s_exc.BadTypeValu as e: # pragma: no cover
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'Skipping {formname}={formvalu} : {oldm}')
+                    logger.warning(f'Skipping {formname} : {oldm}')
                     continue
 
                 edits = []
@@ -1055,19 +1049,19 @@ class ModelRev:
                     if subprop is None: # pragma: no cover
                         continue
 
+                    subcurv = props.get(subprop.name)
+                    if subcurv is not None:
+                        if subcurv[1] != subprop.type.stortype: # pragma: no cover
+                            logger.warning(f'normFormSubsByProp() may not be used to change storage types for {subprop.full}')
+                            continue
+                        subcurv = subcurv[0]
+
                     try:
                         subnorm, subinfo = subprop.type.norm(subvalu)
                     except s_exc.BadTypeValu as e: # pragma: no cover
                         oldm = e.errinfo.get('mesg')
                         logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
                         continue
-
-                    subcurv = props.get(subprop.name)
-                    if subcurv is not None:
-                        if subcurv[1] != subprop.type.stortype: # pragma: no cover
-                            logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')
-                            continue
-                        subcurv = subcurv[0]
 
                     if subcurv == subnorm:
                         continue
