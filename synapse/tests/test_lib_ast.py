@@ -3496,11 +3496,13 @@ class AstTest(s_test.SynTest):
 
             self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 ]'))
 
-            with self.raises(s_exc.AuthDeny):
+            with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'user': visi})
+            self.isin('must have permission node.prop.set.inet:ipv4.asn', cm.exception.get('mesg'))
 
-            with self.raises(s_exc.AuthDeny):
+            with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi})
+            self.isin('must have permission node.prop.del.inet:ipv4.asn', cm.exception.get('mesg'))
 
             msgs = await core.stormlist('auth.user.addrule visi node.prop.set.inet:ipv4.asn')
             self.stormHasNoWarnErr(msgs)
