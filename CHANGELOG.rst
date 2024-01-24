@@ -23,6 +23,7 @@ Model Changes
 - Updates to the ``infotech``, ``ou``,  and ``risk`` models.
   (`#3501 <https://github.com/vertexproject/synapse/pull/3501>`_)
   (`#3504 <https://github.com/vertexproject/synapse/pull/3504>`_)
+  (`#3498 <https://github.com/vertexproject/synapse/pull/3498>`_)
 
   **New Properties**
 
@@ -34,6 +35,15 @@ Model Changes
 
     ``priority``
       The priority of the vulnerability.
+
+  ``inet:ipv6``
+    The form had the following properties added to it:
+
+    ``type``
+      The type of IP address (e.g., private, multicast, etc.).
+
+    ``scope``
+      The IPv6 scope of the address (e.g., global, link-local, etc.).
 
   **Updated Types**
 
