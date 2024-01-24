@@ -54,6 +54,35 @@ def getAddrType(ip):
 
     return 'unicast'
 
+# https://en.wikipedia.org/wiki/IPv6_address#Address_scopes
+ipv6_multicast_scopes = {
+    'ff00:': 'reserved',
+    'ff01:': 'interface-local',
+    'ff02:': 'link-local',
+    'ff03:': 'realm-local',
+    'ff04:': 'admin-local',
+    'ff05:': 'site-local',
+    'ff08:': 'organization-local',
+    'ff0e:': 'global',
+    'ff0f:': 'reserved',
+}
+
+scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
+
+def getAddrScope(ipv6):
+
+    if ipv6.is_loopback:
+        return 'link-local'
+
+    if ipv6.is_link_local:
+        return 'link-local'
+
+    if ipv6.is_multicast:
+        pref = ipv6.compressed[:5]
+        return ipv6_multicast_scopes.get(pref, 'unassigned')
+
+    return 'global'
+
 class Addr(s_types.Str):
 
     def postTypeInit(self):
@@ -579,7 +608,10 @@ class IPv6(s_types.Type):
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
 
-            subs = {'type': getAddrType(v6)}
+            subs = {
+                'type': getAddrType(v6),
+                'scope': getAddrScope(v6),
+            }
 
             if v4 is not None:
                 v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
@@ -587,7 +619,7 @@ class IPv6(s_types.Type):
                 subs['ipv4'] = v4_int
                 return f'::ffff:{v4_str}', {'subs': subs}
 
-            return ipaddress.IPv6Address(valu).compressed, {'subs': subs}
+            return v6.compressed, {'subs': subs}
 
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
@@ -2057,6 +2089,13 @@ class InetModule(s_module.CoreModule):
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the IPv6.'}),
+
+                        ('type', ('str', {}), {
+                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
+
+                        ('scope', ('str', {'enums': scopes_enum}), {
+                            'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
+
                     )),
 
                     ('inet:mac', {}, (
