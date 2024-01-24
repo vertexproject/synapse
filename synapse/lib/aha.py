@@ -826,6 +826,7 @@ class AhaCell(s_cell.Cell):
                 raise s_exc.BadArg(mesg=mesg)
 
             svcentry = await self.jsonstor.getPathObj(('aha', 'svcfull', random.choice(svcnames)))
+            svcentry = s_msgpack.deepcopy(svcentry)
             svcentry.update(pooldef)
 
             return svcentry
