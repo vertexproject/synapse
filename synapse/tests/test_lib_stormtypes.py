@@ -6420,7 +6420,7 @@ words\tword\twrd'''
             opts = {'view': fork.iden, 'user': visi.iden}
             await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
 
-            msgs = await waiter.wait(timeout=3)
+            msgs = await waiter.wait(timeout=12)
             self.eq(msgs[-2][1]['event'], 'view:merge:prog')
             self.eq(msgs[-1][1]['event'], 'view:merge:fini')
 

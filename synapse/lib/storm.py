@@ -2187,6 +2187,26 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def confirmPropSet(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+            return
+
+        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+
+    def confirmPropDel(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+            return
+
+        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+
     def confirmEasyPerm(self, item, perm):
         if not self.asroot:
             self.snap.core._reqEasyPerm(item, self.user, perm)
@@ -3569,7 +3589,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.props.keys():
-                    runt.confirm(node.form.props[name].setperm, gateiden=layriden)
+                    runt.confirmPropSet(node.form.props[name])
 
                 for tag in node.tags.keys():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
@@ -3763,9 +3783,9 @@ class MergeCmd(Cmd):
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
-            full = node.form.prop(name).full
-            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+            prop = node.form.prop(name)
+            runt.confirmPropDel(prop, layriden=layr0)
+            runt.confirmPropSet(prop, layriden=layr1)
 
         for tag, valu in sode.get('tags', {}).items():
             tagperm = tuple(tag.split('.'))
@@ -5597,7 +5617,9 @@ class EdgesDelCmd(Cmd):
             n2iden = node.iden()
             async for (v, n1iden) in node.iterEdgesN2(verb):
                 n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
-                await n1.delEdge(v, n2iden)
+                if n1 is not None:
+                    await n1.delEdge(v, n2iden)
+
         else:
             async for (v, n2iden) in node.iterEdgesN1(verb):
                 await node.delEdge(v, n2iden)
