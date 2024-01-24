@@ -7863,9 +7863,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
                     conf = {
-                        'storm:query:mirror:url': 'aha://pool00...',
-                        'storm:query:mirror:conntimeout': 1,
-                        'storm:query:mirror:nexstimeout': 1
+                        'storm:pool': 'aha://pool00...',
+                        'storm:pool:timeout:sync': 1,
+                        'storm:pool:timeout:connection': 1
                     }
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
                     provinfo = {'mirror': '00.core'}
@@ -7961,7 +7961,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
 
-                    waiter = core01.querymirror.waiter('svc:del', 1)
+                    waiter = core01.stormpool.waiter('svc:del', 1)
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
@@ -7973,4 +7973,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Query mirror pool is empty', data)
+                    self.isin('Storm query mirror pool is empty', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.notin('Storm query mirror pool is empty', data)
