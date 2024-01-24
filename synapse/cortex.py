@@ -23,6 +23,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
@@ -109,20 +110,6 @@ SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
 SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
-
-# push/pull def
-reqValidPush = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'url': {'type': 'string'},
-        'time': {'type': 'number'},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'url', 'user', 'time'],
-})
-reqValidPull = reqValidPush
 
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
@@ -1046,6 +1033,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
+            (2, self._storLayrFeedDefaults),
         ), nexs=False)
 
     async def _storUpdateMacros(self):
@@ -1337,15 +1325,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
              'desc': 'Controls setting any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
-             'ex': 'node.prop.set.inet:ipv4:asn',
-             'desc': 'Controls setting a specific property on a node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<form>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4',
+             'desc': 'Controls setting any property on a form of node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<form>', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4.asn',
+             'desc': 'Controls setting a specific property on a form of node in a layer.'},
 
             {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
              'desc': 'Controls removing any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
-             'ex': 'node.prop.del.inet:ipv4:asn',
-             'desc': 'Controls removing a specific property from a node in a layer.'},
+            {'perm': ('node', 'prop', 'del', '<form>'), 'gate': 'layer',
+             'ex': 'node.prop.del.inet:ipv4',
+             'desc': 'Controls removing any property from a form of node in a layer.'},
+            {'perm': ('node', 'prop', 'del', '<form>', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.del.inet:ipv4.asn',
+             'desc': 'Controls removing a specific property from a form of node in a layer.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
@@ -1430,6 +1424,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layriden = self.getView().layers[0].iden
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
+
+    async def _storLayrFeedDefaults(self):
+
+        for layer in list(self.layers.values()):
+            layrinfo = layer.layrinfo  # type: s_hive.HiveDict
+
+            pushs = layrinfo.get('pushs', {})
+            if pushs:
+                for pdef in pushs.values():
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+                await layrinfo.set('pushs', pushs, nexs=False)
+
+            pulls = layrinfo.get('pulls', {})
+            if pulls:
+                pulls = layrinfo.get('pulls', {})
+                for pdef in pulls.values():
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+                await layrinfo.set('pulls', pulls, nexs=False)
 
     async def initServiceRuntime(self):
 
@@ -4767,7 +4781,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
 
-        reqValidPush(pdef)
+        s_schemas.reqValidPush(pdef)
 
         iden = pdef.get('iden')
 
@@ -4809,7 +4823,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('layer:pull:add')
     async def addLayrPull(self, layriden, pdef):
 
-        reqValidPull(pdef)
+        s_schemas.reqValidPull(pdef)
 
         iden = pdef.get('iden')
 
@@ -4876,12 +4890,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         iden = pdef.get('iden')
         user = pdef.get('user')
-
         gvar = f'push:{iden}'
+        # TODO Remove the defaults in 3.0.0
+        csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
+        qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
 
         async with await s_base.Base.anit() as base:
 
-            queue = s_queue.Queue(maxsize=10000)
+            queue = s_queue.Queue(maxsize=qsize)
 
             async def fill():
 
@@ -4908,7 +4924,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 for offs, edits in chunk:
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
-                    if len(alledits) > 1000:
+                    if len(alledits) > csize:
                         await layr1.storNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()

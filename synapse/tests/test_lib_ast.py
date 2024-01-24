@@ -3488,3 +3488,28 @@ class AstTest(s_test.SynTest):
 
             msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
             self.stormIsInPrint('foo', msgs)
+
+    async def test_ast_prop_perms(self):
+
+        async with self.getTestCore() as core:
+            visi = (await core.addUser('visi'))['iden']
+
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 ]'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'user': visi})
+            self.isin('must have permission node.prop.set.inet:ipv4.asn', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi})
+            self.isin('must have permission node.prop.del.inet:ipv4.asn', cm.exception.get('mesg'))
+
+            msgs = await core.stormlist('auth.user.addrule visi node.prop.set.inet:ipv4.asn')
+            self.stormHasNoWarnErr(msgs)
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'user': visi}))
+
+            msgs = await core.stormlist('auth.user.addrule visi node.prop.del.inet:ipv4.asn')
+            self.stormHasNoWarnErr(msgs)
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi}))
