@@ -91,8 +91,8 @@ Features and Enhancements
   functions the Storm CLI tool.
   (`#3493 <https://github.com/vertexproject/synapse/pull/3493>`_)
   (`#3507 <https://github.com/vertexproject/synapse/pull/3507>`_)
-- Add a ``node.set.<form>.<prop>`` and ``node.del.<form>.<prop>`` permissions
-  convention to the Cortex for property
+- Add ``node.set.<form>.<prop>`` and ``node.del.<form>.<prop>`` permissions
+  conventions to the Cortex for property sets and deletes.
 - Add a ``--deledges`` option to the ``delnode`` command. This deletes the N2
   edges for a node before deleting the node.
   (`#3503 <https://github.com/vertexproject/synapse/pull/3503>`_)
@@ -102,7 +102,7 @@ Features and Enhancements
 - Add a ``cell.hasHttpSess()`` API to check if a given Cell has a known HTTP
   session.
   (`#3485 <https://github.com/vertexproject/synapse/pull/3485>`_)
-- Fire an ``core:pkg:onload:complete`` event when a Storm package ``onload``
+- Fire a ``core:pkg:onload:complete`` event when a Storm package ``onload``
   handler is completed. This can be used when writing unit tests for Rapid
   Power-ups.
   (`#3497 <https://github.com/vertexproject/synapse/pull/3497>`_)
@@ -120,7 +120,7 @@ Bugfixes
 
 Improved Documentation
 ----------------------
-- Update Storm filter docuemntation. Additional information about tag globing
+- Update Storm filter documentation. Additional information about tag globbing
   and interval filtering has been included.
   (`#3489 <https://github.com/vertexproject/synapse/pull/3489>`_)
 
