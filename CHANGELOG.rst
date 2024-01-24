@@ -98,6 +98,7 @@ Features and Enhancements
   be used to offload Storm queries to an AHA service pool. This can be
   configured with the ``storm:pool`` option on the Cortex.
   (`#3452 <https://github.com/vertexproject/synapse/pull/3452>`_)
+  (`#3513 <https://github.com/vertexproject/synapse/pull/3513>`_)
 - Add a ``--deledges`` option to the ``delnode`` command. This deletes the N2
   edges for a node before deleting the node.
   (`#3503 <https://github.com/vertexproject/synapse/pull/3503>`_)
