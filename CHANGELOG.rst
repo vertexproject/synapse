@@ -11,6 +11,8 @@ v2.160.0 - 2024-01-24
 
 Automatic Migrations
 --------------------
+- Update ``inet:ipv6`` nodes to set their ``:type`` and ``:scope`` properties.
+  (`#3498 <https://github.com/vertexproject/synapse/pull/3498>`_)
 - Update existing layer push and layer pull configurations to set the default
   chunk size and queue size values on them.
   (`#3480 <https://github.com/vertexproject/synapse/pull/3480>`_)
