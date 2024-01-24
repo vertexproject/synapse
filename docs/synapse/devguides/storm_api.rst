@@ -548,17 +548,18 @@ Example:
 
         opts = {'nexstimeout': 5}
 
-nomirror
---------
+mirror
+------
 
-If Storm query offloading is configured, this can be set to ``true`` to force the query
-to be run on the local Cortex rather than a mirror.
+If Storm query offloading is configured and ``mirror`` is ``true`` (the default value),
+the Cortex will attempt to offload the query to a mirror. Setting this to ``false`` will
+force the query to be run on the local Cortex rather than a mirror.
 
 Example:
 
     .. code:: python3
 
-        opts = {'nomirror': True}
+        opts = {'mirror': False}
 
 path
 ----
