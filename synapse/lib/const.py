@@ -43,3 +43,7 @@ year = day * 365
 # function specific constants shared across multiple files
 layer_pdef_csize = 1_000
 layer_pdef_qsize = 10_000
+layer_pdef_csize_max = 1_000
+layer_pdef_qsize_max = 10_000
+assert layer_pdef_csize <= layer_pdef_csize_max
+assert layer_pdef_qsize <= layer_pdef_qsize_max
