@@ -95,7 +95,7 @@ Features and Enhancements
   conventions to the Cortex for property sets and deletes.
   (`#3505 <https://github.com/vertexproject/synapse/pull/3505>`_)
 - Add experimental support for Storm query offloading to the Cortex. This can
-  be used to offload Storm queries to an Aha service pool. This can be
+  be used to offload Storm queries to an AHA service pool. This can be
   configured with the ``storm:pool`` option on the Cortex.
   (`#3452 <https://github.com/vertexproject/synapse/pull/3452>`_)
 - Add a ``--deledges`` option to the ``delnode`` command. This deletes the N2
