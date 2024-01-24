@@ -7904,6 +7904,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout', data)
 
+                    with self.getLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count('inet:asn=0'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
+
                     core01.nexsroot.nexslog.indx = 0
 
                     with self.getLoggerStream('synapse') as stream:
@@ -7923,12 +7939,34 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.isin('Timeout waiting for query mirror', data)
 
+                    with self.getLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Timeout waiting for query mirror', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count('inet:asn=0'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Timeout waiting for query mirror', data)
+
                     opts = {'nexsoffs': 1000000, 'nexstimeout': 0}
                     with self.raises(s_exc.TimeOut):
                         await alist(core01.storm('inet:asn=0', opts=opts))
 
                     with self.raises(s_exc.TimeOut):
                         await core00.callStorm('inet:asn=0', opts=opts)
+
+                    with self.raises(s_exc.TimeOut):
+                        await alist(core00.exportStorm('inet:asn=0', opts=opts))
+
+                    with self.raises(s_exc.TimeOut):
+                        await core00.count('inet:asn=0', opts=opts)
 
                     await core01.fini()
 
@@ -7942,6 +7980,20 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Unable to get proxy', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Unable to get proxy', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count('inet:asn=0'))
 
                     stream.seek(0)
                     data = stream.read()
