@@ -6,6 +6,124 @@
 Synapse Changelog
 *****************
 
+v2.160.0 - 2024-01-24
+=====================
+
+Automatic Migrations
+--------------------
+- Update existing layer push and layer pull configurations to set the default
+  chunk size and queue size values on them.
+  (`#3480 <https://github.com/vertexproject/synapse/pull/3480>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Updates to the ``infotech``, ``ou``,  and ``risk`` models.
+  (`#3491 <https://github.com/vertexproject/synapse/pull/3491>`_)
+  (`#3501 <https://github.com/vertexproject/synapse/pull/3501>`_)
+  (`#3504 <https://github.com/vertexproject/synapse/pull/3504>`_)
+
+  **New Properties**
+
+  ``risk:vuln``
+    The form had the following properties added to it:
+
+    ``severity``
+      The severity of the vulnerability.
+
+    ``priority``
+      The priority of the vulnerability.
+
+  **Updated Types**
+
+  ``it:sec:cpe``
+    The normalization of ``it:sec:cpe`` has been updated to unescape the
+    CPE specific sub properties. The ``v2_2`` sub property is now unescaped.
+
+  ``it:exec:proc``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:thread``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:loadlib``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:mmap``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:mutex``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:pipe``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:url``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:bind``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:add``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:read``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:write``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:del``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:reg:get``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:reg:set``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:reg:del``
+    This now inherits the ``it:host:activity`` interface.
+
+Features and Enhancements
+-------------------------
+- Add tab completion of commands, forms, properties, tags, and ``$lib.``
+  functions the Storm CLI tool.
+  (`#3493 <https://github.com/vertexproject/synapse/pull/3493>`_)
+  (`#3507 <https://github.com/vertexproject/synapse/pull/3507>`_)
+- Add a ``node.set.<form>.<prop>`` and ``node.del.<form>.<prop>`` permissions
+  convention to the Cortex for property
+- Add a ``--deledges`` option to the ``delnode`` command. This deletes the N2
+  edges for a node before deleting the node.
+  (`#3503 <https://github.com/vertexproject/synapse/pull/3503>`_)
+- When creating layer push or pull configurations, the chunk size and queue
+  size can now be set.
+  (`#3480 <https://github.com/vertexproject/synapse/pull/3480>`_)
+- Add a ``cell.hasHttpSess()`` API to check if a given Cell has a known HTTP
+  session.
+  (`#3485 <https://github.com/vertexproject/synapse/pull/3485>`_)
+- Fire an ``core:pkg:onload:complete`` event when a Storm package ``onload``
+  handler is completed. This can be used when writing unit tests for Rapid
+  Power-ups.
+  (`#3497 <https://github.com/vertexproject/synapse/pull/3497>`_)
+
+Bugfixes
+--------
+- Remove dataname index entries when removing all nodedata from a node.
+  (`#3499 <https://github.com/vertexproject/synapse/pull/3499>`_)
+- Fix an issue with ``tagprops`` not being correctly returned in
+  ``$node.getByLayer()``.
+  (`#3500 <https://github.com/vertexproject/synapse/pull/3500>`_)
+- Fix an issue with the ``edges.del`` command when using the ``--n2`` option.
+  This now behaves correctly when the N1 node does not exist.
+  (`#3506 <https://github.com/vertexproject/synapse/pull/3506>`_)
+
+Improved Documentation
+----------------------
+- Update Storm filter docuemntation. Additional information about tag globing
+  and interval filtering has been included.
+  (`#3489 <https://github.com/vertexproject/synapse/pull/3489>`_)
+
 v2.159.0 - 2024-01-16
 =====================
 
