@@ -19,7 +19,6 @@ Automatic Migrations
 Model Changes
 -------------
 - Updates to the ``infotech``, ``ou``,  and ``risk`` models.
-  (`#3491 <https://github.com/vertexproject/synapse/pull/3491>`_)
   (`#3501 <https://github.com/vertexproject/synapse/pull/3501>`_)
   (`#3504 <https://github.com/vertexproject/synapse/pull/3504>`_)
 
@@ -35,10 +34,6 @@ Model Changes
       The priority of the vulnerability.
 
   **Updated Types**
-
-  ``it:sec:cpe``
-    The normalization of ``it:sec:cpe`` has been updated to unescape the
-    CPE specific sub properties. The ``v2_2`` sub property is now unescaped.
 
   ``it:exec:proc``
     This now inherits the ``it:host:activity`` interface.
