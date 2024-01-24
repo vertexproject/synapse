@@ -93,6 +93,11 @@ Features and Enhancements
   (`#3507 <https://github.com/vertexproject/synapse/pull/3507>`_)
 - Add ``node.set.<form>.<prop>`` and ``node.del.<form>.<prop>`` permissions
   conventions to the Cortex for property sets and deletes.
+  (`#3505 <https://github.com/vertexproject/synapse/pull/3505>`_)
+- Add experimental support for Storm query offloading to the Cortex. This can
+  be used to offload Storm queries to an Aha service pool. This can be
+  configured with the ``storm:pool`` option on the Cortex.
+  (`#3452 <https://github.com/vertexproject/synapse/pull/3452>`_)
 - Add a ``--deledges`` option to the ``delnode`` command. This deletes the N2
   edges for a node before deleting the node.
   (`#3503 <https://github.com/vertexproject/synapse/pull/3503>`_)
@@ -117,6 +122,10 @@ Bugfixes
 - Fix an issue with the ``edges.del`` command when using the ``--n2`` option.
   This now behaves correctly when the N1 node does not exist.
   (`#3506 <https://github.com/vertexproject/synapse/pull/3506>`_)
+- Fix an issue with duplicate properties being tracked in the property type
+  map of the data model. This could have resulted in multiple nodes being
+  lifted with interface properties.
+  (`#3512 <https://github.com/vertexproject/synapse/pull/3512>`_)
 
 Improved Documentation
 ----------------------
