@@ -175,6 +175,8 @@ class StormLibGenTest(s_test.SynTest):
 
             await self.asyncraises(s_exc.BadArg, core.nodes('gen.it.av.scan.result newp vertex.link foosig'))
 
+            self.len(0, await core.nodes('gen.it.av.scan.result file newp foosig --try'))
+
             self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget($lib.null, fqdn, vertex.link, try=$lib.true))'))
             self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(barsig, fqdn, "..", try=$lib.true))'))
             self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(barsig, fqdn, vertex.link, scanner=$lib.set(), try=$lib.true))'))
