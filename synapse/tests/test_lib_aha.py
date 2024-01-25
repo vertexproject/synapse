@@ -248,6 +248,12 @@ class AhaTest(s_test.SynTest):
             }
             async with self.getTestCryo(conf=conf) as cryo:
 
+                info = await cryo.getCellInfo()
+                cnfo = info.get('cell')
+                self.eq(cnfo.get('aha:name'), '0.cryo')
+                self.eq(cnfo.get('aha:leader'), 'cryo')
+                self.eq(cnfo.get('aha:network'), 'foo')
+
                 await cryo.auth.rootuser.setPasswd('secret')
 
                 await wait01.wait(timeout=2)

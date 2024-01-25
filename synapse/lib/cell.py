@@ -3948,6 +3948,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'aha:name': self.conf.get('aha:name'),
+                'aha:leader': self.conf.get('aha:leader'),
+                'aha:network': self.conf.get('aha:network'),
             },
             'features': {
                 'tellready': True,
