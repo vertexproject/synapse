@@ -1387,6 +1387,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
         root = await self.core.auth.getUserByName('root')
 
+        # preserve the created timestamp in case of move
+        created = tdef.get('created')
+        if created is None:
+            tdef['created'] = s_common.now()
+
         tdef.setdefault('user', root.iden)
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
