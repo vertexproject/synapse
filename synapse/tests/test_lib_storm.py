@@ -914,14 +914,27 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantMergeView):
                 await core.callStorm('inet:ipv4=11.22.33.44 | merge')
 
-            # test printing a merge that the node was created in the top layer
+            # test printing a merge that the node was created in the top layer. We also need to make sure the layer
+            # is in a steady state for layer merge --diif tests.
+
+            real_layer = core.layers.get(layr)  # type: s_layer.Layer
+            if real_layer.dirty:
+                waiter = real_layer.layrslab.waiter(1, 'commit')
+                waiter.wait(timeout=12)
+
+            waiter = real_layer.layrslab.waiter(1, 'commit')
             msgs = await core.stormlist('[ inet:fqdn=mvmnasde.com ] | merge', opts=opts)
+
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn = mvmnasde.com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:host = mvmnasde', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:domain = com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = false', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = true', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
+
+            # Ensure that the layer has sync()'d to avoid getting data from
+            # dirty sodes in the merge --diff tests.
+            self.len(1, await waiter.wait(timeout=12))
 
             # test that a user without perms can diff but not apply
             await visi.addRule((True, ('view', 'read')))
