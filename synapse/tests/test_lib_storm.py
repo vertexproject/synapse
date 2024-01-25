@@ -920,7 +920,7 @@ class StormTest(s_t_utils.SynTest):
             real_layer = core.layers.get(layr)  # type: s_layer.Layer
             if real_layer.dirty:
                 waiter = real_layer.layrslab.waiter(1, 'commit')
-                waiter.wait(timeout=12)
+                await waiter.wait(timeout=12)
 
             waiter = real_layer.layrslab.waiter(1, 'commit')
             msgs = await core.stormlist('[ inet:fqdn=mvmnasde.com ] | merge', opts=opts)
