@@ -312,7 +312,8 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        return await self._eat((nexsiden, event, args, kwargs, meta))
+        async with self.applylock:
+            return await asyncio.shield(self._eat((nexsiden, event, args, kwargs, meta)))
 
     async def index(self):
         if self.donexslog:
@@ -365,11 +366,10 @@ class NexsRoot(s_base.Base):
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
 
-        async with self.applylock:
-            if passitem:
-                return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
+        if passitem:
+            return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
 
-            return await func(nexus, *args, **kwargs)
+        return await func(nexus, *args, **kwargs)
 
     async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
         '''
