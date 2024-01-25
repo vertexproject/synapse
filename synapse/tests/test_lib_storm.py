@@ -915,7 +915,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('inet:ipv4=11.22.33.44 | merge')
 
             # test printing a merge that the node was created in the top layer. We also need to make sure the layer
-            # is in a steady state for layer merge --diif tests.
+            # is in a steady state for layer merge --diff tests.
 
             real_layer = core.layers.get(layr)  # type: s_layer.Layer
             if real_layer.dirty:
