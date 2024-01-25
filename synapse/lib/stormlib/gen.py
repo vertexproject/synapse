@@ -105,10 +105,32 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A lang:language node with the given code.'}}},
+        {'name': 'itAvScanResultByTarget',
+         'desc': 'Returns an it:av:scan:result node by deconflicting with a target and signature name, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'type', 'type': 'str', 'desc': 'The target type.'},
+                      {'name': 'target', 'type': 'str', 'desc': 'The target value.'},
+                      {'name': 'signame', 'type': 'str', 'default': None, 'desc': 'The signature name.'},
+                      {'name': 'scanner', 'type': 'str', 'default': None,
+                       'desc': 'An optional scanner software name to include in deconfliction.'},
+                      {'name': 'time', 'type': 'time',
+                       'desc': 'An optional time when the scan was run to include in the deconfliction.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'An it:av:scan:result node.'}}},
     )
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
+        function _maybeCast(try, type, valu) {
+            if $try {
+                return($lib.trycast($type, $valu))
+            }
+            return(($lib.true, $lib.cast($type, $valu)))
+        }
+
         function orgIdType(name) {
             ou:id:type:name=$name
             return($node)
@@ -128,12 +150,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByName(name, try=$lib.false) {
-            if $try {
-                ($ok, $name) = $lib.trycast(ou:name, $name)
-                if (not $ok) { return() }
-            } else {
-                $name = $lib.cast(ou:name, $name)
-            }
+            ($ok, $name) = $_maybeCast($try, ou:name, $name)
+            if (not $ok) { return() }
 
             ou:name=$name -> ou:org
             return($node)
@@ -143,12 +161,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByFqdn(fqdn, try=$lib.false) {
-            if $try {
-                ($ok, $fqdn) = $lib.trycast("inet:fqdn", $fqdn)
-                if (not $ok) { return() }
-            } else {
-                $fqdn = $lib.cast(inet:fqdn, $fqdn)
-            }
+            ($ok, $fqdn) = $_maybeCast($try, inet:fqdn, $fqdn)
+            if (not $ok) { return() }
 
             inet:fqdn=$fqdn -> ou:org
             return($node)
@@ -180,12 +194,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function newsByUrl(url, try=$lib.false) {
-            if $try {
-                ($ok, $url) = $lib.trycast(inet:url, $url)
-                if (not $ok) { return() }
-            } else {
-                $url = $lib.cast(inet:url, $url)
-            }
+            ($ok, $url) = $_maybeCast($try, inet:url, $url)
+            if (not $ok) { return() }
 
             media:news:url=$url
             return($node)
@@ -205,12 +215,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function vulnByCve(cve, try=$lib.false) {
-            if $try {
-                ($ok, $cve) = $lib.trycast("it:sec:cve", $cve)
-                if (not $ok) { return() }
-            } else {
-                $cve = $lib.cast(it:sec:cve, $cve)
-            }
+            ($ok, $cve) = $_maybeCast($try, it:sec:cve, $cve)
+            if (not $ok) { return() }
 
             risk:vuln:cve=$cve
             return($node)
@@ -258,14 +264,11 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function psContactByEmail(type, email, try=$lib.false) {
+            ($ok, $email) = $_maybeCast($try, inet:email, $email)
+            if (not $ok) { return() }
 
-            if $try {
-                ($ok, $email) = $lib.trycast("inet:email", $email)
-                if (not $ok) { return() }
-            } else {
-                $type = $lib.cast(ps:contact:type:taxonomy, $type)
-                $email = $lib.cast(inet:email, $email)
-            }
+            ($ok, $type) = $_maybeCast($try, ps:contact:type:taxonomy, $type)
+            if (not $ok) { return() }
 
             ps:contact:email = $email
             +:type = $type
@@ -279,12 +282,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function polCountryByIso2(iso2, try=$lib.false) {
-            if $try {
-                ($ok, $iso2) = $lib.trycast("pol:iso2", $iso2)
-                if (not $ok) { return() }
-            } else {
-                $iso2 = $lib.cast(pol:iso2, $iso2)
-            }
+            ($ok, $iso2) = $_maybeCast($try, pol:iso2, $iso2)
+            if (not $ok) { return() }
 
             pol:country:iso2=$iso2
             return($node)
@@ -313,13 +312,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function langByCode(code, try=$lib.false) {
-
-            if $try {
-                ($ok, $code) = $lib.trycast(lang:code, $code)
-                if (not $ok) { return() }
-            } else {
-                $code = $lib.cast(lang:code, $code)
-            }
+            ($ok, $code) = $_maybeCast($try, lang:code, $code)
+            if (not $ok) { return() }
 
             lang:language:code=$code
             return($node)
@@ -337,6 +331,53 @@ class LibGen(s_stormtypes.Lib):
             $reporter = $lib.cast(ou:name, $reporter)
 
             [ ou:campaign=(gen, name, reporter, $name, $reporter) :name=$name :reporter:name=$reporter ]
+            return($node)
+        }
+
+        function itAvScanResultByTarget(signame, type, targ, scanner=$lib.null, time=$lib.null, try=$lib.false) {
+
+            ($ok, $signame) = $_maybeCast($try, it:av:signame, $signame)
+            if (not $ok) { return() }
+
+            if ($scanner != $lib.null) {
+                ($ok, $scanner) = $_maybeCast($try, it:prod:softname, $scanner)
+                if (not $ok) { return() }
+            }
+
+            if ($time != $lib.null) {
+                ($ok, $time) = $_maybeCast($try, time, $time)
+                if (not $ok) { return() }
+            }
+
+            switch $type {
+                file: { $ptype = "file:bytes" }
+                fqdn: { $ptype = "inet:fqdn" }
+                host: { $ptype = "it:host" }
+                ipv4: { $ptype = "inet:ipv4" }
+                ipv6: { $ptype = "inet:ipv6" }
+                proc: { $ptype = "it:exec:proc" }
+                url:  { $ptype = "inet:url" }
+                *: { $lib.raise(BadArg, `Unsupported target type: {$type}`) }
+            }
+
+            ($ok, $targ) = $_maybeCast($try, $ptype, $targ)
+            if (not $ok) { return() }
+
+            $tprop = `target:{$type}`
+            $tlift = `it:av:scan:result:{$tprop}`
+
+            *$tlift=$targ +:signame=$signame
+            if ($time != $lib.null) { +:time=$time }
+            if ($scanner != $lib.null) { +:scanner:name=$scanner }
+            return($node)
+
+            [ it:av:scan:result=(gen, target, $type, $targ, $signame, $scanner, $time)
+                :signame=$signame
+                :$tprop=$targ
+                :scanner:name?=$scanner
+                :time?=$time
+            ]
+
             return($node)
         }
     '''
@@ -507,4 +548,38 @@ stormcmds = (
         ),
         'storm': 'yield $lib.gen.langByName($cmdopts.name)',
     },
+    # todo: remove it:av:filehit example in 3.x.x
+    {
+        'name': 'gen.it.av.scan.result',
+        'descr': '''
+            Lift (or create) the it:av:scan:result node by deconflicting the target and signature time.
+
+            The scan time and scanner name may also optionally be provided for deconfliction.
+
+            Examples:
+
+                // Yield the it:av:scan:result node for an FQDN and signature name
+                gen.it.av.scan.result fqdn vertex.link foosig
+
+                // Also deconflict by scanner name and scan time
+                gen.it.av.scan.result fqdn vertex.link foosig --scanner-name barscanner --time 2022-11-03
+
+                // bar
+                it:av:filehit#foo | gen.it.av.scan.result file :file :sig:name
+        ''',
+        'cmdargs': (
+            ('type', {'help': 'The target type.',
+                      'choices': ['file', 'fqdn', 'host', 'ipv4', 'ipv6', 'proc', 'url']}),
+            ('target', {'help': 'The target value.'}),
+            ('signame', {'help': 'The signature name'}),
+            ('--scanner-name', {'help': 'An optional scanner software name to include in deconfliction.'}),
+            ('--time', {'help': 'An optional time when the scan was run to include in the deconfliction.'}),
+            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
+                       'action': 'store_true'}),
+        ),
+        'storm': '''
+            yield $lib.gen.itAvScanResultByTarget($cmdopts.signame, $cmdopts.type, $cmdopts.target,
+                                                  scanner=$cmdopts.scanner_name, time=$cmdopts.time, try=$cmdopts.try)
+        ''',
+    }
 )
