@@ -841,6 +841,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
+        'storm:pool': {
+            'description': 'EXPERIMENTAL: Telepath URL for a Cortex mirror or AHA pool to offload Storm queries to.',
+            'type': 'string',
+        },
+        'storm:pool:timeout:sync': {
+            'description': 'The maximum time (in seconds) to wait for the mirror to be in sync with the leader.',
+            'type': 'integer',
+            'default': 1
+        },
+        'storm:pool:timeout:connection': {
+            'description': 'The maximum time (in seconds) to wait for a mirror connection.',
+            'type': 'integer',
+            'default': 1
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -909,6 +923,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
+
+        self.stormpool = None
+        self.stormpoolurl = self.conf.get('storm:pool')
+        if self.stormpoolurl is not None:
+            self.stormpoolopts = {
+                'nexstimeout': self.conf.get('storm:pool:timeout:sync'),
+                'conntimeout': self.conf.get('storm:pool:timeout:connection')
+            }
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1455,6 +1477,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layer in self.layers.values():
             await layer.initLayerActive()
 
+        await self.initQueryMirror()
+
     async def initServicePassive(self):
 
         await self.agenda.stop()
@@ -1466,6 +1490,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
+
+        if self.stormpool is not None:
+            await self.stormpool.fini()
+            self.stormpool = None
+
+    async def initQueryMirror(self):
+        if self.stormpoolurl is not None:
+            self.stormpool = await s_telepath.open(self.stormpoolurl)
+            self.onfini(self.stormpool.fini)
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -5253,6 +5286,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         opts = self._initStormOpts(opts)
 
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    return await proxy.count(text, opts=mirropts)
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         view = self._viewFromOpts(opts)
 
         i = 0
@@ -5261,22 +5314,109 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return i
 
+    async def _getMirrorOpts(self, opts):
+        mirropts = s_msgpack.deepcopy(opts)
+        mirropts['mirror'] = False
+        mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
+        mirropts['nexstimeout'] = self.stormpoolopts.get('nexstimeout')
+        return mirropts
+
+    async def _getMirrorProxy(self):
+        if isinstance(self.stormpool, s_telepath.Pool) and self.stormpool.size() == 0:
+            mesg = 'Storm query mirror pool is empty, running locally instead.'
+            logger.warning(mesg)
+            return None
+
+        proxy = None
+        try:
+            timeout = self.stormpoolopts.get('conntimeout')
+            proxy = await self.stormpool.proxy(timeout=timeout)
+        except (TimeoutError, s_exc.IsFini):
+            mesg = 'Unable to get proxy for query mirror, running locally instead.'
+            logger.warning(mesg)
+        return proxy
+
     async def storm(self, text, opts=None):
-        '''
-        '''
+
         opts = self._initStormOpts(opts)
+
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    async for mesg in proxy.storm(text, opts=mirropts):
+                        yield mesg
+                    return
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
             yield mesg
 
     async def callStorm(self, text, opts=None):
+
         opts = self._initStormOpts(opts)
+
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    return await proxy.callStorm(text, opts=mirropts)
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
 
     async def exportStorm(self, text, opts=None):
         opts = self._initStormOpts(opts)
+
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    async for mesg in proxy.exportStorm(text, opts=mirropts):
+                        yield mesg
+                    return
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
