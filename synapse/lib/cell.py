@@ -3028,18 +3028,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         level on the specified item. The item must implement the "easy perm"
         convention by having a key named "permissions" which adheres to the
         easyPermSchema definition.
-
-        NOTE: By default a user will only be denied read access if they
-              (or an assigned role) has PERM_DENY assigned.
         '''
         if self._hasEasyPerm(item, user, level):
             return
 
+        typemsg = ''
+        idenmsg = ''
+
+        info = item['permissions']['info']
+        ityp = info.get('type')
+        iden = info.get('iden')
+
+        if ityp is not None:
+            typemsg = f' type={ityp}'
+
+        if iden is not None:
+            idenmsg = f' iden={iden}'
+
         if mesg is None:
             permname = permnames.get(level)
-            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}).'
+            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}){typemsg}{idenmsg}.'
 
-        raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
+        raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name, **info)
 
     async def _setEasyPerm(self, item, scope, iden, level):
         '''
@@ -3064,7 +3074,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             perms[iden] = level
 
-    def _initEasyPerm(self, item, default=PERM_READ):
+    def _initEasyPerm(self, item, default=PERM_READ, info=None):
         '''
         Ensure that the given object has populated the "easy perm" convention.
         '''
@@ -3075,7 +3085,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
+        item['permissions'].setdefault('info', {})
         item['permissions']['default'] = default
+
+        if info is not None:
+            item['permissions']['info'] = info
+
+        item['permissions'] = s_schemas.reqValidEasyPerm(item['permissions'])
 
     async def getTeleApi(self, link, mesg, path):
 

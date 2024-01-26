@@ -16,7 +16,12 @@ class StormlibEasyPermTest(s_test.SynTest):
             alliden = (await core.getRoleDefByName('all'))['iden']
 
             opts = {'user': visi.iden}
-            exp = {'permissions': {'users': {visi.iden: s_cell.PERM_ADMIN}, 'roles': {}, 'default': s_cell.PERM_READ}}
+            exp = {'permissions': {
+                'users': {visi.iden: s_cell.PERM_ADMIN},
+                'roles': {},
+                'default': s_cell.PERM_READ,
+                'info': {}
+            }}
 
             retn = await core.callStorm('return($lib.auth.easyperm.init())', opts=opts)
             self.eq(retn, exp)
@@ -91,3 +96,29 @@ class StormlibEasyPermTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.callStorm('$lib.auth.easyperm.init(({}), default=(6))')
+
+    async def test_stormlib_easyperm_auth_info(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            someuser = await core.auth.addUser('someuser')
+
+            #$lib.auth.easyperm.confirm($a, $lib.auth.easyperm.level.admin)
+            q = '''
+            $info = ({
+                'type': 'foo',
+                'iden': 'c23a27f0459f6be37c73b76e2461c56f',
+            })
+            $item = $lib.auth.easyperm.init(({}), $lib.auth.easyperm.level.read, info=$info)
+            return($item)
+            '''
+            item = await core.callStorm(q)
+
+            opts = {'user': someuser.iden, 'vars': {'item': item}}
+            q = '''
+            $lib.auth.easyperm.confirm($item, $lib.auth.easyperm.level.admin)
+            '''
+            msgs = await core.stormlist(q, opts=opts)
+            mesg = 'User (someuser) has insufficient permissions (requires: admin) type=foo iden=c23a27f0459f6be37c73b76e2461c56f.'
+            self.stormIsInErr(mesg, msgs)

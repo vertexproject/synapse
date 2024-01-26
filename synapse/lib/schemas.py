@@ -2,6 +2,10 @@ import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 
+PERM_DENY = 0
+PERM_READ = 1
+PERM_EDIT = 2
+PERM_ADMIN = 3
 
 easyPermSchema = {
     'type': 'object',
@@ -14,9 +18,23 @@ easyPermSchema = {
             'type': 'object',
             'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
         },
+        'default': {
+            'type': 'integer',
+            'enum': [PERM_DENY, PERM_READ, PERM_EDIT, PERM_ADMIN],
+        },
+        'info': {
+            'type': 'object',
+            'default': {},
+            'properties': {
+                'type': {'type': 'string', 'minLen': 2},
+                'iden': {'type': 'string', 'pattern': s_config.re_iden},
+            },
+            'additionalProperties': False,
+        }
     },
     'required': ['users', 'roles'],
 }
+reqValidEasyPerm = s_config.getJsValidator(easyPermSchema)
 
 _HttpExtAPIConfSchema = {
     'type': 'object',
@@ -118,7 +136,7 @@ _CronJobSchema = {
     },
     'additionalProperties': False,
     'required': ['creator', 'storm'],
-    'dependencices': {
+    'dependencies': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
     },

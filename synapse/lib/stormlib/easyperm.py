@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -23,6 +24,8 @@ class LibEasyPerm(s_stormtypes.Lib):
                        'desc': 'A dictionary to add easy perms to.'},
                       {'name': 'default', 'type': 'int', 'default': s_cell.PERM_READ,
                        'desc': 'Specify the default permission level for this item.'},
+                      {'name': 'info', 'type': 'dict', 'default': None,
+                       'desc': 'Specify additional context info for AuthDeny messages. Valid keys are `type` and `iden`.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary with the easy perm structure.'}}},
         {'name': 'set', 'desc': 'Set the permission level for a user or role in an easy perm dictionary.',
@@ -78,17 +81,18 @@ class LibEasyPerm(s_stormtypes.Lib):
         await self.runt.snap.core._setEasyPerm(edef, scope, iden, level)
         return edef
 
-    async def _initEasyPerm(self, edef=None, default=s_cell.PERM_READ):
+    async def _initEasyPerm(self, edef=None, default=s_cell.PERM_READ, info=None):
         edef = await s_stormtypes.toprim(edef)
         if edef is None:
             edef = {}
 
         default = await s_stormtypes.toint(default)
+        info = await s_stormtypes.toprim(info)
 
         if not isinstance(edef, dict):
             raise s_exc.BadArg(mesg='Object to add easy perms to must be a dictionary.')
 
-        self.runt.snap.core._initEasyPerm(edef, default=default)
+        self.runt.snap.core._initEasyPerm(edef, default=default, info=info)
 
         await self.runt.snap.core._setEasyPerm(edef, 'users', self.runt.user.iden, s_cell.PERM_ADMIN)
         return edef

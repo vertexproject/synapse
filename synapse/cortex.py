@@ -1141,7 +1141,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef['creator'] = useriden
 
         mdef.setdefault('storm', '')
-        self._initEasyPerm(mdef)
+        info = {
+                'type': 'macro',
+                'iden': mdef['iden'],
+        }
+        self._initEasyPerm(mdef, info=info)
 
         mdef['permissions']['users'][useriden] = s_cell.PERM_ADMIN
 
@@ -1595,8 +1599,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         user.confirm(('storm', 'graph', 'add'), default=True)
 
-        self._initEasyPerm(gdef)
-
         now = s_common.now()
 
         gdef['iden'] = s_common.guid()
@@ -1604,6 +1606,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         gdef['creator'] = user.iden
         gdef['created'] = now
         gdef['updated'] = now
+
+        info = {
+            'type': 'graph',
+            'iden': gdef['iden'],
+        }
+        self._initEasyPerm(gdef, info=info)
+
         gdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
 
         s_stormlib_graph.reqValidGdef(gdef)
@@ -2756,7 +2765,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for gdef in pkgdef.get('graphs', ()):
             gdef = copy.deepcopy(gdef)
-            self._initEasyPerm(gdef)
+            info = {
+                'type': 'graph',
+                'iden': gdef['iden'],
+            }
+            self._initEasyPerm(gdef, info=info)
             self.pkggraphs[gdef['iden']] = gdef
 
         onload = pkgdef.get('onload')
@@ -6451,7 +6464,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if 'permissions' in vdef:
             vdef.pop('permissions')
 
-        self._initEasyPerm(vdef, default=s_cell.PERM_DENY)
+        info = {
+            'type': 'vault',
+            'iden': vdef['iden'],
+        }
+        self._initEasyPerm(vdef, default=s_cell.PERM_DENY, info=info)
 
         vault = s_schemas.reqValidVault(vdef)
 
