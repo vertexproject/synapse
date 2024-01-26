@@ -101,10 +101,8 @@ class StormlibEasyPermTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
             someuser = await core.auth.addUser('someuser')
 
-            #$lib.auth.easyperm.confirm($a, $lib.auth.easyperm.level.admin)
             q = '''
             $info = ({
                 'type': 'foo',
