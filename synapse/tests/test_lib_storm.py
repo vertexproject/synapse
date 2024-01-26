@@ -914,14 +914,27 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantMergeView):
                 await core.callStorm('inet:ipv4=11.22.33.44 | merge')
 
-            # test printing a merge that the node was created in the top layer
+            # test printing a merge that the node was created in the top layer. We also need to make sure the layer
+            # is in a steady state for layer merge --diff tests.
+
+            real_layer = core.layers.get(layr)  # type: s_layer.Layer
+            if real_layer.dirty:
+                waiter = real_layer.layrslab.waiter(1, 'commit')
+                await waiter.wait(timeout=12)
+
+            waiter = real_layer.layrslab.waiter(1, 'commit')
             msgs = await core.stormlist('[ inet:fqdn=mvmnasde.com ] | merge', opts=opts)
+
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn = mvmnasde.com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:host = mvmnasde', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:domain = com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = false', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = true', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
+
+            # Ensure that the layer has sync()'d to avoid getting data from
+            # dirty sodes in the merge --diff tests.
+            self.len(1, await waiter.wait(timeout=12))
 
             # test that a user without perms can diff but not apply
             await visi.addRule((True, ('view', 'read')))
@@ -3457,6 +3470,20 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_edges_del(self):
         async with self.getTestCore() as core:
+            view = await core.callStorm('return ($lib.view.get().fork().iden)')
+            opts = {'view': view}
+
+            await core.nodes('[test:int=8191 test:int=127]')
+            await core.stormlist('test:int=127 | [ <(refs)+ { test:int=8191 } ]', opts=opts)
+
+            # Delete the N1 out from under the fork
+            msgs = await core.stormlist('test:int=8191 | delnode')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('test:int=127 | edges.del * --n2', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+        async with self.getTestCore() as core:
 
             await core.nodes('[ test:str=test1 +(refs)> { [test:int=7 test:int=8] } ]')
             await core.nodes('[ test:str=test1 +(seen)> { [test:int=7 test:int=8] } ]')
@@ -3566,14 +3593,17 @@ class StormTest(s_t_utils.SynTest):
                 view0, layr0 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view1, layr1 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
                 view2, layr2 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
+                view3, layr3 = await core.callStorm('$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))')
 
                 opts = {'vars': {
                     'view0': view0,
                     'view1': view1,
                     'view2': view2,
+                    'view3': view3,
                     'layr0': layr0,
                     'layr1': layr1,
                     'layr2': layr2,
+                    'layr3': layr3,
                 }}
 
                 # lets get some auth denies...
@@ -3715,6 +3745,25 @@ class StormTest(s_t_utils.SynTest):
                 msgs = await core.stormlist('layer.pull.list $layr2', opts=opts)
                 self.stormIsInPrint('No pulls configured', msgs)
 
+                # Add slow pushers
+                q = f'''$url="tcp://root:secret@127.0.0.1:{port}/*/layer/{layr3}"
+                $pdef = $lib.layer.get($layr0).addPush($url, queue_size=10, chunk_size=1)
+                return($pdef.iden)'''
+                slowpush = await core.callStorm(q, opts=opts)
+                q = f'''$url="tcp://root:secret@127.0.0.1:{port}/*/layer/{layr0}"
+                $pdef = $lib.layer.get($layr3).addPull($url, queue_size=20, chunk_size=10)
+                return($pdef.iden)'''
+                slowpull = await core.callStorm(q, opts=opts)
+
+                pushs = await core.callStorm('return($lib.layer.get($layr0).get(pushs))', opts=opts)
+                self.isin(slowpush, pushs)
+
+                pulls = await core.callStorm('return($lib.layer.get($layr3).get(pulls))', opts=opts)
+                self.isin(slowpull, pulls)
+
+                self.none(await core.callStorm(f'return($lib.layer.get($layr0).delPush({slowpush}))', opts=opts))
+                self.none(await core.callStorm(f'return($lib.layer.get($layr3).delPull({slowpull}))', opts=opts))
+
                 # add a push/pull and remove the layer to cancel it...
                 await core.callStorm(f'$lib.layer.get($layr0).addPush("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
                 await core.callStorm(f'$lib.layer.get($layr2).addPull("tcp://root:secret@127.0.0.1:{port}/*/layer/{layr1}")', opts=opts)
@@ -3736,9 +3785,11 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('$lib.view.del($view0)', opts=opts)
                 await core.callStorm('$lib.view.del($view1)', opts=opts)
                 await core.callStorm('$lib.view.del($view2)', opts=opts)
+                await core.callStorm('$lib.view.del($view3)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr0)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr1)', opts=opts)
                 await core.callStorm('$lib.layer.del($layr2)', opts=opts)
+                await core.callStorm('$lib.layer.del($layr3)', opts=opts)
 
                 # Wait for the active coros to die
                 for task in [t for t in tasks if t is not None]:
