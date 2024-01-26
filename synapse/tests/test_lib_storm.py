@@ -1938,14 +1938,12 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_dmon_caching(self):
 
-        iden = '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'
-
         async with self.getTestCore() as core:
 
             q = f'''
             $lib.dmon.add(${{
                 for $x in $lib.range(2) {{
-                    yield '{iden}'
+                    inet:ipv4=1.2.3.4
                     if $node {{
                         $lib.queue.gen(foo).put($node.props.asn)
                         $lib.queue.gen(bar).get(1)
