@@ -1100,8 +1100,8 @@ class Snap(s_base.Base):
             nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
             await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
-    async def applyNodeEdit(self, edit):
-        nodes = await self.applyNodeEdits((edit,))
+    async def applyNodeEdit(self, edit, nodecache=None):
+        nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
         return nodes[0]
 
     async def applyNodeEdits(self, edits, nodecache=None):
