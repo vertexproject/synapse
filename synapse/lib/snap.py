@@ -914,7 +914,6 @@ class Snap(s_base.Base):
         })
 
         node = s_node.Node(self, pode, bylayer=bylayer)
-
         if self.cachebuids:
             self.livenodes[buid] = node
             self.buidcache.append(node)
