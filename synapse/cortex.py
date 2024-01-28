@@ -6255,6 +6255,49 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
         return self._getVaultByBidn(bidn)
 
+    async def getVaultByType2(self, vtype, useriden, scope=None, owner=None):
+        # fixme: merge this with the original getVaultByType
+
+        if scope == 'user':
+            if owner is not None:
+                user = await self.auth.reqUserByNameOrIden(owner)
+                return self._getVaultByTSI(vtype, scope, user.iden)
+
+            return self._getVaultByTSI(vtype, scope, useriden)
+
+        if scope == 'role':
+            user = await self.auth.reqUser(useriden)
+
+            if owner is not None:
+                role = await self.auth.reqRoleByNameOrIden(owner)
+                if not user.hasRole(role.iden):
+                    return None
+                return self._getVaultByTSI(vtype, scope, role.iden)
+
+            for role in user.getRoles():
+                vault = self._getVaultByTSI(vtype, scope, role.iden)
+                if vault and self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                    return vault
+                await asyncio.sleep(0)
+
+            return None
+
+        if scope == 'global':
+            return self._getVaultByTSI(vtype, scope, None)
+
+        if scope is not None:
+            raise s_exc.BadArg(mesg=f'Invalid scope: {scope}.', scope=scope)
+
+        if owner is not None:
+            raise s_exc.BadArg(mesg=f'Owner cannot be specified without scope', owner=owner)
+
+        for scope in ('user', 'role', 'global'):
+            vault = await self.getVaultByType2(vtype, useriden, scope=scope)
+            if vault is not None:
+                return vault
+
+        return None
+
     def getVaultByType(self, vtype, useriden, scope=None):
         '''
         Get a vault of type `vtype` and scope `scope` for user with `iden`.
@@ -6319,6 +6362,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return vault
 
         return None
+
+    async def listVaultsByType(self, vtype, useriden):
+
+        vault = self._getVaultByTSI(vtype, 'user', useriden)
+        if vault is not None:
+            yield vault
+
+        user = self.auth.user(useriden)
+        if user is None:
+            mesg = f'No user with iden {useriden}.'
+            raise s_exc.NoSuchUser(mesg=mesg, user=useriden)
+
+        for role in user.getRoles():
+            vault = self._getVaultByTSI(vtype, 'role', role.iden)
+            if vault and self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                yield vault
+            await asyncio.sleep(0)
+
+        vault = self._getVaultByTSI(vtype, 'global', None)
+        if vault is not None:
+            yield vault
+
+        # todo: where does unscoped fit in? doesn't look like it will be returned in getVaultByType
 
     def reqVault(self, iden):
         '''
@@ -6446,20 +6512,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_READ)
 
         elif scope == 'user':
-            user = self.auth.user(owner)
-            if user is None:
-                raise s_exc.NoSuchUser(mesg=f'User with iden {owner} not found.')
-
             # The user is the admin, everyone else no access
-            await self._setEasyPerm(vault, 'users', owner, s_cell.PERM_ADMIN)
+            user = await self.auth.reqUserByNameOrIden(owner)
+            await self._setEasyPerm(vault, 'users', user.iden, s_cell.PERM_ADMIN)
 
         elif scope == 'role':
-            role = self.auth.role(owner)
-            if role is None:
-                raise s_exc.NoSuchRole(mesg=f'Role with iden {owner} not found.')
-
             # role members gets read access
-            await self._setEasyPerm(vault, 'roles', owner, s_cell.PERM_READ)
+            role = await self.auth.reqRoleByNameOrIden(owner)
+            await self._setEasyPerm(vault, 'roles', role.iden, s_cell.PERM_READ)
 
         else:
             # Unscoped vaults

@@ -360,11 +360,19 @@ class LibVault(s_stormtypes.Lib):
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to retrieved.'},
                       {'name': 'scope', 'type': 'str', 'default': None,
                        'desc': 'The scope for the specified type. If $lib.null, then getByType will search.'},
+                      {'name': 'owner', 'type': 'str', 'default': None,
+                       'desc': ''}, # todo
                   ),
                   'returns': {'type': 'vault', 'desc': 'Vault or $lib.null if the vault could not be retrieved.'}}},
         {'name': 'list', 'desc': 'List vaults accessible to the current user.',
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
+                  'returns': {'type': 'list', 'desc': 'Yields vaults.'}}},
+        {'name': 'listByType', 'desc': 'List vaults accessible to the current user for a given type in ascending scope order.',
+         'type': {'type': 'function', '_funcname': '_listVaults',
+                  'args': (
+                      {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to retrieved.'},
+                  ),
                   'returns': {'type': 'list', 'desc': 'Yields vaults.'}}},
         {'name': 'print', 'desc': 'Print the details of the specified vault.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -441,6 +449,7 @@ class LibVault(s_stormtypes.Lib):
             'byname': self._getByName,
             'bytype': self._getByType,
             'list': self._listVaults,
+            'listByType': self._listVaultsByType,
         }
 
     async def _addVault(self, name, vtype, scope, owner, secrets, configs):
@@ -489,16 +498,31 @@ class LibVault(s_stormtypes.Lib):
 
         return Vault(self.runt, iden)
 
-    async def _getByType(self, vtype, scope=None):
+    async def _getByType(self, vtype, scope=None, owner=None):
         vtype = await s_stormtypes.tostr(vtype)
         scope = await s_stormtypes.tostr(scope, noneok=True)
+        owner = await s_stormtypes.tostr(owner, noneok=True)
 
-        vault = self.runt.snap.core.getVaultByType(vtype, self.runt.user.iden, scope)
-        if not vault:
+        user = self.runt.user
+
+        if scope == 'user':
+            if owner is None:
+                owner = user.iden
+            elif owner != user.iden and not self.runt.isAdmin():
+                mesg = f'User {user.name} cannot get vaults for user {owner}.'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+        vault = await self.runt.snap.core.getVaultByType2(vtype, user.iden, scope=scope, owner=owner)
+        if vault is None:
             return None
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_READ)
 
+        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_READ)
         return Vault(self.runt, vault.get('iden'))
+
+    async def _listVaultsByType(self, vtype):
+        vtype = await s_stormtypes.tostr(vtype)
+        async for vault in self.runt.snap.core.listVaultsByType(vtype, self.runt.user.iden):
+            yield Vault(self.runt, vault.get('iden'))
 
     async def _listVaults(self):
         for vault in self.runt.snap.core.listVaults():

@@ -207,6 +207,13 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchRole(mesg=mesg)
         return role
 
+    async def reqRoleByNameOrIden(self, name):
+        role = await self.getRoleByName(name)
+        if role is not None:
+            return role
+
+        return await self.reqRole(name)
+
     async def getUserByName(self, name):
         '''
         Get a user by their username.
