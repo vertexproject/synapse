@@ -250,9 +250,9 @@ class NexusTest(s_t_utils.SynTest):
                     for x in range(3):
                         vdef = {'layers': (deflayr,), 'name': f'someview{x}'}
                         with self.raises(TimeoutError):
-                            await s_common.wait_for(core.addView(vdef), 0.1)
+                            await s_common.wait_for(core.addView(vdef), 0.15)
 
-                await core.nexsroot.waitOffs(strt + 3, timeout=2)
+                await core.nexsroot.waitOffs(strt + 2, timeout=2)
 
                 viewadds = 0
                 async for item in core.nexsroot.nexslog.iter(strt):

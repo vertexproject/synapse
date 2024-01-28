@@ -88,7 +88,7 @@ class NexsRoot(s_base.Base):
         self.readonly = False
         self.readonlyreason = None
 
-        self.applytask = None
+        self.applyloop = None
         self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
@@ -288,7 +288,9 @@ class NexsRoot(s_base.Base):
         client = self.client
 
         if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta)
+            futu = self.loop.create_future()
+            await self.applyq.put((futu, (nexsiden, event, args, kwargs, meta)))
+            return await futu
 
         try:
             await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
@@ -315,9 +317,7 @@ class NexsRoot(s_base.Base):
             meta = {}
 
         async with self.applylock:
-            # Keep a reference to the shielded task to ensure it isn't GC'd
-            self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
-            return await asyncio.shield(self.applytask)
+            return await self._eat((nexsiden, event, args, kwargs, meta))
 
     async def index(self):
         if self.donexslog:
@@ -375,6 +375,14 @@ class NexsRoot(s_base.Base):
 
         return await func(nexus, *args, **kwargs)
 
+    async def _runApplyLoop(self):
+        while not self.isfini:
+            (futu, item) = await self.applyq.get()
+            async with self.applylock:
+                resu = await self._eat(item)
+                if not futu.done():
+                    futu.set_result(resu)
+
     async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
         '''
         Returns an iterator of change entries in the log
@@ -421,6 +429,11 @@ class NexsRoot(s_base.Base):
         if self.client is not None:
             await self.client.fini()
 
+        if self.applyloop is not None:
+            self.applyq = None
+            self.applyloop.cancel()
+            self.applyloop = None
+
         self._mirready.clear()
 
         self.client = None
@@ -432,6 +445,9 @@ class NexsRoot(s_base.Base):
         if mirurl is not None:
             self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
             self.onfini(self.client)
+        else:
+            self.applyq = asyncio.Queue(maxsize=1)
+            self.applyloop = self.schedCoro(self._runApplyLoop())
 
         self.started = True
 
