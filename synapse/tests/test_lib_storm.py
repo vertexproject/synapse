@@ -1952,6 +1952,7 @@ class StormTest(s_t_utils.SynTest):
                     $lib.queue.gen(foo).put($node.props.asn)
                     $lib.queue.gen(bar).get(0)
                 }}
+                | spin
             }}, name=foo)'''
             await core.nodes(q)
 

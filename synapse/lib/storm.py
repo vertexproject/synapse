@@ -1784,6 +1784,8 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+                    snap.cachebuids = False
+
                     snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
                     self.err_evnt.clear()
@@ -1791,8 +1793,6 @@ class StormDmon(s_base.Base):
                     async for nodepath in snap.storm(text, opts=opts, user=self.user):
                         # all storm tasks yield often to prevent latency
                         self.count += 1
-                        snap.buidcache.clear()
-                        snap.livenodes.clear()
                         await asyncio.sleep(0)
 
                     logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
