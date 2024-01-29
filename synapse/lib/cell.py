@@ -3032,8 +3032,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self._hasEasyPerm(item, user, level):
             return
 
+        info = item['permissions']['info']
+
         if mesg is None:
-            info = item['permissions']['info']
             infomsg = ' '.join([f'{key}={valu}' for key, valu in info.items()])
             if infomsg:
                 infomsg = ' ' + infomsg
@@ -3074,16 +3075,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = f'Invalid permission level: {default} (must be <= {PERM_ADMIN} and >= {PERM_DENY})'
             raise s_exc.BadArg(mesg=mesg)
 
-        item.setdefault('permissions', {})
-        item['permissions'].setdefault('users', {})
-        item['permissions'].setdefault('roles', {})
-        item['permissions'].setdefault('info', {})
-        item['permissions']['default'] = default
+        easyperm = {
+            'users': {},
+            'roles': {},
+            'default': default
+        }
 
         if info is not None:
-            item['permissions']['info'] = info
+            easyperm['info'] = info
 
-        item['permissions'] = s_schemas.reqValidEasyPerm(item['permissions'])
+        item['permissions'] = s_schemas.reqValidEasyPerm(easyperm)
 
     async def getTeleApi(self, link, mesg, path):
 
