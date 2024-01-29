@@ -447,8 +447,8 @@ class SubGraph:
 
         for pivq in rules.get('pivots', ()):
             indx = 0
-            async for node, path in node.storm(runt, pivq):
-                yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
+            async for n, p in node.storm(runt, pivq):
+                yield (n, p, {'type': 'rules', 'scope': scope, 'index': indx})
                 indx += 1
 
     async def _edgefallback(self, runt, results, node):
