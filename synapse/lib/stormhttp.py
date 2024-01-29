@@ -328,11 +328,23 @@ class LibHttp(s_stormtypes.Lib):
             connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         timeout = aiohttp.ClientTimeout(total=timeout)
+        kwargs = {'timeout': timeout}
+        if params:
+            kwargs['params'] = params
+
+        cadir = self.runt.snap.core.conf.get('tls:ca:dir')
+
+        if ssl_verify is False:
+            kwargs['ssl'] = False
+        elif cadir:
+            kwargs['ssl'] = s_common.getSslCtx(cadir)
+        else:
+            # default aiohttp behavior
+            kwargs['ssl'] = None
 
         try:
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
-            sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, ssl=ssl_verify, timeout=timeout,
-                                                                 params=params, ))
+            sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, **kwargs))
 
             sock._syn_refs = 0
             self.runt.onfini(sock)

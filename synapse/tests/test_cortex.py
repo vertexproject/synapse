@@ -8005,6 +8005,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(core01.isactive)
                     self.false(core00.isactive)
 
+                    # Let the mirror reconnect
+                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), 12))
+
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core01.callStorm('inet:asn=0 return($lib.true)'))
 
