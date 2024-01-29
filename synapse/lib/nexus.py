@@ -284,6 +284,9 @@ class NexsRoot(s_base.Base):
 
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        if meta is None:
+            meta = {}
+
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
 
@@ -297,9 +300,6 @@ class NexsRoot(s_base.Base):
         except asyncio.TimeoutError:
             mesg = 'Mirror cannot reach leader for write request'
             raise s_exc.LinkErr(mesg=mesg) from None
-
-        if meta is None:
-            meta = {}
 
         # If this issue came from a downstream mirror, just in case I'm forwarding to upstream mirror,
         # make my response iden the same as what's coming from downstream
