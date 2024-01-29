@@ -12,10 +12,9 @@ Storm Reference - Automation
 Background
 ----------
 
-Synapse is designed to support large-scale analysis over disparate data sources with speed and efficiency.
-Many features that support this analysis are built into Synapse’s architecture, from performance-optimized
-indexing and storage to an extensible data model that allows you to reason over data in a structured
-manner.
+Synapse supports large-scale analysis over disparate data sources with speed and efficiency. Many features
+that support this analysis are built into Synapse’s architecture, from performance-optimized indexing and
+storage to an extensible data model that allows you to reason over data in a structured manner.
 
 Synapse also supports large-scale analysis through the use of **automation.** Synapse’s automation features
 include:
@@ -24,23 +23,23 @@ include:
 - `Macros`_
 - `Dmons`_
 
-Automation in Synapse provides significant advantages. It relieves analysts from performing tedious work,
-freeing them to focus on more detailed analysis and complex tasks. It also allows you to scale analytical
-operations by limiting the amount of work that must be performed manually.
+By making use of automation in Synapse, you can free analysts from performing tedious work and allow them
+to focus on more detailed analysis and complex tasks. You can also scale analytical operations by limiting
+the amount of work that must be performed manually.
 
-Automation in Synapse uses the Storm query language. This means that
-**anything that can be written in Storm can be automated,** from the simple to the more advanced. Actions
-performed via automation are limited only by imagination and Storm proficiency. Some automation is fairly
-basic ("if X occurs, do Y" or "once a week, update Z"). However, automation can take advantage of all
-available Storm features, including subqueries, variables, libraries, control flow logic, and so on.
+Automation in Synapse uses the Storm query language: **anything that can be written in Storm can be automated,**
+from the simple to the more advanced. Actions performed via automation are limited only by imagination and Storm
+proficiency. Some automation is fairly basic ("if X occurs, do Y" or "once a week, update Z"). However, automation
+can take advantage of all available Storm features, including subqueries, variables, libraries, control flow logic,
+and so on.
 
 .. _auto-consid:
 
 Considerations
 --------------
 
-This section is **not** meant as a detailed guide on implementing automation. A few items are listed
-here for consideration when planning the use of automation in your environment.
+This section is **not** meant as a detailed guide on implementing automation. A few items are listed here
+for consideration when planning the use of automation in your environment.
 
 Permissions
 +++++++++++
@@ -50,13 +49,20 @@ grant permission for users to create and manage automation. In other cases, the 
 automated task runs under may vary based on the type of automation used. See the relevant sections below
 for additional detail.
 
+.. TIP::
+  
+  For a detailed discussion of permissions in Synapse, refer to the `Synapse Admin Guide`_.
+
 Scope
 +++++
 
-Automation components vary with respect to where they reside and execute within Synapse; some elements
-are global (within a Cortex) while some reside and execute within a specific :ref:`gloss-view`, which
-may impact organizations that use multiple views and / or use Synapse's ability to :ref:`gloss-fork`
-a view and later merge or delete it. See the relevant sections below for additional detail.
+Automation components vary with respect to where they reside and execute within Synapse; some elements are
+global (within a Cortex) while some reside and execute within a specific :ref:`gloss-view`. Organizations
+that make use of Synapse's fork and merge capabilities should refer to the sections below for inforamtion
+on how views and layers may impact automation.
+
+For a more general discussion of views and layers, including a discussion of forking and merging views, see
+the :ref:`userguide_views_layers` section of the Synapse User Guide.
 
 Testing
 +++++++
@@ -80,9 +86,9 @@ Design
 
 There are varying approaches for "how" to write and implement automation. For example:
 
-- Individual triggers and cron jobs can be kept entirely separate from one another, each executing
-  their own dedicated Storm code. This approach helps keep automation "self-contained" and means the
-  Storm executed by a given trigger or cron job is directly introspectable via Storm itself (as a
+- **Location of automation code.** The Storm code run by individual triggers and cron jobs can be written
+  and stored as part of the automation itself. This approach helps keep automation "self-contained" and
+  means the Storm executed by a given trigger or cron job is directly introspectable via Storm itself (as a
   property of ``syn:trigger`` or ``syn:cron`` nodes). However, it may provide less flexibility in
   executing the associated Storm compared with the use of macros.
   
@@ -92,26 +98,29 @@ There are varying approaches for "how" to write and implement automation. For ex
   also provides flexibility as the macro can be called by a trigger, a cron job, or a user as part of
   a Storm query.
 
-- Automation can be written as many small, individual elements. Each element can perform a relatively
-  simple task, but the elements can work together like building blocks to orchestrate larger-scale
-  operations. This approach keeps tasks "bite sized" and the Storm executed by a given piece of automation
-  generally simpler. However it may result in a larger number of automation elements to maintain, and may
-  make it more challenging to understand the potential interactions of so many different elements.
-  
+- **Size of automation.** Automation can be written as many small, individual elements. Each element can
+  perform a relatively simple task, but the elements can work together like building blocks to orchestrate
+  larger-scale operations. This approach keeps tasks "bite sized" and the Storm executed by a given piece
+  of automation generally simpler. However it may result in a larger number of automation elements to
+  maintain, and may make it more challenging to understand the potential interactions of so many different
+  elements.
+    
   Alternatively, automation can be implemented using fewer elements that perform larger, more unified
-  tasks (or that consolidate numerous smaller tasks). This approach results in fewer automation elements
-  overall, but typically requires you to write and maintain more advanced Storm (e.g., to create a small
-  number of macros with switch or if/else statements to each manage a variety of tasks). However, the
-  Storm is consolidated in a few locations, which may make managing and troubleshooting easier.
+  tasks (or that consolidate numerous smaller tasks into a larger set of Storm code). This approach results
+  in fewer automation elements overall, but typically requires you to write and maintain more advanced
+  Storm (e.g., to create a small number of macros with switch or if/else statements to each manage a
+  variety of tasks). However, the Storm is consolidated in a few locations, which may make managing
+  and troubleshooting easier.
 
-Each approach has its pros and cons; there is no single "right" way, and what works best in your environment
-or for a particular task will depend on your needs (and possibly some trial and error).
+Each approach has its pros and cons; there is no single "right" way. In addition, you do not have to take
+an "either / or" approach; what works best in your environment or for a particular task will depend on
+your needs (and possibly some trial and error).
 
 Governance / Management
 +++++++++++++++++++++++
 
 Consider any oversight or approval processes that you may need in order to implement and manage automation
-effectively in your environment. A number of automation use cases may require coordination or deconfliction:
+effectively in your environment. Organization-wide automation requires coordination and oversight:
 
 - Where multiple users have the ability to create automated tasks, it is possible for them to create
   duplicative or even conflicting automation. Consider who should be repsonsible for deconflicting
@@ -127,23 +136,25 @@ effectively in your environment. A number of automation use cases may require co
   circumstances this should be automated, and who should review or approve the analysis logic used to
   make the assertion.
 
-Existing Synapse features will help mitigate some of these potential issues. For example, if you
-inadvertently create looping or recursive automation, it will eventually reach Synapse's recursion
-limit and error / halt (with the only bad effect being that the automation may only partially complete).
-In addition, Vertex-provided Synapse Power-Ups (see :ref:`gloss-power-up`) are written to optimize
-third-party API use where possible (e.g., by caching responses or by checking whether Synapse already
-has a copy of a file before attempting to download it from an external source). However, it is a good
-idea to decide on any internal controls that are necessary to ensure automation works well in your
-organization.
 
-Nodes In and Nodes Out
-++++++++++++++++++++++
+Automation and Error Handling
++++++++++++++++++++++++++++++
 
-In cases where automation operates on nodes (the most common scenario), either the automation itself
-or any Storm executed after the automation may fail if the inbound nodes (that is, the current nodes in
-the Storm pipeline) are not what is expected by the query.
+If the Storm executed by a piece of automation encounters an error condition, the automation will
+cease execution and exit. For automation that operates over large numbers of nodes or performs a
+long-running task, an unexpected error can cause the automation to "halt in the middle" and fail to
+complete, which may be problematic in some cases.
 
-Users should keep the :ref:`storm-op-concepts` in mind when writing automation.
+In addition to general testing of your Storm code (and Storm logic!), using the :ref:`edit-try` when
+adding or modifying data will ensure your Storm code will "warn and continue" if it encounters bad
+data vs. generating an error and halting.
+
+We also encourage you to build in additional error-checking and error-handling into your automation
+as appropriate.
+
+Users should keep the :ref:`storm-op-concepts` in mind when writing automation. Automation frequently
+operates on nodes or other Synapse data; knowing what nodes are in the Storm pipeline for your
+automation will help significantlty with troubleshooting any issues.
 
 
 .. _auto-triggers-cron:
@@ -155,28 +166,217 @@ Triggers and cron are similar in terms of how they are implemented and managed.
 
 - **Permissions.** Synapse uses permissions to determine who can create, modify, and delete triggers
   and cron jobs. These permissions must be explicitly granted to users and/or roles.
-  
+    
 - **Execution.** Both triggers and cron jobs execute with the permissions **of the user who creates them.**
   A trigger or cron job can only perform actions that their creator has permissions to perform.
   
 - **Introspection.** Triggers and cron jobs are created as runtime nodes ("runt nodes") in Synapse
-  (``syn:trigger`` and ``syn:cron`` nodes, respectively).
+  (``syn:trigger`` and ``syn:cron`` nodes, respectively). A subset of information about triggers or cron
+  jobs can be viewed by querying these runt nodes using Storm. See the Storm Reference section on
+  :ref:`introspect-data-model` introspection for additional details.
 
-- **Scope.** Both triggers and cron jobs run **within a specific view.** Synapse allows the optional
-  segregation of data in a Cortex into multiple layers (:ref:`gloss-layer`) that can be "stacked" to
-  provide a unified :ref:`gloss-view` of data to users. You must specify the particular view in which
-  each trigger or cron job runs.
+- **Scope.** Both triggers and cron jobs run **within a specific view.** This view-specific behavior is
+  transparent when using a simple Synapse implementation consisting of a single Cortex with a single layer
+  and a single view (Synapse's default configuration). Organizations using multiple views or that
+  frequently fork views should consider the impact of your view architecture on automation deployment
+  and behavior.
+
+.. NOTE::
   
-  .. NOTE::
+  Cron and triggers are **fully automated** processes in Synapse. That is, once a cron job or trigger is
+  created and enabled (and both are **enabled by default** as soon as they are created), they will execute
+  without any further human intervention.
+
+.. _auto-cron:
+
+Cron
+++++
+
+Cron jobs in Synapse are similar to the well-known cron utility. Cron jobs execute their associated Storm
+on a specified schedule. Cron jobs can be written to execute once or on a recurring basis.
+
+.. TIP::
+  
+  When scheduling cron jobs, Synapse interprets all times as UTC.
+
+Cron jobs have the following characteristics in Synapse 2.xx:
+
+.. _auto-cron-config:
+
+Configuration and Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **Storage and Execution.** Cron jobs are stored **globally** (within the Cortex). However, cron jobs execute
+  within a specific **view**. If the view that a cron job runs in is deleted, the cron job **remains** (within
+  the Cortex) but is effectively orphaned until it is explicitly assigned to a new view (or deleted if no longer
+  needed).
+  
+  Because cron jobs are stored globally, when **viewing** cron jobs, (e.g., with the :ref:`storm-cron-list` command),
+  Synapse returns all cron jobs in the Cortex, regardless of the view the job executes in.
+  
+- **Permissions.** Cron jobs execute with the privileges of the user who creates the cron job. We
+  strongly encourage the use of least privilege; the cron job's account should have the permissions required to
+  execute the associated Storm, but no more. One option is for organizations to create a dedicated account for use
+  with automation in Synapse.
+
+  Users (and roles) cannot create or manage cron jobs by default. The various ``cron.*`` permissions must be granted
+  to users or roles that should be allowed to work with cron jobs in your environment.
+  
+  One exception to this general rule is that **users can create cron jobs in forked views where they are admin**.
+  The ``cron.add`` permission is gated (checked) at the view first; if a user forks a view, they are admin of the
+  view and perform any action gated at the view.
+  
+  See the `Cortex permissions`_ section of the `Synapse Admin Guide`_ for details on the ``cron.*`` permissions
+  and associated gates.
+
+- **Managing Jobs.** Cron jobs can be createtd, viewed, and managed using the various Storm :ref:`storm-cron`
+  commands or using the :ref:`stormlibs-lib-cron` libraries.
+  
+  When a cron job is created, Synapse also generates a ``syn:cron`` runtime nodes ("runt nodes") with some
+  details about the cron job available as properties on the ``syn:cron`` node. While runt nodes are typically
+  read-only, ``syn:cron`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified
+  via Storm (or configured via :ref:`gloss-optic`). This allows you to manage cron jobs by giving them meaningful
+  names and descriptions. Changes to these properties will persist even after a Cortex restart.
+  
+  Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
+  limited introspection_ of cron jobs in Synapse.
+  
+  .. TIP::
     
-    This view-specific behavior is transparent when using a simple Synapse implementation consisting of a
-    single Cortex with a single layer and a single view (Synapse's default configuration).
+    The creator (owner) of a cron job can be modified (with appropriate permissions) using the Storm
+    :ref:`stormlibs-lib-cron` library and :ref:`stormprims-cronjob-f527` primitive. For example:
     
-    In environments with multiple views, and in particular where users may frequently :ref:`gloss-fork`
-    a view) you should take this view-specific behavior into account. Key considerations include
-    determining where (in which view) triggers and cron jobs should reside, and understanding what
-    happens when you merge or delete a view that contains triggers or cron jobs (discussed in more detail
-    in the appropriate sections below).
+    ::
+      
+      $cron=$lib.cron.get(<cron_iden>) $cron.set(creator, <new_creator_iden>)
+
+.. _auto-cron-use:
+
+Use Cases
+~~~~~~~~~
+
+Because cron jobs are scheduled, they are most appropriate for automating routine tasks, non-urgent tasks, or
+resource-intensive tasks that should be scheduled to minimize impact on operations.
+
+"What" a cron job does is limited only by your imagination (and your Storm skills). Examples of common cron use
+cases include:
+
+- **Data ingest.** Periodically ingest / synchronize data that you want to load into Synapse on a regular basis.
+
+- **Housekeeping.** Perform one-time or periodic "maintenance" tasks. These may include one-time sweep to "backfill"
+  missing data (like IP geolocation data) or a periodic sweep to check set missing properties (such as tag definitions).
+
+- **Process intensive jobs.** Data enrichment may be resource intensive where it generates a significant number
+  of write operations. If you reguarly perform routine (non-urgent) enrichment, it can be scheduled to run
+  when it will have less impact on users.
+
+- **Periodic hunting.** New data and annotations (tags) are continually added to Synapse. Encoding "hunt" logic
+  in Storm and periodically running hunts can help ensure you are continually reviewing new data for updated
+  indicators or activity.
+
+.. TIP::
+  
+  A cron job can use Storm to call a macro, which may provide greater flexibility in storing and managing the
+  job's Storm code.
+
+
+.. _auto-cron-syntax:
+
+Syntax
+~~~~~~
+
+Cron jobs are created, modified, viewed, enabled, disabled, and deleted using the Storm :ref:`storm-cron`
+commands. In :ref:`gloss-optic`, cron jobs can also be managed through the :ref:`gloss-admin-tool`.
+
+Once a cron job is created, you can modify many of its properties (such as its name and description, or
+the Storm associated with the job). However, you cannot modify other aspects of the job, such as its schedule.
+To change those conditions, you must delete and re-create the cron job.
+
+.. _auto-cron-vars:
+
+Variables
+~~~~~~~~~
+
+Every cron job has an associated Storm variable ``$auto`` that is populated when the job runs. The ``$auto`` variable
+is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the cron job.
+
+  ``$auto.type``
+    The type of automation. For a cron job this value will be ``cron``.
+
+These job-specific variables / dictionary entries can be referenced by the Storm code executed by the cron job.
+
+See :ref:`storm-adv-vars` for information on the use of variables in Storm.
+
+
+.. _auto-cron-examples:
+
+Examples
+~~~~~~~~
+
+The examples below illustrate using the Storm :ref:`storm-cron` commands (``cron.at``, ``cron.add``) to create
+new cron jobs.
+
+`Add a one-time (non-recurring) cron job that runs at 0200 UTC to lift all articles (media:news nodes) and delete the deprecated :author property:`
+
+.. storm-pre:: [ (media:news=* :author='ron the cat' :title='my article') (media:news=* :title='your article') ]
+.. storm-pre:: media:news:author [ -:author ]
+
+.. storm-cli:: cron.at --hour 2 { media:news:author [ -:author ] }
+
+We can view the details of this cron job using the ``cron.list`` command:
+
+.. storm-cli:: cron.list
+
+The output of ``cron.list`` contains the following columns:
+
+- **user** - the username used to create the job / that the job runs as.
+- **iden** - the first eight characters of the cron job's identifier (iden).
+- **view** - the first eight characters of the iden of the view the job executes in. For "orphaned" cron
+  jobs, this will be the job's last view (before it was orphaned).
+- **en?** - whether the job is currently enabled or disabled ( Y/N ).
+- **rpt?** - whether the job is scheduled to repeat ( Y/N ).
+- **now?** - whether the job is currently executing ( Y/N ).
+- **err?** - whether the last job execution encountered an error ( X or empty ).
+- **# start** - the number of times the job has started / executed (since the last restart of Syanpse).
+- **last start** - the date and time the job last started (or attempted to start).
+- **last end** - the date and time the job last finished (or exited).
+- **query** - the Storm query executed by the cron job.
+
+.. TIP::
+  
+  Detailed information about individual cron jobs can be retrieved with the :ref:`storm-cron-stat` command.
+
+We can also view limited information about the cron job by lifting its ``syn:cron`` node:
+
+.. storm-cli:: syn:cron
+
+.. TIP::
+  
+  You can optionally set the ``:name`` and ``:doc`` properties of the ``syn:cron`` node using Storm's
+  edit (data modification) syntax to :ref:`prop-add-mod`.
+
+
+`Add a cron job that runs every hour and downloads the latest MISP data using the misp.sync command:`
+
+::
+  
+  cron.add --hour +1 | misp.sync
+
+.. TIP::
+  
+  The ``misp.sync`` command is added by the `Synapse-MISP`_ Power-Up.
+
+
+`Add a cron job that runs every Tuesday, Thursday, and Saturday at 20:00 UTC to check for any files (file:bytes nodes) that query "known bad" FQDNs (tagged #cno.mal) where the file has NOT been tagged as malicious, and flag the file for review (i.e., tag it #int.review.malware):`
+
+
+.. storm-pre:: cron.add --day Tue,Thu,Sat --hour 20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
+::
+  
+  cron.add --day Tue,Thu,Sat --hour 20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
 
 
 .. _auto-triggers:
@@ -184,28 +384,65 @@ Triggers and cron are similar in terms of how they are implemented and managed.
 Triggers
 ++++++++
 
-Triggers are **event-driven** automation. As their name implies, they trigger ("fire") their associated
-Storm when specific events occur in Synapse's data store.
-
-Triggers can fire on the following events:
+Triggers are "event-driven" automation. As their name implies, they trigger ("fire") their associated Storm
+when specific events occur in Synapse's data store. Triggers can fire on the following events:
 
 - Adding a node (``node:add``)
 - Deleting a node (``node:del``)
 - Setting (or modifying) a property (``prop:set``)
 - Adding a tag to a node (``tag:add``)
 - Deleting a tag from a node (``tag:del``)
+- Adding a light edge (``edge:add``)
+- Deleting a light edge (``edge:del``).
 
-Each event requires an object (a form, property, or tag) to act upon - that is, if you write a trigger to
+Each event requires an object (a form, property, tag, or edge) to act upon - that is, if you write a trigger to
 fire on a ``node:add`` event, you must specify the type of node (form) associated with the event. Similarly,
 if a trigger should fire on a ``tag:del`` event, you must specify the tag whose removal fires the trigger.
 
 ``tag:add`` and ``tag:del`` events can take an optional form; this allows you to specify that a trigger
 should fire when a given tag is added (or removed) from a specific form as opposed to any / all forms.
 
+``edge:add`` and ``edge:del`` events 
+
 .. NOTE::
   
   The node(s) that cause a trigger to fire are considered **inbound** to the Storm executed by the
   trigger.
+
+
+.. _auto-trigger-config:
+
+Configuration and Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+.. _auto-trigger-use:
+
+Use Cases
+~~~~~~~~~
+
+
+.. _auto-trigger-syntax:
+
+Syntax
+~~~~~~
+
+
+.. _auto-trigger-vars:
+
+Variables
+~~~~~~~~~
+
+
+.. _auto-trigger-examples:
+
+Examples
+~~~~~~~~
+
+
+* * * * * * * * * *
+
+
 
 Example Use Cases
 ~~~~~~~~~~~~~~~~~
@@ -444,163 +681,6 @@ Newly created trigger as a ``syn:trigger`` node:
 .. storm-cli:: trigger.add --name "enrich osint" tag:add --tag osint --query { | macro.exec enrich }
 
 
-.. _auto-cron:
-
-Cron
-++++
-
-Cron jobs in Synapse are similar to the well-known cron utility. Where triggers are event-driven, cron jobs are
-**time / schedule based.** Cron jobs can be written to execute once or on a recurring schedule. When creating a
-cron job, you must specify the job's schedule and the Storm to be executed.
-  
-.. NOTE::
-  
-  When scheduling cron jobs, Synapse interprets all times as UTC.
-
-
-Example Use Cases
-~~~~~~~~~~~~~~~~~
-
-Because cron jobs are scheduled, they are most appropriate for automating routine, non-urgent tasks; maintenance
-tasks; or resource-intensive tasks that should run during off-hours.
-
-- **Data ingest.** Cron jobs can be used to ingest / synchronize data that you want to load into Synapse on a
-  regular basis. For example, you can create a cron job to retrieve and load a list of TOR exit nodes every hour.
-
-- **Housekeeping.** You created a trigger to automatically look up and apply geolocation and autonomous system
-  (AS) properties to IPv4 nodes when they are created in Synapse. However, you already have a large number of
-  IPv4 nodes that existed before the trigger was added. You can create a one-time cron job to retrieve and
-  "backfill" this information for IPv4s that already exist.
-
-- **Process intensive jobs.** Data enrichment may be resource intensive where it generates a significant number
-  of write operations. If you reguarly perform routine (non-urgent) enrichment, it can be scheduled to run
-  when it will have less impact on users.
-  
-
-Usage Notes
-~~~~~~~~~~~
-
-- Users must be granted permissions in order to be able to work with cron jobs (i.e., to execute the
-  associated ``cron.*`` Storm commands).
-
-- Cron jobs execute **with the permissions of the user who created the job**. If a cron job calls a
-  macro, the macro will execute with the permissions of the cron job (macros execute with the
-  permissions of the calling user).
-
-- Cron jobs **reside** in the Cortex but **execute** within a particular :ref:`gloss-view`. This has
-  implications for environments that use multiple views or that regularly :ref:`gloss-fork` and later
-  merge or delete views. For example:
-  
-  - Cron jobs that execute in a **forked view** are "orphaned" when you merge or delete the fork.
-    The jobs will remain in Synapse (because they reside in the Cortex), but will not execute because
-    they are not assigned to a view. You must assign the jobs to a new view for them to run (or delete
-    them if no longer needed).
-
-- When viewing cron jobs (i.e., with the :ref:`storm-cron-list` command), Synapse returns
-  **all cron jobs in the Cortex,** regardless of the view the job executes in.
-
-- Cron jobs are exclusive - if for some reason a job has not finished executing before its next scheduled
-  start, the original job will run to completion and the "new" job will be skipped.
-
-- Creating a cron job will create an associated ``syn:cron`` runtime node (runt node). While runt nodes
-  (:ref:`gloss-runt-node`) are typically read-only, ``syn:cron`` nodes include ``:name`` and ``:doc``
-  secondary properties that can be set and modified via Storm (or configured via :ref:`gloss-optic`).
-  This allows you to manage cron jobs by giving them meaningful names and descriptions. Changes to these
-  properties will persist even after a Cortex restart.
-
-- ``syn:cron`` nodes can be lifted, filtered, and pivoted across just like other nodes. However, they
-  cannot be created or modified (e.g., using Storm's data modification / edit syntax) except in the
-  limited ways described above.
-
-- The creator (owner) of a cron job can be modified (with appropriate permissions) using the Storm
-  :ref:`stormlibs-lib-cron` library and :ref:`stormprims-cronjob-f527` primitive. For example:
-  
-  ::
-  
-    $cron=$lib.cron.get(<cron_iden>) $cron.set(creator, <new_creator_iden>)
-
-
-Variables
-~~~~~~~~~
-
-Cron jobs automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable
-is a dictionary which contains the following keys:
-
-  ``$auto.iden``
-    The identifier of the cron job.
-
-  ``$auto.type``
-    The type of automation. For a cron job this value will be ``cron``.
-
-Syntax
-~~~~~~
-
-Cron jobs are created, modified, viewed, enabled, disabled, and deleted using the Storm ``cron.*``  commands.
-See the :ref:`storm-cron` command in the :ref:`storm-ref-cmd` document for details.
-
-In :ref:`gloss-optic`, cron jobs can also be managed through the :ref:`gloss-admin-tool`.
-
-.. NOTE::
-  
-  Once a cron job is created, you can modify many of its properties (such as its name and description, or
-  the Storm associated with the job). However, you cannot modify other aspects of the job, such as its
-  schedule. To change those conditions, you must delete and re-create the cron job.
-
-
-Examples
-~~~~~~~~
-
-In the examples below, we show the command to create (add) the specified cron job.
-
-For illustrative purposes, in the **first** example the newly created cron job is then displayed using
-the ``cron.list`` command and by lifting the associated ``syn:cron`` runtime ("runt") node.
-
-- Add a one-time / non-recurring cron job to run at 7:00 PM to create the RFC1918 IPv4 addresses in the
-  172.16.0.0/16 range.
-
-.. storm-cli:: cron.at --hour 19 { [ inet:ipv4=172.16.0.0/16 ] }
-
-
-Newly created cron job via ``cron.list``:
-
-.. storm-cli:: cron.list
-
-
-The output of ``cron.list`` contains the following columns:
-
-- The username used to create the job.
-- The first eight characters of the job's identifier (iden).
-- The view the cron job resides in. **Note** that for "orphaned" cron jobs, this will be the job's **last**
-  view (before it was orphaned).
-- Whether the job is currently enabled or disabled.
-- Whether the job is scheduled to repeat.
-- Whether the job is currently executing.
-- Whether the last job execution encountered an error.
-- The number of times the job has started.
-- The date and time of the job's last start (or start attempt) and last end.
-- The query executed by the cron job.
-
-Newly created cron job as a ``syn:cron`` node:
-
-.. storm-cli:: syn:cron
-
-
-- Add a cron job to run on the 15th of every month that lifts all IPv4 address nodes with missing geolocation
-  data (i.e., no ``:loc`` property) and submits them to a Storm command that calls an IP geolocation service.
-  (**Note:** Synapse does not include a geolocation service in its open source distribution; this cron job assumes
-  such a service has been implemented).
-
-.. storm-cli:: cron.add --day 15 { inet:ipv4 -:loc | ipgeoloc }
-
-
-- Add a cron job to run every Tuesday, Thursday, and Saturday at 2:00 AM UTC to lift all MD5, SHA1, and SHA256
-  hashes tagged "malicious" that do not have corresponding file (``file:bytes``) nodes and submit them to a
-  Storm command that queries a third-party malware service and attempts to download those files. (**Note:**
-  Synapse does not include a malware service in its open source distribution; this cron job assumes such a
-  service has been implemented).
-
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malwaresvc, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-cli:: cron.add --day Tue,Thu,Sat --hour 2 { hash:md5#malicious hash:sha1#malicious hash:sha256#malicious -{ -> file:bytes } | malwaresvc }
 
 
 .. _auto-macros:
@@ -747,3 +827,9 @@ Syntax
 
 Users can interact with dmons using the Storm ``dmon.*``  commands (see the :ref:`storm-dmon` command in the
 :ref:`storm-ref-cmd` document for details) and the :ref:`stormlibs-lib-dmon` Storm libraries.
+
+.. _Synapse Admin Guide: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html
+.. _Cortex permissions: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#cortex-permissions
+.. _introspection: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_model_introspect.html#data-model
+.. _Synapse Maxmind: https://synapse.docs.vertex.link/projects/maxmind/en/latest/
+.. _Synapse-MISP: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
