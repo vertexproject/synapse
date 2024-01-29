@@ -379,9 +379,14 @@ class NexsRoot(s_base.Base):
         while not self.isfini:
             (futu, item) = await self.applyq.get()
             async with self.applylock:
-                resu = await self._eat(item)
-                if not futu.done():
-                    futu.set_result(resu)
+                try:
+                    resu = await self._eat(item)
+                    if not futu.done():
+                        futu.set_result(resu)
+
+                except Exception as e:
+                    if not futu.done():
+                        futu.set_exception(e)
 
     async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
         '''
