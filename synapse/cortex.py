@@ -1144,6 +1144,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         info = {
                 'type': 'macro',
                 'iden': mdef['iden'],
+                'cmd': '$lib.macro.grant()'
         }
         self._initEasyPerm(mdef, info=info)
 
@@ -1610,6 +1611,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         info = {
             'type': 'graph',
             'iden': gdef['iden'],
+            'cmd': '$lib.graph.grant()',
         }
         self._initEasyPerm(gdef, info=info)
 
@@ -2768,6 +2770,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info = {
                 'type': 'graph',
                 'iden': gdef['iden'],
+                'cmd': '$lib.graph.grant()',
             }
             self._initEasyPerm(gdef, info=info)
             self.pkggraphs[gdef['iden']] = gdef
@@ -6467,6 +6470,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         info = {
             'type': 'vault',
             'iden': vdef['iden'],
+            'cmd': 'vault.set.perm'
         }
         self._initEasyPerm(vdef, default=s_cell.PERM_DENY, info=info)
 

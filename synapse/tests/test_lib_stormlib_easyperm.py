@@ -107,6 +107,7 @@ class StormlibEasyPermTest(s_test.SynTest):
             $info = ({
                 'type': 'foo',
                 'iden': 'c23a27f0459f6be37c73b76e2461c56f',
+                'cmd': '$lib.foo.grant()',
             })
             $item = $lib.auth.easyperm.init(({}), $lib.auth.easyperm.level.read, info=$info)
             return($item)
@@ -118,5 +119,5 @@ class StormlibEasyPermTest(s_test.SynTest):
             $lib.auth.easyperm.confirm($item, $lib.auth.easyperm.level.admin)
             '''
             msgs = await core.stormlist(q, opts=opts)
-            mesg = 'User (someuser) has insufficient permissions (requires: admin) type=foo iden=c23a27f0459f6be37c73b76e2461c56f.'
+            mesg = 'User (someuser) has insufficient permissions (requires: admin) type=foo iden=c23a27f0459f6be37c73b76e2461c56f cmd=$lib.foo.grant().'
             self.stormIsInErr(mesg, msgs)

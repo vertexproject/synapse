@@ -3032,22 +3032,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self._hasEasyPerm(item, user, level):
             return
 
-        typemsg = ''
-        idenmsg = ''
-
-        info = item['permissions']['info']
-        ityp = info.get('type')
-        iden = info.get('iden')
-
-        if ityp is not None:
-            typemsg = f' type={ityp}'
-
-        if iden is not None:
-            idenmsg = f' iden={iden}'
-
         if mesg is None:
+            info = item['permissions']['info']
+            infomsg = ' '.join([f'{key}={valu}' for key, valu in info.items()])
+            if infomsg:
+                infomsg = ' ' + infomsg
+
             permname = permnames.get(level)
-            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}){typemsg}{idenmsg}.'
+            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}){infomsg}.'
 
         raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name, **info)
 

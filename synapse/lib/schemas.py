@@ -27,6 +27,7 @@ easyPermSchema = {
             'default': {},
             'properties': {
                 'type': {'type': 'string', 'minLen': 2},
+                'cmd': {'type': 'string', 'minLen': 2},
                 'iden': {'type': 'string', 'pattern': s_config.re_iden},
             },
             'additionalProperties': False,
