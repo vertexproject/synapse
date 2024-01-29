@@ -3441,6 +3441,14 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test2'))
 
+            q = '''
+            $foo = bar
+            $q = ${ $lib.print($foo) }
+            for $x in $q { $lib.print(bar) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('bar', msgs)
+
         # Should produce the same results in a macro sub-runtime
         async with self.getTestCore() as core:
             nodes = await core.nodes('[test:str=test1]')
@@ -3479,6 +3487,20 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('macro.exec test.pivot')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+            q = '''
+            $q = ${
+                $foo = bar
+                $q = ${ $lib.print($foo) }
+                for $x in $q { $lib.print(bar) }
+            }
+            $lib.macro.set(test, $q)
+            return($lib.true)
+            '''
+            self.true(await core.callStorm(q))
+
+            msgs = await core.stormlist('macro.exec test')
+            self.stormIsInPrint('bar', msgs)
 
     async def test_ast_subq_runtsafety(self):
 
