@@ -8017,7 +8017,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.notin('Timeout waiting for query mirror', data)
 
                     waiter = core01.stormpool.waiter('svc:del', 1)
-                    msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...')
+                    msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
