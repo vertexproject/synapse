@@ -3040,7 +3040,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 infomsg = ' ' + infomsg
 
             permname = permnames.get(level)
-            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}){infomsg}.'
+            mesg = f'User ({user.name}) has insufficient easyperms level (requires: {permname}){infomsg}.'
 
         raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name, **info)
 
