@@ -87,6 +87,8 @@ class NexsRoot(s_base.Base):
         self.celliden = self.cell.iden
         self.readonly = False
         self.readonlyreason = None
+
+        self.applytask = None
         self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
@@ -312,7 +314,10 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        return await self._eat((nexsiden, event, args, kwargs, meta))
+        async with self.applylock:
+            # Keep a reference to the shielded task to ensure it isn't GC'd
+            self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
+            return await asyncio.shield(self.applytask)
 
     async def index(self):
         if self.donexslog:
@@ -365,11 +370,10 @@ class NexsRoot(s_base.Base):
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
 
-        async with self.applylock:
-            if passitem:
-                return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
+        if passitem:
+            return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
 
-            return await func(nexus, *args, **kwargs)
+        return await func(nexus, *args, **kwargs)
 
     async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
         '''
