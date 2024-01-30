@@ -3947,6 +3947,60 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}))'
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
 
+            iden = await core.callStorm('''
+                $rules = ({
+                    "name": "graph proj",
+                    "forms": {
+                        "biz:deal": {
+                            "pivots": [" --> *", " <-- *"],
+                        },
+                        "pol:country": {
+                            "pivots": ["--> *", "<-- *"],
+                            "filters": ["-file:bytes"]
+                        },
+                        "*": {
+                            "pivots": ["-> #"]
+                        }
+                    },
+                })
+                return($lib.graph.add($rules).iden)
+            ''')
+
+            guids = {
+                'race': 'cdd9e140d78830fb46d880dd36b62961',
+                'biz': 'c5352253cb13545205664e088ad210f0',
+                'orgA': '2e5dcdb52552ca22fa7996158588ea01',
+                'orgB': '9ea20ce1375d0ff0d16acfe807289a95',
+                'pol': '111e3b57f9bbf973febe74b1e98e89f8'
+            }
+
+            await core.callStorm('''[
+                (pol:country=$pol
+                    :name="some government"
+                    :flag=fd0a257397ee841ccd3b6ba76ad59c70310fd402ea3c9392d363f754ddaa67b5
+                    <(running)+ { [ pol:race=$race ] }
+                    +#some.stuff)
+                (ou:org=$orgA
+                   :url=https://foo.bar.com/wat.html)
+                (ou:org=$orgB
+                   :url=https://neato.burrito.org/stuff.html
+                   +#rep.stuff)
+                (biz:deal=$biz
+                    :buyer:org=$orgA
+                    :seller:org=$orgB
+                    <(seen)+ { pol:country=$pol })
+            ]''', opts={'vars': guids})
+
+            nodes = await core.nodes('biz:deal | $lib.graph.activate($iden)', opts={'vars': {'iden': iden}})
+            self.len(4, nodes)
+            ndefs = set([n.ndef for n in nodes])
+            self.eq(ndefs, set([
+                ('biz:deal', guids['biz']),
+                ('ou:org', guids['orgA']),
+                ('ou:org', guids['orgB']),
+                ('pol:country', guids['pol']),
+            ]))
+
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 visi = await core.auth.addUser('visi')
@@ -8017,7 +8071,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.notin('Timeout waiting for query mirror', data)
 
                     waiter = core01.stormpool.waiter('svc:del', 1)
-                    msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...')
+                    msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
