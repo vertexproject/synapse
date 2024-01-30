@@ -1153,10 +1153,11 @@ class Snap(s_base.Base):
 
             if node is None:
                 node = await self._joinStorNode(buid, cache)
-
-            if node is None:
-                # We got part of a node but no ndef
-                continue
+                if node is None:
+                    # We got part of a node but no ndef
+                    continue
+            else:
+                await asyncio.sleep(0)
 
             nodes.append(node)
 
