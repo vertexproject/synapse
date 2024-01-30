@@ -229,17 +229,17 @@ Configuration and Management
   See the `Cortex permissions`_ section of the `Synapse Admin Guide`_ for details on the ``cron.*`` permissions
   and associated gates.
 
-- **Managing Jobs.** Cron jobs can be createtd, viewed, and managed using the various Storm :ref:`storm-cron`
+- **Managing Cron Jobs.** Cron jobs can be createtd, viewed, and managed using the various Storm :ref:`storm-cron`
   commands or using the :ref:`stormlibs-lib-cron` libraries.
   
   When a cron job is created, Synapse also generates a ``syn:cron`` runtime nodes ("runt nodes") with some
-  details about the cron job available as properties on the ``syn:cron`` node. While runt nodes are typically
-  read-only, ``syn:cron`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified
-  via Storm (or configured via :ref:`gloss-optic`). This allows you to manage cron jobs by giving them meaningful
-  names and descriptions. Changes to these properties will persist even after a Cortex restart.
+  details about the cron job available as properties on the node. While runt nodes are typically read-only,
+  ``syn:cron`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm
+  (or configured via :ref:`gloss-optic`). This allows you to manage cron jobs by giving them meaningful names and
+  descriptions. Changes to these properties will persist even after a Cortex restart.
   
   Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
-  limited introspection_ of cron jobs in Synapse.
+  limited introspection_ of cron jobs using Storm.
   
   .. TIP::
     
@@ -395,6 +395,8 @@ when specific events occur in Synapse's data store. Triggers can fire on the fol
 - Adding a light edge (``edge:add``)
 - Deleting a light edge (``edge:del``).
 
+* * * * * * * * * *
+
 Each event requires an object (a form, property, tag, or edge) to act upon - that is, if you write a trigger to
 fire on a ``node:add`` event, you must specify the type of node (form) associated with the event. Similarly,
 if a trigger should fire on a ``tag:del`` event, you must specify the tag whose removal fires the trigger.
@@ -409,11 +411,44 @@ should fire when a given tag is added (or removed) from a specific form as oppos
   The node(s) that cause a trigger to fire are considered **inbound** to the Storm executed by the
   trigger.
 
+* * * * * * * * * *
+
 
 .. _auto-trigger-config:
 
 Configuration and Management
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **Storage and Execution.** Triggers are...
+  
+- **Permissions.** Triggers execute...
+  
+  See the `Cortex permissions`_ section of the `Synapse Admin Guide`_ for details on the ``trigger.*`` permissions
+  and associated gates.
+
+- **Managing Triggers.** Triggers can be createtd, viewed, and managed using the various Storm :ref:`storm-trigger`
+  commands or using the :ref:`stormlibs-lib-trigger` libraries.
+  
+  When a trigger is created, Synapse also generates a ``syn:trigger`` runtime node ("runt nodes") with some
+  details about the trigger available as properties on the node. While runt nodes are typically read-only, ``syn:trigger``
+  nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm (or configured via
+  :ref:`gloss-optic`). This allows you to manage triggers jobs by giving them meaningful names and descriptions.
+  Changes to these properties will persist even after a Cortex restart.
+  
+  Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
+  limited introspection_ of triggers using Storm.
+
+* * * * * * * * * *
+  
+  
+  .. TIP::
+    
+    The creator (owner) of a cron job can be modified (with appropriate permissions) using the Storm
+    :ref:`stormlibs-lib-cron` library and :ref:`stormprims-cronjob-f527` primitive. For example:
+    
+    ::
+      
+      $cron=$lib.cron.get(<cron_iden>) $cron.set(creator, <new_creator_iden>)
 
 
 .. _auto-trigger-use:
