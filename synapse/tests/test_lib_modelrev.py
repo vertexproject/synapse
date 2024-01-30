@@ -432,3 +432,61 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_23(self):
         async with self.getRegrCore('model-0.2.23') as core:
             self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
+
+    async def test_modelrev_0_2_24(self):
+        async with self.getRegrCore('model-0.2.24') as core:
+            nodes = await core.nodes('it:sec:cpe:vendor=zyxel')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('version'), '5.21(aazf.14)c0')
+
+            nodes = await core.nodes('it:sec:cpe:vendor=acurax')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), 'under_construction_/_maintenance_mode')
+            self.eq(nodes[0].get('edition'), '*')
+            self.eq(nodes[0].get('sw_edition'), '*')
+            self.eq(nodes[0].get('target_hw'), '*')
+            self.eq(nodes[0].get('target_sw'), 'wordpress')
+            self.eq(nodes[0].get('other'), '*')
+
+            nodes = await core.nodes('it:sec:cpe:vendor=1c')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), '1c:enterprise')
+
+            nodes = await core.nodes('it:sec:cpe:vendor=10web')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('edition'), '*')
+            self.eq(nodes[0].get('sw_edition'), 'premium')
+            self.eq(nodes[0].get('target_hw'), '*')
+            self.eq(nodes[0].get('target_sw'), 'wordpress')
+            self.eq(nodes[0].get('other'), '*')
+
+            q = '''
+            [
+                it:sec:cpe="cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~"
+                it:sec:cpe="cpe:/a:1c:1c%3aenterprise:-"
+                it:sec:cpe="cpe:/a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~"
+                it:sec:cpe="cpe:/o:zyxel:nas326_firmware:5.21%28aazf.14%29c0"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            q = '''
+            [
+                it:sec:cpe="cpe:2.3:a:x1c:1c\:enterprise:-:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"
+                it:sec:cpe="cpe:2.3:o:xzyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:vendor:product\%45:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+                it:sec:cpe="cpe:2.3:a:vendor2:product\%23:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), 'product%45')
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor2')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), 'product%23')

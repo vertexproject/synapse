@@ -147,7 +147,9 @@ def cpe_quote(text):
     return text
 
 def cpe_unquote(text):
-    for (pct, char) in URI_PERCENT_CHARS:
+    # iterate backwards so we do the % last to avoid double unquoting
+    # example: "%2521" would turn into "%21" which would then replace into "!"
+    for (pct, char) in URI_PERCENT_CHARS[::-1]:
         text = text.replace(pct, char)
     return text
 
