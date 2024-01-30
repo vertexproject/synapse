@@ -473,11 +473,11 @@ class ModelRevTest(s_tests.SynTest):
 
             q = '''
             [
-                it:sec:cpe="cpe:2.3:a:x1c:1c\:enterprise:-:*:*:*:*:*:*:*"
-                it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"
-                it:sec:cpe="cpe:2.3:o:xzyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"
-                it:sec:cpe="cpe:2.3:a:vendor:product\%45:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
-                it:sec:cpe="cpe:2.3:a:vendor2:product\%23:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+                it:sec:cpe="cpe:2.3:a:x1c:1c\\:enterprise:-:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"
+                it:sec:cpe="cpe:2.3:o:xzyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:vendor:product\\%45:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+                it:sec:cpe="cpe:2.3:a:vendor2:product\\%23:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
             ]
             '''
             msgs = await core.stormlist(q)
