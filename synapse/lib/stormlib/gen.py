@@ -111,7 +111,7 @@ class LibGen(s_stormtypes.Lib):
                   'args': (
                       {'name': 'type', 'type': 'str', 'desc': 'The target type.'},
                       {'name': 'target', 'type': 'str', 'desc': 'The target value.'},
-                      {'name': 'signame', 'type': 'str', 'default': None, 'desc': 'The signature name.'},
+                      {'name': 'signame', 'type': 'str', 'desc': 'The signature name.'},
                       {'name': 'scanner', 'type': 'str', 'default': None,
                        'desc': 'An optional scanner software name to include in deconfliction.'},
                       {'name': 'time', 'type': 'time',
@@ -124,7 +124,7 @@ class LibGen(s_stormtypes.Lib):
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
-        function _maybeCast(try, type, valu) {
+        function __maybeCast(try, type, valu) {
             if $try {
                 return($lib.trycast($type, $valu))
             }
@@ -150,7 +150,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByName(name, try=$lib.false) {
-            ($ok, $name) = $_maybeCast($try, ou:name, $name)
+            ($ok, $name) = $__maybeCast($try, ou:name, $name)
             if (not $ok) { return() }
 
             ou:name=$name -> ou:org
@@ -161,7 +161,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByFqdn(fqdn, try=$lib.false) {
-            ($ok, $fqdn) = $_maybeCast($try, inet:fqdn, $fqdn)
+            ($ok, $fqdn) = $__maybeCast($try, inet:fqdn, $fqdn)
             if (not $ok) { return() }
 
             inet:fqdn=$fqdn -> ou:org
@@ -194,7 +194,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function newsByUrl(url, try=$lib.false) {
-            ($ok, $url) = $_maybeCast($try, inet:url, $url)
+            ($ok, $url) = $__maybeCast($try, inet:url, $url)
             if (not $ok) { return() }
 
             media:news:url=$url
@@ -215,7 +215,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function vulnByCve(cve, try=$lib.false) {
-            ($ok, $cve) = $_maybeCast($try, it:sec:cve, $cve)
+            ($ok, $cve) = $__maybeCast($try, it:sec:cve, $cve)
             if (not $ok) { return() }
 
             risk:vuln:cve=$cve
@@ -264,10 +264,10 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function psContactByEmail(type, email, try=$lib.false) {
-            ($ok, $email) = $_maybeCast($try, inet:email, $email)
+            ($ok, $email) = $__maybeCast($try, inet:email, $email)
             if (not $ok) { return() }
 
-            ($ok, $type) = $_maybeCast($try, ps:contact:type:taxonomy, $type)
+            ($ok, $type) = $__maybeCast($try, ps:contact:type:taxonomy, $type)
             if (not $ok) { return() }
 
             ps:contact:email = $email
@@ -282,7 +282,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function polCountryByIso2(iso2, try=$lib.false) {
-            ($ok, $iso2) = $_maybeCast($try, pol:iso2, $iso2)
+            ($ok, $iso2) = $__maybeCast($try, pol:iso2, $iso2)
             if (not $ok) { return() }
 
             pol:country:iso2=$iso2
@@ -312,7 +312,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function langByCode(code, try=$lib.false) {
-            ($ok, $code) = $_maybeCast($try, lang:code, $code)
+            ($ok, $code) = $__maybeCast($try, lang:code, $code)
             if (not $ok) { return() }
 
             lang:language:code=$code
@@ -334,18 +334,18 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function itAvScanResultByTarget(signame, type, targ, scanner=$lib.null, time=$lib.null, try=$lib.false) {
+        function itAvScanResultByTarget(type, targ, signame, scanner=$lib.null, time=$lib.null, try=$lib.false) {
 
-            ($ok, $signame) = $_maybeCast($try, it:av:signame, $signame)
+            ($ok, $signame) = $__maybeCast($try, it:av:signame, $signame)
             if (not $ok) { return() }
 
             if ($scanner != $lib.null) {
-                ($ok, $scanner) = $_maybeCast($try, it:prod:softname, $scanner)
+                ($ok, $scanner) = $__maybeCast($try, it:prod:softname, $scanner)
                 if (not $ok) { return() }
             }
 
             if ($time != $lib.null) {
-                ($ok, $time) = $_maybeCast($try, time, $time)
+                ($ok, $time) = $__maybeCast($try, time, $time)
                 if (not $ok) { return() }
             }
 
@@ -360,7 +360,7 @@ class LibGen(s_stormtypes.Lib):
                 *: { $lib.raise(BadArg, `Unsupported target type: {$type}`) }
             }
 
-            ($ok, $targ) = $_maybeCast($try, $ptype, $targ)
+            ($ok, $targ) = $__maybeCast($try, $ptype, $targ)
             if (not $ok) { return() }
 
             $tprop = `target:{$type}`
@@ -578,7 +578,7 @@ stormcmds = (
                        'action': 'store_true'}),
         ),
         'storm': '''
-            yield $lib.gen.itAvScanResultByTarget($cmdopts.signame, $cmdopts.type, $cmdopts.target,
+            yield $lib.gen.itAvScanResultByTarget($cmdopts.type, $cmdopts.target, $cmdopts.signame,
                                                   scanner=$cmdopts.scanner_name, time=$cmdopts.time, try=$cmdopts.try)
         ''',
     }

@@ -177,10 +177,10 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(0, await core.nodes('gen.it.av.scan.result file newp foosig --try'))
 
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget($lib.null, fqdn, vertex.link, try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(barsig, fqdn, "..", try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(barsig, fqdn, vertex.link, scanner=$lib.set(), try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(barsig, fqdn, vertex.link, time=newp, try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, vertex.link, $lib.null, try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, "..", barsig, try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, vertex.link, barsig, scanner=$lib.set(), try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, vertex.link, barsig, time=newp, try=$lib.true))'))
 
             # Stable guid test
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
