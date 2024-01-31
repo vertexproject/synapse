@@ -1936,6 +1936,32 @@ class StormTest(s_t_utils.SynTest):
                     await core.setUserLocked(visi.iden, False)
                     self.true(await stream.wait(2))
 
+    async def test_storm_dmon_caching(self):
+
+        async with self.getTestCore() as core:
+
+            q = f'''
+            $lib.dmon.add(${{
+                for $x in $lib.range(2) {{
+                    inet:ipv4=1.2.3.4
+                    if $node {{
+                        $lib.queue.gen(foo).put($node.props.asn)
+                        $lib.queue.gen(bar).get(1)
+                    }}
+                    [ inet:ipv4=1.2.3.4 :asn=5 ]
+                    $lib.queue.gen(foo).put($node.props.asn)
+                    $lib.queue.gen(bar).get(0)
+                }}
+                | spin
+            }}, name=foo)'''
+            await core.nodes(q)
+
+            self.eq((0, 5), await core.callStorm('return($lib.queue.gen(foo).get(0))'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ :asn=6 ] $lib.queue.gen(bar).put(0)')
+
+            self.eq((1, 6), await core.callStorm('return($lib.queue.gen(foo).get(1))'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
