@@ -1102,7 +1102,8 @@ class Snap(s_base.Base):
 
     async def applyNodeEdit(self, edit, nodecache=None):
         nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
-        return nodes[0]
+        if nodes:
+            return nodes[0]
 
     async def applyNodeEdits(self, edits, nodecache=None):
         '''
