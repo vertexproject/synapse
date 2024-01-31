@@ -1080,7 +1080,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef = s_msgpack.un(byts)
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1091,7 +1092,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchName(mesg=f'Macro name not found: {name}')
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1645,7 +1647,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         if user is not None:
-            self._reqEasyPerm(gdef, user, level)
+            mesg = f'User requires {s_cell.permnames.get(level)} permission on graph: {iden}.'
+            self._reqEasyPerm(gdef, user, level, mesg=mesg)
 
         return gdef
 
@@ -5286,6 +5289,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         opts = self._initStormOpts(opts)
 
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    return await proxy.count(text, opts=mirropts)
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         view = self._viewFromOpts(opts)
 
         i = 0
@@ -5374,6 +5397,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def exportStorm(self, text, opts=None):
         opts = self._initStormOpts(opts)
+
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    async for mesg in proxy.exportStorm(text, opts=mirropts):
+                        yield mesg
+                    return
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
@@ -6383,8 +6429,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault = self._getVaultByTSI(vtype, 'global', None)
         if vault is not None:
             yield vault
-
-        # todo: where does unscoped fit in? doesn't look like it will be returned in getVaultByType
 
     def reqVault(self, iden):
         '''

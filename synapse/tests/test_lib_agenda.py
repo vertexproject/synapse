@@ -346,9 +346,11 @@ class AgendaTest(s_t_utils.SynTest):
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
+                strt = await core.nexsroot.index()
                 # bypass the API because it would actually syntax check
                 unixtime += 60
                 self.eq((11, 'boom'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                await core.nexsroot.waitOffs(strt + 5)
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, False)
@@ -399,6 +401,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.add(cdef)
 
                 # Lock user and advance time
+                strt = await core.nexsroot.index()
+
                 await visi.setLocked(True)
 
                 with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
@@ -407,6 +411,8 @@ class AgendaTest(s_t_utils.SynTest):
                     # pump the ioloop via sleep(0) until the log message appears
                     while not stream.wait(0.1):
                         await asyncio.sleep(0)
+
+                    await core.nexsroot.waitOffs(strt + 4)
 
                     self.eq(2, appt.startcount)
 

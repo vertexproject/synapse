@@ -76,7 +76,7 @@ class StormlibVaultTest(s_test.SynTest):
 
             opts = {'vars': {'iden': uiden}, 'user': visi2.iden}
             msgs = await core.stormlist('$vault = $lib.vault.get($iden)', opts=opts)
-            self.stormIsInErr(f'User (visi2) has insufficient permissions (requires: read).', msgs)
+            self.stormIsInErr(f'User requires read permission on vault: {uiden}.', msgs)
 
             # Set and delete data
             opts = {'vars': {'iden': uiden}}
