@@ -188,7 +188,7 @@ A **node** is a unique object within Synapse; they are specific instances of gen
 - One or more **universal properties** and an associated property value. As the name implies, universal properties
   apply to all nodes.
 
-- Optional **secondary properties** Similar to primary properties, secondary properties consist of a property name
+- Optional **secondary properties**. Similar to primary properties, secondary properties consist of a property name
   (of a specific **type**) and the property’s value (``<prop> = <pval>``).
 
 - Optional **tags**. A tag acts as a label with a particular meaning that can be applied to a node to provide context.
