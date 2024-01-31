@@ -2207,9 +2207,9 @@ class Runtime(s_base.Base):
 
         self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
 
-    def confirmEasyPerm(self, item, perm):
+    def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
-            self.snap.core._reqEasyPerm(item, self.user, perm)
+            self.snap.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
 
     def allowedEasyPerm(self, item, perm):
         if self.asroot:
