@@ -559,10 +559,8 @@ class CellTest(s_t_utils.SynTest):
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
-                # Defaults are empty
-                self.none(cnfo.get('aha:name', s_common.novalu))
-                self.none(cnfo.get('aha:leader', s_common.novalu))
-                self.none(cnfo.get('aha:network', s_common.novalu))
+                # Defaults aha data is
+                self.eq(cnfo.get('aha'), {})
 
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)

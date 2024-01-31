@@ -250,9 +250,8 @@ class AhaTest(s_test.SynTest):
 
                 info = await cryo.getCellInfo()
                 cnfo = info.get('cell')
-                self.eq(cnfo.get('aha:name'), '0.cryo')
-                self.eq(cnfo.get('aha:leader'), 'cryo')
-                self.eq(cnfo.get('aha:network'), 'foo')
+                anfo = cnfo.get('aha')
+                self.eq(cnfo.get('aha'), {'name': '0.cryo', 'leader': 'cryoo', 'network': 'foo'})
 
                 await cryo.auth.rootuser.setPasswd('secret')
 
