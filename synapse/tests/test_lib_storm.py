@@ -914,14 +914,27 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantMergeView):
                 await core.callStorm('inet:ipv4=11.22.33.44 | merge')
 
-            # test printing a merge that the node was created in the top layer
+            # test printing a merge that the node was created in the top layer. We also need to make sure the layer
+            # is in a steady state for layer merge --diff tests.
+
+            real_layer = core.layers.get(layr)  # type: s_layer.Layer
+            if real_layer.dirty:
+                waiter = real_layer.layrslab.waiter(1, 'commit')
+                await waiter.wait(timeout=12)
+
+            waiter = real_layer.layrslab.waiter(1, 'commit')
             msgs = await core.stormlist('[ inet:fqdn=mvmnasde.com ] | merge', opts=opts)
+
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn = mvmnasde.com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:host = mvmnasde', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:domain = com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = false', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = true', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
+
+            # Ensure that the layer has sync()'d to avoid getting data from
+            # dirty sodes in the merge --diff tests.
+            self.len(1, await waiter.wait(timeout=12))
 
             # test that a user without perms can diff but not apply
             await visi.addRule((True, ('view', 'read')))
@@ -2079,7 +2092,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
-            waiter = core.waiter(2, 'core:pkg:onload:complete')
+            replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
+            nevents = 4 if replay else 2
+            waiter = core.waiter(nevents, 'core:pkg:onload:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
@@ -2096,10 +2111,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(f'ps:contact={cont}'))
 
             evnts = await waiter.wait(timeout=2)
-            self.eq([
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-            ], evnts)
+            exp = []
+            for _ in range(nevents):
+                exp.append(('core:pkg:onload:complete', {'pkg': 'testload'}))
+            self.eq(exp, evnts)
 
     async def test_storm_tree(self):
 

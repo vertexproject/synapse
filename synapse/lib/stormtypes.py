@@ -51,8 +51,8 @@ def confirm(perm, gateiden=None):
 def allowed(perm, gateiden=None):
     return s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
-def confirmEasyPerm(item, perm):
-    return s_scope.get('runt').confirmEasyPerm(item, perm)
+def confirmEasyPerm(item, perm, mesg=None):
+    return s_scope.get('runt').confirmEasyPerm(item, perm, mesg=mesg)
 
 def allowedEasyPerm(item, perm):
     return s_scope.get('runt').allowedEasyPerm(item, perm)
