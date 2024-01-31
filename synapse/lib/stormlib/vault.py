@@ -38,6 +38,7 @@ stormcmds = (
             ('--global', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'This vault is a global-scoped vault.'}),
         ),
+        # todo: maybe just let Cortex.addVault resolve the owner iden / name or put in $lib.vault.add
         'storm': '''
             $owner = $lib.null
             $scope = $lib.null
@@ -254,6 +255,7 @@ stormcmds = (
             ('--revoke', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'Specify this flag when revoking an existing permission.'}),
         ),
+        # todo: maybe do the role/user iden/name resolution in Vault.setPerm or pass scope to Cortex.setVaultPerm
         'storm': '''
             if ((not $cmdopts.level and not $cmdopts.revoke) or ($cmdopts.level and $cmdopts.revoke)) {
                 $lib.exit('One of `--level <level>` or `--revoke` is required.')

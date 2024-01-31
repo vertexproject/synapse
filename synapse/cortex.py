@@ -6520,12 +6520,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self._initEasyPerm(vdef, default=s_cell.PERM_DENY)
 
-        vault = s_schemas.reqValidVault(vdef)
+        # vault = s_schemas.reqValidVault(vdef)
 
-        scope = vault.get('scope')
-        vtype = vault.get('type')
-        owner = vault.get('owner')
-        name = vault.get('name')
+        scope = vdef.get('scope')
+        vtype = vdef.get('type')
+        owner = vdef.get('owner')
+        name = vdef.get('name')
 
         if owner is None and scope != 'global':
             raise s_exc.BadArg(mesg='Owner required for unscoped, user, and role vaults.')
@@ -6538,8 +6538,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.getVaultByName(name) is not None:
             raise s_exc.DupName(mesg=f'Vault {name} already exists.')
 
-        secrets = vault.get('secrets')
-        configs = vault.get('configs')
+        secrets = vdef.get('secrets')
+        configs = vdef.get('configs')
 
         try:
             s_msgpack.en(secrets)
@@ -6553,23 +6553,33 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if scope == 'global':
             # everyone gets read access
-            await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_READ)
+            epargs = 'roles', self.auth.allrole.iden, s_cell.PERM_READ
+            # await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_READ)
 
         elif scope == 'user':
             # The user is the admin, everyone else no access
             user = await self.auth.reqUserByNameOrIden(owner)
-            await self._setEasyPerm(vault, 'users', user.iden, s_cell.PERM_ADMIN)
+            vdef['owner'] = user.iden
+            epargs = 'users', user.iden, s_cell.PERM_ADMIN
+            # await self._setEasyPerm(vault, 'users', user.iden, s_cell.PERM_ADMIN)
 
         elif scope == 'role':
             # role members gets read access
             role = await self.auth.reqRoleByNameOrIden(owner)
-            await self._setEasyPerm(vault, 'roles', role.iden, s_cell.PERM_READ)
+            vdef['owner'] = role.iden
+            epargs = 'roles', role.iden, s_cell.PERM_READ
+            # await self._setEasyPerm(vault, 'roles', role.iden, s_cell.PERM_READ)
 
         else:
             # Unscoped vaults
 
             # The creator gets admin, everyone else no access
-            await self._setEasyPerm(vault, 'users', owner, s_cell.PERM_ADMIN)
+            epargs = 'users', owner, s_cell.PERM_ADMIN
+            # await self._setEasyPerm(vault, 'users', owner, s_cell.PERM_ADMIN)
+
+        vault = s_schemas.reqValidVault(vdef)
+
+        await self._setEasyPerm(vault, *epargs)
 
         return await self._push('vault:add', vault)
 
