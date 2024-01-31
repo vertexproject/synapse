@@ -6,6 +6,37 @@
 Synapse Changelog
 *****************
 
+v2.161.0 - TBD
+==============
+
+Features and Enhancements
+-------------------------
+- Add item specific error message when users do not have sufficient permissions
+  on a object which is using easyperms.
+  (`#3532 <https://github.com/vertexproject/synapse/pull/3532>`_)
+- Ensure that Nexus events which are written to the log are always applied and
+  cannot be cancelled while the Nexus handler is running.
+  (`#3518 <https://github.com/vertexproject/synapse/pull/3518>`_)
+
+Bugfixes
+--------
+- The Storm API for creating websockets, ``$lib.inet.http.connect()``, did not
+  properly handle the ``ssl_verify`` argument, causing SSL verification of
+  Websocket requests to default to being disabled. This arguemnt is now
+  handled correctly, with SSL verification being enabled by default.
+  (`#3527 <https://github.com/vertexproject/synapse/pull/3527>`_)
+- Fix a bug in embedded Storm queries where they failed to grab their variables
+  properly.
+  (`#3531 <https://github.com/vertexproject/synapse/pull/3531>`_)
+- Fix a bad variable reference in the Storm ``graph`` implementation.
+  (`#3531 <https://github.com/vertexproject/synapse/pull/3531>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide with additional information about removing
+  extended properties.
+  (`#3510 <https://github.com/vertexproject/synapse/pull/3510>`_)
+
 v2.160.0 - 2024-01-24
 =====================
 
