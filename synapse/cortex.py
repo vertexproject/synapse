@@ -1080,7 +1080,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef = s_msgpack.un(byts)
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1091,7 +1092,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchName(mesg=f'Macro name not found: {name}')
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1645,7 +1647,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         if user is not None:
-            self._reqEasyPerm(gdef, user, level)
+            mesg = f'User requires {s_cell.permnames.get(level)} permission on graph: {iden}.'
+            self._reqEasyPerm(gdef, user, level, mesg=mesg)
 
         return gdef
 
