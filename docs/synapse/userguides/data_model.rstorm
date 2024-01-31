@@ -297,7 +297,7 @@ vendor or data source (if appropriate) as the first element in the property name
   
   We **strongly encourage** Synapse users who are considering extending the data model by creating custom
   properties to reach out to The Vertex Project first - you can readily contact us through our `Slack`_
-  channel. If there are gaps or missing elements in the data model, we would prefer to expand Syanpse's
+  channel. If there are gaps or missing elements in the data model, we would prefer to expand Synapse's
   data model for all users vs. individual users making numerous one-off customizations. If an extended
   property is appropriate for the use case, we can also offer feedback to help ensure the property's
   design is consistent with best practices.
