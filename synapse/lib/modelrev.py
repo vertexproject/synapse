@@ -121,7 +121,7 @@ class ModelRev:
 
             for revvers, revmeth in self.revs:
 
-                todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
+                todo = [lyr for lyr in layers if await lyr.getModelVers() < revvers]
                 if not todo:
                     continue
 
