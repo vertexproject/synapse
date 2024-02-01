@@ -4174,6 +4174,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq(tdef.get('doc'), 'awesome trigger')
 
             with self.raises(s_exc.BadArg):
+                q = '$t = $lib.trigger.get($trig) $t.set("created", "woot") return ( $t.pack() )'
+                await core.callStorm(q, opts={'vars': {'trig': trig}})
+
+            with self.raises(s_exc.BadArg):
                 q = '$t = $lib.trigger.get($trig) $t.set("foo", "bar")'
                 await core.callStorm(q, opts={'vars': {'trig': trig}})
 
