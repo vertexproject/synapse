@@ -12,15 +12,15 @@ v2.161.0 - TBD
 Features and Enhancements
 -------------------------
 - Add item specific error message when users do not have sufficient permissions
-  on a object which is using easyperms.
+  on an object which is using easyperms.
   (`#3532 <https://github.com/vertexproject/synapse/pull/3532>`_)
 - Ensure that Nexus events which are written to the log are always applied and
   cannot be cancelled while the Nexus handler is running.
   (`#3518 <https://github.com/vertexproject/synapse/pull/3518>`_)
 - Add AHA information to the output of the ``Cell.getCellInfo()`` API. This
-  includes the the service name, leader, and network.
+  includes the service name, leader, and network.
   (`#3519 <https://github.com/vertexproject/synapse/pull/3519>`_)
-- Logs related to AHA Service registration and setting services as offline are
+- Logs related to AHA service registration and setting services as offline are
   now logged at the ``INFO`` level.
   (`#3534 <https://github.com/vertexproject/synapse/pull/3534>`_)
 
@@ -28,7 +28,7 @@ Bugfixes
 --------
 - The Storm API for creating websockets, ``$lib.inet.http.connect()``, did not
   properly handle the ``ssl_verify`` argument, causing SSL verification of
-  Websocket requests to default to being disabled. This arguemnt is now
+  Websocket requests to default to being disabled. This argument is now
   handled correctly, with SSL verification being enabled by default.
   (`#3527 <https://github.com/vertexproject/synapse/pull/3527>`_)
 - Fix a bug in embedded Storm queries where they failed to grab their variables
