@@ -87,7 +87,7 @@ class NexsRoot(s_base.Base):
         self.celliden = self.cell.iden
         self.readonly = False
         self.readonlyreason = None
-        
+
         self.applytask = None
         self.applylock = asyncio.Lock()
 
@@ -322,7 +322,7 @@ class NexsRoot(s_base.Base):
                 mesg = 'Unable to issue Nexus events when readonly is set.'
 
             raise s_exc.IsReadOnly(mesg=mesg)
-            
+
         if (client := self.client) is None:
             return
 
@@ -348,7 +348,7 @@ class NexsRoot(s_base.Base):
 
         self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
         return await asyncio.shield(self.applytask)
-      
+
     async def index(self):
         if self.donexslog:
             return self.nexslog.index()

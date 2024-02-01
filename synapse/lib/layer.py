@@ -2556,7 +2556,7 @@ class Layer(s_nexus.Pusher):
         Note: nexsoffs will be None if there are no changes.
         '''
         self._reqNotReadOnly()
-        
+
         if not self.core.isactive:
             proxy = await self.core.nexsroot.getIssueProxy()
             indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
