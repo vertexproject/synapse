@@ -114,7 +114,7 @@ class StormLibGenTest(s_test.SynTest):
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.ne(nodes01[0].ndef, nodes02[0].ndef)
 
-            q = 'gen.it.av.scan.result fqdn vertex.link foosig --scanner-name barscn --time 2022'
+            q = 'gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn --time 2022'
             nodes00 = await core.nodes(q)
             self.len(1, nodes00)
             self.eq('vertex.link', nodes00[0].get('target:fqdn'))
@@ -124,12 +124,18 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes(q)
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
-            nodes02 = await core.nodes('gen.it.av.scan.result fqdn vertex.link foosig --scanner-name barscn')
+            nodes02 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn')
             self.eq(nodes00[0].ndef, nodes02[0].ndef)
             self.eq('2022/01/01 00:00:00.000', nodes02[0].repr('time'))
 
-            nodes03 = await core.nodes('gen.it.av.scan.result fqdn vertex.link foosig --scanner-name bazscn')
+            nodes03 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name bazscn')
             self.ne(nodes00[0].ndef, nodes03[0].ndef)
+
+            nodes04 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --time 2022')
+            self.eq(nodes00[0].ndef, nodes04[0].ndef)
+
+            nodes05 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --time 2023')
+            self.ne(nodes00[0].ndef, nodes05[0].ndef)
 
             opts = {
                 'vars': {
@@ -139,13 +145,13 @@ class StormLibGenTest(s_test.SynTest):
                 }
             }
 
-            self.len(1, await core.nodes('gen.it.av.scan.result file `guid:{$guid}` foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result fqdn $fqdn foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result host $guid foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result ipv4 $ip  foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result ipv6 $ip foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result proc $guid foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result url `http://{$fqdn}` foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result file:bytes `guid:{$guid}` foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:fqdn $fqdn foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:ipv4 $ip  foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:ipv6 $ip foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:url `http://{$fqdn}` foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result it:exec:proc $guid foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result it:host $guid foosig', opts=opts))
 
             self.len(7, await core.nodes('''
                 file:bytes=`guid:{$guid}`
@@ -157,30 +163,31 @@ class StormLibGenTest(s_test.SynTest):
                 inet:url=`http://{$fqdn}`
                 +{
                     ($form, $valu) = $node.ndef()
-                    if ($form = "file:bytes") {
-                        $type = file
-                    } else {
-                        $type = $form.rsplit(":", 1).(-1)
-                    }
-                    -> { gen.it.av.scan.result $type $valu foosig }
+                    -> { gen.it.av.scan.result $form $valu foosig }
                 }=1
                 -> it:av:scan:result
             ''', opts=opts))
 
             nodes = await core.nodes('''
                 [ it:av:filehit=(`guid:{$lib.guid()}`, ($lib.guid(), fsig)) :sig:name=fsig ]
-                gen.it.av.scan.result file :file :sig:name
+                gen.it.av.scan.result file:bytes :file :sig:name
             ''')
             self.sorteq(['it:av:filehit', 'it:av:scan:result'], [n.ndef[0] for n in nodes])
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('gen.it.av.scan.result newp vertex.link foosig'))
+            with self.raises(s_exc.NoSuchType) as cm:
+                await core.nodes('gen.it.av.scan.result newp vertex.link foosig --try')
+            self.eq('No type or prop found for name newp.', cm.exception.errinfo['mesg'])
 
-            self.len(0, await core.nodes('gen.it.av.scan.result file newp foosig --try'))
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes('gen.it.av.scan.result ps:name nah foosig --try')
+            self.eq('Unsupported target form ps:name', cm.exception.errinfo['mesg'])
 
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, vertex.link, $lib.null, try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, "..", barsig, try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, vertex.link, barsig, scanner=$lib.set(), try=$lib.true))'))
-            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(fqdn, vertex.link, barsig, time=newp, try=$lib.true))'))
+            self.len(0, await core.nodes('gen.it.av.scan.result file:bytes newp foosig --try'))
+
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, $lib.null, try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, "..", barsig, try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, barsig, scanner=$lib.set(), try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, barsig, time=newp, try=$lib.true))'))
 
             # Stable guid test
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')

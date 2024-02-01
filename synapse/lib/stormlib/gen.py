@@ -109,8 +109,8 @@ class LibGen(s_stormtypes.Lib):
          'desc': 'Returns an it:av:scan:result node by deconflicting with a target and signature name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'type', 'type': 'str', 'desc': 'The target type.'},
-                      {'name': 'target', 'type': 'str', 'desc': 'The target value.'},
+                      {'name': 'form', 'type': 'str', 'desc': 'The target form.'},
+                      {'name': 'value', 'type': 'str', 'desc': 'The target value.'},
                       {'name': 'signame', 'type': 'str', 'desc': 'The signature name.'},
                       {'name': 'scanner', 'type': 'str', 'default': None,
                        'desc': 'An optional scanner software name to include in deconfliction.'},
@@ -334,7 +334,23 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function itAvScanResultByTarget(type, targ, signame, scanner=$lib.null, time=$lib.null, try=$lib.false) {
+        function itAvScanResultByTarget(form, value, signame, scanner=$lib.null, time=$lib.null, try=$lib.false) {
+
+            ($ok, $value) = $__maybeCast($try, $form, $value)
+            if (not $ok) { return() }
+
+            switch $form {
+                "file:bytes":   { $tprop = target:file }
+                "inet:fqdn":    { $tprop = target:fqdn }
+                "inet:ipv4":    { $tprop = target:ipv4 }
+                "inet:ipv6":    { $tprop = target:ipv6 }
+                "inet:url":     { $tprop = target:url  }
+                "it:exec:proc": { $tprop = target:proc }
+                "it:host":      { $tprop = target:host }
+                *: {
+                    $lib.raise(BadArg, `Unsupported target form {$form}`)
+                }
+            }
 
             ($ok, $signame) = $__maybeCast($try, it:av:signame, $signame)
             if (not $ok) { return() }
@@ -349,31 +365,16 @@ class LibGen(s_stormtypes.Lib):
                 if (not $ok) { return() }
             }
 
-            switch $type {
-                file: { $ptype = "file:bytes" }
-                fqdn: { $ptype = "inet:fqdn" }
-                host: { $ptype = "it:host" }
-                ipv4: { $ptype = "inet:ipv4" }
-                ipv6: { $ptype = "inet:ipv6" }
-                proc: { $ptype = "it:exec:proc" }
-                url:  { $ptype = "inet:url" }
-                *: { $lib.raise(BadArg, `Unsupported target type: {$type}`) }
-            }
-
-            ($ok, $targ) = $__maybeCast($try, $ptype, $targ)
-            if (not $ok) { return() }
-
-            $tprop = `target:{$type}`
             $tlift = `it:av:scan:result:{$tprop}`
 
-            *$tlift=$targ +:signame=$signame
+            *$tlift=$value +:signame=$signame
             if ($time != $lib.null) { +:time=$time }
             if ($scanner != $lib.null) { +:scanner:name=$scanner }
             return($node)
 
-            [ it:av:scan:result=(gen, target, $type, $targ, $signame, $scanner, $time)
+            [ it:av:scan:result=(gen, target, $form, $value, $signame, $scanner, $time)
                 :signame=$signame
-                :$tprop=$targ
+                :$tprop=$value
                 :scanner:name?=$scanner
                 :time?=$time
             ]
@@ -559,18 +560,17 @@ stormcmds = (
             Examples:
 
                 // Yield the it:av:scan:result node for an FQDN and signature name
-                gen.it.av.scan.result fqdn vertex.link foosig
+                gen.it.av.scan.result inet:fqdn vertex.link foosig
 
                 // Also deconflict by scanner name and scan time
-                gen.it.av.scan.result fqdn vertex.link foosig --scanner-name barscanner --time 2022-11-03
+                gen.it.av.scan.result inet:fqdn fqdn vertex.link foosig --scanner-name barscanner --time 2022-11-03
 
-                // bar
-                it:av:filehit#foo | gen.it.av.scan.result file :file :sig:name
+                // Generate an it:av:scan:result node from an it:av:filehit node
+                it:av:filehit#foo | gen.it.av.scan.result file:bytes :file :sig:name
         ''',
         'cmdargs': (
-            ('type', {'help': 'The target type.',
-                      'choices': ['file', 'fqdn', 'host', 'ipv4', 'ipv6', 'proc', 'url']}),
-            ('target', {'help': 'The target value.'}),
+            ('form', {'help': 'The target form.'}),
+            ('value', {'help': 'The target value.'}),
             ('signame', {'help': 'The signature name'}),
             ('--scanner-name', {'help': 'An optional scanner software name to include in deconfliction.'}),
             ('--time', {'help': 'An optional time when the scan was run to include in the deconfliction.'}),
@@ -578,7 +578,7 @@ stormcmds = (
                        'action': 'store_true'}),
         ),
         'storm': '''
-            yield $lib.gen.itAvScanResultByTarget($cmdopts.type, $cmdopts.target, $cmdopts.signame,
+            yield $lib.gen.itAvScanResultByTarget($cmdopts.form, $cmdopts.value, $cmdopts.signame,
                                                   scanner=$cmdopts.scanner_name, time=$cmdopts.time, try=$cmdopts.try)
         ''',
     }
