@@ -3284,6 +3284,7 @@ class StormTypesTest(s_test.SynTest):
             size = info.get('totalsize')
 
             self.gt(size, 1)
+            self.nn(info.get('created'))
             # Verify we're showing actual disk usage and not just apparent
             self.lt(size, 1000000000)
 
@@ -3623,6 +3624,7 @@ class StormTypesTest(s_test.SynTest):
             await core.stormlist('$lib.view.get().set(name, $lib.undef)')
             vdef = await core.callStorm('return($lib.view.get())')
             self.notin('name', vdef)
+            self.nn(vdef.get('created'))
 
             await core.stormlist('$lib.layer.get().set(name, $lib.null)')
             ldef = await core.callStorm('return($lib.layer.get())')
@@ -4131,6 +4133,7 @@ class StormTypesTest(s_test.SynTest):
             self.true(trigdef.get('enabled'))
             self.nn(trigdef.get('user'))
             self.nn(trigdef.get('view'))
+            self.nn(trigdef.get('created'))
             self.eq(trigdef.get('storm'), '[ test:int=99 ] | spin')
             self.eq(trigdef.get('cond'), 'node:add')
             self.eq(trigdef.get('form'), 'test:str')
@@ -4188,6 +4191,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(forkview, mesgs)
             self.len(1, nodes)
             othr = nodes[0].ndef[1]
+            self.nn(nodes[0].props.get('.created'))
 
             # fetch a trigger from another view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))

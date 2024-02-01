@@ -1085,7 +1085,8 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
@@ -1096,18 +1097,20 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
-    async def applyNodeEdit(self, edit):
-        nodes = await self.applyNodeEdits((edit,))
-        return nodes[0]
+    async def applyNodeEdit(self, edit, nodecache=None):
+        nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
+        if nodes:
+            return nodes[0]
 
-    async def applyNodeEdits(self, edits):
+    async def applyNodeEdits(self, edits, nodecache=None):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
         meta = await self.getSnapMeta()
-        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
+        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta, nodecache=nodecache)
         return nodes
 
     async def saveNodeEdits(self, edits, meta):
@@ -1124,7 +1127,7 @@ class Snap(s_base.Base):
 
         return saveoff, changes
 
-    async def _applyNodeEdits(self, edits, meta):
+    async def _applyNodeEdits(self, edits, meta, nodecache=None):
 
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
@@ -1145,11 +1148,17 @@ class Snap(s_base.Base):
 
             cache = {wlyr.iden: sode}
 
-            node = await self._joinStorNode(buid, cache)
+            node = None
+            if nodecache is not None:
+                node = nodecache.get(buid)
 
             if node is None:
-                # We got part of a node but no ndef
-                continue
+                node = await self._joinStorNode(buid, cache)
+                if node is None:
+                    # We got part of a node but no ndef
+                    continue
+            else:
+                await asyncio.sleep(0)
 
             nodes.append(node)
 

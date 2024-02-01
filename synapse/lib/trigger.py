@@ -49,6 +49,7 @@ TrigSchema = {
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
         'enabled': {'type': 'boolean'},
+        'created': {'type': 'integer', 'minimum': 0},
     },
     'additionalProperties': True,
     'required': ['iden', 'user', 'storm', 'enabled'],
@@ -483,7 +484,7 @@ class Trigger:
         '''
         Set one of the dynamic elements of the trigger definition.
         '''
-        if name not in ('enabled', 'user', 'storm', 'doc', 'name', 'async'):
+        if name not in ('enabled', 'user', 'storm', 'doc', 'name', 'async', 'created'):
             raise s_exc.BadArg(mesg=f'Invalid key name provided: {name}')
 
         if valu == self.tdef.get(name):
@@ -594,6 +595,7 @@ class Trigger:
             'storm': self.tdef.get('storm'),
             'enabled': self.tdef.get('enabled'),
             'user': self.tdef.get('user'),
+            '.created': self.tdef.get('created')
         }
 
         tag = self.tdef.get('tag')
