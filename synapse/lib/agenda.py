@@ -259,6 +259,7 @@ class _Appt:
     _synced_attrs = {
         'doc',
         'name',
+        'created',
         'enabled',
         'errcount',
         'nexttime',
@@ -270,7 +271,7 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None):
         self.doc = ''
         self.name = ''
         self.stor = stor
@@ -282,6 +283,7 @@ class _Appt:
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None  # index of rec who is up next
         self.view = view
+        self.created = created
 
         if self.recur and not self.recs:
             raise s_exc.BadTime(mesg='A recurrent appointment with no records')
@@ -310,6 +312,7 @@ class _Appt:
             'doc': self.doc,
             'name': self.name,
             'storm': self.query,
+            '.created': self.created,
         }
 
         pnorms = {}
@@ -343,6 +346,7 @@ class _Appt:
             'indx': self.indx,
             'query': self.query,
             'creator': self.creator,
+            'created': self.created,
             'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
@@ -362,6 +366,7 @@ class _Appt:
         appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, nexttime=val['nexttime'], view=val.get('view'))
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
+        appt.created = val.get('created', None)
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
@@ -592,6 +597,7 @@ class Agenda(s_base.Base):
         query = cdef.get('storm')
         creator = cdef.get('creator')
         view = cdef.get('view')
+        created = cdef.get('created')
 
         recur = incunit is not None
         indx = self._next_indx
@@ -633,7 +639,7 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view)
+        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view, created=created)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')

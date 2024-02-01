@@ -585,6 +585,7 @@ class AgendaTest(s_t_utils.SynTest):
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
             self.eq(defview.iden, jobs[0]['view'])
+            self.nn(jobs[0].get('created'))
 
             core.agenda._addTickOff(60)
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
@@ -805,6 +806,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                     nodes = await core01.nodes('syn:cron')
                     self.len(1, nodes)
+                    self.nn(nodes[0].props.get('.created'))
                     self.eq(nodes[0].props.get('name'), 'foo')
                     self.eq(nodes[0].props.get('doc'), 'bar')
 
