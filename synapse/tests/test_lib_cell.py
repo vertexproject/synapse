@@ -560,7 +560,7 @@ class CellTest(s_t_utils.SynTest):
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
                 # Defaults aha data is
-                self.eq(cnfo.get('aha'), {})
+                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
 
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)
