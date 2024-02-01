@@ -34,8 +34,14 @@ Bugfixes
 Improved Documentation
 ----------------------
 - Update the Cortex admin guide with additional information about removing
-  extended properties.
+  extended forms and properties.
   (`#3510 <https://github.com/vertexproject/synapse/pull/3510>`_)
+- Update the Data Model documentation to include additional information about
+  extended forms and properties.
+  (`#3523 <https://github.com/vertexproject/synapse/pull/3523>`_)
+- Update the Data Model documentation to include information about property
+ interfaces.
+  (`#3523 <https://github.com/vertexproject/synapse/pull/3523>`_)
 
 v2.160.0 - 2024-01-24
 =====================
