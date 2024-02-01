@@ -17,6 +17,9 @@ Features and Enhancements
 - Ensure that Nexus events which are written to the log are always applied and
   cannot be cancelled while the Nexus handler is running.
   (`#3518 <https://github.com/vertexproject/synapse/pull/3518>`_)
+- Add AHA information to the output of the ``Cell.getCellInfo()`` API. This
+  includes the the service name, leader, and network.
+  (`#3519 <https://github.com/vertexproject/synapse/pull/3519>`_)
 - Logs related to AHA Service registration and setting services as offline are
   now logged at the ``INFO`` level.
   (`#3534 <https://github.com/vertexproject/synapse/pull/3534>`_)
