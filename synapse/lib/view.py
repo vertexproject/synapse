@@ -49,11 +49,11 @@ class ViewApi(s_cell.CellApi):
 
         return await self.view.storNodeEdits(edits, meta)
 
-    async def syncNodeEdits2(self, offs, wait=True):
+    async def syncNodeEdits2(self, offs, wait=True, compat=False):
         await self._reqUserAllowed(('view', 'read'))
         # present a layer compatible API to remote callers
         layr = self.view.layers[0]
-        async for item in layr.syncNodeEdits2(offs, wait=wait):
+        async for item in layr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item
 
     @s_cell.adminapi()
@@ -61,6 +61,13 @@ class ViewApi(s_cell.CellApi):
         meta['link:user'] = self.user.iden
         async with await self.view.snap(user=self.user) as snap:
             return await snap.saveNodeEdits(edits, meta)
+
+    @s_cell.adminapi()
+    async def saveRemoteNodeEdits(self, edits, meta):
+        meta['link:user'] = self.user.iden
+        async with await self.view.snap(user=self.user) as snap:
+            localedits = await snap.core.remoteToLocalEdits(edits)
+            return await snap.saveNodeEdits(localedits, meta)
 
     async def getEditSize(self):
         await self._reqUserAllowed(('view', 'read'))
@@ -1235,7 +1242,6 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.snap(user=user) as snap:
             meta = await snap.getSnapMeta()
             async for nodeedit in self.layers[0].iterWipeNodeEdits():
-                await snap.getNodeByBuid(nodeedit[0])  # to load into livenodes for callbacks
                 await snap.saveNodeEdits([nodeedit], meta)
 
     def _confirm(self, user, perms):

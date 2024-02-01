@@ -29,9 +29,8 @@ class ProtoNode:
     TODO: This could eventually fully mirror the synapse.lib.node.Node API and be used
           to slipstream into sections of the pipeline to facilitate a bulk edit / transaction
     '''
-    def __init__(self, ctx, nid, buid, form, valu, node):
+    def __init__(self, ctx, buid, form, valu, node):
         self.ctx = ctx
-        self.nid = nid
         self.form = form
         self.valu = valu
         self.buid = buid
@@ -45,6 +44,11 @@ class ProtoNode:
 
         self.edgedels = set()
 
+        if node is not None:
+            self.nid = node.nid
+        else:
+            self.nid = self.ctx.snap.core.getNidByBuid(buid)
+
     def iden(self):
         return s_common.ehex(self.buid)
 
@@ -53,27 +57,27 @@ class ProtoNode:
         edits = []
 
         if not self.node:
-            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype), ()))
+            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype)))
 
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()))
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype)))
 
         for name, valu in self.tags.items():
-            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
+            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
 
         for verb, n2iden in self.edges:
-            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
+            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden)))
 
         for verb, n2iden in self.edgedels:
-            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()))
+            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden)))
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype), ()))
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype)))
 
         for name, valu in self.nodedata.items():
-            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
 
         if not edits:
             return None
@@ -100,6 +104,10 @@ class ProtoNode:
         tupl = (verb, n2nid)
         if tupl in self.edges:
             return False
+
+        if self.nid is None:
+            self.edges.add(tupl)
+            return True
 
         if tupl in self.edgedels:
             self.edgedels.remove(tupl)
@@ -132,6 +140,9 @@ class ProtoNode:
         if tupl in self.edges:
             self.edges.remove(tupl)
             return True
+
+        if self.nid is None:
+            return False
 
         if tupl in self.edgedels:
             return False
@@ -472,12 +483,11 @@ class SnapEditor:
             return ()
 
         buid = s_common.buid(ndef)
-        nid = await self.snap.core.genBuidNid(buid, ndef)
-        node = await self.snap.getNodeByNid(nid)
+        node = await self.snap.getNodeByBuid(buid)
         if node is not None:
             return ()
 
-        protonode = ProtoNode(self, nid, buid, form, norm, node)
+        protonode = ProtoNode(self, buid, form, norm, node)
 
         self.protonodes[ndef] = protonode
 
@@ -498,7 +508,7 @@ class SnapEditor:
     def loadNode(self, node):
         protonode = self.protonodes.get(node.ndef)
         if protonode is None:
-            protonode = ProtoNode(self, node.nid, node.buid, node.form, node.ndef[1], node)
+            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node)
             self.protonodes[node.ndef] = protonode
         return protonode
 
@@ -511,10 +521,9 @@ class SnapEditor:
             return protonode
 
         buid = s_common.buid(ndef)
-        nid = await self.snap.core.genBuidNid(buid, ndef)
-        node = await self.snap.getNodeByNid(nid)
+        node = await self.snap.getNodeByBuid(buid)
 
-        protonode = ProtoNode(self, nid, buid, form, norm, node)
+        protonode = ProtoNode(self, buid, form, norm, node)
 
         self.protonodes[ndef] = protonode
 
@@ -1017,7 +1026,7 @@ class Snap(s_base.Base):
 
             for edit in edits:
 
-                etyp, parms, _ = edit
+                etyp, parms = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
                     callbacks.append((node.form.wasAdded, (node,), {}))
@@ -1129,7 +1138,7 @@ class Snap(s_base.Base):
                 return None
 
         # the newly constructed node is cached
-        return await self.getNodeByNid(protonode.nid)
+        return await self.getNodeByBuid(protonode.buid)
 
     async def addFeedNodes(self, name, items):
         '''
@@ -1289,25 +1298,49 @@ class Snap(s_base.Base):
                     for name, valu in props.items():
                         await protonode.setTagProp(tag, name, valu)
 
-            for verb, n2iden in forminfo.get('edges', ()):
+            if (edges := forminfo.get('edges')) is not None:
+                n2adds = []
+                for verb, n2iden in edges:
+                    if isinstance(n2iden, (tuple, list)):
+                        (n2formname, n2valu) = n2iden
+                        n2form = self.core.model.form(n2formname)
+                        if n2form is None:
+                            continue
 
-                if isinstance(n2iden, (tuple, list)):
-                    n2proto = await editor.addNode(*n2iden)
-                    if n2proto is None:
+                        try:
+                            n2valu, _ = n2form.type.norm(n2valu)
+                        except s_exc.BadTypeValu as e:
+                            e.errinfo['form'] = n2form.name
+                            await self.warn(f'addNodes() BadTypeValu {n2form.name}={n2valu} {e}')
+                            continue
+
+                        n2buid = s_common.buid((n2formname, n2valu))
+                        n2nid = self.core.getNidByBuid(n2buid)
+                        if n2nid is None:
+                            n2adds.append((n2iden, verb, n2buid))
+                            continue
+
+                    elif isinstance(n2iden, str) and s_common.isbuidhex(n2iden):
+                        n2nid = self.core.getNidByBuid(s_common.uhex(n2iden))
+                        if n2nid is None:
+                            continue
+                    else:
                         continue
 
-                    n2nid = n2proto.nid
+                    await protonode.addEdge(verb, n2nid)
 
-                elif isinstance(n2iden, str) and s_common.isbuidhex(n2iden):
-                    n2nid = self.core.getNidByBuid(s_common.uhex(n2iden))
-                    if n2nid is None:
-                        continue
-                else:
-                    continue
+                if n2adds:
+                    async with self.getEditor() as n2editor:
+                        for (n2ndef, verb, n2buid) in n2adds:
+                            await n2editor.addNode(*n2ndef)
+                            break
 
-                await protonode.addEdge(verb, n2nid)
+                    for (n2ndef, verb, n2buid) in n2adds:
+                        if (nid := self.core.getNidByBuid(n2buid)) is not None:
+                            await protonode.addEdge(verb, nid)
+                        break
 
-        return await self.getNodeByNid(protonode.nid)
+        return await self.getNodeByBuid(protonode.buid)
 
     async def getRuntNodes(self, prop, cmprvalu=None):
 

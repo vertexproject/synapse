@@ -138,6 +138,16 @@ class LayerApi(s_cell.CellApi):
         meta['link:user'] = self.user.iden
         return await self.layr.saveNodeEdits(edits, meta)
 
+    @s_cell.adminapi()
+    async def saveRemoteNodeEdits(self, edits, meta):
+        '''
+        Save node edits to the layer and return a tuple of (nexsoffs, changes).
+
+        Note: nexsoffs will be None if there are no changes.
+        '''
+        meta['link:user'] = self.user.iden
+        return await self.layr.saveRemoteNodeEdits(edits, meta)
+
     async def storNodeEdits(self, nodeedits, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
@@ -156,19 +166,19 @@ class LayerApi(s_cell.CellApi):
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True):
+    async def syncNodeEdits(self, offs, wait=True, compat=False):
         '''
         Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncNodeEdits(offs, wait=wait):
+        async for item in self.layr.syncNodeEdits(offs, wait=wait, compat=compat):
             yield item
 
-    async def syncNodeEdits2(self, offs, wait=True):
+    async def syncNodeEdits2(self, offs, wait=True, compat=False):
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncNodeEdits2(offs, wait=wait):
+        async for item in self.layr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item
 
     async def getEditIndx(self):
@@ -231,20 +241,20 @@ STOR_FLAG_ARRAY = 0x8000
 
 # Edit types (etyp)
 
-EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>), ())
-EDIT_NODE_DEL = 1      # (<etyp>, (<oldv>, <type>), ())
-EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <oldv>, <type>), ())
-EDIT_PROP_DEL = 3      # (<etyp>, (<prop>, <oldv>, <type>), ())
-EDIT_TAG_SET = 4       # (<etyp>, (<tag>, <valu>, <oldv>), ())
-EDIT_TAG_DEL = 5       # (<etyp>, (<tag>, <oldv>), ())
-EDIT_TAGPROP_SET = 6   # (<etyp>, (<tag>, <prop>, <valu>, <oldv>, <type>), ())
-EDIT_TAGPROP_DEL = 7   # (<etyp>, (<tag>, <prop>, <oldv>, <type>), ())
-EDIT_NODEDATA_SET = 8  # (<etyp>, (<name>, <valu>, <oldv>), ())
-EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>, <oldv>), ())
-EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>), ())
-EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>), ())
+EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>))
+EDIT_NODE_DEL = 1      # (<etyp>, (<oldv>, <type>))
+EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <oldv>, <type>))
+EDIT_PROP_DEL = 3      # (<etyp>, (<prop>, <oldv>, <type>))
+EDIT_TAG_SET = 4       # (<etyp>, (<tag>, <valu>, <oldv>))
+EDIT_TAG_DEL = 5       # (<etyp>, (<tag>, <oldv>))
+EDIT_TAGPROP_SET = 6   # (<etyp>, (<tag>, <prop>, <valu>, <oldv>, <type>))
+EDIT_TAGPROP_DEL = 7   # (<etyp>, (<tag>, <prop>, <oldv>, <type>))
+EDIT_NODEDATA_SET = 8  # (<etyp>, (<name>, <valu>, <oldv>))
+EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>, <oldv>))
+EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>))
+EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>))
 
-EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, (), ())
+EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, ())
 
 class IndxBy:
     '''
@@ -1524,6 +1534,21 @@ class Layer(s_nexus.Pusher):
             self._editNodeEdgeDel,
         ]
 
+        self.resolvers = [
+            self._calcNodeAdd,
+            self._calcNodeDel,
+            self._calcPropSet,
+            self._calcPropDel,
+            self._calcTagSet,
+            self._calcTagDel,
+            self._calcTagPropSet,
+            self._calcTagPropDel,
+            self._calcNodeDataSet,
+            self._calcNodeDataDel,
+            self._calcNodeEdgeAdd,
+            self._calcNodeEdgeDel,
+        ]
+
         self.canrev = True
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
 
@@ -1608,6 +1633,25 @@ class Layer(s_nexus.Pusher):
     async def getEditSize(self):
         return self.nodeeditlog.size
 
+    async def remoteToMirrorEdits(self, rnodeedits):
+        lnodeedits = []
+        for form, valu, redits in rnodeedits:
+
+            nid = await self.core.genNdefNid((form, valu))
+            ledits = []
+            for edit in redits:
+                if edit[0] in (10, 11):
+                    verb, n2ndef = edit[1]
+                    n2nid = await self.core.genNdefNid(n2ndef)
+                    ledits.append((edit[0], (verb, n2nid)))
+                    continue
+
+                ledits.append(edit)
+
+            lnodeedits.append((nid, form, ledits))
+
+        return lnodeedits
+
     async def _runMirrorLoop(self):
 
         while not self.isfini:
@@ -1618,7 +1662,7 @@ class Layer(s_nexus.Pusher):
 
                 leadoffs = await self._getLeadOffs()
 
-                async for offs, edits, meta in proxy.syncNodeEdits2(leadoffs + 1):
+                async for offs, edits, meta in proxy.syncNodeEdits2(leadoffs + 1, compat=True):
 
                     iden = meta.get('task')
                     futu = self.futures.pop(iden, None)
@@ -1626,7 +1670,8 @@ class Layer(s_nexus.Pusher):
                     meta['indx'] = offs
 
                     try:
-                        item = await self.saveToNexs('edits', edits, meta)
+                        realedits = await self.remoteToMirrorEdits(edits)
+                        item = await self.saveToNexs('edits', realedits, meta)
                         if futu is not None:
                             futu.set_result(item)
 
@@ -1653,7 +1698,7 @@ class Layer(s_nexus.Pusher):
         last = self.nodeeditlog.last()
         if last is None:
             return -1
-        return last[1][1].get('indx', -1)
+        return last[0]
 
     async def verifyNidTag(self, nid, formname, tagname, tagvalu):
         abrv = self.tagabrv.bytsToAbrv(tagname.encode())
@@ -2091,24 +2136,24 @@ class Layer(s_nexus.Pusher):
             edits = []
 
             async for verb, n2nid in self.iterNodeEdgesN1(nid):
-                edits.append((EDIT_EDGE_DEL, (verb, n2nid), ()))
+                edits.append((EDIT_EDGE_DEL, (verb, n2nid)))
 
             async for prop, valu in self.iterNodeData(nid):
-                edits.append((EDIT_NODEDATA_DEL, (prop, valu), ()))
+                edits.append((EDIT_NODEDATA_DEL, (prop, valu)))
 
             for tag, propdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in propdict.items():
-                    edits.append((EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                    edits.append((EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
 
             for tag, tagv in sode.get('tags', {}).items():
-                edits.append((EDIT_TAG_DEL, (tag, tagv), ()))
+                edits.append((EDIT_TAG_DEL, (tag, tagv)))
 
             for prop, (valu, stortype) in sode.get('props', {}).items():
-                edits.append((EDIT_PROP_DEL, (prop, valu, stortype), ()))
+                edits.append((EDIT_PROP_DEL, (prop, valu, stortype)))
 
             valu = sode.get('valu')
             if valu is not None:
-                edits.append((EDIT_NODE_DEL, valu, ()))
+                edits.append((EDIT_NODE_DEL, valu))
 
             yield (nid, sode.get('form'), edits)
 
@@ -2638,6 +2683,10 @@ class Layer(s_nexus.Pusher):
 
             yield nid, nid, self.genStorNodeRef(nid)
 
+    async def saveRemoteNodeEdits(self, edits, meta):
+        localedits = await self.core.remoteToLocalEdits(edits)
+        return await self.saveNodeEdits(localedits, meta)
+
     async def saveNodeEdits(self, edits, meta):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
@@ -2646,24 +2695,58 @@ class Layer(s_nexus.Pusher):
         '''
         self._reqNotReadOnly()
 
-        if self.ismirror:
+        if self.ismirror and self.core.isactive:
+            proxy = await self.leader.proxy()
 
-            if self.core.isactive:
-                proxy = await self.leader.proxy()
+            with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
+                meta['task'] = iden
+                redits = self.core.localToRemoteEdits(edits)
+                moff, changes = await proxy.saveRemoteNodeEdits(redits, meta)
+                if any(c[2] for c in changes):
+                    return await futu
+                return None, ()
 
-                with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
-                    meta['task'] = iden
-                    moff, changes = await proxy.saveNodeEdits(edits, meta)
-                    if any(c[2] for c in changes):
-                        return await futu
-                    return None, ()
-
-            proxy = await self.core.nexsroot.client.proxy()
+        elif not self.core.isactive:
+            proxy = await self.core.nexsroot.getIssueProxy()
             indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
-            await self.core.nexsroot.waitOffs(indx)
+            if indx is not None:
+                await self.core.nexsroot.waitOffs(indx)
             return indx, changes
 
-        return await self.saveToNexs('edits', edits, meta)
+        async with self.core.nexsroot.applylock:
+            if (realedits := await self.calcEdits(edits, meta)):
+                return await self.saveToNexsUnsafe('edits', realedits, meta)
+            return None, ()
+
+    async def calcEdits(self, nodeedits, meta):
+
+        realedits = []
+        for (nid, form, edits) in nodeedits:
+
+            if nid is None:
+                if edits[0][0] != 0:
+                    continue
+
+                # Generate NID without a nexus event, mirrors will populate
+                # the mapping from the node add edit
+                nid = await self.core._genNdefNid((form, edits[0][1][0]))
+
+            sode = self._getStorNode(nid)
+
+            changes = []
+            for edit in edits:
+
+                delt = await self.resolvers[edit[0]](nid, form, edit, sode, meta)
+                if delt is not None:
+                    changes.extend(delt)
+
+                await asyncio.sleep(0)
+
+            if changes:
+                realedits.append((nid, form, changes))
+
+        await asyncio.sleep(0)
+        return realedits
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):
@@ -2671,52 +2754,26 @@ class Layer(s_nexus.Pusher):
         Execute a series of node edit operations, returning the updated nodes.
 
         Args:
-            nodeedits:  List[Tuple(nid, form, edits, subedits)]  List of requested changes per node
+            nodeedits:  List[Tuple(nid, form, edits)]  List of requested changes per node
 
         Returns:
-            List[Tuple[nid, form, edits]]  Same list, but with only the edits actually applied (plus the old value)
+            None
         '''
-        results = {}
-
-        nodeedits = collections.deque(nodeedits)
-        while nodeedits:
-
-            nid, form, edits = nodeedits.popleft()
+        for (nid, form, edits) in nodeedits:
 
             sode = self._genStorNode(nid)
 
-            changes = []
             for edit in edits:
-
-                delt = await self.editors[edit[0]](nid, form, edit, sode, meta)
-
-                # if there are conditional edits, check and add them...
-                if delt and edit[2]:
-                    nodeedits.extend(edit[2])
-
-                changes.extend(delt)
-
+                await self.editors[edit[0]](nid, form, edit, sode, meta)
                 await asyncio.sleep(0)
 
-            if changes:
-
-                flatedit = results.get(nid)
-                if flatedit is None:
-                    results[nid] = flatedit = (nid, form, [])
-
-                flatedit[2].extend(changes)
-
-        flatedits = list(results.values())
-
-        if flatedits:
+        if self.logedits and nexsitem is not None:
             nexsindx = nexsitem[0] if nexsitem is not None else None
-            if self.logedits:
-                offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
-                [(await wind.put((offs, flatedits, meta))) for wind in tuple(self.windows)]
+            offs = self.nodeeditlog.add(None, indx=nexsindx)
+            [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
-
-        return flatedits
+        return nodeedits
 
     def mayDelNid(self, nid, sode):
 
@@ -2758,15 +2815,251 @@ class Layer(s_nexus.Pusher):
         self._reqNotReadOnly()
         await self._push('edits', nodeedits, meta)
 
+    async def _calcNodeAdd(self, nid, form, edit, sode, meta):
+
+        if sode is None:
+            oldv = None
+            if (tick := meta.get('time')) is None:
+                tick = s_common.now()
+
+        else:
+            if sode.get('valu') is not None:
+                return
+
+            if (tick := meta.get('time')) is None:
+                tick = s_common.now()
+
+            oldv = None
+            if (props := sode.get('props')) is not None:
+                if (curv := props.get('.created')) is not None and tick < curv[0]:
+                    oldv = curv[0]
+                else:
+                    return ((EDIT_NODE_ADD, edit[1]))
+
+        return (
+            (EDIT_NODE_ADD, edit[1]),
+            (EDIT_PROP_SET, ('.created', tick, oldv, STOR_TYPE_MINTIME))
+        )
+
+    async def _calcNodeDel(self, nid, form, edit, sode, meta):
+
+        if sode is None or (oldv := sode.get('valu')) is None:
+            return
+
+        return (
+            (EDIT_NODE_DEL, oldv),
+        )
+
+    async def _calcPropSet(self, nid, form, edit, sode, meta):
+
+        prop, valu, _, stortype = edit[1]
+
+        if sode is None or (props := sode.get('props')) is None:
+            if prop == '.created':
+                if (tick := meta.get('time')) is None:
+                    tick = s_common.now()
+
+                if tick < valu:
+                    return
+
+            oldv = None
+        else:
+            oldv, oldt = props.get(prop, (None, None))
+
+            if valu == oldv:
+                return
+
+            if oldv is not None:
+                # merge intervals and min times
+                if stortype == STOR_TYPE_IVAL:
+                    allv = oldv + valu
+                    valu = (min(allv), max(allv))
+
+                elif stortype == STOR_TYPE_MINTIME:
+                    valu = min(valu, oldv)
+
+                elif stortype == STOR_TYPE_MAXTIME:
+                    valu = max(valu, oldv)
+
+                if valu == oldv and stortype == oldt:
+                    return
+
+        return (
+            (EDIT_PROP_SET, (prop, valu, oldv, stortype)),
+        )
+
+    async def _calcPropDel(self, nid, form, edit, sode, meta):
+
+        if sode is None or (props := sode.get('props')) is None:
+            return
+
+        prop = edit[1][0]
+        if (valt := props.get(prop)) is None:
+            return
+
+        return (
+            (EDIT_PROP_DEL, (prop, *valt)),
+        )
+
+    async def _calcTagSet(self, nid, form, edit, sode, meta):
+
+        tag, valu, _ = edit[1]
+
+        if sode is None or (tags := sode.get('tags')) is None:
+            oldv = None
+
+        elif (oldv := tags.get(tag)) is not None:
+
+            if oldv != (None, None) and valu != (None, None):
+                allv = oldv + valu
+                valu = (min(allv), max(allv))
+
+            if oldv == valu:
+                return
+
+        return (
+            (EDIT_TAG_SET, (tag, valu, oldv)),
+        )
+
+    async def _calcTagDel(self, nid, form, edit, sode, meta):
+
+        if sode is None or (tags := sode.get('tags')) is None:
+            return
+
+        tag = edit[1][0]
+        if (oldv := tags.get(tag)) is None:
+            return
+
+        return (
+            (EDIT_TAG_DEL, (tag, oldv)),
+        )
+
+    async def _calcTagPropSet(self, nid, form, edit, sode, meta):
+
+        tag, prop, valu, _, stortype = edit[1]
+        oldv = None
+
+        if sode is not None and (tagprops := sode.get('tagprops')) is not None:
+            if (tp_dict := tagprops.get(tag)) is not None:
+                if (valt := tp_dict.get(prop)) is not None:
+
+                    oldv, oldt = valt
+
+                    if stortype == STOR_TYPE_IVAL:
+                        allv = oldv + valu
+                        valu = (min(allv), max(allv))
+
+                    elif stortype == STOR_TYPE_MINTIME:
+                        valu = min(valu, oldv)
+
+                    elif stortype == STOR_TYPE_MAXTIME:
+                        valu = max(valu, oldv)
+
+                    if valu == oldv and stortype == oldt:
+                        return
+
+        return (
+            (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype)),
+        )
+
+    async def _calcTagPropDel(self, nid, form, edit, sode, meta):
+
+        if sode is None or (tagprops := sode.get('tagprops')) is None:
+            return
+
+        tag, prop, _, _ = edit[1]
+
+        if (tp_dict := tagprops.get(tag)) is None:
+            return
+
+        if (oldv := tp_dict.get(prop)) is None:
+            return
+
+        return (
+            (EDIT_TAGPROP_DEL, (tag, prop, *oldv)),
+        )
+
+    async def _calcNodeDataSet(self, nid, form, edit, sode, meta):
+
+        name, valu, _ = edit[1]
+
+        if sode is None:
+            return (
+                (EDIT_NODEDATA_SET, (name, valu, None)),
+            )
+
+        try:
+            abrv = self.getPropAbrv(name, None)
+        except s_exc.NoSuchAbrv:
+            return (
+                (EDIT_NODEDATA_SET, (name, valu, None)),
+            )
+
+        oldv = None
+        byts = s_msgpack.en(valu)
+
+        if (oldb := self.dataslab.get(nid + abrv, db=self.nodedata)) is not None:
+            if oldb == byts:
+                return
+            oldv = s_msgpack.un(oldb)
+
+        return (
+            (EDIT_NODEDATA_SET, (name, valu, oldv)),
+        )
+
+    async def _calcNodeDataDel(self, nid, form, edit, sode, meta):
+
+        if sode is None:
+            return
+
+        name, valu = edit[1]
+        try:
+            abrv = self.getPropAbrv(name, None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if (oldb := self.dataslab.get(nid + abrv, db=self.nodedata)) is None:
+            return
+
+        return (
+            (EDIT_NODEDATA_DEL, (name, s_msgpack.un(oldb))),
+        )
+
+    async def _calcNodeEdgeAdd(self, nid, form, edit, sode, meta):
+
+        verb, n2nid = edit[1]
+
+        if sode is not None and self.layrslab.hasdup(nid + n2nid, verb.encode(), db=self.edgesn1n2):
+            return
+
+        return (
+            (EDIT_EDGE_ADD, (verb, n2nid)),
+        )
+
+    async def _calcNodeEdgeDel(self, nid, form, edit, sode, meta):
+
+        if sode is None:
+            return
+
+        verb, n2nid = edit[1]
+
+        if not self.layrslab.hasdup(nid + n2nid, verb.encode(), db=self.edgesn1n2):
+            return
+
+        return (
+            (EDIT_EDGE_DEL, (verb, n2nid)),
+        )
+
     async def _editNodeAdd(self, nid, form, edit, sode, meta):
 
-        valt = edit[1]
-        valu, stortype = valt
-        if sode.get('valu') == valt:
-            return ()
+        if sode.get('valu') is not None:
+            return
 
-        sode['valu'] = valt
+        valu, stortype = sode['valu'] = edit[1]
         sode['form'] = form
+
+        if self.core.getBuidByNid(nid) is None:
+            self.core.setNidNdef(nid, (form, valu))
 
         self.dirty[nid] = sode
 
@@ -2789,27 +3082,12 @@ class Layer(s_nexus.Pusher):
         if self.nodeAddHook is not None:
             self.nodeAddHook()
 
-        retn = [
-            (EDIT_NODE_ADD, (valu, stortype), ())
-        ]
-
-        tick = meta.get('time')
-        if tick is None:
-            tick = s_common.now()
-
-        edit = (EDIT_PROP_SET, ('.created', tick, None, STOR_TYPE_MINTIME), ())
-        retn.extend(await self._editPropSet(nid, form, edit, sode, meta))
-
-        return retn
-
     async def _editNodeDel(self, nid, form, edit, sode, meta):
 
-        valt = sode.pop('valu', None)
-        if valt is None:
-            # TODO tombstone
-            return ()
+        if (valt := sode.pop('valu', None)) is None:
+            return
 
-        valu, stortype = valt
+        (valu, stortype) = valt
 
         abrv = self.setPropAbrv(form, None)
 
@@ -2836,10 +3114,6 @@ class Layer(s_nexus.Pusher):
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
 
-        return (
-            (EDIT_NODE_DEL, (valu, stortype), ()),
-        )
-
     async def _editPropSet(self, nid, form, edit, sode, meta):
 
         prop, valu, oldv, stortype = edit[1]
@@ -2847,7 +3121,7 @@ class Layer(s_nexus.Pusher):
         oldv, oldt = sode['props'].get(prop, (None, None))
 
         if valu == oldv:
-            return ()
+            return
 
         abrv = self.setPropAbrv(form, prop)
         univabrv = None
@@ -2856,20 +3130,6 @@ class Layer(s_nexus.Pusher):
             univabrv = self.setPropAbrv(None, prop)
 
         if oldv is not None:
-
-            # merge intervals and min times
-            if stortype == STOR_TYPE_IVAL:
-                allv = oldv + valu
-                valu = (min(allv), max(allv))
-
-            elif stortype == STOR_TYPE_MINTIME:
-                valu = min(valu, oldv)
-
-            elif stortype == STOR_TYPE_MAXTIME:
-                valu = max(valu, oldv)
-
-            if valu == oldv and stortype == oldt:
-                return ()
 
             if oldt & STOR_FLAG_ARRAY:
 
@@ -2912,18 +3172,12 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, nid, db=self.byprop)
 
-        return (
-            (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
-        )
-
     async def _editPropDel(self, nid, form, edit, sode, meta):
 
-        prop, oldv, stortype = edit[1]
+        prop = edit[1][0]
 
-        valt = sode['props'].pop(prop, None)
-        if valt is None:
-            # FIXME tombstone
-            return ()
+        if (valt := sode['props'].pop(prop, None)) is None:
+            return
 
         valu, stortype = valt
 
@@ -2958,27 +3212,9 @@ class Layer(s_nexus.Pusher):
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
 
-        return (
-            (EDIT_PROP_DEL, (prop, valu, stortype), ()),
-        )
-
     async def _editTagSet(self, nid, form, edit, sode, meta):
 
-        if form is None:  # pragma: no cover
-            logger.warning(f'Invalid tag set edit, form is None: {edit}')
-            return ()
-
         tag, valu, oldv = edit[1]
-
-        oldv = sode['tags'].get(tag)
-        if oldv is not None:
-
-            if oldv != (None, None) and valu != (None, None):
-
-                valu = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
-
-            if oldv == valu:
-                return ()
 
         tagabrv = self.tagabrv.setBytsToAbrv(tag.encode())
         formabrv = self.setPropAbrv(form, None)
@@ -2988,20 +3224,14 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.put(tagabrv + formabrv, nid, db=self.bytag)
 
-        return (
-            (EDIT_TAG_SET, (tag, valu, oldv), ()),
-        )
-
     async def _editTagDel(self, nid, form, edit, sode, meta):
 
-        tag, oldv = edit[1]
+        tag = edit[1][0]
+
+        if sode['tags'].pop(tag, None) is None:
+            return
+
         formabrv = self.setPropAbrv(form, None)
-
-        oldv = sode['tags'].pop(tag, None)
-        if oldv is None:
-            # TODO tombstone
-            return ()
-
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
 
         self.layrslab.delete(tagabrv + formabrv, nid, db=self.bytag)
@@ -3009,45 +3239,24 @@ class Layer(s_nexus.Pusher):
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
 
-        return (
-            (EDIT_TAG_DEL, (tag, oldv), ()),
-        )
-
     async def _editTagPropSet(self, nid, form, edit, sode, meta):
-
-        if form is None:  # pragma: no cover
-            logger.warning(f'Invalid tagprop set edit, form is None: {edit}')
-            return ()
 
         tag, prop, valu, oldv, stortype = edit[1]
 
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
 
-        tp_dict = sode['tagprops'].get(tag)
-        if tp_dict:
+        if (tp_dict := sode['tagprops'].get(tag)) is not None:
+            if (oldv := tp_dict.get(prop)) is not None:
 
-            oldv, oldt = tp_dict.get(prop, (None, None))
+                if (valu, stortype) == oldv:
+                    return
 
-            if oldv is not None:
-
-                if stortype == STOR_TYPE_IVAL:
-                    valu = (min(*oldv, *valu), max(*oldv, *valu))
-
-                elif stortype == STOR_TYPE_MINTIME:
-                    valu = min(valu, oldv)
-
-                elif stortype == STOR_TYPE_MAXTIME:
-                    valu = max(valu, oldv)
-
-                if valu == oldv and stortype == oldt:
-                    return ()
-
-                for oldi in self.getStorIndx(oldt, oldv):
+                for oldi in self.getStorIndx(oldv[1], oldv[0]):
                     self.layrslab.delete(tp_abrv + oldi, nid, db=self.bytagprop)
                     self.layrslab.delete(ftp_abrv + oldi, nid, db=self.bytagprop)
 
-        if tag not in sode['tagprops']:
+        else:
             sode['tagprops'][tag] = {}
 
         sode['tagprops'][tag][prop] = (valu, stortype)
@@ -3060,21 +3269,15 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.putmulti(kvpairs, db=self.bytagprop)
 
-        return (
-            (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),
-        )
-
     async def _editTagPropDel(self, nid, form, edit, sode, meta):
 
-        tag, prop, valu, stortype = edit[1]
+        tag, prop, _, _ = edit[1]
 
-        tp_dict = sode['tagprops'].get(tag)
-        if not tp_dict:
-            return ()
+        if (tp_dict := sode['tagprops'].get(tag)) is None:
+            return
 
-        oldv, oldt = tp_dict.pop(prop, (None, None))
-        if oldv is None:
-            return ()
+        if (oldv := tp_dict.pop(prop, None)) is None:
+            return
 
         if len(tp_dict) == 0:
             sode['tagprops'].pop(tag)
@@ -3085,63 +3288,35 @@ class Layer(s_nexus.Pusher):
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
 
-        for oldi in self.getStorIndx(oldt, oldv):
+        for oldi in self.getStorIndx(oldv[1], oldv[0]):
             self.layrslab.delete(tp_abrv + oldi, nid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, nid, db=self.bytagprop)
 
-        return (
-            (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
-        )
-
     async def _editNodeDataSet(self, nid, form, edit, sode, meta):
 
-        name, valu, oldv = edit[1]
+        name, valu, _ = edit[1]
         abrv = self.setPropAbrv(name, None)
 
-        byts = s_msgpack.en(valu)
-        oldb = self.dataslab.replace(nid + abrv, byts, db=self.nodedata)
-        if oldb == byts:
-            return ()
-
-        if oldb is None:
-            self.dataslab.put(abrv, nid, db=self.dataname)
-        else:
-            oldv = s_msgpack.un(oldb)
-
-        return (
-            (EDIT_NODEDATA_SET, (name, valu, oldv), ()),
-        )
+        self.dataslab.put(nid + abrv, s_msgpack.en(valu), db=self.nodedata)
+        self.dataslab.put(abrv, nid, db=self.dataname)
 
     async def _editNodeDataDel(self, nid, form, edit, sode, meta):
 
         name, valu = edit[1]
         abrv = self.setPropAbrv(name, None)
 
-        oldb = self.dataslab.pop(nid + abrv, db=self.nodedata)
-        if oldb is None:
-            return ()
-
-        oldv = s_msgpack.un(oldb)
-        self.dataslab.delete(abrv, nid, db=self.dataname)
-
-        self.mayDelNid(nid, sode)
-
-        return (
-            (EDIT_NODEDATA_DEL, (name, oldv), ()),
-        )
+        if self.dataslab.delete(nid + abrv, db=self.nodedata):
+            self.dataslab.delete(abrv, nid, db=self.dataname)
+            self.mayDelNid(nid, sode)
 
     async def _editNodeEdgeAdd(self, nid, form, edit, sode, meta):
-
-        if form is None:  # pragma: no cover
-            logger.warning(f'Invalid node edge edit, form is None: {edit}')
-            return ()
 
         verb, n2nid = edit[1]
 
         venc = verb.encode()
 
         if self.layrslab.hasdup(nid + n2nid, venc, db=self.edgesn1n2):
-            return ()
+            return
 
         n2sode = self._genStorNode(n2nid)
 
@@ -3161,10 +3336,6 @@ class Layer(s_nexus.Pusher):
         self.layrslab.put(n2nid + venc, nid, db=self.edgesn2)
         self.layrslab.put(n1n2nid, venc, db=self.edgesn1n2)
 
-        return (
-            (EDIT_EDGE_ADD, (verb, n2nid), ()),
-        )
-
     async def _editNodeEdgeDel(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
@@ -3174,7 +3345,7 @@ class Layer(s_nexus.Pusher):
         n1n2nid = nid + n2nid
 
         if not self.layrslab.delete(n1n2nid, venc, db=self.edgesn1n2):
-            return ()
+            return
 
         self.layrslab.delete(venc, n1n2nid, db=self.byverb)
         self.layrslab.delete(nid + venc, n2nid, db=self.edgesn1)
@@ -3197,10 +3368,6 @@ class Layer(s_nexus.Pusher):
 
         if not self.mayDelNid(n2nid, n2sode):
             self.dirty[n2nid] = n2sode
-
-        return (
-            (EDIT_EDGE_DEL, (verb, n2nid), ()),
-        )
 
     async def getEdgeVerbs(self):
 
@@ -3477,23 +3644,23 @@ class Layer(s_nexus.Pusher):
             # TODO tombstones
             valt = sode.get('valu')
             if valt is not None:
-                edits.append((EDIT_NODE_ADD, valt, ()))
+                edits.append((EDIT_NODE_ADD, valt))
 
             for prop, (valu, stortype) in sode.get('props', {}).items():
-                edits.append((EDIT_PROP_SET, (prop, valu, None, stortype), ()))
+                edits.append((EDIT_PROP_SET, (prop, valu, None, stortype)))
 
             for tag, tagv in sode.get('tags', {}).items():
-                edits.append((EDIT_TAG_SET, (tag, tagv, None), ()))
+                edits.append((EDIT_TAG_SET, (tag, tagv, None)))
 
             for tag, propdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in propdict.items():
-                    edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                    edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype)))
 
             async for prop, valu in self.iterNodeData(nid):
-                edits.append((EDIT_NODEDATA_SET, (prop, valu, None), ()))
+                edits.append((EDIT_NODEDATA_SET, (prop, valu, None)))
 
             async for verb, n2nid in self.iterNodeEdgesN1(nid):
-                edits.append((EDIT_EDGE_ADD, (verb, n2nid), ()))
+                edits.append((EDIT_EDGE_ADD, (verb, n2nid)))
 
             yield nodeedit
 
@@ -3541,7 +3708,7 @@ class Layer(s_nexus.Pusher):
 
                         async def consume(x):
                             try:
-                                async for item in proxy.syncNodeEdits(x):
+                                async for item in proxy.syncNodeEdits(x, compat=True):
                                     await q.put(item)
                             finally:
                                 await q.put(None)
@@ -3630,17 +3797,19 @@ class Layer(s_nexus.Pusher):
         '''
         Iterate the node edit log and yield (offs, edits, meta) tuples.
         '''
-        for offs, (edits, meta) in self.nodeeditlog.iter(offs):
-            yield (offs, edits, meta)
+        for offs, _ in self.nodeeditlog.iter(offs):
+            nexsitem = await self.core.nexsroot.nexslog.get(offs)
+            yield (offs, *nexsitem[2])
 
     async def iterNodeEditLogBack(self, offs=0):
         '''
         Iterate the node edit log and yield (offs, edits, meta) tuples in reverse.
         '''
-        for offs, (edits, meta) in self.nodeeditlog.iterBack(offs):
-            yield (offs, edits, meta)
+        for offs, _ in self.nodeeditlog.iterBack(offs):
+            nexsitem = await self.core.nexsroot.nexslog.get(offs)
+            yield (offs, *nexsitem[2])
 
-    async def syncNodeEdits2(self, offs, wait=True):
+    async def syncNodeEdits2(self, offs, wait=True, compat=False):
         '''
         Once caught up with storage, yield them in realtime.
 
@@ -3650,19 +3819,37 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             return
 
-        for offi, (nodeedits, meta) in self.nodeeditlog.iter(offs):
-            yield (offi, nodeedits, meta)
+        if not compat:
+            for offi, _ in self.nodeeditlog.iter(offs):
+                nexsitem = await self.core.nexsroot.nexslog.get(offi)
+                yield (offi, *nexsitem[2])
+
+            if wait:
+                async with self.getNodeEditWindow() as wind:
+                    async for item in wind:
+                        yield item
+            return
+
+        for offi, _ in self.nodeeditlog.iter(offs):
+            nexsitem = await self.core.nexsroot.nexslog.get(offi)
+            (nodeedits, meta) = nexsitem[2]
+
+            realnodeedits = self.core.localToRemoteEdits(nodeedits)
+            if realnodeedits:
+                yield (offi, realnodeedits, meta)
 
         if wait:
             async with self.getNodeEditWindow() as wind:
-                async for item in wind:
-                    yield item
+                async for (offi, nodeedits, meta) in wind:
+                    realnodeedits = self.core.localToRemoteEdits(nodeedits)
+                    if realnodeedits:
+                        yield (offi, realnodeedits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True):
+    async def syncNodeEdits(self, offs, wait=True, compat=False):
         '''
         Identical to syncNodeEdits2, but doesn't yield meta
         '''
-        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait):
+        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield (offi, nodeedits)
 
     async def syncIndexEvents(self, offs, matchdef, wait=True):
@@ -3676,7 +3863,7 @@ class Layer(s_nexus.Pusher):
             next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the
             user that initiated the change, and the time that it took place, respectively.
 
-            Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, (), ())) message is emitted.
+            Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, ())) message is emitted.
 
             The matchdef dict may contain the following keys:  forms, props, tags, tagprops.  The value must be a
             sequence of strings.  Each key/val combination is treated as an "or", so each key and value yields more events.
@@ -3701,7 +3888,7 @@ class Layer(s_nexus.Pusher):
 
         async for curoff, editses in self.syncNodeEdits(offs, wait=wait):
             for nid, form, edit in editses:
-                for etyp, vals, meta in edit:
+                for etyp, vals in edit:
                     if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
                             or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL)
                                 and (vals[0] in propm or f'{form}:{vals[0]}' in propm))
@@ -3709,13 +3896,15 @@ class Layer(s_nexus.Pusher):
                             or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL)
                                 and (vals[1] in tagpropm or f'{vals[0]}:{vals[1]}' in tagpropm))):
 
-                        yield (curoff, (nid, form, etyp, vals, meta))
+                        # This was returning conditional edits, not meta, but nothing
+                        # we have uses that
+                        yield (curoff, (nid, form, etyp, vals, ()))
 
             await asyncio.sleep(0)
 
             count += 1
             if count % 1000 == 0:
-                yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
+                yield (curoff, (None, None, EDIT_PROGRESS, ()))
 
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):
@@ -3791,7 +3980,7 @@ def getFlatEdits(nodeedits):
     def addedits(nid, form, edits):
         nkey = (nid, form)
         for edittype, editinfo, condedits in edits:
-            editsbynode[nkey].append((edittype, editinfo, ()))
+            editsbynode[nkey].append((edittype, editinfo))
             for condedit in condedits:
                 addedits(*condedit)
 
@@ -3807,7 +3996,7 @@ def getNodeEditPerms(nodeedits):
 
     for nodeoffs, (nid, form, edits) in enumerate(nodeedits):
 
-        for editoffs, (edit, info, _) in enumerate(edits):
+        for editoffs, (edit, info) in enumerate(edits):
 
             permoffs = (nodeoffs, editoffs)
 

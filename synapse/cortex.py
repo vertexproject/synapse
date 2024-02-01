@@ -2014,7 +2014,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return s_msgpack.un(byts)
 
     def setNidNdef(self, nid, ndef):
+        buid = s_common.buid(ndef)
+        self.v3stor.put(nid, buid, db=self.nid2buid)
+        self.v3stor.put(buid, nid, db=self.buid2nid)
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+
+        if (nid := int.from_bytes(nid)) >= self.nextnid:
+            self.nextnid = nid + 1
 
     def getBuidByNid(self, nid):
         return self.v3stor.get(nid, db=self.nid2buid)
@@ -2022,8 +2028,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getNidByBuid(self, buid):
         return self.v3stor.get(buid, db=self.buid2nid)
 
-    @s_nexus.Pusher.onPush('nid:add')
-    async def _onGenBuidNid(self, buid, ndef):
+    async def genNdefNid(self, ndef):
+        buid = s_common.buid(ndef)
+        nid = self.v3stor.get(buid, db=self.buid2nid)
+        if nid is not None:
+            return nid
+        return await self._push('nid:gen', ndef)
+
+    @s_nexus.Pusher.onPush('nid:gen')
+    async def _genNdefNid(self, ndef):
+        buid = s_common.buid(ndef)
         nid = self.v3stor.get(buid, db=self.buid2nid)
         if nid is not None:
             return nid
@@ -2036,13 +2050,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
         return nid
-
-    async def genBuidNid(self, buid, ndef):
-        nid = self.v3stor.get(buid, db=self.buid2nid)
-        if nid is not None:
-            return nid
-
-        return await self._push('nid:add', buid, ndef)
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -3255,7 +3262,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-    async def syncLayerNodeEdits(self, iden, offs, wait=True):
+    async def syncLayerNodeEdits(self, iden, offs, wait=True, compat=False):
         '''
         Yield (offs, mesg) tuples for nodeedits in a layer.
         '''
@@ -3263,12 +3270,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
-        async for (offs, nodeedits) in layr.syncNodeEdits(offs, wait=wait):
-            extedits = []
-            for edit in nodeedits:
-                extedits.append((self.getBuidByNid(edit[0]),) + edit[1:])
-
-            yield (offs, extedits)
+        async for item in layr.syncNodeEdits(offs, wait=wait, compat=compat):
+            yield item
 
     async def syncLayersEvents(self, offsdict=None, wait=True):
         '''
@@ -4627,6 +4630,57 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.addActiveCoro(pull, iden=iden)
 
+    def localToRemoteEdits(self, lnodeedits):
+        rnodeedits = []
+        for nid, form, ledits in lnodeedits:
+            if nid is None:
+                ndef = (form, None)
+            elif (ndef := self.getNidNdef(nid)) is None:
+                continue
+
+            redits = []
+            for edit in ledits:
+                if edit[0] in (10, 11):
+                    verb, n2nid = edit[1]
+                    if (n2ndef := self.getNidNdef(n2nid)) is None:
+                        continue
+
+                    redits.append((edit[0], (verb, n2ndef)))
+                    continue
+
+                redits.append(edit)
+
+            if redits:
+                rnodeedits.append((*ndef, redits))
+
+        return rnodeedits
+
+    async def remoteToLocalEdits(self, rnodeedits):
+        lnodeedits = []
+        for form, valu, redits in rnodeedits:
+
+            buid = s_common.buid((form, valu))
+            nid = self.getNidByBuid(buid)
+            if nid is None and redits[0][0] != 0:
+                # If we don't know this buid and the first edit isn't
+                # a node add, this is an edit to a node we won't have
+                # and we need to use a nexus event to generate the NID
+                nid = await self.genNdefNid((form, valu))
+
+            ledits = []
+            for edit in redits:
+                if edit[0] in (10, 11):
+                    verb, n2ndef = edit[1]
+                    n2nid = await self.genNdefNid(n2ndef)
+                    ledits.append((edit[0], (verb, n2nid)))
+                    continue
+
+                ledits.append(edit)
+
+            lnodeedits.append((nid, form, ledits))
+
+        return lnodeedits
+
     async def _pushBulkEdits(self, layr0, layr1, pdef):
 
         iden = pdef.get('iden')
@@ -4642,8 +4696,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 try:
                     filloffs = await self.getStormVar(gvar, -1)
-                    async for item in layr0.syncNodeEdits(filloffs + 1, wait=True):
-                        await queue.put(item)
+                    async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs + 1, wait=True, compat=True):
+                        await queue.put((offs, await self.remoteToLocalEdits(nodeedits)))
                     await queue.close()
 
                 except asyncio.CancelledError:  # pragma: no cover

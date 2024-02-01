@@ -6695,9 +6695,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             item0 = await genr.__anext__()
             expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.nid, 'test:str',
-                            ((s_layer.EDIT_NODE_ADD, ('foo', 1), ()),
+                            ((s_layer.EDIT_NODE_ADD, ('foo', 1)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME), ()))),)
+                                                      s_layer.STOR_TYPE_MINTIME)))),)
             self.eq(expect[1:], item0[1:3])
             self.eq(expectedits, item0[3])
             self.isin('time', item0[4])
@@ -6753,9 +6753,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.nid, 'test:str',
-                            [(s_layer.EDIT_NODE_ADD, ('bar', 1), ()),
+                            [(s_layer.EDIT_NODE_ADD, ('bar', 1)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME), ())]),)
+                                                      s_layer.STOR_TYPE_MINTIME))]),)
 
             self.eq(expect[1:], item4[1:3])
             self.eq(expectedits, item4[3])
@@ -6826,7 +6826,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             items = await alist(proxy.syncIndexEvents(mdef, offsdict=offsdict, wait=False))
 
             expect = (9999, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                      (None, None, s_layer.EDIT_PROGRESS, (), ()))
+                      (None, None, s_layer.EDIT_PROGRESS, ()))
             self.eq(expect[1:], items[1][1:])
 
             # Make sure that genr wakes up if a new layer occurs after it is already waiting

@@ -3786,29 +3786,13 @@ class StormTest(s_t_utils.SynTest):
                         pass
 
                 class LayrBork:
-                    async def syncNodeEdits(self, offs, wait=True):
+                    async def syncNodeEdits(self, offs, wait=True, compat=False):
                         if False: yield None
                         raise s_exc.SynErr()
 
                 fake = {'iden': s_common.guid(), 'user': s_common.guid()}
                 # this should fire the reader and exit cleanly when he explodes
                 await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
-
-                class FastPull:
-                    async def syncNodeEdits(self, offs, wait=True):
-                        yield (0, range(2000))
-
-                class FastPush:
-                    def __init__(self):
-                        self.edits = []
-                    async def saveNodeEdits(self, edits, meta):
-                        self.edits.extend(edits)
-
-                pull = FastPull()
-                push = FastPush()
-
-                await core._pushBulkEdits(pull, push, fake)
-                self.eq(push.edits, tuple(range(2000)))
 
                 # a quick/ghetto test for coverage...
                 layr = core.getView().layers[0]

@@ -1066,11 +1066,13 @@ class LayerTest(s_t_utils.SynTest):
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
 
                     lastoffs = layr.nodeeditlog.index()
-                    for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
-                        self.eq(meta, nodeedit[1][1])
+                    for offs, _ in layr.nodeeditlog.sliceBack(lastoffs, 2):
+                        nexsitem = await core1.nexsroot.nexslog.get(offs)
+                        nodeedit = nexsitem[2]
+                        self.eq(meta, nodeedit[1])
 
                     async def waitForEdit():
-                        edit = (0, ('endofquery', 1), ())
+                        edit = (0, ('endofquery', 1))
                         async for item in layr.syncNodeEdits(lastoffs):
                             if item[1][0][1] == 'test:str' and edit in item[1][0][2]:
                                 return

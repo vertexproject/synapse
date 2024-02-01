@@ -4190,101 +4190,129 @@ class MoveNodesCmd(Cmd):
 
     async def _moveProps(self, node, sodes, meta):
 
-        ecnt = 0
-        movekeys = set()
+        movevals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
+            if layr == self.destlayr:
+                continue
+
             for name, (valu, stortype) in sode.get('props', {}).items():
 
-                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
-                    or name not in movekeys) and not layr == self.destlayr:
+                if (oldv := movevals.get(name)) is None:
+                    movevals[name] = valu
 
-                    if not self.opts.apply:
-                        valurepr = node.form.prop(name).type.repr(valu)
-                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
-                    else:
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
-                        ecnt += 1
+                elif stortype == s_layer.STOR_TYPE_IVAL:
+                    allv = oldv + valu
+                    movevals[name] = (min(allv), max(allv))
 
-                movekeys.add(name)
+                elif stortype == s_layer.STOR_TYPE_MINTIME:
+                    movevals[name] = min(valu, oldv)
 
-                if not layr == self.destlayr:
-                    if not self.opts.apply:
-                        valurepr = node.form.prop(name).type.repr(valu)
-                        await self.runt.printf(f'{layr} delete {nodeiden} {form}:{name} = {valurepr}')
-                    else:
-                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name, None, stortype), ()))
-                        ecnt += 1
+                elif stortype == s_layer.STOR_TYPE_MAXTIME:
+                    movevals[name] = max(valu, oldv)
 
-                if ecnt >= 1000:
-                    await self._sync(node, meta)
-                    ecnt = 0
+                if not self.opts.apply:
+                    valurepr = node.form.prop(name).type.repr(valu)
+                    await self.runt.printf(f'{layr} delete {nodeiden} {form}:{name} = {valurepr}')
+                else:
+                    self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name, None, stortype)))
+
+        for name, valu in movevals.items():
+            if not self.opts.apply:
+                valurepr = node.form.prop(name).type.repr(valu)
+                await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
+            else:
+                stortype = node.form.prop(name).type.stortype
+                self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype)))
 
         await self._sync(node, meta)
 
     async def _moveTags(self, node, sodes, meta):
 
-        ecnt = 0
+        tagvals = {}
+        tagtype = self.runt.model.type('ival')
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
+            if layr == self.destlayr:
+                continue
+
             for tag, valu in sode.get('tags', {}).items():
 
-                if not layr == self.destlayr:
-                    if not self.opts.apply:
-                        valurepr = ''
-                        if valu != (None, None):
-                            tagrepr = self.runt.model.type('ival').repr(valu)
-                            valurepr = f' = {tagrepr}'
-                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
-                        await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
-                    else:
-                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
-                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag, None), ()))
-                        ecnt += 2
+                if (oldv := tagvals.get(tag)) is None or oldv == (None, None):
+                    tagvals[tag] = valu
 
-                if ecnt >= 1000:
-                    await self._sync(node, meta)
-                    ecnt = 0
+                else:
+                    allv = oldv + valu
+                    tagvals[tag] = (min(allv), max(allv))
+
+                if not self.opts.apply:
+                    valurepr = ''
+                    if valu != (None, None):
+                        valurepr = f' = {tagtype.repr(valu)}'
+                    await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
+                else:
+                    self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag, None)))
+
+        for tag, valu in tagvals.items():
+            if not self.opts.apply:
+                valurepr = ''
+                if valu != (None, None):
+                    valurepr = f' = {tagtype.repr(valu)}'
+
+                await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
+            else:
+                self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None)))
 
         await self._sync(node, meta)
 
     async def _moveTagProps(self, node, sodes, meta):
 
-        ecnt = 0
-        movekeys = set()
+        movevals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
-            for tag, tagdict in sode.get('tagprops', {}).items():
+            if layr == self.destlayr:
+                continue
+            if (tp_dict := sode.get('tagprops')) is None:
+                continue
+
+            for tag, tagdict in tp_dict.items():
                 for prop, (valu, stortype) in tagdict.items():
-                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
-                        or (tag, prop) not in movekeys) and not layr == self.destlayr:
-                        if not self.opts.apply:
-                            valurepr = repr(valu)
-                            mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
-                            await self.runt.printf(mesg)
-                        else:
-                            self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                            ecnt += 1
+                    name = (tag, prop)
 
-                    movekeys.add((tag, prop))
+                    if (oldv := movevals.get(name)) is None:
+                        movevals[name] = valu
 
-                    if not layr == self.destlayr:
-                        if not self.opts.apply:
-                            valurepr = repr(valu)
-                            await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                        else:
-                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype), ()))
-                            ecnt += 1
+                    elif stortype == s_layer.STOR_TYPE_IVAL:
+                        allv = oldv + valu
+                        movevals[name] = (min(allv), max(allv))
 
-                    if ecnt >= 1000:
-                        await self._sync(node, meta)
-                        ecnt = 0
+                    elif stortype == s_layer.STOR_TYPE_MINTIME:
+                        movevals[name] = min(valu, oldv)
+
+                    elif stortype == s_layer.STOR_TYPE_MAXTIME:
+                        movevals[name] = max(valu, oldv)
+
+                    if not self.opts.apply:
+                        tptype = self.runt.snap.core.model.tagprop(prop).type
+                        valurepr = tptype.repr(valu)
+                        await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                    else:
+                        self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype), ()))
+
+        for (tag, prop), valu in movevals.items():
+            tptype = self.runt.snap.core.model.tagprop(prop).type
+            if not self.opts.apply:
+                valurepr = tptype.repr(valu)
+                mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                await self.runt.printf(mesg)
+            else:
+                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, tptype.stortype), ()))
 
         await self._sync(node, meta)
 
