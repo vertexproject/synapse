@@ -23,6 +23,9 @@ Features and Enhancements
 - Logs related to AHA service registration and setting services as offline are
   now logged at the ``INFO`` level.
   (`#3534 <https://github.com/vertexproject/synapse/pull/3534>`_)
+- When creating Cron jobs and Triggers, record their creation time.
+  (`#3521 <https://github.com/vertexproject/synapse/pull/3521>`_)
+  (`#3538 <https://github.com/vertexproject/synapse/pull/3538>`_)
 
 Bugfixes
 --------
