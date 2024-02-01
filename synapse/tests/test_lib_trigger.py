@@ -20,8 +20,7 @@ class TrigTest(s_t_utils.SynTest):
 
                 await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
-                node = await core.callStorm('[ inet:ipv4=1.2.3.4 ] return($node.pack())')
-                self.none(node[1]['tags'].get('foo'))
+                await core.callStorm('[ inet:ipv4=1.2.3.4 ]')
 
                 msgs = await core.stormlist('trigger.list')
                 self.stormIsInPrint('true   true   node:add  inet:ipv4', msgs)

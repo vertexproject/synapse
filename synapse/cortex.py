@@ -4731,7 +4731,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     alledits.extend(edits)
                     if len(alledits) > csize:
                         await layr1.saveNodeEdits(alledits, meta)
-                        await layr1.storNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()
 

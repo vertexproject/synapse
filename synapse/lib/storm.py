@@ -3583,7 +3583,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.getPropNames():
-                    runt.confirm(node.form.props[name].setperm, gateiden=layriden)
+                    runt.confirm(node.form.props[name].setperms, gateiden=layriden)
 
                 for tag in node.getTagNames():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
@@ -4617,18 +4617,18 @@ class DelNodeCmd(Cmd):
                 async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
                     seenverbs = set()
 
-                    async for (verb, n2iden) in node.iterEdgesN2():
+                    async for (verb, n2nid) in node.iterEdgesN2():
                         if verb not in seenverbs:
                             runt.layerConfirm(('node', 'edge', 'del', verb))
                             seenverbs.add(verb)
-                        await edges.add((verb, n2iden))
+                        await edges.add((verb, n2nid))
 
                     async with self.runt.snap.getEditor() as editor:
-                        async for (verb, n2iden) in edges:
-                            n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
+                        async for (verb, n2nid) in edges:
+                            n2 = await editor.getNodeByNid(n2nid)
                             if n2 is not None:
                                 if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
-                                    await self.runt.snap.applyNodeEdits(editor.getNodeEdits())
+                                    await self.runt.snap.saveNodeEdits(editor.getNodeEdits())
                                     editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
