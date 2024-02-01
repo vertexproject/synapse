@@ -4616,9 +4616,8 @@ class DelNodeCmd(Cmd):
 
                     async with self.runt.snap.getEditor() as editor:
                         async for (verb, n2nid) in edges:
-                            n2 = await editor.getNodeByNid(n2nid)
-                            if n2 is not None:
-                                if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
+                            if (n2 := await editor.getNodeByNid(n2nid)) is not None:
+                                if await n2.delEdge(verb, node.nid) and len(editor.protonodes) >= 1000:
                                     await self.runt.snap.saveNodeEdits(editor.getNodeEdits())
                                     editor.protonodes.clear()
 
