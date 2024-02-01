@@ -1385,6 +1385,13 @@ The Synapse data model in a Cortex can be extended with custom `forms`_ or `prop
 extension Storm Library (:ref:`stormlibs-lib-model-ext`). Extended model forms and properties must have names
 beginning with an underscore (``_``) to avoid potential naming conflicts with built-in model elements.
 
+.. NOTE::
+
+  Extended model elements that are in-use (have nodes using the extended forms or properties) cannot be removed until
+  all instances of that extended model element are removed. In other words, before removing extended forms any nodes
+  created with that extended form must be delete first, and before removing extended properties any nodes with that
+  extended property must have the property value removed.
+
 Extended Forms
 --------------
 

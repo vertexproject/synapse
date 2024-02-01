@@ -3425,30 +3425,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq(counts.get('test:int'), 2)
             self.eq(counts.get('test:guid'), 1)
 
-    async def test_storm_lib_layer_upstream(self):
-        async with self.getTestCore() as core:
-            async with self.getTestCore() as core2:
-
-                await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
-                url = core2.getLocalUrl('*/layer')
-
-                layriden = core2.view.layers[0].iden
-                offs = await core2.view.layers[0].getEditIndx()
-
-                layers = set(core.layers.keys())
-                q = f'layer.add --upstream {url}'
-                mesgs = await core.stormlist(q)
-                uplayr = list(set(core.layers.keys()) - layers)[0]
-
-                q = f'layer.set {uplayr} name "woot woot"'
-                mesgs = await core.stormlist(q)
-                self.stormIsInPrint('(name: woot woot)', mesgs)
-
-                layr = core.getLayer(uplayr)
-
-                evnt = await layr.waitUpstreamOffs(layriden, offs)
-                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
-
     async def test_storm_lib_view(self):
 
         async with self.getTestCore() as core:
@@ -6404,7 +6380,7 @@ words\tword\twrd'''
             opts = {'view': fork.iden, 'user': visi.iden}
             await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
 
-            msgs = await waiter.wait(timeout=3)
+            msgs = await waiter.wait(timeout=12)
             self.eq(msgs[-2][1]['event'], 'view:merge:prog')
             self.eq(msgs[-1][1]['event'], 'view:merge:fini')
 

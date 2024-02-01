@@ -577,15 +577,19 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a password hash.',
                 }),
                 ('it:exec:proc', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
                 }),
                 ('it:exec:thread', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A thread executing in a process.',
                 }),
                 ('it:exec:loadlib', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A library load event in a process.',
                 }),
                 ('it:exec:mmap', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A memory mapped segment located in a process.',
                 }),
                 ('it:cmd', ('str', {'strip': True}), {
@@ -600,39 +604,50 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of an executed query.',
                 }),
                 ('it:exec:mutex', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A mutex created by a process at runtime.',
                 }),
                 ('it:exec:pipe', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A named pipe created by a process at runtime.',
                 }),
                 ('it:exec:url', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host requesting a URL.',
                 }),
                 ('it:exec:bind', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host binding a listening port.',
                 }),
                 ('it:fs:file', ('guid', {}), {
                     'doc': 'A file on a host.'
                 }),
                 ('it:exec:file:add', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host adding a file to a filesystem.',
                 }),
                 ('it:exec:file:del', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host deleting a file from a filesystem.',
                 }),
                 ('it:exec:file:read', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host reading a file from a filesystem.',
                 }),
                 ('it:exec:file:write', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host writing a file to a filesystem.',
                 }),
                 ('it:exec:reg:get', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host getting a registry key.',
                 }),
                 ('it:exec:reg:set', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host creating or setting a registry key.',
                 }),
                 ('it:exec:reg:del', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host deleting a registry key.',
                 }),
                 ('it:app:yara:rule', ('guid', {}), {

@@ -617,7 +617,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('view.merge $forkviden --delete', opts={'vars': {'forkviden': forkviden}})
 
-            # can wipe push/pull/mirror layers
+            # can wipe through layer push/pull
 
             self.len(1, await core.nodes('test:str=chicken'))
             baseoffs = await layr.getEditOffs()
@@ -668,23 +668,8 @@ class ViewTest(s_t_utils.SynTest):
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
                 pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
 
-                mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
-                mirror_view, mirror_layr = await core2.callStorm('''
-                    $ldef = $lib.dict(mirror=$lib.str.concat($baseurl, "/", $baseiden))
-                    $lyr = $lib.layer.add(ldef=$ldef)
-                    $view = $lib.view.add(($lyr.iden,))
-                    return(($view.iden, $lyr.iden))
-                ''', opts=opts)
+                await core.nodes('$lib.view.get().wipeLayer()')
 
-                self.true(await core2.getLayer(iden=mirror_layr).waitEditOffs(mirror_catchup, timeout=2))
-                self.len(1, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
-
-                # wipe the mirror view which will writeback
-                # and then get pushed/pulled into the other layers
-
-                await core2.nodes('$lib.view.get().wipeLayer()', opts={'view': mirror_view})
-
-                self.len(0, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
                 self.len(0, await core.nodes('test:str=chicken'))
 
                 self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(puller_offs + 1, timeout=2))

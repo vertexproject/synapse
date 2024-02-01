@@ -615,7 +615,7 @@ class StormHttpTest(s_test.SynTest):
                 $hdr = ( { "key": $lib.false } )
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
@@ -631,7 +631,7 @@ class StormHttpTest(s_test.SynTest):
                 $hdr = ( { "key": $lib.false } )
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, ssl_verify=$lib.false)
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
@@ -645,7 +645,7 @@ class StormHttpTest(s_test.SynTest):
             query = '''
             $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy)
+            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy, ssl_verify=$lib.false)
             if (not $ok) { $lib.exit($sock) }
 
             ($ok, $mesg) = $sock.rx()
