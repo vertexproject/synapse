@@ -124,7 +124,7 @@ effectively in your environment. Organization-wide automation requires coordinat
 
 - Where multiple users have the ability to create automated tasks, it is possible for them to create
   duplicative or even conflicting automation. Consider who should be repsonsible for deconflicting
-  automation to mitigate against these effects.
+  and approving automation that will be deployed in your production environment.
 
 - Automation is often used to enrich indicators (i.e., query various third-party APIs to pull in more
   data related to a node). Some third-party APIs may impose query limits, may be subject to a license
@@ -142,14 +142,14 @@ Automation and Error Handling
 
 If the Storm executed by a piece of automation encounters an error condition, the automation will
 cease execution and exit. For automation that operates over large numbers of nodes or performs a
-long-running task, an unexpected error can cause the automation to "halt in the middle" and fail to
-complete, which may be problematic in some cases.
+long-running task, an unexpected error can cause the automation to halt in the middle and fail to
+complete.
 
 In addition to general testing of your Storm code (and Storm logic!), using the :ref:`edit-try` when
 adding or modifying data will ensure your Storm code will "warn and continue" if it encounters bad
 data vs. generating an error and halting.
 
-We also encourage you to build in additional error-checking and error-handling into your automation
+We also encourage you to build additional error-checking and error-handling into your automation
 as appropriate.
 
 Users should keep the :ref:`storm-op-concepts` in mind when writing automation. Automation frequently
@@ -192,8 +192,8 @@ Cron
 ++++
 
 Cron jobs in Synapse are similar to the well-known cron utility. Cron jobs execute their associated Storm
-on a specified schedule. Cron jobs can be written to execute once (using the :ref:`storm-cron-at` command)
-or on a recurring basis (using :rev:`storm-cron-add`).
+on a specified schedule. Jobs can be written to execute once (using the :ref:`storm-cron-at` command)
+or on a recurring basis (using :ref:`storm-cron-add`).
 
 .. TIP::
   
@@ -242,9 +242,9 @@ Configuration and Management
   
   When a cron job is created, Synapse also generates a ``syn:cron`` runtime node ("runt node") with some
   details about the cron job available as properties on the node. While runt nodes are typically read-only,
-  ``syn:cron`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm
-  (or configured via :ref:`gloss-optic`). This allows you to manage cron jobs by giving them meaningful names and
-  descriptions. Changes to these properties will persist even after a Cortex restart.
+  ``syn:cron`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm.
+  This allows you to manage cron jobs by giving them meaningful names and descriptions. Changes to these properties
+  will persist after a Cortex restart.
   
   Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
   limited introspection_ of cron jobs using Storm.
@@ -317,9 +317,13 @@ Examples
 ~~~~~~~~
 
 The examples below illustrate using the Storm :ref:`storm-cron` commands (``cron.at``, ``cron.add``) to create
-new cron jobs.
+new cron jobs. See the help for each command for command options and additional details.
 
-`Add a one-time (non-recurring) cron job that runs at 0200 UTC to lift all articles (media:news nodes) and delete the deprecated :author property:`
+**One-time (non-recurring) example**
+
+You want to use a one-time cron job that runs during off hours to perform some data cleanup. Specifically, you
+want a job that will lift all existing ``media:news`` nodes and remove (delete) the deprecated ``:author`` property
+at 0200 UTC.
 
 .. storm-pre:: [ (media:news=* :author='ron the cat' :title='my article') (media:news=* :title='your article') ]
 .. storm-pre:: media:news:author [ -:author ]
@@ -330,9 +334,9 @@ We can view the details of this cron job using the ``cron.list`` command:
 
 .. storm-cli:: cron.list
 
-The output of ``cron.list`` contains the following columns:
+The output of ``cron.list`` includes the following columns:
 
-- **user** - the username used to create the job / that the job runs as.
+- **user** - the user that the job runs as (typically the user who created the job).
 - **iden** - the first eight characters of the cron job's identifier (iden).
 - **view** - the first eight characters of the iden of the view the job executes in. For "orphaned" cron
   jobs, this will be the job's last view (before it was orphaned).
@@ -349,7 +353,7 @@ The output of ``cron.list`` contains the following columns:
   
   Detailed information about individual cron jobs can be retrieved with the :ref:`storm-cron-stat` command.
 
-We can also view limited information about the cron job by lifting its ``syn:cron`` node:
+We can also use Storm to lift the cron job as a ``syn:cron`` node:
 
 .. storm-cli:: syn:cron
 
@@ -358,8 +362,9 @@ We can also view limited information about the cron job by lifting its ``syn:cro
   You can optionally set the ``:name`` and ``:doc`` properties of the ``syn:cron`` node using Storm's
   edit (data modification) syntax to :ref:`prop-add-mod`.
 
+**Hourly job example**
 
-`Add a cron job that runs every hour and downloads the latest MISP data using the misp.sync command:`
+You want to create a cron job that will run every hour to download the latest MISP data using the ``misp.sync`` command.
 
 ::
   
@@ -369,9 +374,13 @@ We can also view limited information about the cron job by lifting its ``syn:cro
   
   The ``misp.sync`` command is added by the `Synapse-MISP`_ Power-Up.
 
+**Custom schedule example**
 
-`Add a cron job that runs every Tuesday, Thursday, and Saturday at 20:00 UTC to check for any files (file:bytes nodes) that query "known bad" FQDNs (tagged #cno.mal) where the file has NOT been tagged as malicious, and flag the file for review (i.e., tag it #int.review.malware):`
-
+Because Syanpse is continually updated with new data, you want to periodically check for any new files of interest
+that have not yet been identified by an analyst. Specifically, you want to look for files (``file:bytes`` nodes)
+that make DNS queries (``inet:dns:request``) for "known bad" FQDNs (e.g., tagged ``#cno.mal``) where the files
+are not also flagged as malicious. You want to run the job three times a week (every Tuesday, Thursday, and Saturday
+at 2000 UTC) and tag the files for review (``#int.review.malware``).
 
 .. storm-pre:: cron.add --day Tue,Thu,Sat --hour 20 { inet:fqdn#cno.mal -> inet:dns:request -> file:bytes -#cno.mal [ +#int.review.malware ] }
 ::
@@ -395,15 +404,21 @@ when specific events occur in Synapse's data store. Triggers can fire on the fol
 - Adding a light edge (``edge:add``)
 - Deleting a light edge (``edge:del``).
 
-Each event requires an object (a form, property, tag, or edge) to act upon - that is, if you write a trigger to
-fire on a ``node:add`` event, you must specify the type of node (form) associated with the event. For ``tag:*``
-and ``edge:*`` triggers, you have the option to limit the trigger to tags or edges associated with specific
-forms, or have the trigger apply to any / all forms.
+When creating a trigger, you must specify the type of event the trigger should fire on. In addition, each event
+requires an object (a form, property, tag, or edge) to act upon - that is, if you write a trigger to fire on a
+``node:add`` event, you must specify the type of node (form) associated with the event. For ``tag:*`` and ``edge:*``
+triggers, you have the option to limit the trigger to tags or edges associated with specific forms, or have the
+trigger apply to any / all forms.
 
 .. NOTE::
   
   The node(s) that cause a trigger to fire are considered **inbound** to the Storm code executed by the
   trigger.
+
+Proper trigger execution may depend on the timing and order of events with respect to creating nodes, setting
+properties, and so on. For example, you may write a trigger based on a ``node:add`` action that fails to perform
+as expected because you actually need the trigger to fire on a ``prop:set`` operation. As always, we recommend
+that you test triggers (and any other automation) before putting them into production.
 
 
 .. _auto-trigger-config:
@@ -419,7 +434,7 @@ Configuration and Management
   command), Synapse returns only those triggers within the current view.
 
 - **Execution.** Triggers "fire" when a change occurs within Synapse - that is, when a **write** operation occurs.
-  Triggers reside (and execute) within a **view**, so they fire on changes to the view's writable (topmost) layer.
+  Triggers reside (and execute) within a **view**, so they fire on changes to the view's writable (topmost) **layer.**
   A trigger will **not** fire on changes made in an underlying layer (i.e., of a parent view).
   
   Similarly, a trigger that resides in a **parent** view will **not** fire on changes made in a fork of that view.
@@ -429,7 +444,7 @@ Configuration and Management
   Triggers fire immediately when their associated event occurs. However, they **only** execute when that event occurs.
   This means that if a trigger depends on a resource (process, service, etc.) that is not available when it fires,
   the trigger will simply fail; it will not "try again" (whether the trigger fails silently or by logging an error
-  will depend on the Storm and / or any additional resources used (such as `Power-Ups`)).
+  will depend on the Storm and / or any additional resources used or called by the trigger (such as `Power-Ups`_)).
   
   Similarly, triggers do not operate "retroactively" on existing data. If you write a new trigger to fire when
   the tag ``my.tag`` is applied to a ``hash:md5`` node, the trigger will have no effect on existing ``hash:md5``
@@ -447,9 +462,9 @@ Configuration and Management
     
     $mytrigger=$lib.trigger.get(<trigger_iden>) $mytrigger.set(user, <new_user_iden>)
   
-  Triggers execute with the privileges of a specific user, but they execute based on a specific changes to data in
-  Synapse. This means that a lower-privileged user could make a change (such as creating a node) that causes a
-  higher-privileged trigger to execute and perform actions that the user would not be able to do themselves.
+  Triggers run as a specified user, but they execute based on particular changes to data in Synapse. This means
+  that a lower-privileged user could make a change (such as creating a node) that causes a higher-privileged trigger
+  to execute and perform actions that the user would not be able to do themselves.
   
   Users (and roles) cannot create or manage triggers by default. The various ``trigger.*`` permissions must be granted
   to users or roles that should be allowed to work with triggers in your environment.
@@ -463,14 +478,14 @@ Configuration and Management
     users can create and manage triggers in views that they fork.
 
 
-- **Managing Triggers.** Triggers can be createtd, viewed, and managed using the various Storm :ref:`storm-trigger`
+- **Managing Triggers.** Triggers can be created, viewed, and managed using the various Storm :ref:`storm-trigger`
   commands, the :ref:`stormprims-trigger-f527` methods, or the :ref:`stormlibs-lib-trigger` libraries.
   
   When a trigger is created, Synapse also generates a ``syn:trigger`` runtime node ("runt node") with some
   details about the trigger available as properties on the node. While runt nodes are typically read-only, ``syn:trigger``
-  nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm (or configured via
-  :ref:`gloss-optic`). This allows you to manage triggers by giving them meaningful names and descriptions. Changes
-  to these properties will persist even after a Cortex restart.
+  nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm. This allows you
+  to manage triggers by giving them meaningful names and descriptions. Changes to these properties will persist
+  after a Cortex restart.
   
   Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
   limited introspection_ of triggers using Storm.
@@ -485,23 +500,27 @@ Triggers are "event driven" and execute their associated Storm **immediately** w
 (change) occurs. As such, triggers are most appropriate for automating tasks that should occur right away (e.g.,
 based on efficiency or importance). Example use cases for triggers include:
 
-- **Performing enrichment.** There are circumstances where you "always" want additional information about a
-  an object (node) within Synapse. For example, you may **always** want to look up Autonomous System (AS),
-  geolocation, or network whois data whenever a unicast IPv4 (``inet:ipv4`` node) is added to Synapse.
-  You can use a trigger to enrich the ``inet:ipv4`` using the appropriate `Power-Ups`_ as soon as the IPv4
-  is created (e.g., by firing on a ``node:add`` event).
+- **Performing enrichment.** There may be circumstances where you **always** want additional information about a
+  an object (node) within Synapse. For example, whenever a unicast IPv4 (``inet:ipv4`` node) is added to Synapse,
+  you want to automatically look up Autonomous System (AS), geolocation, and network whois data. You can use a
+  trigger to enrich the ``inet:ipv4`` using the appropriate `Power-Ups`_ as soon as the IPv4 is created (e.g.,
+  by firing on a ``node:add`` event).
   
   Similarly, when a node is assessed to be malicious (e.g., associated with a threat cluster or malware
   family, and tagged appropriately), you may wish to immediately collect additional information about that
   node. A trigger that fires on a ``tag:add`` event could be used to call multiple `Power-Ups`_ using a more
-  extensive "enrichment" query.
+  extensive "enrichment" query (or macro).
 
-- **Encoding and applying assessments.** You can use storm to encode the logic you use to apply a tag. As
-  a simplified example, assume you have identified an IPv4 address as a DNS sinkhole. When a DNS A node
-  (``inet:dns:a``) is created where the associated IPv4 (``:ipv4`` property) is the IP of the sinkhole
+- **Encoding analytical logic.** You can use Storm to encode your analysis logic, such as the criteria or decision
+  process used to apply a tag. As a simplified example, assume you have identified an IPv4 address as a DNS sinkhole.
+  You assess that any FQDN resolving to the IPv4 is highly likely to be a sinkholed domaain. When a DNS A node
+  (``inet:dns:a``) is created based where the associated IPv4 (``:ipv4`` property) is the IP of the sinkhole
   (a ``prop:set`` event), a trigger can automatically tag the associated FQDN as sinkholed. If you want
   an analyst to confirm the assessment (vs. applying it in a fully automated fashion), you can apply a
-  "review" tag instead.
+  "review" tag instead. Alternatively, if additional criteria would better support your assessment (e.g., if
+  the DNS A resolution occurred during a particular time window when the sinkhole IP was in use, or if the
+  resolution was based on a live/active DNS lookup vs. a passively observed response, you could modify your
+  trigger's Storm to reflect this.
   
   You can similarly encode more detailed logic to support retrohunting, threat clustering, or other workflows.
 
@@ -532,7 +551,7 @@ fire. To change those conditions, you must disable (or delete) and re-create the
 Variables
 ~~~~~~~~~
 
-Every trigger has an associated Storm variable ``$auto`` that is automatically populated when the job runs.
+Every trigger has an associated Storm variable ``$auto`` that is automatically populated when the trigger executes.
 The ``$auto`` variable is a dictionary which contains the following keys:
 
   ``$auto.iden``
@@ -576,106 +595,102 @@ See :ref:`storm-adv-vars` for information on the use of variables in Storm.
 Examples
 ~~~~~~~~
 
+The examples below illustrate using the Storm :ref:`storm-trigger-add` command to create new triggers. See the
+command help for command options and additional details.
 
+Recall from the :ref:`storm-op-concepts` that Storm operations are "chained" together to act as a pipeline
+through which nodes are "sent" and acted upon. The node(s) that cause a trigger to fire are sent inbound
+to the Storm executed by the trigger:
 
+<how does this work for node:del events or :del events in general>
+<what nodes are inbound for edge operations? n1 always? The node "on the left" regardless of the direction of the edge>
 
-
-
-
-
-
-
-
-
-- By default, triggers execute **inline**. When a process (typically a Storm query) causes a trigger to
-  fire, the Storm associated with the trigger will run **immediately and in full**. Conceptually, it is
-  as though all of the trigger’s Storm code and any additional Storm that it calls (such as a macro) are
-  inserted into the middle of the original Storm query that fired the trigger, and executed as part of
-  that query.
+.. TIP::
   
-  .. WARNING::
-    
-    This inline execution can impact your query's performance, depending on the Storm executed by the
-    trigger and the number of nodes causing the trigger to fire. The ``--async`` option can be used when
-    creating a trigger to specify that the trigger should run in the background as opposed to inline.
-    This will cause the trigger event to be stored in a persistent queue, which will then be consumed
-    automatically by the Cortex.
-    
-    As an example, you are reviewing a whitepaper on a new threat group that includes 800 indicators
-    of compromise reportedly associated with the group. You tag all of the indicators, which fires a
-    trigger to "enrich" those indicators from multiple third-party APIs and results in the creation of
-    dozens of new nodes for each indicator enriched. This tag-and-enrich process is executed inline for
-    **each** of the 800 indicators, which can slow or appear to "block" the original query you ran in
-    order to apply the tags.
-    
-    If the trigger is created as an ``async`` trigger to run in the background, the query to apply the
-    tags will finish quickly. This allows you to continue working while the associated enrichment
-    completes in the background.
-
-
-- In some cases proper trigger execution may depend on the timing and order of events with respect to
-  creating nodes, setting properties, and so on. For example, you may write a trigger based on a
-  ``node:add`` action that fails to perform as expected because you actually need the trigger to fire
-  on a ``prop:set`` operation. The detailed technical aspects of Synapse write operations are beyond the
-  scope of this discussion; as always it is good practice to test triggers (or other automation) before 
-  putting them into production.
-
-
-
-
-
-
-
-Syntax
-~~~~~~
-
-Triggers are created, modified, viewed, enabled, disabled, and deleted using the Storm ``trigger.*`` commands.
-See the :ref:`storm-trigger` command in the :ref:`storm-ref-cmd` document for details.
-
-In :ref:`gloss-optic`, triggers can also be managed through either the :ref:`gloss-admin-tool` or the
-:ref:`gloss-workspaces-tool`.
-
-.. NOTE::
+  By default, the Storm code executed by a trigger runs **inline**. In other words, when a process
+  (typically a Storm operation or Storm query) causes a trigger to fire, the Storm associated with the
+  trigger will run **immediately and in full**. Conceptually, it is as though all of the trigger's Storm
+  code and any additional Storm that trigger calls (such as a macro) or causes to run (such as another
+  trigger) are inserted into the middle of the original Storm query that fired the trigger, and executed
+  as part of that query.
   
-  Once a trigger is created, you can modify many of its properties (such as its name and description, or
-  the Storm associated with the trigger). However, you cannot modify the trigger conditions (e.g., the type of
-  event that fires the trigger, or the form a trigger operates on). To change those conditions, you must
-  delete and re-create the trigger.
-
-
-Examples
-~~~~~~~~
-
-In the examples below, we show the command to create (add) the specified trigger.
-
-For illustrative purposes, in the **first** example the newly created trigger is displayed using the
-``trigger.list`` command and then by lifting the associated ``syn:trigger`` runtime ("runt") node.
-
-- Add a trigger that fires when an ``inet:whois:email`` node is created. If the email address is associated
-  with a privacy-protected registration service (e.g., the email address is tagged ``whois.private``),
-  then also tag the ``inet:whois:email`` node.
-
-
-.. storm-cli:: trigger.add --name "tag privacy protected inet:whois:email" node:add --form inet:whois:email --query { +{ -> inet:email +#whois.private } [ +#whois.private ] }
-
-Newly created trigger via ``trigger.list``:
+  This inline execution can impact your query's performance, depending on the Storm executed by the trigger
+  and the number of nodes causing the trigger to fire. Specifically, Synapse's interface (the Storm CLI
+  or the Optic UI) will "block" until the Storm executes in full.
   
+  The ``--async`` option can be used when creating a trigger to specify that the trigger should run
+  **in the background** as opposed to inline. This will cause the trigger event to be stored in a
+  persistent queue, which will then be consumed automatically by the Cortex.
+  
+  Executing the trigger asynchronously means that changes made by the trigger (e.g., such as data enrichment)
+  will not be available to the user until the associated Storm finishes running. However, the user can continue
+  working in the meantime because the Synapse interface will not "block".
+
+
+**prop:set example**
+
+You have identified an email address that is consistently used by a sinkhole organization to register
+sinkholed FQDNs. You want to add a trigger that will fire when the email address is set as the ``:email``
+property of an ``inet:whois:contact`` node and tag the associated FQDN as sinkholed (``#cno.infra.dns.sink.holed``).
+Because the trigger is a simple one, you want it to run inline.
+
+.. storm-cli:: trigger.add --name 'Tag sinkholed FQDNs based on registrant email' --prop inet:whois:contact:email --query { +:email=domains@virustracker.info -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] } prop:set
+
+We can view the newly created trigger using ``trigger.list``:
+
 .. storm-cli:: trigger.list
 
-The output of ``trigger.list`` contains the following columns:
+The output of ``trigger.list`` includes the following columns:
 
-- The username used to create the trigger.
-- The trigger's identifier (iden).
-- Whether the trigger is currently enabled or disabled.
-- Whether the trigger will run asynchronously / in the background.
-- The condition that causes the trigger to fire.
+- **user** - The user that the trigger runs as (typically the user who created the trigger).
+- **iden** - The trigger's identifier (iden).
+- **view** - The iden of the view in which the trigger resides / runs.
+- **en?** - Whether the trigger is currently enabled or disabled.
+- **async?** - Whether the trigger will run asynchronously / in the background.
+- **cond** - The condition that causes the trigger to fire.
+- **storm query** - The Storm to be executed when the trigger fires.
+
 - The object that the condition operates on, if any.
 - The tag or tag expression used by the condition (for ``tag:add`` or ``tag:del`` conditions only).
-- The query to be executed when the trigger fires.
 
-Newly created trigger as a ``syn:trigger`` node:
-  
+
+<which props are always there / which will be present for certain conditions?>
+
+
+
+
+
+We can also use Storm to lift the trigger as a ``syn:trigger`` node:
+
 .. storm-cli:: syn:trigger
+
+
+asdfasdf can u set trig props via Storm?
+
+
+**node:add example**
+
+**tag:add example**
+
+
+**edge:add example**
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 - Add a trigger that fires when the ``:exe`` property of an ``inet:dns:request`` node is set. Check to see
