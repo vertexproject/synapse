@@ -571,7 +571,7 @@ stormcmds = (
         'cmdargs': (
             ('form', {'help': 'The target form.'}),
             ('value', {'help': 'The target value.'}),
-            ('signame', {'help': 'The signature name'}),
+            ('signame', {'help': 'The signature name.'}),
             ('--scanner-name', {'help': 'An optional scanner software name to include in deconfliction.'}),
             ('--time', {'help': 'An optional time when the scan was run to include in the deconfliction.'}),
             ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
