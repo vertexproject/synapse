@@ -2187,9 +2187,29 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
-    def confirmEasyPerm(self, item, perm):
+    def confirmPropSet(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+            return
+
+        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+
+    def confirmPropDel(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+            return
+
+        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+
+    def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
-            self.snap.core._reqEasyPerm(item, self.user, perm)
+            self.snap.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
 
     def allowedEasyPerm(self, item, perm):
         if self.asroot:
@@ -3757,9 +3777,9 @@ class MergeCmd(Cmd):
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
-            full = node.form.prop(name).full
-            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+            prop = node.form.prop(name)
+            runt.confirmPropDel(prop, layriden=layr0)
+            runt.confirmPropSet(prop, layriden=layr1)
 
         for tag, valu in sode.get('tags', {}).items():
             tagperm = tuple(tag.split('.'))
@@ -4565,12 +4585,15 @@ class DelNodeCmd(Cmd):
         pars.add_argument('--delbytes', default=False, action='store_true',
                           help='For file:bytes nodes, remove the bytes associated with the '
                                'sha256 property from the axon as well if present.')
+        pars.add_argument('--deledges', default=False, action='store_true',
+                          help='Delete N2 light edges before deleting the node.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
         force = await s_stormtypes.tobool(self.opts.force)
         delbytes = await s_stormtypes.tobool(self.opts.delbytes)
+        deledges = await s_stormtypes.tobool(self.opts.deledges)
 
         if force:
             if runt.user is not None and not runt.isAdmin():
@@ -4589,6 +4612,24 @@ class DelNodeCmd(Cmd):
                 runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
+
+            if deledges:
+                async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
+                    seenverbs = set()
+
+                    async for (verb, n2iden) in node.iterEdgesN2():
+                        if verb not in seenverbs:
+                            runt.layerConfirm(('node', 'edge', 'del', verb))
+                            seenverbs.add(verb)
+                        await edges.add((verb, n2iden))
+
+                    async with self.runt.snap.getEditor() as editor:
+                        async for (verb, n2iden) in edges:
+                            n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
+                            if n2 is not None:
+                                if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
+                                    await self.runt.snap.applyNodeEdits(editor.getNodeEdits())
+                                    editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.get('sha256')
@@ -5578,7 +5619,9 @@ class EdgesDelCmd(Cmd):
             n2iden = node.iden()
             async for (v, n1nid) in node.iterEdgesN2(verb):
                 n1 = await self.runt.snap.getNodeByNid(n1nid)
-                await n1.delEdge(v, n2iden)
+                if n1 is not None:
+                    await n1.delEdge(v, n2iden)
+
         else:
             async for (v, n2nid) in node.iterEdgesN1(verb):
                 n2buid = self.runt.snap.core.getBuidByNid(n2nid)

@@ -17,6 +17,7 @@ import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
@@ -3980,6 +3981,60 @@ class CortexBasicTest(s_t_utils.SynTest):
             edgeinfo = nodes[('media:news', 'cd5d6bff3fd78bbf1eee91afc80a50dd')][1]['path']['edges'][1][1]
             self.eq({'type': 'edge', 'verb': 'refs'}, edgeinfo)
 
+            iden = await core.callStorm('''
+                $rules = ({
+                    "name": "graph proj",
+                    "forms": {
+                        "biz:deal": {
+                            "pivots": [" --> *", " <-- *"],
+                        },
+                        "pol:country": {
+                            "pivots": ["--> *", "<-- *"],
+                            "filters": ["-file:bytes"]
+                        },
+                        "*": {
+                            "pivots": ["-> #"]
+                        }
+                    },
+                })
+                return($lib.graph.add($rules).iden)
+            ''')
+
+            guids = {
+                'race': 'cdd9e140d78830fb46d880dd36b62961',
+                'biz': 'c5352253cb13545205664e088ad210f0',
+                'orgA': '2e5dcdb52552ca22fa7996158588ea01',
+                'orgB': '9ea20ce1375d0ff0d16acfe807289a95',
+                'pol': '111e3b57f9bbf973febe74b1e98e89f8'
+            }
+
+            await core.callStorm('''[
+                (pol:country=$pol
+                    :name="some government"
+                    :flag=fd0a257397ee841ccd3b6ba76ad59c70310fd402ea3c9392d363f754ddaa67b5
+                    <(running)+ { [ pol:race=$race ] }
+                    +#some.stuff)
+                (ou:org=$orgA
+                   :url=https://foo.bar.com/wat.html)
+                (ou:org=$orgB
+                   :url=https://neato.burrito.org/stuff.html
+                   +#rep.stuff)
+                (biz:deal=$biz
+                    :buyer:org=$orgA
+                    :seller:org=$orgB
+                    <(seen)+ { pol:country=$pol })
+            ]''', opts={'vars': guids})
+
+            nodes = await core.nodes('biz:deal | $lib.graph.activate($iden)', opts={'vars': {'iden': iden}})
+            self.len(4, nodes)
+            ndefs = set([n.ndef for n in nodes])
+            self.eq(ndefs, set([
+                ('biz:deal', guids['biz']),
+                ('ou:org', guids['orgA']),
+                ('ou:org', guids['orgB']),
+                ('pol:country', guids['pol']),
+            ]))
+
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 visi = await core.auth.addUser('visi')
@@ -7848,3 +7903,189 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.delHttpExtApi('notAGuid')
+
+    async def test_cortex_query_offload(self):
+        async with self.getTestAhaProv() as aha:
+
+            async with await s_base.Base.anit() as base:
+
+                with self.getTestDir() as dirn:
+
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    conf = {
+                        'storm:pool': 'aha://pool00...',
+                        'storm:pool:timeout:sync': 1,
+                        'storm:pool:timeout:connection': 1
+                    }
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
+                    provinfo = {'mirror': '00.core'}
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
+
+                    self.len(1, await core00.nodes('[inet:asn=0]'))
+                    await core01.sync()
+                    self.len(1, await core01.nodes('inet:asn=0'))
+
+                    msgs = await core00.stormlist('aha.pool.add pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+
+                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                    await core00.fini()
+
+                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00, conf=conf))
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count('inet:asn=0'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout', data)
+
+                    core01.nexsroot.nexslog.indx = 0
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Timeout waiting for query mirror', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Timeout waiting for query mirror', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Timeout waiting for query mirror', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count('inet:asn=0'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.isin('Timeout waiting for query mirror', data)
+
+                    opts = {'nexsoffs': 1000000, 'nexstimeout': 0}
+                    with self.raises(s_exc.TimeOut):
+                        await alist(core01.storm('inet:asn=0', opts=opts))
+
+                    with self.raises(s_exc.TimeOut):
+                        await core00.callStorm('inet:asn=0', opts=opts)
+
+                    with self.raises(s_exc.TimeOut):
+                        await alist(core00.exportStorm('inet:asn=0', opts=opts))
+
+                    with self.raises(s_exc.TimeOut):
+                        await core00.count('inet:asn=0', opts=opts)
+
+                    await core01.fini()
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Unable to get proxy', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Unable to get proxy', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Unable to get proxy', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count('inet:asn=0'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Unable to get proxy', data)
+
+                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf=conf))
+                    await core01.promote(graceful=True)
+
+                    self.true(core01.isactive)
+                    self.false(core00.isactive)
+
+                    # Let the mirror reconnect
+                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), 12))
+
+                    with self.getLoggerStream('synapse') as stream:
+                        self.true(await core01.callStorm('inet:asn=0 return($lib.true)'))
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout waiting for query mirror', data)
+
+                    waiter = core01.stormpool.waiter('svc:del', 1)
+                    msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
+
+                    await waiter.wait(timeout=3)
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core01.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Storm query mirror pool is empty', data)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.notin('Storm query mirror pool is empty', data)

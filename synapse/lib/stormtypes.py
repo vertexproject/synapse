@@ -28,6 +28,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
@@ -50,8 +51,8 @@ def confirm(perm, gateiden=None):
 def allowed(perm, gateiden=None):
     return s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
-def confirmEasyPerm(item, perm):
-    return s_scope.get('runt').confirmEasyPerm(item, perm)
+def confirmEasyPerm(item, perm, mesg=None):
+    return s_scope.get('runt').confirmEasyPerm(item, perm, mesg=mesg)
 
 def allowedEasyPerm(item, perm):
     return s_scope.get('runt').allowedEasyPerm(item, perm)
@@ -6244,6 +6245,11 @@ class Layer(Prim):
                       {'name': 'url', 'type': 'str', 'desc': 'A telepath URL of the target layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from',
                        'default': 0, },
+                      {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the pusher.',
+                       'default': s_const.layer_pdef_qsize},
+                      {'name': 'chunk_size', 'type': 'int',
+                       'desc': 'The chunk size of the pusher when pushing edits.',
+                       'default': s_const.layer_pdef_csize}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the push definition.', }}},
         {'name': 'delPush', 'desc': 'Remove a push config from the layer.',
@@ -6257,6 +6263,11 @@ class Layer(Prim):
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'The telepath URL to a layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to begin from.', 'default': 0, },
+                      {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the puller.',
+                       'default': s_const.layer_pdef_qsize},
+                      {'name': 'chunk_size', 'type': 'int',
+                       'desc': 'The chunk size of the puller when consuming edits.',
+                       'default': s_const.layer_pdef_csize}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the pull definition.', }}},
         {'name': 'delPull', 'desc': 'Remove a pull config from the layer.',
@@ -6574,9 +6585,11 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
         return await layr.getMirrorStatus()
 
-    async def _addPull(self, url, offs=0):
+    async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
         offs = await toint(offs)
+        queue_size = await toint(queue_size)
+        chunk_size = await toint(chunk_size)
 
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
@@ -6598,6 +6611,8 @@ class Layer(Prim):
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
+            'queue:size': queue_size,
+            'chunk:size': chunk_size,
         }
         todo = s_common.todo('addLayrPull', layriden, pdef)
         await self.runt.dyncall('cortex', todo)
@@ -6614,9 +6629,11 @@ class Layer(Prim):
         todo = s_common.todo('delLayrPull', layriden, iden)
         await self.runt.dyncall('cortex', todo)
 
-    async def _addPush(self, url, offs=0):
+    async def _addPush(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
         url = await tostr(url)
         offs = await toint(offs)
+        queue_size = await toint(queue_size)
+        chunk_size = await toint(chunk_size)
 
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
@@ -6639,6 +6656,8 @@ class Layer(Prim):
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
+            'queue:size': queue_size,
+            'chunk:size': chunk_size,
         }
         todo = s_common.todo('addLayrPush', layriden, pdef)
         await self.runt.dyncall('cortex', todo)

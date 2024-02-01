@@ -47,6 +47,8 @@ class LibEasyPerm(s_stormtypes.Lib):
                   'args': (
                       {'name': 'edef', 'type': 'dict', 'desc': 'The easy perm dictionary to check.'},
                       {'name': 'level', 'type': 'str', 'desc': 'The required permission level number.'},
+                      {'name': 'mesg', 'type': 'str', 'default': None,
+                       'desc': 'Optional error message to present if user does not have required permission level.'},
                   ),
                   'returns': {'type': 'null'}}},
     )
@@ -102,11 +104,12 @@ class LibEasyPerm(s_stormtypes.Lib):
 
         return self.runt.snap.core._hasEasyPerm(edef, self.runt.user, level)
 
-    async def _confirmEasyPerm(self, edef, level):
+    async def _confirmEasyPerm(self, edef, level, mesg=None):
         edef = await s_stormtypes.toprim(edef)
         level = await s_stormtypes.toint(level)
+        mesg = await s_stormtypes.tostr(mesg, noneok=True)
 
         if not isinstance(edef, dict):
             raise s_exc.BadArg(mesg='Object to check easy perms on must be a dictionary.')
 
-        self.runt.snap.core._reqEasyPerm(edef, self.runt.user, level)
+        self.runt.snap.core._reqEasyPerm(edef, self.runt.user, level, mesg=mesg)
