@@ -4672,9 +4672,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def localToRemoteEdits(self, lnodeedits):
         rnodeedits = []
         for nid, form, ledits in lnodeedits:
-            if nid is None:
-                ndef = (form, None)
-            elif (ndef := self.getNidNdef(nid)) is None:
+            if (ndef := self.getNidNdef(nid)) is None:
                 continue
 
             redits = []

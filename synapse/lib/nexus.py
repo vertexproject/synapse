@@ -671,8 +671,5 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         saveoffs, retn = await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
         return retn
 
-    async def saveToNexsUnsafe(self, name, *args, **kwargs):
-        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None, lock=False)
-
     async def saveToNexs(self, name, *args, **kwargs):
-        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None)
+        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None, lock=False)

@@ -138,16 +138,6 @@ class LayerApi(s_cell.CellApi):
         meta['link:user'] = self.user.iden
         return await self.layr.saveNodeEdits(edits, meta)
 
-    @s_cell.adminapi()
-    async def saveRemoteNodeEdits(self, edits, meta):
-        '''
-        Save node edits to the layer and return a tuple of (nexsoffs, changes).
-
-        Note: nexsoffs will be None if there are no changes.
-        '''
-        meta['link:user'] = self.user.iden
-        return await self.layr.saveRemoteNodeEdits(edits, meta)
-
     async def storNodeEdits(self, nodeedits, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
@@ -2545,10 +2535,6 @@ class Layer(s_nexus.Pusher):
 
             yield nid, nid, self.genStorNodeRef(nid)
 
-    async def saveRemoteNodeEdits(self, edits, meta):
-        localedits = await self.core.remoteToLocalEdits(edits)
-        return await self.saveNodeEdits(localedits, meta)
-
     async def saveNodeEdits(self, edits, meta):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
@@ -2566,7 +2552,7 @@ class Layer(s_nexus.Pusher):
 
         async with self.core.nexsroot.applylock:
             if (realedits := await self.calcEdits(edits, meta)):
-                return await self.saveToNexsUnsafe('edits', realedits, meta)
+                return await self.saveToNexs('edits', realedits, meta)
             return None, ()
 
     async def calcEdits(self, nodeedits, meta):
