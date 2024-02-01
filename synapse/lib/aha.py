@@ -192,7 +192,7 @@ class AhaApi(s_cell.CellApi):
                 logger.warning(mesg, await self.cell.getLogExtra(name=svcname, netw=svcnetw))
                 return
 
-            logger.debug(f'AhaCellApi fini, tearing down [{name}]',
+            logger.info(f'AhaCellApi fini, setting service offline [{name}]',
                          extra=await self.cell.getLogExtra(name=svcname, netw=svcnetw))
             coro = self.cell.setAhaSvcDown(name, sess, network=network)
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
@@ -555,7 +555,7 @@ class AhaCell(s_cell.Cell):
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                logger.debug(f'AhaCell activecoro tearing down [{svcname}.{network}]',
+                logger.info(f'AhaCell activecoro setting service offline [{svcname}.{network}]',
                              extra=await self.getLogExtra(name=svcname, netw=network))
                 await self.setAhaSvcDown(svcname, linkiden, network=network)
 
@@ -611,7 +611,7 @@ class AhaCell(s_cell.Cell):
         path = ('aha', 'services', svcnetw, svcname)
 
         unfo = info.get('urlinfo')
-        logger.debug(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
+        logger.info(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
                      extra=await self.getLogExtra(name=svcname, netw=svcnetw))
 
         svcinfo = {
@@ -788,7 +788,7 @@ class AhaCell(s_cell.Cell):
 
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
-        logger.debug(f'Set [{svcfull}] offline.',
+        logger.info(f'Set [{svcfull}] offline.',
                         extra=await self.getLogExtra(name=svcname, netw=svcnetw))
 
     async def getAhaSvc(self, name, filters=None):
@@ -826,6 +826,7 @@ class AhaCell(s_cell.Cell):
                 raise s_exc.BadArg(mesg=mesg)
 
             svcentry = await self.jsonstor.getPathObj(('aha', 'svcfull', random.choice(svcnames)))
+            svcentry = s_msgpack.deepcopy(svcentry)
             svcentry.update(pooldef)
 
             return svcentry

@@ -23,6 +23,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
@@ -109,20 +110,6 @@ SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
 SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
-
-# push/pull def
-reqValidPush = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'url': {'type': 'string'},
-        'time': {'type': 'number'},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'url', 'user', 'time'],
-})
-reqValidPull = reqValidPush
 
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
@@ -849,6 +836,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
+        'storm:pool': {
+            'description': 'EXPERIMENTAL: Telepath URL for a Cortex mirror or AHA pool to offload Storm queries to.',
+            'type': 'string',
+        },
+        'storm:pool:timeout:sync': {
+            'description': 'The maximum time (in seconds) to wait for the mirror to be in sync with the leader.',
+            'type': 'integer',
+            'default': 1
+        },
+        'storm:pool:timeout:connection': {
+            'description': 'The maximum time (in seconds) to wait for a mirror connection.',
+            'type': 'integer',
+            'default': 1
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -917,6 +918,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
+
+        self.stormpool = None
+        self.stormpoolurl = self.conf.get('storm:pool')
+        if self.stormpoolurl is not None:
+            self.stormpoolopts = {
+                'nexstimeout': self.conf.get('storm:pool:timeout:sync'),
+                'conntimeout': self.conf.get('storm:pool:timeout:connection')
+            }
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1020,6 +1029,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
+            (2, self._storLayrFeedDefaults),
         ), nexs=False)
 
     async def _storUpdateMacros(self):
@@ -1066,7 +1076,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef = s_msgpack.un(byts)
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1077,7 +1088,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchName(mesg=f'Macro name not found: {name}')
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1311,15 +1323,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
              'desc': 'Controls setting any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
-             'ex': 'node.prop.set.inet:ipv4:asn',
-             'desc': 'Controls setting a specific property on a node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<form>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4',
+             'desc': 'Controls setting any property on a form of node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<form>', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4.asn',
+             'desc': 'Controls setting a specific property on a form of node in a layer.'},
 
             {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
              'desc': 'Controls removing any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
-             'ex': 'node.prop.del.inet:ipv4:asn',
-             'desc': 'Controls removing a specific property from a node in a layer.'},
+            {'perm': ('node', 'prop', 'del', '<form>'), 'gate': 'layer',
+             'ex': 'node.prop.del.inet:ipv4',
+             'desc': 'Controls removing any property from a form of node in a layer.'},
+            {'perm': ('node', 'prop', 'del', '<form>', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.del.inet:ipv4.asn',
+             'desc': 'Controls removing a specific property from a form of node in a layer.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
@@ -1405,6 +1423,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
 
+    async def _storLayrFeedDefaults(self):
+
+        for layer in list(self.layers.values()):
+            layrinfo = layer.layrinfo  # type: s_hive.HiveDict
+
+            pushs = layrinfo.get('pushs', {})
+            if pushs:
+                for pdef in pushs.values():
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+                await layrinfo.set('pushs', pushs, nexs=False)
+
+            pulls = layrinfo.get('pulls', {})
+            if pulls:
+                pulls = layrinfo.get('pulls', {})
+                for pdef in pulls.values():
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+                await layrinfo.set('pulls', pulls, nexs=False)
+
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
@@ -1437,6 +1475,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layer in self.layers.values():
             await layer.initLayerActive()
 
+        await self.initQueryMirror()
+
     async def initServicePassive(self):
 
         await self.agenda.stop()
@@ -1448,6 +1488,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
+
+        if self.stormpool is not None:
+            await self.stormpool.fini()
+            self.stormpool = None
+
+    async def initQueryMirror(self):
+        if self.stormpoolurl is not None:
+            self.stormpool = await s_telepath.open(self.stormpoolurl)
+            self.onfini(self.stormpool.fini)
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -1594,7 +1643,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         if user is not None:
-            self._reqEasyPerm(gdef, user, level)
+            mesg = f'User requires {s_cell.permnames.get(level)} permission on graph: {iden}.'
+            self._reqEasyPerm(gdef, user, level, mesg=mesg)
 
         return gdef
 
@@ -4522,7 +4572,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
 
-        reqValidPush(pdef)
+        s_schemas.reqValidPush(pdef)
 
         iden = pdef.get('iden')
 
@@ -4564,7 +4614,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('layer:pull:add')
     async def addLayrPull(self, layriden, pdef):
 
-        reqValidPull(pdef)
+        s_schemas.reqValidPull(pdef)
 
         iden = pdef.get('iden')
 
@@ -4631,12 +4681,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         iden = pdef.get('iden')
         user = pdef.get('user')
-
         gvar = f'push:{iden}'
+        # TODO Remove the defaults in 3.0.0
+        csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
+        qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
 
         async with await s_base.Base.anit() as base:
 
-            queue = s_queue.Queue(maxsize=10000)
+            queue = s_queue.Queue(maxsize=qsize)
 
             async def fill():
 
@@ -4663,7 +4715,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 for offs, edits in chunk:
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
-                    if len(alledits) > 1000:
+                    if len(alledits) > csize:
                         await layr1.saveNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()
@@ -5025,6 +5077,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         opts = self._initStormOpts(opts)
 
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    return await proxy.count(text, opts=mirropts)
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         view = self._viewFromOpts(opts)
 
         i = 0
@@ -5033,22 +5105,109 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return i
 
+    async def _getMirrorOpts(self, opts):
+        mirropts = s_msgpack.deepcopy(opts)
+        mirropts['mirror'] = False
+        mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
+        mirropts['nexstimeout'] = self.stormpoolopts.get('nexstimeout')
+        return mirropts
+
+    async def _getMirrorProxy(self):
+        if isinstance(self.stormpool, s_telepath.Pool) and self.stormpool.size() == 0:
+            mesg = 'Storm query mirror pool is empty, running locally instead.'
+            logger.warning(mesg)
+            return None
+
+        proxy = None
+        try:
+            timeout = self.stormpoolopts.get('conntimeout')
+            proxy = await self.stormpool.proxy(timeout=timeout)
+        except (TimeoutError, s_exc.IsFini):
+            mesg = 'Unable to get proxy for query mirror, running locally instead.'
+            logger.warning(mesg)
+        return proxy
+
     async def storm(self, text, opts=None):
-        '''
-        '''
+
         opts = self._initStormOpts(opts)
+
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    async for mesg in proxy.storm(text, opts=mirropts):
+                        yield mesg
+                    return
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
             yield mesg
 
     async def callStorm(self, text, opts=None):
+
         opts = self._initStormOpts(opts)
+
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    return await proxy.callStorm(text, opts=mirropts)
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
 
     async def exportStorm(self, text, opts=None):
         opts = self._initStormOpts(opts)
+
+        if self.stormpool is not None and opts.get('mirror', True):
+            extra = await self.getLogExtra(text=text)
+            proxy = await self._getMirrorProxy()
+
+            if proxy is not None:
+                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+
+                mirropts = await self._getMirrorOpts(opts)
+
+                try:
+                    async for mesg in proxy.exportStorm(text, opts=mirropts):
+                        yield mesg
+                    return
+
+                except s_exc.TimeOut:
+                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    logger.warning(mesg)
+
+        if (nexsoffs := opts.get('nexsoffs')) is not None:
+            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
+                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
@@ -5261,10 +5420,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             dict: A Dictionary of storm documentation information.
         '''
 
+        cmds = []
+
+        for name, cmd in self.stormcmds.items():
+            entry = {
+                'name': name,
+                'doc': cmd.getCmdBrief(),
+            }
+
+            if cmd.pkgname:
+                entry['package'] = cmd.pkgname
+
+            if cmd.svciden:
+                entry['svciden'] = cmd.svciden
+
+            cmds.append(entry)
+
         ret = {
             'libraries': s_stormtypes.registry.getLibDocs(),
             'types': s_stormtypes.registry.getTypeDocs(),
-            # 'cmds': ...  # TODO - support cmd docs
+            'commands': cmds,
             # 'packages': ...  # TODO - Support inline information for packages?
         }
         return ret
