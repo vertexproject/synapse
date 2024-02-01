@@ -1472,9 +1472,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.initTrigTask()
             await view.initMergeTask()
 
-        for layer in self.layers.values():
-            await layer.initLayerActive()
-
         await self.initQueryMirror()
 
     async def initServicePassive(self):
@@ -1485,9 +1482,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for view in self.views.values():
             await view.finiTrigTask()
             await view.finiMergeTask()
-
-        for layer in self.layers.values():
-            await layer.initLayerPassive()
 
         if self.stormpool is not None:
             await self.stormpool.fini()
@@ -4517,11 +4511,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # forward wind the new layer to the current model version
         await layr._setModelVers(s_modelrev.maxvers)
-
-        if self.isactive:
-            await layr.initLayerActive()
-        else:
-            await layr.initLayerPassive()
 
         pack = await layr.pack()
         await self.feedBeholder('layer:add', pack, gates=[iden])
