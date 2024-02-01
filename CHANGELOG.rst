@@ -17,6 +17,9 @@ Features and Enhancements
 - Ensure that Nexus events which are written to the log are always applied and
   cannot be cancelled while the Nexus handler is running.
   (`#3518 <https://github.com/vertexproject/synapse/pull/3518>`_)
+- Logs related to AHA Service registration and setting services as offline are
+  now logged at the ``INFO`` level.
+  (`#3534 <https://github.com/vertexproject/synapse/pull/3534>`_)
 
 Bugfixes
 --------
@@ -30,6 +33,9 @@ Bugfixes
   (`#3531 <https://github.com/vertexproject/synapse/pull/3531>`_)
 - Fix a bad variable reference in the Storm ``graph`` implementation.
   (`#3531 <https://github.com/vertexproject/synapse/pull/3531>`_)
+- Fix a bug where modifying nodes in a Storm Dmon did not properly update the
+  in-flight node.
+  (`#3520 <https://github.com/vertexproject/synapse/pull/3520>`_)
 
 Improved Documentation
 ----------------------
