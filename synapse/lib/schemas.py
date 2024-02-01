@@ -118,7 +118,7 @@ _CronJobSchema = {
     },
     'additionalProperties': False,
     'required': ['creator', 'storm'],
-    'dependencices': {
+    'dependencies': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
     },

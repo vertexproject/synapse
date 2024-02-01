@@ -1936,6 +1936,32 @@ class StormTest(s_t_utils.SynTest):
                     await core.setUserLocked(visi.iden, False)
                     self.true(await stream.wait(2))
 
+    async def test_storm_dmon_caching(self):
+
+        async with self.getTestCore() as core:
+
+            q = f'''
+            $lib.dmon.add(${{
+                for $x in $lib.range(2) {{
+                    inet:ipv4=1.2.3.4
+                    if $node {{
+                        $lib.queue.gen(foo).put($node.props.asn)
+                        $lib.queue.gen(bar).get(1)
+                    }}
+                    [ inet:ipv4=1.2.3.4 :asn=5 ]
+                    $lib.queue.gen(foo).put($node.props.asn)
+                    $lib.queue.gen(bar).get(0)
+                }}
+                | spin
+            }}, name=foo)'''
+            await core.nodes(q)
+
+            self.eq((0, 5), await core.callStorm('return($lib.queue.gen(foo).get(0))'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ :asn=6 ] $lib.queue.gen(bar).put(0)')
+
+            self.eq((1, 6), await core.callStorm('return($lib.queue.gen(foo).get(1))'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
@@ -2092,7 +2118,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
-            waiter = core.waiter(2, 'core:pkg:onload:complete')
+            replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
+            nevents = 4 if replay else 2
+            waiter = core.waiter(nevents, 'core:pkg:onload:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
@@ -2109,10 +2137,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(f'ps:contact={cont}'))
 
             evnts = await waiter.wait(timeout=2)
-            self.eq([
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-            ], evnts)
+            exp = []
+            for _ in range(nevents):
+                exp.append(('core:pkg:onload:complete', {'pkg': 'testload'}))
+            self.eq(exp, evnts)
 
     async def test_storm_tree(self):
 

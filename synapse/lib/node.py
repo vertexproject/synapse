@@ -331,8 +331,7 @@ class Node:
         if not edits:
             return False
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
-        self.props.pop(name, None)
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
         return True
 
     def repr(self, name=None, defv=None):
@@ -524,7 +523,7 @@ class Node:
         edits = await self._getTagDelEdits(tag, init=init)
         if edits:
             nodeedit = (self.buid, self.form.name, edits)
-            await self.snap.applyNodeEdit(nodeedit)
+            await self.snap.applyNodeEdit(nodeedit, nodecache={self.buid: self})
 
     def _getTagPropDel(self, tag):
 
@@ -585,7 +584,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
         )
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
 
     async def delete(self, force=False):
         '''
