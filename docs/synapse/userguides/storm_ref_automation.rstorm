@@ -60,13 +60,15 @@ global (within a Cortex) while some reside and execute within a specific :ref:`g
 that leverage multipe views for their Synapse architecture or that make use of Synapse's fork and merge
 capabilities should refer to the sections below for inforamtion on how views and layers may impact automation.
 
-For a more general discussion of views and layers, including a discussion of forking and merging views, see
-the :ref:`userguide_views_layers` section of the Synapse User Guide.
+.. TIP::
+  
+  For a more general discussion of views and layers, including a discussion of forking and merging views, see
+  the :ref:`userguide_views_layers` section of the Synapse User Guide.
 
 Testing
 +++++++
 
-**Always** test your automation before putting it into production. Storm used in automation can be
+**Always test your automation before putting it into production.** Storm used in automation can be
 syntactically correct (uses proper Storm), but contain logical errors (fail to do what you want it to do).
 In addition, new automation may interact with existing automation in unexpected ways. Test your automation
 in a development environment (either a separate development instance, or a separate :ref:`gloss-fork` of
@@ -656,8 +658,8 @@ Because the trigger is a simple one, you want it to run inline (i.e., you do not
 
 .. TIP::
   
-  For ``prop:set`` triggers, the node(s) whose property being set (or updated) caused the trigger to
-  fire are sent inbound to the trigger's Storm.
+  For ``prop:set`` triggers, the node(s) whose property caused the trigger to fire are sent inbound
+  to the trigger's Storm.
 
 We can view the newly created trigger using ``trigger.list``:
 
@@ -746,54 +748,46 @@ We can also use Storm to lift the trigger as a ``syn:trigger`` node:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 .. _auto-macros:
 
 Macros
 ------
 
 A macro is a stored Storm query / set of Storm code that can be executed on demand. Strictly speaking,
-macros are not automation - they do not execute on their own. However, macros are often used with
-(called by) triggers or cron jobs. In particular, where a trigger or cron job executes longer or more
-detailed Storm, it may be easier to store and maintain that Storm within a macro instead of within the
-trigger or cron job itself.
+macros are not automation - they do not execute on their own. However, they do provide a means to
+"automate" tasks by allowing an analyst to easily and consistently run Storm that would otherwise need
+to be manually entered as a query. Anything that assists an analyst's workflow - from executing a
+commonly used pivot to performing a detailed set of data enrichment and operations - is a candidate
+for a macro if it simplifies analysts' work.
 
-In addition, because a macro can be executed on demand (e.g., using the Storm :ref:`storm-macro-exec`
-command) they provide greater flexibility in terms of where (or how) the macro's Storm can be used.
+.. TIP::
+  
+  In addition to macros, :ref:`gloss-optic` includes features such as Node Actions and Bookmarks that
+  can be used to save and execute Storm on demand.
+
+Macros are also commonly used with (called by) triggers or cron jobs. In particular, where a trigger or
+cron job executes longer or more detailed Storm, it may be easier to store and maintain that Storm
+within a macro instead of within the trigger or cron job itself.
 
 As a stored Storm query, a macro is meant to operate on nodes. You must either specify (lift) the nodes
 to be operated on within the macro itself, or provide the nodes as input to the macro (i.e., by sending
-the results of an existing Storm query to the :ref:`storm-macro-exec` command that runs the macro.
+the results of an existing Storm query to the :ref:`storm-macro-exec` command that runs the macro).
 
 A macro will error if it receives nodes that cannot be processed by the associated Storm code. A "best
 practice" when writing macros that take nodes as input is to include a Storm filter operation within the
 macro to allow only those nodes that the macro expects and can operate on; any nodes not allowed by the
-filter are dropped from the pipeline.
+filter are dropped from the Storm pipeline.
 
 Similarly, if you execute additional Storm inline after the macro runs, that Storm must be appropriate for
 any nodes that exit the macro.
 
-.. TIP::
+.. NOTE::
   
-  "Self-contained" macros (i.e., that lift and operate on a set of nodes) are often called by cron jobs
-  to perform a particular task on a scheduled basis.
-  
-  Macros that operate on nodes are often called by triggers (e.g., the node that fired the trigger is
-  sent inbound to the macro) or run on demand by users (e.g., to perform a consistent set of operations
-  on a set of nodes specified by the analyst).
-  
-  In :ref:`gloss-optic`, a macro can be configured to execute through a custom `Node Action`_ that users
-  can access from the right-click context menu.
+  The use of sensitive information (e.g., credentials, API keys, etc.) in the Storm that is executed by
+  a macro is **strongly discouraged**. If your automation needs to make use of any sensitive information,
+  we recommend creating a `Power-Up`_ with associated Storm commands. The Power-Up architecture allows
+  users to run commands that make use of sensitive information while ensuring that information is not
+  exposed. See the `Rapid Power-Up Development`_ section of the `Synapse Developer Guide`_ for details.
 
 
 .. _auto-macro-config:
@@ -801,10 +795,10 @@ any nodes that exit the macro.
 Configuration and Management
 ++++++++++++++++++++++++++++
 
-- **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name**. You can
-  edit the content of a macro, but you cannot change the macro's name once it has been created.
+- **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name**. You
+  cannot rename a macro once it has been created (although you can edit the macro's Storm).
   
-- **Execution.** Macros are not restricted to a particular view and can be called from and executed within any
+- **Execution.** Macros are not restricted to a particular view; they can be called from and executed within any
   view. Any changes made by the macro's Storm code will be made to the topmost / writeable layer of the view
   in which the macro is executed.
 
@@ -813,7 +807,8 @@ Configuration and Management
   
   By default:
   
-  - Any user can create a macro. The user who creates a macro is the owner / admin of the macro.
+  - Any user can create a macro; you do not need to explicitly grant permissions for users to create them.
+  - The user who creates a macro is the owner / admin of the macro.
   - All users can see (read) and execute any macro. If a user executes a macro that performs actions the user
     does not have permissions to perform on their own, the macro will fail with an ``AuthDeny`` error.
   
@@ -822,11 +817,9 @@ Configuration and Management
   be **admin** of a macro to modify its permissions. See the :ref:`auto-macro-examples` section below for
   an example of modifying macro permissions.
 
-- **Managing Macros.** 
-
-  Macros can be created, viewed, and managed using the various Storm :ref:`storm-macro` commands or the
-  :ref:`stormlibs-lib-macro` libraries. In :ref:`gloss-optic`, macros can be created and edited using the
-  :ref:`gloss-storm-editor`.
+- **Managing Macros.** Macros can be created, viewed, and managed using the various Storm :ref:`storm-macro`
+  commands or the :ref:`stormlibs-lib-macro` libraries. In :ref:`gloss-optic`, macros can be created and edited
+  using the :ref:`gloss-storm-editor`.
 
 
 .. _auto-macro-use:
@@ -875,31 +868,86 @@ As "stored Storm", macros can contain any Storm that simplifies your analysis wo
 simple to longer, more detailed queries. The command ``macro.exec <macro_name>`` is much simpler to
 type than Storm that you have to remember or recreate each time; any Storm that you want to easily
 and consistently run on a regular basis, no matter how "short" or "long", is a candidate for a macro
-(or other automation).
+(or potentially for other automation).
+
+The examples below are relatively simple for illustrative purposes, but could be extended with additional
+Storm logic.
 
 **Self-contained macro example**
 
+You have a set of IPv4 addresses that you have identified as sinkholes (tagged ``#cno.infra.dns.sink.hole``).
+By analyzing associated DNS and domain whois data, you have tagged several FQDNs resolving to the IPv4s
+as sinkholed domains (``#cno.infra.dns.sink.holed``). You want to periodically check the sinkhole IPv4s for
+newly sinkholed FQDNs. To do this, you create a macro called ``sinkhole.check`` that will:
+
+- query a passive DNS data source to check for new FQDNs resolving to the various sinkhole IPv4s;
+- perform a live DNS A lookup on the FQDNs to double-check against the passive DNS results;
+- retrieve the domains' current whois records; and
+- tag the FQDNs for review, including a timestamp so the reviewer knows when the FQDN was added.
+
+This way, the domains needing review can be easily identified (by their 'review' tag), and the information
+needed for review will already be readily available. An analyst to easily retrieve the data and confirm
+any newly sinkholed FQDNs.
+
+We create the macro using the ``macro.set`` command. (Note: the macro's Storm is also included below for
+readability.)
+
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.dns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-cli:: macro.set sinkhole.check { $now=$lib.time.now() inet:ipv4#cno.infra.dns.sink.hole | alienvault.otx.pdns --yield | -> inet:fqdn :zone -> inet:fqdn -#cno.infra.dns.sink.holed | uniq | nettools.dns | nettools.whois | [ +#int.review.sinkhole=$now ] }
+
+Macro Storm (with line breaks and comments). Note that you can include and save comments within a macro;
+Synapse will ignore comment lines during execution.
+
+::
+  
+  // Get the current time (in UTC) to use for the tag timestamp
+  $now=$lib.time.now()
+  
+  // Lift IPv4 nodes tagged as sinkholes
+  inet:ipv4#cno.infra.dns.sink.hole
+  
+  // Obtain PDNS information from AlienVault and yield the resulting inet:dns:a nodes
+  alienvault.otx.pdns --yield |
+  
+  // Pivot to the FQDNs and then to the FQDN zones
+  -> inet:fqdn :zone -> inet:fqdn
+  
+  // Filter out FQDNs that have already been identified as sinkholed
+  -#cno.infra.dns.sink.holed |
+  
+  // De-dupliate results
+  uniq |
+  
+  // Obtain the current / live DNS A and whois data for the FQDNs
+  nettools.dns | nettools.whois |
+  
+  // Tag the FQDNs for review and set the current timestamp
+  [ +#int.review.sinkhole=$now ]
+
+.. TIP::
+  
+  This macro is "self-contained" because the macro's Storm lifts the nodes that the macro operates on.
+  
+  The ``alienvault.otx.pdns`` command is installed by the `Synapse-AlienVault`_ Power-Up. The ``nettools.*``
+  commands are installed by the `Synapse-Nettools`_ Power-Up.
+  
+  This macro can be executed "on demand" with the ``macro.exec`` command, or could be configured to run
+  automatically as a cron job.
+
+An analyst can now lift the FQDNs that need to be reviewed using the ``#int.review.sinkhole`` tag and review
+the associated data. If the FQDN is confirmed to be sinkholed, the analyst can apply the ``#cno.infra.dns.sink.holed``
+tag and remove the ``#int`` tag once the FQDN has been reviewed.
+
+If additional criteria would allow you to confirm that the FQDNs were sinkholed (e.g., some additional information
+in the whois data, or use of a particular DNS name server / DNS NS record), you could encode this logic using
+Storm and simply tag the relevant FQDNs as sinkholed vs. requiring analyst review.
+
+**Macro that takes nodes as input example**
 
 
 
-
-- Add a macro named ``sinkhole.check`` that lifts all IPv4 addresses tagged as sinkholes
-  (``#cno.infra.dns.sinkhole``) and submits those nodes to a Storm command that calls a third-party
-  passive DNS service to retrieve any FQDNs currently resolving to the sinkhole IP. (**Note:** Synapse
-  does not include a passive DNS service in its open source distribution; the macro assumes such a
-  service has been implemented.)
-
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-cli:: macro.set sinkhole.check ${ inet:ipv4#cno.infra.dns.sinkhole | pdns }
-
-
-**
-
-- Add a macro named ``check.c2`` that takes an inbound set of ``file:bytes`` nodes and returns any FQDNs
-  that the files query and any IPv4 addresses the files connect to. Use a filter in the macro to ensure that
-  the macro code only attempts to process inbound ``file:bytes`` nodes.
-
-.. storm-cli:: macro.set check.c2 ${ +file:bytes | tee { -> inet:dns:request :query:name -> inet:fqdn | uniq } { -> inet:flow:src:exe :dst:ipv4 -> inet:ipv4 | uniq } }
 
 - Add a macro named ``enrich`` that takes any node as input and uses a ``switch`` statement to call Storm
   commands for third-party services able to enrich a given form (line breaks and indentations used for readability).
@@ -911,6 +959,13 @@ and consistently run on a regular basis, no matter how "short" or "long", is a c
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-multiline:: ENRICH="macro.set enrich ${ switch $node.form() {\n\n    /* You can put comments in macros!!! */\n\n    \"inet:fqdn\": { | whois | pdns | malware }\n    \"inet:ipv4\": { | pdns }\n    \"inet:email\": { | revwhois }\n    *: { }\n} }"
 .. storm-cli:: MULTILINE=ENRICH
+
+
+**Macro permissions examples**
+
+asdfadsf
+
+
 
 
 .. _auto-dmon:
@@ -953,3 +1008,5 @@ Users can interact with dmons using the Storm ``dmon.*``  commands (see the :ref
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _Node Action: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/custom_environ.html#create-a-custom-node-action
 .. _easy permissions: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#easy-permissions
+.. _Synapse-AlienVault: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-alienvault/index.html
+.. _Synapse-Nettools: https://synapse.docs.vertex.link/projects/nettools/en/latest/
