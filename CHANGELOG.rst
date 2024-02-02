@@ -30,7 +30,7 @@ Features and Enhancements
   (`#3521 <https://github.com/vertexproject/synapse/pull/3521>`_)
   (`#3538 <https://github.com/vertexproject/synapse/pull/3538>`_)
 - Update the allowed versions of the ``cbor2`` and `` pycryptodome``
-  librariess
+  libraries.
   (`#3540 <https://github.com/vertexproject/synapse/pull/3540>`_)
 
 Bugfixes
