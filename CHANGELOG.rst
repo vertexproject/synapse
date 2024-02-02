@@ -6,11 +6,14 @@
 Synapse Changelog
 *****************
 
-v2.161.0 - TBD
-==============
+v2.161.0 - 2024-02-02
+=====================
 
 Features and Enhancements
 -------------------------
+- Add a Storm command ``gen.it.av.scan.result`` to help generate
+  ``it:av:scan:result`` nodes.
+  (`#3516 <https://github.com/vertexproject/synapse/pull/3516>`_)
 - Add item specific error message when users do not have sufficient permissions
   on an object which is using easyperms.
   (`#3532 <https://github.com/vertexproject/synapse/pull/3532>`_)
@@ -26,6 +29,9 @@ Features and Enhancements
 - When creating Cron jobs and Triggers, record their creation time.
   (`#3521 <https://github.com/vertexproject/synapse/pull/3521>`_)
   (`#3538 <https://github.com/vertexproject/synapse/pull/3538>`_)
+- Update the allowed versions of the ``cbor2`` and `` pycryptodome``
+  librariess
+  (`#3540 <https://github.com/vertexproject/synapse/pull/3540>`_)
 
 Bugfixes
 --------
