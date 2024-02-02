@@ -4153,7 +4153,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(forkview, mesgs)
             self.len(1, nodes)
             othr = nodes[0].ndef[1]
-            self.nn(nodes[0].props.get('.created'))
+            self.nn(nodes[0].get('.created'))
 
             # fetch a trigger from another view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))
