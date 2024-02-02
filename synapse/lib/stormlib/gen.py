@@ -114,7 +114,7 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'signame', 'type': 'str', 'desc': 'The signature name.'},
                       {'name': 'scanner', 'type': 'str', 'default': None,
                        'desc': 'An optional scanner software name to include in deconfliction.'},
-                      {'name': 'time', 'type': 'time',
+                      {'name': 'time', 'type': 'time', 'default': None,
                        'desc': 'An optional time when the scan was run to include in the deconfliction.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
