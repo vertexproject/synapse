@@ -369,9 +369,12 @@ We can also use Storm to lift the cron job as a ``syn:cron`` node:
 
 You want to create a cron job that will run every hour to download the latest MISP data using the ``misp.sync`` command.
 
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=misp.sync, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: cron.add --hour +1 { misp.sync }
+
 ::
   
-  cron.add --hour +1 | misp.sync
+  cron.add --hour +1 { misp.sync }
 
 .. TIP::
   
@@ -690,7 +693,7 @@ We can also use Storm to lift the trigger as a ``syn:trigger`` node:
 - Add a trigger that fires when the ``:exe`` property of an ``inet:dns:request`` node is set. Check to see
   whether the queried FQDN is malicious; if so, tag the associated ``file:bytes`` node for analyst review.
   
-.. storm-cli:: trigger.add --name "tag file:bytes for review" prop:set --prop inet:dns:request:exe --query { +{ :query:name -> inet:fqdn +#malicious } :exe -> file:bytes [ +#review ] }
+.. storm-cli:: trigger.add --name "tag file:bytes for review" prop:set --prop inet:dns:request:exe --query { +{ :query:name -> inet:fqdn +#cno.mal } :exe -> file:bytes [ +#int.review.malware ] }
 
 
 
@@ -873,7 +876,7 @@ and consistently run on a regular basis, no matter how "short" or "long", is a c
 The examples below are relatively simple for illustrative purposes, but could be extended with additional
 Storm logic.
 
-**Self-contained macro example**
+**Self-contained macro - example**
 
 You have a set of IPv4 addresses that you have identified as sinkholes (tagged ``#cno.infra.dns.sink.hole``).
 By analyzing associated DNS and domain whois data, you have tagged several FQDNs resolving to the IPv4s
@@ -928,13 +931,15 @@ Synapse will ignore comment lines during execution.
 
 .. TIP::
   
-  This macro is "self-contained" because the macro's Storm lifts the nodes that the macro operates on.
-  
-  The ``alienvault.otx.pdns`` command is installed by the `Synapse-AlienVault`_ Power-Up. The ``nettools.*``
-  commands are installed by the `Synapse-Nettools`_ Power-Up.
+  This macro is "self-contained" (does not expect inbound ndoes) because the macro's Storm lifts the
+  nodes that the macro operates on. (This does not prevent a user from "sending" nodes to the macro - which
+  may cause unexpected effects - but as written, the macro can execute on its own.)
   
   This macro can be executed "on demand" with the ``macro.exec`` command, or could be configured to run
   automatically as a cron job.
+    
+  The ``alienvault.otx.pdns`` command is installed by the `Synapse-AlienVault`_ Power-Up. The ``nettools.*``
+  commands are installed by the `Synapse-Nettools`_ Power-Up.
 
 An analyst can now lift the FQDNs that need to be reviewed using the ``#int.review.sinkhole`` tag and review
 the associated data. If the FQDN is confirmed to be sinkholed, the analyst can apply the ``#cno.infra.dns.sink.holed``
@@ -944,15 +949,20 @@ If additional criteria would allow you to confirm that the FQDNs were sinkholed 
 in the whois data, or use of a particular DNS name server / DNS NS record), you could encode this logic using
 Storm and simply tag the relevant FQDNs as sinkholed vs. requiring analyst review.
 
-**Macro that takes nodes as input example**
+**Macro that takes nodes as input - example**
+
+One of Synapse's strengths is the ability to retrieve data from a wide range of external sources, typically by
+using a Storm command provided by a :ref:`gloss-power-up`. The Storm commands allow an analyst to ingest data
+into Synpase and represent disparate data in a consistent manner so it can be reviwed and researched. An
+analyst who wants to investigate an object (such as an indicator) in Synapse will run multiple Storm
+commands to retrieve data from any / all data sources (a process commonly known as "enrichment").
+
+Instead of requiring the analyst to remember and run multiple Storm commands for enrichment, you want to
+create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically
+run the appropriate Storm commands to call the data sources that can enrich the input node(s).
 
 
 
-
-- Add a macro named ``enrich`` that takes any node as input and uses a ``switch`` statement to call Storm
-  commands for third-party services able to enrich a given form (line breaks and indentations used for readability).
-  (**Note:** Synapse does not include third-party services / connectors in its open source distribution;
-  the macro assumes such services have been implemented.)
 
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
