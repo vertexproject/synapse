@@ -1070,13 +1070,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 # TODO hack a schema test until the setViewInfo API is updated to
                 # enforce ( which will need to be done very carefully to prevent
                 # existing non-compliant values from causing issues with existing views )
-                vdef = self.info.pack()
-                vdef['quorum'] = s_msgpack.deepcopy(valu)
-
-                s_schemas.reqValidView(vdef)
-
-                if valu is None:
-                    for view in self.core.getViews():
+                if valu is not None:
+                    vdef = self.info.pack()
+                    vdef['quorum'] = s_msgpack.deepcopy(valu)
+                    s_schemas.reqValidView(vdef)
+                else:
+                    for view in self.core.views.values():
                         if view.parent != self:
                             continue
                         if view.getMergeRequest() is not None:

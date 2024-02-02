@@ -6502,3 +6502,6 @@ words\tword\twrd'''
                 await mirror.promote(graceful=False)
                 self.true(await view.waitfini(3))
                 self.len(1, await mirror.nodes('inet:ipv4=5.5.5.5'))
+
+            msgs = await core.stormlist('$lib.view.get().set(quorum, $lib.null)')
+            self.stormHasNoWarnErr(msgs)
