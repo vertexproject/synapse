@@ -1066,9 +1066,9 @@ class Pool(s_base.Base):
             poolname = self.ahasvc.get('name')
 
             try:
-                await reset()
-
                 ahaproxy = await self.aha.proxy()
+
+                await reset()
 
                 async for mesg in ahaproxy.iterPoolTopo(poolname):
                     hand = self.mesghands.get(mesg[0])
@@ -1077,9 +1077,6 @@ class Pool(s_base.Base):
                         continue
 
                     await hand(mesg)
-
-            except s_exc.LinkShutDown:
-                logger.warning(f'AHA pool topology task restarting due to link shutdown')
 
             except Exception as e:
                 logger.warning(f'AHA pool topology task restarting: {e}')

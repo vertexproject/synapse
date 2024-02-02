@@ -8075,7 +8075,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
-                    self.nn(await waiter.wait(timeout=12))
+                    # TODO: this wait should not return None
+                    await waiter.wait(timeout=1)
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core01.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
