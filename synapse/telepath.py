@@ -1081,7 +1081,7 @@ class Pool(s_base.Base):
 
             except Exception as e:
                 logger.warning(f'AHA pool topology task restarting: {e}')
-                await asyncio.sleep(1)
+                await self.waitfini(timeout=1)
 
     async def proxy(self, timeout=None):
 
