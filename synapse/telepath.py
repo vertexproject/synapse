@@ -1019,6 +1019,9 @@ class Pool(s_base.Base):
         urlinfo = mergeAhaInfo(self.urlinfo, svcinfo.get('urlinfo', {}))
 
         # one-off default user to root
+        if (oldc := self.clients.pop(svcname, None)) is not None:
+            await oldc.fini()
+
         self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
