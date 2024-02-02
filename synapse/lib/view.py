@@ -193,8 +193,11 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
         return mergeinfo
 
-    @s_nexus.Pusher.onPushAuto('merge:del')
     async def delMergeRequest(self):
+        return await self._push('merge:del')
+
+    @s_nexus.Pusher.onPush('merge:del')
+    async def _delMergeRequest(self):
         self.reqParentQuorum()
         byts = self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
 
@@ -1071,6 +1074,13 @@ class View(s_nexus.Pusher):  # type: ignore
                 vdef['quorum'] = s_msgpack.deepcopy(valu)
 
                 s_schemas.reqValidView(vdef)
+
+                if valu is None:
+                    for view in self.core.getViews():
+                        if view.parent != self:
+                            continue
+                        if view.getMergeRequest() is not None:
+                            await view._delMergeRequest()
 
             if valu is None:
                 await self.info.pop(name)
