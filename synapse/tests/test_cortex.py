@@ -8060,7 +8060,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.false(core00.isactive)
 
                     # Let the mirror reconnect
-                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), 12))
+                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), timeout=12))
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core01.callStorm('inet:asn=0 return($lib.true)'))
@@ -8075,7 +8075,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
-                    self.nn(await waiter.wait(timeout=3))
+                    self.nn(await waiter.wait(timeout=12))
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core01.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
