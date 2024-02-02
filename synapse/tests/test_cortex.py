@@ -8060,7 +8060,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.false(core00.isactive)
 
                     # Let the mirror reconnect
-                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), 12))
+                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), timeout=12))
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core01.callStorm('inet:asn=0 return($lib.true)'))
@@ -8070,11 +8070,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
 
-                    waiter = core01.stormpool.waiter('svc:del', 1)
+                    waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
+                    # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core01.storm('inet:asn=0'))
