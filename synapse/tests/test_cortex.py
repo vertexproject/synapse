@@ -8070,12 +8070,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
 
-                    waiter = core01.stormpool.waiter('svc:del', 1)
+                    waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
-                    await waiter.wait(timeout=3)
+                    self.nn(await waiter.wait(timeout=3))
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core01.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
