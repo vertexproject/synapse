@@ -1481,7 +1481,6 @@ class Layer(s_nexus.Pusher):
         self.fresh = not os.path.exists(path)
 
         self.dirty = {}
-        self.futures = {}
 
         self.stortypes = [
 
@@ -1542,19 +1541,11 @@ class Layer(s_nexus.Pusher):
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
 
         self.windows = []
-        self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
         self.nidcache = s_cache.LruDict(NID_CACHE_SIZE)
         self.weakcache = weakref.WeakValueDictionary()
 
         self.onfini(self._onLayrFini)
-
-        # if we are a mirror, we upstream all our edits and
-        # wait for them to make it back down the pipe...
-        self.leader = None
-        self.leadtask = None
-        self.ismirror = layrinfo.get('mirror') is not None
-        self.activetasks = []
 
         # this must be last!
         self.readonly = layrinfo.get('readonly')
@@ -1564,110 +1555,8 @@ class Layer(s_nexus.Pusher):
             mesg = f'Layer {self.iden} is read only!'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-    @contextlib.contextmanager
-    def getIdenFutu(self, iden=None):
-
-        if iden is None:
-            iden = s_common.guid()
-
-        futu = self.loop.create_future()
-        self.futures[iden] = futu
-
-        try:
-            yield iden, futu
-        finally:
-            self.futures.pop(iden, None)
-
-    async def getMirrorStatus(self):
-        # TODO plumb back to upstream on not self.core.isactive
-        retn = {'mirror': self.leader is not None}
-        if self.leader:
-            proxy = await self.leader.proxy()
-            retn['local'] = {'size': await self.getEditSize()}
-            retn['remote'] = {'size': await proxy.getEditSize()}
-        return retn
-
-    async def initLayerActive(self):
-
-        if self.leadtask is not None:
-            self.leadtask.cancel()
-
-        mirror = self.layrinfo.get('mirror')
-        if mirror is not None:
-            conf = {'retrysleep': 2}
-            self.leader = await s_telepath.Client.anit(mirror, conf=conf)
-            self.leadtask = self.schedCoro(self._runMirrorLoop())
-
-        uplayr = self.layrinfo.get('upstream')
-        if uplayr is not None:
-            if isinstance(uplayr, (tuple, list)):
-                for layr in uplayr:
-                    await self.initUpstreamSync(layr)
-            else:
-                await self.initUpstreamSync(uplayr)
-
-    async def initLayerPassive(self):
-
-        if self.leadtask is not None:
-            self.leadtask.cancel()
-            self.leadtask = None
-
-        if self.leader is not None:
-            await self.leader.fini()
-            self.leader = None
-
-        [t.cancel() for t in self.activetasks]
-        self.activetasks.clear()
-
     async def getEditSize(self):
         return self.nodeeditlog.size
-
-    async def _runMirrorLoop(self):
-
-        while not self.isfini:
-
-            try:
-
-                proxy = await self.leader.proxy()
-
-                leadoffs = await self._getLeadOffs()
-
-                async for offs, edits, meta in proxy.syncNodeEdits2(leadoffs + 1):
-
-                    iden = meta.get('task')
-                    futu = self.futures.pop(iden, None)
-
-                    meta['indx'] = offs
-
-                    try:
-                        item = await self.saveToNexs('edits', edits, meta)
-                        if futu is not None:
-                            futu.set_result(item)
-
-                    except asyncio.CancelledError:  # pragma: no cover
-                        raise
-
-                    except s_exc.LinkShutDown:
-                        raise
-
-                    except Exception as e:
-                        if futu is not None:
-                            futu.set_exception(e)
-                            continue
-                        logger.error(f'Error consuming mirror nodeedit at offset {offs} for (layer: {self.iden}): {e}')
-
-            except asyncio.CancelledError as e:  # pragma: no cover
-                raise
-
-            except Exception as e:  # pragma: no cover
-                logger.exception(f'error in runMirrorLoop() (layer: {self.iden}): ')
-                await self.waitfini(timeout=2)
-
-    async def _getLeadOffs(self):
-        last = self.nodeeditlog.last()
-        if last is None:
-            return -1
-        return last[1][1].get('indx', -1)
 
     async def verifyNidTag(self, nid, formname, tagname, tagvalu):
         abrv = self.tagabrv.bytsToAbrv(tagname.encode())
@@ -2105,8 +1994,6 @@ class Layer(s_nexus.Pusher):
 
     async def pack(self):
         ret = self.layrinfo.pack()
-        if ret.get('mirror'):
-            ret['mirror'] = s_urlhelp.sanitizeUrl(ret['mirror'])
         ret['offset'] = await self.getEditIndx()
         ret['totalsize'] = await self.getLayerSize()
         return ret
@@ -2224,8 +2111,6 @@ class Layer(s_nexus.Pusher):
         nodeeditpath = s_common.genpath(self.dirn, 'nodeedits.lmdb')
         self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
 
-        self.offsets = await self.layrslab.getHotCount('offsets')
-
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
@@ -2326,9 +2211,6 @@ class Layer(s_nexus.Pusher):
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
-        [futu.cancel() for futu in self.futures.values()]
-        if self.leader is not None:
-            await self.leader.fini()
 
     async def getFormCounts(self):
         return self.formcounts.pack()
@@ -2705,24 +2587,6 @@ class Layer(s_nexus.Pusher):
         Note: nexsoffs will be None if there are no changes.
         '''
         self._reqNotReadOnly()
-
-        if self.ismirror:
-
-            if self.core.isactive:
-                proxy = await self.leader.proxy()
-
-                with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
-                    meta['task'] = iden
-                    moff, changes = await proxy.saveNodeEdits(edits, meta)
-                    if any(c[2] for c in changes):
-                        return await futu
-                    return None, ()
-
-            proxy = await self.core.nexsroot.client.proxy()
-            indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
-            await self.core.nexsroot.waitOffs(indx)
-            return indx, changes
-
         return await self.saveToNexs('edits', edits, meta)
 
     def _incSodeRefs(self, buid, sode, inc=1):
@@ -3615,95 +3479,6 @@ class Layer(s_nexus.Pusher):
 
             yield nodeedit
 
-    async def initUpstreamSync(self, url):
-        self.activetasks.append(self.schedCoro(self._initUpstreamSync(url)))
-
-    async def _initUpstreamSync(self, url):
-        '''
-        We're a downstream layer, receiving a stream of edits from an upstream layer telepath proxy at url
-        '''
-
-        while not self.isfini:
-
-            try:
-
-                async with await s_telepath.openurl(url) as proxy:
-
-                    creator = self.layrinfo.get('creator')
-
-                    iden = await proxy.getIden()
-                    offs = self.offsets.get(iden)
-                    logger.warning(f'upstream sync connected ({s_urlhelp.sanitizeUrl(url)} offset={offs})')
-
-                    if offs == 0:
-                        offs = await proxy.getEditIndx()
-                        meta = {'time': s_common.now(),
-                                'user': creator,
-                                }
-
-                        async for item in proxy.iterLayerNodeEdits():
-                            await self.storNodeEditsNoLift([item], meta)
-
-                        self.offsets.set(iden, offs)
-
-                        waits = [v for k, v in self.upstreamwaits[iden].items() if k <= offs]
-                        for wait in waits:
-                            [e.set() for e in wait]
-
-                    while not proxy.isfini:
-
-                        offs = self.offsets.get(iden)
-
-                        # pump them into a queue so we can consume them in chunks
-                        q = asyncio.Queue(maxsize=1000)
-
-                        async def consume(x):
-                            try:
-                                async for item in proxy.syncNodeEdits(x):
-                                    await q.put(item)
-                            finally:
-                                await q.put(None)
-
-                        proxy.schedCoro(consume(offs))
-
-                        done = False
-                        while not done:
-
-                            # get the next item so we maybe block...
-                            item = await q.get()
-                            if item is None:
-                                break
-
-                            items = [item]
-
-                            # check if there are more we can eat
-                            for _ in range(q.qsize()):
-
-                                nexi = await q.get()
-                                if nexi is None:
-                                    done = True
-                                    break
-
-                                items.append(nexi)
-
-                            for nodeeditoffs, item in items:
-                                await self.storNodeEditsNoLift(item, {'time': s_common.now(),
-                                                                      'user': creator,
-                                                                      })
-                                self.offsets.set(iden, nodeeditoffs + 1)
-
-                                waits = self.upstreamwaits[iden].pop(nodeeditoffs + 1, None)
-                                if waits is not None:
-                                    [e.set() for e in waits]
-
-            except asyncio.CancelledError:  # pragma: no cover
-                return
-
-            except Exception:
-                logger.exception('error in initUpstreamSync loop')
-
-            await self.waitfini(1)
-
     async def _wipeNodeData(self, buid, sode):
         '''
         Remove all node data for a buid
@@ -3885,16 +3660,6 @@ class Layer(s_nexus.Pusher):
             raise s_exc.BadArg(mesg=mesg)
 
         return await self.nodeeditlog.waitForOffset(offs, timeout=timeout)
-
-    async def waitUpstreamOffs(self, iden, offs):
-        evnt = asyncio.Event()
-
-        if self.offsets.get(iden) >= offs:
-            evnt.set()
-        else:
-            self.upstreamwaits[iden][offs].append(evnt)
-
-        return evnt
 
     async def delete(self):
         '''
