@@ -6352,6 +6352,12 @@ words\tword\twrd'''
             self.eq(merge['comment'], 'woot')
             self.eq(merge['creator'], core.auth.rootuser.iden)
 
+            merge = await core.callStorm('return($lib.view.get().getMergeRequest())', opts={'view': fork00})
+            self.nn(merge['iden'])
+            self.nn(merge['created'])
+            self.eq(merge['comment'], 'woot')
+            self.eq(merge['creator'], core.auth.rootuser.iden)
+
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.view.get().setMergeVote()', opts={'user': visi.iden, 'view': fork00})
 
@@ -6372,6 +6378,12 @@ words\tword\twrd'''
             self.nn(vote['created'])
             self.true(vote['approved'])
             self.eq(vote['user'], newp.iden)
+
+            summary = await core.callStorm('return($lib.view.get().getMergeRequestSummary())', opts={'view': fork00})
+            self.nn(summary['merge'])
+            self.nn(summary['quorum'])
+            self.nn(summary['offset'])
+            self.len(2, summary['votes'])
 
             with self.raises(s_exc.AuthDeny):
                 opts = {'user': newp.iden, 'view': fork00, 'vars': {'visi': visi.iden}}
