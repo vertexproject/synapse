@@ -1066,12 +1066,11 @@ class Pool(s_base.Base):
             poolname = self.ahasvc.get('name')
 
             try:
-                ahaproxy = await self.aha.proxy()
-
                 await reset()
 
-                async for mesg in ahaproxy.iterPoolTopo(poolname):
+                ahaproxy = await self.aha.proxy()
 
+                async for mesg in ahaproxy.iterPoolTopo(poolname):
                     hand = self.mesghands.get(mesg[0])
                     if hand is None: # pragma: no cover
                         logger.warning(f'Unknown AHA pool topography message: {mesg}')
@@ -1079,9 +1078,12 @@ class Pool(s_base.Base):
 
                     await hand(mesg)
 
+            except s_exc.LinkShutDown:
+                logger.warning(f'AHA pool topology task restarting due to link shutdown')
+
             except Exception as e:
                 logger.warning(f'AHA pool topology task restarting: {e}')
-                await asyncio.sleep(1)
+                await self.waitfini(timeout=1)
 
     async def proxy(self, timeout=None):
 
