@@ -6384,6 +6384,7 @@ words\tword\twrd'''
             self.nn(summary['quorum'])
             self.nn(summary['offset'])
             self.len(2, summary['votes'])
+            self.false(summary['merging'])
 
             with self.raises(s_exc.AuthDeny):
                 opts = {'user': newp.iden, 'view': fork00, 'vars': {'visi': visi.iden}}
@@ -6435,7 +6436,7 @@ words\tword\twrd'''
             await core.stormlist('[ inet:ipv4=1.2.3.0/20 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
-            waiter = core.waiter(7, 'cell:beholder')
+            waiter = core.waiter(8, 'cell:beholder')
 
             opts = {'view': fork.iden, 'user': visi.iden}
             await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)

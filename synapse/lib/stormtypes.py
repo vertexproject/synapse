@@ -7539,6 +7539,7 @@ class View(Prim):
         retn = {
             'quorum': view.reqParentQuorum(),
             'merge': view.getMergeRequest(),
+            'merging': view.merging,
             'votes': [vote async for vote in view.getMergeVotes()],
             'offset': await view.layers[0].getEditIndx(),
         }
