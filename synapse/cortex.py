@@ -5719,6 +5719,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not cdef.get('iden'):
             cdef['iden'] = s_common.guid()
 
+        cdef['created'] = s_common.now()
+
         opts = {'user': cdef['creator'], 'view': cdef.get('view')}
 
         view = self._viewFromOpts(opts)
