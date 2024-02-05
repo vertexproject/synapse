@@ -2640,6 +2640,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
+    @s_nexus.Pusher.onPushAuto('http:sess:set:vals')
+    async def setHttpSessInfoVals(self, iden, vals: dict):
+        for name, valu in vals.items():
+            s_msgpack.isok(name)
+            s_msgpack.isok(valu)
+        for name, valu in vals.items():
+            self.sessstor.set(iden, name, valu)
+        sess = self.sessions.get(iden)
+        for name, valu in vals.items():
+            sess.info[name] = valu
+
+    setHttpSessInfo
     @contextlib.contextmanager
     def getTempDir(self):
         tdir = s_common.gendir(self.dirn, 'tmp')

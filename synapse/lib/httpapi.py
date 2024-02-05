@@ -42,6 +42,11 @@ class Sess(s_base.Base):
         await self.cell.setHttpSessInfo(self.iden, name, valu)
         self.info[name] = valu
 
+    async def setVals(self, vals: dict):
+        await self.cell.setHttpSessInfoVals(self.iden, vals)
+        for name, valu in vals.items():
+            self.info[name] = valu
+
     async def login(self, user):
         self.user = user
         await self.set('user', user.iden)
