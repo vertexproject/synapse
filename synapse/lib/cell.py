@@ -2643,7 +2643,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('http:sess:set:vals')
     async def setHttpSessInfoVals(self, iden, vals: dict):
         for name, valu in vals.items():
-            s_msgpack.isok(name)
             s_msgpack.isok(valu)
         for name, valu in vals.items():
             self.sessstor.set(iden, name, valu)
