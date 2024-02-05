@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.161.0 - 2024-02-02
+v2.161.0 - 2024-02-06
 =====================
 
 Features and Enhancements
@@ -20,6 +20,9 @@ Features and Enhancements
 - Ensure that Nexus events which are written to the log are always applied and
   cannot be cancelled while the Nexus handler is running.
   (`#3518 <https://github.com/vertexproject/synapse/pull/3518>`_)
+- Add ``getMergeRequest()`` and ``getMergeRequestSummary()`` Storm APIs to the
+  ``View`` object, in order to get information about View merges via Storm.
+  (`#3541 <https://github.com/vertexproject/synapse/pull/3541>`_)
 - Add AHA information to the output of the ``Cell.getCellInfo()`` API. This
   includes the service name, leader, and network.
   (`#3519 <https://github.com/vertexproject/synapse/pull/3519>`_)
@@ -29,6 +32,9 @@ Features and Enhancements
 - When creating Cron jobs and Triggers, record their creation time.
   (`#3521 <https://github.com/vertexproject/synapse/pull/3521>`_)
   (`#3538 <https://github.com/vertexproject/synapse/pull/3538>`_)
+- Add a ``Cell.updateHttpSessInfo()`` API to set multiple keys at once on a
+  HTTP session.
+  (`#3544 <https://github.com/vertexproject/synapse/pull/3544>`_)
 - Update the allowed versions of the ``cbor2`` and `` pycryptodome``
   libraries.
   (`#3540 <https://github.com/vertexproject/synapse/pull/3540>`_)
