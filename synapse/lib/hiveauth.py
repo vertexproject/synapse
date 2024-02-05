@@ -858,6 +858,7 @@ class HiveUser(HiveRuler):
         self.vars = await varz.dict(nexs=True)
 
         self.permcache = s_cache.FixedCache(self._allowed)
+        self.mergepermcache = s_cache.FixedCache(self._tagMergeAllowed)
 
     def pack(self, packroles=False):
 
@@ -951,6 +952,69 @@ class HiveUser(HiveRuler):
 
         return default
 
+    def tagMergeAllowed(self, perm, default=None, gateiden=None):
+        '''
+        Check whether a user has permission at a specific level or lower in a tag tree.
+
+        This is used for determining whether a user has permission to merge a tag
+        higher up in the hierarchy which may have automatically been added when
+        adding a more specific tag further down the tree.
+        '''
+        perm = tuple(perm)
+        return self.mergepermcache.get((perm, default, gateiden))
+
+    def _tagMergeAllowed(self, pkey):
+
+        perm, default, gateiden = pkey
+
+        if self.info.get('locked'):
+            return False
+
+        if self.info.get('admin'):
+            return True
+
+        permlen = len(perm)
+        baseperms = (('node',), ('node', 'tag'), ('node', 'tag', 'add'))
+
+        # 1. check authgate user rules
+        if gateiden is not None:
+
+            info = self.authgates.get(gateiden)
+            if info is not None:
+
+                if info.get('admin'):
+                    return True
+
+                for allow, path in info.get('rules', ()):
+                    if path in baseperms or perm == path[:permlen]:
+                        return allow
+
+        # 2. check user rules
+        for allow, path in self.info.get('rules', ()):
+            if path in baseperms or perm == path[:permlen]:
+                return allow
+
+        # 3. check authgate role rules
+        if gateiden is not None:
+
+            for role in self.getRoles():
+
+                info = role.authgates.get(gateiden)
+                if info is None:
+                    continue
+
+                for allow, path in info.get('rules', ()):
+                    if path in baseperms or perm == path[:permlen]:
+                        return allow
+
+        # 4. check role rules
+        for role in self.getRoles():
+            for allow, path in role.info.get('rules', ()):
+                if path in baseperms or perm == path[:permlen]:
+                    return allow
+
+        return default
+
     def getAllowedReason(self, perm, gateiden=None, default=False):
         '''
         A non-optimized diagnostic routine which will return a tuple
@@ -1005,6 +1069,7 @@ class HiveUser(HiveRuler):
 
     def clearAuthCache(self):
         self.permcache.clear()
+        self.mergepermcache.clear()
 
     async def genGateInfo(self, gateiden):
         info = self.authgates.get(gateiden)

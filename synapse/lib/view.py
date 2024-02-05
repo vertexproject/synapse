@@ -1245,6 +1245,15 @@ class View(s_nexus.Pusher):  # type: ignore
         mesg = f'User ({user.name}) must have permission {perm} on write layer {layriden} of view {self.iden}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.iden, username=user.name)
 
+    def _tagMergeConfirm(self, user, perms):
+        layriden = self.layers[0].iden
+        if user.tagMergeAllowed(perms, gateiden=layriden):
+            return
+
+        perm = '.'.join(perms)
+        mesg = f'User ({user.name}) must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.iden, username=user.name)
+
     async def mergeAllowed(self, user=None, force=False):
         '''
         Check whether a user can merge a view into its parent.
@@ -1276,9 +1285,13 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         async with await self.parent.snap(user=user) as snap:
-            async for nodeedit in fromlayr.iterLayerNodeEdits():
-                for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                    self.parent._confirm(user, perm)
+            async for _, form, edits in fromlayr.iterLayerNodeEdits():
+                for edit in edits:
+                    perm = s_layer.getNodeEditPerm(form, edit)
+                    if edit[0] == s_layer.EDIT_TAG_SET:
+                        self.parent._tagMergeConfirm(user, perm)
+                    else:
+                        self.parent._confirm(user, perm)
                     await asyncio.sleep(0)
 
     async def wipeAllowed(self, user=None):

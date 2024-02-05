@@ -2174,6 +2174,21 @@ class Runtime(s_base.Base):
 
         return self.user.confirm(perms, gateiden=gateiden, default=default)
 
+    def tagMergeConfirm(self, perms, gateiden=None, default=None):
+
+        if self.asroot:
+            return
+
+        if default is None:
+            default = False
+
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', False)
+
+        if not self.user.tagMergeAllowed(perms, gateiden=gateiden, default=default):
+            self.user.raisePermDeny(perms, gateiden=gateiden)
+
     def allowed(self, perms, gateiden=None, default=None):
         if self.asroot:
             return True
@@ -3789,8 +3804,8 @@ class MergeCmd(Cmd):
 
         for tag, valu in sode.get('tags', {}).items():
             tagperm = tuple(tag.split('.'))
-            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            runt.tagMergeConfirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+            runt.tagMergeConfirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
         for tag, tagdict in sode.get('tagprops', {}).items():
             for prop, (valu, stortype) in tagdict.items():
