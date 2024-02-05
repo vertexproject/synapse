@@ -6438,7 +6438,7 @@ words\tword\twrd'''
 
             nevents = 8
             if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
-                # veiew:merge:vote:set fires twice
+                # view:merge:vote:set fires twice
                 nevents = nevents + 1
             waiter = core.waiter(nevents, 'cell:beholder')
 
