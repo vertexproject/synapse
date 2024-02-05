@@ -156,3 +156,62 @@ class NexusTest(s_t_utils.SynTest):
                     self.eq('foo', await nexus2.doathing2(eventdict))
                     self.eq(guid2, eventdict.get('happened'))
                     self.eq(3, eventdict.get('gotindex'))
+
+    async def test_nexus_safety(self):
+
+        orig = s_hiveauth.Auth.reqUser
+        async def slowReq(self, iden):
+            await asyncio.sleep(0.2)
+            return await orig(self, iden)
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                with mock.patch('synapse.lib.hiveauth.Auth.reqUser', slowReq):
+
+                    vcnt = len(core.views)
+                    deflayr = (await core.getLayerDef()).get('iden')
+
+                    strt = await core.nexsroot.index()
+
+                    vdef = {'layers': (deflayr,), 'name': 'nextview'}
+                    core.schedCoro(core.addView(vdef))
+
+                    for x in range(10):
+                        vdef = {'layers': (deflayr,), 'name': f'someview{x}'}
+                        core.schedCoro(core.addView(vdef))
+
+                    await asyncio.sleep(0.1)
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                viewadds = 0
+                async for item in core.nexsroot.nexslog.iter(strt):
+                    if item[1][1] == 'view:add':
+                        viewadds += 1
+
+                self.eq(1, viewadds)
+                self.len(vcnt + viewadds, core.views)
+                self.len(1, [v for v in core.views.values() if (await v.pack())['name'] == 'nextview'])
+
+                vcnt = len(core.views)
+                strt = await core.nexsroot.index()
+
+                with mock.patch('synapse.lib.hiveauth.Auth.reqUser', slowReq):
+                    for x in range(3):
+                        vdef = {'layers': (deflayr,), 'name': f'someview{x}'}
+                        with self.raises(TimeoutError):
+                            await s_common.wait_for(core.addView(vdef), 0.1)
+
+                await core.nexsroot.waitOffs(strt + 3, timeout=2)
+
+                viewadds = 0
+                async for item in core.nexsroot.nexslog.iter(strt):
+                    if item[1][1] == 'view:add':
+                        viewadds += 1
+
+                self.eq(3, viewadds)
+                self.len(vcnt + viewadds, core.views)
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(vcnt + viewadds, core.views)
