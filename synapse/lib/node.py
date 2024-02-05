@@ -159,12 +159,10 @@ class Node(NodeBase):
         return f'Node{{{self.pack()}}}'
 
     async def addEdge(self, verb, n2nid):
-
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2nid)
 
     async def delEdge(self, verb, n2nid):
-
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.delEdge(verb, n2nid)
 

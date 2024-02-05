@@ -2493,7 +2493,9 @@ class Layer(s_nexus.Pusher):
                 if (curv := props.get('.created')) is not None and tick < curv[0]:
                     oldv = curv[0]
                 else:
-                    return ((EDIT_NODE_ADD, edit[1]))
+                    return (
+                        (EDIT_NODE_ADD, edit[1]),
+                    )
 
         return (
             (EDIT_NODE_ADD, edit[1]),
@@ -3057,13 +3059,14 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(nid + n2nid, venc, db=self.edgesn1n2)
 
             n2sode = self._genStorNode(n2nid)
-            newvalu = n2sode['n2verbs'].get(venc, 0) - 1
+            verb = venc.decode()
+            newvalu = n2sode['n2verbs'].get(verb, 0) - 1
             if newvalu == 0:
-                n2sode['n2verbs'].pop(venc)
+                n2sode['n2verbs'].pop(verb)
                 if not self.mayDelNid(n2nid, n2sode):
                     self.dirty[n2nid] = n2sode
             else:
-                n2sode['n2verbs'][venc] = newvalu
+                n2sode['n2verbs'][verb] = newvalu
                 self.dirty[n2nid] = n2sode
 
     def getStorIndx(self, stortype, valu):
