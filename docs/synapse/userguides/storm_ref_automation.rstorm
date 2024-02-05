@@ -2,6 +2,20 @@
 
 .. storm-cortex:: default
 
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.file.report, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.file.behavior, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.commfiles, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.files, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.domain, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.ip, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.dns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=maxmind, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=censys.hosts.enrich, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+
+
 .. _storm-ref-automation:
 
 Storm Reference - Automation
@@ -652,17 +666,19 @@ to the Storm executed by the trigger:
 
 **prop:set example**
 
-You have identified an email address that is consistently used by a sinkhole organization to register
-sinkholed FQDNs. You want to add a trigger that will fire when the email address is set as the ``:email``
-property of an ``inet:whois:contact`` node and tag the associated FQDN as sinkholed (``#cno.infra.dns.sink.holed``).
-Because the trigger is a simple one, you want it to run inline (i.e., you do not need the ``--async`` option).
+You have identified a handful of email addresses that are consistently used by various sinkhole organizations
+to register their sinkholed FQDNs, and tagged them ``#cno.infra.dns.sink.hole`` to show they are associated
+with sinkhole infrastructure. You want to add a trigger that will fire when any of these email addresses
+is set as the ``:email`` property of an ``inet:whois:contact`` node and tag the associated FQDN as sinkholed
+(``#cno.infra.dns.sink.holed``). Because the trigger is a simple one, you want it to run inline (i.e., you do
+not need the ``--async`` option).
 
-.. storm-cli:: trigger.add --name 'Tag sinkholed FQDNs based on registrant email' --prop inet:whois:contact:email --query { +:email=domains@virustracker.info -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] } prop:set
+.. storm-cli:: trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkholer email' --prop inet:whois:contact:email --query { +{ :email-> inet:email +#cno.infra.dns.sink.hole } -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
 
 .. TIP::
   
-  For ``prop:set`` triggers, the node(s) whose property caused the trigger to fire are sent inbound
-  to the trigger's Storm.
+  For ``prop:set`` (and ``prop:del``) triggers, the node whose property caused the trigger to fire is sent
+  inbound to the trigger's Storm.
 
 We can view the newly created trigger using ``trigger.list``:
 
@@ -676,79 +692,110 @@ The output of ``trigger.list`` includes the following columns:
 - **en?** - Whether the trigger is currently enabled or disabled.
 - **async?** - Whether the trigger will run asynchronously / in the background.
 - **cond** - The condition that causes the trigger to fire.
+- **object** - The object the trigger operates on (in this case, the ``:email`` property of an ``inet:whois:contact`` node).
 - **storm query** - The Storm to be executed when the trigger fires.
 
-- The object that the condition operates on, if any.
-- The tag or tag expression used by the condition (for ``tag:add`` or ``tag:del`` conditions only).
+.. TIP::
+  
+  <fields displayed may vary dependign on the type of triggeer?>
+  <is object always present?>
 
-
-<which props are always there / which will be present for certain conditions?>
 
 We can also use Storm to lift the trigger as a ``syn:trigger`` node:
 
 .. storm-cli:: syn:trigger
 
 
-
-- Add a trigger that fires when the ``:exe`` property of an ``inet:dns:request`` node is set. Check to see
-  whether the queried FQDN is malicious; if so, tag the associated ``file:bytes`` node for analyst review.
-  
-.. storm-cli:: trigger.add --name "tag file:bytes for review" prop:set --prop inet:dns:request:exe --query { +{ :query:name -> inet:fqdn +#cno.mal } :exe -> file:bytes [ +#int.review.malware ] }
-
-
-
-
-**prop:del example**
-
-???
-
-
 **node:add example**
+
+Whenever an IPv4 node is added to Synapse, you want to immediately retrieve the associated Autonomous System (AS),
+geolocation, and DNS PTR data using various Storm commands.
+
+.. storm-pre:: trigger.add node:add --name 'Basic IPv4 enrichment' --form inet:ipv4 --query { maxmind | nettools.dns }
 
 
 .. TIP::
   
-  For ``node:add`` triggers, the node(s) that were added to cause the trigger to fire are sent inbound
+  For ``node:add`` (and ``node:del``) triggers, the node that caused the trigger to fire is sent inbound
   to the trigger's Storm.
-
-**node:del example**
-
-??
-
-
-**tag:add example**
-
-- Add a trigger that fires when the tag ``cno.ttp.phish.payload`` is applied to a ``file:bytes`` node (indicating
-  that a file was an attachment to a phishing email). Use the trigger to **also** apply the tag ``attack.t1566.001``
-  (representing the MITRE ATT&CK technique "Spearphishing Attachment").
-
-.. storm-cli:: trigger.add --name "tag phish attachment with #attack.t1566.001" tag:add --form file:bytes --tag cno.ttp.phish.payload --query { [ +#attack.t1566.001 ] }
-
-
-
-- Add a trigger that fires when the tag ``osint`` (indicating that the node was listed as a malicious indicator
-  in public reporting) is applied to any node. The trigger should call (execute) a macro called ``enrich``.
-  The macro contains a Storm query that uses a switch case to call the appropriate Storm commands based on the
-  tagged node’s form (e.g., perform different enrichment / call different third-party services based on whether
-  the node is an FQDN, an IPv4, an email address, a URL, etc.).
   
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: macro.set enrich ${ switch $node.form() {/* You can put comments in macros!!! */ "inet:fqdn": { | whois | pdns | malware } "inet:ipv4": { | pdns } "inet:email": { | revwhois } *: { } } }
-  
-.. storm-cli:: trigger.add --name "enrich osint" tag:add --tag osint --query { | macro.exec enrich }
-
-
-
-**tag::del example**
+  The ``maxmind`` and ``nettools.dns`` commands are added to Synapse by the `Synapse-Maxmind`_ and `Synapse-Nettools`_
+  Power-Ups, respectively.
 
 
 **edge:add example**
 
-**edge:del example**
+You are using ``risk:attack`` nodes in Synapse to represent attacks, and linking the attack to key objects used in the attack
+with a ``-(uses)>`` light edge. (For example, a phishing attack can be linked to the relevant email message (``file:bytes``
+node) or email metadata nodes (such as ``inet:email:message``, ``inet:email:message:attachment``, or ``inet:email:message:link``).
+
+If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp.phish.attach`` to represent a malicious
+attachment used in a phishing attack), you want to pivot to the technique (``ou:technique``) represented by the tag (e.g., 
+"Spear phishing attachment"), and create another ``uses`` edge to show the attack uses the specified technique.
+
+.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack --query { $attack=$node.value() { -(uses)> * +$auto.opts.n2iden -> # -> ou:technique:tag [ <(uses)+ { risk:attack=$attack } ] } }
+
+.. TIP::
+  
+  Recall that edges have a direction, regardless of whether the edge relationship is specified "left to right" or
+  "right to left" in Storm (e.g., ``n1 -(uses)> n2`` or ``n2 <(uses)- n1``).
+  
+  For ``edge:add`` (and ``edge:del``) triggers, the ``n1`` node(s) (source node(s)) for the edge that caused the
+  trigger to fire are sent inbound to the trigger's Storm.
+
+The Storm for the trigger above is broken down below:
+
+::
+  
+  // Set the variable $attack to the guid of the risk:attack node for later use
+  $attack=$node.value()
+  
+  // Use a subquery to traverse all 'uses' edges to any / all forms
+  {
+     -(uses)> *
+     
+     // Filter to the n2 node that was just linked
+     +$auto.opts.n2iden
+     
+     // Pivot to the syn:tag nodes associated with any tags on n2
+     -> #
+     
+     // Pivot to any techniques associated with any tags
+     -> ou:technique:tag
+     
+     // Create a 'uses' edge between the technique(s) and the risk:attack node
+     [ <(uses)+ { risk:attack=$attack } ]
+  }
 
 
+**tag:add example**
+
+When you associate a file with a malware family, you record that assessment on the ``file:bytes`` node with
+a tag (e.g., ``#cno.mal.redtree`` to represent the 'redtree' malware family). When you tag the file, you want
+to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes for situational awareness.
+
+.. storm-cli:: trigger.add tag:add --name "Push malware tags from file to hashes" --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ +#$auto.opts.tag ] }
+
+.. TIP::
+  
+  For ``tag:add`` (and ``tag:del``) triggers, the node that was tagged (or untagged) to cause the trigger to
+  fire is sent inbound to the trigger's Storm.
+  
+  The trigger above uses the trigger-specific ``$auto.opts.tag`` variable to reference the tag that caused the
+  trigger to fire.
+
+
+**tag:del example**
+
+Similar to the example above, when your assessment changes and you want to **remove** a tag from a file
+(``file:bytes`` node), you want to automatically remove that same tag from the file's associated hashes.
+
+.. storm-cli:: trigger.add tag:add --name "Push malware tags from file to hashes" --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ -#$auto.opts.tag ] }
+
+.. TIP::
+  
+  The trigger above uses the trigger-specific ``$auto.opts.tag`` variable to reference the tag that caused the
+  trigger to fire.
 
 
 .. _auto-macros:
@@ -818,7 +865,7 @@ Configuration and Management
   Macro permissions can be modified / managed by using the :ref:`stormlibs-lib-macro-grant` library. Macros
   support Synapse's `easy permissions`_ convention for setting simplified permissions on objects. You must
   be **admin** of a macro to modify its permissions. See the :ref:`auto-macro-examples` section below for
-  an example of modifying macro permissions.
+  examples of modifying macro permissions.
 
 - **Managing Macros.** Macros can be created, viewed, and managed using the various Storm :ref:`storm-macro`
   commands or the :ref:`stormlibs-lib-macro` libraries. In :ref:`gloss-optic`, macros can be created and edited
@@ -869,12 +916,10 @@ Examples
 
 As "stored Storm", macros can contain any Storm that simplifies your analysis workflow - from the very
 simple to longer, more detailed queries. The command ``macro.exec <macro_name>`` is much simpler to
-type than Storm that you have to remember or recreate each time; any Storm that you want to easily
-and consistently run on a regular basis, no matter how "short" or "long", is a candidate for a macro
-(or potentially for other automation).
+type than Storm that you have to remember or recreate each time. The examples below are relatively simple
+for illustrative purposes; that said, any Storm that you want to easily and consistently run on a regular
+basis, no matter how "simple" or "complex", is a candidate for a macro (or potentially for other automation).
 
-The examples below are relatively simple for illustrative purposes, but could be extended with additional
-Storm logic.
 
 **Self-contained macro - example**
 
@@ -886,18 +931,12 @@ newly sinkholed FQDNs. To do this, you create a macro called ``sinkhole.check`` 
 - query a passive DNS data source to check for new FQDNs resolving to the various sinkhole IPv4s;
 - perform a live DNS A lookup on the FQDNs to double-check against the passive DNS results;
 - retrieve the domains' current whois records; and
-- tag the FQDNs for review, including a timestamp so the reviewer knows when the FQDN was added.
-
-This way, the domains needing review can be easily identified (by their 'review' tag), and the information
-needed for review will already be readily available. An analyst to easily retrieve the data and confirm
-any newly sinkholed FQDNs.
+- tag the FQDNs for review, including a timestamp so the reviewer knows when the FQDN was added to the set
+  of domains for review.
 
 We create the macro using the ``macro.set`` command. (Note: the macro's Storm is also included below for
 readability.)
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.dns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-cli:: macro.set sinkhole.check { $now=$lib.time.now() inet:ipv4#cno.infra.dns.sink.hole | alienvault.otx.pdns --yield | -> inet:fqdn :zone -> inet:fqdn -#cno.infra.dns.sink.holed | uniq | nettools.dns | nettools.whois | [ +#int.review.sinkhole=$now ] }
 
 Macro Storm (with line breaks and comments). Note that you can include and save comments within a macro;
@@ -920,7 +959,7 @@ Synapse will ignore comment lines during execution.
   // Filter out FQDNs that have already been identified as sinkholed
   -#cno.infra.dns.sink.holed |
   
-  // De-dupliate results
+  // De-duplicate results
   uniq |
   
   // Obtain the current / live DNS A and whois data for the FQDNs
@@ -928,6 +967,14 @@ Synapse will ignore comment lines during execution.
   
   // Tag the FQDNs for review and set the current timestamp
   [ +#int.review.sinkhole=$now ]
+
+An analyst can now lift the FQDNs that need to be reviewed using the ``#int.review.sinkhole`` tag and review
+the associated data. If the FQDN is confirmed to be sinkholed, the analyst can apply the ``#cno.infra.dns.sink.holed``
+tag and remove the ``#int`` tag once the FQDN has been reviewed.
+
+If additional criteria would allow you to confirm that the FQDNs were sinkholed (e.g., some additional information
+in the whois data, or use of a particular DNS name server / DNS NS record), you could encode this logic using
+Storm and simply tag the relevant FQDNs as sinkholed vs. requiring analyst review.
 
 .. TIP::
   
@@ -941,41 +988,135 @@ Synapse will ignore comment lines during execution.
   The ``alienvault.otx.pdns`` command is installed by the `Synapse-AlienVault`_ Power-Up. The ``nettools.*``
   commands are installed by the `Synapse-Nettools`_ Power-Up.
 
-An analyst can now lift the FQDNs that need to be reviewed using the ``#int.review.sinkhole`` tag and review
-the associated data. If the FQDN is confirmed to be sinkholed, the analyst can apply the ``#cno.infra.dns.sink.holed``
-tag and remove the ``#int`` tag once the FQDN has been reviewed.
-
-If additional criteria would allow you to confirm that the FQDNs were sinkholed (e.g., some additional information
-in the whois data, or use of a particular DNS name server / DNS NS record), you could encode this logic using
-Storm and simply tag the relevant FQDNs as sinkholed vs. requiring analyst review.
 
 **Macro that takes nodes as input - example**
 
 One of Synapse's strengths is the ability to retrieve data from a wide range of external sources, typically by
 using a Storm command provided by a :ref:`gloss-power-up`. The Storm commands allow an analyst to ingest data
-into Synpase and represent disparate data in a consistent manner so it can be reviwed and researched. An
-analyst who wants to investigate an object (such as an indicator) in Synapse will run multiple Storm
-commands to retrieve data from any / all data sources (a process commonly known as "enrichment").
+into Synpase and represent disparate data in a consistent manner for review and analysis. An analyst who wants
+to investigate an object (such as an indicator) in Synapse will commonly run multiple Storm commands to retrieve
+data from any / all data sources (a process commonly known as "enrichment").
 
-Instead of requiring the analyst to remember and run multiple Storm commands for enrichment, you want to
-create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically
-run the appropriate Storm commands to call the data sources that can enrich the input node(s).
+Instead of requiring the analyst to remember and run multiple individual Storm commands for enrichment, you want
+to create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically run
+the appropriate Storm commands to call the data sources that can enrich the input node(s).
+
+.. storm-pre:: macro.set enrich { +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4) switch $node.form() { "hash:md5": { { | virustotal.file.report | virustotal.file.behavior } }  "hash:sha1": { { | virustotal.file.report | virustotal.file.behavior } }  "hash:sha256": { { | virustotal.file.report | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ipv4": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
+
+Once again, we create the macro with the ``macro.set`` command. Because of the length of the associated Storm,
+the full ``<storm_query>`` is provided below for readability.
+
+::
+  
+  macro.set enrich { <storm_query> }
+
+The content of the macro (with comments):
+
+::
+  
+  /* Filter inbound nodes to supported forms only */
+  +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4)
+  
+  /* Switch statement to handle different forms */
+  switch $node.form() {
+    
+    "hash:md5": {
+        { | virustotal.file.report | virustotal.file.behavior }
+    }
+    
+    "hash:sha1": {
+        { | virustotal.file.report | virustotal.file.behavior }
+    }
+    
+    "hash:sha256": {
+        { | virustotal.file.report | virustotal.file.behavior | alienvault.otx.files }
+    }
+    
+    "inet:fqdn": {
+        
+        /* For zones */
+        {
+            +:iszone=1 +:issuffix=0
+            { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns }
+        }
+        
+        /* Subdomains */
+        {
+            +:iszone=0 +:issuffix=0
+            { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns }
+        }
+    }
+    
+    "inet:ipv4": {
+        
+        +:type=unicast
+        { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns }
+    }
+    
+    // Default case
+    *: {
+        /* Do nothing */
+    }
+  }
+
+Instead of running multiple Storm commands, an analyst can now run a single macro that will perform enrichment
+by "intelligently" querying all available data sources that can provide information about the indicator.
+
+.. TIP::
+  
+  This macro requires nodes as input; the macro's Storm does not lift any nodes to operate on. The initial
+  filter statement is provided as basic error checking to ensure only nodes that the macro knows how to process
+  are sent to the remaining macro code. (Technically, the final "default" switch option ( ``*: { }`` ) will
+  handle any unknown forms; the filter simply "drops" them earlier in the pipeline. If you **want** unhandled
+  forms to pass through the macro (so they are available for additional Storm operations after the macro
+  finishes), the filter should be removed.)
+  
+  This macro can be executed "on demand" with the ``macro.exec`` command. If some condition should cause
+  enrichment to occur automatically (e.g., applying a particular tag to a node), the macro could be configured
+  to run as a trigger.
+    
+  The example commands used in the macro are all installed by various Synapse `Power-Ups`_.
+  
+  The macro makes use of a :ref:`flow-switch` (part of Storm's `control flow`_ features) to handle different
+  kinds of nodes (forms).
+  
+  Macros run inline by default; when a user calls a macro, the full macro code executes to completion. For
+  enrichment-type macros, depending on the number of data sources queried and nodes created, enrichment can
+  take some time to run. The macro code can be run asynchronously using the Storm :ref:`storm-background`
+  command. (If the macro is run as a trigger, you can configure the trigger to run asynchronously; see
+  the trigger :ref:`auto-trigger-examples` above.)
 
 
+**Modify macro permissions - examples**
 
+You can modify permissions on a macro using the :ref:`stormlibs-lib-macro-grant` library to grant (or revoke)
+basic permission (`easy permissions`_, or "easy perms"). The :ref:`stormlibs-lib-auth-users-byname` and
+:ref:`stormlibs-lib-auth-roles-byname` libraries can be used to obtain a user or role object and retrieve
+the associated identifier (iden).
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-multiline:: ENRICH="macro.set enrich ${ switch $node.form() {\n\n    /* You can put comments in macros!!! */\n\n    \"inet:fqdn\": { | whois | pdns | malware }\n    \"inet:ipv4\": { | pdns }\n    \"inet:email\": { | revwhois }\n    *: { }\n} }"
-.. storm-cli:: MULTILINE=ENRICH
+.. storm-pre:: auth.user.add 'ron the cat' --email ron@vertex.link
+.. storm-pre:: auth.user.add 'maeve' --email maeve@vertex.link
+.. storm-pre:: auth.role.add interns
+.. storm-pre:: auth.role.add 'cattribution analysts'
+.. storm-pre:: auth.user.grant 'ron the cat' 'cattribution analysts'
+.. storm-pre:: auth.user.grant maeve interns
 
+`Make user Ron the cat co-admin of the "sinkhole.check" macro:`
 
-**Macro permissions examples**
+.. storm-cli:: $user=$lib.auth.users.byname('ron the cat') $iden=$user.iden $lib.macro.grant(sinkhole.check,users,$iden,3)
 
-asdfadsf
+`Deny the 'interns' role access to the "enrich" macro:`
 
+.. storm-cli:: $role=$lib.auth.roles.byname(interns) $iden=$role.iden $lib.macro.grant(enrich,roles,$iden,0)
 
+.. TIP::
+  
+  Easy permissions allow you to assign common permissions based on a corresponding integer value:
+  
+  - 0 - Deny
+  - 1 - Read (including execute)
+  - 2 - Edit (modify content; includes Read)
+  - 3 - Admin (delete the object and modify its permissions; includes Edit)
 
 
 .. _auto-dmon:
@@ -1013,10 +1154,11 @@ Users can interact with dmons using the Storm ``dmon.*``  commands (see the :ref
 .. _Synapse Developer Guide: https://synapse.docs.vertex.link/en/latest/synapse/devguide.html
 .. _Cortex permissions: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#cortex-permissions
 .. _introspection: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_model_introspect.html#data-model
-.. _Synapse Maxmind: https://synapse.docs.vertex.link/projects/maxmind/en/latest/
+.. _Synapse-Maxmind: https://synapse.docs.vertex.link/projects/maxmind/en/latest/
 .. _Synapse-MISP: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _Node Action: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/custom_environ.html#create-a-custom-node-action
 .. _easy permissions: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#easy-permissions
 .. _Synapse-AlienVault: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-alienvault/index.html
 .. _Synapse-Nettools: https://synapse.docs.vertex.link/projects/nettools/en/latest/
+.. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
