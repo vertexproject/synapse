@@ -2650,7 +2650,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for name, valu in vals.items():
             sess.info[name] = valu
 
-    setHttpSessInfo
     @contextlib.contextmanager
     def getTempDir(self):
         tdir = s_common.gendir(self.dirn, 'tmp')
