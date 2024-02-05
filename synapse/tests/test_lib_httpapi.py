@@ -1921,7 +1921,7 @@ class HttpApiTest(s_tests.SynTest):
                 else:
                     vals = {'now': s_common.now(), 'lastip': self.request.connection.context.remote_ip}
 
-                await self._web_sess.setVals(vals)
+                await self._web_sess.update(vals)
 
                 self.sendRestRetn({'iden': s_common.ehex(self._web_sess.iden), 'info': self._web_sess.info})
                 return

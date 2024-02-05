@@ -2640,8 +2640,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
-    @s_nexus.Pusher.onPushAuto('http:sess:set:vals')
-    async def setHttpSessInfoVals(self, iden, vals: dict):
+    @s_nexus.Pusher.onPushAuto('http:sess:update')
+    async def updateHttpSessInfo(self, iden, vals: dict):
         for name, valu in vals.items():
             s_msgpack.isok(valu)
         for name, valu in vals.items():
