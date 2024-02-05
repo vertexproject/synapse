@@ -70,9 +70,9 @@ Scope
 +++++
 
 Automation components vary with respect to where they reside and execute within Synapse; some elements are
-global (within a Cortex) while some reside and execute within a specific :ref:`gloss-view`. Organizations
-that leverage multipe views for their Synapse architecture or that make use of Synapse's fork and merge
-capabilities should refer to the sections below for inforamtion on how views and layers may impact automation.
+global (within a Cortex) while some reside and execute within a specific view. Organizations that leverage
+multipe views for their Synapse architecture or that make use of Synapse's fork and merge capabilities should
+refer to the sections below for inforamtion on how views and layers may impact automation.
 
 .. TIP::
   
@@ -83,10 +83,10 @@ Testing
 +++++++
 
 **Always test your automation before putting it into production.** Storm used in automation can be
-syntactically correct (uses proper Storm), but contain logical errors (fail to do what you want it to do).
-In addition, new automation may interact with existing automation in unexpected ways. Test your automation
-in a development environment (either a separate development instance, or a separate :ref:`gloss-fork` of
-your production view) before implementing it in production.
+syntactically correct (that is, the query uses proper Storm), but contain logical errors (the query does not
+actually do what you want it to do). In addition, new automation may interact with existing automation in
+unexpected ways. Test your automation in a development environment (either a separate development instance,
+or a separate fork of your production view) before implementing it in production.
 
 Use Cases
 +++++++++
@@ -103,7 +103,7 @@ There are varying approaches for "how" to write and implement automation. For ex
 
 - **Location of automation code.** The Storm code run by individual triggers and cron jobs can be written
   and stored as part of the automation itself. This approach helps keep automation "self-contained" and
-  means the Storm executed by a given trigger or cron job is directly introspectable via Storm itself (as a
+  means the Storm executed by a given trigger or cron job is directly introspectable via Storm (as a
   property of ``syn:trigger`` or ``syn:cron`` nodes). However, it may provide less flexibility in
   executing the associated Storm compared with the use of macros.
   
@@ -169,7 +169,7 @@ as appropriate.
 
 Users should keep the :ref:`storm-op-concepts` in mind when writing automation. Automation frequently
 operates on nodes or other Synapse data; knowing what nodes are in the Storm pipeline for your
-automation will help significantlty with troubleshooting any issues.
+automation will help significantly with troubleshooting any issues.
 
 
 .. _auto-triggers-cron:
@@ -210,7 +210,7 @@ Triggers and cron are similar in terms of how they are implemented and managed.
 Cron
 ++++
 
-Cron jobs in Synapse are similar to the well-known cron utility. Cron jobs execute their associated Storm
+Cron in Synapse is similar to the well-known cron utility. Cron jobs execute their associated Storm
 on a specified schedule. Jobs can be written to execute once (using the :ref:`storm-cron-at` command)
 or on a recurring basis (using :ref:`storm-cron-add`).
 
@@ -229,9 +229,10 @@ Configuration and Management
   the :ref:`storm-cron-list` command), Synapse returns all cron jobs in the Cortex, regardless of the view the
   ``cron.list`` command is executed in.
 
-- **Execution.** Cron jobs must be assigned to a specific **view** where they execute. If the view that a cron
-  job runs in is deleted, the cron job **remains** (within the Cortex) but is effectively orphaned until it is
-  assigned to a new view (i.e., using the :ref:`stormlibs-lib-cron-move` library) or deleted if no longer needed.
+- **Execution.** Cron jobs must be assigned to a specific **view** where they execute. By default, this is the
+  view where the cron job is created. If the view that a cron job runs in is deleted, the cron job **remains**
+  (within the Cortex) but is effectively orphaned until it is assigned to a new view (i.e., using the
+  :ref:`stormlibs-lib-cron-move` library) or deleted if no longer needed.
  
 - **Permissions.** Cron jobs execute with the privileges of a designated user (by default, the user who creates the
   cron job). We strongly encourage the use of least privilege; the cron job's account should have the permissions
@@ -256,7 +257,7 @@ Configuration and Management
 
 - **Managing Cron Jobs.** Cron jobs can be created, viewed, and managed using the various Storm :ref:`storm-cron`
   commands, the :ref:`stormprims-cronjob-f527` primitive, or the :ref:`stormlibs-lib-cron` libraries. In :ref:`gloss-optic`,
-  cron jobs can be created and managed using the :ref:`gloss-admin-tool`.
+  cron jobs can also be created and managed using the :ref:`gloss-admin-tool`.
   
   When a cron job is created, Synapse generates a ``syn:cron`` runtime node ("runt node") with some details about
   the cron job (including the associated Storm) available as properties on the node. While runt nodes are typically
@@ -265,7 +266,7 @@ Configuration and Management
   properties will persist after a Cortex restart.
   
   Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
-  limited introspection_ of cron jobs using Storm.
+  limited introspection of cron jobs using Storm.
 
 
 .. _auto-cron-use:
@@ -281,7 +282,7 @@ cases include:
 
 - **Data ingest.** Periodically ingest / synchronize data that you want to load into Synapse on a regular basis.
 
-- **Housekeeping.** Perform one-time or periodic "maintenance" tasks. These may include one-time sweep to "backfill"
+- **Housekeeping.** Perform one-time or periodic "maintenance" tasks. These may include a one-time sweep to "backfill"
   missing data (like IP geolocation data) or a periodic sweep to check and set missing properties (such as tag definitions).
 
 - **Process intensive jobs.** Data enrichment may be resource intensive if it generates a significant number
@@ -303,8 +304,7 @@ cases include:
 Syntax
 ~~~~~~
 
-Cron jobs are created, modified, viewed, enabled, disabled, and deleted using the Storm :ref:`storm-cron`
-commands. In :ref:`gloss-optic`, cron jobs can also be managed through the :ref:`gloss-admin-tool`.
+In Storm, cron jobs are primarily created and managed using the Storm :ref:`storm-cron` commands.
 
 Once a cron job is created, you can modify many of its properties (such as its name and description, or
 the Storm associated with the job). However, you cannot modify other aspects of the job, such as its schedule.
@@ -334,7 +334,7 @@ Examples
 ~~~~~~~~
 
 The examples below illustrate using the Storm :ref:`storm-cron` commands (``cron.at``, ``cron.add``) to create
-new cron jobs. See the help for each command for command options and additional details.
+new cron jobs. See the help for each command for options and additional details.
 
 **One-time (non-recurring) cron job example**
 
@@ -376,7 +376,7 @@ We can also use Storm to lift the cron job as a ``syn:cron`` node:
 
 .. TIP::
   
-  You can optionally set the ``:name`` and ``:doc`` properties of the ``syn:cron`` node using Storm
+  You can optionally set (or modify) the ``:name`` and ``:doc`` properties of the ``syn:cron`` node using Storm
   edit (data modification) syntax to :ref:`prop-add-mod`.
 
 **Hourly cron job example**
@@ -425,10 +425,11 @@ when specific events occur in Synapse's data store. Triggers can fire on the fol
 - Deleting a light edge (``edge:del``).
 
 When creating a trigger, you must specify the type of event the trigger should fire on. In addition, each event
-requires an object (a form, property, tag, or edge) to act upon - that is, if you write a trigger to fire on a
-``node:add`` event, you must specify the type of node (form) associated with the event. For ``tag:*`` and ``edge:*``
-triggers, you have the option to limit the trigger to tags or edges associated with specific forms, or have the
-trigger apply to any / all forms.
+requires a specific object (a form, property, tag, or edge) to act upon. For example, if you write a trigger to
+fire on a ``node:add`` event, you must specify the type of node (form) associated with the event; you cannot
+create a ``node:add`` trigger that fires on "any / all nodes". For ``tag:*`` and ``edge:*`` triggers, you have
+the option to limit the trigger to tags or edges associated with specific forms, or have the trigger apply to
+any / all forms.
 
 .. NOTE::
   
@@ -448,7 +449,8 @@ Configuration and Management
 
 - **Storage.** Triggers are stored within a **view**. If the view that a trigger resides in is deleted,
   **the trigger is also deleted**. Triggers can be moved to another view using the ``move()`` method of
-  the :ref:`stormprims-trigger-f527` primitive.
+  the :ref:`stormprims-trigger-f527` primitive. (In :ref:`gloss-optic`, when using the `View Task Bar`_
+  to merge a view, you are prompted to also merge any triggers in the view.)
   
   Because triggers are stored within individual views, when **viewing** triggers (e.g., with the :ref:`storm-trigger-list`
   command), Synapse returns only those triggers within the current view.
@@ -508,7 +510,7 @@ Configuration and Management
   properties will persist after a Cortex restart.
   
   Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
-  limited introspection_ of triggers using Storm.
+  limited introspection of triggers using Storm.
 
 
 .. _auto-trigger-use:
@@ -528,7 +530,7 @@ or importance). Example use cases for triggers include:
   
   Similarly, when a node is assessed to be malicious (e.g., associated with a threat cluster or malware
   family, and tagged appropriately), you may wish to immediately collect additional information about that
-  node. A trigger that fires on a ``tag:add`` event could be used to call multiple `Power-Ups`_ using a more
+  node. A trigger that fires on a ``tag:add`` event could be used to call multiple Power-Ups using a more
   extensive "enrichment" query (or macro).
 
 - **Encoding analytical logic.** You can use Storm to encode your analysis logic, such as the criteria or decision
@@ -539,7 +541,7 @@ or importance). Example use cases for triggers include:
   an analyst to confirm the assessment (vs. applying it in a fully automated fashion), you can apply a
   "review" tag instead. Alternatively, if additional criteria would better support your assessment (e.g., if
   the DNS A resolution occurred during a particular time window when the sinkhole IP was known to be in use,
-  or if the resolution was based on a live/active DNS lookup vs. a passively observed response, you could modify
+  or if the resolution was based on a live/active DNS lookup vs. a passively observed response), you could modify
   your trigger's Storm to reflect these additional "checks" or criteria.
   
   You can similarly encode logic in Storm to support retrohunting, threat clustering, or other workflows.
@@ -563,8 +565,9 @@ or importance). Example use cases for triggers include:
 Syntax
 ~~~~~~
 
-Triggers are created, modified, viewed, enabled, disabled, and deleted using the Storm :ref:`storm-trigger`
-commands. In :ref:`gloss-optic`, triggers can also be managed through the :ref:`gloss-admin-tool`.
+In Storm, triggers are created, modified, viewed, enabled, disabled, and deleted using the Storm :ref:`storm-trigger`
+commands. In :ref:`gloss-optic`, triggers can also be managed through the :ref:`gloss-admin-tool` or the
+:ref:`gloss-workspaces-tool`.
 
 Once a trigger is created, you can modify many of its properties (such as its name and description, or
 the Storm associated with the trigger). However, you cannot modify the conditions that cause the trigger to
@@ -620,14 +623,11 @@ Examples
 ~~~~~~~~
 
 The examples below illustrate using the Storm :ref:`storm-trigger-add` command to create new triggers. See the
-command help for command options and additional details.
+command help for options and additional details.
 
 Recall from the :ref:`storm-op-concepts` that Storm operations are "chained" together to act as a pipeline
-through which nodes are "sent" and acted upon. The node(s) that cause a trigger to fire are sent inbound
-to the Storm executed by the trigger:
-
-<how does this work for node:del events or :del events in general>
-<what nodes are inbound for edge operations? n1 always? The node "on the left" regardless of the direction of the edge>
+through which nodes are "sent" and acted upon. Regardless of the type of trigger (``prop:set``, ``tag:add``), the
+**node** associated with the trigger event is sent **inbound** to the Storm executed by the trigger.
 
 .. TIP::
   
@@ -639,8 +639,9 @@ to the Storm executed by the trigger:
   as part of that query.
   
   This inline execution can impact the original query's performance, depending on the Storm executed by the
-  trigger and the number of nodes causing the trigger to fire. Specifically, Synapse's interface (the Storm CLI
-  or the Optic UI) will "block" until the Storm executes in full.
+  trigger and the number of nodes causing the trigger to fire. Specifically, if a trigger (and associated Storm)
+  are fired based on an interactive Storm query from a user, Synapse's interface (the Storm CLI or the Optic UI)
+  will "block" until the Storm executes in full.
   
   The ``--async`` option can be used when creating a trigger to specify that the trigger should run
   **in the background** as opposed to inline. This will cause the trigger event to be stored in a
@@ -667,8 +668,8 @@ to the Storm executed by the trigger:
 **prop:set example**
 
 You have identified a handful of email addresses that are consistently used by various sinkhole organizations
-to register their sinkholed FQDNs, and tagged them ``#cno.infra.dns.sink.hole`` to show they are associated
-with sinkhole infrastructure. You want to add a trigger that will fire when any of these email addresses
+to register their sinkholed FQDNs, and tagged the email addresses ``#cno.infra.dns.sink.hole`` to show they are
+associated with sinkhole infrastructure. You want to add a trigger that will fire when any of these email addresses
 is set as the ``:email`` property of an ``inet:whois:contact`` node and tag the associated FQDN as sinkholed
 (``#cno.infra.dns.sink.holed``). Because the trigger is a simple one, you want it to run inline (i.e., you do
 not need the ``--async`` option).
@@ -677,7 +678,7 @@ not need the ``--async`` option).
 
 .. TIP::
   
-  For ``prop:set`` (and ``prop:del``) triggers, the node whose property caused the trigger to fire is sent
+  For ``prop:set`` and ``prop:del`` triggers, the node whose property caused the trigger to fire is sent
   inbound to the trigger's Storm.
 
 We can view the newly created trigger using ``trigger.list``:
@@ -693,30 +694,30 @@ The output of ``trigger.list`` includes the following columns:
 - **async?** - Whether the trigger will run asynchronously / in the background.
 - **cond** - The condition that causes the trigger to fire.
 - **object** - The object the trigger operates on (in this case, the ``:email`` property of an ``inet:whois:contact`` node).
+  May reference multiple objects (e.g., if a ``tag:add`` trigger only fires when the tag is added to a specific form, both
+  the tag and form will be listed).
 - **storm query** - The Storm to be executed when the trigger fires.
-
-.. TIP::
-  
-  <fields displayed may vary dependign on the type of triggeer?>
-  <is object always present?>
-
 
 We can also use Storm to lift the trigger as a ``syn:trigger`` node:
 
 .. storm-cli:: syn:trigger
 
+.. TIP::
+  
+  You can optionally set (or modify) the ``:name`` and ``:doc`` properties of the ``syn:trigger`` node using Storm
+  edit (data modification) syntax to :ref:`prop-add-mod`.
 
 **node:add example**
 
 Whenever an IPv4 node is added to Synapse, you want to immediately retrieve the associated Autonomous System (AS),
 geolocation, and DNS PTR data using various Storm commands.
 
-.. storm-pre:: trigger.add node:add --name 'Basic IPv4 enrichment' --form inet:ipv4 --query { maxmind | nettools.dns }
+.. storm-cli:: trigger.add node:add --name 'Basic IPv4 enrichment' --form inet:ipv4 --query { maxmind | nettools.dns }
 
 
 .. TIP::
   
-  For ``node:add`` (and ``node:del``) triggers, the node that caused the trigger to fire is sent inbound
+  For ``node:add`` and ``node:del`` triggers, the node that caused the trigger to fire is sent inbound
   to the trigger's Storm.
   
   The ``maxmind`` and ``nettools.dns`` commands are added to Synapse by the `Synapse-Maxmind`_ and `Synapse-Nettools`_
@@ -726,8 +727,9 @@ geolocation, and DNS PTR data using various Storm commands.
 **edge:add example**
 
 You are using ``risk:attack`` nodes in Synapse to represent attacks, and linking the attack to key objects used in the attack
-with a ``-(uses)>`` light edge. (For example, a phishing attack can be linked to the relevant email message (``file:bytes``
-node) or email metadata nodes (such as ``inet:email:message``, ``inet:email:message:attachment``, or ``inet:email:message:link``).
+with a ``-(uses)>`` light edge. (For example, a ``risk:attack`` representing a phishing attempt can be linked to the relevant
+email message (``file:bytes`` node) or email metadata nodes (such as ``inet:email:message``, ``inet:email:message:attachment``,
+or ``inet:email:message:link``).
 
 If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp.phish.attach`` to represent a malicious
 attachment used in a phishing attack), you want to pivot to the technique (``ou:technique``) represented by the tag (e.g., 
@@ -740,10 +742,10 @@ attachment used in a phishing attack), you want to pivot to the technique (``ou:
   Recall that edges have a direction, regardless of whether the edge relationship is specified "left to right" or
   "right to left" in Storm (e.g., ``n1 -(uses)> n2`` or ``n2 <(uses)- n1``).
   
-  For ``edge:add`` (and ``edge:del``) triggers, the ``n1`` node(s) (source node(s)) for the edge that caused the
-  trigger to fire are sent inbound to the trigger's Storm.
+  For ``edge:add`` and ``edge:del`` triggers, the ``n1`` node (source node) for the edge that caused the
+  trigger to fire is sent inbound to the trigger's Storm.
 
-The Storm for the trigger above is broken down below:
+The Storm for this trigger is broken down below (with comments) for clarity:
 
 ::
   
@@ -754,7 +756,8 @@ The Storm for the trigger above is broken down below:
   {
      -(uses)> *
      
-     // Filter to the n2 node that was just linked
+     // Filter to the n2 node that was just linked, as referenced by the
+     // trigger-specific $auto.opts.n2iden variable
      +$auto.opts.n2iden
      
      // Pivot to the syn:tag nodes associated with any tags on n2
@@ -774,11 +777,11 @@ When you associate a file with a malware family, you record that assessment on t
 a tag (e.g., ``#cno.mal.redtree`` to represent the 'redtree' malware family). When you tag the file, you want
 to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes for situational awareness.
 
-.. storm-cli:: trigger.add tag:add --name "Push malware tags from file to hashes" --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ +#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Push malware tags from file to hashes' --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ +#$auto.opts.tag ] }
 
 .. TIP::
   
-  For ``tag:add`` (and ``tag:del``) triggers, the node that was tagged (or untagged) to cause the trigger to
+  For ``tag:add`` and ``tag:del`` triggers, the node that was tagged (or untagged) to cause the trigger to
   fire is sent inbound to the trigger's Storm.
   
   The trigger above uses the trigger-specific ``$auto.opts.tag`` variable to reference the tag that caused the
@@ -790,7 +793,7 @@ to automatically copy the tag to the file's MD5, SHA1, SHA256, and SHA512 hashes
 Similar to the example above, when your assessment changes and you want to **remove** a tag from a file
 (``file:bytes`` node), you want to automatically remove that same tag from the file's associated hashes.
 
-.. storm-cli:: trigger.add tag:add --name "Push malware tags from file to hashes" --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ -#$auto.opts.tag ] }
+.. storm-cli:: trigger.add tag:add --name 'Untag hashes when untagging a file' --form file:bytes --tag cno.mal.** --query { tee { :md5 -> hash:md5 } { :sha1 -> hash:sha1 } { :sha256 -> hash:sha256 } { :sha512 -> hash:sha512 } | [ -#$auto.opts.tag ] }
 
 .. TIP::
   
@@ -858,9 +861,10 @@ Configuration and Management
   By default:
   
   - Any user can create a macro; you do not need to explicitly grant permissions for users to create them.
-  - The user who creates a macro is the owner / admin of the macro.
-  - All users can see (read) and execute any macro. If a user executes a macro that performs actions the user
-    does not have permissions to perform on their own, the macro will fail with an ``AuthDeny`` error.
+  - The user who creates a macro is the owner / admin of the macro, and is the only user who can edit,
+    delete, or modify permissions on the macro.
+  - All users can see (read) and execute any macro. If a user attempts to execute a macro that performs
+    actions for which the user does not have permissions, the macro will fail with an ``AuthDeny`` error.
   
   Macro permissions can be modified / managed by using the :ref:`stormlibs-lib-macro-grant` library. Macros
   support Synapse's `easy permissions`_ convention for setting simplified permissions on objects. You must
@@ -902,9 +906,8 @@ Storm each time. The Storm can be as simple or advanced as you like.
 Syntax
 ++++++
 
-Macros are created, modified, viewed, and deleted using the Storm ``macro.*`` commands. See the
-:ref:`storm-macro` command in the :ref:`storm-ref-cmd` document for details. In :ref:`gloss-optic`,
-macros can also be managed through the :ref:`gloss-storm-editor`.
+In Storm, macros are created, modified, viewed, and deleted using the Storm :ref:`storm-macro` commands.
+In :ref:`gloss-optic`, macros can also be managed through the :ref:`gloss-storm-editor`.
 
 Permissions for macros are managed using the :ref:`stormlibs-lib-macro-grant` library.
 
@@ -920,6 +923,8 @@ type than Storm that you have to remember or recreate each time. The examples be
 for illustrative purposes; that said, any Storm that you want to easily and consistently run on a regular
 basis, no matter how "simple" or "complex", is a candidate for a macro (or potentially for other automation).
 
+The examples below show creating macros using the ``macro.set`` command.
+
 
 **Self-contained macro - example**
 
@@ -934,13 +939,10 @@ newly sinkholed FQDNs. To do this, you create a macro called ``sinkhole.check`` 
 - tag the FQDNs for review, including a timestamp so the reviewer knows when the FQDN was added to the set
   of domains for review.
 
-We create the macro using the ``macro.set`` command. (Note: the macro's Storm is also included below for
-readability.)
-
 .. storm-cli:: macro.set sinkhole.check { $now=$lib.time.now() inet:ipv4#cno.infra.dns.sink.hole | alienvault.otx.pdns --yield | -> inet:fqdn :zone -> inet:fqdn -#cno.infra.dns.sink.holed | uniq | nettools.dns | nettools.whois | [ +#int.review.sinkhole=$now ] }
 
-Macro Storm (with line breaks and comments). Note that you can include and save comments within a macro;
-Synapse will ignore comment lines during execution.
+The Storm for this macro is broken down below (with comments) for clarity. (You can include comments within
+a macro; Synapse will ignore comment lines during execution.)
 
 ::
   
@@ -978,9 +980,9 @@ Storm and simply tag the relevant FQDNs as sinkholed vs. requiring analyst revie
 
 .. TIP::
   
-  This macro is "self-contained" (does not expect inbound ndoes) because the macro's Storm lifts the
-  nodes that the macro operates on. (This does not prevent a user from "sending" nodes to the macro - which
-  may cause unexpected effects - but as written, the macro can execute on its own.)
+  This macro is "self-contained" (does not expect inbound ndoes); the macro's Storm lifts the nodes that the
+  macro operates on. (This does not prevent a user from "sending" nodes to the macro - which may cause unexpected
+  effects - but as written, the macro can execute on its own.)
   
   This macro can be executed "on demand" with the ``macro.exec`` command, or could be configured to run
   automatically as a cron job.
@@ -992,7 +994,7 @@ Storm and simply tag the relevant FQDNs as sinkholed vs. requiring analyst revie
 **Macro that takes nodes as input - example**
 
 One of Synapse's strengths is the ability to retrieve data from a wide range of external sources, typically by
-using a Storm command provided by a :ref:`gloss-power-up`. The Storm commands allow an analyst to ingest data
+using a Storm command provided by a `Power-Up`_. The Storm commands allow an analyst to ingest data
 into Synpase and represent disparate data in a consistent manner for review and analysis. An analyst who wants
 to investigate an object (such as an indicator) in Synapse will commonly run multiple Storm commands to retrieve
 data from any / all data sources (a process commonly known as "enrichment").
@@ -1014,10 +1016,10 @@ The content of the macro (with comments):
 
 ::
   
-  /* Filter inbound nodes to supported forms only */
+  // Filter inbound nodes to supported forms only
   +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4)
   
-  /* Switch statement to handle different forms */
+  // Switch statement to handle different forms
   switch $node.form() {
     
     "hash:md5": {
@@ -1034,13 +1036,13 @@ The content of the macro (with comments):
     
     "inet:fqdn": {
         
-        /* For zones */
+        // For FQDN zones
         {
             +:iszone=1 +:issuffix=0
             { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns }
         }
         
-        /* Subdomains */
+        // For FQDN subdomains
         {
             +:iszone=0 +:issuffix=0
             { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns }
@@ -1053,23 +1055,24 @@ The content of the macro (with comments):
         { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns }
     }
     
-    // Default case
+    // Default case for any forms not specified above
     *: {
-        /* Do nothing */
+        // Do nothing
     }
   }
 
 Instead of running multiple Storm commands, an analyst can now run a single macro that will perform enrichment
-by "intelligently" querying all available data sources that can provide information about the indicator.
+by "intelligently" querying all available data sources that can provide information about a particular kind of
+indicator.
 
 .. TIP::
   
   This macro requires nodes as input; the macro's Storm does not lift any nodes to operate on. The initial
   filter statement is provided as basic error checking to ensure only nodes that the macro knows how to process
   are sent to the remaining macro code. (Technically, the final "default" switch option ( ``*: { }`` ) will
-  handle any unknown forms; the filter simply "drops" them earlier in the pipeline. If you **want** unhandled
-  forms to pass through the macro (so they are available for additional Storm operations after the macro
-  finishes), the filter should be removed.)
+  handle any unknown forms; using the filter simply "drops" the nodes earlier in the pipeline. If you **want**
+  any unhandled forms to pass through the macro (so they are available for additional Storm operations after the
+  macro finishes), the filter should be removed.)
   
   This macro can be executed "on demand" with the ``macro.exec`` command. If some condition should cause
   enrichment to occur automatically (e.g., applying a particular tag to a node), the macro could be configured
@@ -1082,17 +1085,17 @@ by "intelligently" querying all available data sources that can provide informat
   
   Macros run inline by default; when a user calls a macro, the full macro code executes to completion. For
   enrichment-type macros, depending on the number of data sources queried and nodes created, enrichment can
-  take some time to run. The macro code can be run asynchronously using the Storm :ref:`storm-background`
-  command. (If the macro is run as a trigger, you can configure the trigger to run asynchronously; see
-  the trigger :ref:`auto-trigger-examples` above.)
+  take some time to run, which can cause the Synapse interface (the Storm CLI or the Optic UI) to "block"
+  for the user until the Storm executes in full. The macro code can be run asynchronously using the Storm
+  :ref:`storm-background` command. This "unblocks" the CLI / UI, but the full set of results from enrichment
+  will not be available until the macro finishes executing.
 
 
 **Modify macro permissions - examples**
 
 You can modify permissions on a macro using the :ref:`stormlibs-lib-macro-grant` library to grant (or revoke)
-basic permission (`easy permissions`_, or "easy perms"). The :ref:`stormlibs-lib-auth-users-byname` and
-:ref:`stormlibs-lib-auth-roles-byname` libraries can be used to obtain a user or role object and retrieve
-the associated identifier (iden).
+access. The :ref:`stormlibs-lib-auth-users-byname` and :ref:`stormlibs-lib-auth-roles-byname` libraries can be
+used to obtain a user or role object and retrieve the associated identifier (iden).
 
 .. storm-pre:: auth.user.add 'ron the cat' --email ron@vertex.link
 .. storm-pre:: auth.user.add 'maeve' --email maeve@vertex.link
@@ -1101,11 +1104,11 @@ the associated identifier (iden).
 .. storm-pre:: auth.user.grant 'ron the cat' 'cattribution analysts'
 .. storm-pre:: auth.user.grant maeve interns
 
-`Make user Ron the cat co-admin of the "sinkhole.check" macro:`
+`Make user "ron the cat" co-admin of the "sinkhole.check" macro:`
 
 .. storm-cli:: $user=$lib.auth.users.byname('ron the cat') $iden=$user.iden $lib.macro.grant(sinkhole.check,users,$iden,3)
 
-`Deny the 'interns' role access to the "enrich" macro:`
+`Deny the "interns" role access to the "enrich" macro:`
 
 .. storm-cli:: $role=$lib.auth.roles.byname(interns) $iden=$role.iden $lib.macro.grant(enrich,roles,$iden,0)
 
@@ -1145,17 +1148,16 @@ contains the following keys:
 Syntax
 ++++++
 
-Users can interact with dmons using the Storm ``dmon.*``  commands (see the :ref:`storm-dmon` command in the
-:ref:`storm-ref-cmd` document for details) and the :ref:`stormlibs-lib-dmon` Storm libraries.
+Users can interact with dmons using the Storm :ref:`storm-dmon` commands and the :ref:`stormlibs-lib-dmon` Storm libraries.
 
 .. _Synapse Admin Guide: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html
 .. _Power-Up: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _Rapid Power-Up Development: https://synapse.docs.vertex.link/en/latest/synapse/devguides/power-ups.html
 .. _Synapse Developer Guide: https://synapse.docs.vertex.link/en/latest/synapse/devguide.html
 .. _Cortex permissions: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#cortex-permissions
-.. _introspection: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_model_introspect.html#data-model
 .. _Synapse-Maxmind: https://synapse.docs.vertex.link/projects/maxmind/en/latest/
 .. _Synapse-MISP: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
+.. _View Task Bar: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/quick_tour.html#view-task-bar
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _Node Action: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/custom_environ.html#create-a-custom-node-action
 .. _easy permissions: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#easy-permissions
