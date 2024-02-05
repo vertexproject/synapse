@@ -1904,10 +1904,9 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(roles, {'all'})
 
     async def test_http_sess_setvals(self):
+
         class ValsHandler(s_httpapi.StreamHandler):
-            '''
-            data_received must be implemented
-            '''
+
             async def get(self):
 
                 iden = await self.useriden()
