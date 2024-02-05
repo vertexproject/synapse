@@ -3529,23 +3529,6 @@ class Layer(s_nexus.Pusher):
         await self.fini()
         shutil.rmtree(self.dirn, ignore_errors=True)
 
-def getFlatEdits(nodeedits):
-
-    editsbynode = collections.defaultdict(list)
-
-    # flatten out conditional node edits
-    def addedits(nid, form, edits):
-        nkey = (nid, form)
-        for edittype, editinfo, condedits in edits:
-            editsbynode[nkey].append((edittype, editinfo))
-            for condedit in condedits:
-                addedits(*condedit)
-
-    for nid, form, edits in nodeedits:
-        addedits(nid, form, edits)
-
-    return [(k[0], k[1], v) for (k, v) in editsbynode.items()]
-
 def getNodeEditPerms(nodeedits):
     '''
     Yields (offs, perm) tuples that can be used in user.allowed()

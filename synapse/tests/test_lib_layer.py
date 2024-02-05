@@ -1044,18 +1044,6 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('.created')
             self.len(0, nodes)
 
-    async def test_layer_flat_edits(self):
-        nodeedits = (
-            (b'asdf', 'test:junk', (
-                (s_layer.EDIT_NODE_ADD, (10, s_layer.STOR_TYPE_U64), (
-                    (b'qwer', 'test:junk', (
-                        (s_layer.EDIT_NODE_ADD, (11, s_layer.STOR_TYPE_U64), ()),
-                    )),
-                )),
-            )),
-        )
-        self.len(2, s_layer.getFlatEdits(nodeedits))
-
     async def test_layer_clone(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
