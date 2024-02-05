@@ -7177,6 +7177,17 @@ class View(Prim):
                   'args': (),
                   'returns': {'type': 'null', }}},
 
+        {'name': 'getMergeRequestSummary',
+         'desc': 'Return the merge request, votes, parent quorum definition, and current layer offset.',
+         'type': {'type': 'function', '_funcname': 'getMergeRequestSummary',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The summary info.'}}},
+
+        {'name': 'getMergeRequest', 'desc': 'Return the existing merge request or null.',
+         'type': {'type': 'function', '_funcname': 'getMergeRequest',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The merge request.'}}},
+
         {'name': 'setMergeRequest', 'desc': 'Setup a merge request for the view in the current state.',
          'type': {'type': 'function', '_funcname': 'setMergeRequest',
                   'args': (
@@ -7188,6 +7199,7 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': 'delMergeRequest',
                   'args': (),
                   'returns': {'type': 'dict', 'desc': 'The deleted merge request.'}}},
+
         {'name': 'setMergeVote', 'desc': 'Register a vote for or against the current merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVote',
                   'args': (
@@ -7197,6 +7209,7 @@ class View(Prim):
                        'desc': 'A comment attached to the vote.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The vote record that was created.'}}},
+
         {'name': 'delMergeVote', 'desc': '''
             Remove a previously created merge vote.
 
@@ -7256,6 +7269,8 @@ class View(Prim):
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
             'setMergeVote': self.setMergeVote,
+            'getMergeRequest': self.getMergeRequest,
+            'getMergeRequestSummary': self.getMergeRequestSummary,
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
         }
@@ -7515,6 +7530,28 @@ class View(Prim):
         view = self._reqView()
         async for merge in view.getMerges():
             yield merge
+
+    async def getMergeRequestSummary(self):
+
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        retn = {
+            'quorum': view.reqParentQuorum(),
+            'merge': view.getMergeRequest(),
+            'merging': view.merging,
+            'votes': [vote async for vote in view.getMergeVotes()],
+            'offset': await view.layers[0].getEditIndx(),
+        }
+        return retn
+
+    async def getMergeRequest(self):
+
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        quorum = view.reqParentQuorum()
+        return view.getMergeRequest()
 
     async def delMergeRequest(self):
 
