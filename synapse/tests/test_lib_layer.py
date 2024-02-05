@@ -275,7 +275,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            errors = [e async for e in layr.verifyAllBuids()]
+            errors = [e async for e in layr.verifyAllNids()]
             self.len(0, errors)
 
             errors = [e async for e in layr.verifyAllProps()]
