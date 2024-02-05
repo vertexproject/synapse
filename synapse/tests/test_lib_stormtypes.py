@@ -6436,7 +6436,11 @@ words\tword\twrd'''
             await core.stormlist('[ inet:ipv4=1.2.3.0/20 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
-            waiter = core.waiter(8, 'cell:beholder')
+            nevents = 8
+            if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+                # view:merge:vote:set fires twice
+                nevents = nevents + 1
+            waiter = core.waiter(nevents, 'cell:beholder')
 
             opts = {'view': fork.iden, 'user': visi.iden}
             await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
@@ -6499,8 +6503,10 @@ words\tword\twrd'''
             async with self.getTestCore(conf={'mirror': core.getLocalUrl()}, dirn=dirn) as mirror:
                 await mirror.sync()
                 view = mirror.getView(fork.iden)
+                layr = view.layers[0]
                 await mirror.promote(graceful=False)
-                self.true(await view.waitfini(3))
+                self.true(await view.waitfini(6))
+                self.true(await layr.waitfini(6))
                 self.len(1, await mirror.nodes('inet:ipv4=5.5.5.5'))
 
             msgs = await core.stormlist('$lib.view.get().set(quorum, $lib.null)')
