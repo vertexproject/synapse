@@ -1947,6 +1947,11 @@ class HttpApiTest(s_tests.SynTest):
                     data = await resp.json()
                     result = data.get('result')
                     iden = s_common.uhex(result.get('iden'))
+                    info = result.get('info')
+                    self.isin('now', info)
+                    self.isin('lastip', info)
+                    self.isin('user', info)
+                    self.isin('username', info)
 
                 cell_sess = core.sessions.get(iden)
                 self.eq(cell_sess.info, result.get('info'))
