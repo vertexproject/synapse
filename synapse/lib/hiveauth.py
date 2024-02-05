@@ -986,13 +986,19 @@ class HiveUser(HiveRuler):
                     return True
 
                 for allow, path in info.get('rules', ()):
-                    if path in baseperms or perm == path[:permlen]:
+                    if path in baseperms:
                         return allow
+
+                    if perm == path[:permlen] and allow:
+                        return True
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
-            if path in baseperms or perm == path[:permlen]:
+            if path in baseperms:
                 return allow
+
+            if perm == path[:permlen] and allow:
+                return True
 
         # 3. check authgate role rules
         if gateiden is not None:
@@ -1004,14 +1010,20 @@ class HiveUser(HiveRuler):
                     continue
 
                 for allow, path in info.get('rules', ()):
-                    if path in baseperms or perm == path[:permlen]:
+                    if path in baseperms:
                         return allow
+
+                    if perm == path[:permlen] and allow:
+                        return True
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
-                if path in baseperms or perm == path[:permlen]:
+                if path in baseperms:
                     return allow
+
+                if perm == path[:permlen] and allow:
+                    return True
 
         return default
 
