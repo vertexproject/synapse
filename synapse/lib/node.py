@@ -168,14 +168,6 @@ class Node(NodeBase):
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.delEdge(verb, n2nid)
 
-#        n2iden = s_common.ehex(self.snap.core.getBuidByNid(n2nid))
-#        nodeedits = (
-#            (self.buid, self.form.name, (
-#                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
-#            )),
-#        )
-#        await self.snap.saveNodeEdits(nodeedits)
-
     async def iterEdgesN1(self, verb=None):
         async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb):
             yield edge
@@ -416,7 +408,7 @@ class Node(NodeBase):
             return ()
 
         edits = (
-            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
+            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype)),
         )
         return edits
 
@@ -631,11 +623,11 @@ class Node(NodeBase):
         for _, subtag in todel:
 
             edits.extend(self._getTagPropDel(subtag))
-            edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
+            edits.append((s_layer.EDIT_TAG_DEL, (subtag, None)))
 
         edits.extend(self._getTagPropDel(name))
         if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
-            edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
+            edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
 
         return edits
 
@@ -660,7 +652,7 @@ class Node(NodeBase):
                 continue
 
             valu = self.getTagProp(tag, prop)
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, valu, prop.type.stortype), ()))
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, valu, prop.type.stortype)))
 
         return edits
 
@@ -739,7 +731,7 @@ class Node(NodeBase):
             return False
 
         edits = (
-            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
+            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
         )
 
         await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
@@ -812,7 +804,7 @@ class Node(NodeBase):
             edits.extend(await self._getPropDelEdits(name, init=True))
 
         edits.append(
-            (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
+            (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype)),
         )
 
         await self.snap.saveNodeEdits(((self.nid, formname, edits),))
@@ -837,7 +829,7 @@ class Node(NodeBase):
         retn = await self.snap.getNodeData(self.nid, name)
 
         edits = (
-            (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
+            (s_layer.EDIT_NODEDATA_DEL, (name, None)),
         )
         await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
 

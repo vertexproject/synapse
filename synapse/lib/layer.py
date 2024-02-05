@@ -2445,10 +2445,13 @@ class Layer(s_nexus.Pusher):
         if sode.get('tagprops'):
             return False
 
-        if self.dataslab.prefexists(nid, self.nodedata):
+        if sode.get('n1verbs'):
             return False
 
-        if self.layrslab.prefexists(nid, db=self.edgesn1):
+        if sode.get('n2verbs'):
+            return False
+
+        if self.dataslab.prefexists(nid, self.nodedata):
             return False
 
         # no more refs in this layer.  time to pop it...
@@ -3009,20 +3012,22 @@ class Layer(s_nexus.Pusher):
 
         n2sode = self._genStorNode(n2nid)
 
-        if (newvalu := sode['n1verbs'].get(verb, 0) - 1) == 0:
+        newvalu = sode['n1verbs'].get(verb, 0) - 1
+        if newvalu == 0:
             sode['n1verbs'].pop(verb)
+            if not self.mayDelNid(nid, sode):
+                self.dirty[nid] = sode
         else:
-            sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) - 1
-
-        if not self.mayDelNid(nid, sode):
+            sode['n1verbs'][verb] = newvalu
             self.dirty[nid] = sode
 
-        if (newvalu := n2sode['n2verbs'].get(verb, 0) - 1) == 0:
+        newvalu = n2sode['n2verbs'].get(verb, 0) - 1
+        if newvalu == 0:
             n2sode['n2verbs'].pop(verb)
+            if not self.mayDelNid(n2nid, n2sode):
+                self.dirty[n2nid] = n2sode
         else:
-            n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) - 1
-
-        if not self.mayDelNid(n2nid, n2sode):
+            n2sode['n2verbs'][verb] = newvalu
             self.dirty[n2nid] = n2sode
 
     async def getEdgeVerbs(self):
@@ -3052,9 +3057,14 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(nid + n2nid, venc, db=self.edgesn1n2)
 
             n2sode = self._genStorNode(n2nid)
-            n2sode['n2verbs'][venc] = n2sode['n2verbs'].get(venc, 0) - 1
-
-            self.dirty[n2nid] = n2sode
+            newvalu = n2sode['n2verbs'].get(venc, 0) - 1
+            if newvalu == 0:
+                n2sode['n2verbs'].pop(venc)
+                if not self.mayDelNid(n2nid, n2sode):
+                    self.dirty[n2nid] = n2sode
+            else:
+                n2sode['n2verbs'][venc] = newvalu
+                self.dirty[n2nid] = n2sode
 
     def getStorIndx(self, stortype, valu):
 
@@ -3463,9 +3473,7 @@ class Layer(s_nexus.Pusher):
                             or (etyp in (EDIT_TAGPROP_SET, EDIT_TAGPROP_DEL)
                                 and (vals[1] in tagpropm or f'{vals[0]}:{vals[1]}' in tagpropm))):
 
-                        # This was returning conditional edits, not meta, but nothing
-                        # we have uses that
-                        yield (curoff, (nid, form, etyp, vals, ()))
+                        yield (curoff, (nid, form, etyp, vals))
 
             await asyncio.sleep(0)
 

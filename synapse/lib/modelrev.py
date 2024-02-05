@@ -50,7 +50,7 @@ class ModelRev:
 
                     nodeedits.append(
                         (nid, formname, (
-                            (s_layer.EDIT_PROP_SET, (propreln, uniqvalu, propvalu, stortype), ()),
+                            (s_layer.EDIT_PROP_SET, (propreln, uniqvalu, propvalu, stortype)),
                         )),
                     )
 
@@ -152,8 +152,8 @@ class ModelRev:
                 except s_exc.BadTypeValu as e:
                     nodeedits.append(
                         (nid, prop.form.name, (
-                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
-                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None)),
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype)),
                         )),
                     )
                     oldm = e.errinfo.get('mesg')
@@ -167,7 +167,7 @@ class ModelRev:
 
                 nodeedits.append(
                     (nid, prop.form.name, (
-                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype)),
                     )),
                 )
 
@@ -205,7 +205,7 @@ class ModelRev:
 
                 nodeedits.append(
                     (nid, prop.form.name, (
-                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype), ()),
+                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype)),
                     )),
                 )
 
@@ -311,7 +311,7 @@ class ModelRev:
                         if subcurv == subnorm:
                             continue
 
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype)))
 
                     if not edits: # pragma: no cover
                         continue

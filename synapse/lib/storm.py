@@ -3906,7 +3906,7 @@ class MergeCmd(Cmd):
                             if name == '.created':
                                 if self.opts.apply:
                                     protonode.props['.created'] = valu
-                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
                                 continue
 
                             isset = False
@@ -3930,7 +3930,7 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                         else:
                             await protonode.set(name, valu)
-                            subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                            subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
 
                 if self.opts.apply and protonode is None:
                     protonode = await editor.addNode(form, node.ndef[1], norminfo={})
@@ -3950,7 +3950,7 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
                         else:
                             await protonode.addTag(tag, valu)
-                            subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
+                            subs.append((s_layer.EDIT_TAG_DEL, (tag, valu)))
 
                     for tag, tagdict in sode.get('tagprops', {}).items():
 
@@ -3964,7 +3964,7 @@ class MergeCmd(Cmd):
                                 await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                             else:
                                 await protonode.setTagProp(tag, prop, valu)
-                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
 
                 if not onlytags or form == 'syn:tag':
 
@@ -3975,7 +3975,7 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                         else:
                             await protonode.setData(name, valu)
-                            subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                            subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu)))
                             if len(subs) >= 1000:
                                 await asyncio.sleep(0)
 
@@ -3985,12 +3985,12 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
                         else:
                             await protonode.addEdge(name, n2nid)
-                            subs.append((s_layer.EDIT_EDGE_DEL, (name, n2nid), ()))
+                            subs.append((s_layer.EDIT_EDGE_DEL, (name, n2nid)))
                             if len(subs) >= 1000:
                                 await asyncio.sleep(0)
 
                 if delnode:
-                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                    subs.append((s_layer.EDIT_NODE_DEL, valu))
 
                 await sync()
 
@@ -4176,7 +4176,7 @@ class MoveNodesCmd(Cmd):
                         await runt.printf(f'{self.destlayr} add {nodeiden} {node.form.name} = {valurepr}')
                         await runt.printf(f'{layr} delete {nodeiden} {node.form.name} = {valurepr}')
                     else:
-                        self.adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                        self.adds.append((s_layer.EDIT_NODE_ADD, valu))
                         delnodes.append((layr, valu))
 
             await self._moveProps(node, sodes, meta)
@@ -4186,7 +4186,7 @@ class MoveNodesCmd(Cmd):
             await self._moveEdges(node, meta)
 
             for layr, valu in delnodes:
-                edit = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu, ())])]
+                edit = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu)])]
                 await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
             # we may yield the same node because the edits are reflected in it now...
@@ -4323,7 +4323,7 @@ class MoveNodesCmd(Cmd):
                         valurepr = tptype.repr(valu)
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}')
                     else:
-                        self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype), ()))
+                        self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype)))
 
         for (tag, prop), valu in movevals.items():
             tptype = self.runt.snap.core.model.tagprop(prop).type
@@ -4332,7 +4332,7 @@ class MoveNodesCmd(Cmd):
                 mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
                 await self.runt.printf(mesg)
             else:
-                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, tptype.stortype), ()))
+                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, tptype.stortype)))
 
         await self._sync(node, meta)
 
@@ -4351,7 +4351,7 @@ class MoveNodesCmd(Cmd):
                     else:
                         (retn, valu) = await self.lyrs[layr].getNodeData(node.nid, name)
                         if retn:
-                            self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                            self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
                             ecnt += 1
 
                         await asyncio.sleep(0)
@@ -4362,7 +4362,7 @@ class MoveNodesCmd(Cmd):
                     if not self.opts.apply:
                         await self.runt.printf(f'{layr} delete {nodeiden} {form} DATA {name}')
                     else:
-                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name, None)))
                         ecnt += 1
 
                 if ecnt >= 1000:
@@ -4386,8 +4386,8 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({verb})> {dest}')
                         await self.runt.printf(f'{iden} delete {nodeiden} {form} +({verb})> {dest}')
                     else:
-                        self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, nid), ()))
-                        self.subs[iden].append((s_layer.EDIT_EDGE_DEL, (verb, nid), ()))
+                        self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, nid)))
+                        self.subs[iden].append((s_layer.EDIT_EDGE_DEL, (verb, nid)))
                         ecnt += 2
 
                     if ecnt >= 1000:
