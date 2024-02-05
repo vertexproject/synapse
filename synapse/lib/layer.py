@@ -2076,7 +2076,7 @@ class Layer(s_nexus.Pusher):
             return None
 
         sode = collections.defaultdict(dict)
-        sode.update(s_msgpack.un(byts))
+        sode |= s_msgpack.un(byts)
 
         self.nidcache[nid] = sode
 
@@ -3050,6 +3050,9 @@ class Layer(s_nexus.Pusher):
             yield (lval[:8], verb, lval[8:])
 
     async def _delNodeEdges(self, nid, sode):
+
+        sode.pop('n1verbs', None)
+
         for lkey, n2nid in self.layrslab.scanByPref(nid, db=self.edgesn1):
             await asyncio.sleep(0)
             venc = lkey[8:]
