@@ -3437,14 +3437,13 @@ class Layer(s_nexus.Pusher):
 
     async def syncIndexEvents(self, offs, matchdef, wait=True):
         '''
-        Yield (offs, (nid, form, ETYPE, VALS, META)) tuples from the nodeedit log starting from the given offset.
+        Yield (offs, (nid, form, ETYPE, VALS)) tuples from the nodeedit log starting from the given offset.
         Only edits that match the filter in matchdef will be yielded.
 
         Notes:
 
             ETYPE is an constant EDIT_* above.  VALS is a tuple whose format depends on ETYPE, outlined in the comment
-            next to the constant.  META is a dict that may contain keys 'user' and 'time' to represent the iden of the
-            user that initiated the change, and the time that it took place, respectively.
+            next to the constant.
 
             Additionally, every 1000 entries, an entry (offs, (None, None, EDIT_PROGRESS, ())) message is emitted.
 
