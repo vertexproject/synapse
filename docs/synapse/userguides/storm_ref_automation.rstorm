@@ -72,7 +72,7 @@ Scope
 Automation components vary with respect to where they reside and execute within Synapse; some elements are
 global (within a Cortex) while some reside and execute within a specific view. Organizations that leverage
 multiple views for their Synapse architecture or that make use of Synapse's fork and merge capabilities should
-refer to the sections below for inforamtion on how views and layers may impact automation.
+refer to the sections below for information on how views and layers may impact automation.
 
 .. TIP::
   
