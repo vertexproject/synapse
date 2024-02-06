@@ -548,7 +548,7 @@ or importance). Example use cases for triggers include:
 
 - **Automating repetitive tasks.** Any process that analysts identify as repetitive may benefit from automation.
   Analysts may identify cases where, when they perform a specific action in Synapse, they always perform several
-  additional actions. For example, when an analyst tags particular node (such as a ``file:bytes`` node), they always
+  additional actions. For example, when an analyst tags a particular node (such as a ``file:bytes`` node), they always
   want to apply the same tag to a set of "related" nodes (such as the ``hash:md5``, ``hash:sha1``, etc. that
   represent the file's hashes). Similarlry, if a ``file:bytes`` node queries a "known bad" FQDN (via an ``inet:dns:request`` node),
   analysts also want to apply the tag from the FQDN to both the DNS request and the file. Using a trigger (on a ``tag:add``
