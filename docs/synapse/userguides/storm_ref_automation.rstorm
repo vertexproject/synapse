@@ -436,9 +436,9 @@ Newly created trigger as a ``syn:trigger`` node:
   tagged node’s form (e.g., perform different enrichment / call different third-party services based on whether
   the node is an FQDN, an IPv4, an email address, a URL, etc.).
   
-.. storm-pre:: $pkg=({'name': 'docs', version='0.0.1', 'commands': (({'name': 'whois', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=({'name': 'docs', version='0.0.1', 'commands': (({'name': 'malware', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=({'name': 'docs', version='0.0.1', 'commands': (({'name': 'revwhois', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', version: '0.0.1', 'commands': (({'name': 'whois', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', version: '0.0.1', 'commands': (({'name': 'malware', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', version: '0.0.1', 'commands': (({'name': 'revwhois', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: macro.set enrich ${ switch $node.form() {/* You can put comments in macros!!! */ "inet:fqdn": { | whois | pdns | malware } "inet:ipv4": { | pdns } "inet:email": { | revwhois } *: { } } }
   
 .. storm-cli:: trigger.add --name "enrich osint" tag:add --tag osint --query { | macro.exec enrich }
