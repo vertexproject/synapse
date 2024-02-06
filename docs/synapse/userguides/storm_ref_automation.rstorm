@@ -361,7 +361,7 @@ The output of ``cron.list`` includes the following columns:
 - **rpt?** - whether the job is scheduled to repeat ( Y/N ).
 - **now?** - whether the job is currently executing ( Y/N ).
 - **err?** - whether the last job execution encountered an error ( X or empty ).
-- **# start** - the number of times the job has started / executed (since the last restart of Syanpse).
+- **# start** - the number of times the job has started / executed (since the last restart of Synapse).
 - **last start** - the date and time the job last started (or attempted to start).
 - **last end** - the date and time the job last finished (or exited).
 - **query** - the Storm query executed by the cron job.
