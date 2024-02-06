@@ -1085,13 +1085,6 @@ class LibBase(Lib):
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the set.', },
                   ),
                   'returns': {'type': 'set', 'desc': 'The new set.', }}},
-        {'name': 'dict', 'desc': 'Get a Storm Dict object.',
-         'type': {'type': 'function', '_funcname': '_dict',
-                  'args': (
-                      {'name': '**kwargs', 'type': 'any',
-                       'desc': 'Initial set of keyword argumetns to place into the dict.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
          'type': {'type': 'function', '_funcname': '_exit',
                   'args': (
@@ -1377,7 +1370,6 @@ class LibBase(Lib):
             'max': self._max,
             'set': self._set,
             'copy': self._copy,
-            'dict': self._dict,
             'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
@@ -1678,14 +1670,92 @@ class LibBase(Lib):
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
-    async def _dict(self, **kwargs):
-        return Dict(kwargs)
-
-    @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
+
+@registry.registerLib
+class LibDict(Lib):
+    '''
+    A Storm Library for interacting with dictionaries.
+    '''
+    _storm_locals = (
+        {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
+         'type': {'type': 'function', '_funcname': '_keys',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'List of keys in the specified dictionary.', }}},
+        {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
+         'type': {'type': 'function', '_funcname': '_pop',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                      {'name': 'key', 'type': 'str', 'desc': 'The key name of the value to pop.'},
+                      {'name': 'default', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
+        {'name': 'update', 'desc': 'Update the specified dictionary with keys/values from another dictionary.',
+         'type': {'type': 'function', '_funcname': '_update',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The target dictionary (update to).'},
+                      {'name': 'other', 'type': 'dict', 'desc': 'The source dictionary (update from).'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'values', 'desc': 'Retrieve a list of values in the specified dictionary.',
+         'type': {'type': 'function', '_funcname': '_values',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'List of values in the specified dictionary.', }}},
+    )
+    _storm_lib_path = ('dict',)
+
+    def getObjLocals(self):
+        return {
+            'keys': self._keys,
+            'pop': self._pop,
+            'update': self._update,
+            'values': self._values,
+        }
+
+    @stormfunc(readonly=True)
+    async def _keys(self, valu):
+        valu = await toprim(valu)
+        return list(valu.keys())
+
+    @stormfunc(readonly=True)
+    async def _pop(self, valu, key, default=undef):
+        real = await toprim(valu)
+        key = await tostr(key)
+
+        if key not in real:
+            if default == undef:
+                mesg = f'Key {key} does not exist in dictionary.'
+                raise s_exc.BadArg(mesg=mesg)
+            return await toprim(default)
+
+        ret = real.get(key)
+        await valu.setitem(key, undef)
+        return ret
+
+    @stormfunc(readonly=True)
+    async def _update(self, valu, other):
+        other = await toprim(other)
+
+        for k, v in other.items():
+            await valu.setitem(k, v)
+
+    @stormfunc(readonly=True)
+    async def _values(self, valu):
+        valu = await toprim(valu)
+        return list(valu.values())
+
+    async def __call__(self, **kwargs):
+        s_common.deprecated('$lib.dict()', curv='2.160.0')
+        await self.runt.snap.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
+        return Dict(kwargs)
 
 @registry.registerLib
 class LibPs(Lib):
@@ -1700,7 +1770,7 @@ class LibPs(Lib):
                        'desc': 'The prefix of the task to stop. '
                                'Tasks will only be stopped if there is a single prefix match.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': ' True if the task was cancelled, False otherwise.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.', }}},
         {'name': 'list', 'desc': 'List tasks the current user can access.',
          'type': {'type': 'function', '_funcname': '_list',
                   'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
@@ -1872,7 +1942,7 @@ class LibAxon(Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
-            Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
+            Retrieve the target URL using the wget() function and construct an inet:urlfile node from the response.
 
             Notes:
                 This accepts the same arguments as ``$lib.axon.wget()``.
@@ -3207,7 +3277,7 @@ class Pipe(StormType):
         {'name': 'put', 'desc': 'Add a single item to the Pipe.',
          'type': {'type': 'function', '_funcname': '_methPipePut',
                   'args': (
-                      {'name': 'item', 'type': 'any', 'desc': ' An object to add to the Pipe.', },
+                      {'name': 'item', 'type': 'any', 'desc': 'An object to add to the Pipe.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'puts', 'desc': 'Add a list of items to the Pipe.',
@@ -5536,7 +5606,7 @@ class NodeData(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the data to get.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The stored node data.', }}},
-        {'name': 'pop', 'desc': ' Pop (remove) a the Node data from the Node.',
+        {'name': 'pop', 'desc': 'Pop (remove) a the Node data from the Node.',
          'type': {'type': 'function', '_funcname': '_popNodeData',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the data to remove from the node.', },
