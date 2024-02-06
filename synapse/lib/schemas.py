@@ -118,7 +118,7 @@ _CronJobSchema = {
     },
     'additionalProperties': False,
     'required': ['creator', 'storm'],
-    'dependencices': {
+    'dependencies': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
     },
@@ -169,6 +169,7 @@ reqValidView = s_config.getJsValidator({
         'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
         'nomerge': {'type': 'boolean'},
         'merging': {'type': 'boolean'},
         'layers': {

@@ -346,9 +346,11 @@ class AgendaTest(s_t_utils.SynTest):
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
+                strt = await core.nexsroot.index()
                 # bypass the API because it would actually syntax check
                 unixtime += 60
                 self.eq((11, 'boom'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                await core.nexsroot.waitOffs(strt + 5)
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, False)
@@ -399,6 +401,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.add(cdef)
 
                 # Lock user and advance time
+                strt = await core.nexsroot.index()
+
                 await visi.setLocked(True)
 
                 with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
@@ -407,6 +411,8 @@ class AgendaTest(s_t_utils.SynTest):
                     # pump the ioloop via sleep(0) until the log message appears
                     while not stream.wait(0.1):
                         await asyncio.sleep(0)
+
+                    await core.nexsroot.waitOffs(strt + 4)
 
                     self.eq(2, appt.startcount)
 
@@ -579,6 +585,7 @@ class AgendaTest(s_t_utils.SynTest):
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
             self.eq(defview.iden, jobs[0]['view'])
+            self.nn(jobs[0].get('created'))
 
             core.agenda._addTickOff(60)
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
@@ -799,6 +806,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                     nodes = await core01.nodes('syn:cron')
                     self.len(1, nodes)
+                    self.nn(nodes[0].props.get('.created'))
                     self.eq(nodes[0].props.get('name'), 'foo')
                     self.eq(nodes[0].props.get('doc'), 'bar')
 

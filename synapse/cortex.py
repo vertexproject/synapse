@@ -1080,7 +1080,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef = s_msgpack.un(byts)
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1091,7 +1092,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchName(mesg=f'Macro name not found: {name}')
 
         if user is not None:
-            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+            mesg = f'User requires read permission on macro: {name}.'
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ, mesg=mesg)
 
         return mdef
 
@@ -1645,7 +1647,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         if user is not None:
-            self._reqEasyPerm(gdef, user, level)
+            mesg = f'User requires {s_cell.permnames.get(level)} permission on graph: {iden}.'
+            self._reqEasyPerm(gdef, user, level, mesg=mesg)
 
         return gdef
 
@@ -5304,7 +5307,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
 
@@ -5360,7 +5363,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
@@ -5387,7 +5390,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
@@ -5415,7 +5418,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
@@ -5939,6 +5942,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if not cdef.get('iden'):
             cdef['iden'] = s_common.guid()
+
+        cdef['created'] = s_common.now()
 
         opts = {'user': cdef['creator'], 'view': cdef.get('view')}
 

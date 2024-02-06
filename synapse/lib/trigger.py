@@ -49,6 +49,7 @@ TrigSchema = {
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
         'enabled': {'type': 'boolean'},
+        'created': {'type': 'integer', 'minimum': 0},
     },
     'additionalProperties': True,
     'required': ['iden', 'user', 'storm', 'enabled'],
@@ -594,6 +595,7 @@ class Trigger:
             'storm': self.tdef.get('storm'),
             'enabled': self.tdef.get('enabled'),
             'user': self.tdef.get('user'),
+            '.created': self.tdef.get('created')
         }
 
         tag = self.tdef.get('tag')

@@ -2640,6 +2640,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
+    @s_nexus.Pusher.onPushAuto('http:sess:update')
+    async def updateHttpSessInfo(self, iden, vals: dict):
+        for name, valu in vals.items():
+            s_msgpack.isok(valu)
+        for name, valu in vals.items():
+            self.sessstor.set(iden, name, valu)
+        sess = self.sessions.get(iden)
+        for name, valu in vals.items():
+            sess.info[name] = valu
+
     @contextlib.contextmanager
     def getTempDir(self):
         tdir = s_common.gendir(self.dirn, 'tmp')
@@ -3948,6 +3958,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'aha': {
+                    'name': self.conf.get('aha:name'),
+                    'leader': self.conf.get('aha:leader'),
+                    'network': self.conf.get('aha:network'),
+                }
             },
             'features': {
                 'tellready': True,
