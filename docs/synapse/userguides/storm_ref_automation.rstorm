@@ -396,7 +396,7 @@ You want to create a cron job that will run every hour to download the latest MI
 
 **Custom schedule example**
 
-Because Syanpse is continually updated with new data, you want to periodically check for any new files of interest
+Because Synapse is continually updated with new data, you want to periodically check for any new files of interest
 that have not yet been identified by an analyst. Specifically, you want to look for files (``file:bytes`` nodes)
 that make DNS queries (``inet:dns:request``) for "known bad" FQDNs (e.g., tagged ``#cno.mal``) where the files
 have not yet been tagged. You want to run the job three times a week (every Tuesday, Thursday, and Saturday at
