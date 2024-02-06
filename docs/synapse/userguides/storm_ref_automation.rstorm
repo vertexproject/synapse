@@ -102,10 +102,8 @@ Design
 There are varying approaches for "how" to write and implement automation. For example:
 
 - **Location of automation code.** The Storm code run by individual triggers and cron jobs can be written
-  and stored as part of the automation itself. This approach helps keep automation "self-contained" and
-  means the Storm executed by a given trigger or cron job is directly introspectable via Storm (as a
-  property of ``syn:trigger`` or ``syn:cron`` nodes). However, it may provide less flexibility in
-  executing the associated Storm compared with the use of macros.
+  and stored as part of the automation itself. This approach helps keep automation "self-contained". However,
+  it may provide less flexibility in executing the associated Storm compared with the use of macros.
   
   Alternatively, tasks such as triggers and cron jobs can be written to execute minimal Storm queries
   whose purpose is to call more extensive Storm stored centrally in macros. This approach consolidates
@@ -218,7 +216,6 @@ or on a recurring basis (using :ref:`storm-cron-add`).
   
   When scheduling cron jobs, Synapse interprets all times as UTC.
 
-Cron jobs have the following characteristics in Synapse 2.xx:
 
 .. _auto-cron-config:
 
@@ -259,15 +256,6 @@ Configuration and Management
   commands, the :ref:`stormprims-cronjob-f527` primitive, or the :ref:`stormlibs-lib-cron` libraries. In :ref:`gloss-optic`,
   cron jobs can also be created and managed using the :ref:`gloss-admin-tool`.
   
-  When a cron job is created, Synapse generates a ``syn:cron`` runtime node ("runt node") with some details about
-  the cron job (including the associated Storm) available as properties on the node. While runt nodes are typically
-  read-only, ``syn:cron`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via
-  Storm. This allows you to manage cron jobs by giving them meaningful names and descriptions. Changes to these
-  properties will persist after a Cortex restart.
-  
-  Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
-  limited introspection of cron jobs using Storm.
-
 
 .. _auto-cron-use:
 
@@ -370,14 +358,6 @@ The output of ``cron.list`` includes the following columns:
   
   Detailed information about individual cron jobs can be retrieved with the :ref:`storm-cron-stat` command.
 
-We can also use Storm to lift the cron job as a ``syn:cron`` node:
-
-.. storm-cli:: syn:cron
-
-.. TIP::
-  
-  You can optionally set (or modify) the ``:name`` and ``:doc`` properties of the ``syn:cron`` node using Storm
-  edit (data modification) syntax to :ref:`prop-add-mod`.
 
 **Hourly cron job example**
 
@@ -503,15 +483,6 @@ Configuration and Management
   commands, the :ref:`stormprims-trigger-f527` primitive, or the :ref:`stormlibs-lib-trigger` libraries. In :ref:`gloss-optic`,
   triggers can be created and managed using the :ref:`gloss-admin-tool` or the VIEWS tab of the :ref:`gloss-workspaces-tool`.
   
-  When a trigger is created, Synapse generates a ``syn:trigger`` runtime node ("runt node") with some details about
-  the trigger (including the associated Storm) available as properties on the node. While runt nodes are typically
-  read-only, ``syn:trigger`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified
-  via Storm. This allows you to manage triggers by giving them meaningful names and descriptions. Changes to these
-  properties will persist after a Cortex restart.
-  
-  Runt nodes can be lifted, viewed, filtered, etc. just like other nodes in Synapse, which allows you to perform
-  limited introspection of triggers using Storm.
-
 
 .. _auto-trigger-use:
 
@@ -687,25 +658,17 @@ We can view the newly created trigger using ``trigger.list``:
 
 The output of ``trigger.list`` includes the following columns:
 
-- **user** - The user that the trigger runs as (typically the user who created the trigger).
-- **iden** - The trigger's identifier (iden).
-- **view** - The iden of the view in which the trigger resides / runs.
-- **en?** - Whether the trigger is currently enabled or disabled.
-- **async?** - Whether the trigger will run asynchronously / in the background.
-- **cond** - The condition that causes the trigger to fire.
-- **object** - The object the trigger operates on (in this case, the ``:email`` property of an ``inet:whois:contact`` node).
+- **user** - the user that the trigger runs as (typically the user who created the trigger).
+- **iden** - the trigger's identifier (iden).
+- **view** - the iden of the view in which the trigger resides / runs.
+- **en?** - whether the trigger is currently enabled or disabled.
+- **async?** - whether the trigger will run asynchronously / in the background.
+- **cond** - the condition that causes the trigger to fire.
+- **object** - the object the trigger operates on (in this case, the ``:email`` property of an ``inet:whois:contact`` node).
   May reference multiple objects (e.g., if a ``tag:add`` trigger only fires when the tag is added to a specific form, both
   the tag and form will be listed).
-- **storm query** - The Storm to be executed when the trigger fires.
+- **storm query** - the Storm to be executed when the trigger fires.
 
-We can also use Storm to lift the trigger as a ``syn:trigger`` node:
-
-.. storm-cli:: syn:trigger
-
-.. TIP::
-  
-  You can optionally set (or modify) the ``:name`` and ``:doc`` properties of the ``syn:trigger`` node using Storm
-  edit (data modification) syntax to :ref:`prop-add-mod`.
 
 **node:add example**
 
@@ -735,7 +698,7 @@ If the object "used" in the attack has an associated TTP tag (such as ``#cno.ttp
 attachment used in a phishing attack), you want to pivot to the technique (``ou:technique``) represented by the tag (e.g., 
 "Spear phishing attachment"), and create another ``uses`` edge to show the attack uses the specified technique.
 
-.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack --query { $attack=$node.value() { -(uses)> * +$auto.opts.n2iden -> # -> ou:technique:tag [ <(uses)+ { risk:attack=$attack } ] } }
+.. storm-cli:: trigger.add edge:add --name 'Link technique with attack'--verb uses --form risk:attack --query { $attack=$node { -(uses)> * +$auto.opts.n2iden -> # -> ou:technique:tag [ <(uses)+ { yield $attack } ] } }
 
 .. TIP::
   
@@ -749,8 +712,8 @@ The Storm for this trigger is broken down below (with comments) for clarity:
 
 ::
   
-  // Set the variable $attack to the guid of the risk:attack node for later use
-  $attack=$node.value()
+  // Set the variable $attack to the risk:attack node for later use
+  $attack=$node
   
   // Use a subquery to traverse all 'uses' edges to any / all forms
   {
@@ -767,7 +730,7 @@ The Storm for this trigger is broken down below (with comments) for clarity:
      -> ou:technique:tag
      
      // Create a 'uses' edge between the technique(s) and the risk:attack node
-     [ <(uses)+ { risk:attack=$attack } ]
+     [ <(uses)+ { yield $attack } ]
   }
 
 
@@ -848,8 +811,15 @@ any nodes that exit the macro.
 Configuration and Management
 ++++++++++++++++++++++++++++
 
-- **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name**. You
-  cannot rename a macro once it has been created (although you can edit the macro's Storm).
+- **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name** (as
+  opposed to triggers and cron jobs, which are differentiated by a unique identifier (iden)). You can
+  change the name of a macros using the :ref:`stormlibs-lib-macro-mod` library:
+  
+  ::
+    
+    $lib.macro.mod('my old poorly chosen macro name',({'name': 'new.name'}))
+  
+  Attempting to rename a macro to a name that already exists will result in a ``DupName`` error.
   
 - **Execution.** Macros are not restricted to a particular view; they can be called from and executed within any
   view. Any changes made by the macro's Storm code will be made to the topmost / writeable layer of the view
@@ -1012,7 +982,7 @@ the full ``<storm_query>`` is provided below for readability.
   
   macro.set enrich { <storm_query> }
 
-The content of the macro (with comments):
+The content of the macro (the ``<storm_query>``, with comments):
 
 ::
   
@@ -1107,6 +1077,10 @@ used to obtain a user or role object and retrieve the associated identifier (ide
 `Make user "ron the cat" co-admin of the "sinkhole.check" macro:`
 
 .. storm-cli:: $user=$lib.auth.users.byname('ron the cat') $iden=$user.iden $lib.macro.grant(sinkhole.check,users,$iden,3)
+
+`Allow the "cattribution analysts" role to edit the "enrich" macro:`
+
+.. storm-cli:: $role=$lib.auth.roles.byname('cattribution analysts') $iden=$role.iden $lib.macro.grant(enrich,roles,$iden,2)
 
 `Deny the "interns" role access to the "enrich" macro:`
 
