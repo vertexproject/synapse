@@ -640,7 +640,7 @@ through which nodes are "sent" and acted upon. Regardless of the type of trigger
   
   This inline execution can impact the original query's performance, depending on the Storm executed by the
   trigger and the number of nodes causing the trigger to fire. Specifically, if a trigger (and associated Storm)
-  are fired based on an interactive Storm query from a user, Synapse's interface (the Storm CLI or the Optic UI)
+  is fired based on an interactive Storm query from a user, Synapse's interface (the Storm CLI or the Optic UI)
   will "block" until the Storm executes in full.
   
   The ``--async`` option can be used when creating a trigger to specify that the trigger should run
