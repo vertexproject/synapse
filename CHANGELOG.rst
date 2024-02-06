@@ -64,7 +64,7 @@ Improved Documentation
   extended forms and properties.
   (`#3523 <https://github.com/vertexproject/synapse/pull/3523>`_)
 - Update the Data Model documentation to include information about property
- interfaces.
+  interfaces.
   (`#3523 <https://github.com/vertexproject/synapse/pull/3523>`_)
 
 v2.160.0 - 2024-01-24
