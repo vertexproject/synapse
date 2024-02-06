@@ -286,7 +286,7 @@ cases include:
   missing data (like IP geolocation data) or a periodic sweep to check and set missing properties (such as tag definitions).
 
 - **Process intensive jobs.** Data enrichment may be resource intensive if it generates a significant number
-  of write operations. If you reguarly perform routine (non-urgent) enrichment, it can be scheduled to run
+  of write operations. If you regularly perform routine (non-urgent) enrichment, it can be scheduled to run
   when it will have less impact on users.
 
 - **Periodic hunting.** New data and annotations (tags) are continually added to Synapse. Encoding "hunt" logic
