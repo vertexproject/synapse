@@ -2,9 +2,8 @@ import hashlib
 
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.serialization as c_ser
-import cryptography.hazmat.primitives.asymmetric.utils as c_utils
+import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 import cryptography.hazmat.primitives.asymmetric.padding as c_padding
-import cryptography.hazmat.backends.openssl.rsa as c_rsa
 
 import synapse.exc as s_exc
 import synapse.common as s_common
