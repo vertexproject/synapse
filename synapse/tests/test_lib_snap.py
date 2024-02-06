@@ -576,6 +576,9 @@ class SnapTest(s_t_utils.SynTest):
                 async with snap.getEditor() as editor:
                     fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
                     news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+
+                    self.true(s_common.isbuidhex(fqdn.iden()))
+
                     self.false(await news.addEdge('refs', fqdn.nid))
                     self.len(0, editor.getNodeEdits())
 
@@ -616,6 +619,9 @@ class SnapTest(s_t_utils.SynTest):
                     self.false(await news.delEdge('pwns', 1))
                     self.false(await news.delEdge('pwns', 'bar'))
                     self.false(await news.delEdge('pwns', fqdn.nid[:7]))
+
+                    tstr = await editor.addNode('test:str', 'foo')
+                    self.false(await tstr.delEdge('pwns', news.nid))
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 

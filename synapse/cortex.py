@@ -2090,8 +2090,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.nextnid += 1
 
         self.v3stor.put(nid, buid, db=self.nid2buid)
-        self.v3stor.put(buid, nid, db=self.buid2nid)
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+        self.v3stor.put(buid, nid, db=self.buid2nid)
 
         return nid
 

@@ -1021,7 +1021,7 @@ class Snap(s_base.Base):
             if node is None:
                 node = await self.getNodeByNid(nid)
 
-            if node is None:
+            if node is None:  # pragma: no cover
                 continue
 
             for edit in edits:

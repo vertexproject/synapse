@@ -4453,7 +4453,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pack = node1.pack()
             pack[1]['nodedata']['foo'] = 'bar'
             pack[1]['edges'] = (('refs', ('inet:ipv4', '1.2.3.4')),
-                                ('newp', ('test:newp', 'newp')))
+                                ('newp', ('test:newp', 'newp')),
+                                ('newp', ('test:int', 'newp')))
             podes.append(pack)
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
