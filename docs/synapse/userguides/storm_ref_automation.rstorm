@@ -436,9 +436,9 @@ Newly created trigger as a ``syn:trigger`` node:
   tagged node’s form (e.g., perform different enrichment / call different third-party services based on whether
   the node is an FQDN, an IPv4, an email address, a URL, etc.).
   
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', version='0.0.1', 'commands': (({'name': 'whois', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', version='0.0.1', 'commands': (({'name': 'malware', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', version='0.0.1', 'commands': (({'name': 'revwhois', 'storm'=${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: macro.set enrich ${ switch $node.form() {/* You can put comments in macros!!! */ "inet:fqdn": { | whois | pdns | malware } "inet:ipv4": { | pdns } "inet:email": { | revwhois } *: { } } }
   
 .. storm-cli:: trigger.add --name "enrich osint" tag:add --tag osint --query { | macro.exec enrich }
@@ -599,7 +599,7 @@ Newly created cron job as a ``syn:cron`` node:
   Synapse does not include a malware service in its open source distribution; this cron job assumes such a
   service has been implemented).
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malwaresvc, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': (({'name': 'malwaresvc', 'storm': ${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-cli:: cron.add --day Tue,Thu,Sat --hour 2 { hash:md5#malicious hash:sha1#malicious hash:sha256#malicious -{ -> file:bytes } | malwaresvc }
 
 
@@ -697,7 +697,7 @@ Examples
   does not include a passive DNS service in its open source distribution; the macro assumes such a
   service has been implemented.)
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': (({'name': 'pdns', 'storm': ${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-cli:: macro.set sinkhole.check ${ inet:ipv4#cno.infra.dns.sinkhole | pdns }
 
 
@@ -712,9 +712,9 @@ Examples
   (**Note:** Synapse does not include third-party services / connectors in its open source distribution;
   the macro assumes such services have been implemented.)
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': (({'name': 'whois', 'storm': ${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': (({'name': 'malware', 'storm': ${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': (({'name': 'revwhois', 'storm': ${} }),) }) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-multiline:: ENRICH="macro.set enrich ${ switch $node.form() {\n\n    /* You can put comments in macros!!! */\n\n    \"inet:fqdn\": { | whois | pdns | malware }\n    \"inet:ipv4\": { | pdns }\n    \"inet:email\": { | revwhois }\n    *: { }\n} }"
 .. storm-cli:: MULTILINE=ENRICH
 

@@ -1140,7 +1140,7 @@ class LibBase(Lib):
             Examples:
                 Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
 
-                    cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
+                    cli> storm $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
                     ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
             ''',
             'type': 'null', },
@@ -1220,7 +1220,7 @@ class LibBase(Lib):
 
                 Format and print string based on variables::
 
-                    cli> storm $d=$lib.dict(key1=(1), key2="two")
+                    cli> storm $d=({"key1": (1), "key2": "two"})
                          for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
                     key1 => 1
                     key2 => two
@@ -1753,7 +1753,7 @@ class LibDict(Lib):
         return list(valu.values())
 
     async def __call__(self, **kwargs):
-        s_common.deprecated('$lib.dict()', curv='2.160.0')
+        s_common.deprecated('$lib.dict()', curv='2.161.0')
         await self.runt.snap.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
         return Dict(kwargs)
 
@@ -1896,7 +1896,7 @@ class LibAxon(Lib):
             Example:
                 Get the Vertex Project website::
 
-                    $headers = $lib.dict()
+                    $headers = ({})
                     $headers."User-Agent" = Foo/Bar
 
                     $resp = $lib.axon.wget("http://vertex.link", method=GET, headers=$headers)

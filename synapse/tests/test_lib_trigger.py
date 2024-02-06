@@ -558,21 +558,21 @@ class TrigTest(s_t_utils.SynTest):
             view = await core.callStorm('return ($lib.view.get().fork().iden)')
 
             await self.asyncraises(s_exc.SchemaViolation, core.nodes('''
-                $tdef = $lib.dict(
-                    cond="edge:add",
-                    form="test:int",
-                    storm="[+#asdfasdf]"
-                )
+                $tdef = ({
+                    'cond':'edge:add',
+                    'form':'test:int',
+                    'storm':'[+#asdfasdf]'
+                })
                 $lib.trigger.add($tdef)
             '''))
 
             await self.asyncraises(s_exc.SchemaViolation, core.nodes('''
-                $tdef = $lib.dict(
-                    cond="edge:add",
-                    form="test:int",
-                    storm="[+#asdfasdf]",
-                    verb=$lib.null
-                )
+                $tdef = ({
+                    'cond':'edge:add',
+                    'form':'test:int',
+                    'storm':'[+#asdfasdf]',
+                    'verb':$lib.null
+                })
                 $lib.trigger.add($tdef)
             '''))
 

@@ -152,7 +152,7 @@ class MacroTest(s_test.SynTest):
             self.eq([('test:str', 'cooler')], [n.ndef for n in nodes])
 
             # Inner vars win on conflict
-            q = 'macro.set data2 ${ $data=$lib.dict(value=beef) [test:str=$data.value +#cool.story] }'
+            q = 'macro.set data2 ${ $data=({"value": "beef"}) [test:str=$data.value +#cool.story] }'
             msgs = await core.stormlist(q)
             self.stormIsInPrint('Set macro: data2', msgs)
 
