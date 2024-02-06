@@ -546,7 +546,7 @@ or importance). Example use cases for triggers include:
   
   You can similarly encode logic in Storm to support retrohunting, threat clustering, or other workflows.
 
-- **Automating repetetive tasks.** Any process that analysts identify as repetetive may benefit from automation.
+- **Automating repetitive tasks.** Any process that analysts identify as repetitive may benefit from automation.
   Analysts may identify cases where, when they perform a specific action in Synapse, they always perform several
   additional actions. For example, when an analyst tags particular node (such as a ``file:bytes`` node), they always
   want to apply the same tag to a set of "related" nodes (such as the ``hash:md5``, ``hash:sha1``, etc. that
