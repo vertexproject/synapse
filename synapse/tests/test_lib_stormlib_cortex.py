@@ -429,6 +429,44 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             '''
             iden3 = await core.callStorm(q)
 
+            # $lib.dict accessor methods
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.keys($api.vars))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, ('hehe', 'items'))
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.values($api.vars))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, ('wow', ('1', '2', 3)))
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.has($api.vars, anotherKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.false(valu)
+
+            q = '''$api=$lib.cortex.httpapi.get($iden)
+            return ($lib.dict.update($api.vars, ({"hehe": "haha", "anotherKey": "anotherValu"}) ))'''
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.none(valu)
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.has($api.vars, anotherKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.true(valu)
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.values($api.vars))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, ('haha', ('1', '2', 3), 'anotherValu'))
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.pop($api.vars, anotherKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, 'anotherValu')
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.pop($api.vars, anotherKey, missingKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, 'missingKey')
+
+            with self.raises(s_exc.BadArg):
+                q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.pop($api.vars, anotherKey))'
+                await core.callStorm(q, opts={'vars': {'iden': iden3}})
+
             msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     {iden0}', msgs)
             self.stormIsInPrint(f'1     {iden1}', msgs)
@@ -569,7 +607,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden3}})
             self.stormIsInPrint(f'Iden: {iden3}', msgs)
             self.stormIsInPrint('The handler has the following runtime variables set:', msgs)
-            self.stormIsInPrint('hehe             => wow', msgs)
+            self.stormIsInPrint('hehe             => haha', msgs)
             self.stormIsInPrint("items            => ('1', '2', 3)", msgs)
 
             # Remove a user + view and stat the handler
@@ -999,7 +1037,11 @@ for $i in $values {
             }
             // Cannot modify request headers
             $api.methods.post = ${
-                $request.headers.newp = haha
+                if $request.headers.dictmethod {
+                    $lib.dict.update($request.headers, ({"newp": "haha"}))
+                } else {
+                    $request.headers.newp = haha
+                }
             }
             return ( ($api.iden, $api.owner.name) )
             '''
@@ -1024,6 +1066,12 @@ for $i in $values {
                 self.eq(data.get('secret-key'), 'myluggagecombination')
 
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'StormRuntimeError')
+                self.eq(data.get('mesg'), 'http:api:request:headers may not be modified by the runtime.')
+
+                resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', headers={'dictmethod': '1'})
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')

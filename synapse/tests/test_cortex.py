@@ -4028,7 +4028,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('baz', nodes[0].ndef[1])
 
-            q = '$d = $lib.dict("field 1"=foo, "field 2"=bar) [test:str=$d.\'field 1\']'
+            q = '$d = ({"field 1": "foo", "field 2": "bar"}) [test:str=$d.\'field 1\']'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('foo', nodes[0].ndef[1])
@@ -4906,7 +4906,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#foo'))
 
-            nodes = await core.nodes('$d = $lib.dict(foo=bar) [test:str=yop +#$d.foo]')
+            nodes = await core.nodes('$d = ({"foo": "bar"}) [test:str=yop +#$d.foo]')
             self.len(1, nodes)
             self.nn(nodes[0].getTag('bar'))
 
@@ -4952,7 +4952,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#timetag'))
 
-            nodes = await core.nodes('$d = $lib.dict(foo="") [test:str=yop +?#$d.foo +#tag1]')
+            nodes = await core.nodes('$d = ({"foo": ""}) [test:str=yop +?#$d.foo +#tag1]')
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo.*'))
             self.nn(nodes[0].getTag('tag1'))
@@ -4991,7 +4991,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq([n.ndef[0] for n in nodes], [*['test:str', 'inet:ipv4'] * 3])
 
             # non-runsafe iteration over a dictionary
-            q = '''$dict=$lib.dict(key1=valu1, key2=valu2) [(test:str=test1) (test:str=test2)]
+            q = '''$dict=({"key1": "valu1", "key2": "valu2"}) [(test:str=test1) (test:str=test2)]
             for ($key, $valu) in $dict {
                 [:hehe=$valu]
             }
@@ -5004,14 +5004,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(node.get('hehe'), 'valu2')
 
             # None values don't yield anything
-            q = '''$foo = $lib.dict()
+            q = '''$foo = ({})
             for $name in $foo.bar { [ test:str=$name ] }
             '''
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
             # Even with a inbound node, zero loop iterations will not yield inbound nodes.
-            q = '''test:str=test1 $foo = $lib.dict()
+            q = '''test:str=test1 $foo = ({})
             for $name in $foo.bar { [ test:str=$name ] }
             '''
             nodes = await core.nodes(q)
