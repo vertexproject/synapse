@@ -1146,6 +1146,17 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(2, await core.callStorm('$d=({"k1": "1", "k2": "2"}) return($lib.len($d))'))
 
+            d = {'key1': 'val1', 'key2': None}
+            opts = {'vars': {'d': d}}
+            has = await core.callStorm('return($lib.dict.has($d, "key1"))', opts=opts)
+            self.true(has)
+
+            has = await core.callStorm('return($lib.dict.has($d, "key2"))', opts=opts)
+            self.true(has)
+
+            has = await core.callStorm('return($lib.dict.has($d, "key3"))', opts=opts)
+            self.false(has)
+
             d = {'key1': 'val1', 'key2': 'val2'}
             opts = {'vars': {'d': d}}
             keys = await core.callStorm('return($lib.dict.keys($d))', opts=opts)

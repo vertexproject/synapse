@@ -1715,6 +1715,7 @@ class LibDict(Lib):
 
     def getObjLocals(self):
         return {
+            'has': self._has,
             'keys': self._keys,
             'pop': self._pop,
             'update': self._update,
@@ -1732,6 +1733,12 @@ class LibDict(Lib):
 
         mesg = f'{name} argument must be a dict, not {typ}.'
         raise s_exc.BadArg(mesg=mesg)
+
+    @stormfunc(readonly=True)
+    async def _has(self, valu, name):
+        await self._check_type(valu)
+        valu = await toprim(valu)
+        return name in valu
 
     @stormfunc(readonly=True)
     async def _keys(self, valu):
