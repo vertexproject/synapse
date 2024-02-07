@@ -187,7 +187,7 @@ class StormCellTest(s_test.SynTest):
                         }
                         $lib.exit('No view found for name={name}', name=$name)
                     }
-                    $ret = $lib.dict()
+                    $ret = ({})
                     $ret.baseview=$get_view(default)
                     $ret.fork1a=$get_view(base1a)
                     $ret.fork2a=$get_view(base2a)
