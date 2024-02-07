@@ -1696,7 +1696,7 @@ class LibDict(Lib):
                       {'name': 'default', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
+                  'returns': {'type': 'any', 'desc': 'The popped value.', }}},
         {'name': 'update', 'desc': 'Update the specified dictionary with keys/values from another dictionary.',
          'type': {'type': 'function', '_funcname': '_update',
                   'args': (
@@ -1725,7 +1725,7 @@ class LibDict(Lib):
         if isinstance(valu, (dict, Dict)):
             return
 
-        typ = getattr(valu, '_storm_typename')
+        typ = getattr(valu, '_storm_typename', None)
         if typ is None:
             prim = await toprim(valu)
             typ = type(prim).__name__
