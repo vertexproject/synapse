@@ -1146,6 +1146,43 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(2, await core.callStorm('$d=({"k1": "1", "k2": "2"}) return($lib.len($d))'))
 
+            d = {'key1': 'val1', 'key2': 'val2'}
+            opts = {'vars': {'d': d}}
+            keys = await core.callStorm('return($lib.dict.keys($d))', opts=opts)
+            self.eq(keys, ['key1', 'key2'])
+
+            vals = await core.callStorm('return($lib.dict.values($d))', opts=opts)
+            self.eq(vals, ['val1', 'val2'])
+
+            val = await core.callStorm('return($lib.dict.pop($d, "key2"))', opts=opts)
+            self.eq(val, 'val2')
+            self.eq(d, {'key1': 'val1'})
+
+            val = await core.callStorm('return($lib.dict.pop($d, "newp", "w00t"))', opts=opts)
+            self.eq(val, 'w00t')
+            self.eq(d, {'key1': 'val1'})
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.dict.pop($d, "newp"))', opts=opts)
+
+            await core.callStorm('$lib.dict.update($d, ({"foo": "bar"}))', opts=opts)
+            self.eq(d, {'key1': 'val1', 'foo': 'bar'})
+
+            msgs = await core.stormlist('$d = $lib.dict(foo=bar, baz=woot)')
+            self.stormIsInWarn('$lib.dict() is deprecated. Use ({}) instead.', msgs)
+
+            msgs = await core.stormlist('$lib.dict.keys(([]))')
+            self.stormIsInErr('valu argument must be a dict, not list.', msgs)
+
+            msgs = await core.stormlist('$lib.dict.keys(1)')
+            self.stormIsInErr('valu argument must be a dict, not str.', msgs)
+
+            msgs = await core.stormlist('$lib.dict.keys((1))')
+            self.stormIsInErr('valu argument must be a dict, not int.', msgs)
+
+            msgs = await core.stormlist('$lib.dict.keys($lib.undef)')
+            self.stormIsInErr('valu argument must be a dict, not undef.', msgs)
+
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
             q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \

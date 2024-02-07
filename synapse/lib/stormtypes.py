@@ -40,6 +40,7 @@ import synapse.lib.provenance as s_provenance
 logger = logging.getLogger(__name__)
 
 class Undef:
+    _storm_typename = 'undef'
     async def stormrepr(self):
         return '$lib.undef'
 
@@ -1720,13 +1721,28 @@ class LibDict(Lib):
             'values': self._values,
         }
 
+    async def _check_type(self, valu, name='valu'):
+        if isinstance(valu, (dict, Dict)):
+            return
+
+        typ = getattr(valu, '_storm_typename')
+        if typ is None:
+            prim = await toprim(valu)
+            typ = type(prim).__name__
+
+        mesg = f'{name} argument must be a dict, not {typ}.'
+        raise s_exc.BadArg(mesg=mesg)
+
     @stormfunc(readonly=True)
     async def _keys(self, valu):
+        await self._check_type(valu)
         valu = await toprim(valu)
         return list(valu.keys())
 
     @stormfunc(readonly=True)
     async def _pop(self, valu, key, default=undef):
+        await self._check_type(valu)
+
         real = await toprim(valu)
         key = await tostr(key)
 
@@ -1736,12 +1752,19 @@ class LibDict(Lib):
                 raise s_exc.BadArg(mesg=mesg)
             return await toprim(default)
 
-        ret = real.get(key)
+        # Make sure we have a storm Dict
+        valu = fromprim(valu)
+
+        ret = await valu.deref(key)
         await valu.setitem(key, undef)
         return ret
 
     @stormfunc(readonly=True)
     async def _update(self, valu, other):
+        await self._check_type(valu)
+        await self._check_type(other, name='other')
+
+        valu = fromprim(valu)
         other = await toprim(other)
 
         for k, v in other.items():
@@ -1749,6 +1772,8 @@ class LibDict(Lib):
 
     @stormfunc(readonly=True)
     async def _values(self, valu):
+        await self._check_type(valu)
+
         valu = await toprim(valu)
         return list(valu.values())
 
