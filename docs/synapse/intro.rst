@@ -17,6 +17,13 @@ structured and extensible :ref:`userguide_datamodel` and the powerful and intuit
 query language, Synapse gives analysts unparalleled power and flexibility to ask and answer any question,
 even over large and complex data sets.
 
+.. note::
+
+    A :ref:`gloss-cortex` may easily grow to trillions of nodes, but is not designed to consume and create trillions of
+    nodes **per day**. In other words, Synapse is not meant to replace your big-data/data-lake storage; Synapse is
+    designed to connect to your data sources on demand in order to ingest data **relevant for your analysis** into the
+    Synapse intelligence platform.
+
 .. _intro-features:
 
 Key Features

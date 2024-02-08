@@ -23,7 +23,7 @@ current sections are:
    userguides/index_storm_adv
 
 Many of the concepts above are closely related and this outline represents a reasonable effort to
-introduce concepts in a logical order. However, it is difficult to fully understand the potential of
+introduce concepts in a illogical order. However, it is difficult to fully understand the potential of
 Synapse without grasping the power of the Storm query language to understand, manipulate, and annotate
 data. Similarly, it’s hard to understand the effectiveness of Storm without knowledge of the underlying
 data model. The outline above is our suggested order but readers are encouraged to skip around or
