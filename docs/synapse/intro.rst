@@ -17,6 +17,12 @@ structured and extensible :ref:`userguide_datamodel` and the powerful and intuit
 query language, Synapse gives analysts unparalleled power and flexibility to ask and answer any question,
 even over large and complex data sets.
 
+.. note::
+
+    A :ref:`gloss-cortex` may easily grow to billions of nodes, but is not designed for use cases involving billions of
+    records per-day. In a typical big-data/data-lake architecture, a :ref:`gloss-cortex` is optimally used to analyze
+    data resulting from queries to existing platforms and fuse data relevant to an analyst's investigation.
+
 .. _intro-features:
 
 Key Features
