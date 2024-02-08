@@ -638,7 +638,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
 
                     ('assignee', ('syn:user', {}), {
-                        'doc': 'The synapse user who is assigned to investigate the alert.'}),
+                        'doc': 'The Synapse user who is assigned to investigate the alert.'}),
 
                     ('ext:assignee', ('ps:contact', {}), {
                         'doc': 'The alert assignee contact information from an external system.'}),
