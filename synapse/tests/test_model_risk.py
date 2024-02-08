@@ -285,6 +285,9 @@ class RiskModelTest(s_t_utils.SynTest):
                     :detected=20501217
                     :attack=*
                     :vuln=*
+                    :status=todo
+                    :assignee=$lib.user.iden
+                    :ext:assignee = {[ ps:contact=* :email=visi@vertex.link ]}
                     :url=https://vertex.link/alerts/WOOT-20
                     :ext:id=WOOT-20
                     :engine={[ it:prod:softver=* :name=visiware ]}
@@ -294,6 +297,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
+            self.eq(20, nodes[0].get('status'))
             self.eq(40, nodes[0].get('priority'))
             self.eq(50, nodes[0].get('severity'))
             self.eq('bazfaz.', nodes[0].get('type'))
@@ -302,7 +306,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(2554848000000, nodes[0].get('detected'))
             self.eq('WOOT-20', nodes[0].get('ext:id'))
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
+            self.eq(core.auth.rootuser.iden, nodes[0].get('assignee'))
             self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('ext:assignee'))
             self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
@@ -504,9 +510,13 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=BazFaz
                     :hardware=*
                     :software=*
+                    :reporter:name=vertex
+                    :reporter = { gen.ou.org vertex }
             ]''')
             self.eq('FooBar', nodes[0].props['name'])
             self.eq('BazFaz', nodes[0].props['desc'])
+            self.eq('vertex', nodes[0].props['reporter:name'])
+            self.nn(nodes[0].get('reporter'))
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))

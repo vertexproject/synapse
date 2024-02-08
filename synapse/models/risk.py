@@ -23,6 +23,15 @@ class CvssV3(s_types.Str):
             mesg = exc.get('mesg')
             raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
 
+alertstatus = (
+    (0, 'new'),
+    (10, 'enrichment'),
+    (20, 'todo'),
+    (30, 'analysis'),
+    (40, 'remediation'),
+    (50, 'done'),
+)
+
 class RiskModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -281,17 +290,31 @@ class RiskModule(s_module.CoreModule):
 
                 )),
                 ('risk:mitigation', {}, (
+
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'A brief name for this risk mitigation.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
+
                     ('software', ('it:prod:softver', {}), {
                         'doc': 'A software version which implements a fix for the vulnerability.'}),
+
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the mitigation.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the mitigation.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
                 )),
                 ('risk:vulnname', {}, ()),
                 ('risk:vuln:type:taxonomy', {}, ()),
@@ -598,6 +621,9 @@ class RiskModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A free-form description / overview of the alert.'}),
 
+                    ('status', ('int', {'enums': alertstatus}), {
+                        'doc': 'The status of the alert.'}),
+
                     ('benign', ('bool', {}), {
                         'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
@@ -610,6 +636,12 @@ class RiskModule(s_module.CoreModule):
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
                         'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
+
+                    ('assignee', ('syn:user', {}), {
+                        'doc': 'The synapse user who is assigned to investigate the alert.'}),
+
+                    ('ext:assignee', ('ps:contact', {}), {
+                        'doc': 'The alert assignee contact information from an external system.'}),
 
                     ('engine', ('it:prod:softver', {}), {
                         'doc': 'The software that generated the alert.'}),
