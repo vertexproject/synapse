@@ -1176,7 +1176,7 @@ class ItModule(s_module.CoreModule):
 
                     ('tag', ('syn:tag', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:technique:tag.'}),
+                        'doc': 'Deprecated.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
