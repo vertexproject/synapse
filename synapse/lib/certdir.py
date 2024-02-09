@@ -8,7 +8,7 @@ import logging
 import datetime
 import collections
 
-from typing import AnyStr, ByteString, Optional, Tuple, Union
+from typing import AnyStr, ByteString, List, Optional, Tuple, Union
 
 from OpenSSL import crypto  # type: ignore
 
@@ -1604,58 +1604,77 @@ class CertDirNew:
                 outp.printf('cert saved: %s' % (crtpath,))
 
         return pkey, cert
-    #
-    # def genHostCert(self, name, signas=None, outp=None, csr=None, sans=None, save=True):
-    #     '''
-    #     Generates a host keypair.
-    #
-    #     Args:
-    #         name (str): The name of the host keypair.
-    #         signas (str): The CA keypair to sign the new host keypair with.
-    #         outp (synapse.lib.output.Output): The output buffer.
-    #         csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
-    #         sans (list): List of subject alternative names.
-    #
-    #     Examples:
-    #         Make a host keypair named "myhost":
-    #
-    #             myhostkey, myhostcert = cdir.genHostCert('myhost')
-    #
-    #     Returns:
-    #         ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the private key and certificate objects.
-    #     '''
-    #     pkey, cert = self._genBasePkeyCert(name, pkey=csr)
-    #
-    #     ext_sans = {'DNS:' + name}
-    #     if isinstance(sans, str):
-    #         ext_sans = ext_sans.union(sans.split(','))
-    #     ext_sans = ','.join(sorted(ext_sans))
-    #
-    #     cert.add_extensions([
-    #         crypto.X509Extension(b'nsCertType', False, b'server'),
-    #         crypto.X509Extension(b'keyUsage', False, b'digitalSignature,keyEncipherment'),
-    #         crypto.X509Extension(b'extendedKeyUsage', False, b'serverAuth'),
-    #         crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
-    #         crypto.X509Extension(b'subjectAltName', False, ext_sans.encode('utf-8')),
-    #     ])
-    #
-    #     if signas is not None:
-    #         self.signCertAs(cert, signas)
-    #     else:
-    #         self.selfSignCert(cert, pkey)
-    #
-    #     if save:
-    #         if not pkey._only_public:
-    #             keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
-    #             if outp is not None:
-    #                 outp.printf('key saved: %s' % (keypath,))
-    #
-    #         crtpath = self._saveCertTo(cert, 'hosts', '%s.crt' % name)
-    #         if outp is not None:
-    #             outp.printf('cert saved: %s' % (crtpath,))
-    #
-    #     return pkey, cert
-    #
+
+    def genHostCert(self, name: AnyStr,
+                    signas: Optional[AnyStr | None] = None,
+                    outp: s_output.OutPut = None,
+                    csr: PkeyOrNoneType =None,
+                    sans: List[AnyStr] =None,
+                    save: bool = True) -> PkeyAndCertType:
+        '''
+        Generates a host keypair.
+
+        Args:
+            name (str): The name of the host keypair.
+            signas (str): The CA keypair to sign the new host keypair with.
+            outp (synapse.lib.output.Output): The output buffer.
+            csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
+            sans (list): List of subject alternative names.
+
+        Examples:
+            Make a host keypair named "myhost":
+
+                myhostkey, myhostcert = cdir.genHostCert('myhost')
+
+        Returns:
+            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the private key and certificate objects.
+        '''
+        pkey, builder = self._genBasePkeyCert(name, pkey=csr)
+
+        # XXX FIXME - Sort out some generic SANS support from pyopenssl loose apis
+        # ext_sans = {'DNS:' + name}
+        # if isinstance(sans, str):
+        #     ext_sans = ext_sans.union(sans.split(','))
+        # ext_sans = [c_x509.GeneralName(valu) for valu in sorted(ext_sans)]
+
+        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+        builder = builder.add_extension(
+            c_x509.KeyUsage(digital_signature=True, key_encipherment=True, data_encipherment=False, key_agreement=False,
+                            key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
+                            content_commitment=False),
+            critical=False,
+        )
+        builder = builder.add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        builder = builder.add_extension(c_x509.UnrecognizedExtension(
+            oid=c_x509.ObjectIdentifier('2.16.840.1.113730.1.1'), value=b'\x03\x02\x06@'),
+            critical=False,
+        )
+
+        # XXX FIXME - Sort out some generic SANS support from pyopenssl loose apis
+        # builder = builder.add_extension(c_x509.SubjectAlternativeName(ext_sans), critical=False)
+
+        if signas is not None:
+            cert = self.signCertAs(builder, signas)
+        else:
+            cert = self.selfSignCert(builder, pkey)
+
+        if save:
+            # XXX FIXME - This code refers to a private member of the old openssl Pkey class :(
+            # Lets let this fly until its a problem.
+            # if not pkey._only_public:
+            #     keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
+            #     if outp is not None:
+            #         outp.printf('key saved: %s' % (keypath,))
+            keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
+            if outp is not None:
+                outp.printf('key saved: %s' % (keypath,))
+
+            crtpath = self._saveCertTo(cert, 'hosts', '%s.crt' % name)
+            if outp is not None:
+                outp.printf('cert saved: %s' % (crtpath,))
+
+        return pkey, cert
+
     # def genHostCsr(self, name, outp=None):
     #     '''
     #     Generates a host certificate signing request.
@@ -2087,43 +2106,43 @@ class CertDirNew:
     #         if os.path.isfile(path):
     #             return path
     #
-    # def getHostCaPath(self, name):
-    #     '''
-    #     Gets the path to the CA certificate that issued a given host keypair.
-    #
-    #     Args:
-    #         name (str): The name of the host keypair.
-    #
-    #     Examples:
-    #         Get the path to the CA cert which issue the cert for "myhost":
-    #
-    #             mypath = cdir.getHostCaPath('myhost')
-    #
-    #     Returns:
-    #         str: The path if exists.
-    #     '''
-    #     cert = self.getHostCert(name)
-    #     if cert is None:
-    #         return None
-    #
-    #     return self._getCaPath(cert)
-    #
-    # def getHostCert(self, name):
-    #     '''
-    #     Loads the X509 object for a given host keypair.
-    #
-    #     Args:
-    #         name (str): The name of the host keypair.
-    #
-    #     Examples:
-    #         Get the certificate object for the host "myhost":
-    #
-    #             myhostcert = cdir.getHostCert('myhost')
-    #
-    #     Returns:
-    #         OpenSSL.crypto.X509: The certificate, if exists.
-    #     '''
-    #     return self._loadCertPath(self.getHostCertPath(name))
+    def getHostCaPath(self, name: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the path to the CA certificate that issued a given host keypair.
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Examples:
+            Get the path to the CA cert which issue the cert for "myhost":
+
+                mypath = cdir.getHostCaPath('myhost')
+
+        Returns:
+            str: The path if exists.
+        '''
+        cert = self.getHostCert(name)
+        if cert is None:
+            return None
+
+        return self._getCaPath(cert)
+
+    def getHostCert(self, name: AnyStr) -> CertOrNoneType:
+        '''
+        Loads the X509 object for a given host keypair.
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Examples:
+            Get the certificate object for the host "myhost":
+
+                myhostcert = cdir.getHostCert('myhost')
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate, if exists.
+        '''
+        return self._loadCertPath(self.getHostCertPath(name))
     #
     # def getHostCertHash(self, name):
     #     cert = self.getHostCert(name)
@@ -2131,63 +2150,63 @@ class CertDirNew:
     #         return None
     #     return cert.digest('SHA256').decode().lower().replace(':', '')
     #
-    # def getHostCertPath(self, name):
-    #     '''
-    #     Gets the path to a host certificate.
-    #
-    #     Args:
-    #         name (str): The name of the host keypair.
-    #
-    #     Examples:
-    #         Get the path to the host certificate for the host "myhost":
-    #
-    #             mypath = cdir.getHostCertPath('myhost')
-    #
-    #     Returns:
-    #         str: The path if exists.
-    #     '''
-    #     for cdir in self.certdirs:
-    #         path = s_common.genpath(cdir, 'hosts', '%s.crt' % name)
-    #         if os.path.isfile(path):
-    #             return path
-    #
-    # def getHostKey(self, name):
-    #     '''
-    #     Loads the PKey object for a given host keypair.
-    #
-    #     Args:
-    #         name (str): The name of the host keypair.
-    #
-    #     Examples:
-    #         Get the private key object for the host "myhost":
-    #
-    #             myhostkey = cdir.getHostKey('myhost')
-    #
-    #     Returns:
-    #         OpenSSL.crypto.PKey: The private key, if exists.
-    #     '''
-    #     return self._loadKeyPath(self.getHostKeyPath(name))
-    #
-    # def getHostKeyPath(self, name):
-    #     '''
-    #     Gets the path to a host key.
-    #
-    #     Args:
-    #         name (str): The name of the host keypair.
-    #
-    #     Examples:
-    #         Get the path to the host key for the host "myhost":
-    #
-    #             mypath = cdir.getHostKeyPath('myhost')
-    #
-    #     Returns:
-    #         str: The path if exists.
-    #     '''
-    #     for cdir in self.certdirs:
-    #         path = s_common.genpath(cdir, 'hosts', '%s.key' % name)
-    #         if os.path.isfile(path):
-    #             return path
-    #
+    def getHostCertPath(self, name: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the path to a host certificate.
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Examples:
+            Get the path to the host certificate for the host "myhost":
+
+                mypath = cdir.getHostCertPath('myhost')
+
+        Returns:
+            str: The path if exists.
+        '''
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'hosts', '%s.crt' % name)
+            if os.path.isfile(path):
+                return path
+
+    def getHostKey(self, name: AnyStr) -> PkeyOrNoneType:
+        '''
+        Loads the PKey object for a given host keypair.
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Examples:
+            Get the private key object for the host "myhost":
+
+                myhostkey = cdir.getHostKey('myhost')
+
+        Returns:
+            OpenSSL.crypto.PKey: The private key, if exists.
+        '''
+        return self._loadKeyPath(self.getHostKeyPath(name))
+
+    def getHostKeyPath(self, name: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the path to a host key.
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Examples:
+            Get the path to the host key for the host "myhost":
+
+                mypath = cdir.getHostKeyPath('myhost')
+
+        Returns:
+            str: The path if exists.
+        '''
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'hosts', '%s.key' % name)
+            if os.path.isfile(path):
+                return path
+
     # def getUserCaPath(self, name):
     #     '''
     #     Gets the path to the CA certificate that issued a given user keypair.
@@ -2391,22 +2410,22 @@ class CertDirNew:
     #     crtpath = self._getPathJoin('users', '%s.p12' % name)
     #     return os.path.isfile(crtpath)
     #
-    # def isHostCert(self, name):
-    #     '''
-    #     Checks if a host certificate exists.
-    #
-    #     Args:
-    #         name (str): The name of the host keypair.
-    #
-    #     Examples:
-    #         Check if the host cert "myhost" exists:
-    #
-    #             exists = cdir.isUserCert('myhost')
-    #
-    #     Returns:
-    #         bool: True if the certificate is present, False otherwise.
-    #     '''
-    #     return self.getHostCertPath(name) is not None
+    def isHostCert(self, name: AnyStr) -> bool:
+        '''
+        Checks if a host certificate exists.
+
+        Args:
+            name (str): The name of the host keypair.
+
+        Examples:
+            Check if the host cert "myhost" exists:
+
+                exists = cdir.isUserCert('myhost')
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        return self.getHostCertPath(name) is not None
     #
     # def isUserCert(self, name):
     #     '''
@@ -2741,10 +2760,10 @@ class CertDirNew:
     #
     #     return byts
     #
-    # def _getCaPath(self, cert):
-    #     subj = cert.get_issuer()
-    #     return self.getCaCertPath(subj.CN)
-    #
+    def _getCaPath(self, cert: c_x509.Certificate) -> StrOrNoneType:
+        issuer = cert.issuer.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+        return self.getCaCertPath(issuer.value)
+
     def _getPathBytes(self, path: AnyStr) -> BytesOrNoneType:
         if path is None:
             return None

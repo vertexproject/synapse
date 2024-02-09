@@ -40,7 +40,8 @@ class CertDirNewTest(s_t_utils.SynTest):
         with self.getTestDir() as dirname:
             yield s_certdir.CertDirNew(path=dirname)
 
-    def basic_assertions(self, cdir: s_certdir.CertDirNew,
+    def basic_assertions(self,
+                         cdir: s_certdir.CertDirNew,
                          cert: c_x509.Certificate,
                          key: s_certdir.PkeyType,
                          cacert: c_x509.Certificate =None):
@@ -142,6 +143,45 @@ class CertDirNewTest(s_t_utils.SynTest):
             store.add_cert(pyopenssl_cacert)
             self.none(ctx.verify_certificate())  # valid
 
+    def host_assertions(self,
+                        cdir: s_certdir.CertDirNew,
+                        cert: c_x509.Certificate,
+                        key: s_certdir.PkeyType,
+                        cacert: c_x509.Certificate = None):
+        '''
+        test basic certificate assumptions for a host certificate
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
+        # XXX FIXME There is a schism between teh items build for use with the builder
+        # interface nd the items parsed from a certificate on disk :\
+        # exts = {}
+        # for ext in cert.extensions:  # type: c_x509.Extension
+        #     self.false(ext.critical)
+        #     short_name = ext.oid._name
+        #     if short_name == 'Unknown OID':
+        #         short_name = ext.oid.dotted_string
+        #     exts[short_name] = ext
+        #
+        # nscertext = c_x509.UnrecognizedExtension(
+        #     oid=c_x509.ObjectIdentifier('2.16.840.1.113730.1.1'), value=b'\x03\x02\x06@')
+        # keyuseext = c_x509.KeyUsage(digital_signature=True, key_encipherment=True, data_encipherment=False, key_agreement=False,
+        #                     key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
+        #                     content_commitment=False)
+        # print(keyuseext.public_bytes())
+        # extkeyuseext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.SERVER_AUTH])
+        # basicconext = c_x509.BasicConstraints(ca=False, path_length=None)
+        #
+        # # self.eq(exts['2.16.840.1.113730.1.1'], nscertext)
+        # self.eq(exts['keyUsage'], keyuseext)
+        # # self.eq(exts[b'extendedKeyUsage'], extkeyuseext.get_data())
+        # # self.eq(exts[b'basicConstraints'], basicconext.get_data())
+        # # self.isin(b'subjectAltName', exts)
+
     def test_certdir_cas(self):
 
         with self.getCertDir() as cdir:  # type: s_certdir.CertDiNew
@@ -178,6 +218,60 @@ class CertDirNewTest(s_t_utils.SynTest):
             inter_cacert = cdir.getCaCert(inter_name)
             inter_cakey = cdir.getCaKey(inter_name)
             self.basic_assertions(cdir, inter_cacert, inter_cakey, cacert=cacert)
+
+    def test_certdir_hosts(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            caname = 'syntest'
+            hostname = 'visi.vertex.link'
+            hostname_unsigned = 'unsigned.vertex.link'
+            base = cdir._getPathJoin()
+
+            cdir.genCaCert(caname)
+
+            cacert = cdir.getCaCert(caname)
+
+            # Test that all the methods for loading the certificates return correct values for non-existant files
+            self.none(cdir.getHostCert(hostname_unsigned))
+            self.none(cdir.getHostKey(hostname_unsigned))
+            self.false(cdir.isHostCert(hostname_unsigned))
+            self.none(cdir.getHostCertPath(hostname_unsigned))
+            self.none(cdir.getHostKeyPath(hostname_unsigned))
+            self.none(cdir.getHostCaPath(hostname_unsigned))
+
+            # Generate a self-signed host keypair =============================
+            cdir.genHostCert(hostname_unsigned)
+
+            # Test that all the methods for loading the certificates work
+            self.isinstance(cdir.getHostCert(hostname_unsigned), c_x509.Certificate)
+            self.isinstance(cdir.getHostKey(hostname_unsigned), c_rsa.RSAPrivateKey)
+            self.true(cdir.isHostCert(hostname_unsigned))
+            self.eq(cdir.getHostCertPath(hostname_unsigned), base + '/hosts/' + hostname_unsigned + '.crt')
+            self.eq(cdir.getHostKeyPath(hostname_unsigned), base + '/hosts/' + hostname_unsigned + '.key')
+            self.none(cdir.getHostCaPath(hostname_unsigned))  # the cert is self-signed, so there is no ca cert
+
+            # Run basic assertions on the host keypair
+            cert = cdir.getHostCert(hostname_unsigned)
+            key = cdir.getHostKey(hostname_unsigned)
+            self.basic_assertions(cdir, cert, key)
+            self.host_assertions(cdir, cert, key)
+
+            # Generate a signed host keypair ==================================
+            cdir.genHostCert(hostname, signas=caname)
+
+            # Test that all the methods for loading the certificates work
+            self.isinstance(cdir.getHostCert(hostname), c_x509.Certificate)
+            self.isinstance(cdir.getHostKey(hostname), c_rsa.RSAPrivateKey)
+            self.true(cdir.isHostCert(hostname))
+            self.eq(cdir.getHostCertPath(hostname), base + '/hosts/' + hostname + '.crt')
+            self.eq(cdir.getHostKeyPath(hostname), base + '/hosts/' + hostname + '.key')
+            self.eq(cdir.getHostCaPath(hostname), base + '/cas/' + caname + '.crt')  # the cert is signed, so there is a ca cert
+
+            # Run basic assertions on the host keypair
+            cert = cdir.getHostCert(hostname)
+            key = cdir.getHostKey(hostname)
+            self.basic_assertions(cdir, cert, key, cacert=cacert)
+            self.host_assertions(cdir, cert, key, cacert=cacert)
+
 
 class CertDirTest(s_t_utils.SynTest):
 
