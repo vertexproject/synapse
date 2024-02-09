@@ -66,7 +66,7 @@ class DaemonTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}') as proxy:
                 self.eq(proxy.ahainfo, {})
 
-        ahainfo = {'svcname': 'test.loop.vertex.link'}
+        ahainfo = {'name': 'test.loop.vertex.link'}
         async with await s_daemon.Daemon.anit(ahainfo=ahainfo) as dmon:
 
             host, port = await dmon.listen('tcp://127.0.0.1:0')

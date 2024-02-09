@@ -2841,7 +2841,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initCellDmon(self):
 
         ahainfo = {
-            'svcname': self.ahasvcname
+            'name': self.ahasvcname
         }
 
         self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
