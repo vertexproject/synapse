@@ -64,7 +64,7 @@ class DaemonTest(s_t_utils.SynTest):
             dmon.share('*', Foo())
 
             async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}') as proxy:
-                self.eq(proxy.ahainfo, {})
+                self.eq(proxy._ahainfo, {})
 
         ahainfo = {'name': 'test.loop.vertex.link'}
         async with await s_daemon.Daemon.anit(ahainfo=ahainfo) as dmon:
@@ -73,7 +73,7 @@ class DaemonTest(s_t_utils.SynTest):
             dmon.share('*', Foo())
 
             async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}') as proxy:
-                self.eq(proxy.ahainfo, ahainfo)
+                self.eq(proxy._ahainfo, ahainfo)
 
 class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'foo'
