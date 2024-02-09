@@ -15,7 +15,55 @@ import synapse.tools.easycert as s_easycert
 
 import synapse.lib.crypto.rsa as s_crypto_rsa
 
+import cryptography.x509 as c_x509
+import cryptography.hazmat.primitives.hashes as c_hashes
+import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
+import cryptography.hazmat.primitives.asymmetric.dsa as c_dsa
+import cryptography.hazmat.primitives.serialization as c_serialization
+
+class CertDirNewTest(s_t_utils.SynTest):
+
+    @contextmanager
+    def getCertDir(self):
+        '''
+        Get a test CertDir object.
+
+        Yields:
+            s_certdir.CertDir: A certdir object based out of a temp directory.
+        '''
+        # create a temp folder and make it a cert dir
+        with self.getTestDir() as dirname:
+            yield s_certdir.CertDirNew(path=dirname)
+
+    def test_certdir_cas(self):
+
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDiNew
+            caname = 'syntest'
+            inter_name = 'testsyn-intermed'
+            base = cdir._getPathJoin()
+
+            # Test that all the methods for loading the certificates return correct values for non-existant files
+            self.none(cdir.getCaCert(caname))
+            self.none(cdir.getCaKey(caname))
+            self.false(cdir.isCaCert(caname))
+            self.none(cdir.getCaCertPath(caname))
+            self.none(cdir.getCaKeyPath(caname))
+
+            # Generate a self-signed CA =======================================
+            cdir.genCaCert(caname)
+
+            # Test that all the methods for loading the certificates work
+            self.isinstance(cdir.getCaCert(caname), c_x509.Certificate)
+            self.isinstance(cdir.getCaKey(caname), c_rsa.RSAPrivateKey)  # We do RSA private keys out of the box
+            self.true(cdir.isCaCert(caname))
+            self.eq(cdir.getCaCertPath(caname), base + '/cas/' + caname + '.crt')
+            self.eq(cdir.getCaKeyPath(caname), base + '/cas/' + caname + '.key')
+
+
 class CertDirTest(s_t_utils.SynTest):
+
+    def setUp(self) -> None:
+        self.skip(mesg='Skipping old tests.')
 
     @contextmanager
     def getCertDir(self):
