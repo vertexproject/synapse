@@ -670,7 +670,7 @@ class ViewTest(s_t_utils.SynTest):
 
                 mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
                 mirror_view, mirror_layr = await core2.callStorm('''
-                    $ldef = $lib.dict(mirror=$lib.str.concat($baseurl, "/", $baseiden))
+                    $ldef = ({'mirror':$lib.str.concat($baseurl, "/", $baseiden)})
                     $lyr = $lib.layer.add(ldef=$ldef)
                     $view = $lib.view.add(($lyr.iden,))
                     return(($view.iden, $lyr.iden))

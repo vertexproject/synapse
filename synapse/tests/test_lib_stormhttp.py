@@ -64,8 +64,8 @@ class StormHttpTest(s_test.SynTest):
 
             # Header and params as dict
             q = '''
-            $params=$lib.dict(key=valu, foo=bar, baz=$lib.false)
-            $hdr = $lib.dict(true=$lib.true)
+            $params=({"key": "valu", "foo": "bar", "baz": $lib.false})
+            $hdr = ({"true": $lib.true})
             $hdr."User-Agent"="Storm HTTP Stuff"
             $k = (0)
             $hdr.$k="Why"
@@ -240,7 +240,7 @@ class StormHttpTest(s_test.SynTest):
             opts = {'vars': {'url': url, 'noauth_url': noauth_url, 'newp_url': newp_url}}
 
             q = '''
-            $params=$lib.dict(key=valu, foo=bar)
+            $params=({"key": "valu", "foo": "bar"})
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -256,7 +256,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq('1', headers.get('Head'))
 
             q = '''
-            $params=$lib.dict(key=valu, redirect='http://test.newp/')
+            $params=({"key": "valu", "redirect": 'http://test.newp/'})
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -273,7 +273,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq('http://test.newp/', headers.get('Location'))
 
             q = '''
-            $params=$lib.dict(key=valu, redirect=$noauth_url)
+            $params=({"key": "valu", "redirect": $noauth_url})
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -286,7 +286,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(b'', body)
 
             q = '''
-            $params=$lib.dict(key=valu, redirect=$newp_url)
+            $params=({"key": "valu", "redirect": $newp_url})
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -299,7 +299,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(b'', body)
 
             q = '''
-            $params=$lib.dict(key=valu, redirect="http://127.0.0.1/newp")
+            $params=({"key": "valu", "redirect": "http://127.0.0.1/newp"})
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -321,7 +321,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url}}
             q = '''
-            $params=$lib.dict(key=valu, foo=bar)
+            $params=({"key": "valu", "foo": "bar"})
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -337,7 +337,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url, 'sleep': 1, 'timeout': 2}}
             q = '''
-            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
+            $params=({"key": "valu", "foo": "bar", "sleep": $sleep})
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -351,7 +351,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url, 'sleep': 10, 'timeout': 1}}
             q = '''
-            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
+            $params=({"key": "valu", "foo": "bar", "sleep": $sleep})
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -374,7 +374,7 @@ class StormHttpTest(s_test.SynTest):
 
             adduser = '''
                 $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
-                $user = $lib.dict(name=$name, passwd=$passwd)
+                $user = ({"name": $name, "passwd": $passwd})
                 $post = $lib.inet.http.post($url, json=$user, ssl_verify=$(0)).json().result.name
                 $lib.print($post)
                 [ test:str=$post ]
@@ -387,7 +387,7 @@ class StormHttpTest(s_test.SynTest):
             adduser = '''
                 $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
                 $user = $lib.str.format('{"name": "{name}", "passwd": "{passwd}"}', name=$name, passwd=$passwd)
-                $header = $lib.dict("Content-Type"="application/json")
+                $header = ({"Content-Type": "application/json"})
                 $post = $lib.inet.http.post($url, headers=$header, body=$user,  ssl_verify=$(0)).json().result.name
                 [ test:str=$post ]
             '''
@@ -400,7 +400,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url, 'buf': b'1234'}}
             q = '''
-            $params=$lib.dict(key=valu, foo=bar)
+            $params=({"key": "valu", "foo": "bar"})
             $resp = $lib.inet.http.post($url, params=$params, body=$buf, ssl_verify=$lib.false)
             return ( $resp.json() )
             '''
@@ -411,9 +411,9 @@ class StormHttpTest(s_test.SynTest):
 
             q = '''
             $fields=$lib.list(
-                $lib.dict(name=foo, value=bar),
-                $lib.dict(name=foo, value=bar2),
-                $lib.dict(name=baz, value=cool)
+                ({"name": "foo", "value": "bar"}),
+                ({"name": "foo", "value": "bar2"}),
+                ({"name": "baz", "value": "cool"})
             )
             $resp = $lib.inet.http.post($url, fields=$fields, ssl_verify=$lib.false)
             return ( $resp.json() )
@@ -467,7 +467,7 @@ class StormHttpTest(s_test.SynTest):
             text = '''
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
             $stormq = "($size, $sha2) = $lib.bytes.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
-            $json = $lib.dict(query=$stormq)
+            $json = ({"query": $stormq})
             $bytez = $lib.inet.http.post($url, json=$json, ssl_verify=$(0))
             '''
             opts = {'vars': {'port': port}}
@@ -482,7 +482,7 @@ class StormHttpTest(s_test.SynTest):
 
             text = '''
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
-            $json = $lib.dict(query="test:str")
+            $json = ({"query": "test:str"})
             $body = $json
             $resp=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
             return ( ($resp.code, $resp.err) )
