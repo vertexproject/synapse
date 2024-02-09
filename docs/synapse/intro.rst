@@ -20,7 +20,7 @@ even over large and complex data sets.
 .. note::
 
     A :ref:`gloss-cortex` may easily grow to billions of nodes, but is not designed to consume and create billions of
-    nodes **per day**. In other words, Synapse is not meant to replace your big-data/data-lake storage; Synapse is
+    nodes per day. In other words, Synapse is not meant to replace your big-data/data-lake storage; Synapse is
     designed to connect to your data sources on demand in order to ingest data relevant for your analysis into the
     Synapse intelligence platform.
 
