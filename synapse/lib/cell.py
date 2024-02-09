@@ -2647,8 +2647,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for name, valu in vals.items():
             self.sessstor.set(iden, name, valu)
         sess = self.sessions.get(iden)
-        for name, valu in vals.items():
-            sess.info[name] = valu
+        if sess is not None:
+            sess.info.update(vals)
 
     @contextlib.contextmanager
     def getTempDir(self):
