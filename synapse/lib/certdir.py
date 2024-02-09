@@ -2425,31 +2425,39 @@ class CertDirNew:
     #     '''
     #     return self.getUserCertPath(name) is not None
     #
-    # def signCertAs(self, cert, signas):
-    #     '''
-    #     Signs a certificate with a CA keypair.
-    #
-    #     Args:
-    #         cert (OpenSSL.crypto.X509): The certificate to sign.
-    #         signas (str): The CA keypair name to sign the new keypair with.
-    #
-    #     Examples:
-    #         Sign a certificate with the CA "myca":
-    #
-    #             cdir.signCertAs(mycert, 'myca')
-    #
-    #     Returns:
-    #         None
-    #     '''
-    #     cakey = self.getCaKey(signas)
-    #     if cakey is None:
-    #         raise s_exc.NoCertKey(mesg=f'Missing .key for {signas}')
-    #     cacert = self.getCaCert(signas)
-    #     if cacert is None:
-    #         raise s_exc.NoCertKey(mesg=f'Missing .crt for {signas}')
-    #
-    #     cert.set_issuer(cacert.get_subject())
-    #     cert.sign(cakey, self.signing_digest)
+    def signCertAs(self, builder: c_x509.CertificateBuilder, signas: AnyStr) -> c_x509.Certificate:
+        '''
+        Signs a certificate with a CA keypair.
+
+        Args:
+            cert (OpenSSL.crypto.X509): The certificate to sign.
+            signas (str): The CA keypair name to sign the new keypair with.
+
+        Examples:
+            Sign a certificate with the CA "myca":
+
+                cdir.signCertAs(mycert, 'myca')
+
+        Returns:
+            None
+        '''
+        cakey = self.getCaKey(signas)
+        if cakey is None:
+            raise s_exc.NoCertKey(mesg=f'Missing .key for {signas}')
+        cacert = self.getCaCert(signas)
+        if cacert is None:
+            raise s_exc.NoCertKey(mesg=f'Missing .crt for {signas}')
+
+        attr = cacert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+        name = attr.value
+
+        builder = builder.issuer_name(c_x509.Name([
+            c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name),
+        ]))
+        certificate = builder.sign(
+            private_key=cakey, algorithm=self.signing_digest(),
+        )
+        return certificate
     #
     # def signHostCsr(self, xcsr, signas, outp=None, sans=None, save=True):
     #     '''

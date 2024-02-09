@@ -1,5 +1,6 @@
-
 import os
+import ssl
+import datetime
 from contextlib import contextmanager
 
 from OpenSSL import crypto, SSL
@@ -16,10 +17,14 @@ import synapse.tools.easycert as s_easycert
 import synapse.lib.crypto.rsa as s_crypto_rsa
 
 import cryptography.x509 as c_x509
+import cryptography.exceptions as c_exc
+import cryptography.x509.verification as c_verification
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 import cryptography.hazmat.primitives.asymmetric.dsa as c_dsa
+import cryptography.hazmat.primitives.asymmetric.padding as c_padding
 import cryptography.hazmat.primitives.serialization as c_serialization
+
 
 class CertDirNewTest(s_t_utils.SynTest):
 
@@ -34,6 +39,108 @@ class CertDirNewTest(s_t_utils.SynTest):
         # create a temp folder and make it a cert dir
         with self.getTestDir() as dirname:
             yield s_certdir.CertDirNew(path=dirname)
+
+    def basic_assertions(self, cdir: s_certdir.CertDirNew,
+                         cert: c_x509.Certificate,
+                         key: s_certdir.PkeyType,
+                         cacert: c_x509.Certificate =None):
+        '''
+        test basic certificate assumptions
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
+        self.nn(cert)
+        self.nn(key)
+
+        pubkey = cert.public_key()
+
+        # Make sure the certs were generated with the expected number of bits
+        self.eq(pubkey.key_size, cdir.crypto_numbits)
+        self.eq(key.key_size, cdir.crypto_numbits)
+
+        # Make sure the certs were generated with the correct version number
+        self.eq(cert.version.value, 2)
+
+        # ensure we can sign / verify data with our keypair
+        buf = b'The quick brown fox jumps over the lazy dog.'
+
+        sig = key.sign(data=buf,
+                       padding=c_padding.PSS(mgf=c_padding.MGF1(c_hashes.SHA256()),
+                                             salt_length=c_padding.PSS.MAX_LENGTH),
+                       algorithm=c_hashes.SHA256(),
+                       )
+        sig2 = key.sign(data=buf + b'wut',
+                       padding=c_padding.PSS(mgf=c_padding.MGF1(c_hashes.SHA256()),
+                                             salt_length=c_padding.PSS.MAX_LENGTH),
+                       algorithm=c_hashes.SHA256(),
+                       )
+
+        result = pubkey.verify(signature=sig,
+                               data=buf,
+                               padding=c_padding.PSS(mgf=c_padding.MGF1(c_hashes.SHA256()),
+                                                     salt_length=c_padding.PSS.MAX_LENGTH),
+                               algorithm=c_hashes.SHA256(),)
+        self.none(result)
+
+        with self.raises(c_exc.InvalidSignature):
+            pubkey.verify(signature=sig2,
+                          data=buf,
+                          padding=c_padding.PSS(mgf=c_padding.MGF1(c_hashes.SHA256()),
+                                                salt_length=c_padding.PSS.MAX_LENGTH),
+                          algorithm=c_hashes.SHA256(), )
+
+        # XXX FIXME - Figure out a parallel for this in cryptography parlance?
+        # This is demonstrative of a a high level of control over a SSL Context that
+        # we don't actually utilize. ???
+        # # ensure that a ssl context using both cert/key match
+        # sslcontext = SSL.Context(SSL.TLSv1_2_METHOD)
+        # sslcontext.use_certificate(cert)
+        # sslcontext.use_privatekey(key)
+        # self.none(sslcontext.check_privatekey())
+
+        if cacert:
+
+            # Make sure the cert was signed by the CA
+            cert_issuer = cert.issuer.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+            cacert_subj = cacert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+            self.eq(cert_issuer, cacert_subj)
+
+            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
+            pyopenssl_cert = crypto.X509.from_cryptography(cert)
+            pyopenssl_cacert = crypto.X509.from_cryptography(cacert)
+
+            store = crypto.X509Store()
+            ctx = crypto.X509StoreContext(store, pyopenssl_cert)
+
+            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
+            store.add_cert(pyopenssl_cert)
+
+            with self.raises(crypto.X509StoreContextError) as cm:
+                ctx.verify_certificate()
+
+            self.isin('unable to get local issuer certificate', str(cm.exception))
+
+            # Generate a separate CA that did not sign the certificate
+            try:
+                (_, otherca_cert) = cdir.genCaCert('otherca')
+            except s_exc.DupFileName:
+                pass
+            pyopenssl_otherca_cert = crypto.X509.from_cryptography(otherca_cert)
+
+            # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
+            store.add_cert(pyopenssl_otherca_cert)
+            with self.raises(crypto.X509StoreContextError) as cm:
+                # unable to get local issuer certificate
+                ctx.verify_certificate()
+            self.isin('unable to get local issuer certificate', str(cm.exception))
+
+            # OpenSSL should be able to verify the certificate, once its CA is loaded
+            store.add_cert(pyopenssl_cacert)
+            self.none(ctx.verify_certificate())  # valid
 
     def test_certdir_cas(self):
 
@@ -59,6 +166,18 @@ class CertDirNewTest(s_t_utils.SynTest):
             self.eq(cdir.getCaCertPath(caname), base + '/cas/' + caname + '.crt')
             self.eq(cdir.getCaKeyPath(caname), base + '/cas/' + caname + '.key')
 
+            # Run basic assertions on the CA keypair
+            cacert = cdir.getCaCert(caname)
+            cakey = cdir.getCaKey(caname)
+            self.basic_assertions(cdir, cacert, cakey)
+
+            # Generate intermediate CA ========================================
+            cdir.genCaCert(inter_name, signas=caname)
+
+            # Run basic assertions, make sure that it was signed by the root CA
+            inter_cacert = cdir.getCaCert(inter_name)
+            inter_cakey = cdir.getCaKey(inter_name)
+            self.basic_assertions(cdir, inter_cacert, inter_cakey, cacert=cacert)
 
 class CertDirTest(s_t_utils.SynTest):
 
