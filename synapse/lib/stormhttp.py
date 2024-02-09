@@ -1,6 +1,7 @@
 import json
 import asyncio
 import logging
+import ssl
 import urllib.parse
 
 logger = logging.getLogger(__name__)
@@ -416,7 +417,10 @@ class LibHttp(s_stormtypes.Lib):
         if ssl_verify is False:
             kwargs['ssl'] = False
         elif cadir:
-            kwargs['ssl'] = s_common.getSslCtx(cadir)
+            # kwargs['ssl'] = s_common.getSslCtx(cadir)
+            sslctx = s_common.getSslCtx(cadir)
+            sslctx.load_cert_chain(f'{cadir}/clients/someuser.crt', f'{cadir}/clients/someuser.key')
+            kwargs['ssl'] = sslctx
         else:
             # default aiohttp behavior
             kwargs['ssl'] = None

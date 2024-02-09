@@ -1,4 +1,5 @@
 import os
+import ssl
 import json
 import shutil
 
@@ -672,3 +673,65 @@ class StormHttpTest(s_test.SynTest):
             with self.raises(s_stormctrl.StormExit) as cm:
                 await core.callStorm(query, opts=opts)
             self.isin('connect to proxy 127.0.0.1:1', str(cm.exception))
+
+    async def test_storm_http_mtls(self):
+
+        with self.getTestDir() as dirn:
+
+            cdir = s_common.gendir(dirn, 'certs')
+            cadir = s_common.gendir(cdir, 'cas')
+            tdir = s_certdir.CertDir(cdir)
+            tdir.genCaCert('somelocalca')
+            tdir.genHostCert('localhost', signas='somelocalca')
+
+            localkeyfp = tdir.getHostKeyPath('localhost')
+            localcertfp = tdir.getHostCertPath('localhost')
+            pkeypath = shutil.copyfile(localkeyfp, s_common.genpath(dirn, 'sslkey.pem'))
+            certpath = shutil.copyfile(localcertfp, s_common.genpath(dirn, 'sslcert.pem'))
+
+            tlscadir = s_common.gendir(dirn, 'cadir')
+            cacertpath = shutil.copyfile(os.path.join(cadir, 'somelocalca.crt'), os.path.join(tlscadir, 'somelocalca.crt'))
+
+            tdir.genUserCert('someuser', signas='somelocalca')
+            clipath = s_common.gendir(tlscadir, 'clients')
+            shutil.copyfile(tdir.getUserKeyPath('someuser'), s_common.genpath(clipath, 'someuser.key'))
+            shutil.copyfile(tdir.getUserCertPath('someuser'), s_common.genpath(clipath, 'someuser.crt'))
+
+            # todo: scenario 1: bad cert
+            # todo: scenario 2: tls:ca:dir + client auth
+            # todo: scenario 3: system ca + client auth - cant really test this?
+            # todo: sad paths - bad client auth config?
+            # todo: multiple certs?
+            print('foo') # fixme
+
+            conf = {
+                'tls:ca:dir': tlscadir
+            }
+
+            async with self.getTestCore(dirn=dirn, conf=conf) as core:
+
+                sslctx = core.initSslCtx(certpath, pkeypath)
+                sslctx.verify_mode = ssl.CERT_REQUIRED
+                sslctx.load_verify_locations(cafile=cacertpath)
+
+                addr, port = await core.addHttpsPort(0, sslctx=sslctx)
+                root = await core.auth.getUserByName('root')
+                await root.setPasswd('root')
+
+                core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+
+                opts = {
+                    'vars': {
+                        'url': f'https://root:root@localhost:{port}/api/v0/test',
+                        'params': {
+                            'foo': 'bar'
+                        },
+                        'verify': True,
+                    },
+                }
+
+                q = 'return($lib.inet.http.get($url, params=$params, ssl_verify=$verify))'
+
+                resp = await core.callStorm(q, opts=opts)
+                reason = resp.get('reason')
+                self.eq(200, resp['code'])
