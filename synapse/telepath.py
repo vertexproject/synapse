@@ -598,6 +598,7 @@ class Proxy(s_base.Base):
         self.tasks = {}
         self.shares = {}
 
+        self._ahainfo = {}
         self.sharinfo = {}
         self.methinfo = {}
 
@@ -902,6 +903,7 @@ class Proxy(s_base.Base):
             raise s_exc.LinkShutDown(mesg=mesg)
 
         self.sess = self.synack[1].get('sess')
+        self._ahainfo = self.synack[1].get('ahainfo', {})
         self.sharinfo = self.synack[1].get('sharinfo', {})
         self.methinfo = self.sharinfo.get('meths', {})
 

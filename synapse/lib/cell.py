@@ -2840,7 +2840,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellDmon(self):
 
-        self.dmon = await s_daemon.Daemon.anit()
+        ahainfo = {
+            'name': self.ahasvcname
+        }
+
+        self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)
