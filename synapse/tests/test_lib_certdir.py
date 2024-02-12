@@ -24,6 +24,7 @@ import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 import cryptography.hazmat.primitives.asymmetric.dsa as c_dsa
 import cryptography.hazmat.primitives.asymmetric.padding as c_padding
 import cryptography.hazmat.primitives.serialization as c_serialization
+import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 
 
 class CertDirNewTest(s_t_utils.SynTest):
@@ -128,8 +129,8 @@ class CertDirNewTest(s_t_utils.SynTest):
             # Generate a separate CA that did not sign the certificate
             try:
                 (_, otherca_cert) = cdir.genCaCert('otherca')
-            except s_exc.DupFileName:
-                pass
+            except s_exc.DupFileName as e:
+                otherca_cert = cdir.getCaCert('otherca')
             pyopenssl_otherca_cert = crypto.X509.from_cryptography(otherca_cert)
 
             # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
@@ -181,6 +182,81 @@ class CertDirNewTest(s_t_utils.SynTest):
         # # self.eq(exts[b'extendedKeyUsage'], extkeyuseext.get_data())
         # # self.eq(exts[b'basicConstraints'], basicconext.get_data())
         # # self.isin(b'subjectAltName', exts)
+
+    def user_assertions(self,
+                        cdir: s_certdir.CertDirNew,
+                        cert: c_x509.Certificate,
+                        key: s_certdir.PkeyType,
+                        cacert: c_x509.Certificate = None):
+        '''
+        test basic certificate assumptions for a user certificate
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
+        # XXX FIXME There is a schism between teh items build for use with the builder
+        # interface nd the items parsed from a certificate on disk :\
+        # nextensions = cert.get_extension_count()
+        # exts = {ext.get_short_name(): ext.get_data() for ext in [cert.get_extension(i) for i in range(nextensions)]}
+        #
+        # nscertext = crypto.X509Extension(b'nsCertType', False, b'client')
+        # keyuseext = crypto.X509Extension(b'keyUsage', False, b'digitalSignature')
+        # extkeyuseext = crypto.X509Extension(b'extendedKeyUsage', False, b'clientAuth')
+        # basicconext = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
+        # self.eq(exts[b'nsCertType'], nscertext.get_data())
+        # self.eq(exts[b'keyUsage'], keyuseext.get_data())
+        # self.eq(exts[b'extendedKeyUsage'], extkeyuseext.get_data())
+        # self.eq(exts[b'basicConstraints'], basicconext.get_data())
+        # self.notin(b'subjectAltName', exts)
+
+    def p12_assertions(self,
+                       cdir: s_certdir.CertDirNew,
+                       cert: c_x509.Certificate,
+                       key: s_certdir.PkeyType,
+                       p12: c_pkcs12.PKCS12KeyAndCertificates,
+                       cacert: c_x509.Certificate = None):
+        '''
+        test basic p12 certificate bundle assumptions
+
+        Args:
+            cdir (s_certdir.CertDir): certdir object
+            cert (crypto.X509): Cert to test
+            key (crypto.PKey): Key for the certification
+            p12 (crypto.PKCS12): PKCS12 object to test
+            cacert (crypto.X509): Corresponding CA cert (optional)
+        '''
+        self.nn(p12)
+
+        # Pull out the CA cert and keypair data
+        p12_cacert = None
+        if cacert:
+            p12_cacert = p12.additional_certs
+            self.nn(p12_cacert)
+            self.len(1, p12_cacert)
+            p12_cacert = p12_cacert[0].certificate
+            _pb = p12_cacert.public_bytes(c_serialization.Encoding.PEM)
+            _cb = cacert.public_bytes(c_serialization.Encoding.PEM)
+            self.eq(_cb, _pb)
+
+        p12_cert = p12.cert.certificate
+        p12_key = p12.key
+        self.basic_assertions(cdir, p12_cert, p12_key, cacert=p12_cacert)
+
+        # Make sure that the CA cert and keypair files are the same as the CA cert and keypair contained in the p12 file
+        _pb = p12_cert.public_bytes(c_serialization.Encoding.PEM)
+        _cb = cert.public_bytes(c_serialization.Encoding.PEM)
+        self.eq(_cb, _pb)
+
+        _pb = p12_key.private_bytes(encoding=c_serialization.Encoding.PEM,
+                                    format=c_serialization.PrivateFormat.TraditionalOpenSSL,
+                                    encryption_algorithm=c_serialization.NoEncryption())
+        _cb = key.private_bytes(encoding=c_serialization.Encoding.PEM,
+                                    format=c_serialization.PrivateFormat.TraditionalOpenSSL,
+                                    encryption_algorithm=c_serialization.NoEncryption())
+        self.eq(_cb, _pb)
 
     def test_certdir_cas(self):
 
@@ -271,6 +347,79 @@ class CertDirNewTest(s_t_utils.SynTest):
             key = cdir.getHostKey(hostname)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
             self.host_assertions(cdir, cert, key, cacert=cacert)
+
+    def test_certdir_users(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            caname = 'syntest'
+            username = 'visi@vertex.link'
+            username_unsigned = 'unsigned@vertex.link'
+            base = cdir._getPathJoin()
+
+            cdir.genCaCert(caname)
+            cacert = cdir.getCaCert(caname)
+
+            # Test that all the methods for loading the certificates return correct values for non-existant files
+            self.none(cdir.getUserCert(username_unsigned))
+            self.none(cdir.getUserKey(username_unsigned))
+            self.none(cdir.getClientCert(username_unsigned))
+            self.false(cdir.isUserCert(username_unsigned))
+            self.false(cdir.isClientCert(username_unsigned))
+            self.none(cdir.getUserCertPath('nope'))
+            self.none(cdir.getUserKeyPath('nope'))
+            self.none(cdir.getUserCaPath('nope'))
+            self.none(cdir.getUserForHost('nope', 'host.vertex.link'))
+
+            # Generate a self-signed user keypair =============================
+            cdir.genUserCert(username_unsigned)
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username_unsigned)
+
+            # Test that all the methods for loading the certificates work
+            self.isinstance(cdir.getUserCert(username_unsigned), c_x509.Certificate)
+            self.isinstance(cdir.getUserKey(username_unsigned), c_rsa.RSAPrivateKey)
+            self.none(cdir.getClientCert(username_unsigned))
+            self.true(cdir.isUserCert(username_unsigned))
+            self.false(cdir.isClientCert(username_unsigned))
+            self.eq(cdir.getUserCertPath(username_unsigned), base + '/users/' + username_unsigned + '.crt')
+            self.eq(cdir.getUserKeyPath(username_unsigned), base + '/users/' + username_unsigned + '.key')
+            self.none(cdir.getUserCaPath(username_unsigned))  # no CA
+            self.eq(cdir.getUserForHost('unsigned', 'host.vertex.link'), username_unsigned)
+
+            # Run basic assertions on the host keypair
+            cert = cdir.getUserCert(username_unsigned)
+            key = cdir.getUserKey(username_unsigned)
+            self.basic_assertions(cdir, cert, key)
+            self.user_assertions(cdir, cert, key)
+
+            # Generate a signed user keypair ==================================
+            cdir.genUserCert(username, signas=caname)
+            cdir.genClientCert(username)
+
+            # Test that all the methods for loading the certificates work
+            self.isinstance(cdir.getUserCert(username), c_x509.Certificate)
+            self.isinstance(cdir.getUserKey(username), c_rsa.RSAPrivateKey)
+            self.isinstance(cdir.getClientCert(username), c_pkcs12.PKCS12KeyAndCertificates)
+            self.true(cdir.isUserCert(username))
+            self.true(cdir.isClientCert(username))
+            self.eq(cdir.getUserCertPath(username), base + '/users/' + username + '.crt')
+            self.eq(cdir.getUserKeyPath(username), base + '/users/' + username + '.key')
+            self.eq(cdir.getUserCaPath(username), base + '/cas/' + caname + '.crt')
+            self.eq(cdir.getUserForHost('visi', 'host.vertex.link'), username)
+
+            # Run basic assertions on the host keypair
+            cert = cdir.getUserCert(username)
+            key = cdir.getUserKey(username)
+            p12 = cdir.getClientCert(username)
+            self.basic_assertions(cdir, cert, key, cacert=cacert)
+            self.user_assertions(cdir, cert, key, cacert=cacert)
+            self.p12_assertions(cdir, cert, key, p12, cacert=cacert)
+
+            # Test missing files for generating a client cert
+            os.remove(base + '/users/' + username + '.key')
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # user key
+            os.remove(base + '/cas/' + caname + '.crt')
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # ca crt
+            os.remove(base + '/users/' + username + '.crt')
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # user crt
 
 
 class CertDirTest(s_t_utils.SynTest):

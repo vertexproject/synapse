@@ -22,6 +22,7 @@ import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 import cryptography.hazmat.primitives.asymmetric.dsa as c_dsa
 import cryptography.hazmat.primitives.serialization as c_serialization
+import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 
 defdir_default = '~/.syn/certs'
 defdir = os.getenv('SYN_CERT_DIR')
@@ -40,6 +41,7 @@ PkeyOrNoneType = Union[c_rsa.RSAPrivateKey | c_dsa.DSAPrivateKey | None]
 PkeyAndCertType = Tuple[c_rsa.RSAPrivateKey, c_x509.Certificate]
 PkeyAndBuilderType = Tuple[c_rsa.RSAPrivateKey, c_x509.CertificateBuilder]
 PkeyType = Union[c_rsa.RSAPrivateKey | c_dsa.DSAPrivateKey]
+Pkcs12OrNoneType = Union[c_pkcs12.PKCS12KeyAndCertificates | None]
 
 def iterFqdnUp(fqdn):
     levs = fqdn.split('.')
@@ -1693,49 +1695,69 @@ class CertDirNew:
     #     '''
     #     return self._genPkeyCsr(name, 'hosts', outp=outp)
     #
-    # def genUserCert(self, name, signas=None, outp=None, csr=None, save=True):
-    #     '''
-    #     Generates a user keypair.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #         signas (str): The CA keypair to sign the new user keypair with.
-    #         outp (synapse.lib.output.Output): The output buffer.
-    #         csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
-    #
-    #     Examples:
-    #         Generate a user cert for the user "myuser":
-    #
-    #             myuserkey, myusercert = cdir.genUserCert('myuser')
-    #
-    #     Returns:
-    #         ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.
-    #     '''
-    #     pkey, cert = self._genBasePkeyCert(name, pkey=csr)
-    #
-    #     cert.add_extensions([
-    #         crypto.X509Extension(b'nsCertType', False, b'client'),
-    #         crypto.X509Extension(b'keyUsage', False, b'digitalSignature'),
-    #         crypto.X509Extension(b'extendedKeyUsage', False, b'clientAuth'),
-    #         crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
-    #     ])
-    #
-    #     if signas is not None:
-    #         self.signCertAs(cert, signas)
-    #     else:
-    #         self.selfSignCert(cert, pkey)
-    #
-    #     if save:
-    #         crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
-    #         if outp is not None:
-    #             outp.printf('cert saved: %s' % (crtpath,))
-    #
-    #         if not pkey._only_public:
-    #             keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
-    #             if outp is not None:
-    #                 outp.printf('key saved: %s' % (keypath,))
-    #
-    #     return pkey, cert
+    def genUserCert(self,
+                    name: AnyStr,
+                    signas: Optional[AnyStr | None] = None,
+                    outp: s_output.OutPut = None,
+                    csr: PkeyOrNoneType =None,
+                    save: bool = True) -> PkeyAndCertType:
+        '''
+        Generates a user keypair.
+
+        Args:
+            name (str): The name of the user keypair.
+            signas (str): The CA keypair to sign the new user keypair with.
+            outp (synapse.lib.output.Output): The output buffer.
+            csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
+
+        Examples:
+            Generate a user cert for the user "myuser":
+
+                myuserkey, myusercert = cdir.genUserCert('myuser')
+
+        Returns:
+            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.
+        '''
+        pkey, builder = self._genBasePkeyCert(name, pkey=csr)
+
+        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+        builder = builder.add_extension(
+            c_x509.KeyUsage(digital_signature=True, key_encipherment=False, data_encipherment=False, key_agreement=False,
+                            key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
+                            content_commitment=False),
+            critical=False,
+        )
+        builder = builder.add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH]),
+                                        critical=False)
+        # XXX FIXME Client encoding value for
+        #             crypto.X509Extension(b'nsCertType', False, b'client'),
+        # builder = builder.add_extension(c_x509.UnrecognizedExtension(
+        #     oid=c_x509.ObjectIdentifier('2.16.840.1.113730.1.1'), value=b'\x03\x02\x06@'),
+        #     critical=False,
+        # )
+
+        if signas is not None:
+            cert = self.signCertAs(builder, signas)
+        else:
+            cert = self.selfSignCert(builder, pkey)
+
+        if save:
+            # XXX FIXME - This code refers to a private member of the old openssl Pkey class :(
+            # Lets let this fly until its a problem.
+            # if not pkey._only_public:
+            #     keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
+            #     if outp is not None:
+            #         outp.printf('key saved: %s' % (keypath,))
+            keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
+            if outp is not None:
+                outp.printf('key saved: %s' % (keypath,))
+
+            crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
+            if outp is not None:
+                outp.printf('cert saved: %s' % (crtpath,))
+
+        return pkey, cert
+
     #
     # def genCodeCert(self, name, signas=None, outp=None, save=True):
     #     '''
@@ -1872,45 +1894,44 @@ class CertDirNew:
     #
     #     return crls
     #
-    # def genClientCert(self, name, outp=None):
-    #     '''
-    #     Generates a user PKCS #12 archive.
-    #     Please note that the resulting file will contain private key material.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #         outp (synapse.lib.output.Output): The output buffer.
-    #
-    #     Examples:
-    #         Make the PKC12 object for user "myuser":
-    #
-    #             myuserpkcs12 = cdir.genClientCert('myuser')
-    #
-    #     Returns:
-    #         OpenSSL.crypto.PKCS12: The PKCS #12 archive.
-    #     '''
-    #     ucert = self.getUserCert(name)
-    #     if not ucert:
-    #         raise s_exc.NoSuchFile(mesg='missing User cert', name=name)
-    #
-    #     capath = self._getCaPath(ucert)
-    #     cacert = self._loadCertPath(capath)
-    #     if not cacert:
-    #         raise s_exc.NoSuchFile(mesg='missing CA cert', path=capath)
-    #
-    #     ukey = self.getUserKey(name)
-    #     if not ukey:
-    #         raise s_exc.NoSuchFile(mesg='missing User private key', name=name)
-    #
-    #     ccert = crypto.PKCS12()
-    #     ccert.set_friendlyname(name.encode('utf-8'))
-    #     ccert.set_ca_certificates([cacert])
-    #     ccert.set_certificate(ucert)
-    #     ccert.set_privatekey(ukey)
-    #
-    #     crtpath = self._saveP12To(ccert, 'users', '%s.p12' % name)
-    #     if outp is not None:
-    #         outp.printf('client cert saved: %s' % (crtpath,))
+    def genClientCert(self, name: AnyStr, outp: s_output.OutPut =None) -> None:
+        '''
+        Generates a user PKCS #12 archive.
+        Please note that the resulting file will contain private key material.
+
+        Args:
+            name (str): The name of the user keypair.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Examples:
+            Make the PKC12 object for user "myuser":
+
+                myuserpkcs12 = cdir.genClientCert('myuser')
+
+        Returns:
+            None
+        '''
+        ucert = self.getUserCert(name)
+        if not ucert:
+            raise s_exc.NoSuchFile(mesg='missing User cert', name=name)
+
+        capath = self._getCaPath(ucert)
+        cacert = self._loadCertPath(capath)
+        if not cacert:
+            raise s_exc.NoSuchFile(mesg='missing CA cert', path=capath)
+
+        ukey = self.getUserKey(name)
+        if not ukey:
+            raise s_exc.NoSuchFile(mesg='missing User private key', name=name)
+
+        byts = c_pkcs12.serialize_key_and_certificates(name=name.encode('utf-8'),
+                                                      key=ukey,
+                                                      cert=ucert,
+                                                      cas=[cacert],
+                                                      encryption_algorithm=c_serialization.NoEncryption())
+        crtpath = self._saveP12To(byts, 'users', '%s.p12' % name)
+        if outp is not None:
+            outp.printf('client cert saved: %s' % (crtpath,))
     #
     # def valUserCert(self, byts, cacerts=None):
     #     '''
@@ -2066,46 +2087,46 @@ class CertDirNew:
             if os.path.isfile(path):
                 return path
 
-    # def getClientCert(self, name):
-    #     '''
-    #     Loads the PKCS12 archive object for a given user keypair.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Get the PKCS12 object for the user "myuser":
-    #
-    #             mypkcs12 = cdir.getClientCert('myuser')
-    #
-    #     Notes:
-    #         The PKCS12 archive will contain private key material if it was created with CertDir or the easycert tool
-    #
-    #     Returns:
-    #         OpenSSL.crypto.PKCS12: The PKCS12 archive, if exists.
-    #     '''
-    #     return self._loadP12Path(self.getClientCertPath(name))
-    #
-    # def getClientCertPath(self, name):
-    #     '''
-    #     Gets the path to a client certificate.
-    #
-    #     Args:
-    #         name (str): The name of the client keypair.
-    #
-    #     Examples:
-    #         Get the path to the client certificate for "myuser":
-    #
-    #             mypath = cdir.getClientCertPath('myuser')
-    #
-    #     Returns:
-    #         str: The path if exists.
-    #     '''
-    #     for cdir in self.certdirs:
-    #         path = s_common.genpath(cdir, 'users', '%s.p12' % name)
-    #         if os.path.isfile(path):
-    #             return path
-    #
+    def getClientCert(self, name: AnyStr) -> Pkcs12OrNoneType:
+        '''
+        Loads the PKCS12 archive object for a given user keypair.
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Get the PKCS12 object for the user "myuser":
+
+                mypkcs12 = cdir.getClientCert('myuser')
+
+        Notes:
+            The PKCS12 archive will contain private key material if it was created with CertDir or the easycert tool
+
+        Returns:
+            OpenSSL.crypto.PKCS12: The PKCS12 archive, if exists.
+        '''
+        return self._loadP12Path(self.getClientCertPath(name))
+
+    def getClientCertPath(self, name: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the path to a client certificate.
+
+        Args:
+            name (str): The name of the client keypair.
+
+        Examples:
+            Get the path to the client certificate for "myuser":
+
+                mypath = cdir.getClientCertPath('myuser')
+
+        Returns:
+            str: The path if exists.
+        '''
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.p12' % name)
+            if os.path.isfile(path):
+                return path
+
     def getHostCaPath(self, name: AnyStr) -> StrOrNoneType:
         '''
         Gets the path to the CA certificate that issued a given host keypair.
@@ -2207,122 +2228,122 @@ class CertDirNew:
             if os.path.isfile(path):
                 return path
 
-    # def getUserCaPath(self, name):
-    #     '''
-    #     Gets the path to the CA certificate that issued a given user keypair.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Get the path to the CA cert which issue the cert for "myuser":
-    #
-    #             mypath = cdir.getUserCaPath('myuser')
-    #
-    #     Returns:
-    #         str: The path if exists.
-    #     '''
-    #     cert = self.getUserCert(name)
-    #     if cert is None:
-    #         return None
-    #
-    #     return self._getCaPath(cert)
-    #
-    # def getUserCert(self, name):
-    #     '''
-    #     Loads the X509 object for a given user keypair.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Get the certificate object for the user "myuser":
-    #
-    #             myusercert = cdir.getUserCert('myuser')
-    #
-    #     Returns:
-    #         OpenSSL.crypto.X509: The certificate, if exists.
-    #     '''
-    #     return self._loadCertPath(self.getUserCertPath(name))
-    #
-    # def getUserCertPath(self, name):
-    #     '''
-    #     Gets the path to a user certificate.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Get the path for the user cert for "myuser":
-    #
-    #             mypath = cdir.getUserCertPath('myuser')
-    #
-    #     Returns:
-    #         str: The path if exists.
-    #     '''
-    #     for cdir in self.certdirs:
-    #         path = s_common.genpath(cdir, 'users', '%s.crt' % name)
-    #         if os.path.isfile(path):
-    #             return path
-    #
-    # def getUserForHost(self, user, host):
-    #     '''
-    #     Gets the name of the first existing user cert for a given user and host.
-    #
-    #     Args:
-    #         user (str): The name of the user.
-    #         host (str): The name of the host.
-    #
-    #     Examples:
-    #         Get the name for the "myuser" user cert at "cool.vertex.link":
-    #
-    #             usercertname = cdir.getUserForHost('myuser', 'cool.vertex.link')
-    #
-    #     Returns:
-    #         str: The cert name, if exists.
-    #     '''
-    #     for name in iterFqdnUp(host):
-    #         usercert = '%s@%s' % (user, name)
-    #         if self.isUserCert(usercert):
-    #             return usercert
-    #
-    # def getUserKey(self, name):
-    #     '''
-    #     Loads the PKey object for a given user keypair.
-    #
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Get the key object for the user key for "myuser":
-    #
-    #             myuserkey = cdir.getUserKey('myuser')
-    #
-    #     Returns:
-    #         OpenSSL.crypto.PKey: The private key, if exists.
-    #     '''
-    #     return self._loadKeyPath(self.getUserKeyPath(name))
-    #
-    # def getUserKeyPath(self, name):
-    #     '''
-    #     Gets the path to a user key.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Get the path to the user key for "myuser":
-    #
-    #             mypath = cdir.getUserKeyPath('myuser')
-    #
-    #     Returns:
-    #         str: The path if exists.
-    #     '''
-    #     for cdir in self.certdirs:
-    #         path = s_common.genpath(cdir, 'users', '%s.key' % name)
-    #         if os.path.isfile(path):
-    #             return path
+    def getUserCaPath(self, name: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the path to the CA certificate that issued a given user keypair.
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Get the path to the CA cert which issue the cert for "myuser":
+
+                mypath = cdir.getUserCaPath('myuser')
+
+        Returns:
+            str: The path if exists.
+        '''
+        cert = self.getUserCert(name)
+        if cert is None:
+            return None
+
+        return self._getCaPath(cert)
+
+    def getUserCert(self, name: AnyStr) -> CertOrNoneType:
+        '''
+        Loads the X509 object for a given user keypair.
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Get the certificate object for the user "myuser":
+
+                myusercert = cdir.getUserCert('myuser')
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate, if exists.
+        '''
+        return self._loadCertPath(self.getUserCertPath(name))
+
+    def getUserCertPath(self, name: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the path to a user certificate.
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Get the path for the user cert for "myuser":
+
+                mypath = cdir.getUserCertPath('myuser')
+
+        Returns:
+            str: The path if exists.
+        '''
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.crt' % name)
+            if os.path.isfile(path):
+                return path
+
+    def getUserForHost(self, user: AnyStr, host: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the name of the first existing user cert for a given user and host.
+
+        Args:
+            user (str): The name of the user.
+            host (str): The name of the host.
+
+        Examples:
+            Get the name for the "myuser" user cert at "cool.vertex.link":
+
+                usercertname = cdir.getUserForHost('myuser', 'cool.vertex.link')
+
+        Returns:
+            str: The cert name, if exists.
+        '''
+        for name in iterFqdnUp(host):
+            usercert = '%s@%s' % (user, name)
+            if self.isUserCert(usercert):
+                return usercert
+
+    def getUserKey(self, name: AnyStr) -> CertOrNoneType:
+        '''
+        Loads the PKey object for a given user keypair.
+
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Get the key object for the user key for "myuser":
+
+                myuserkey = cdir.getUserKey('myuser')
+
+        Returns:
+            OpenSSL.crypto.PKey: The private key, if exists.
+        '''
+        return self._loadKeyPath(self.getUserKeyPath(name))
+
+    def getUserKeyPath(self, name: AnyStr) -> StrOrNoneType:
+        '''
+        Gets the path to a user key.
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Get the path to the user key for "myuser":
+
+                mypath = cdir.getUserKeyPath('myuser')
+
+        Returns:
+            str: The path if exists.
+        '''
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.key' % name)
+            if os.path.isfile(path):
+                return path
     #
     # def getUserCsrPath(self, name):
     #     for cdir in self.certdirs:
@@ -2391,25 +2412,25 @@ class CertDirNew:
             bool: True if the certificate is present, False otherwise.
         '''
         return self.getCaCertPath(name) is not None
-    #
-    # def isClientCert(self, name):
-    #     '''
-    #     Checks if a user client certificate (PKCS12) exists.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Check if the client certificate "myuser" exists:
-    #
-    #             exists = cdir.isClientCert('myuser')
-    #
-    #     Returns:
-    #         bool: True if the certificate is present, False otherwise.
-    #     '''
-    #     crtpath = self._getPathJoin('users', '%s.p12' % name)
-    #     return os.path.isfile(crtpath)
-    #
+
+    def isClientCert(self, name: AnyStr) -> bool:
+        '''
+        Checks if a user client certificate (PKCS12) exists.
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Check if the client certificate "myuser" exists:
+
+                exists = cdir.isClientCert('myuser')
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        crtpath = self._getPathJoin('users', '%s.p12' % name)
+        return os.path.isfile(crtpath)
+
     def isHostCert(self, name: AnyStr) -> bool:
         '''
         Checks if a host certificate exists.
@@ -2426,24 +2447,24 @@ class CertDirNew:
             bool: True if the certificate is present, False otherwise.
         '''
         return self.getHostCertPath(name) is not None
-    #
-    # def isUserCert(self, name):
-    #     '''
-    #     Checks if a user certificate exists.
-    #
-    #     Args:
-    #         name (str): The name of the user keypair.
-    #
-    #     Examples:
-    #         Check if the user cert "myuser" exists:
-    #
-    #             exists = cdir.isUserCert('myuser')
-    #
-    #     Returns:
-    #         bool: True if the certificate is present, False otherwise.
-    #     '''
-    #     return self.getUserCertPath(name) is not None
-    #
+
+    def isUserCert(self, name: AnyStr) -> bool:
+        '''
+        Checks if a user certificate exists.
+
+        Args:
+            name (str): The name of the user keypair.
+
+        Examples:
+            Check if the user cert "myuser" exists:
+
+                exists = cdir.isUserCert('myuser')
+
+        Returns:
+            bool: True if the certificate is present, False otherwise.
+        '''
+        return self.getUserCertPath(name) is not None
+
     def signCertAs(self, builder: c_x509.CertificateBuilder, signas: AnyStr) -> c_x509.Certificate:
         '''
         Signs a certificate with a CA keypair.
@@ -2828,15 +2849,13 @@ class CertDirNew:
             # XXX FIXME Coverage for this!
             raise s_exc.BadCertBytes(mesg=f'Key at {path} is {type(pkey)}, expected a DSA or RSA key.',
                                      path=path)
-    #
-    # def _loadP12Path(self, path):
-    #     byts = self._getPathBytes(path)
-    #     if byts:
-    #         # This API is deprecrated by PyOpenSSL and will need to be rewritten if pyopenssl is
-    #         # updated from v21.x.x. The APIs that use this are not directly exposed via the
-    #         # easycert tool currently, and are only used in unit tests.
-    #         return crypto.load_pkcs12(byts)
-    #
+
+    def _loadP12Path(self, path: AnyStr) -> Pkcs12OrNoneType:
+        byts = self._getPathBytes(path)
+        if byts:
+            p12 = c_pkcs12.load_pkcs12(byts, password=None)
+            return p12
+
     def _saveCertTo(self, cert: c_x509.Certificate, *paths: AnyStr):
         path = self._getPathJoin(*paths)
         self._checkDupFile(path)
@@ -2865,16 +2884,16 @@ class CertDirNew:
             fd.write(self._pkeyToByts(pkey))
 
         return path
-    #
-    # def _saveP12To(self, cert, *paths):
-    #     path = self._getPathJoin(*paths)
-    #     self._checkDupFile(path)
-    #
-    #     with s_common.genfile(path) as fd:
-    #         fd.truncate(0)
-    #         fd.write(cert.export())
-    #
-    #     return path
+
+    def _saveP12To(self, byts, *paths):
+        path = self._getPathJoin(*paths)
+        self._checkDupFile(path)
+
+        with s_common.genfile(path) as fd:
+            fd.truncate(0)
+            fd.write(byts)
+
+        return path
 
 certdirnew = CertDirNew()
 def getCertDirnew() -> CertDirNew:
