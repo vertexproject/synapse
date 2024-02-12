@@ -421,6 +421,181 @@ class CertDirNewTest(s_t_utils.SynTest):
             os.remove(base + '/users/' + username + '.crt')
             self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # user crt
 
+    def test_certdir_hosts_sans(self):
+        self.skip('XXX FIXME Sort out SANS support.')
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            caname = 'syntest'
+            cdir.genCaCert(caname)
+
+            # Host cert with multiple SANs ====================================
+            hostname = 'visi.vertex.link'
+            sans = 'DNS:vertex.link,DNS:visi.vertex.link,DNS:vertex.link'
+            cdir.genHostCert(hostname, signas=caname, sans=sans)
+
+            cdir.getCaCert(caname)
+            cert = cdir.getHostCert(hostname)
+            cdir.getHostKey(hostname)
+
+            self.eq(cert.get_extension_count(), 5)
+            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
+            self.eq(cert.get_extension(4).get_data(), b'0\x1f\x82\x0bvertex.link\x82\x10visi.vertex.link')  # ASN.1 encoded subjectAltName data
+
+            # Host cert with no specified SANs ================================
+            hostname = 'visi2.vertex.link'
+            cdir.genHostCert(hostname, signas=caname)
+
+            cdir.getCaCert(caname)
+            cert = cdir.getHostCert(hostname)
+            cdir.getHostKey(hostname)
+
+            self.eq(cert.get_extension_count(), 5)
+            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
+            self.eq(cert.get_extension(4).get_data(), b'0\x13\x82\x11visi2.vertex.link')  # ASN.1 encoded subjectAltName data
+
+            # Self-signed Host cert with no specified SANs ====================
+            hostname = 'visi3.vertex.link'
+            cdir.genHostCert(hostname)
+
+            cdir.getCaCert(caname)
+            cert = cdir.getHostCert(hostname)
+            cdir.getHostKey(hostname)
+
+            self.eq(cert.get_extension_count(), 5)
+            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
+            self.eq(cert.get_extension(4).get_data(), b'0\x13\x82\x11visi3.vertex.link')  # ASN.1 encoded subjectAltName data
+
+    def test_certdir_hosts_csr(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            caname = 'syntest'
+            hostname = 'visi.vertex.link'
+
+            # Generate CA cert and host CSR
+            cdir.genCaCert(caname)
+            cdir.genHostCsr(hostname)
+            path = cdir._getPathJoin('hosts', hostname + '.csr')
+            xcsr = cdir._loadCsrPath(path)
+
+            # Sign the CSR as the CA
+            pkey, pcert = cdir.signHostCsr(xcsr, caname)
+            self.none(pkey)
+            self.isinstance(pcert, c_x509.Certificate)
+
+            # Validate the keypair
+            cacert = cdir.getCaCert(caname)
+            cert = cdir.getHostCert(hostname)
+            key = cdir.getHostKey(hostname)
+            self.basic_assertions(cdir, cert, key, cacert=cacert)
+
+    def test_certdir_users_csr(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            caname = 'syntest'
+            username = 'visi@vertex.link'
+
+            # Generate CA cert and user CSR
+            cdir.genCaCert(caname)
+            cdir.genUserCsr(username)
+            path = cdir._getPathJoin('users', username + '.csr')
+            xcsr = cdir._loadCsrPath(path)
+
+            # Sign the CSR as the CA
+            pkey, pcert = cdir.signUserCsr(xcsr, caname)
+            self.none(pkey)
+            self.isinstance(pcert, c_x509.Certificate)
+
+            # Validate the keypair
+            cacert = cdir.getCaCert(caname)
+            cert = cdir.getUserCert(username)
+            key = cdir.getUserKey(username)
+            self.basic_assertions(cdir, cert, key, cacert=cacert)
+
+    def test_certdir_importfile(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            with self.getTestDir() as testpath:
+
+                # File doesn't exist
+                fpath = s_common.genpath(testpath, 'not_real.crt')
+                self.raises(s_exc.NoSuchFile, cdir.importFile, fpath, 'cas')
+
+                # File has unsupported extension
+                fpath = s_common.genpath(testpath, 'coolpic.bmp')
+                with s_common.genfile(fpath) as fd:
+                    self.raises(s_exc.BadFileExt, cdir.importFile, fpath, 'cas')
+
+                tests = (
+                    ('cas', 'coolca.crt'),
+                    ('cas', 'coolca.key'),
+                    ('hosts', 'coolhost.crt'),
+                    ('hosts', 'coolhost.key'),
+                    ('users', 'cooluser.crt'),
+                    ('users', 'cooluser.key'),
+                    ('users', 'cooluser.p12'),
+                )
+                for ftype, fname in tests:
+                    srcpath = s_common.genpath(testpath, fname)
+                    dstpath = s_common.genpath(cdir.certdirs[0], ftype, fname)
+
+                    with s_common.genfile(srcpath) as fd:
+                        fd.write(b'arbitrary data')
+                        fd.seek(0)
+
+                        # Make sure the file is not there
+                        self.raises(s_exc.NoSuchFile, s_common.reqfile, dstpath)
+
+                        # Import it and make sure it exists
+                        self.none(cdir.importFile(srcpath, ftype))
+                        with s_common.reqfile(dstpath) as dstfd:
+                            self.eq(dstfd.read(), b'arbitrary data')
+
+                        # Make sure it can't be overwritten
+                        self.raises(s_exc.FileExists, cdir.importFile, srcpath, ftype)
+
+    def test_certdir_valUserCert(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            cdir._getPathJoin()
+            cdir.genCaCert('syntest')
+            cdir.genCaCert('newp')
+            cdir.getCaCerts()
+            syntestca = cdir.getCaCert('syntest')
+            newpca = cdir.getCaCert('newp')
+
+            with self.raises(s_exc.BadCertBytes):
+                cdir.valUserCert(b'')
+
+            cdir.genUserCert('cool')
+            path = cdir.getUserCertPath('cool')
+            byts = cdir._getPathBytes(path)
+
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts)
+
+            cdir.genUserCert('cooler', signas='syntest')
+            path = cdir.getUserCertPath('cooler')
+            byts = cdir._getPathBytes(path)
+            self.nn(cdir.valUserCert(byts))
+            self.nn(cdir.valUserCert(byts, cacerts=(syntestca,)))
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=(newpca,))
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=())
+
+            cdir.genUserCert('coolest', signas='newp')
+            path = cdir.getUserCertPath('coolest')
+            byts = cdir._getPathBytes(path)
+            self.nn(cdir.valUserCert(byts))
+            self.nn(cdir.valUserCert(byts, cacerts=(newpca,)))
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=(syntestca,))
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=())
+
+    def test_certdir_sslctx(self):
+
+        with self.getCertDir() as cdir:
+
+            with self.raises(s_exc.NoSuchCert):
+                cdir.getClientSSLContext(certname='newp')
+
+            with s_common.genfile(cdir.certdirs[0], 'users', 'newp.crt') as fd:
+                fd.write(b'asdf')
+
+            with self.raises(s_exc.NoCertKey):
+                cdir.getClientSSLContext(certname='newp')
+
 
 class CertDirTest(s_t_utils.SynTest):
 
