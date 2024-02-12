@@ -5,7 +5,7 @@ import cbor2  # cardano
 import regex
 import bech32  # cardano
 import base58  # btc and cardano
-import Crypto.Hash.keccak as c_keccak
+import eth_utils
 import bitcoin  # btc
 import bitcoin.bech32 as bitcoin_b32  # btc
 import synapse.vendor.cashaddress.convert as cashaddr_convert  # BCH support
@@ -54,7 +54,7 @@ def ether_eip55(body: str):
     # From EIP-55 reference implementation
     hex_addr = body.lower()
     checksummed_buffer = ""
-    hashed_address = c_keccak.new(data=hex_addr.encode(), digest_bits=256).hexdigest()
+    hashed_address = eth_utils.keccak(text=hex_addr).hex()
 
     for nibble_index, character in enumerate(hex_addr):
         if character in "0123456789":
