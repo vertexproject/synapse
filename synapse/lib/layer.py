@@ -2398,7 +2398,8 @@ class Layer(s_nexus.Pusher):
 
             elif sode.get('valu') is None:
                 if (props := sode.get('props')) is not None and (ctime := props.get('.created')) is not None:
-                    newsode = {'oldv': ctime, '.created': min(ctime, tick)}
+                    oldv = ctime[0]
+                    newsode = {'oldv': oldv, '.created': min(oldv, tick)}
                 else:
                     newsode = {'.created': tick}
 
