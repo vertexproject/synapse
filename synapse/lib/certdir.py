@@ -2260,13 +2260,13 @@ class CertDir:
             OpenSSL.crypto.X509: The certificate, if exists.
         '''
         return self._loadCertPath(self.getHostCertPath(name))
-    #
-    # def getHostCertHash(self, name):
-    #     cert = self.getHostCert(name)
-    #     if cert is None:
-    #         return None
-    #     return cert.digest('SHA256').decode().lower().replace(':', '')
-    #
+
+    def getHostCertHash(self, name: str) -> StrOrNoneType:
+        cert = self.getHostCert(name)
+        if cert is None:
+            return None
+        return s_common.ehex(cert.fingerprint(c_hashes.SHA256()))
+
     def getHostCertPath(self, name: str) -> StrOrNoneType:
         '''
         Gets the path to a host certificate.

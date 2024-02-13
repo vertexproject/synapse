@@ -348,6 +348,12 @@ class CertDirNewTest(s_t_utils.SynTest):
             self.basic_assertions(cdir, cert, key, cacert=cacert)
             self.host_assertions(cdir, cert, key, cacert=cacert)
 
+            # Get cert host hashes
+            self.none(cdir.getHostCertHash('newp.host'))
+            chash = cdir.getHostCertHash(hostname)
+            self.isinstance(chash, str)
+            self.len(64, chash)
+
     def test_certdir_users(self):
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
