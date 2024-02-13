@@ -785,6 +785,11 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
 
+                    badedit = [(None, 'inet:ipv4', [(s_layer.EDIT_PROP_SET, 'asn', 5, None, None)])]
+                    self.eq([], await layr.calcEdits(badedit, {}))
+
+                    self.len(6, await alist(layrprox.syncNodeEdits2(0, wait=False)))
+
                 layr = core1.view.layers[0]  # type: s_layer.Layer
 
                 ############################################################################

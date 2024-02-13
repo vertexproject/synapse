@@ -2376,6 +2376,9 @@ class Layer(s_nexus.Pusher):
 
     async def calcEdits(self, nodeedits, meta):
 
+        if (tick := meta.get('time')) is None:
+            tick = s_common.now()
+
         realedits = []
         for (nid, form, edits) in nodeedits:
 
@@ -2387,18 +2390,34 @@ class Layer(s_nexus.Pusher):
                 # the mapping from the node add edit
                 nid = await self.core._genNdefNid((form, edits[0][1][0]))
 
+            newsode = False
+
             sode = self._getStorNode(nid)
+            if sode is None:
+                newsode = {'.created': tick}
+
+            elif sode.get('valu') is None:
+                if (props := sode.get('props')) is not None and (ctime := props.get('.created')) is not None:
+                    newsode = {'oldv': ctime, '.created': min(ctime, tick)}
+                else:
+                    newsode = {'.created': tick}
 
             changes = []
             for edit in edits:
 
-                delt = await self.resolvers[edit[0]](nid, form, edit, sode, meta)
+                delt = await self.resolvers[edit[0]](nid, edit, sode, newsode)
                 if delt is not None:
                     changes.extend(delt)
 
                 await asyncio.sleep(0)
 
             if changes:
+                if newsode and newsode.get('valu'):
+                    oldv = newsode.get('oldv')
+                    ctime = newsode.get('.created')
+                    if oldv != ctime:
+                        changes.append((EDIT_PROP_SET, ('.created', ctime, oldv, STOR_TYPE_MINTIME)))
+
                 realedits.append((nid, form, changes))
 
         await asyncio.sleep(0)
@@ -2474,35 +2493,18 @@ class Layer(s_nexus.Pusher):
         self._reqNotReadOnly()
         await self._push('edits', nodeedits, meta)
 
-    async def _calcNodeAdd(self, nid, form, edit, sode, meta):
+    async def _calcNodeAdd(self, nid, edit, sode, newsode):
 
-        if sode is None:
-            oldv = None
-            if (tick := meta.get('time')) is None:
-                tick = s_common.now()
+        if not newsode:
+            return
 
-        else:
-            if sode.get('valu') is not None:
-                return
-
-            if (tick := meta.get('time')) is None:
-                tick = s_common.now()
-
-            oldv = None
-            if (props := sode.get('props')) is not None:
-                if (curv := props.get('.created')) is not None and tick < curv[0]:
-                    oldv = curv[0]
-                else:
-                    return (
-                        (EDIT_NODE_ADD, edit[1]),
-                    )
+        newsode['valu'] = True
 
         return (
             (EDIT_NODE_ADD, edit[1]),
-            (EDIT_PROP_SET, ('.created', tick, oldv, STOR_TYPE_MINTIME))
         )
 
-    async def _calcNodeDel(self, nid, form, edit, sode, meta):
+    async def _calcNodeDel(self, nid, edit, sode, newsode):
 
         if sode is None or (oldv := sode.get('valu')) is None:
             return
@@ -2511,19 +2513,17 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODE_DEL, oldv),
         )
 
-    async def _calcPropSet(self, nid, form, edit, sode, meta):
+    async def _calcPropSet(self, nid, edit, sode, newsode):
 
         prop, valu, _, stortype = edit[1]
 
+        if newsode and prop == '.created':
+            newsode['.created'] = min(valu, newsode['.created'])
+            return
+
         if sode is None or (props := sode.get('props')) is None:
-            if prop == '.created':
-                if (tick := meta.get('time')) is None:
-                    tick = s_common.now()
-
-                if tick < valu:
-                    return
-
             oldv = None
+
         else:
             oldv, oldt = props.get(prop, (None, None))
 
@@ -2549,7 +2549,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_SET, (prop, valu, oldv, stortype)),
         )
 
-    async def _calcPropDel(self, nid, form, edit, sode, meta):
+    async def _calcPropDel(self, nid, edit, sode, newsode):
 
         if sode is None or (props := sode.get('props')) is None:
             return
@@ -2562,7 +2562,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_DEL, (prop, *valt)),
         )
 
-    async def _calcTagSet(self, nid, form, edit, sode, meta):
+    async def _calcTagSet(self, nid, edit, sode, newsode):
 
         tag, valu, _ = edit[1]
 
@@ -2582,7 +2582,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAG_SET, (tag, valu, oldv)),
         )
 
-    async def _calcTagDel(self, nid, form, edit, sode, meta):
+    async def _calcTagDel(self, nid, edit, sode, newsode):
 
         if sode is None or (tags := sode.get('tags')) is None:
             return
@@ -2595,7 +2595,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAG_DEL, (tag, oldv)),
         )
 
-    async def _calcTagPropSet(self, nid, form, edit, sode, meta):
+    async def _calcTagPropSet(self, nid, edit, sode, newsode):
 
         tag, prop, valu, _, stortype = edit[1]
         oldv = None
@@ -2623,7 +2623,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype)),
         )
 
-    async def _calcTagPropDel(self, nid, form, edit, sode, meta):
+    async def _calcTagPropDel(self, nid, edit, sode, newsode):
 
         if sode is None or (tagprops := sode.get('tagprops')) is None:
             return
@@ -2640,7 +2640,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAGPROP_DEL, (tag, prop, *oldv)),
         )
 
-    async def _calcNodeDataSet(self, nid, form, edit, sode, meta):
+    async def _calcNodeDataSet(self, nid, edit, sode, newsode):
 
         name, valu, _ = edit[1]
 
@@ -2668,7 +2668,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_SET, (name, valu, oldv)),
         )
 
-    async def _calcNodeDataDel(self, nid, form, edit, sode, meta):
+    async def _calcNodeDataDel(self, nid, edit, sode, newsode):
 
         if sode is None:
             return
@@ -2686,7 +2686,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_DEL, (name, s_msgpack.un(oldb))),
         )
 
-    async def _calcNodeEdgeAdd(self, nid, form, edit, sode, meta):
+    async def _calcNodeEdgeAdd(self, nid, edit, sode, newsode):
 
         verb, n2nid = edit[1]
 
@@ -2697,7 +2697,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_EDGE_ADD, (verb, n2nid)),
         )
 
-    async def _calcNodeEdgeDel(self, nid, form, edit, sode, meta):
+    async def _calcNodeEdgeDel(self, nid, edit, sode, newsode):
 
         if sode is None:
             return
