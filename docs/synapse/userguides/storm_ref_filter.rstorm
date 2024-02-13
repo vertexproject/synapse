@@ -186,7 +186,7 @@ the specified property (secondary, universal, or extended), regardless of the pr
   typing"). Full property names can be used for clarity (i.e., specifying **exactly** what you want to
   filter on).
   
-  Full property are **required** when filtering on a property using an interface. They may also be required
+  Full property names are **required** when filtering on a property using an interface. They may also be required
   in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
   ``inet:dns:a:ipv4`` and ``inet:url:ipv4``) and you only wish to filter based on the property of one of
   the forms.
