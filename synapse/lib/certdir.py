@@ -100,11 +100,11 @@ def _unpackContextError(e: crypto.X509StoreContextError) -> str:
 
 class Crl:
 
-    def __init__(self, certdir, name):
+    def __init__(self, cdir, name):
 
         self.name = name
-        self.certdir = certdir
-        self.path = certdir.genCrlPath(name)
+        self.certdir = cdir
+        self.path = self.certdir.genCrlPath(name)
 
         self.crlbuilder = c_x509.CertificateRevocationListBuilder().issuer_name(c_x509.Name([
                 c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name),
@@ -506,7 +506,7 @@ class CertDir:
             path = s_common.genpath(cdir, 'code', f'{name}.crt')
             if os.path.isfile(path):
                 return path
-    def getCodeKey(self, name: str) -> s_rsa.PriKey:
+    def getCodeKey(self, name: str) -> Union[s_rsa.PriKey | None]:
 
         path = self.getCodeKeyPath(name)
         if path is None:
@@ -612,10 +612,10 @@ class CertDir:
             raise s_exc.NoSuchFile(mesg='missing User private key', name=name)
 
         byts = c_pkcs12.serialize_key_and_certificates(name=name.encode('utf-8'),
-                                                      key=ukey,
-                                                      cert=ucert,
-                                                      cas=[cacert],
-                                                      encryption_algorithm=c_serialization.NoEncryption())
+                                                       key=ukey,
+                                                       cert=ucert,
+                                                       cas=[cacert],
+                                                       encryption_algorithm=c_serialization.NoEncryption())
         crtpath = self._saveP12To(byts, 'users', '%s.p12' % name)
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
@@ -1003,7 +1003,7 @@ class CertDir:
             if self.isUserCert(usercert):
                 return usercert
 
-    def getUserKey(self, name: str) -> CertOrNoneType:
+    def getUserKey(self, name: str) -> PkeyOrNoneType:
         '''
         Loads the PKey object for a given user keypair.
 
@@ -1547,7 +1547,7 @@ class CertDir:
         if byts:
             return self._loadCsrByts(byts)
 
-    def _loadCsrByts(self, byts) -> bytes:
+    def _loadCsrByts(self, byts: bytes) -> c_x509.CertificateSigningRequest:
         return c_x509.load_pem_x509_csr(byts)
 
     def _loadKeyPath(self, path: str) -> PkeyOrNoneType:
