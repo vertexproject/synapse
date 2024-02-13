@@ -616,8 +616,8 @@ In most cases, the same extended comparators are available for both lifting and 
 
 Each extended comparision operator can be used with any kind of property (primary, secondary, universal, or
 extended) whose :ref:`gloss-type` is appropriate for the comparison used. When filtering by secondary property
-value, you can optionally specify an :ref:`interface` name to filter based on all forms that inherit that
-interface.
+value, you can optionally specify an :ref:`interface` name and property to filter based on all forms that
+inherit that interface.
 
 
 .. _filter-regex:
