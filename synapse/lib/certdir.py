@@ -1596,7 +1596,7 @@ class CertDir:
 
         return path
 
-    def _saveP12To(self, byts, *paths):
+    def _saveP12To(self, byts: bytes, *paths: str):
         path = self._getPathJoin(*paths)
         self._checkDupFile(path)
 
