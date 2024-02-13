@@ -11,7 +11,7 @@ This section discusses the following topics:
 
 - `Subquery`_
 - `Subquery Filter`_
-- `Setting Properties with Subqueries`_
+- `Using Subqueries to Reference Nodes`_
 
 .. _storm-subquery:
 
@@ -113,7 +113,9 @@ A subquery filter allows you to use a subquery to filter the current set of node
 
 For additional detail on subquery filters and examples of their use, refer to the :ref:`filter-subquery` section of the :ref:`storm-ref-filter` guide.
 
-Setting Properties with Subqueries
-----------------------------------
+.. _subquery-ref-nodes:
+
+Using Subqueries to Reference Nodes
+-----------------------------------
 
 A subquery can be used in data modification (i.e., edit) operations to specify the value that should be assigned to a node's secondary property. This is useful when the value to be assigned is a :ref:`gloss-guid` that would be inconvenient to type or copy and paste. See the :ref:`prop-add-mod-subquery` section of the :ref:`storm-ref-data-mod` document for examples and additional detail.
