@@ -478,7 +478,8 @@ class CertDirNewTest(s_t_utils.SynTest):
             # Generate CA cert and host CSR
             cdir.genCaCert(caname)
             cdir.genHostCsr(hostname)
-            path = cdir._getPathJoin('hosts', hostname + '.csr')
+            self.none(cdir.getHostCsrPath('newp'))
+            path = cdir.getHostCsrPath(hostname)
             xcsr = cdir._loadCsrPath(path)
 
             # Sign the CSR as the CA
@@ -500,7 +501,8 @@ class CertDirNewTest(s_t_utils.SynTest):
             # Generate CA cert and user CSR
             cdir.genCaCert(caname)
             cdir.genUserCsr(username)
-            path = cdir._getPathJoin('users', username + '.csr')
+            self.none(cdir.getUserCsrPath('newp'))
+            path = cdir.getUserCsrPath(username)
             xcsr = cdir._loadCsrPath(path)
 
             # Sign the CSR as the CA

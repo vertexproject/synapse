@@ -2440,18 +2440,18 @@ class CertDir:
             path = s_common.genpath(cdir, 'users', '%s.key' % name)
             if os.path.isfile(path):
                 return path
-    #
-    # def getUserCsrPath(self, name):
-    #     for cdir in self.certdirs:
-    #         path = s_common.genpath(cdir, 'users', '%s.csr' % name)
-    #         if os.path.isfile(path):
-    #             return path
-    #
-    # def getHostCsrPath(self, name):
-    #     for cdir in self.certdirs:
-    #         path = s_common.genpath(cdir, 'hosts', '%s.csr' % name)
-    #         if os.path.isfile(path):
-    #             return path
+
+    def getUserCsrPath(self, name: str) -> StrOrNoneType:
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'users', '%s.csr' % name)
+            if os.path.isfile(path):
+                return path
+
+    def getHostCsrPath(self, name: str) -> StrOrNoneType:
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'hosts', '%s.csr' % name)
+            if os.path.isfile(path):
+                return path
     def importFile(self, path: str, mode: str, outp: OutPutOrNoneType =None) -> None:
         '''
         Imports certs and keys into the Synapse cert directory
@@ -2618,8 +2618,8 @@ class CertDir:
             ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)):  Tuple containing the public key and certificate objects.
         '''
         pkey = xcsr.public_key()
-        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
-        name = name.value
+        attr = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+        name = attr.value
         return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans, save=save)
 
     def selfSignCert(self, builder: c_x509.CertificateBuilder, pkey: PkeyType) -> c_x509.Certificate:
@@ -2807,37 +2807,46 @@ class CertDir:
 
         return sslctx
 
-    # def saveCertPem(self, cert, path):
-    #     '''
-    #     Save a certificate in PEM format to a file outside the certdir.
-    #     '''
-    #     with s_common.genfile(path) as fd:
-    #         fd.truncate(0)
-    #         fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-    #
-    # def savePkeyPem(self, pkey, path):
-    #     '''
-    #     Save a private key in PEM format to a file outside the certdir.
-    #     '''
-    #     with s_common.genfile(path) as fd:
-    #         fd.truncate(0)
-    #         fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
-    #
-    # def saveCaCertByts(self, byts):
-    #     cert = self._loadCertByts(byts)
-    #     name = cert.get_subject().CN
-    #     return self._saveCertTo(cert, 'cas', f'{name}.crt')
-    #
-    # def saveHostCertByts(self, byts):
-    #     cert = self._loadCertByts(byts)
-    #     name = cert.get_subject().CN
-    #     return self._saveCertTo(cert, 'hosts', f'{name}.crt')
-    #
-    # def saveUserCertByts(self, byts):
-    #     cert = self._loadCertByts(byts)
-    #     name = cert.get_subject().CN
-    #     return self._saveCertTo(cert, 'users', f'{name}.crt')
-    #
+    # XXX FIXME - Add test_lib_certdir tests for these save APIS
+
+    def saveCertPem(self, cert: c_x509.Certificate, path: str) -> None:
+        '''
+        Save a certificate in PEM format to a file outside the certdir.
+        '''
+        with s_common.genfile(path) as fd:
+            fd.truncate(0)
+            fd.write(cert.public_bytes(c_serialization.Encoding.PEM))
+
+    def savePkeyPem(self, pkey: c_types.PrivateKeyTypes, path: str) -> None:
+        '''
+        Save a private key in PEM format to a file outside the certdir.
+        '''
+        byts = pkey.private_bytes(encoding=c_serialization.Encoding.PEM,
+                                  format=c_serialization.PrivateFormat.TraditionalOpenSSL,
+                                  encryption_algorithm=c_serialization.NoEncryption(),
+                                  )
+        with s_common.genfile(path) as fd:
+            fd.truncate(0)
+            fd.write(byts)
+
+    def saveCaCertByts(self, byts: bytes) -> str:
+        cert = self._loadCertByts(byts)
+        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+        name = attr.value
+        return self._saveCertTo(cert, 'cas', f'{name}.crt')
+
+    def saveHostCertByts(self, byts: bytes) -> str:
+        cert = self._loadCertByts(byts)
+        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+        name = attr.value
+        return self._saveCertTo(cert, 'hosts', f'{name}.crt')
+
+    def saveUserCertByts(self, byts: bytes) -> str:
+        cert = self._loadCertByts(byts)
+        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+        name = attr.value
+        return self._saveCertTo(cert, 'users', f'{name}.crt')
+
     def _checkDupFile(self, path) -> None:
         if os.path.isfile(path):
             raise s_exc.DupFileName(mesg=f'Duplicate file {path}', path=path)
@@ -2958,7 +2967,7 @@ class CertDir:
             p12 = c_pkcs12.load_pkcs12(byts, password=None)
             return p12
 
-    def _saveCertTo(self, cert: c_x509.Certificate, *paths: str):
+    def _saveCertTo(self, cert: c_x509.Certificate, *paths: str) -> str:
         path = self._getPathJoin(*paths)
         self._checkDupFile(path)
 
