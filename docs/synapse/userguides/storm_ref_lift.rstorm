@@ -134,7 +134,7 @@ Use of the wildcard is not limited to form namespace boundaries.
 Lift Form by Interface
 ++++++++++++++++++++++
 
-You can use the name of an interface to lift all forms that inherit that interface.
+You can use the name of an :ref:`interface` to lift all forms that inherit that interface.
 
 .. NOTE::
   
@@ -220,7 +220,6 @@ by specifying the full name of the interface and its property.
   ::
     
     inet:proto:request:sandbox:file
-
 
 **Syntax:**
 
@@ -333,8 +332,11 @@ A "lift by property value" operation returns the node(s) whose property matches 
 - a :ref:`gloss-comp-operator` to specify how the property value should be evaluated; and
 - the property value.
 
-A "lift by property value" can be performed using primary, secondary, universal, or extended properties. When
-using a secondary property, you can specify either a form name or an :ref:`interface` name.
+A "lift by property value" can be performed using primary, secondary, universal, or extended properties.
+
+.. TIP::
+  
+  When lifting by a secondary property value, you can specify either a form name or an :ref:`interface` name.
 
 In Synapse, we define **standard comparison operators** as the following set of operators:
 
@@ -509,6 +511,10 @@ by using the name of the interface.
   
   You must specify the interface where the property is defined. If an interface inherits another interface, you cannot
   perform this type of lift using an interface and an inherited property name.
+  
+  Synapse returns results in lexical order (sorted, ascending to descending) based on the way the queried property is
+  indexed. When using an interface to lift by secondary property, the full set of results is combined before being
+  sorted and returned. See the :ref:`lift-reverse` section for additional discussion of this concept.
 
 
 **Syntax:**
@@ -635,8 +641,16 @@ requires:
 - the property value.
 
 Each extended comparison operator can be used with any kind of property (primary, secondary, universal, or
-extended) whose :ref:`gloss-type` is appropriate for the comparison used. When using a secondary property,
-you can specify either a form name or an :ref:`interface` name.
+extended) whose :ref:`gloss-type` is appropriate for the comparison used.
+
+.. TIP::
+  
+  When lifting by a secondary property value, you can specify either a form name or an :ref:`interface` name.
+  
+  Synapse returns results in lexical order (sorted, ascending to descending) based on the way the queried property is
+  indexed. When using an interface to lift by secondary property, the full set of results is combined before being
+  sorted and returned. See the :ref:`lift-reverse` section for additional discussion of this concept.
+
 
 .. _lift-regex:
 
@@ -654,6 +668,8 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 **Syntax:**
 
 *<form>* [ **:** | **.** | **:_** *<prop>* ] **~=** *<regex>*
+
+*<interface>* **:** *<prop>* **~=** *<regex>*
 
 **Examples:**
 
@@ -696,6 +712,8 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 **Syntax:**
 
 *<form>* [  **:** | **.** | **:_** *<prop>* ] **^=** *<prefix>*
+
+*<interface>* **:** *<prop>* **^=** *<prefix>*
 
 **Examples:**
 
@@ -765,6 +783,10 @@ used to lift nodes based on comparisons among various combinations of times and 
 *<form>* **:** | **.** | **:_** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
 
 *<form>* **:** | **.** | **:_** *<prop>* **@=** *<time>*
+
+*<interface>* **:** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
+
+*<interface>* **:** *<prop>* **@=** *<time>*
 
 
 **Examples:**
@@ -878,6 +900,8 @@ within a specified range of values. The comparator can be used with types such a
 
 *<form>* [ **:** | **.** | **:_** *<prop>* ] ***range = (** *<range_min>* **,** *<range_max>* **)**
 
+*<interface>* **:** *<prop>* ***range = (** *<range_min>* **,** *<range_max>* **)**
+
 **Examples:**
 
 *Lift all files whose size is between 1000 and 100000 bytes:*
@@ -941,6 +965,8 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
 **Syntax:**
 
 *<form>* [ **:** | **.** | **:_** *<prop>* ] ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
+
+*<interface>* **:** *<prop>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
 
 **Examples:**
 
@@ -1358,17 +1384,14 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
 
 .. TIP::
   
-  The ``reverse`` keyword can be used to perform any of the lifts that support the use of an :ref:`interface` name.
-  In these cases, the full set of results is combined before being sorted into descending order and returned. For 
-  example, the following query will return all nodes of all forms that inherit the ``it:host:activity`` interface
-  that have a ``:time`` value greater than or equal to 2024/02/01, sorted in descending order (most recent first):
+  When using the ``reverse`` keyword to lift by secondary property value using an :ref:`interface` name, the full
+  set of results is **combined** before being sorted into descending order and returned. For example, the following
+  query will return all nodes of all forms that inherit the ``it:host:activity`` interface that have a ``:time``
+  value greater than or equal to 2024/02/01, sorted in descending order (most recent first):
   
   ::
     
     reverse (it:host:activity:time >= 2024/02/01
-  
-  Similarly, when performing a "normal" lift (without the ``reverse`` keyword) using an interface, the full set of
-  results are sorted into ascending order and then returned.
 
 
 **Syntax:**
