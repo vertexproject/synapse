@@ -785,9 +785,6 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
 
-                    badedit = [(None, 'inet:ipv4', [(s_layer.EDIT_PROP_SET, 'asn', 5, None, None)])]
-                    self.eq([], await layr.calcEdits(badedit, {}))
-
                     self.len(6, await alist(layrprox.syncNodeEdits2(0, wait=False)))
 
                 layr = core1.view.layers[0]  # type: s_layer.Layer
@@ -842,6 +839,33 @@ class LayerTest(s_t_utils.SynTest):
                     await asyncio.wait_for(waitForEdit(), timeout=6)
 
                 ############################################################################
+
+            await core0.addTagProp('score', ('int', {}), {})
+
+            q = '[ inet:ipv4=1.2.3.4 +#tp:score=5 +(foo)> { test:str=foo } ] $node.data.set(foo, bar)'
+            nodes = await core0.nodes(q)
+            ipv4nid = nodes[0].nid
+            tstrnid = (await core0.nodes('test:str=foo'))[0].nid
+
+            layr = core0.getLayer()
+
+            noedit = [(None, 'inet:ipv4', [(s_layer.EDIT_PROP_SET, ('asn', 5, None, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_TAG_DEL, ('newp', None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp', None, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp', None, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar', None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
+
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_EDGE_ADD, ('foo', tstrnid))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
 
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
@@ -1317,7 +1341,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.views[viewiden].layers[0]
 
             nodeedits = []
-            async for _, edits, _ in layr.iterNodeEditLog():
+            async for _, edits, _ in layr.syncNodeEdits2(0, wait=False):
                 nodeedits.extend(edits)
 
             perms = [perm for permoffs, perm in s_layer.getNodeEditPerms(nodeedits)]

@@ -3377,22 +3377,6 @@ class Layer(s_nexus.Pusher):
             return deepcopy(sode)
         return collections.defaultdict(dict)
 
-    async def iterNodeEditLog(self, offs=0):
-        '''
-        Iterate the node edit log and yield (offs, edits, meta) tuples.
-        '''
-        for offs, _ in self.nodeeditlog.iter(offs):
-            nexsitem = await self.core.nexsroot.nexslog.get(offs)
-            yield (offs, *nexsitem[2])
-
-    async def iterNodeEditLogBack(self, offs=0):
-        '''
-        Iterate the node edit log and yield (offs, edits, meta) tuples in reverse.
-        '''
-        for offs, _ in self.nodeeditlog.iterBack(offs):
-            nexsitem = await self.core.nexsroot.nexslog.get(offs)
-            yield (offs, *nexsitem[2])
-
     async def syncNodeEdits2(self, offs, wait=True, compat=False):
         '''
         Once caught up with storage, yield them in realtime.
