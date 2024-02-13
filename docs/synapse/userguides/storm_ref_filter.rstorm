@@ -93,7 +93,7 @@ Filter by Form Name
 Filter by Form Name - Wildcard
 ++++++++++++++++++++++++++++++
 
-You can use the wildcard (asterisk) charcter ( ``*`` ) to specify all forms that match a partial form name. Use
+You can use the wildcard (asterisk) character ( ``*`` ) to specify all forms that match a partial form name. Use
 of the wildcard is not limited to form namespace boundaries.
 
 .. NOTE::
