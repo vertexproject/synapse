@@ -95,7 +95,7 @@ Use of the wildcard is not limited to form namespace boundaries.
 
 .. NOTE::
   
-  The wildcard can only be used at the end of the partial match. It cannot be used at the begining or in
+  The wildcard can only be used at the end of the partial match. It cannot be used at the beginning or in
   the middle of the form name. For example, both of the following are **invalid**:
   
   ``*:header``
@@ -236,7 +236,7 @@ by specifying the full name of the interface and its property.
   
   it:host:activity:time
 
-*Lift all protocol request nodes (all nodes of all forms that inherit the inet:proto:request interface) that have an associatetd network flow (i.e., that have a :flow property):*
+*Lift all protocol request nodes (all nodes of all forms that inherit the inet:proto:request interface) that have an associated network flow (i.e., that have a :flow property):*
 
 .. storm-pre:: [ (inet:http:request=* :flow={ [ inet:flow=* ] } ) ]
 .. storm-pre:: inet:proto:request:flow
@@ -1391,7 +1391,7 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
   
   ::
     
-    reverse (it:host:activity:time >= 2024/02/01
+    reverse (it:host:activity:time >= 2024/02/01)
 
 
 **Syntax:**

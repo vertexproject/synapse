@@ -257,7 +257,7 @@ property by specifying the full name of the interface and its property.
 
 **Example:**
 
-*Filter the curent working set to only include those host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
+*Filter the current working set to only include those host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
 
 .. storm-pre:: [ it:exec:file:add=* ( it:exec:file:add=* :time=now ) ] +it:host:activity:time
 
@@ -475,7 +475,7 @@ property value by using the name of the interface.
 .. TIP::
   
   You must specify the interface where the property is defined. If an interface inherits another interface, you
-  cannot perform this type of filter using an interface and in inherited property name.
+  cannot perform this type of filter using an interface and an inherited property name.
 
 **Syntax:**
 

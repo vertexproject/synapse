@@ -128,7 +128,7 @@ without needing to enter (type, copy and paste) the form's primary property.
 *Lift all of the contacts (ps:contact nodes) for The Vertex Project:*
 
 .. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex :names+=('the vertex project')) (ps:contact=* :org=4b0c2c5671874922ce001d69215d032f :name='ron the cat') ]
-.. storm-pre:: ps:contact:org = { ou:org:name = vertex } ]
+.. storm-pre:: ps:contact:org = { ou:org:name = vertex }
 
 ::
   
@@ -148,7 +148,7 @@ without needing to enter (type, copy and paste) the form's primary property.
   
   When a subquery is used to specify a property value (as in the queries above), Synapse will generate an error
   if the subquery expression returns more than node. Specifically, the ``:org`` property of a ``ps:contact``
-  node is a single ``ou:org`` guid. If ```ou:org:name = vertex`` returns more than one org node, Synapse
+  node is a single ``ou:org`` guid. If ``ou:org:name = vertex`` returns more than one org node, Synapse
   returns a ``BadTypeValu`` error.
 
 See the :ref:`prop-add-mod-subquery` section of the :ref:`storm-ref-data-mod` document for additional examples of
