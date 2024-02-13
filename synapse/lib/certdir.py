@@ -251,7 +251,7 @@ def getServerSSLContext() -> ssl.SSLContext:
     sslctx.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
     return sslctx
 
-class CertDir:
+class CertDirOld:
     '''
     Certificate loading/generation/signing utilities.
 
@@ -1561,23 +1561,23 @@ class CertDir:
 
         return path
 
-certdir = CertDir()
-def getCertDir() -> CertDir:
+certdirold = CertDirOld()
+def getCertDir() -> CertDirOld:
     '''
     Get the singleton CertDir instance.
 
     Returns:
         CertDir: A certdir object.
     '''
-    return certdir
+    return certdirold
 
-def addCertPath(path):
-    return certdir.addCertPath(path)
+def addCertPathOld(path):
+    return certdirold.addCertPath(path)
 
-def delCertPath(path):
-    return certdir.delCertPath(path)
+def delCertPathOld(path):
+    return certdirold.delCertPath(path)
 
-def getCertDirn() -> str:
+def getCertDirnOld() -> str:
     '''
     Get the expanded default path used by the singleton CertDir instance.
 
@@ -1586,7 +1586,7 @@ def getCertDirn() -> str:
     '''
     return s_common.genpath(defdir)
 
-class CertDirNew:
+class CertDir:
     '''
     Certificate loading/generation/signing utilities.
 
@@ -2722,38 +2722,38 @@ class CertDirNew:
 
         return sslctx
 
-    # def getServerSSLContext(self, hostname=None, caname=None):
-    #     '''
-    #     Returns an ssl.SSLContext appropriate to listen on a socket
-    #
-    #     Args:
-    #
-    #         hostname:  If None, the value from socket.gethostname is used to find the key in the servers directory.
-    #                    This name should match the not-suffixed part of two files ending in .key and .crt in the hosts
-    #                    subdirectory.
-    #
-    #         caname: If not None, the given name is used to locate a CA certificate used to validate client SSL certs.
-    #
-    #     Returns:
-    #         ssl.SSLContext: A SSLContext object.
-    #     '''
-    #     if hostname is not None and hostname.find(',') != -1:
-    #         # multi-hostname SNI routing has been requested
-    #         ctxs = {}
-    #         names = hostname.split(',')
-    #         for name in names:
-    #             ctxs[name] = self._getServerSSLContext(name, caname=caname)
-    #
-    #         def snifunc(sslsock, sslname, origctx):
-    #             sslsock.context = ctxs.get(sslname, origctx)
-    #             return None
-    #
-    #         sslctx = ctxs.get(names[0])
-    #         sslctx.sni_callback = snifunc
-    #         return sslctx
-    #
-    #     return self._getServerSSLContext(hostname=hostname, caname=caname)
-    #
+    def getServerSSLContext(self, hostname: StrOrNoneType =None, caname: StrOrNoneType =None) -> ssl.SSLContext:
+        '''
+        Returns an ssl.SSLContext appropriate to listen on a socket
+
+        Args:
+
+            hostname:  If None, the value from socket.gethostname is used to find the key in the servers directory.
+                       This name should match the not-suffixed part of two files ending in .key and .crt in the hosts
+                       subdirectory.
+
+            caname: If not None, the given name is used to locate a CA certificate used to validate client SSL certs.
+
+        Returns:
+            ssl.SSLContext: A SSLContext object.
+        '''
+        if hostname is not None and hostname.find(',') != -1:
+            # multi-hostname SNI routing has been requested
+            ctxs = {}
+            names = hostname.split(',')
+            for name in names:
+                ctxs[name] = self._getServerSSLContext(name, caname=caname)
+
+            def snifunc(sslsock, sslname, origctx):
+                sslsock.context = ctxs.get(sslname, origctx)
+                return None
+
+            sslctx = ctxs.get(names[0])
+            sslctx.sni_callback = snifunc
+            return sslctx
+
+        return self._getServerSSLContext(hostname=hostname, caname=caname)
+
     def getCrlPath(self, name: str) -> StrOrNoneType:
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'crls', '%s.crl' % name)
@@ -2778,32 +2778,35 @@ class CertDirNew:
             CRL: The CRL object.
         '''
         return CRLNew(self, name)
-    #
-    # def _getServerSSLContext(self, hostname=None, caname=None):
-    #     sslctx = getServerSSLContext()
-    #
-    #     if hostname is None:
-    #         hostname = socket.gethostname()
-    #
-    #     certfile = self.getHostCertPath(hostname)
-    #     if certfile is None:
-    #         mesg = f'Missing TLS certificate file for host: {hostname}'
-    #         raise s_exc.NoCertKey(mesg=mesg)
-    #
-    #     keyfile = self.getHostKeyPath(hostname)
-    #     if keyfile is None:
-    #         mesg = f'Missing TLS key file for host: {hostname}'
-    #         raise s_exc.NoCertKey(mesg=mesg)
-    #
-    #     sslctx.load_cert_chain(certfile, keyfile)
-    #
-    #     if caname is not None:
-    #         cafile = self.getCaCertPath(caname)
-    #         sslctx.verify_mode = ssl.VerifyMode.CERT_REQUIRED
-    #         sslctx.load_verify_locations(cafile=cafile)
-    #
-    #     return sslctx
-    #
+
+    def _getServerSSLContext(self, hostname=None, caname=None) -> ssl.SSLContext:
+        sslctx = getServerSSLContext()
+
+        if hostname is None:
+            hostname = socket.gethostname()
+
+        certfile = self.getHostCertPath(hostname)
+        if certfile is None:
+            mesg = f'Missing TLS certificate file for host: {hostname}'
+            raise s_exc.NoCertKey(mesg=mesg)
+
+        keyfile = self.getHostKeyPath(hostname)
+        if keyfile is None:
+            mesg = f'Missing TLS key file for host: {hostname}'
+            raise s_exc.NoCertKey(mesg=mesg)
+
+        sslctx.load_cert_chain(certfile, keyfile)
+
+        if caname is not None:
+            cafile = self.getCaCertPath(caname)
+            if cafile is None:
+                mesg = f'Missing CA Certificate for {caname}'
+                raise s_exc.NoSuchCert(mesg=mesg)
+            sslctx.verify_mode = ssl.VerifyMode.CERT_REQUIRED
+            sslctx.load_verify_locations(cafile=cafile)
+
+        return sslctx
+
     # def saveCertPem(self, cert, path):
     #     '''
     #     Save a certificate in PEM format to a file outside the certdir.
@@ -2994,23 +2997,23 @@ class CertDirNew:
 
         return path
 
-certdirnew = CertDirNew()
-def getCertDirnew() -> CertDirNew:
+certdir = CertDir()
+def getCertDir() -> CertDir:
     '''
     Get the singleton CertDir instance.
 
     Returns:
         CertDir: A certdir object.
     '''
-    return certdirnew
+    return certdir
 
-def addCertPathNew(path):
-    return certdirnew.addCertPath(path)
+def addCertPath(path):
+    return certdir.addCertPath(path)
 
-def delCertPathNew(path):
-    return certdirnew.delCertPath(path)
+def delCertPath(path):
+    return certdir.delCertPath(path)
 
-def getCertDirnnew() -> str:
+def getCertDirn() -> str:
     '''
     Get the expanded default path used by the singleton CertDir instance.
 

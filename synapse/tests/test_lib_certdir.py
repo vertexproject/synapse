@@ -39,10 +39,10 @@ class CertDirNewTest(s_t_utils.SynTest):
         '''
         # create a temp folder and make it a cert dir
         with self.getTestDir() as dirname:
-            yield s_certdir.CertDirNew(path=dirname)
+            yield s_certdir.CertDir(path=dirname)
 
     def basic_assertions(self,
-                         cdir: s_certdir.CertDirNew,
+                         cdir: s_certdir.CertDir,
                          cert: c_x509.Certificate,
                          key: s_certdir.PkeyType,
                          cacert: c_x509.Certificate =None):
@@ -145,7 +145,7 @@ class CertDirNewTest(s_t_utils.SynTest):
             self.none(ctx.verify_certificate())  # valid
 
     def host_assertions(self,
-                        cdir: s_certdir.CertDirNew,
+                        cdir: s_certdir.CertDir,
                         cert: c_x509.Certificate,
                         key: s_certdir.PkeyType,
                         cacert: c_x509.Certificate = None):
@@ -184,7 +184,7 @@ class CertDirNewTest(s_t_utils.SynTest):
         # # self.isin(b'subjectAltName', exts)
 
     def user_assertions(self,
-                        cdir: s_certdir.CertDirNew,
+                        cdir: s_certdir.CertDir,
                         cert: c_x509.Certificate,
                         key: s_certdir.PkeyType,
                         cacert: c_x509.Certificate = None):
@@ -213,7 +213,7 @@ class CertDirNewTest(s_t_utils.SynTest):
         # self.notin(b'subjectAltName', exts)
 
     def p12_assertions(self,
-                       cdir: s_certdir.CertDirNew,
+                       cdir: s_certdir.CertDir,
                        cert: c_x509.Certificate,
                        key: s_certdir.PkeyType,
                        p12: c_pkcs12.PKCS12KeyAndCertificates,
@@ -595,9 +595,27 @@ class CertDirNewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoCertKey):
                 cdir.getClientSSLContext(certname='newp')
+
+            caname = 'syntest'
+            hostname = 'visi.vertex.link'
+            cdir.genCaCert(caname)
+            cdir.genHostCert(hostname, signas=caname)
+
+            ctx = cdir.getServerSSLContext(hostname, caname)
+            self.eq(ctx.verify_mode, ssl.VerifyMode.CERT_REQUIRED)
+
+            ctx = cdir.getServerSSLContext(hostname)
+            self.eq(ctx.verify_mode, ssl.VerifyMode.CERT_NONE)
+
+            with self.raises(s_exc.NoCertKey):
+                cdir.getServerSSLContext('haha.newp.com')
+
+            with self.raises(s_exc.NoSuchCert):
+                cdir.getServerSSLContext(hostname, 'newpca')
+
     async def test_certdir_codesign(self):
 
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDirNew
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'The Vertex Project ROOT CA'
             immname = 'The Vertex Project Intermediate CA 00'
             codename = 'Vertex Build Pipeline'
