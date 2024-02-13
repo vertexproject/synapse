@@ -1314,6 +1314,11 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('foo bar baz faz', await core.callStorm('return($lib.regex.replace("[ ]{2,}", " ", "foo  bar   baz faz"))'))
 
+            self.eq(((1, 2, 3)), await core.callStorm('return(("[1, 2, 3]").json())'))
+
+            with self.raises(s_exc.BadJsonText):
+                await core.callStorm('return(("foo").json())')
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             hstr = 'ohhai'
