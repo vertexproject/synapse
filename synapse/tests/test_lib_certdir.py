@@ -595,7 +595,49 @@ class CertDirNewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoCertKey):
                 cdir.getClientSSLContext(certname='newp')
+    async def test_certdir_codesign(self):
 
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDirNew
+            caname = 'The Vertex Project ROOT CA'
+            immname = 'The Vertex Project Intermediate CA 00'
+            codename = 'Vertex Build Pipeline'
+
+            cdir.genCaCert(caname)
+            cdir.genCaCert(immname, signas=caname)
+            cdir.genUserCert('notCodeCert', signas=caname, )
+
+            cdir.genCaCrl(caname)._save()
+            cdir.genCaCrl(immname)._save()
+
+            cdir.genCodeCert(codename, signas=immname)
+            rsak = cdir.getCodeKey(codename)
+            cert = cdir.getCodeCert(codename)
+
+            rsap = rsak.public()
+
+            self.eq(rsak.iden(), rsap.iden())
+
+            sign = rsak.signitem({'foo': 'bar', 'baz': 'faz'})
+            self.true(rsap.verifyitem({'baz': 'faz', 'foo': 'bar'}, sign))
+            self.false(rsap.verifyitem({'baz': 'faz', 'foo': 'gronk'}, sign))
+
+            fp = cdir.getCodeCertPath(codename)
+            with s_common.genfile(fp) as fd:
+                byts = fd.read()
+            vcrt = cdir.valCodeCert(byts)
+            self.isinstance(vcrt, c_x509.Certificate)
+
+            fp = cdir.getUserCertPath('notCodeCert')
+            with s_common.genfile(fp) as fd:
+                bad_byts = fd.read()
+            with self.raises(s_exc.BadCertBytes):
+                cdir.valCodeCert(bad_byts)
+
+            crl = cdir.genCaCrl(immname)
+            crl.revoke(vcrt)
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+            self.isin('certificate revoked', cm.exception.get('mesg'))
 
 class CertDirTest(s_t_utils.SynTest):
 

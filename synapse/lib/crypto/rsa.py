@@ -22,7 +22,7 @@ class PriKey:
         self.priv = priv  # type: c_rsa.RSAPrivateKey
         self.publ = self.public()
 
-    def iden(self):
+    def iden(self) -> str:
         '''
         Return a SHA256 hash for the public key (to be used as a GUID).
 
@@ -31,7 +31,7 @@ class PriKey:
         '''
         return self.publ.iden()
 
-    def sign(self, byts):
+    def sign(self, byts: bytes) -> bytes:
         '''
         Compute the RSA signature for the given bytestream.
 
@@ -45,7 +45,7 @@ class PriKey:
         pad = c_padding.PSS(c_padding.MGF1(sha256), c_padding.PSS.MAX_LENGTH)
         return self.priv.sign(byts, pad, sha256)
 
-    def signitem(self, item):
+    def signitem(self, item) -> bytes:
         '''
         Compute the RSA signature for the given python primitive.
 
