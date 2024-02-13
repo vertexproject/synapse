@@ -627,6 +627,8 @@ class CertDirNewTest(s_t_utils.SynTest):
             caname = 'The Vertex Project ROOT CA'
             immname = 'The Vertex Project Intermediate CA 00'
             codename = 'Vertex Build Pipeline'
+            codename2 = 'Vertex Build Pipeline Redux'
+            codename3 = 'Vertex Build Pipeline Triple Threat'
 
             cdir.genCaCert(caname)
             cdir.genCaCert(immname, signas=caname)
@@ -664,3 +666,26 @@ class CertDirNewTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCertVerify) as cm:
                 cdir.valCodeCert(byts)
             self.isin('certificate revoked', cm.exception.get('mesg'))
+
+            # Ensure we can continue to revoke certs and old certs stay revoked.
+            _, codecert2 = cdir.genCodeCert(codename2, signas=immname)
+            _, codecert3 = cdir.genCodeCert(codename3, signas=immname)
+
+            crl = cdir.genCaCrl(immname)
+            crl.revoke(codecert2)
+
+            fp = cdir.getCodeCertPath(codename2)
+            with s_common.genfile(fp) as fd:
+                byts2 = fd.read()
+
+            fp = cdir.getCodeCertPath(codename3)
+            with s_common.genfile(fp) as fd:
+                byts3 = fd.read()
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts)
+
+            with self.raises(s_exc.BadCertVerify) as cm:
+                cdir.valCodeCert(byts2)
+
+            cdir.valCodeCert(byts3)

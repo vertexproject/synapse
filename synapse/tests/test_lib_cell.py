@@ -12,6 +12,8 @@ import multiprocessing
 
 from unittest import mock
 
+import cryptography.x509 as c_x509
+
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
@@ -2356,8 +2358,9 @@ class CellTest(s_t_utils.SynTest):
                     return ssl.DER_cert_to_PEM_cert(der_cert)
 
                 original_cert = await s_coro.executor(get_pem_cert)
-                ocert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
-                self.eq(ocert.get_subject().CN, 'reloadcell')
+                ocert = c_x509.load_pem_x509_certificate(original_cert.encode())
+                cname = ocert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                self.eq(cname, 'reloadcell')
 
                 # Start a beholder session that runs over TLS
 
@@ -2402,8 +2405,9 @@ class CellTest(s_t_utils.SynTest):
                         await cell.reload()
 
                         reloaded_cert = await s_coro.executor(get_pem_cert)
-                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)
-                        self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
+                        rcert = c_x509.load_pem_x509_certificate(reloaded_cert.encode())
+                        rname = rcert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                        self.eq(rname, 'SomeTestCertificate')
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                             resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
