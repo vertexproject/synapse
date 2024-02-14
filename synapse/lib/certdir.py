@@ -32,6 +32,8 @@ if defdir is None:
 
 logger = logging.getLogger(__name__)
 
+NSTYPE_OID = '2.16.840.1.113730.1.1'
+
 TEN_YEARS = 10 * 365 * 24 * 60 * 60  # 10 years in seconds
 TEN_YEARS_TD = datetime.timedelta(seconds=TEN_YEARS)
 
@@ -285,10 +287,10 @@ class CertDir:
         return prvkey, cert
 
     def genHostCert(self, name: str,
-                    signas: Optional[str | None] = None,
+                    signas: StrOrNoneType = None,
                     outp: OutPutOrNoneType = None,
                     csr: PubKeyOrNone =None,
-                    sans: List[str] =None,
+                    sans: StrOrNoneType =None,
                     save: bool = True) -> PkeyOrNoneAndCertType:
         '''
         Generates a host keypair.
@@ -317,27 +319,45 @@ class CertDir:
 
         builder = self._genCertBuilder(name, pubkey)
 
-        # XXX FIXME - Sort out some generic SANS support from pyopenssl loose apis
-        # ext_sans = {'DNS:' + name}
-        # if isinstance(sans, str):
-        #     ext_sans = ext_sans.union(sans.split(','))
-        # ext_sans = [c_x509.GeneralName(valu) for valu in sorted(ext_sans)]
+        ext_sans = collections.defaultdict(set)
+        ext_sans['dns'].add(name)
+        sans_ctors = {'dns': c_x509.DNSName,
+                      'email': c_x509.RFC822Name,
+                      'uri': c_x509.UniformResourceIdentifier}
+        if sans:
+            sans = sans.split(',')
+            for san in sans:
+                if san.startswith('DNS:'):
+                    san = san[4:]
+                    ext_sans['dns'].add(san)
+                elif san.startswith('email:'):
+                    san = san[6:]
+                    ext_sans['email'].add(san)
+                elif san.startswith('URI:'):
+                    san = san[4:]
+                    ext_sans['uri'].add(san)
+                else:
+                    raise s_exc.BadArg(mesg=f'Unsupported san value: {san}')
+        sans = []
+        for key, ctor in sans_ctors.items():
+            values = sorted(ext_sans[key])
+            for valu in values:
+                sans.append(ctor(valu))
 
-        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
-        builder = builder.add_extension(
-            c_x509.KeyUsage(digital_signature=True, key_encipherment=True, data_encipherment=False, key_agreement=False,
-                            key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
-                            content_commitment=False),
-            critical=False,
-        )
-        builder = builder.add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
         builder = builder.add_extension(c_x509.UnrecognizedExtension(
-            oid=c_x509.ObjectIdentifier('2.16.840.1.113730.1.1'), value=b'\x03\x02\x06@'),
+            oid=c_x509.ObjectIdentifier(NSTYPE_OID), value=b'\x03\x02\x06@'),
             critical=False,
         )
-
-        # XXX FIXME - Sort out some generic SANS support from pyopenssl loose apis
-        # builder = builder.add_extension(c_x509.SubjectAlternativeName(ext_sans), critical=False)
+        builder = builder.add_extension(
+            c_x509.KeyUsage(digital_signature=True, key_encipherment=True, data_encipherment=False,
+                            key_agreement=False, key_cert_sign=False, crl_sign=False, encipher_only=False,
+                            decipher_only=False, content_commitment=False),
+            critical=False,
+        )
+        builder = builder.add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]),
+                                        critical=False)
+        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+        builder = builder.add_extension(c_x509.SubjectAlternativeName(sans), critical=False)
 
         if signas is not None:
             cert = self.signCertAs(builder, signas)
@@ -1197,8 +1217,8 @@ class CertDir:
 
     def signHostCsr(self, xcsr: c_x509.CertificateSigningRequest,
                     signas: str,
-                    outp: OutPutOrNoneType=None,
-                    sans=None,
+                    outp: OutPutOrNoneType =None,
+                    sans: StrOrNoneType =None,
                     save: bool =True) -> PkeyOrNoneAndCertType:
         '''
         Signs a host CSR with a CA keypair.
@@ -1530,17 +1550,7 @@ class CertDir:
         try:
             return c_x509.load_pem_x509_certificate(byts)
         except Exception as e:
-            logger.exception('UNKNOWN EXCEPTION READING BYTES!')
             raise s_exc.BadCertBytes(mesg=f'Failed to load bytes: {e}') from None
-
-        # except crypto.Error as e:
-        #     # Unwrap pyopenssl's exception_from_error_queue
-        #     estr = ''
-        #     for argv in e.args:
-        #         if estr:  # pragma: no cover
-        #             estr += ', '
-        #         estr += ' '.join((arg for arg in argv[0] if arg))
-        #     raise s_exc.BadCertBytes(mesg=f'Failed to load bytes: {estr}')
 
     def _loadCsrPath(self, path: str) -> Union[c_x509.CertificateSigningRequest | None]:
         byts = self._getPathBytes(path)
@@ -1554,7 +1564,6 @@ class CertDir:
         byts = self._getPathBytes(path)
         if byts:
             pkey = c_serialization.load_pem_private_key(byts, password=None)
-            # XXX FIXME Coverage for someone handling in a DER key?
             if isinstance(pkey, (c_rsa.RSAPrivateKey, c_dsa.DSAPrivateKey)):
                 return pkey
             # XXX FIXME Coverage for this!

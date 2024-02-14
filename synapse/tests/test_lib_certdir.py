@@ -27,7 +27,7 @@ import cryptography.hazmat.primitives.serialization as c_serialization
 import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 
 
-class CertDirNewTest(s_t_utils.SynTest):
+class CertDirTest(s_t_utils.SynTest):
 
     @contextmanager
     def getCertDir(self):
@@ -158,30 +158,36 @@ class CertDirNewTest(s_t_utils.SynTest):
             key (crypto.PKey): Key for the certification
             cacert (crypto.X509): Corresponding CA cert (optional)
         '''
-        # XXX FIXME There is a schism between teh items build for use with the builder
-        # interface nd the items parsed from a certificate on disk :\
-        # exts = {}
-        # for ext in cert.extensions:  # type: c_x509.Extension
-        #     self.false(ext.critical)
-        #     short_name = ext.oid._name
-        #     if short_name == 'Unknown OID':
-        #         short_name = ext.oid.dotted_string
-        #     exts[short_name] = ext
-        #
-        # nscertext = c_x509.UnrecognizedExtension(
-        #     oid=c_x509.ObjectIdentifier('2.16.840.1.113730.1.1'), value=b'\x03\x02\x06@')
-        # keyuseext = c_x509.KeyUsage(digital_signature=True, key_encipherment=True, data_encipherment=False, key_agreement=False,
-        #                     key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
-        #                     content_commitment=False)
-        # print(keyuseext.public_bytes())
-        # extkeyuseext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.SERVER_AUTH])
-        # basicconext = c_x509.BasicConstraints(ca=False, path_length=None)
-        #
-        # # self.eq(exts['2.16.840.1.113730.1.1'], nscertext)
-        # self.eq(exts['keyUsage'], keyuseext)
-        # # self.eq(exts[b'extendedKeyUsage'], extkeyuseext.get_data())
-        # # self.eq(exts[b'basicConstraints'], basicconext.get_data())
-        # # self.isin(b'subjectAltName', exts)
+
+        reqbc = c_x509.BasicConstraints(ca=False, path_length=None)
+        reqeku = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.SERVER_AUTH])
+        reqku = c_x509.KeyUsage(digital_signature=True, content_commitment=False, key_encipherment=True,
+                                data_encipherment=False, key_agreement=False, key_cert_sign=False,
+                                crl_sign=False, encipher_only=False, decipher_only=False)
+        reqnstype = c_x509.UnrecognizedExtension(c_x509.ObjectIdentifier(s_certdir.NSTYPE_OID), value=b'\x03\x02\x06@')
+
+        bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
+        self.eq(reqbc, bc.value)
+
+        ku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.KEY_USAGE)
+        self.eq(reqku, ku.value)
+
+        eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        self.eq(reqeku, eku.value)
+
+        nstype = cert.extensions.get_extension_for_oid(c_x509.ObjectIdentifier(s_certdir.NSTYPE_OID))
+        self.eq(reqnstype, nstype.value)
+
+        expected_oids = sorted([
+            c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS.dotted_string,
+            c_x509.oid.ExtensionOID.KEY_USAGE.dotted_string,
+            c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE.dotted_string,
+            c_x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME.dotted_string,
+            s_certdir.NSTYPE_OID,
+        ])
+
+        ext_oids = sorted([ext.oid.dotted_string for ext in cert.extensions])
+        self.eq(expected_oids, ext_oids)
 
     def user_assertions(self,
                         cdir: s_certdir.CertDir,
@@ -197,20 +203,36 @@ class CertDirNewTest(s_t_utils.SynTest):
             key (crypto.PKey): Key for the certification
             cacert (crypto.X509): Corresponding CA cert (optional)
         '''
+        reqbc = c_x509.BasicConstraints(ca=False, path_length=None)
+        reqeku = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH])
+        reqku = c_x509.KeyUsage(digital_signature=True, content_commitment=False, key_encipherment=False,
+                                data_encipherment=False, key_agreement=False, key_cert_sign=False,
+                                crl_sign=False, encipher_only=False, decipher_only=False)
+
+        bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
+        self.eq(reqbc, bc.value)
+
+        ku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.KEY_USAGE)
+        self.eq(reqku, ku.value)
+
+        eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        self.eq(reqeku, eku.value)
+
+        expected_oids = sorted([
+            c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS.dotted_string,
+            c_x509.oid.ExtensionOID.KEY_USAGE.dotted_string,
+            c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE.dotted_string,
+            # XXX FIXME Add client oid string
+            # s_certdir.NSTYPE_OID,
+        ])
+
+        ext_oids = sorted([ext.oid.dotted_string for ext in cert.extensions])
+        self.eq(expected_oids, ext_oids)
+
         # XXX FIXME There is a schism between teh items build for use with the builder
-        # interface nd the items parsed from a certificate on disk :\
-        # nextensions = cert.get_extension_count()
-        # exts = {ext.get_short_name(): ext.get_data() for ext in [cert.get_extension(i) for i in range(nextensions)]}
         #
         # nscertext = crypto.X509Extension(b'nsCertType', False, b'client')
-        # keyuseext = crypto.X509Extension(b'keyUsage', False, b'digitalSignature')
-        # extkeyuseext = crypto.X509Extension(b'extendedKeyUsage', False, b'clientAuth')
-        # basicconext = crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE')
         # self.eq(exts[b'nsCertType'], nscertext.get_data())
-        # self.eq(exts[b'keyUsage'], keyuseext.get_data())
-        # self.eq(exts[b'extendedKeyUsage'], extkeyuseext.get_data())
-        # self.eq(exts[b'basicConstraints'], basicconext.get_data())
-        # self.notin(b'subjectAltName', exts)
 
     def p12_assertions(self,
                        cdir: s_certdir.CertDir,
@@ -428,7 +450,6 @@ class CertDirNewTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # user crt
 
     def test_certdir_hosts_sans(self):
-        self.skip('XXX FIXME Sort out SANS support.')
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir
             caname = 'syntest'
             cdir.genCaCert(caname)
@@ -442,9 +463,9 @@ class CertDirNewTest(s_t_utils.SynTest):
             cert = cdir.getHostCert(hostname)
             cdir.getHostKey(hostname)
 
-            self.eq(cert.get_extension_count(), 5)
-            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
-            self.eq(cert.get_extension(4).get_data(), b'0\x1f\x82\x0bvertex.link\x82\x10visi.vertex.link')  # ASN.1 encoded subjectAltName data
+            ext = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+            self.len(2, ext.value)
+            self.eq(ext.value.get_values_for_type(c_x509.DNSName), ['vertex.link', 'visi.vertex.link'])
 
             # Host cert with no specified SANs ================================
             hostname = 'visi2.vertex.link'
@@ -454,9 +475,9 @@ class CertDirNewTest(s_t_utils.SynTest):
             cert = cdir.getHostCert(hostname)
             cdir.getHostKey(hostname)
 
-            self.eq(cert.get_extension_count(), 5)
-            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
-            self.eq(cert.get_extension(4).get_data(), b'0\x13\x82\x11visi2.vertex.link')  # ASN.1 encoded subjectAltName data
+            ext = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+            self.len(1, ext.value)
+            self.eq(ext.value.get_values_for_type(c_x509.DNSName), ['visi2.vertex.link'])
 
             # Self-signed Host cert with no specified SANs ====================
             hostname = 'visi3.vertex.link'
@@ -466,9 +487,29 @@ class CertDirNewTest(s_t_utils.SynTest):
             cert = cdir.getHostCert(hostname)
             cdir.getHostKey(hostname)
 
-            self.eq(cert.get_extension_count(), 5)
-            self.eq(cert.get_extension(4).get_short_name(), b'subjectAltName')
-            self.eq(cert.get_extension(4).get_data(), b'0\x13\x82\x11visi3.vertex.link')  # ASN.1 encoded subjectAltName data
+            ext = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+            self.len(1, ext.value)
+            self.eq(ext.value.get_values_for_type(c_x509.DNSName), ['visi3.vertex.link'])
+
+            # Backwards compatibility with pyopenssl sans specifiers which we can get from easycert
+            hostname = 'stuff.vertex.link'
+            sans = 'DNS:wow.com,email:clown@vertex.link,URI:https://hehe.haha.vertex.link,email:hehe@vertex.link'
+            cdir.genHostCert(hostname, signas=caname, sans=sans)
+
+            cdir.getCaCert(caname)
+            cert = cdir.getHostCert(hostname)
+            cdir.getHostKey(hostname)
+
+            ext = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+            self.len(5, ext.value)
+            self.eq(ext.value.get_values_for_type(c_x509.DNSName), ['stuff.vertex.link', 'wow.com'])
+            self.eq(ext.value.get_values_for_type(c_x509.RFC822Name), ['clown@vertex.link', 'hehe@vertex.link'])
+            self.eq(ext.value.get_values_for_type(c_x509.UniformResourceIdentifier), ['https://hehe.haha.vertex.link'])
+
+            hostname = 'newp.vertex.link'
+            sans = 'DNS:wow.com,email:clown@vertex.link,HAHA:yeahRight!'
+            with self.raises(s_exc.BadArg):
+                cdir.genHostCert(hostname, signas=caname, sans=sans)
 
     def test_certdir_hosts_csr(self):
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir
