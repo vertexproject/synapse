@@ -643,10 +643,11 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl,
                                     timeout=timeout, proxy=proxy)
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None, proxy=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
+                        ssl=True, ssl_opts=None, timeout=None, proxy=None):
         await self._reqUserAllowed(('axon', 'wput'))
-        return await self.cell.postfiles(fields, url, params=params, headers=headers,
-                                         method=method, ssl=ssl, timeout=timeout, proxy=proxy)
+        return await self.cell.postfiles(fields, url, params=params, headers=headers, method=method,
+                                         ssl=ssl, ssl_opts=ssl_opts, timeout=timeout, proxy=proxy)
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, proxy=None):
         await self._reqUserAllowed(('axon', 'wput'))
@@ -1434,7 +1435,8 @@ class Axon(s_cell.Cell):
                 raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
                                         sha256=sha256) from None
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None, proxy=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
+                        ssl=True, ssl_opts=None, timeout=None, proxy=None):
         '''
         Send files from the axon as fields in a multipart/form-data HTTP request.
 
@@ -1445,6 +1447,7 @@ class Axon(s_cell.Cell):
             headers (dict): Additional HTTP headers to add in the request.
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
+            ssl_opts (dict): Additional SSL/TLS options.
             timeout (int): The timeout of the request, in seconds.
             proxy (bool|str|null): Use a specific proxy or disable proxy use.
 
@@ -1478,19 +1481,11 @@ class Axon(s_cell.Cell):
         if proxy is None:
             proxy = self.conf.get('http:proxy')
 
-        cadir = self.conf.get('tls:ca:dir')
+        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
         connector = None
         if proxy:
             connector = aiohttp_socks.ProxyConnector.from_url(proxy)
-
-        if ssl is False:
-            pass
-        elif cadir:
-            ssl = s_common.getSslCtx(cadir)
-        else:
-            # default aiohttp behavior
-            ssl = None
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 

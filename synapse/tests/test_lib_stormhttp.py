@@ -766,6 +766,17 @@ class StormHttpTest(s_test.SynTest):
                 self.true(ret[0])
                 self.eq('woot', ret[1]['hi'])
 
+                ## postfile
+                resp = await core.callStorm('''
+                    ($size, $sha256) = $lib.bytes.put($lib.base64.decode(Zm9v))
+                    $fields = ([
+                        {"name": "file", "sha256": $sha256},
+                    ])
+                    return($lib.inet.http.post($url, fields=$fields, ssl_opts=$sslopts))
+                ''', opts=opts)
+                self.eq(200, resp['code'])
+                self.eq(['foo'], json.loads(resp['body'])['result']['params']['file'])
+
                 # verify arg precedence
 
                 core.conf.pop('tls:ca:dir')

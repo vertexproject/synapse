@@ -407,9 +407,8 @@ class LibHttp(s_stormtypes.Lib):
             if any(['sha256' in field for field in fields]):
                 self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
                 axon = self.runt.snap.core.axon
-                # todo: pass through ssl_opts
-                info = await axon.postfiles(fields, url, headers=headers, params=params,
-                                            method=meth, ssl=ssl_verify, timeout=timeout, proxy=proxy)
+                info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
+                                            ssl=ssl_verify, ssl_opts=ssl_opts, timeout=timeout, proxy=proxy)
                 return HttpResp(info)
 
         kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
