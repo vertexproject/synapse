@@ -1951,6 +1951,8 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
@@ -1971,6 +1973,8 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
@@ -2207,7 +2211,8 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.del_(sha256b)
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
@@ -2222,6 +2227,7 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
+        ssl_opts = await toprim(ssl_opts)
 
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
@@ -2238,11 +2244,12 @@ class LibAxon(Lib):
 
         axon = self.runt.snap.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
-                               timeout=timeout, **kwargs)
+                               timeout=timeout, ssl_opts=ssl_opts, **kwargs)
         resp['original_url'] = url
         return resp
 
-    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
+    async def wput(self, sha256, url, headers=None, params=None, method='PUT',
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
@@ -2256,6 +2263,7 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+        ssl_opts = await toprim(ssl_opts)
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2271,7 +2279,8 @@ class LibAxon(Lib):
         if axonvers >= (2, 97, 0):
             kwargs['proxy'] = proxy
 
-        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, **kwargs)
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
+                               ssl=ssl, timeout=timeout, ssl_opts=ssl_opts, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
         gateiden = self.runt.snap.wlyr.iden

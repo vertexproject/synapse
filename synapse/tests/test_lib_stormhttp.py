@@ -725,6 +725,9 @@ class StormHttpTest(s_test.SynTest):
 
                 q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
 
+                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                opts['vars']['sha256'] = sha256
+
                 # mtls required
 
                 sslctx.verify_mode = ssl.CERT_REQUIRED
@@ -768,7 +771,6 @@ class StormHttpTest(s_test.SynTest):
 
                 ## postfile
                 resp = await core.callStorm('''
-                    ($size, $sha256) = $lib.bytes.put($lib.base64.decode(Zm9v))
                     $fields = ([
                         {"name": "file", "sha256": $sha256},
                     ])
@@ -776,6 +778,11 @@ class StormHttpTest(s_test.SynTest):
                 ''', opts=opts)
                 self.eq(200, resp['code'])
                 self.eq(['foo'], json.loads(resp['body'])['result']['params']['file'])
+
+                ## axon apis
+                self.eq(200, await core.callStorm('return($lib.axon.wget($url, ssl_opts=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.axon.wput($sha256, $url, method=POST, ssl_opts=$sslopts).code)', opts=opts))
+                self.len(1, await core.nodes('yield $lib.axon.urlfile($url, ssl_opts=$sslopts)', opts=opts))
 
                 # verify arg precedence
 
