@@ -15,10 +15,12 @@ license = { text = 'Apache License 2.0' }
 classifiers = [
     'Development Status :: 5 - Production/Stable',
     'License :: OSI Approved :: Apache Software License',
+    'Topic :: Database :: Database Engines/Servers',
     'Topic :: System :: Clustering',
     'Topic :: System :: Distributed Computing',
     'Topic :: System :: Software Distribution',
     'Programming Language :: Python :: 3.11',
+    'Operating System :: POSIX :: Linux',
 ]
 dependencies = [
     'pyOpenSSL>=24.0.0,<25.3.0',
