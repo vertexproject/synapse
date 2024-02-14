@@ -268,15 +268,28 @@ class View(s_nexus.Pusher):  # type: ignore
         vote['offset'] = await self.layers[0].getEditIndx()
         return await self._push('merge:vote:set', vote)
 
+    def reqValidVoter(self, useriden):
+
+        merge = self.getMergeRequest()
+        if merge is None:
+            raise s_exc.BadState(mesg=f'View ({self.iden}) does not have a merge request.')
+
+        if merge.get('user') == useriden:
+            raise s_exc.AuthDeny(mesg='A user may not vote for their own merge request.')
+
     @s_nexus.Pusher.onPush('merge:vote:set')
     async def _setMergeVote(self, vote):
 
         self.reqParentQuorum()
         s_schemas.reqValidVote(vote)
 
-        uidn = s_common.uhex(vote.get('user'))
+        useriden = vote.get('user')
 
-        self.core.slab.put(self.bidn + b'merge:vote' + uidn, s_msgpack.en(vote), db='view:meta')
+        self.reqValidVoter(useriden)
+
+        bidn = s_common.uhex(useriden)
+
+        self.core.slab.put(self.bidn + b'merge:vote' + bidn, s_msgpack.en(vote), db='view:meta')
 
         await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
 
