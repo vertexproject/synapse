@@ -692,26 +692,17 @@ class StormHttpTest(s_test.SynTest):
             tlscadir = s_common.gendir(dirn, 'cadir')
             cacertpath = shutil.copyfile(os.path.join(cadir, 'somelocalca.crt'), os.path.join(tlscadir, 'somelocalca.crt'))
 
-            tdir.genUserCert('someuser', signas='somelocalca')
-            clipath = s_common.gendir(tlscadir, 'clients')
-            shutil.copyfile(tdir.getUserKeyPath('someuser'), s_common.genpath(clipath, 'someuser.key'))
-            shutil.copyfile(tdir.getUserCertPath('someuser'), s_common.genpath(clipath, 'someuser.crt'))
+            pkey, cert = tdir.genUserCert('someuser', signas='somelocalca')
+            user_pkey = tdir._pkeyToByts(pkey).decode()
+            user_cert = tdir._certToByts(cert).decode()
 
-            # todo: scenario 1: bad cert
-            # todo: scenario 2: tls:ca:dir + client auth
-            # todo: scenario 3: system ca + client auth - cant really test this?
-            # todo: sad paths - bad client auth config?
-            # todo: multiple certs?
-            print('foo') # fixme
+            user_fullchain = user_cert + s_common.getbytes(cacertpath).decode()
+            user_fullchain_key = user_fullchain + user_pkey
 
-            conf = {
-                'tls:ca:dir': tlscadir
-            }
-
+            conf = {'tls:ca:dir': tlscadir}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
 
                 sslctx = core.initSslCtx(certpath, pkeypath)
-                sslctx.verify_mode = ssl.CERT_REQUIRED
                 sslctx.load_verify_locations(cafile=cacertpath)
 
                 addr, port = await core.addHttpsPort(0, sslctx=sslctx)
@@ -719,19 +710,90 @@ class StormHttpTest(s_test.SynTest):
                 await root.setPasswd('root')
 
                 core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+                core.addHttpApi('/test/ws', TstWebSock, {})
+
+                sslopts = {}
 
                 opts = {
                     'vars': {
                         'url': f'https://root:root@localhost:{port}/api/v0/test',
-                        'params': {
-                            'foo': 'bar'
-                        },
+                        'ws': f'https://localhost:{port}/test/ws',
                         'verify': True,
+                        'sslopts': sslopts,
                     },
                 }
 
-                q = 'return($lib.inet.http.get($url, params=$params, ssl_verify=$verify))'
+                q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
 
+                # mtls required
+
+                sslctx.verify_mode = ssl.CERT_REQUIRED
+
+                ## no client cert provided
                 resp = await core.callStorm(q, opts=opts)
-                reason = resp.get('reason')
+                self.eq(-1, resp['code'])
+                self.isin('tlsv13 alert certificate required', resp['reason'])
+
+                ## full chain cert w/key
+                sslopts['client_cert'] = user_fullchain_key
+                resp = await core.callStorm(q, opts=opts)
                 self.eq(200, resp['code'])
+
+                ## separate cert and key
+                sslopts['client_cert'] = user_fullchain
+                sslopts['client_key'] = user_pkey
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])
+
+                ## sslctx's are cached
+                self.len(3, core._sslctx_cache)
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])
+                self.len(3, core._sslctx_cache)
+
+                ## remaining methods
+                self.eq(200, await core.callStorm('return($lib.inet.http.post($url, ssl_opts=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.inet.http.head($url, ssl_opts=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.inet.http.request(get, $url, ssl_opts=$sslopts).code)', opts=opts))
+
+                ## connect
+                ret = await core.callStorm('''
+                    ($ok, $sock) = $lib.inet.http.connect($ws, ssl_opts=$sslopts)
+                    if (not $ok) { return(($ok, $sock)) }
+                    ($ok, $mesg) = $sock.rx()
+                    return(($ok, $mesg))
+                ''', opts=opts)
+                self.true(ret[0])
+                self.eq('woot', ret[1]['hi'])
+
+                # verify arg precedence
+
+                core.conf.pop('tls:ca:dir')
+                core._sslctx_cache.clear()
+
+                ## fail w/o ca
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(-1, resp['code'])
+                self.isin('self-signed certificate', resp['reason'])
+
+                ## verify arg wins
+                opts['vars']['verify'] = False
+                sslopts['verify'] = True
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])
+
+                # bad opts
+
+                ## schema violation
+                sslopts['newp'] = 'wut'
+                await self.asyncraises(s_exc.SchemaViolation, core.callStorm(q, opts=opts))
+                sslopts.pop('newp')
+
+                ## missing key
+                sslopts['client_cert'] = user_fullchain
+                sslopts['client_key'] = None
+                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+
+                ## bad cert
+                sslopts['client_cert'] = 'not-gonna-work'
+                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
