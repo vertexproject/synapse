@@ -730,3 +730,103 @@ class CertDirTest(s_t_utils.SynTest):
                 cdir.valCodeCert(byts2)
 
             cdir.valCodeCert(byts3)
+
+    async def test_cortex_codesign(self):
+
+        async with self.getTestCore() as core:
+
+            caname = 'Test ROOT CA'
+            immname = 'Test Intermediate CA 00'
+            codename = 'Test Build Pipeline'
+
+            certpath = s_common.genpath(core.dirn, 'certs')
+
+            core.certdir.genCaCert(caname)
+            core.certdir.genCaCert(immname, signas=caname)
+            core.certdir.genUserCert('notCodeCert', signas=caname, )
+
+            crl = core.certdir.genCaCrl(caname)
+            crl._save()
+
+            crl = core.certdir.genCaCrl(immname)
+            crl._save()
+
+            _, codecert = core.certdir.genCodeCert(codename, signas=immname)
+
+            with self.getTestDir() as dirn:
+
+                yamlpath = s_common.genpath(dirn, 'vertex-test.yaml')
+                jsonpath = s_common.genpath(dirn, 'vertex-test.json')
+
+                s_common.yamlsave({
+                    'name': 'vertex-test',
+                    'version': '0.0.1',
+                }, yamlpath)
+
+                await s_genpkg.main((
+                    '--signas', codename,
+                    '--certdir', certpath,
+                    '--push', core.getLocalUrl(), '--push-verify',
+                    yamlpath))
+
+                await s_genpkg.main((
+                    '--signas', codename,
+                    '--certdir', certpath,
+                    '--save', jsonpath,
+                    yamlpath))
+
+                pkgdef = s_common.yamlload(jsonpath)
+                pkgorig = s_msgpack.deepcopy(pkgdef)
+
+                opts = {'vars': {'pkgdef': pkgdef}}
+                self.none(await core.callStorm('return($lib.pkg.add($pkgdef, verify=$lib.true))', opts=opts))
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef['version'] = '0.0.2'
+                    await core.addStormPkg(pkgdef, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package signature does not match!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    opts = {'vars': {'pkgdef': pkgdef}}
+                    await core.callStorm('return($lib.pkg.add($pkgdef, verify=$lib.true))', opts=opts)
+                self.eq(exc.exception.get('mesg'), 'Storm package signature does not match!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef['codesign'].pop('sign', None)
+                    await core.addStormPkg(pkgdef, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has no signature!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef['codesign'].pop('cert', None)
+                    await core.addStormPkg(pkgdef, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has no certificate!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef.pop('codesign', None)
+                    await core.addStormPkg(pkgdef, verify=True)
+
+                self.eq(exc.exception.get('mesg'), 'Storm package is not signed!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.addStormPkg({'codesign': {'cert': 'foo', 'sign': 'bar'}}, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
+
+                cert = '''-----BEGIN CERTIFICATE-----\nMIIE9jCCAt6'''
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
+
+                usercertpath = core.certdir.getUserCertPath('notCodeCert')
+                with s_common.genfile(usercertpath) as fd:
+                    cert = fd.read().decode()
+                with self.raises(s_exc.BadCertBytes) as exc:
+                    await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Certificate is not for code signing.')
+
+                # revoke our code signing cert and attempt to load
+                crl = core.certdir.genCaCrl(immname)
+                crl.revoke(codecert)
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.addStormPkg(pkgorig, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has invalid certificate: certificate revoked')
