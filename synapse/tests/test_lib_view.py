@@ -775,3 +775,9 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('test:str=foo | merge --apply', opts=viewopts)
             nodes = await core.nodes('test:str=foo')
             self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+            await core.nodes('test:str=foo [ +#rep=now ]', opts=viewopts)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
