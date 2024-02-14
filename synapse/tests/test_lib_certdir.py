@@ -50,10 +50,10 @@ class CertDirTest(s_t_utils.SynTest):
         test basic certificate assumptions
 
         Args:
-            cdir (s_certdir.CertDir): certdir object
-            cert (crypto.X509): Cert to test
-            key (crypto.PKey): Key for the certification
-            cacert (crypto.X509): Corresponding CA cert (optional)
+            cdir: certdir object
+            cert: Cert to test
+            key: Key for the certification
+            cacert: Corresponding CA cert (optional)
         '''
         self.nn(cert)
         self.nn(key)
@@ -95,14 +95,7 @@ class CertDirTest(s_t_utils.SynTest):
                                                 salt_length=c_padding.PSS.MAX_LENGTH),
                           algorithm=c_hashes.SHA256(), )
 
-        # XXX FIXME - Figure out a parallel for this in cryptography parlance?
-        # This is demonstrative of a a high level of control over a SSL Context that
-        # we don't actually utilize. ???
-        # # ensure that a ssl context using both cert/key match
-        # sslcontext = SSL.Context(SSL.TLSv1_2_METHOD)
-        # sslcontext.use_certificate(cert)
-        # sslcontext.use_privatekey(key)
-        # self.none(sslcontext.check_privatekey())
+        self.eq(key.public_key(), pubkey)
 
         if cacert:
 
@@ -153,10 +146,10 @@ class CertDirTest(s_t_utils.SynTest):
         test basic certificate assumptions for a host certificate
 
         Args:
-            cdir (s_certdir.CertDir): certdir object
-            cert (crypto.X509): Cert to test
-            key (crypto.PKey): Key for the certification
-            cacert (crypto.X509): Corresponding CA cert (optional)
+            cdir: certdir object
+            cert: Cert to test
+            key: Key for the certification
+            cacert: Corresponding CA cert (optional)
         '''
 
         reqbc = c_x509.BasicConstraints(ca=False, path_length=None)
@@ -199,10 +192,10 @@ class CertDirTest(s_t_utils.SynTest):
         test basic certificate assumptions for a user certificate
 
         Args:
-            cdir (s_certdir.CertDir): certdir object
-            cert (crypto.X509): Cert to test
-            key (crypto.PKey): Key for the certification
-            cacert (crypto.X509): Corresponding CA cert (optional)
+            cdir: certdir object
+            cert: Cert to test
+            key: Key for the certification
+            cacert: Corresponding CA cert (optional)
         '''
         reqbc = c_x509.BasicConstraints(ca=False, path_length=None)
         reqeku = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH])
@@ -244,11 +237,11 @@ class CertDirTest(s_t_utils.SynTest):
         test basic p12 certificate bundle assumptions
 
         Args:
-            cdir (s_certdir.CertDir): certdir object
-            cert (crypto.X509): Cert to test
-            key (crypto.PKey): Key for the certification
-            p12 (crypto.PKCS12): PKCS12 object to test
-            cacert (crypto.X509): Corresponding CA cert (optional)
+            cdir: certdir object
+            cert: Cert to test
+            key: Key for the certification
+            p12: PKCS12 object to test
+            cacert: Corresponding CA cert (optional)
         '''
         self.nn(p12)
 
