@@ -4391,16 +4391,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return sslctx
 
-    def getCachedSslCtx(self, opts, verify=True):
+    def getCachedSslCtx(self, opts=None, verify=None):
 
         if opts is None:
             opts = {}
 
-        if verify is None:
-            # support aiohttp convention
-            verify = True
+        if verify is not None:
+            opts['verify'] = verify
 
-        opts['verify'] = verify
         opts = s_schemas.reqValidSslCtxOpts(opts)
 
         key = tuple(sorted(opts.items()))

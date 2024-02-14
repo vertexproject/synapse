@@ -346,7 +346,7 @@ class LibHttp(s_stormtypes.Lib):
         if params:
             kwargs['params'] = params
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         try:
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
@@ -412,7 +412,7 @@ class LibHttp(s_stormtypes.Lib):
                                             method=meth, ssl=ssl_verify, timeout=timeout, proxy=proxy)
                 return HttpResp(info)
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')
