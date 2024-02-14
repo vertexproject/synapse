@@ -775,7 +775,43 @@ class ItModule(s_module.CoreModule):
 
                     ('keyboard:language', ('lang:language', {}), {
                         'doc': 'The primary keyboard input language configured on the host.'}),
+
+                    ('image', ('it:infra:image', {}), {
+                        'doc': 'The container or OS image running on the host.'}),
+
                 )),
+                ('it:os:image', {}, (
+                    ('name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the image.'}),
+                    # ('account', ('inet:service:account', {}), {}),
+                    # ('author'
+                    # ('publishor', ('inet:service:account', {}),
+                )),
+
+                ('it:storage:volume', {}, (
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The unique volume ID.'}),
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the volume.'}),
+
+                    ('type', ('it:storage:volume:type:taxonomy', {}), {
+                        'doc': 'A taxonomy of storage volume types.'}),
+
+                    # ('platform', ('inet:service:platform', {}), {
+                        # 'doc': 'The optional platform which provides
+
+                )),
+
+                ('it:storage:mount', {}, (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that has mounted the volume.'}),
+
+                    ('volume', ('it:infra:volume', {}), {
+                        'doc': 'The volume that the host has mounted.'}),
+                )),
+
                 ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
 
@@ -811,21 +847,22 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:network', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the network.',
-                    }),
+                        'doc': 'The name of the network.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A brief description of the network.',
-                    }),
+                        'doc': 'A brief description of the network.'}),
+
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org that owns/operates the network.',
-                    }),
+                        'doc': 'The org that owns/operates the network.'}),
+
                     ('net4', ('inet:net4', {}), {
-                        'doc': 'The optional contiguous IPv4 address range of this network.',
-                    }),
+                        'doc': 'The optional contiguous IPv4 address range of this network.'}),
+
                     ('net6', ('inet:net6', {}), {
-                        'doc': 'The optional contiguous IPv6 address range of this network.',
-                    }),
+                        'doc': 'The optional contiguous IPv6 address range of this network.'}),
+
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
