@@ -126,7 +126,7 @@ class Crl:
         Revoke a certificate with the CRL.
 
         Args:
-            cert (cryto.X509): The certificate to revoke.
+            cert: The certificate to revoke.
 
         Returns:
             None
@@ -213,7 +213,7 @@ class CertDir:
         * CertDir does not currently support signing CA CSRs.
     '''
 
-    def __init__(self, path=None):
+    def __init__(self, path: StrOrNoneType =None):
         self.crypto_numbits = 4096
         self.signing_digest = c_hashes.SHA256
 
@@ -229,7 +229,7 @@ class CertDir:
         for p in path:
             self.addCertPath(p)
 
-    def addCertPath(self, *path):
+    def addCertPath(self, *path: str):
 
         fullpath = s_common.genpath(*path)
         self.pathrefs[fullpath] += 1
@@ -237,7 +237,7 @@ class CertDir:
         if self.pathrefs[fullpath] == 1:
             self.certdirs.append(fullpath)
 
-    def delCertPath(self, *path):
+    def delCertPath(self, *path: str):
         fullpath = s_common.genpath(*path)
         self.pathrefs[fullpath] -= 1
         if self.pathrefs[fullpath] <= 0:
@@ -245,26 +245,25 @@ class CertDir:
             self.pathrefs.pop(fullpath, None)
 
     def genCaCert(self, name: str,
-                  signas: Optional[str | None] = None,
+                  signas: StrOrNoneType = None,
                   outp: OutPutOrNoneType =None,
                   save: bool =True) -> PkeyAndCertType:
         '''
         Generates a CA keypair.
 
         Args:
-            name (str): The name of the CA keypair.
-            signas (str): The CA keypair to sign the new CA with.
-            outp (synapse.lib.output.OutPut): The output buffer.
-            save (bool):
+            name: The name of the CA keypair.
+            signas: The CA keypair to sign the new CA with.
+            outp: The output buffer.
+            save: Safe the certificate and key to disk.
 
         Examples:
-            Make a CA named "myca":
+            Make a CA named "myca"::
 
                 mycakey, mycacert = cdir.genCaCert('myca')
 
         Returns:
-            #XXX FIX<E type
-            : Tuple containing the private key and certificate objects.
+            Tuple containing the private key and certificate objects.
         '''
         prvkey = self._genPrivKey()
         builder = self._genCertBuilder(name, prvkey.public_key())
@@ -299,19 +298,19 @@ class CertDir:
         Generates a host keypair.
 
         Args:
-            name (str): The name of the host keypair.
-            signas (str): The CA keypair to sign the new host keypair with.
-            outp (synapse.lib.output.Output): The output buffer.
-            csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
-            sans (list): List of subject alternative names.
+            name: The name of the host keypair.
+            signas: The CA keypair to sign the new host keypair with.
+            outp: The output buffer.
+            csr: The CSR public key when generating the keypair from a CSR.
+            sans: String of comma separated alternative names.
 
         Examples:
-            Make a host keypair named "myhost":
+            Make a host keypair named "myhost"::
 
                 myhostkey, myhostcert = cdir.genHostCert('myhost')
 
         Returns:
-            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the private key and certificate objects.
+            Tuple containing the private key and certificate objects. Private key may be none when signing a CSR.
         '''
         if csr is None:
             prvkey = self._genPrivKey()
@@ -384,16 +383,16 @@ class CertDir:
         Generates a host certificate signing request.
 
         Args:
-            name (str): The name of the host CSR.
-            outp (synapse.lib.output.Output): The output buffer.
+            name: The name of the host CSR.
+            outp: The output buffer.
 
         Examples:
-            Generate a CSR for the host key named "myhost":
+            Generate a CSR for the host key named "myhost"::
 
                 cdir.genHostCsr('myhost')
 
         Returns:
-            bytes: The bytes of the CSR.
+            The bytes of the CSR.
         '''
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
@@ -407,18 +406,18 @@ class CertDir:
         Generates a user keypair.
 
         Args:
-            name (str): The name of the user keypair.
-            signas (str): The CA keypair to sign the new user keypair with.
-            outp (synapse.lib.output.Output): The output buffer.
-            csr (OpenSSL.crypto.PKey): The CSR public key when generating the keypair from a CSR.
+            name: The name of the user keypair.
+            signas: The CA keypair to sign the new user keypair with.
+            outp: The output buffer.
+            csr: The CSR public key when generating the keypair from a CSR.
 
         Examples:
-            Generate a user cert for the user "myuser":
+            Generate a user cert for the user "myuser"::
 
                 myuserkey, myusercert = cdir.genUserCert('myuser')
 
         Returns:
-            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.
+            Tuple containing the key and certificate objects.
         '''
         if csr is None:
             prvkey = self._genPrivKey()
@@ -465,18 +464,18 @@ class CertDir:
         Generates a code signing keypair.
 
         Args:
-            name (str): The name of the code signing cert.
-            signas (str): The CA keypair to sign the new code keypair with.
-            outp (synapse.lib.output.Output): The output buffer.
+            name: The name of the code signing cert.
+            signas: The CA keypair to sign the new code keypair with.
+            outp: The output buffer.
 
         Examples:
 
-            Generate a code signing cert for the name "The Vertex Project":
+            Generate a code signing cert for the name "The Vertex Project"::
 
                 myuserkey, myusercert = cdir.genCodeCert('The Vertex Project')
 
         Returns:
-            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.
+            Tuple containing the key and certificate objects.
         '''
         prvkey = self._genPrivKey()
         pubkey = prvkey.public_key()
@@ -545,10 +544,13 @@ class CertDir:
         Verify a code cert is valid according to certdir's available CAs and CRLs.
 
         Args:
-            byts (bytes): The certificate bytes.
+            byts: The certificate bytes.
+
+        Raises:
+            s_exc.BadCertVerify if we are unable to verify the certificate.
 
         Returns:
-            OpenSSL.crypto.X509: The certificate.
+            The certificate.
         '''
         reqext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING])
 
@@ -600,6 +602,7 @@ class CertDir:
     def genClientCert(self, name: str, outp: OutPutOrNoneType =None) -> None:
         '''
         Generates a user PKCS #12 archive.
+
         Please note that the resulting file will contain private key material.
 
         Args:
@@ -607,7 +610,7 @@ class CertDir:
             outp (synapse.lib.output.Output): The output buffer.
 
         Examples:
-            Make the PKC12 object for user "myuser":
+            Make the PKC12 object for user "myuser"::
 
                 myuserpkcs12 = cdir.genClientCert('myuser')
 
@@ -636,26 +639,25 @@ class CertDir:
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
 
-    def valUserCert(self, byts: bytes, cacerts: Union[List[c_x509.Certificate] | None] =None):
+    def valUserCert(self, byts: bytes, cacerts: Union[List[c_x509.Certificate] | None] =None) -> c_x509.Certificate:
         '''
         Validate the PEM encoded x509 user certificate bytes and return it.
 
         Args:
-            byts (bytes): The bytes for the User Certificate.
-            cacerts (tuple): A tuple of OpenSSL.crypto.X509 CA Certificates.
+            byts: The bytes for the User Certificate.
+            cacerts: A tuple of CA Certificates to use for validating the user cert..
 
         Raises:
             BadCertVerify: If the certificate is not valid.
 
         Returns:
-            OpenSSL.crypto.X509: The certificate, if it is valid.
+            The certificate, if it is valid.
         '''
         reqext = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH])
 
         cert = self.loadCertByts(byts)
         eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
 
-        # XXX FIXME if eku is none??/
         if reqext != eku.value:
             mesg = 'Certificate is not for client auth.'
             raise s_exc.BadCertBytes(mesg=mesg)
@@ -679,34 +681,34 @@ class CertDir:
         Generates a user certificate signing request.
 
         Args:
-            name (str): The name of the user CSR.
-            outp (synapse.lib.output.Output): The output buffer.
+            name: The name of the user CSR.
+            outp: The output buffer.
 
         Examples:
-            Generate a CSR for the user "myuser":
+            Generate a CSR for the user "myuser"::
 
                 cdir.genUserCsr('myuser')
 
         Returns:
-            bytes: The bytes of the CSR.
+            The bytes of the CSR.
         '''
         return self._genPkeyCsr(name, 'users', outp=outp)
 
-    def getCaCert(self, name):
+    def getCaCert(self, name: str) -> CertOrNoneType:
         '''
         Loads the X509 object for a given CA.
 
         Args:
-            name (str): The name of the CA keypair.
+            name: The name of the CA keypair.
 
         Examples:
-            Get the certificate for the  CA "myca"
+
+            Get the certificate for the  CA "myca"::
 
                 mycacert = cdir.getCaCert('myca')
 
         Returns:
-            # FIXME - CORRECT TYPE
-            : The certificate, if exists.
+            The certificate, if exists.
         '''
         return self._loadCertPath(self.getCaCertPath(name))
 
@@ -721,7 +723,7 @@ class CertDir:
         Return a list of CA certs from the CertDir.
 
         Returns:
-            [OpenSSL.crypto.X509]: List of CA certificates.
+            List of CA certificates.
         '''
         retn = []
 
@@ -746,15 +748,15 @@ class CertDir:
         Gets the path to a CA certificate.
 
         Args:
-            name (str): The name of the CA keypair.
+            name: The name of the CA keypair.
 
         Examples:
-            Get the path to the CA certificate for the CA "myca":
+            Get the path to the CA certificate for the CA "myca"::
 
                 mypath = cdir.getCACertPath('myca')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'cas', '%s.crt' % name)
@@ -766,16 +768,15 @@ class CertDir:
         Loads the PKey object for a given CA keypair.
 
         Args:
-            name (str): The name of the CA keypair.
+            name: The name of the CA keypair.
 
         Examples:
-            Get the private key for the CA "myca":
+            Get the private key for the CA "myca"::
 
                 mycakey = cdir.getCaKey('myca')
 
         Returns:
-            # XXX FIXME Correct the type
-            : The private key, if exists.
+            The private key, if exists.
         '''
         return self._loadKeyPath(self.getCaKeyPath(name))
 
@@ -784,7 +785,7 @@ class CertDir:
         Gets the path to a CA key.
 
         Args:
-            name (str): The name of the CA keypair.
+            name: The name of the CA keypair.
 
         Examples:
             Get the path to the private key for the CA "myca":
@@ -792,7 +793,7 @@ class CertDir:
                 mypath = cdir.getCAKeyPath('myca')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'cas', '%s.key' % name)
@@ -804,7 +805,7 @@ class CertDir:
         Loads the PKCS12 archive object for a given user keypair.
 
         Args:
-            name (str): The name of the user keypair.
+            name: The name of the user keypair.
 
         Examples:
             Get the PKCS12 object for the user "myuser":
@@ -815,7 +816,7 @@ class CertDir:
             The PKCS12 archive will contain private key material if it was created with CertDir or the easycert tool
 
         Returns:
-            OpenSSL.crypto.PKCS12: The PKCS12 archive, if exists.
+            The PKCS12 archive, if exists.
         '''
         return self._loadP12Path(self.getClientCertPath(name))
 
@@ -824,7 +825,7 @@ class CertDir:
         Gets the path to a client certificate.
 
         Args:
-            name (str): The name of the client keypair.
+            name: The name of the client keypair.
 
         Examples:
             Get the path to the client certificate for "myuser":
@@ -832,7 +833,7 @@ class CertDir:
                 mypath = cdir.getClientCertPath('myuser')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'users', '%s.p12' % name)
@@ -844,15 +845,16 @@ class CertDir:
         Gets the path to the CA certificate that issued a given host keypair.
 
         Args:
-            name (str): The name of the host keypair.
+            name: The name of the host keypair.
 
         Examples:
-            Get the path to the CA cert which issue the cert for "myhost":
+
+            Get the path to the CA cert which issue the cert for "myhost"::
 
                 mypath = cdir.getHostCaPath('myhost')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         cert = self.getHostCert(name)
         if cert is None:
@@ -865,15 +867,15 @@ class CertDir:
         Loads the X509 object for a given host keypair.
 
         Args:
-            name (str): The name of the host keypair.
+            name: The name of the host keypair.
 
         Examples:
-            Get the certificate object for the host "myhost":
+            Get the certificate object for the host "myhost"::
 
                 myhostcert = cdir.getHostCert('myhost')
 
         Returns:
-            OpenSSL.crypto.X509: The certificate, if exists.
+            The certificate, if exists.
         '''
         return self._loadCertPath(self.getHostCertPath(name))
 
@@ -888,7 +890,7 @@ class CertDir:
         Gets the path to a host certificate.
 
         Args:
-            name (str): The name of the host keypair.
+            name: The name of the host keypair.
 
         Examples:
             Get the path to the host certificate for the host "myhost":
@@ -896,7 +898,7 @@ class CertDir:
                 mypath = cdir.getHostCertPath('myhost')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'hosts', '%s.crt' % name)
@@ -908,15 +910,15 @@ class CertDir:
         Loads the PKey object for a given host keypair.
 
         Args:
-            name (str): The name of the host keypair.
+            name: The name of the host keypair.
 
         Examples:
-            Get the private key object for the host "myhost":
+            Get the private key object for the host "myhost"::
 
                 myhostkey = cdir.getHostKey('myhost')
 
         Returns:
-            OpenSSL.crypto.PKey: The private key, if exists.
+            The private key, if exists.
         '''
         return self._loadKeyPath(self.getHostKeyPath(name))
 
@@ -925,10 +927,10 @@ class CertDir:
         Gets the path to a host key.
 
         Args:
-            name (str): The name of the host keypair.
+            name: The name of the host keypair.
 
         Examples:
-            Get the path to the host key for the host "myhost":
+            Get the path to the host key for the host "myhost"::
 
                 mypath = cdir.getHostKeyPath('myhost')
 
@@ -945,15 +947,15 @@ class CertDir:
         Gets the path to the CA certificate that issued a given user keypair.
 
         Args:
-            name (str): The name of the user keypair.
+            name: The name of the user keypair.
 
         Examples:
-            Get the path to the CA cert which issue the cert for "myuser":
+            Get the path to the CA cert which issue the cert for "myuser"::
 
                 mypath = cdir.getUserCaPath('myuser')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         cert = self.getUserCert(name)
         if cert is None:
@@ -966,15 +968,15 @@ class CertDir:
         Loads the X509 object for a given user keypair.
 
         Args:
-            name (str): The name of the user keypair.
+            name: The name of the user keypair.
 
         Examples:
-            Get the certificate object for the user "myuser":
+            Get the certificate object for the user "myuser"::
 
                 myusercert = cdir.getUserCert('myuser')
 
         Returns:
-            OpenSSL.crypto.X509: The certificate, if exists.
+            The certificate, if exists.
         '''
         return self._loadCertPath(self.getUserCertPath(name))
 
@@ -986,12 +988,12 @@ class CertDir:
             name (str): The name of the user keypair.
 
         Examples:
-            Get the path for the user cert for "myuser":
+            Get the path for the user cert for "myuser"::
 
                 mypath = cdir.getUserCertPath('myuser')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'users', '%s.crt' % name)
@@ -1003,11 +1005,11 @@ class CertDir:
         Gets the name of the first existing user cert for a given user and host.
 
         Args:
-            user (str): The name of the user.
-            host (str): The name of the host.
+            user: The name of the user.
+            host: The name of the host.
 
         Examples:
-            Get the name for the "myuser" user cert at "cool.vertex.link":
+            Get the name for the "myuser" user cert at "cool.vertex.link"::
 
                 usercertname = cdir.getUserForHost('myuser', 'cool.vertex.link')
 
@@ -1025,15 +1027,15 @@ class CertDir:
 
 
         Args:
-            name (str): The name of the user keypair.
+            name: The name of the user keypair.
 
         Examples:
-            Get the key object for the user key for "myuser":
+            Get the key object for the user key for "myuser"::
 
                 myuserkey = cdir.getUserKey('myuser')
 
         Returns:
-            OpenSSL.crypto.PKey: The private key, if exists.
+            The private key, if exists.
         '''
         return self._loadKeyPath(self.getUserKeyPath(name))
 
@@ -1042,15 +1044,15 @@ class CertDir:
         Gets the path to a user key.
 
         Args:
-            name (str): The name of the user keypair.
+            name: The name of the user keypair.
 
         Examples:
-            Get the path to the user key for "myuser":
+            Get the path to the user key for "myuser"::
 
                 mypath = cdir.getUserKeyPath('myuser')
 
         Returns:
-            str: The path if exists.
+            The path if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'users', '%s.key' % name)
@@ -1073,11 +1075,11 @@ class CertDir:
         Imports certs and keys into the Synapse cert directory
 
         Args:
-            path (str): The path of the file to be imported.
-            mode (str): The certdir subdirectory to import the file into.
+            path: The path of the file to be imported.
+            mode: The certdir subdirectory to import the file into.
 
         Examples:
-            Import CA certifciate 'mycoolca.crt' to the 'cas' directory.
+            Import CA certifciate 'mycoolca.crt' to the 'cas' directory::
 
                 certdir.importFile('mycoolca.crt', 'cas')
 
@@ -1113,15 +1115,15 @@ class CertDir:
         Checks if a CA certificate exists.
 
         Args:
-            name (str): The name of the CA keypair.
+            name: The name of the CA keypair.
 
         Examples:
-            Check if the CA certificate for "myca" exists:
+            Check if the CA certificate for "myca" exists::
 
                 exists = cdir.isCaCert('myca')
 
         Returns:
-            bool: True if the certificate is present, False otherwise.
+            True if the certificate is present, False otherwise.
         '''
         return self.getCaCertPath(name) is not None
 
@@ -1130,15 +1132,15 @@ class CertDir:
         Checks if a user client certificate (PKCS12) exists.
 
         Args:
-            name (str): The name of the user keypair.
+            name: The name of the user keypair.
 
         Examples:
-            Check if the client certificate "myuser" exists:
+            Check if the client certificate "myuser" exists::
 
                 exists = cdir.isClientCert('myuser')
 
         Returns:
-            bool: True if the certificate is present, False otherwise.
+            True if the certificate is present, False otherwise.
         '''
         crtpath = self._getPathJoin('users', '%s.p12' % name)
         return os.path.isfile(crtpath)
@@ -1148,15 +1150,15 @@ class CertDir:
         Checks if a host certificate exists.
 
         Args:
-            name (str): The name of the host keypair.
+            name: The name of the host keypair.
 
         Examples:
-            Check if the host cert "myhost" exists:
+            Check if the host cert "myhost" exists::
 
                 exists = cdir.isUserCert('myhost')
 
         Returns:
-            bool: True if the certificate is present, False otherwise.
+            True if the certificate is present, False otherwise.
         '''
         return self.getHostCertPath(name) is not None
 
@@ -1165,15 +1167,15 @@ class CertDir:
         Checks if a user certificate exists.
 
         Args:
-            name (str): The name of the user keypair.
+            name: The name of the user keypair.
 
         Examples:
-            Check if the user cert "myuser" exists:
+            Check if the user cert "myuser" exists::
 
                 exists = cdir.isUserCert('myuser')
 
         Returns:
-            bool: True if the certificate is present, False otherwise.
+            True if the certificate is present, False otherwise.
         '''
         return self.getUserCertPath(name) is not None
 
@@ -1182,11 +1184,11 @@ class CertDir:
         Signs a certificate with a CA keypair.
 
         Args:
-            cert (OpenSSL.crypto.X509): The certificate to sign.
-            signas (str): The CA keypair name to sign the new keypair with.
+            cert: The certificate to sign.
+            signas: The CA keypair name to sign the new keypair with.
 
         Examples:
-            Sign a certificate with the CA "myca":
+            Sign a certificate with the CA "myca"::
 
                 cdir.signCertAs(mycert, 'myca')
 
@@ -1220,18 +1222,18 @@ class CertDir:
         Signs a host CSR with a CA keypair.
 
         Args:
-            xcsr (OpenSSL.crypto.X509Req): The certificate signing request.
-            signas (str): The CA keypair name to sign the CSR with.
-            outp (synapse.lib.output.Output): The output buffer.
-            sans (list): List of subject alternative names.
+            xcsr: The certificate signing request.
+            signas: The CA keypair name to sign the CSR with.
+            outp: The output buffer.
+            sans: List of subject alternative names.
 
         Examples:
-            Sign a host key with the CA "myca":
+            Sign a host key with the CA "myca"::
 
                 cdir.signHostCsr(mycsr, 'myca')
 
         Returns:
-            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)):  Tuple containing the public key and certificate objects.
+            Tuple containing the public key and certificate objects.
         '''
         pkey = xcsr.public_key()
         attr = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
@@ -1243,11 +1245,11 @@ class CertDir:
         Self-sign a certificate.
 
         Args:
-            cert (OpenSSL.crypto.X509): The certificate to sign.
-            pkey (OpenSSL.crypto.PKey): The PKey with which to sign the certificate.
+            cert: The certificate to sign.
+            pkey: The PKey with which to sign the certificate.
 
         Examples:
-            Sign a given certificate with a given private key:
+            Sign a given certificate with a given private key::
 
                 cdir.selfSignCert(mycert, myotherprivatekey)
 
@@ -1272,12 +1274,15 @@ class CertDir:
         Signs a user CSR with a CA keypair.
 
         Args:
-            xcsr (OpenSSL.crypto.X509Req): The certificate signing request.
-            signas (str): The CA keypair name to sign the CSR with.
-            outp (synapse.lib.output.Output): The output buffer.
+            xcsr: The certificate signing request.
+            signas: The CA keypair name to sign the CSR with.
+            outp: The output buffer.
 
         Examples:
-            cdir.signUserCsr(mycsr, 'myca')
+
+            Sign a user CSR with "myca"::
+
+                cdir.signUserCsr(mycsr, 'myca')
 
         Returns:
             ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the public key and certificate objects.
@@ -1307,7 +1312,7 @@ class CertDir:
             certname:   If specified, use the user certificate with the matching
                         name to authenticate to the remote service.
         Returns:
-            ssl.SSLContext: A SSLContext object.
+             A SSLContext object.
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -1351,7 +1356,7 @@ class CertDir:
             caname: If not None, the given name is used to locate a CA certificate used to validate client SSL certs.
 
         Returns:
-            ssl.SSLContext: A SSLContext object.
+            A SSLContext object.
         '''
         if hostname is not None and hostname.find(',') != -1:
             # multi-hostname SNI routing has been requested
@@ -1388,10 +1393,10 @@ class CertDir:
         Get the CRL for a given CA.
 
         Args:
-            name (str): The CA name.
+            name: The CA name.
 
         Returns:
-            CRL: The CRL object.
+            The CRL object.
         '''
         return Crl(self, name)
 
@@ -1532,10 +1537,10 @@ class CertDir:
         Load a X509 certificate from its PEM encoded bytes.
 
         Args:
-            byts (bytes): The PEM encoded bytes of the certificate.
+            byts: The PEM encoded bytes of the certificate.
 
         Returns:
-            OpenSSL.crypto.X509: The X509 certificate.
+            The X509 certificate.
 
         Raises:
             BadCertBytes: If the certificate bytes are invalid.

@@ -280,6 +280,42 @@ class CertDirTest(s_t_utils.SynTest):
                                     encryption_algorithm=c_serialization.NoEncryption())
         self.eq(_cb, _pb)
 
+    def code_assertions(self,
+                        cdir: s_certdir.CertDir,
+                        cert: c_x509.Certificate,
+                        key: s_certdir.PkeyType,
+                        cacert: c_x509.Certificate = None
+                        ):
+        reqbc = c_x509.BasicConstraints(ca=False, path_length=None)
+        reqeku = c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING])
+        reqku = c_x509.KeyUsage(digital_signature=True, content_commitment=False, key_encipherment=False,
+                                data_encipherment=False, key_agreement=False, key_cert_sign=False,
+                                crl_sign=False, encipher_only=False, decipher_only=False)
+        reqnstype = c_x509.UnrecognizedExtension(c_x509.ObjectIdentifier(s_certdir.NSCERTTYPE_OID),
+                                                 value=s_certdir.NSCERTTYPE_OBJSIGN)
+
+        bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
+        self.eq(reqbc, bc.value)
+
+        ku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.KEY_USAGE)
+        self.eq(reqku, ku.value)
+
+        eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
+        self.eq(reqeku, eku.value)
+
+        nstype = cert.extensions.get_extension_for_oid(c_x509.ObjectIdentifier(s_certdir.NSCERTTYPE_OID))
+        self.eq(reqnstype, nstype.value)
+
+        expected_oids = sorted([
+            c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS.dotted_string,
+            c_x509.oid.ExtensionOID.KEY_USAGE.dotted_string,
+            c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE.dotted_string,
+            s_certdir.NSCERTTYPE_OID,
+        ])
+
+        ext_oids = sorted([ext.oid.dotted_string for ext in cert.extensions])
+        self.eq(expected_oids, ext_oids)
+
     def test_certdir_cas(self):
 
         with self.getCertDir() as cdir:  # type: s_certdir.CertDiNew
@@ -672,15 +708,18 @@ class CertDirTest(s_t_utils.SynTest):
             codename3 = 'Vertex Build Pipeline Triple Threat'
 
             cdir.genCaCert(caname)
-            cdir.genCaCert(immname, signas=caname)
+            _, cacert = cdir.genCaCert(immname, signas=caname)
             cdir.genUserCert('notCodeCert', signas=caname, )
 
             cdir.genCaCrl(caname)._save()
             cdir.genCaCrl(immname)._save()
 
-            cdir.genCodeCert(codename, signas=immname)
+            pkey, cert = cdir.genCodeCert(codename, signas=immname)
+            self.code_assertions(cdir, cert, pkey, cacert)
+
             rsak = cdir.getCodeKey(codename)
             cert = cdir.getCodeCert(codename)
+            self.isinstance(cert, c_x509.Certificate)
 
             rsap = rsak.public()
 
