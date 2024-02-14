@@ -164,7 +164,8 @@ class CertDirTest(s_t_utils.SynTest):
         reqku = c_x509.KeyUsage(digital_signature=True, content_commitment=False, key_encipherment=True,
                                 data_encipherment=False, key_agreement=False, key_cert_sign=False,
                                 crl_sign=False, encipher_only=False, decipher_only=False)
-        reqnstype = c_x509.UnrecognizedExtension(c_x509.ObjectIdentifier(s_certdir.NSTYPE_OID), value=b'\x03\x02\x06@')
+        reqnstype = c_x509.UnrecognizedExtension(c_x509.ObjectIdentifier(s_certdir.NSTYPE_OID),
+                                                 value=s_certdir.NSCERTTYPE_SERVER)
 
         bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
         self.eq(reqbc, bc.value)
@@ -175,7 +176,7 @@ class CertDirTest(s_t_utils.SynTest):
         eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
         self.eq(reqeku, eku.value)
 
-        nstype = cert.extensions.get_extension_for_oid(c_x509.ObjectIdentifier(s_certdir.NSTYPE_OID))
+        nstype = cert.extensions.get_extension_for_oid(c_x509.ObjectIdentifier(s_certdir.NSCERTTYPE_OID))
         self.eq(reqnstype, nstype.value)
 
         expected_oids = sorted([
@@ -183,7 +184,7 @@ class CertDirTest(s_t_utils.SynTest):
             c_x509.oid.ExtensionOID.KEY_USAGE.dotted_string,
             c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE.dotted_string,
             c_x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME.dotted_string,
-            s_certdir.NSTYPE_OID,
+            s_certdir.NSCERTTYPE_OID,
         ])
 
         ext_oids = sorted([ext.oid.dotted_string for ext in cert.extensions])
@@ -208,6 +209,8 @@ class CertDirTest(s_t_utils.SynTest):
         reqku = c_x509.KeyUsage(digital_signature=True, content_commitment=False, key_encipherment=False,
                                 data_encipherment=False, key_agreement=False, key_cert_sign=False,
                                 crl_sign=False, encipher_only=False, decipher_only=False)
+        reqnstype = c_x509.UnrecognizedExtension(c_x509.ObjectIdentifier(s_certdir.NSTYPE_OID),
+                                                 value=s_certdir.NSCERTTYPE_CLIENT)
 
         bc = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS)
         self.eq(reqbc, bc.value)
@@ -218,21 +221,18 @@ class CertDirTest(s_t_utils.SynTest):
         eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
         self.eq(reqeku, eku.value)
 
+        nstype = cert.extensions.get_extension_for_oid(c_x509.ObjectIdentifier(s_certdir.NSCERTTYPE_OID))
+        self.eq(reqnstype, nstype.value)
+
         expected_oids = sorted([
             c_x509.oid.ExtensionOID.BASIC_CONSTRAINTS.dotted_string,
             c_x509.oid.ExtensionOID.KEY_USAGE.dotted_string,
             c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE.dotted_string,
-            # XXX FIXME Add client oid string
-            # s_certdir.NSTYPE_OID,
+            s_certdir.NSCERTTYPE_OID,
         ])
 
         ext_oids = sorted([ext.oid.dotted_string for ext in cert.extensions])
         self.eq(expected_oids, ext_oids)
-
-        # XXX FIXME There is a schism between teh items build for use with the builder
-        #
-        # nscertext = crypto.X509Extension(b'nsCertType', False, b'client')
-        # self.eq(exts[b'nsCertType'], nscertext.get_data())
 
     def p12_assertions(self,
                        cdir: s_certdir.CertDir,

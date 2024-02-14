@@ -32,7 +32,10 @@ if defdir is None:
 
 logger = logging.getLogger(__name__)
 
-NSTYPE_OID = '2.16.840.1.113730.1.1'
+NSCERTTYPE_OID = '2.16.840.1.113730.1.1'
+NSCERTTYPE_CLIENT = b'\x03\x02\x07\x80'   # client
+NSCERTTYPE_SERVER = b'\x03\x02\x06@'      # server
+NSCERTTYPE_OBJSIGN = b'\x03\x02\x04\x10'  # objsign
 
 TEN_YEARS = 10 * 365 * 24 * 60 * 60  # 10 years in seconds
 TEN_YEARS_TD = datetime.timedelta(seconds=TEN_YEARS)
@@ -345,7 +348,7 @@ class CertDir:
                 sans.append(ctor(valu))
 
         builder = builder.add_extension(c_x509.UnrecognizedExtension(
-            oid=c_x509.ObjectIdentifier(NSTYPE_OID), value=b'\x03\x02\x06@'),
+            oid=c_x509.ObjectIdentifier(NSCERTTYPE_OID), value=NSCERTTYPE_SERVER),
             critical=False,
         )
         builder = builder.add_extension(
@@ -425,8 +428,10 @@ class CertDir:
             pubkey = csr
 
         builder = self._genCertBuilder(name, pubkey)
-
-        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+        builder = builder.add_extension(c_x509.UnrecognizedExtension(
+            oid=c_x509.ObjectIdentifier(NSCERTTYPE_OID), value=NSCERTTYPE_CLIENT),
+            critical=False,
+        )
         builder = builder.add_extension(
             c_x509.KeyUsage(digital_signature=True, key_encipherment=False, data_encipherment=False, key_agreement=False,
                             key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
@@ -435,12 +440,7 @@ class CertDir:
         )
         builder = builder.add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH]),
                                         critical=False)
-        # XXX FIXME Client encoding value for
-        #             crypto.X509Extension(b'nsCertType', False, b'client'),
-        # builder = builder.add_extension(c_x509.UnrecognizedExtension(
-        #     oid=c_x509.ObjectIdentifier('2.16.840.1.113730.1.1'), value=b'\x03\x02\x06@'),
-        #     critical=False,
-        # )
+        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
 
         if signas is not None:
             cert = self.signCertAs(builder, signas)
@@ -482,8 +482,10 @@ class CertDir:
         pubkey = prvkey.public_key()
 
         builder = self._genCertBuilder(name, pubkey)
-
-        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
+        builder = builder.add_extension(c_x509.UnrecognizedExtension(
+            oid=c_x509.ObjectIdentifier(NSCERTTYPE_OID), value=NSCERTTYPE_OBJSIGN),
+            critical=False,
+        )
         builder = builder.add_extension(
             c_x509.KeyUsage(digital_signature=True, key_encipherment=False, data_encipherment=False,
                             key_agreement=False, key_cert_sign=False, crl_sign=False, encipher_only=False,
@@ -492,12 +494,7 @@ class CertDir:
         )
         builder = builder.add_extension(c_x509.ExtendedKeyUsage([c_x509.oid.ExtendedKeyUsageOID.CODE_SIGNING]),
                                         critical=False)
-        # XXX FIXME Client encoding value for
-        #             crypto.X509Extension(b'nsCertType', False, b'objsign'),
-        # builder = builder.add_extension(c_x509.UnrecognizedExtension(
-        #     oid=c_x509.ObjectIdentifier('2.16.840.1.113730.1.1'), value=b'\x03\x02\x06@'),
-        #     critical=False,
-        # )
+        builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=False)
 
         if signas is not None:
             cert = self.signCertAs(builder, signas)
@@ -557,7 +554,6 @@ class CertDir:
 
         cert = self.loadCertByts(byts)
         eku = cert.extensions.get_extension_for_oid(c_x509.oid.ExtensionOID.EXTENDED_KEY_USAGE)
-        # XXX FIXME if eku is none??/
         if reqext != eku.value:
             mesg = 'Certificate is not for code signing.'
             raise s_exc.BadCertBytes(mesg=mesg)
@@ -580,7 +576,7 @@ class CertDir:
             raise s_exc.BadCertVerify(mesg=mesg)
         return cert
 
-    def _getCaCrls(self):
+    def _getCaCrls(self) -> List[c_x509.CertificateRevocationList]:
 
         crls = []
         for cdir in self.certdirs:
