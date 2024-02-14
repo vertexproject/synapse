@@ -302,9 +302,9 @@ inbound files appear in either property. If you only want to see activity nodes 
   
   <inet:users> -> file:path:base
 
-The query above uses explicit syntax. The ``inet:user`` form has a type of ``inet:user``, but the ``:author``
-property) has a type of ``file:base``. Because the properties are two different types, you must use explicit
-syntax for this pivot.
+The query above uses explicit syntax. The ``inet:user`` form has a type of ``inet:user``, but the ``:base``
+property of the ``file:path`` form has a type of ``file:base``. Because the properties are two different types,
+you must use explicit syntax for this pivot.
 
 .. TIP::
   
