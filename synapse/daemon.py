@@ -218,7 +218,7 @@ async def t2call(link, meth, args, kwargs):
 
 class Daemon(s_base.Base):
 
-    async def __anit__(self, certdir=None):
+    async def __anit__(self, certdir=None, ahainfo=None):
 
         await s_base.Base.__anit__(self)
 
@@ -226,6 +226,8 @@ class Daemon(s_base.Base):
 
         if certdir is None:
             certdir = s_certdir.getCertDir()
+
+        self.ahainfo = ahainfo
 
         self.certdir = certdir
         self.televers = s_telepath.televers
@@ -414,12 +416,15 @@ class Daemon(s_base.Base):
     async def _getSharedItem(self, name):
         return self.shared.get(name)
 
-    async def _onTeleSyn(self, link, mesg):
+    async def _onTeleSyn(self, link: s_link.Link, mesg):
 
         reply = ('tele:syn', {
             'vers': self.televers,
             'retn': (True, None),
         })
+
+        if self.ahainfo is not None:
+            reply[1]['ahainfo'] = self.ahainfo
 
         try:
 

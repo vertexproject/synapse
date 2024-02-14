@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.160.0'
+version = '2.161.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -15,10 +15,12 @@ license = { text = 'Apache License 2.0' }
 classifiers = [
     'Development Status :: 5 - Production/Stable',
     'License :: OSI Approved :: Apache Software License',
+    'Topic :: Database :: Database Engines/Servers',
     'Topic :: System :: Clustering',
     'Topic :: System :: Distributed Computing',
     'Topic :: System :: Software Distribution',
     'Programming Language :: Python :: 3.11',
+    'Operating System :: POSIX :: Linux',
 ]
 dependencies = [
     'pyOpenSSL>=23.0.0,<23.3.0',

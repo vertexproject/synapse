@@ -23,7 +23,7 @@ class StormCliTest(s_test.SynTest):
             self.eq('woot', opts.cortex)
             self.none(opts.view)
 
-            q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, $lib.dict()), $lib.dict())'
+            q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, ({})), ({}))'
             await core.callStorm(q)
 
             async with core.getLocalProxy() as proxy:

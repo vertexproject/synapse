@@ -1902,3 +1902,62 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', retn.get('status'))
                     roles = set([r.get('name') for r in retn.get('result', {}).get('roles')])
                     self.eq(roles, {'all'})
+
+    async def test_http_sess_setvals(self):
+
+        class ValsHandler(s_httpapi.StreamHandler):
+
+            async def get(self):
+
+                iden = await self.useriden()
+                if iden is None or self._web_sess is None:  # pragma: no cover
+                    self.sendRestErr('NoSuchUser', 'User must login with a valid sess')
+                    return
+
+                throw = bool(int(self.request.headers.get('throw', 0)))
+
+                if throw:
+                    vals = {'hehe': 'haha', 'omg': {'hehe', 'haha'}}
+                else:
+                    vals = {'now': s_common.now(), 'lastip': self.request.connection.context.remote_ip}
+
+                await self._web_sess.update(vals)
+
+                self.sendRestRetn({'iden': s_common.ehex(self._web_sess.iden), 'info': self._web_sess.info})
+                return
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/vals', ValsHandler, {'cell': core})
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            url = f'https://localhost:{port}/api/v1/vals'
+
+            async with self.getHttpSess() as sess:
+                info = {'user': 'root', 'passwd': 'secret'}
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+                async with sess.get(url) as resp:
+                    self.eq(resp.status, 200)
+                    data = await resp.json()
+                    result = data.get('result')
+                    iden = s_common.uhex(result.get('iden'))
+                    info = result.get('info')
+                    self.isin('now', info)
+                    self.isin('lastip', info)
+                    self.isin('user', info)
+                    self.isin('username', info)
+
+                cell_sess = core.sessions.get(iden)
+                self.eq(cell_sess.info, result.get('info'))
+
+                async with sess.get(url, headers={'throw': '1'}) as resp:
+                    self.eq(resp.status, 500)
+
+                # No change with the bad data
+                self.eq(cell_sess.info, result.get('info'))

@@ -77,7 +77,7 @@ For example, the following query will return zero nodes, even though the ``yield
 
 .. storm-pre:: [ (inet:ipv4=12.34.56.78 :loc=us.oh) (inet:ipv4=44.44.44.44) (inet:server=tcp://12.34.56.78:80) (inet:server=tcp://44.44.44.44:443)]
 .. storm-pre:: inet:ipv4 { -:loc } -> inet:server
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=ipgeoloc, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $query=${} $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [({'name': 'ipgeoloc', 'storm': $query })] }) $lib.print($pkg) $lib.pkg.add($pkg)
 ::
 
     <inet:ipv4> { -:loc | ipgeoloc } -> inet:server
