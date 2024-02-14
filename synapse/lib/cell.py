@@ -2653,8 +2653,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for name, valu in vals.items():
             self.sessstor.set(iden, name, valu)
         sess = self.sessions.get(iden)
-        for name, valu in vals.items():
-            sess.info[name] = valu
+        if sess is not None:
+            sess.info.update(vals)
 
     @contextlib.contextmanager
     def getTempDir(self):
@@ -2846,7 +2846,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellDmon(self):
 
-        self.dmon = await s_daemon.Daemon.anit()
+        ahainfo = {
+            'name': self.ahasvcname
+        }
+
+        self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)

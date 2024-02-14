@@ -4177,6 +4177,9 @@ class Str(Prim):
                        'desc': 'Keyword values which are substituted into the string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string.', }}},
+        {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
+         'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
+                  'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -4206,6 +4209,7 @@ class Str(Prim):
             'slice': self._methStrSlice,
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
+            'json': self._methStrJson,
         }
 
     def __int__(self):
@@ -4320,6 +4324,14 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methStrReverse(self):
         return self.valu[::-1]
+
+    @stormfunc(readonly=True)
+    async def _methStrJson(self):
+        try:
+            return json.loads(self.valu, strict=True)
+        except Exception as e:
+            mesg = f'Text is not valid JSON: {self.valu}'
+            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Bytes(Prim):

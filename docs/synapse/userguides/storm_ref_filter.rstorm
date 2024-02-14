@@ -31,12 +31,15 @@ filters based on the criteria, comparison operator, or special handler used:
 .. TIP::
   
   In general, you can filter using the same criteria and comparison operators used for lift operations.
+  This includes using a wildcard ( ``*`` ) to partially match form names and using :ref:`interface`
+  names to filter by all forms that inherit an interface.
+  
   Because filter operations act on a pre-selected **subset** of nodes, some additional methods are
   available for filtering that would be less efficient for initial lift operations. For example, you
-  can filter FQDNs (``inet:fqdn``) nodes by prefix ( ``^=`` ), although you cannot lift FQDNs using
+  can filter FQDNs (``inet:fqdn`` nodes) by prefix ( ``^=`` ), although you cannot lift FQDNs using
   that operator. Similarly, you can :ref:`filter-tag-globs` but you cannot lift using that syntax.
 
-Storm also supports additional types of filters and filter operations:
+Storm also supports specialized filters and filter operations:
 
 - `Compound Filters`_
 - `Subquery Filters`_
@@ -54,6 +57,16 @@ Filter by Form
 --------------
 
 A "filter by form" operation modifies your working set to include (or exclude) all nodes of the specified form.
+The wildcard (asterisk) character ( ``*`` ) can be used to filter based on forms that match a partial form
+name / namespace.
+
+If the form inherits an :ref:`interface`, you can specify the interface name to filter based on all
+forms that inherit the interface.
+
+.. _filter-form-name:
+
+Filter by Form Name
++++++++++++++++++++
 
 **Syntax:**
 
@@ -75,6 +88,85 @@ A "filter by form" operation modifies your working set to include (or exclude) a
   
   <query> -inet:url
 
+.. _filter-form-wildcard:
+
+Filter by Form Name - Wildcard
+++++++++++++++++++++++++++++++
+
+You can use the wildcard (asterisk) character ( ``*`` ) to specify all forms that match a partial form name. Use
+of the wildcard is not limited to form namespace boundaries.
+
+.. NOTE::
+  
+  The wildcard can only be used at the end of the partial match. It cannot be used at the beginning or in the
+  middle of the form name. For example, both of the following are **invalid**:
+  
+  ``+*:header``
+  
+  ``-it:exec:*:del``
+  
+  In addition, use of the wildcard does not extend to partial matching of property names. For example, the
+  following is **invalid**:
+  
+  ``+file:bytes:mime:pe:*``
+
+**Syntax:**
+
+*<query>* **+** | **-** *<partial_form_name>* *****
+
+**Examples:**
+
+*Filter the current working set to exclude PE metadata nodes (e.g., file:mime:pe:resource, file:mime:pe:section, etc.):*
+
+.. storm-pre:: [ file:mime:pe:vsvers:info=(sha256:86570d92983f1a55ec9e12b7185bf966f5294b13a2d1ab185896145eb52ffb58, (FileDescriptions, Xenum)) file:mime:pe:export=(sha256:95d2d427251bd10427f078255981bee74ed39b9fde78e0e7f1fc5c7c38ad4a10, DllInstall) inet:fqdn=woot.com ] -file:mime:pe:*
+
+::
+  
+  <query> -file:mime:pe:*
+
+*Filter the current working set to only include antivirus / scan-related nodes (e.g., it:av:scan:result, it:av:signame):*
+
+.. storm-pre:: [ it:av:scan:result=0002a57045f969b18245349054662d73 it:av:signame=backdoor.maggie inet:fqdn=woot.com ] +it:av:s*
+
+::
+  
+  <query> +it:av:s*
+
+
+.. -filter-form-interface:
+
+Filter Form by Interface
+++++++++++++++++++++++++
+
+You can use the name of an interface to filter all forms that inherit that interface.
+
+.. NOTE::
+
+  When filtering by interface, you cannot use the wildcard ( ``*`` ) character to match multiple interface names.
+  Synapse will interpret use of the wildcard as an attempt to match multiple form names.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<interface>*
+
+**Examples:**
+
+*Filter the current working set to only include host activity nodes (all nodes of all forms that inherit the it:host:activity interface):*
+
+.. storm-pre:: [ inet:fqdn=woot.com file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 it:exec:file:add=* it:exec:reg:set=* ] +it:host:activity
+
+::
+  
+  <query> +it:host:activity
+
+*Filter the current working set to exclude taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
+
+.. storm-pre:: [ risk:threat=* risk:compromise=* risk:attacktype=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
+
+::
+  
+  <query> -meta:taxonomy
+
 
 .. _filter-prop:
 
@@ -94,9 +186,10 @@ the specified property (secondary, universal, or extended), regardless of the pr
   typing"). Full property names can be used for clarity (i.e., specifying **exactly** what you want to
   filter on).
   
-  Full property names may be **required** in cases where multiple nodes in the inbound working set have
-  the same relative property name (e.g., ``inet:dns:a:ipv4`` and ``inet:url:ipv4``) and you only wish to
-  filter based on the property of one of the forms.
+  Full property names are **required** when filtering on a property using an interface. They may also be required
+  in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
+  ``inet:dns:a:ipv4`` and ``inet:url:ipv4``) and you only wish to filter based on the property of one of
+  the forms.
   
   Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
   property name (*:<prop>*) where applicable.
@@ -137,7 +230,46 @@ Filter by Secondary Property
 ::
   
   <query> -:publisher:name
+
+
+.. _filter-prop-interface:
+
+Filter by Interface Property
+++++++++++++++++++++++++++++
+
+If a form inherits an :ref:`interface`, you can filter all nodes of all forms that have an interface-derived
+property by specifying the full name of the interface and its property.
+
+.. TIP::
   
+  You must specify the interface where the property is defined. If an interface inherits another interface, you
+  cannot perform a filter using an inherited property name. For example, the following filter is invalid because
+  the ``:sandbox:file`` property of the ``inet:proto:request`` interface is inherited from the ``it:host:activity``
+  interface:
+  
+  ::
+    
+    <query> +inet:proto:request:sandbox:file
+
+**Syntax:**
+
+*<query>* **+** | **-** *<interface>* **:** *<prop>*
+
+**Example:**
+
+*Filter the current working set to only include those host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
+
+.. storm-pre:: [ it:exec:file:add=* ( it:exec:file:add=* :time=now ) ] +it:host:activity:time
+
+::
+  
+  <query> +it:host:activity:time
+
+.. TIP::
+  
+  When filtering using an interface property, you must use full property syntax (i.e., the combined interface
+  and property name).
+
 
 .. _filter-prop-univ:
 
@@ -228,9 +360,12 @@ Using the relative property name allows for simplified syntax and more efficient
 typing"). Full property names can be used for clarity (i.e., specifying **exactly** what you want to
 filter on).
 
-Full property names may be **required** in cases where multiple nodes in the inbound working set have
-the same relative property name (e.g., ``inet:dns:a:ipv4`` and ``inet:url:ipv4``, as well as universal
-properties) and you only wish to filter based on the property of one of the forms.
+Full property names are **required**:
+
+- when filtering based on an interface property value.
+- in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
+  ``inet:dns:a:ipv4`` and ``inet:url:ipv4``, or a universal property such as ``.seen``) and you only wish to
+  filter based on the property of one of the forms.
 
 Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
 property name (*:<prop>*) where applicable.
@@ -327,6 +462,42 @@ Filter by Secondary Property Value
 ::
   
   <query> -:size >= 1000000
+
+
+.. _filter-prop-std-interface:
+
+Filter by Interface Property Value
+++++++++++++++++++++++++++++++++++
+
+If a form inherits an :ref:`interface`, you can filter all nodes of all forms with a specific interface-derived
+property value by using the name of the interface.
+
+.. TIP::
+  
+  You must specify the interface where the property is defined. If an interface inherits another interface, you
+  cannot perform this type of filter using an interface and an inherited property name.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<interface>* **:** *<prop>* *<operator>* *<pval>*
+
+**Examples:**
+
+*Filter the current working set to only include those Microsoft Office metadata nodes (all nodes of all forms that inherit the file:mime:msoffice interface) whose :author property is 'admin':*
+
+.. storm-pre:: [ (file:mime:msdoc=* :author=ozzie) (file:mime:msxls=* :author=admin) ] +file:mime:msoffice:author = admin
+
+::
+  
+  <query> +file:mime:msoffice:author = admin
+
+*Filter the current working set to exclude any host activity nodes (all nodes of all forms that inherit the it:host:activity interface) observed earlier than January 1, 2024:*
+
+.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:file:write=* :time=2022/02/20) ] -it:host:activity:time < 2024/01/01
+
+::
+  
+  <query> -it:host:activity:time < 2024/01/01
 
 
 .. _filter-prop-std-universal:
@@ -443,6 +614,12 @@ In most cases, the same extended comparators are available for both lifting and 
 - `Filter by Proximity (*near=)`_
 - `Filter by (Arrays) (*[ ])`_
 
+Each extended comparision operator can be used with any kind of property (primary, secondary, universal, or
+extended) whose :ref:`gloss-type` is appropriate for the comparison used. When filtering by secondary property
+value, you can optionally specify an :ref:`interface` name and property to filter based on all forms that
+inherit that interface.
+
+
 .. _filter-regex:
 
 Filter by Regular Expression (~=)
@@ -462,6 +639,8 @@ The extended comparator ``~=`` is used to filter nodes based on PCRE-compatible 
 *<query>* **+** | **-** *<form>* **~=** *<regex>*
 
 *<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* **~=** *<regex>*
+
+*<query>* **+** | **-** *<interface>* **:** *<prop>* **~=** *<regex>*
 
 **Examples:**
 
@@ -490,6 +669,14 @@ The extended comparator ``~=`` is used to filter nodes based on PCRE-compatible 
   
   <query> -:name ~= '^v.*x'
 
+*Filter the current working set to only include taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface) whose description (:desc property) includes the string 'credential':*
+
+.. storm-pre:: [ risk:attack=* (risk:attacktype=foo.bar :desc='credential phishing') (ou:goal:type:taxonomy=baz.faz :desc='obtain admin credentials') (belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy') ] +meta:taxonomy:desc ~= credential
+
+::
+  
+  <query> +meta:taxonxomy:desc ~= credential
+
 
 .. _filter-prefix:
 
@@ -516,6 +703,8 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 
 *<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* **^=** *<prefix>*
 
+*<query>* **+** | **-** *<interface>* **:** *<prop>* **^=** *<prefix>*
+
 **Examples:**
 
 *Filter the current working set to exclude email addresses (inet:email nodes) that start with "abuse":*
@@ -539,6 +728,15 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
   <query> +:name ^= ministry
 
 
+*Filter the current working set to only include Microsoft Office metadata nodes (all nodes of all forms that inherit the file:mime:msoffice interface) whose :author property starts with 'Admin':*
+
+.. storm-pre:: [ (file:mime:msdoc=* :author=ozzie) (file:mime:msdoc=* :author=Administrator) (file:mime:msppt=* :author=admin) ] +file:mime:msoffice:author ^= Admin
+
+::
+  
+  <query> +file:mime:msoffice:author ^= Admin
+
+
 .. _filter-interval:
 
 Filter by Time or Interval (@=)
@@ -558,6 +756,10 @@ of times and intervals.
 *<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
 
 *<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* **@=** *<time>*
+
+*<query>* **+** | **-** *<interface>* **:** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
+
+*<query>* **+** | **-** *<interface>* **:** *<prop>* **@=** *<time>*
 
 **Examples:**
 
@@ -651,6 +853,15 @@ of times and intervals.
   <query> +:time @= ( now, '-1 day' )
 
 
+*Filter the current working set to only include the host activity nodes (all nodes of all forms that inherit the it:host:activity interface) whose :time value is within the past three hours:*
+
+.. storm-pre:: [ (it:exec:mutex=* :time=2024/01/13) (it:exec:file:write=* :time=2024/01/31) (it:exec:proc=* :time=now) ] +it:host:activity:time @= (now, '-3 hours')
+
+::
+  
+  <query> +it:host:activity:time @= (now, '-3 hours')
+
+
 **Usage Notes:**
 
 - When specifying an interval with the ``@=`` operator, the minimum value is included in the interval for
@@ -712,6 +923,8 @@ fall within a specified range of values. The comparator can be used with types s
 
 *<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* ***range = (** *<range_min>* **,** *<range_max>* **)**
 
+*<query>* **+** | **-** *<interface>* **:** *<prop>* ***range = (** *<range_min>* **,** *<range_max>* **)**
+
 **Examples:**
 
 *Filter the current working set to exclude files (file:bytes nodes) whose size is between 1000 and 100000 bytes:*
@@ -763,6 +976,15 @@ fall within a specified range of values. The comparator can be used with types s
   <query> +:time *range= ( 2021/12/01, '+-1 day' )
 
 
+*Filter the current working set to only include taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface) whose :depth is between 1 and 3 (i.e., between 2 and 4 taxonomy elements):*
+
+.. storm-pre:: [ risk:attacktype=bad risk:attacktype=bad.sorta risk:attacktype=bad.very risk:attacktype=bad.pretty.darn.bad ] +meta:taxonomy:depth *range= (1, 3)
+
+::
+  
+  <query> +meta:taxonomy:depth *range= (1, 3)
+
+
 **Usage Notes:**
 
 - When specifying a range (``*range=``), both the minimum and maximum values are **included** in the
@@ -797,6 +1019,8 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 *<query>* **+** | **-** *<form>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
 
 *<query>* **+** | **-** [ *<form>* ] **:** | **.** | **:_** *<prop>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
+
+*<query>* **+** | **-** *<interface>* **:** *<prop>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
 
 **Examples:**
 
