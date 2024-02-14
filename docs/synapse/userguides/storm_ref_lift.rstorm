@@ -513,9 +513,8 @@ by using the name of the interface.
   perform this type of lift using an interface and an inherited property name.
   
   Synapse returns results in lexical order (sorted, ascending to descending) based on the way the queried property is
-  indexed. When using an interface to lift by secondary property, Synapse iterates each set of forms in the result set
-  in parallel, and yields the results in order. See the :ref:`lift-reverse` section for additional discussion of this
-  concept.
+  indexed. When using an interface to lift by secondary property, Synapse performs the lifts for each form in parallel,
+  and yields the results in order. See the :ref:`lift-reverse` section for additional discussion of this concept.
 
 
 **Syntax:**
