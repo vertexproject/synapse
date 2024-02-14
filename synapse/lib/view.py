@@ -274,7 +274,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if merge is None:
             raise s_exc.BadState(mesg=f'View ({self.iden}) does not have a merge request.')
 
-        if merge.get('user') == useriden:
+        if merge.get('creator') == useriden:
             raise s_exc.AuthDeny(mesg='A user may not vote for their own merge request.')
 
     @s_nexus.Pusher.onPush('merge:vote:set')
