@@ -613,6 +613,14 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
+
             The dictionary returned by this may contain the following values::
 
                 {
@@ -1466,6 +1474,14 @@ class Axon(s_cell.Cell):
                     'content_transfer_encoding': <str> - Optional content-transfer-encoding header for the field.
                 }
 
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
+
             The dictionary returned by this may contain the following values::
 
                 {
@@ -1648,6 +1664,14 @@ class Axon(s_cell.Cell):
         Notes:
             The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
+
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
 
             The dictionary returned by this may contain the following values::
 

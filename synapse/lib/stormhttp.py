@@ -88,6 +88,14 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
 class LibHttp(s_stormtypes.Lib):
     '''
     A Storm Library exposing an HTTP client API.
+
+    For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
+
+        {
+            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl_verify argument.
+            'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+            'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+        }
     '''
     _storm_locals = (
         {'name': 'get', 'desc': 'Get the contents of a given URL.',
@@ -98,8 +106,6 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
-                       'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
@@ -108,6 +114,9 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'post', 'desc': 'Post data to a given URL.',
@@ -122,8 +131,6 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
-                       'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
@@ -139,6 +146,9 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
@@ -149,8 +159,6 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
-                       'default': None},
                       {'name': 'params', 'type': 'dict',
                        'desc': 'Optional parameters which may be passed to the request.',
                        'default': None},
@@ -160,6 +168,9 @@ class LibHttp(s_stormtypes.Lib):
                        'default': False},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'request', 'desc': 'Make an HTTP request using the given HTTP method to the url.',
@@ -175,8 +186,6 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
-                       'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
@@ -192,6 +201,9 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
+                       'default': None},
                    ),
                   'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}
                   }
@@ -204,14 +216,15 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True},
-                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
-                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the connection request.',
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.inet.http help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'inet:http:socket', 'desc': 'A websocket object.'}}},
         {'name': 'urlencode', 'desc': '''
@@ -300,24 +313,24 @@ class LibHttp(s_stormtypes.Lib):
         code = await s_stormtypes.toint(code)
         return s_common.httpcodereason(code)
 
-    async def _httpEasyHead(self, url, headers=None, ssl_verify=True, ssl_opts=None, params=None, timeout=300,
-                            allow_redirects=False, proxy=None):
-        return await self._httpRequest('HEAD', url, headers=headers, ssl_verify=ssl_verify, ssl_opts=ssl_opts,
-                                       params=params, timeout=timeout, allow_redirects=allow_redirects, proxy=proxy)
+    async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
+                            allow_redirects=False, proxy=None, ssl_opts=None):
+        return await self._httpRequest('HEAD', url, headers=headers, ssl_verify=ssl_verify, params=params,
+                                       timeout=timeout, allow_redirects=allow_redirects, proxy=proxy, ssl_opts=ssl_opts)
 
-    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, ssl_opts=None, params=None, timeout=300,
-                           allow_redirects=True, proxy=None):
-        return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, ssl_opts=ssl_opts,
-                                       params=params, timeout=timeout, allow_redirects=allow_redirects, proxy=proxy)
+    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
+                           allow_redirects=True, proxy=None, ssl_opts=None):
+        return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
+                                       timeout=timeout, allow_redirects=allow_redirects, proxy=proxy, ssl_opts=ssl_opts)
 
-    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, ssl_opts=None,
-                        params=None, timeout=300, allow_redirects=True, fields=None, proxy=None):
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True,
+                        params=None, timeout=300, allow_redirects=True, fields=None, proxy=None, ssl_opts=None):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
-                                       ssl_verify=ssl_verify, ssl_opts=ssl_opts, params=params, timeout=timeout,
-                                       allow_redirects=allow_redirects, fields=fields, proxy=proxy)
+                                       ssl_verify=ssl_verify, params=params, timeout=timeout,
+                                       allow_redirects=allow_redirects, fields=fields, proxy=proxy, ssl_opts=ssl_opts)
 
-    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, ssl_opts=None, timeout=300,
-                              params=None, proxy=None):
+    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300,
+                              params=None, proxy=None, ssl_opts=None):
 
         url = await s_stormtypes.tostr(url)
         headers = await s_stormtypes.toprim(headers)
@@ -379,8 +392,8 @@ class LibHttp(s_stormtypes.Lib):
         return data
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
-                           ssl_verify=True, ssl_opts=None, params=None, timeout=300, allow_redirects=True,
-                           fields=None, proxy=None):
+                           ssl_verify=True, params=None, timeout=300, allow_redirects=True,
+                           fields=None, proxy=None, ssl_opts=None):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
@@ -390,9 +403,9 @@ class LibHttp(s_stormtypes.Lib):
         params = await s_stormtypes.toprim(params)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         ssl_verify = await s_stormtypes.tobool(ssl_verify, noneok=True)
-        ssl_opts = await s_stormtypes.toprim(ssl_opts)
         allow_redirects = await s_stormtypes.tobool(allow_redirects)
         proxy = await s_stormtypes.toprim(proxy)
+        ssl_opts = await s_stormtypes.toprim(ssl_opts)
 
         kwargs = {'allow_redirects': allow_redirects}
         if params:
@@ -408,7 +421,7 @@ class LibHttp(s_stormtypes.Lib):
                 self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
                 axon = self.runt.snap.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
-                                            ssl=ssl_verify, ssl_opts=ssl_opts, timeout=timeout, proxy=proxy)
+                                            ssl=ssl_verify, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
                 return HttpResp(info)
 
         kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)

@@ -1916,6 +1916,14 @@ class LibStr(Lib):
 class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
+
+    For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
+
+        {
+            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+            'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+            'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+        }
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
@@ -1951,7 +1959,8 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
-                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
@@ -1973,7 +1982,8 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
-                      {'name': 'ssl_opts', 'type': 'dict', 'desc': 'Optional SSL/TLS options.',
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
