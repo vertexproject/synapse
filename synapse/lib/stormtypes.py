@@ -40,6 +40,7 @@ import synapse.lib.provenance as s_provenance
 logger = logging.getLogger(__name__)
 
 class Undef:
+    _storm_typename = 'undef'
     async def stormrepr(self):
         return '$lib.undef'
 
@@ -1085,13 +1086,6 @@ class LibBase(Lib):
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the set.', },
                   ),
                   'returns': {'type': 'set', 'desc': 'The new set.', }}},
-        {'name': 'dict', 'desc': 'Get a Storm Dict object.',
-         'type': {'type': 'function', '_funcname': '_dict',
-                  'args': (
-                      {'name': '**kwargs', 'type': 'any',
-                       'desc': 'Initial set of keyword argumetns to place into the dict.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
          'type': {'type': 'function', '_funcname': '_exit',
                   'args': (
@@ -1147,7 +1141,7 @@ class LibBase(Lib):
             Examples:
                 Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
 
-                    cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
+                    cli> storm $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
                     ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
             ''',
             'type': 'null', },
@@ -1227,7 +1221,7 @@ class LibBase(Lib):
 
                 Format and print string based on variables::
 
-                    cli> storm $d=$lib.dict(key1=(1), key2="two")
+                    cli> storm $d=({"key1": (1), "key2": "two"})
                          for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
                     key1 => 1
                     key2 => two
@@ -1377,7 +1371,6 @@ class LibBase(Lib):
             'max': self._max,
             'set': self._set,
             'copy': self._copy,
-            'dict': self._dict,
             'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
@@ -1678,14 +1671,123 @@ class LibBase(Lib):
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
-    async def _dict(self, **kwargs):
-        return Dict(kwargs)
-
-    @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
+
+@registry.registerLib
+class LibDict(Lib):
+    '''
+    A Storm Library for interacting with dictionaries.
+    '''
+    _storm_locals = (
+        {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
+         'type': {'type': 'function', '_funcname': '_keys',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'List of keys in the specified dictionary.', }}},
+        {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
+         'type': {'type': 'function', '_funcname': '_pop',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                      {'name': 'key', 'type': 'str', 'desc': 'The key name of the value to pop.'},
+                      {'name': 'default', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The popped value.', }}},
+        {'name': 'update', 'desc': 'Update the specified dictionary with keys/values from another dictionary.',
+         'type': {'type': 'function', '_funcname': '_update',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The target dictionary (update to).'},
+                      {'name': 'other', 'type': 'dict', 'desc': 'The source dictionary (update from).'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'values', 'desc': 'Retrieve a list of values in the specified dictionary.',
+         'type': {'type': 'function', '_funcname': '_values',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'List of values in the specified dictionary.', }}},
+    )
+    _storm_lib_path = ('dict',)
+
+    def getObjLocals(self):
+        return {
+            'has': self._has,
+            'keys': self._keys,
+            'pop': self._pop,
+            'update': self._update,
+            'values': self._values,
+        }
+
+    async def _check_type(self, valu, name='valu'):
+        if isinstance(valu, (dict, Dict)):
+            return
+
+        typ = getattr(valu, '_storm_typename', None)
+        if typ is None:
+            prim = await toprim(valu)
+            typ = type(prim).__name__
+
+        mesg = f'{name} argument must be a dict, not {typ}.'
+        raise s_exc.BadArg(mesg=mesg)
+
+    @stormfunc(readonly=True)
+    async def _has(self, valu, name):
+        await self._check_type(valu)
+        valu = await toprim(valu)
+        return name in valu
+
+    @stormfunc(readonly=True)
+    async def _keys(self, valu):
+        await self._check_type(valu)
+        valu = await toprim(valu)
+        return list(valu.keys())
+
+    @stormfunc(readonly=True)
+    async def _pop(self, valu, key, default=undef):
+        await self._check_type(valu)
+
+        real = await toprim(valu)
+        key = await tostr(key)
+
+        if key not in real:
+            if default == undef:
+                mesg = f'Key {key} does not exist in dictionary.'
+                raise s_exc.BadArg(mesg=mesg)
+            return await toprim(default)
+
+        # Make sure we have a storm Dict
+        valu = fromprim(valu)
+
+        ret = await valu.deref(key)
+        await valu.setitem(key, undef)
+        return ret
+
+    @stormfunc(readonly=True)
+    async def _update(self, valu, other):
+        await self._check_type(valu)
+        await self._check_type(other, name='other')
+
+        valu = fromprim(valu)
+        other = await toprim(other)
+
+        for k, v in other.items():
+            await valu.setitem(k, v)
+
+    @stormfunc(readonly=True)
+    async def _values(self, valu):
+        await self._check_type(valu)
+
+        valu = await toprim(valu)
+        return list(valu.values())
+
+    async def __call__(self, **kwargs):
+        s_common.deprecated('$lib.dict()', curv='2.161.0')
+        await self.runt.snap.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
+        return Dict(kwargs)
 
 @registry.registerLib
 class LibPs(Lib):
@@ -1700,7 +1802,7 @@ class LibPs(Lib):
                        'desc': 'The prefix of the task to stop. '
                                'Tasks will only be stopped if there is a single prefix match.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': ' True if the task was cancelled, False otherwise.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.', }}},
         {'name': 'list', 'desc': 'List tasks the current user can access.',
          'type': {'type': 'function', '_funcname': '_list',
                   'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
@@ -1826,7 +1928,7 @@ class LibAxon(Lib):
             Example:
                 Get the Vertex Project website::
 
-                    $headers = $lib.dict()
+                    $headers = ({})
                     $headers."User-Agent" = Foo/Bar
 
                     $resp = $lib.axon.wget("http://vertex.link", method=GET, headers=$headers)
@@ -1872,7 +1974,7 @@ class LibAxon(Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
-            Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
+            Retrieve the target URL using the wget() function and construct an inet:urlfile node from the response.
 
             Notes:
                 This accepts the same arguments as ``$lib.axon.wget()``.
@@ -3207,7 +3309,7 @@ class Pipe(StormType):
         {'name': 'put', 'desc': 'Add a single item to the Pipe.',
          'type': {'type': 'function', '_funcname': '_methPipePut',
                   'args': (
-                      {'name': 'item', 'type': 'any', 'desc': ' An object to add to the Pipe.', },
+                      {'name': 'item', 'type': 'any', 'desc': 'An object to add to the Pipe.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'puts', 'desc': 'Add a list of items to the Pipe.',
@@ -4056,6 +4158,9 @@ class Str(Prim):
                        'desc': 'Keyword values which are substituted into the string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string.', }}},
+        {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
+         'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
+                  'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -4085,6 +4190,7 @@ class Str(Prim):
             'slice': self._methStrSlice,
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
+            'json': self._methStrJson,
         }
 
     def __int__(self):
@@ -4199,6 +4305,14 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methStrReverse(self):
         return self.valu[::-1]
+
+    @stormfunc(readonly=True)
+    async def _methStrJson(self):
+        try:
+            return json.loads(self.valu, strict=True)
+        except Exception as e:
+            mesg = f'Text is not valid JSON: {self.valu}'
+            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Bytes(Prim):
@@ -5536,7 +5650,7 @@ class NodeData(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the data to get.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The stored node data.', }}},
-        {'name': 'pop', 'desc': ' Pop (remove) a the Node data from the Node.',
+        {'name': 'pop', 'desc': 'Pop (remove) a the Node data from the Node.',
          'type': {'type': 'function', '_funcname': '_popNodeData',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the data to remove from the node.', },
@@ -7197,6 +7311,17 @@ class View(Prim):
                   'args': (),
                   'returns': {'type': 'null', }}},
 
+        {'name': 'getMergeRequestSummary',
+         'desc': 'Return the merge request, votes, parent quorum definition, and current layer offset.',
+         'type': {'type': 'function', '_funcname': 'getMergeRequestSummary',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The summary info.'}}},
+
+        {'name': 'getMergeRequest', 'desc': 'Return the existing merge request or null.',
+         'type': {'type': 'function', '_funcname': 'getMergeRequest',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The merge request.'}}},
+
         {'name': 'setMergeRequest', 'desc': 'Setup a merge request for the view in the current state.',
          'type': {'type': 'function', '_funcname': 'setMergeRequest',
                   'args': (
@@ -7208,6 +7333,7 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': 'delMergeRequest',
                   'args': (),
                   'returns': {'type': 'dict', 'desc': 'The deleted merge request.'}}},
+
         {'name': 'setMergeVote', 'desc': 'Register a vote for or against the current merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVote',
                   'args': (
@@ -7217,6 +7343,7 @@ class View(Prim):
                        'desc': 'A comment attached to the vote.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The vote record that was created.'}}},
+
         {'name': 'delMergeVote', 'desc': '''
             Remove a previously created merge vote.
 
@@ -7276,6 +7403,8 @@ class View(Prim):
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
             'setMergeVote': self.setMergeVote,
+            'getMergeRequest': self.getMergeRequest,
+            'getMergeRequestSummary': self.getMergeRequestSummary,
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
         }
@@ -7535,6 +7664,28 @@ class View(Prim):
         view = self._reqView()
         async for merge in view.getMerges():
             yield merge
+
+    async def getMergeRequestSummary(self):
+
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        retn = {
+            'quorum': view.reqParentQuorum(),
+            'merge': view.getMergeRequest(),
+            'merging': view.merging,
+            'votes': [vote async for vote in view.getMergeVotes()],
+            'offset': await view.layers[0].getEditIndx(),
+        }
+        return retn
+
+    async def getMergeRequest(self):
+
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        quorum = view.reqParentQuorum()
+        return view.getMergeRequest()
 
     async def delMergeRequest(self):
 

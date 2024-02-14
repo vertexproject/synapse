@@ -3956,7 +3956,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('baz', nodes[0].ndef[1])
 
-            q = '$d = $lib.dict("field 1"=foo, "field 2"=bar) [test:str=$d.\'field 1\']'
+            q = '$d = ({"field 1": "foo", "field 2": "bar"}) [test:str=$d.\'field 1\']'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('foo', nodes[0].ndef[1])
@@ -4838,7 +4838,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#foo'))
 
-            nodes = await core.nodes('$d = $lib.dict(foo=bar) [test:str=yop +#$d.foo]')
+            nodes = await core.nodes('$d = ({"foo": "bar"}) [test:str=yop +#$d.foo]')
             self.len(1, nodes)
             self.nn(nodes[0].getTag('bar'))
 
@@ -4884,7 +4884,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#timetag'))
 
-            nodes = await core.nodes('$d = $lib.dict(foo="") [test:str=yop +?#$d.foo +#tag1]')
+            nodes = await core.nodes('$d = ({"foo": ""}) [test:str=yop +?#$d.foo +#tag1]')
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo.*'))
             self.nn(nodes[0].getTag('tag1'))
@@ -4930,7 +4930,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq([n.ndef[0] for n in nodes], [*['test:str', 'inet:ipv4'] * 3])
 
             # non-runsafe iteration over a dictionary
-            q = '''$dict=$lib.dict(key1=valu1, key2=valu2) [(test:str=test1) (test:str=test2)]
+            q = '''$dict=({"key1": "valu1", "key2": "valu2"}) [(test:str=test1) (test:str=test2)]
             for ($key, $valu) in $dict {
                 [:hehe=$valu]
             }
@@ -4943,14 +4943,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(node.get('hehe'), 'valu2')
 
             # None values don't yield anything
-            q = '''$foo = $lib.dict()
+            q = '''$foo = ({})
             for $name in $foo.bar { [ test:str=$name ] }
             '''
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
             # Even with a inbound node, zero loop iterations will not yield inbound nodes.
-            q = '''test:str=test1 $foo = $lib.dict()
+            q = '''test:str=test1 $foo = ({})
             for $name in $foo.bar { [ test:str=$name ] }
             '''
             nodes = await core.nodes(q)
@@ -7952,7 +7952,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.false(core00.isactive)
 
                     # Let the mirror reconnect
-                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), 12))
+                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), timeout=12))
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core01.callStorm('inet:asn=0 return($lib.true)'))
@@ -7962,11 +7962,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
 
-                    waiter = core01.stormpool.waiter('svc:del', 1)
+                    waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
+                    # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core01.storm('inet:asn=0'))

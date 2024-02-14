@@ -68,8 +68,8 @@ groups of analysts or other users with varying access to Synapse's data. For exa
 
 .. TIP::
   
-  A view contains the layer(s) users can see. Visibility into a layer's data is all or nothing; it is not possible
-  to let users see "only certain nodes" or "only nodes with this tag" within a given layer.
+  A view contains the layer(s) users can see. Visibility into a view's data is all or nothing; it is not possible
+  to let users see "only certain nodes" or "only nodes with this tag" within a given view.
 
 The Storm :ref:`storm-view` commands are used to work with views, along with the :ref:`stormprims-view-f527` type and
 its methods and the :ref:`stormlibs-lib-view` libraries. The `Optic UI`_ provides additional GUI-based tools for

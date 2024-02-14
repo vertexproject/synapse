@@ -52,8 +52,11 @@ class ProjectModule(s_module.CoreModule):
                         'doc': 'A collection of tickets related to a topic.',
                     }),
                     ('proj:ticket', ('guid', {}), {
-                        'doc': 'A ticket in a ticketing system.',
-                    }),
+                        'doc': 'A ticket in a ticketing system.'}),
+
+                    ('proj:project:type:taxonomy', ('taxonomy', {}), {
+                        'doc': 'A type taxonomy for projects.'}),
+
                     ('proj:sprint', ('guid', {}), {
                         'doc': 'A timeboxed period to complete a set amount of work.',
                     }),
@@ -70,10 +73,14 @@ class ProjectModule(s_module.CoreModule):
 
                 'forms': (
 
+                    ('proj:project:type:taxonomy', {}, {}),
                     ('proj:project', {}, (
 
                         ('name', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The project name.'}),
+
+                        ('type', ('proj:project:type:taxonomy', {}), {
+                            'doc': 'The project type.'}),
 
                         ('desc', ('str', {}), {
                             'disp': {'hint': 'text'},

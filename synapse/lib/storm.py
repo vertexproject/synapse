@@ -181,7 +181,7 @@ wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet
 Examples:
 
     # Specify custom headers and parameters
-    inet:url=https://vertex.link/foo.bar.txt | wget --headers $lib.dict("User-Agent"="Foo/Bar") --params $lib.dict("clientid"="42")
+    inet:url=https://vertex.link/foo.bar.txt | wget --headers ({"User-Agent": "Foo/Bar"}) --params ({"clientid": "42"})
 
     # Download multiple URL targets without inbound nodes
     wget https://vertex.link https://vtx.lk
