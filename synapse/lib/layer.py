@@ -1529,12 +1529,14 @@ class Layer(s_nexus.Pusher):
 
         mirror = self.layrinfo.get('mirror')
         if mirror is not None:
+            s_common.deprecated('mirror layer configuration option', curv='2.162.0')
             conf = {'retrysleep': 2}
             self.leader = await s_telepath.Client.anit(mirror, conf=conf)
             self.leadtask = self.schedCoro(self._runMirrorLoop())
 
         uplayr = self.layrinfo.get('upstream')
         if uplayr is not None:
+            s_common.deprecated('upstream layer configuration option', curv='2.162.0')
             if isinstance(uplayr, (tuple, list)):
                 for layr in uplayr:
                     await self.initUpstreamSync(layr)
