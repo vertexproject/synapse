@@ -193,55 +193,128 @@ Primary to Secondary Property Pivot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When pivoting from the primary property of a set of source nodes to target nodes with the same secondary
-property (e.g., from a set of FQDNs to their associated DNS A nodes), you can specify the target nodes using:
+property value (e.g., from a set of FQDNs to their associated DNS A nodes), you can specify the target nodes
+using:
 
 - a form name or interface name;
 - a form or interface name with its associated property;
 - a partial form name (wildcard form match).
 
-Implicit syntax can be used for these pivots. You do not need to specify the target property if it is self-evident.
+Implicit syntax can be used for these pivots if the target property is self-evident.
 
 
 **Syntax:**
 
 *<query>* **->** *<form>*
 
-*<query>* **->** *<interface>*
-
 *<query>* **->** *<form>* [ **:** *<prop>* ]
-
-*<query>* **->** *<interface>* [ **:** *<prop>* ]
 
 *<query>* **->** *<partial_form_name>* *****
 
+*<query>* **->** *<interface>*
 
-
-
+*<query>* **->** *<interface>* [ **:** *<prop>* ]
 
 
 **Examples:**
 
-*Pivot from primary property (<form> = <valu>) to secondary property (<prop> = <pval>):*
+*Pivot from a set of FQDNs (inet:fqdn nodes) to their associated DNS requests (inet:dns:request nodes):*
 
-- Pivot from a set of domains to all of their subdomains regardless of depth (i.e., from a domain to all of the domains where the inbound domain is a zone):
+.. storm-pre:: [ inet:fqdn=vertetx.link inet:fqdn=woot.com (inet:dns:request=* :query:name:fqdn=woot.com) ]
+.. storm-pre:: inet:fqdn -> inet:dns:request
 
-.. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com] -> inet:fqdn:zone
 ::
+  
+  <inet:fqdns> -> inet:dns:request
 
-    <inet:fqdn> -> inet:fqdn:zone
+The query above uses implicit syntax; Synapse recognizes that the logical target property is ``:query:name:fqdn``.
+You could optionally use explicit syntax:
 
-- Pivot from a set of domains to the DNS A records for those domains:
-
-.. storm-pre:: [inet:dns:a = (woot.com, 1.2.3.4)] -> inet:fqdn -> inet:dns:a:fqdn
 ::
+  
+  <inet:fqdns> -> inet:dns:request:query:name:fqdn
 
-    <inet:fqdn> -> inet:dns:a:fqdn
+*Pivot from a set of IPv4 addresses (inet:ipv4 nodes) to any network flows (inet:flow nodes) associated with the IPs:*
 
-- It is possible to perform an explicit pivot between properties of different types. For example: ``<inet:dns:query> :name -> inet:fqdn``
-inet:user=serhii -> file:path:base tree  { -> file:path:dir }
+.. storm-pre:: [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 inet:ipv4=3.3.3.3 (inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=2.2.2.2 :dst:port=1337) (inet:flow=* :dst:ipv4=3.3.3.3 :dst:port=80) ]
+.. storm-pre:: inet:ipv4 -> inet:flow
 
+::
+  
+  <inet:ipv4s> -> inet:flow
+
+The query above uses implicit syntax. Note that because ``inet:flow`` nodes have two target properties that
+have a type of ``inet:ipv4`` (``:src:ipv4`` and ``:dst:ipv4``), the result of this query will be all ``inet:flow``
+nodes where the inbound IPv4s are either the source **or** destination IP. If (for example) you only want
+to see flows where the inbound IPv4s are the destination IP, you must use explicit syntax to clarify this:
+
+::
+  
+  <inet:ipv4s> -> inet:flow:dst:ipv4
+
+*Pivot from a set of FQDNs (inet:fqdn nodes) to any associated DNS records (e.g., inet:dns:a, inet:dns:cname, inet:dns:ns, inet:dns:request, etc.):*
+
+.. storm-pre:: [ inet:dns:a=(woot.com,4.4.4.4) inet:dns:ns=(woot.com,ns1.woot.com) inet:dns:mx=(woot.com,mx.woot.com) ]
+.. storm-pre:: inet:fqdn -> inet:dns:*
+
+::
+  
+  <inet:fqdns> -> inet:dns:*
+
+The query above uses the wildcard ( ``*`` ) to match any form name that start with ``inet:dns:``. When using
+a wildcard in this way, you must use implicit syntax (because you cannot specify a wildcard in the middle of
+a form/property namespace).
+
+*Pivot from a set of FQDNs (inet:fqdn nodes) to any associated DNS A or DNS AAAA records:*
+
+.. storm-pre:: inet:fqdn -> inet:dns:a*
+
+::
+  
+  <inet:fqdns> -> inet:dns:a*
+
+*Pivot from a set of files to all host execution nodes (forms that inherit the it:host:activity interface - e.g., it:exec:file:add, it:exec:url, etc.) associated with those files:*
+
+.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550 ]
+.. storm-pre:: <file:bytes> -> it:host:activity
+
+::
+  
+  <file:bytes> -> it:host:activity
+
+The query above uses implicit syntax. The ``it:host:activity`` interface defines two properties of type
+``file:bytes`` for host activity nodes - ``:exe`` (the file whose execution performed the action) and
+``:sandbox:file`` (the file initially executed in a sandbox environment, which may not be the file that
+performed the action observed by the sandbox). They query above will return all activity nodes where the
+inbound files appear in either property. If you only want to see activity nodes whose ``:exe`` property
+(for example) matches the inbound files, you need to use explicit syntax:
+
+::
+  
+  <file:bytes> -> it:host:activity:exe
+
+*Pivot from a set of usernames (inet:user nodes) to any file paths (file:path nodes) where the username is an element of the path (a :base value - for example, where a username might appear in a PDB path):*
+
+.. storm-pre:: [ inet:user=swanson file:path='c:\users\swanson\dev\projects\getthesnacks\release\getthesnacks.pdb' ]
+.. storm-pre:: inet:user=swanson -> file:path:base
+
+::
+  
+  <inet:users> -> file:path:base
+
+The query above uses explicit syntax. The ``inet:user`` form has a type of ``inet:user``, but the ``:author``
+property) has a type of ``file:base``. Because the properties are two different types, you must use explicit
+syntax for this pivot.
+
+.. TIP::
+  
+  The query above will return the (partial) ``file:path`` whose final element is the user name (e.g.,
+  ``c:\users\evilhacker``). You can use the Storm :ref:`storm-tree` command to recursively pivot through
+  the remaining ``file:path`` elements to obtain the full path:
+  
+  ::
     
-
+    <inet:users> -> file:path:base | tree { -> file:path:dir }
 
 
 .. _pivot-secondary-primary:
