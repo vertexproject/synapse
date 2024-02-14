@@ -4378,55 +4378,78 @@ def getFlatEdits(nodeedits):
 
     return [(k[0], k[1], v) for (k, v) in editsbynode.items()]
 
-def getNodeEditPerm(form, edit):
-
-    (etyp, info, _) = edit
-
-    if etyp == EDIT_NODE_ADD:
-        return ('node', 'add', form)
-
-    if etyp == EDIT_NODE_DEL:
-        return ('node', 'del', form)
-
-    if etyp == EDIT_PROP_SET:
-        return ('node', 'prop', 'set', f'{form}:{info[0]}')
-
-    if etyp == EDIT_PROP_DEL:
-        return ('node', 'prop', 'del', f'{form}:{info[0]}')
-
-    if etyp == EDIT_TAG_SET:
-        return ('node', 'tag', 'add', *info[0].split('.'))
-
-    if etyp == EDIT_TAG_DEL:
-        return ('node', 'tag', 'del', *info[0].split('.'))
-
-    if etyp == EDIT_TAGPROP_SET:
-        return ('node', 'tag', 'add', *info[0].split('.'))
-
-    if etyp == EDIT_TAGPROP_DEL:
-        return ('node', 'tag', 'del', *info[0].split('.'))
-
-    if etyp == EDIT_NODEDATA_SET:
-        return ('node', 'data', 'set', info[0])
-
-    if etyp == EDIT_NODEDATA_DEL:
-        return ('node', 'data', 'pop', info[0])
-
-    if etyp == EDIT_EDGE_ADD:
-        return ('node', 'edge', 'add', info[0])
-
-    if etyp == EDIT_EDGE_DEL:
-        return ('node', 'edge', 'del', info[0])
-
 def getNodeEditPerms(nodeedits):
     '''
     Yields (offs, perm) tuples that can be used in user.allowed()
     '''
+    tags = []
+    tagadds = []
 
     for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
 
-        for editoffs, edit in enumerate(edits):
+        tags.clear()
+        tagadds.clear()
+
+        for editoffs, (edit, info, _) in enumerate(edits):
 
             permoffs = (nodeoffs, editoffs)
-            if (perm := getNodeEditPerm(form, edit)) is not None:
-                yield (permoffs, perm)
+
+            if edit == EDIT_NODE_ADD:
+                yield (permoffs, ('node', 'add', form))
+                continue
+
+            if edit == EDIT_NODE_DEL:
+                yield (permoffs, ('node', 'del', form))
+                continue
+
+            if edit == EDIT_PROP_SET:
+                yield (permoffs, ('node', 'prop', 'set', f'{form}:{info[0]}'))
+                continue
+
+            if edit == EDIT_PROP_DEL:
+                yield (permoffs, ('node', 'prop', 'del', f'{form}:{info[0]}'))
+                continue
+
+            if edit == EDIT_TAG_SET:
+                if info[1] != (None, None):
+                    tagadds.append(info[0])
+                    yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                else:
+                    tags.append((len(info[0]), editoffs, info[0]))
+                continue
+
+            if edit == EDIT_TAG_DEL:
+                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAGPROP_SET:
+                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAGPROP_DEL:
+                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_NODEDATA_SET:
+                yield (permoffs, ('node', 'data', 'set', info[0]))
+                continue
+
+            if edit == EDIT_NODEDATA_DEL:
+                yield (permoffs, ('node', 'data', 'pop', info[0]))
+                continue
+
+            if edit == EDIT_EDGE_ADD:
+                yield (permoffs, ('node', 'edge', 'add', info[0]))
+                continue
+
+            if edit == EDIT_EDGE_DEL:
+                yield (permoffs, ('node', 'edge', 'del', info[0]))
+                continue
+
+        for _, editoffs, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            yield ((nodeoffs, editoffs), ('node', 'tag', 'add', *tag.split('.')))
+            tagadds.append(tag)

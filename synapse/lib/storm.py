@@ -2174,21 +2174,6 @@ class Runtime(s_base.Base):
 
         return self.user.confirm(perms, gateiden=gateiden, default=default)
 
-    def tagMergeConfirm(self, perms, gateiden=None, default=None):
-
-        if self.asroot:
-            return
-
-        if default is None:
-            default = False
-
-            permdef = self.snap.core.getPermDef(perms)
-            if permdef:
-                default = permdef.get('default', False)
-
-        if not self.user.tagMergeAllowed(perms, gateiden=gateiden, default=default):
-            self.user.raisePermDeny(perms, gateiden=gateiden)
-
     def allowed(self, perms, gateiden=None, default=None):
         if self.asroot:
             return True
@@ -3802,10 +3787,26 @@ class MergeCmd(Cmd):
             runt.confirmPropDel(prop, layriden=layr0)
             runt.confirmPropSet(prop, layriden=layr1)
 
+        tags = []
+        tagadds = []
         for tag, valu in sode.get('tags', {}).items():
+            if valu != (None, None):
+                tagadds.append(tag)
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            else:
+                tags.append((len(tag), tag))
+
+        for _, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            tagadds.append(tag)
             tagperm = tuple(tag.split('.'))
-            runt.tagMergeConfirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-            runt.tagMergeConfirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
         for tag, tagdict in sode.get('tagprops', {}).items():
             for prop, (valu, stortype) in tagdict.items():
