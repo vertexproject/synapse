@@ -7718,6 +7718,8 @@ class View(Prim):
             mesg = 'You are not a member of a role with voting privileges for this merge request.'
             raise s_exc.AuthDeny(mesg=mesg)
 
+        view.reqValidVoter(self.runt.user.iden)
+
         vote = {'user': self.runt.user.iden, 'approved': await tobool(approved)}
 
         if comment is not None:
