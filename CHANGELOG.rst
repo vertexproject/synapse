@@ -141,7 +141,7 @@ Improved Documentation
   permissions.
   (`#3547 <https://github.com/vertexproject/synapse/pull/3547>`_)
 - Update the Storm filtering and lifting documentation to add information
-  about using interfaces and wildercard values with those operations.
+  about using interfaces and wildcard values with those operations.
   (`#3560 <https://github.com/vertexproject/synapse/pull/3560>`_)
 - Update the Synapse introduction to note that Synapse is not intended to
   replace big-data or data-lake solutions.
