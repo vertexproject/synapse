@@ -69,7 +69,7 @@ Model Changes
   **New Forms**
 
   ``proj:project:type:taxonomy``
-    A type taxonomy for projects
+    A type taxonomy for projects.
 
   **Deprecated Properties**
 
