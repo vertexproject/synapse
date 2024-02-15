@@ -769,20 +769,40 @@ class StormHttpTest(s_test.SynTest):
                 self.true(ret[0])
                 self.eq('woot', ret[1]['hi'])
 
-                ## postfile
-                resp = await core.callStorm('''
-                    $fields = ([
-                        {"name": "file", "sha256": $sha256},
-                    ])
-                    return($lib.inet.http.post($url, fields=$fields, ssl_opts=$sslopts))
-                ''', opts=opts)
-                self.eq(200, resp['code'])
-                self.eq(['foo'], json.loads(resp['body'])['result']['params']['file'])
+                # Axon APIs
 
-                ## axon apis
-                self.eq(200, await core.callStorm('return($lib.axon.wget($url, ssl_opts=$sslopts).code)', opts=opts))
-                self.eq(200, await core.callStorm('return($lib.axon.wput($sha256, $url, method=POST, ssl_opts=$sslopts).code)', opts=opts))
-                self.len(1, await core.nodes('yield $lib.axon.urlfile($url, ssl_opts=$sslopts)', opts=opts))
+                axon_queries = {
+                    'postfile': '''
+                        $fields = ([{"name": "file", "sha256": $sha256}])
+                        return($lib.inet.http.post($url, fields=$fields, ssl_opts=$sslopts).code)
+                    ''',
+                    'wget': 'return($lib.axon.wget($url, ssl_opts=$sslopts).code)',
+                    'wput': 'return($lib.axon.wput($sha256, $url, method=POST, ssl_opts=$sslopts).code)',
+                    'urlfile': 'yield $lib.axon.urlfile($url, ssl_opts=$sslopts)',
+                }
+
+                ## version check fails
+                try:
+                    oldv = core.axoninfo['synapse']['version']
+                    core.axoninfo['synapse']['version'] = (2, 161, 0)
+                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['postfile'], opts=opts))
+                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wget'], opts=opts))
+                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wput'], opts=opts))
+                    await self.asyncraises(s_exc.BadVersion, core.nodes(axon_queries['urlfile'], opts=opts))
+                finally:
+                    core.axoninfo['synapse']['version'] = oldv
+
+                ## version check succeeds
+                # todo: setting the synapse version can be removed once ssl_opts is released
+                try:
+                    oldv = core.axoninfo['synapse']['version']
+                    core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
+                    self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
+                    self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
+                    self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
+                    self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
+                finally:
+                    core.axoninfo['synapse']['version'] = oldv
 
                 # verify arg precedence
 

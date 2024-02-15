@@ -1,7 +1,6 @@
 import json
 import asyncio
 import logging
-import ssl
 import urllib.parse
 
 logger = logging.getLogger(__name__)
@@ -14,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerType
@@ -419,9 +419,21 @@ class LibHttp(s_stormtypes.Lib):
         if fields:
             if any(['sha256' in field for field in fields]):
                 self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+
+                kwargs = {}
+                axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+                if axonvers >= s_stormtypes.AXON_MINVERS_PROXY:
+                    kwargs['proxy'] = proxy
+
+                if ssl_opts is not None:
+                    mesg = f'The ssl_opts argument requires an Axon Synapse version {s_stormtypes.AXON_MINVERS_SSLOPTS}, ' \
+                           f'but the Axon is running {axonvers}'
+                    s_version.reqVersion(axonvers, s_stormtypes.AXON_MINVERS_SSLOPTS, mesg=mesg)
+                    kwargs['ssl_opts'] = ssl_opts
+
                 axon = self.runt.snap.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
-                                            ssl=ssl_verify, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
+                                            ssl=ssl_verify, timeout=timeout, **kwargs)
                 return HttpResp(info)
 
         kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)

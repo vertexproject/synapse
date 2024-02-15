@@ -34,10 +34,14 @@ import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
+
+AXON_MINVERS_PROXY = (2, 97, 0)
+AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
     _storm_typename = 'undef'
@@ -2249,12 +2253,18 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
+
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
 
         axon = self.runt.snap.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
-                               timeout=timeout, ssl_opts=ssl_opts, **kwargs)
+                               timeout=timeout, **kwargs)
         resp['original_url'] = url
         return resp
 
@@ -2286,11 +2296,17 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
 
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
+
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
-                               ssl=ssl, timeout=timeout, ssl_opts=ssl_opts, **kwargs)
+                               ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
         gateiden = self.runt.snap.wlyr.iden
