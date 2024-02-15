@@ -59,7 +59,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}
 
   test_steps_doc:
     description: "Documentation test steps"
