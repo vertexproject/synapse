@@ -113,7 +113,7 @@ Features and Enhancements
 - Add permissions checks to ``$lib.bytes`` APIs using ``axon.has`` for APIs
   that check for information about the Axon or metrics; and ``axon.upload``
   for APIs which put bytes in the Axon. These are checked with
-  ``default=True`` for backward compability.
+  ``default=True`` for backward compatibility.
   (`#3563 <https://github.com/vertexproject/synapse/pull/3563>`_)
 - The rstorm ``storm-svc`` and ``storm-pkg`` directives now wait for any
   ``onload`` handlers to complete.
