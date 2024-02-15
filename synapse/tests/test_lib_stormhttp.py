@@ -466,7 +466,7 @@ class StormHttpTest(s_test.SynTest):
             await root.setPasswd('root')
             text = '''
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
-            $stormq = "($size, $sha2) = $lib.bytes.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
+            $stormq = "($size, $sha2) = $lib.axon.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
             $json = ({"query": $stormq})
             $bytez = $lib.inet.http.post($url, json=$json, ssl_verify=$(0))
             '''

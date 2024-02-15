@@ -3033,8 +3033,12 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'vars': {'sha256': asdfhash_h}}
             self.eq(8, await core.callStorm('return($lib.bytes.size($sha256))', opts=opts))
+            self.eq(8, await core.callStorm('return($lib.axon.size($sha256))', opts=opts))
 
             hashset = await core.callStorm('return($lib.bytes.hashset($sha256))', opts=opts)
+            self.eq(hashset, hashes)
+
+            hashset = await core.callStorm('return($lib.axon.hashset($sha256))', opts=opts)
             self.eq(hashset, hashes)
 
             self.eq(nodes[0].ndef, ('test:int', 8))
@@ -3045,6 +3049,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(b'asdfasdf', byts)
 
             ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
+            self.true(ret)
+
+            ret = await core.callStorm('return($lib.axon.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.true(ret)
 
             # Allow bytes to be directly decoded as a string
@@ -3096,6 +3103,9 @@ class StormTypesTest(s_test.SynTest):
             retn = await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
             self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
 
+            retn = await core.callStorm('return($lib.axon.upload($chunks))', opts=opts)
+            self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
+
             visi = await core.auth.addUser('visi')
             await visi.addRule((False, ('axon', 'has')))
 
@@ -3133,7 +3143,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE_'))
 
             opts = {'vars': {'bytes': nodes[0].ndef[1]}}
-            text = '$lib.bytes.put($lib.base64.decode($bytes))'
+            text = '$lib.axon.put($lib.base64.decode($bytes))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
             byts = b''.join([b async for b in core.axon.get(key)])
@@ -3147,7 +3157,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE/'))
 
             opts = {'vars': {'bytes': nodes[0].ndef[1]}}
-            text = '$lib.bytes.put($lib.base64.decode($bytes, $(0)))'
+            text = '$lib.axon.put($lib.base64.decode($bytes, $(0)))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
             byts = b''.join([b async for b in core.axon.get(key)])
@@ -5709,7 +5719,7 @@ class StormTypesTest(s_test.SynTest):
 
             self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
 
-            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', opts={'vars': {'buf': b'foo'}})
+            size, sha256 = await core.callStorm('return($lib.axon.put($buf))', opts={'vars': {'buf': b'foo'}})
 
             items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.len(2, items)
@@ -5731,9 +5741,9 @@ class StormTypesTest(s_test.SynTest):
             self.true(resp['ok'])
 
             opts = {'vars': {'linesbuf': linesbuf, 'jsonsbuf': jsonsbuf, 'asdfbuf': b'asdf'}}
-            asdfitem = await core.callStorm('return($lib.bytes.put($asdfbuf))', opts=opts)
-            linesitem = await core.callStorm('return($lib.bytes.put($linesbuf))', opts=opts)
-            jsonsitem = await core.callStorm('return($lib.bytes.put($jsonsbuf))', opts=opts)
+            asdfitem = await core.callStorm('return($lib.axon.put($asdfbuf))', opts=opts)
+            linesitem = await core.callStorm('return($lib.axon.put($linesbuf))', opts=opts)
+            jsonsitem = await core.callStorm('return($lib.axon.put($jsonsbuf))', opts=opts)
 
             opts = {'vars': {'sha256': asdfitem[1]}}
             self.eq(('asdf',), await core.callStorm('''
