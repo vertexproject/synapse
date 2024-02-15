@@ -3008,9 +3008,14 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            opts = {'vars': {'bytes': 10}}
+
             with self.raises(s_exc.BadArg):
-                opts = {'vars': {'bytes': 10}}
                 text = '($size, $sha2) = $lib.bytes.put($bytes)'
+                nodes = await core.nodes(text, opts=opts)
+
+            with self.raises(s_exc.BadArg):
+                text = '($size, $sha2) = $lib.axon.put($bytes)'
                 nodes = await core.nodes(text, opts=opts)
 
             asdf = b'asdfasdf'
@@ -3024,6 +3029,7 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.false(ret)
             self.false(await core.callStorm('return($lib.bytes.has($lib.null))'))
+            self.false(await core.callStorm('return($lib.axon.has($lib.null))'))
 
             opts = {'vars': {'bytes': asdf}}
             text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
