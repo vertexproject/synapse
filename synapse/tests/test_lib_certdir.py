@@ -24,7 +24,7 @@ import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 class CertDirTest(s_t_utils.SynTest):
 
     @contextlib.contextmanager
-    def getCertDir(self):
+    def getCertDir(self) -> contextlib.AbstractContextManager[s_certdir.CertDir, None, None]:
         '''
         Get a test CertDir object.
 
@@ -38,7 +38,7 @@ class CertDirTest(s_t_utils.SynTest):
     def basic_assertions(self,
                          cdir: s_certdir.CertDir,
                          cert: c_x509.Certificate,
-                         key: s_certdir.PkeyType,
+                         key: s_certdir.Pkey,
                          cacert: c_x509.Certificate =None):
         '''
         test basic certificate assumptions
@@ -134,7 +134,7 @@ class CertDirTest(s_t_utils.SynTest):
     def host_assertions(self,
                         cdir: s_certdir.CertDir,
                         cert: c_x509.Certificate,
-                        key: s_certdir.PkeyType,
+                        key: s_certdir.Pkey,
                         cacert: c_x509.Certificate = None):
         '''
         test basic certificate assumptions for a host certificate
@@ -180,7 +180,7 @@ class CertDirTest(s_t_utils.SynTest):
     def user_assertions(self,
                         cdir: s_certdir.CertDir,
                         cert: c_x509.Certificate,
-                        key: s_certdir.PkeyType,
+                        key: s_certdir.Pkey,
                         cacert: c_x509.Certificate = None):
         '''
         test basic certificate assumptions for a user certificate
@@ -224,7 +224,7 @@ class CertDirTest(s_t_utils.SynTest):
     def p12_assertions(self,
                        cdir: s_certdir.CertDir,
                        cert: c_x509.Certificate,
-                       key: s_certdir.PkeyType,
+                       key: s_certdir.Pkey,
                        p12: c_pkcs12.PKCS12KeyAndCertificates,
                        cacert: c_x509.Certificate = None):
         '''
@@ -270,7 +270,7 @@ class CertDirTest(s_t_utils.SynTest):
     def code_assertions(self,
                         cdir: s_certdir.CertDir,
                         cert: c_x509.Certificate,
-                        key: s_certdir.PkeyType,
+                        key: s_certdir.Pkey,
                         cacert: c_x509.Certificate = None
                         ):
         reqbc = c_x509.BasicConstraints(ca=False, path_length=None)
@@ -305,7 +305,7 @@ class CertDirTest(s_t_utils.SynTest):
 
     def test_certdir_cas(self):
 
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDiNew
+        with self.getCertDir() as cdir:
             caname = 'syntest'
             inter_name = 'testsyn-intermed'
             base = cdir._getPathJoin()
@@ -341,7 +341,7 @@ class CertDirTest(s_t_utils.SynTest):
             self.basic_assertions(cdir, inter_cacert, inter_cakey, cacert=cacert)
 
     def test_certdir_hosts(self):
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             caname = 'syntest'
             hostname = 'visi.vertex.link'
             hostname_unsigned = 'unsigned.vertex.link'
@@ -400,7 +400,7 @@ class CertDirTest(s_t_utils.SynTest):
             self.len(64, chash)
 
     def test_certdir_users(self):
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             caname = 'syntest'
             username = 'visi@vertex.link'
             username_unsigned = 'unsigned@vertex.link'
@@ -473,7 +473,7 @@ class CertDirTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # user crt
 
     def test_certdir_hosts_sans(self):
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             caname = 'syntest'
             cdir.genCaCert(caname)
 
@@ -535,7 +535,7 @@ class CertDirTest(s_t_utils.SynTest):
                 cdir.genHostCert(hostname, signas=caname, sans=sans)
 
     def test_certdir_hosts_csr(self):
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             caname = 'syntest'
             hostname = 'visi.vertex.link'
 
@@ -558,7 +558,7 @@ class CertDirTest(s_t_utils.SynTest):
             self.basic_assertions(cdir, cert, key, cacert=cacert)
 
     def test_certdir_users_csr(self):
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             caname = 'syntest'
             username = 'visi@vertex.link'
 
@@ -581,7 +581,7 @@ class CertDirTest(s_t_utils.SynTest):
             self.basic_assertions(cdir, cert, key, cacert=cacert)
 
     def test_certdir_importfile(self):
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             with self.getTestDir() as testpath:
 
                 # File doesn't exist
@@ -622,7 +622,7 @@ class CertDirTest(s_t_utils.SynTest):
                         self.raises(s_exc.FileExists, cdir.importFile, srcpath, ftype)
 
     def test_certdir_valUserCert(self):
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             cdir._getPathJoin()
             cdir.genCaCert('syntest')
             cdir.genCaCert('newp')
@@ -687,7 +687,7 @@ class CertDirTest(s_t_utils.SynTest):
 
     async def test_certdir_codesign(self):
 
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             caname = 'The Vertex Project ROOT CA'
             immname = 'The Vertex Project Intermediate CA 00'
             codename = 'Vertex Build Pipeline'
@@ -859,7 +859,7 @@ class CertDirTest(s_t_utils.SynTest):
 
     def test_certdir_save_load(self):
 
-        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+        with self.getCertDir() as cdir:
             caname = 'TestCA'
             hostname = 'wee.wow.com'
             username = 'dude@wow.com'
@@ -891,7 +891,7 @@ class CertDirTest(s_t_utils.SynTest):
             u_path = cdir.getUserCertPath(username)
             co_path = cdir.getCodeCertPath(codename)
 
-            with self.getCertDir() as cdir2:  # type: s_certdir.CertDir
+            with self.getCertDir() as cdir2:
 
                 with s_common.genfile(ca_path) as fd:
                     byts = fd.read()
