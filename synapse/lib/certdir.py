@@ -1179,6 +1179,23 @@ class CertDir:
         '''
         return self.getUserCertPath(name) is not None
 
+    def isCodeCert(self, name: str) -> bool:
+        '''
+        Checks if a code certificate exists.
+
+        Args:
+            name: The name of the code keypair.
+
+        Examples:
+            Check if the code cert "mypipeline" exists::
+
+                exists = cdir.isCodeCert('mypipeline')
+
+        Returns:
+            True if the certificate is present, False otherwise.
+        '''
+        return self.getCodeCert(name) is not None
+
     def signCertAs(self, builder: c_x509.CertificateBuilder, signas: str) -> c_x509.Certificate:
         '''
         Signs a certificate with a CA keypair.
@@ -1428,8 +1445,6 @@ class CertDir:
 
         return sslctx
 
-    # XXX FIXME - Add test_lib_certdir tests for these save APIS
-
     def saveCertPem(self, cert: c_x509.Certificate, path: str) -> None:
         '''
         Save a certificate in PEM format to a file outside the certdir.
@@ -1467,6 +1482,12 @@ class CertDir:
         attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
         name = attr.value
         return self._saveCertTo(cert, 'users', f'{name}.crt')
+
+    def saveCodeCertBytes(self, byts: bytes) -> str:
+        cert = self._loadCertByts(byts)
+        attr = cert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0]
+        name = attr.value
+        return self._saveCertTo(cert, 'code', f'{name}.crt')
 
     def _checkDupFile(self, path) -> None:
         if os.path.isfile(path):
@@ -1567,8 +1588,7 @@ class CertDir:
             pkey = c_serialization.load_pem_private_key(byts, password=None)
             if isinstance(pkey, (c_rsa.RSAPrivateKey, c_dsa.DSAPrivateKey)):
                 return pkey
-            # XXX FIXME Coverage for this!
-            raise s_exc.BadCertBytes(mesg=f'Key at {path} is {type(pkey)}, expected a DSA or RSA key.',
+            raise s_exc.BadCertBytes(mesg=f'Key is {pkey.__class__.__name__}, expected a DSA or RSA key, {path=}',
                                      path=path)
 
     def _loadP12Path(self, path: str) -> Pkcs12OrNoneType:

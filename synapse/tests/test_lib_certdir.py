@@ -1,27 +1,21 @@
 import os
 import ssl
-import datetime
-from contextlib import contextmanager
+import contextlib
 
-from OpenSSL import crypto, SSL
+from OpenSSL import crypto
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.tests.utils as s_t_utils
 import synapse.tools.genpkg as s_genpkg
-import synapse.tools.easycert as s_easycert
-
-import synapse.lib.crypto.rsa as s_crypto_rsa
 
 import cryptography.x509 as c_x509
 import cryptography.exceptions as c_exc
-import cryptography.x509.verification as c_verification
 import cryptography.hazmat.primitives.hashes as c_hashes
+import cryptography.hazmat.primitives.asymmetric.ec as c_ec
 import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
-import cryptography.hazmat.primitives.asymmetric.dsa as c_dsa
 import cryptography.hazmat.primitives.asymmetric.padding as c_padding
 import cryptography.hazmat.primitives.serialization as c_serialization
 import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
@@ -29,13 +23,13 @@ import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 
 class CertDirTest(s_t_utils.SynTest):
 
-    @contextmanager
+    @contextlib.contextmanager
     def getCertDir(self):
         '''
         Get a test CertDir object.
 
         Yields:
-            s_certdir.CertDir: A certdir object based out of a temp directory.
+            A certdir object based out of a temp directory.
         '''
         # create a temp folder and make it a cert dir
         with self.getTestDir() as dirname:
@@ -862,3 +856,72 @@ class CertDirTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadPkgDef) as exc:
                     await core.addStormPkg(pkgorig, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Storm package has invalid certificate: certificate revoked')
+
+    def test_certdir_save_load(self):
+
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            caname = 'TestCA'
+            hostname = 'wee.wow.com'
+            username = 'dude@wow.com'
+            codename = 'wow pipe'
+
+            pkey, cert = cdir.genCaCert(caname)
+            cdir.genHostCert(hostname, signas=caname)
+            cdir.genUserCert(username, signas=caname)
+            cdir.genCodeCert(codename, signas=caname)
+
+            with self.getTestDir() as dirn:
+                cert_path = s_common.genpath(dirn, 'ca.crt')
+                cdir.saveCertPem(cert, cert_path)
+                with s_common.genfile(cert_path) as fd:
+                    cert_copy = fd.read()
+
+                key_path = s_common.genpath(dirn, 'ca.key')
+                cdir.savePkeyPem(pkey, key_path)
+                with s_common.genfile(key_path) as fd:
+                    pkey_copy = fd.read()
+                with s_common.genfile(cdir.getCaKeyPath(caname)) as fd:
+                    cdir_pkey_bytes = fd.read()
+
+                self.eq(cert_copy, cdir.getCaCertBytes(caname))
+                self.eq(pkey_copy, cdir_pkey_bytes)
+
+            ca_path = cdir.getCaCertPath(caname)
+            h_path = cdir.getHostCertPath(hostname)
+            u_path = cdir.getUserCertPath(username)
+            co_path = cdir.getCodeCertPath(codename)
+
+            with self.getCertDir() as cdir2:  # type: s_certdir.CertDir
+
+                with s_common.genfile(ca_path) as fd:
+                    byts = fd.read()
+                cdir2.saveCaCertByts(byts)
+
+                with s_common.genfile(h_path) as fd:
+                    byts = fd.read()
+                cdir2.saveHostCertByts(byts)
+
+                with s_common.genfile(u_path) as fd:
+                    byts = fd.read()
+                cdir2.saveUserCertByts(byts)
+
+                with s_common.genfile(co_path) as fd:
+                    byts = fd.read()
+                cdir2.saveCodeCertBytes(byts)
+
+                self.true(cdir2.isCaCert(caname))
+                self.true(cdir2.isHostCert(hostname))
+                self.true(cdir2.isUserCert(username))
+                self.true(cdir2.isCodeCert(codename))
+
+            # older PyOpenSSL code assumed loading a pkey was always a DSA or RSA key.
+            pkey = c_ec.generate_private_key(c_ec.SECP384R1())
+            byts = pkey.private_bytes(encoding=c_serialization.Encoding.PEM,
+                                      format=c_serialization.PrivateFormat.TraditionalOpenSSL,
+                                      encryption_algorithm=c_serialization.NoEncryption(), )
+            path = cdir._getPathJoin('newp', 'ec.key')
+            with s_common.genfile(path) as fd:
+                fd.write(byts)
+            with self.raises(s_exc.BadCertBytes) as cm:
+                cdir._loadKeyPath(path)
+            self.isin('Key is ECPrivateKey, expected a DSA or RSA key', cm.exception.get('mesg'))
