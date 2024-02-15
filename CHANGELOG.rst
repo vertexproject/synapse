@@ -28,7 +28,7 @@ Model Changes
       The sending SMTP server IPv6, potentially from the Received: header.
 
     ``received:from:fqdn``
-       The sending server FQDN, potentially from the Received: header.
+      The sending server FQDN, potentially from the Received: header.
 
   ``ou:oid:type``
     The form had the following property added to it:
