@@ -61,7 +61,7 @@ Model Changes
       The organization reporting on the mitigation.
 
     ``reporter:name``
-      The name of the organization reporting on the mitigation
+      The name of the organization reporting on the mitigation.
 
     ``tag``
       The tag used to annotate nodes which have the mitigation in place.
