@@ -4355,12 +4355,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         cadir = self.conf.get('tls:ca:dir')
 
-        purpose = ssl.Purpose[opts['purpose']]
-
         if cadir is not None:
-            sslctx = s_common.getSslCtx(cadir, purpose=purpose)
+            sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
         else:
-            sslctx = ssl.create_default_context(purpose=purpose)
+            sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
 
         if not opts['verify']:
             sslctx.check_hostname = False

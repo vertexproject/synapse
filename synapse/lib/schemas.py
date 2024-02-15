@@ -267,11 +267,6 @@ reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)
 reqValidSslCtxOpts = s_config.getJsValidator({
     'type': 'object',
     'properties': {
-        'purpose': {
-            'type': 'string',
-            'default': 'SERVER_AUTH',
-            'enum': ['SERVER_AUTH'],
-        },
         'verify': {'type': 'boolean', 'default': True},
         'client_cert': {'type': ['string', 'null'], 'default': None},
         'client_key': {'type': ['string', 'null'], 'default': None},
