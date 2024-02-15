@@ -136,7 +136,7 @@ class Crl:
         except s_exc.BadCertVerify as e:
             raise s_exc.BadCertVerify(mesg=f'Failed to validate that certificate was signed by {self.name}') from e
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.UTC)
         builder = c_x509.RevokedCertificateBuilder()
         builder = builder.serial_number(cert.serial_number)
         builder = builder.revocation_date(now)
@@ -161,7 +161,7 @@ class Crl:
     def _save(self, timestamp: [datetime.datetime | None] =None) -> None:
 
         if timestamp is None:
-            timestamp = datetime.datetime.utcnow()
+            timestamp = datetime.datetime.now(datetime.UTC)
 
         self.crlbuilder = self.crlbuilder.last_update(timestamp)
         # We have to have a next updated time; but we set it to be >=  the lifespan of our certificates in general.
@@ -1502,7 +1502,7 @@ class CertDir:
             c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name),
         ]))
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.UTC)
         builder = builder.not_valid_before(now)
         builder = builder.not_valid_after(now + TEN_YEARS_TD)  # certificates are good for 10 years
         builder = builder.serial_number(int(s_common.guid(), 16))
