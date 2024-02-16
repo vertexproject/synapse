@@ -78,7 +78,7 @@ def _initTLSServerCiphers():
     for cipher in ctx.get_ciphers():  # pragma: no cover
         if cipher.get('protocol') not in ('TLSv1.2', 'TLSv1.3'):
             continue
-        if cipher.get('kea') == 'kx-rsa':   # pragma: no cover
+        if cipher.get('kea') == 'kx-rsa':  # pragma: no cover
             continue
         _ciphers.append(cipher)
 
@@ -112,8 +112,8 @@ class Crl:
         self.path = self.certdir.genCrlPath(name)
 
         self.crlbuilder = c_x509.CertificateRevocationListBuilder().issuer_name(c_x509.Name([
-                c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name),
-            ]))
+            c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name),
+        ]))
 
         if os.path.isfile(self.path):
             with io.open(self.path, 'rb') as fd:
@@ -152,13 +152,13 @@ class Crl:
         store = crypto.X509Store()
         store.add_cert(crypto.X509.from_cryptography(cacert))
         store.set_flags(crypto.X509StoreFlags.PARTIAL_CHAIN)
-        ctx = crypto.X509StoreContext(store, crypto.X509.from_cryptography(cert),)
+        ctx = crypto.X509StoreContext(store, crypto.X509.from_cryptography(cert), )
         try:
             ctx.verify_certificate()
         except crypto.X509StoreContextError as e:
             raise s_exc.BadCertVerify(mesg=_unpackContextError(e)) from None
 
-    def _save(self, timestamp: [datetime.datetime | None] =None) -> None:
+    def _save(self, timestamp: [datetime.datetime | None] = None) -> None:
 
         if timestamp is None:
             timestamp = datetime.datetime.now(datetime.UTC)
@@ -213,7 +213,7 @@ class CertDir:
         * CertDir does not currently support signing CA CSRs.
     '''
 
-    def __init__(self, path: StrOrNone =None):
+    def __init__(self, path: StrOrNone = None):
         self.crypto_numbits = 4096
         self.signing_digest = c_hashes.SHA256
 
@@ -246,8 +246,8 @@ class CertDir:
 
     def genCaCert(self, name: str,
                   signas: StrOrNone = None,
-                  outp: OutPutOrNone =None,
-                  save: bool =True) -> PkeyAndCert:
+                  outp: OutPutOrNone = None,
+                  save: bool = True) -> PkeyAndCert:
         '''
         Generates a CA keypair.
 
@@ -291,8 +291,8 @@ class CertDir:
     def genHostCert(self, name: str,
                     signas: StrOrNone = None,
                     outp: OutPutOrNone = None,
-                    csr: PubKeyOrNone =None,
-                    sans: StrOrNone =None,
+                    csr: PubKeyOrNone = None,
+                    sans: StrOrNone = None,
                     save: bool = True) -> PkeyOrNoneAndCert:
         '''
         Generates a host keypair.
@@ -378,7 +378,7 @@ class CertDir:
 
         return prvkey, cert
 
-    def genHostCsr(self, name: str, outp: OutPutOrNone =None) -> bytes:
+    def genHostCsr(self, name: str, outp: OutPutOrNone = None) -> bytes:
         '''
         Generates a host certificate signing request.
 
@@ -400,7 +400,7 @@ class CertDir:
                     name: str,
                     signas: Optional[str | None] = None,
                     outp: OutPutOrNone = None,
-                    csr: PubKeyOrNone =None,
+                    csr: PubKeyOrNone = None,
                     save: bool = True) -> PkeyOrNoneAndCert:
         '''
         Generates a user keypair.
@@ -432,7 +432,8 @@ class CertDir:
             critical=False,
         )
         builder = builder.add_extension(
-            c_x509.KeyUsage(digital_signature=True, key_encipherment=False, data_encipherment=False, key_agreement=False,
+            c_x509.KeyUsage(digital_signature=True, key_encipherment=False, data_encipherment=False,
+                            key_agreement=False,
                             key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
                             content_commitment=False),
             critical=False,
@@ -458,7 +459,7 @@ class CertDir:
 
         return prvkey, cert
 
-    def genCodeCert(self, name: str, signas: StrOrNone =None, outp: OutPutOrNone =None, save: bool=True)\
+    def genCodeCert(self, name: str, signas: StrOrNone = None, outp: OutPutOrNone = None, save: bool = True) \
             -> PkeyAndCert:
         '''
         Generates a code signing keypair.
@@ -522,6 +523,7 @@ class CertDir:
             path = s_common.genpath(cdir, 'code', f'{name}.crt')
             if os.path.isfile(path):
                 return path
+
     def getCodeKey(self, name: str) -> Union[s_rsa.PriKey | None]:
 
         path = self.getCodeKeyPath(name)
@@ -534,7 +536,7 @@ class CertDir:
     def getCodeCert(self, name: str) -> CertOrNone:
 
         path = self.getCodeCertPath(name)
-        if path is None: # pragma: no cover
+        if path is None:  # pragma: no cover
             return None
 
         return self._loadCertPath(path)
@@ -589,7 +591,7 @@ class CertDir:
 
             for name in os.listdir(crlpath):
 
-                if not name.endswith('.crl'): # pragma: no cover
+                if not name.endswith('.crl'):  # pragma: no cover
                     continue
 
                 fullpath = os.path.join(crlpath, name)
@@ -599,7 +601,7 @@ class CertDir:
 
         return crls
 
-    def genClientCert(self, name: str, outp: OutPutOrNone =None) -> None:
+    def genClientCert(self, name: str, outp: OutPutOrNone = None) -> None:
         '''
         Generates a user PKCS #12 archive.
 
@@ -639,7 +641,7 @@ class CertDir:
         if outp is not None:
             outp.printf('client cert saved: %s' % (crtpath,))
 
-    def valUserCert(self, byts: bytes, cacerts: Union[List[c_x509.Certificate] | None] =None) -> c_x509.Certificate:
+    def valUserCert(self, byts: bytes, cacerts: Union[List[c_x509.Certificate] | None] = None) -> c_x509.Certificate:
         '''
         Validate the PEM encoded x509 user certificate bytes and return it.
 
@@ -676,7 +678,7 @@ class CertDir:
             raise s_exc.BadCertVerify(mesg=_unpackContextError(e))
         return cert
 
-    def genUserCsr(self, name: str, outp: OutPutOrNone =None) -> bytes:
+    def genUserCsr(self, name: str, outp: OutPutOrNone = None) -> bytes:
         '''
         Generates a user certificate signing request.
 
@@ -735,7 +737,7 @@ class CertDir:
 
             for name in os.listdir(path):
 
-                if not name.endswith('.crt'): # pragma: no cover
+                if not name.endswith('.crt'):  # pragma: no cover
                     continue
 
                 full = s_common.genpath(cdir, 'cas', name)
@@ -1070,7 +1072,8 @@ class CertDir:
             path = s_common.genpath(cdir, 'hosts', '%s.csr' % name)
             if os.path.isfile(path):
                 return path
-    def importFile(self, path: str, mode: str, outp: OutPutOrNone =None) -> None:
+
+    def importFile(self, path: str, mode: str, outp: OutPutOrNone = None) -> None:
         '''
         Imports certs and keys into the Synapse cert directory
 
@@ -1232,9 +1235,9 @@ class CertDir:
 
     def signHostCsr(self, xcsr: c_x509.CertificateSigningRequest,
                     signas: str,
-                    outp: OutPutOrNone =None,
-                    sans: StrOrNone =None,
-                    save: bool =True) -> PkeyOrNoneAndCert:
+                    outp: OutPutOrNone = None,
+                    sans: StrOrNone = None,
+                    save: bool = True) -> PkeyOrNoneAndCert:
         '''
         Signs a host CSR with a CA keypair.
 
@@ -1285,8 +1288,8 @@ class CertDir:
 
     def signUserCsr(self, xcsr: c_x509.CertificateSigningRequest,
                     signas: str,
-                    outp: OutPutOrNone=None,
-                    save: bool =True) -> PkeyOrNoneAndCert:
+                    outp: OutPutOrNone = None,
+                    save: bool = True) -> PkeyOrNoneAndCert:
         '''
         Signs a user CSR with a CA keypair.
 
@@ -1321,7 +1324,7 @@ class CertDir:
                 if name.endswith('.crt'):
                     ctx.load_verify_locations(os.path.join(path, name))
 
-    def getClientSSLContext(self, certname: StrOrNone =None) -> ssl.SSLContext:
+    def getClientSSLContext(self, certname: StrOrNone = None) -> ssl.SSLContext:
         '''
         Returns an ssl.SSLContext appropriate for initiating a TLS session
 
@@ -1360,7 +1363,7 @@ class CertDir:
 
         return sslctx
 
-    def getServerSSLContext(self, hostname: StrOrNone =None, caname: StrOrNone =None) -> ssl.SSLContext:
+    def getServerSSLContext(self, hostname: StrOrNone = None, caname: StrOrNone = None) -> ssl.SSLContext:
         '''
         Returns an ssl.SSLContext appropriate to listen on a socket
 
@@ -1509,12 +1512,12 @@ class CertDir:
         builder = builder.public_key(pubkey)
         return builder
 
-    def _genPkeyCsr(self, name: str, mode: str, outp: OutPutOrNone=None) -> bytes:
+    def _genPkeyCsr(self, name: str, mode: str, outp: OutPutOrNone = None) -> bytes:
 
         pkey = self._genPrivKey()
 
         builder = c_x509.CertificateSigningRequestBuilder()
-        builder = builder.subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name),]))
+        builder = builder.subject_name(c_x509.Name([c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name), ]))
         builder = builder.add_extension(c_x509.BasicConstraints(ca=False, path_length=None), critical=True)
         request = builder.sign(pkey, c_hashes.SHA256())
 
@@ -1543,6 +1546,7 @@ class CertDir:
         if path is None:
             return None
         return s_common.getbytes(path)
+
     #
     def _getPathJoin(self, *paths: str) -> str:
         '''Get the base certidr path + paths'''
@@ -1637,6 +1641,7 @@ class CertDir:
         return path
 
 certdir = CertDir()
+
 def getCertDir() -> CertDir:
     '''
     Get the singleton CertDir instance.
