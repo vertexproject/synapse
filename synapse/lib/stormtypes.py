@@ -2455,7 +2455,7 @@ class LibAxon(Lib):
 
     async def upload(self, genr):
 
-        self.runt.confirm(('axon', 'upload'), default=True)
+        self.runt.confirm(('axon', 'upload'))
 
         await self.runt.snap.core.getAxon()
         async with await self.runt.snap.core.axon.upload() as upload:
@@ -2470,7 +2470,7 @@ class LibAxon(Lib):
         if sha256 is None:
             return None
 
-        self.runt.confirm(('axon', 'has'), default=True)
+        self.runt.confirm(('axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.has(s_common.uhex(sha256))
@@ -2479,7 +2479,7 @@ class LibAxon(Lib):
     async def size(self, sha256):
         sha256 = await tostr(sha256)
 
-        self.runt.confirm(('axon', 'has'), default=True)
+        self.runt.confirm(('axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.size(s_common.uhex(sha256))
@@ -2489,7 +2489,7 @@ class LibAxon(Lib):
             mesg = '$lib.axon.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
 
-        self.runt.confirm(('axon', 'upload'), default=True)
+        self.runt.confirm(('axon', 'upload'))
 
         await self.runt.snap.core.getAxon()
         size, sha256 = await self.runt.snap.core.axon.put(byts)
@@ -2500,7 +2500,7 @@ class LibAxon(Lib):
     async def hashset(self, sha256):
         sha256 = await tostr(sha256)
 
-        self.runt.confirm(('axon', 'has'), default=True)
+        self.runt.confirm(('axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
