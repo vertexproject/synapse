@@ -255,7 +255,7 @@ class CertDir:
             name: The name of the CA keypair.
             signas: The CA keypair to sign the new CA with.
             outp: The output buffer.
-            save: Safe the certificate and key to disk.
+            save: Save the certificate and key to disk.
 
         Examples:
             Make a CA named "myca"::
@@ -310,7 +310,7 @@ class CertDir:
                 myhostkey, myhostcert = cdir.genHostCert('myhost')
 
         Returns:
-            Tuple containing the private key and certificate objects. Private key may be none when signing a CSR.
+            Tuple containing the private key and certificate objects. Private key may be None when signing a CSR.
         '''
         if csr is None:
             prvkey = self._genPrivKey()
@@ -645,7 +645,7 @@ class CertDir:
 
         Args:
             byts: The bytes for the User Certificate.
-            cacerts: A tuple of CA Certificates to use for validating the user cert..
+            cacerts: A tuple of CA Certificates to use for validating the user cert.
 
         Raises:
             BadCertVerify: If the certificate is not valid.
@@ -756,7 +756,7 @@ class CertDir:
                 mypath = cdir.getCACertPath('myca')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'cas', '%s.crt' % name)
@@ -793,7 +793,7 @@ class CertDir:
                 mypath = cdir.getCAKeyPath('myca')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'cas', '%s.key' % name)
@@ -833,7 +833,7 @@ class CertDir:
                 mypath = cdir.getClientCertPath('myuser')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'users', '%s.p12' % name)
@@ -854,7 +854,7 @@ class CertDir:
                 mypath = cdir.getHostCaPath('myhost')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         cert = self.getHostCert(name)
         if cert is None:
@@ -898,7 +898,7 @@ class CertDir:
                 mypath = cdir.getHostCertPath('myhost')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'hosts', '%s.crt' % name)
@@ -955,7 +955,7 @@ class CertDir:
                 mypath = cdir.getUserCaPath('myuser')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         cert = self.getUserCert(name)
         if cert is None:
@@ -993,7 +993,7 @@ class CertDir:
                 mypath = cdir.getUserCertPath('myuser')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'users', '%s.crt' % name)
@@ -1052,7 +1052,7 @@ class CertDir:
                 mypath = cdir.getUserKeyPath('myuser')
 
         Returns:
-            The path if exists.
+            The path, if exists.
         '''
         for cdir in self.certdirs:
             path = s_common.genpath(cdir, 'users', '%s.key' % name)
