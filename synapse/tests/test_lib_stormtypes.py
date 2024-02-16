@@ -6432,6 +6432,9 @@ words\tword\twrd'''
             with self.raises(s_exc.SynErr):
                 await core.callStorm('$lib.view.get().merge()', opts={'view': fork00})
 
+            with self.raises(s_exc.BadState):
+                core.getView(fork00).reqValidVoter(visi.iden)
+
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.view.get().setMergeRequest()', opts={'user': visi.iden, 'view': fork00})
 
@@ -6441,11 +6444,17 @@ words\tword\twrd'''
             self.eq(merge['comment'], 'woot')
             self.eq(merge['creator'], core.auth.rootuser.iden)
 
+            with self.raises(s_exc.AuthDeny):
+                core.getView(fork00).reqValidVoter(root.iden)
+
             merge = await core.callStorm('return($lib.view.get().getMergeRequest())', opts={'view': fork00})
             self.nn(merge['iden'])
             self.nn(merge['created'])
             self.eq(merge['comment'], 'woot')
             self.eq(merge['creator'], core.auth.rootuser.iden)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.view.get().setMergeVote()', opts={'view': fork00})
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.view.get().setMergeVote()', opts={'user': visi.iden, 'view': fork00})

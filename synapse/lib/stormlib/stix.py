@@ -1405,7 +1405,10 @@ class StixBundle(s_stormtypes.Prim):
 
     async def _callStorm(self, text, node):
 
-        opts = {'vars': {'bundle': self}}
+        varz = self.runt.getScopeVars()
+        varz['bundle'] = self
+
+        opts = {'vars': varz}
         query = await self.runt.snap.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 
