@@ -35,9 +35,6 @@ import synapse.lib.crypto.passwd as s_passwd
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
-
-from OpenSSL import crypto
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -748,7 +745,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await prox.cullNexsLog(offs))
 
                     # last entry in nexus log is cull
-                    retn = await alist(cell.nexsroot.nexslog.iter(0))
+                    retn = await s_t_utils.alist(cell.nexsroot.nexslog.iter(0))
                     self.len(1, retn)
                     self.eq(ind, retn[0][0])
                     self.eq('nexslog:cull', retn[0][1][1])
