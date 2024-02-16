@@ -1,10 +1,161 @@
 .. vim: set textwidth=79
 
--.. _changelog:
+.. _changelog:
 
 *****************
 Synapse Changelog
 *****************
+
+v2.162.0 - 2024-02-15
+=====================
+
+Model Changes
+-------------
+- Updates to the ``inet``, ``infotech``,  ``ou``,  ``proj``, and ``risk`` models.
+  (`#3549 <https://github.com/vertexproject/synapse/pull/3549>`_)
+  (`#3551 <https://github.com/vertexproject/synapse/pull/3551>`_)
+  (`#3564 <https://github.com/vertexproject/synapse/pull/3564>`_)
+
+  **New Properties**
+
+  ``inet:email:message``
+    The form had the following properties added to it:
+
+    ``received:from:ipv4``
+      The sending SMTP server IPv4, potentially from the Received: header.
+
+    ``received:from:ipv6``
+      The sending SMTP server IPv6, potentially from the Received: header.
+
+    ``received:from:fqdn``
+      The sending server FQDN, potentially from the Received: header.
+
+  ``ou:oid:type``
+    The form had the following property added to it:
+
+      ``url``
+        The official URL of the issuer.
+
+  ``proj:project``
+    The form had the following property added to it:
+
+      ``type``
+        The project type.
+
+  ``risk:alert``
+    The form had the following properties added to it:
+
+    ``status``
+      The status of the alert.
+
+    ``assignee``
+      The Synapse user who is assigned to investigate the alert.
+
+    ``ext:assignee``
+      The alert assignee contact information from an external system.
+
+  ``risk:mitigation``
+    The form had the following properties added to it:
+
+    ``reporter``
+      The organization reporting on the mitigation.
+
+    ``reporter:name``
+      The name of the organization reporting on the mitigation.
+
+    ``tag``
+      The tag used to annotate nodes which have the mitigation in place.
+
+  **New Forms**
+
+  ``proj:project:type:taxonomy``
+    A type taxonomy for projects.
+
+  **Deprecated Properties**
+
+  ``it:mitre:attack:group``
+    The ``it:mitre:attack:group`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:tactic``
+    The ``it:mitre:attack:tactic`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:technique``
+    The ``it:mitre:attack:technique`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:software``
+    The ``it:mitre:attack:software`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:campaign``
+    The ``it:mitre:attack:campaign`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+Features and Enhancements
+-------------------------
+- Add Storm API methods for inspecting and manipulating dictionary objects
+  in Storm. These are ``$lib.dict.has()``, ``$lib.dict.keys()``,
+  ``$lib.dict.pop()``, ``$lib.dict.update()``, and ``$lib.dict.values()`
+  (`#3548 <https://github.com/vertexproject/synapse/pull/3548>`_)
+- Add a ``json()`` method to the ``str`` type in Storm to deserialize a string
+  as JSON data.
+  (`#3555 <https://github.com/vertexproject/synapse/pull/3555>`_)
+- Add an ``_ahainfo`` attribute to the ``Telepath.Proxy``, containing AHA
+  service name information if that is provided to the Dmon.
+  (`#3552 <https://github.com/vertexproject/synapse/pull/3552>`_)
+- Add permissions checks to ``$lib.bytes`` APIs using ``axon.has`` for APIs
+  that check for information about the Axon or metrics; and ``axon.upload``
+  for APIs which put bytes in the Axon. These are checked with
+  ``default=True`` for backward compatibility.
+  (`#3563 <https://github.com/vertexproject/synapse/pull/3563>`_)
+- The rstorm ``storm-svc`` and ``storm-pkg`` directives now wait for any
+  ``onload`` handlers to complete.
+  (`#3567 <https://github.com/vertexproject/synapse/pull/3567>`_)
+- Update the Synapse Python package trove classifiers to list the platforms
+  we support using Synapse with.
+  (`#3557 <https://github.com/vertexproject/synapse/pull/3557>`_)
+
+Bugfixes
+--------
+- Fix a bug in the ``Cell.updateHttpSessInfo()`` API when the Cell does not
+  have the session in memory.
+  (`#3556 <https://github.com/vertexproject/synapse/pull/3556>`_)
+- Fix a bug where a user was allowed to vote for their own View merge request.
+  (`#3565 <https://github.com/vertexproject/synapse/pull/3565>`_)
+- Include Storm variables from the current and parent scopes when resolving
+  STIX properties and relationships.
+  (`#3571 <https://github.com/vertexproject/synapse/pull/3571>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm automation documentation. Added additional information
+  about permissions used to manage automations. Added examples for
+  ``edge:add`` and ``edge:del`` triggers. Added examples for managing Macro
+  permissions.
+  (`#3547 <https://github.com/vertexproject/synapse/pull/3547>`_)
+- Update the Storm filtering and lifting documentation to add information
+  about using interfaces and wildcard values with those operations.
+  (`#3560 <https://github.com/vertexproject/synapse/pull/3560>`_)
+- Update the Synapse introduction to note that Synapse is not intended to
+  replace big-data or data-lake solutions.
+  (`#3553 <https://github.com/vertexproject/synapse/pull/3553>`_)
+
+Deprecations
+------------
+- The Storm function ``$lib.dict()`` has been deprecated, in favor of using
+  the ``({"key": "value"})`` style syntax for directly declaring a dictionary
+  in Storm.
+  (`#3548 <https://github.com/vertexproject/synapse/pull/3548>`_)
+- Writeback layer mirrors and upstream layer mirrors have been marked as
+  deprecated configuration options.
+  (`#3562 <https://github.com/vertexproject/synapse/pull/3562>`_)
 
 v2.161.0 - 2024-02-06
 =====================
