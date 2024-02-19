@@ -2662,6 +2662,9 @@ class InetModelTest(s_t_utils.SynTest):
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :cc=(baz@faz.org, foo@bar.com, baz@faz.org)
                 :bytes="*"
+                :received:from:ipv4=1.2.3.4
+                :received:from:ipv6="::1"
+                :received:from:fqdn=smtp.vertex.link
             ]
 
             {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
@@ -2671,6 +2674,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
+            self.eq(nodes[0].get('received:from:ipv6'), '::1')
+            self.eq(nodes[0].get('received:from:ipv4'), 0x01020304)
+            self.eq(nodes[0].get('received:from:fqdn'), 'smtp.vertex.link')
 
             self.len(1, await core.nodes('inet:email:message:to=woot@woot.com'))
             self.len(1, await core.nodes('inet:email:message:date=2015'))

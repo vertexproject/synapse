@@ -2502,6 +2502,9 @@ class LibBytes(Lib):
         }
 
     async def _libBytesUpload(self, genr):
+
+        self.runt.confirm(('axon', 'upload'), default=True)
+
         await self.runt.snap.core.getAxon()
         async with await self.runt.snap.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
@@ -2515,6 +2518,8 @@ class LibBytes(Lib):
         if sha256 is None:
             return None
 
+        self.runt.confirm(('axon', 'has'), default=True)
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -2523,6 +2528,9 @@ class LibBytes(Lib):
     @stormfunc(readonly=True)
     async def _libBytesSize(self, sha256):
         sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'), default=True)
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -2533,6 +2541,8 @@ class LibBytes(Lib):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
 
+        self.runt.confirm(('axon', 'upload'), default=True)
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('put', byts)
         size, sha2 = await self.dyncall('axon', todo)
@@ -2542,6 +2552,9 @@ class LibBytes(Lib):
     @stormfunc(readonly=True)
     async def _libBytesHashset(self, sha256):
         sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'), default=True)
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('hashset', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -7739,6 +7752,8 @@ class View(Prim):
         if not reqroles & userroles:
             mesg = 'You are not a member of a role with voting privileges for this merge request.'
             raise s_exc.AuthDeny(mesg=mesg)
+
+        view.reqValidVoter(self.runt.user.iden)
 
         vote = {'user': self.runt.user.iden, 'approved': await tobool(approved)}
 
