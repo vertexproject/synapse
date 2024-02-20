@@ -152,7 +152,7 @@ class Crl:
         store = crypto.X509Store()
         store.add_cert(crypto.X509.from_cryptography(cacert))
         store.set_flags(crypto.X509StoreFlags.PARTIAL_CHAIN)
-        ctx = crypto.X509StoreContext(store, crypto.X509.from_cryptography(cert), )
+        ctx = crypto.X509StoreContext(store, crypto.X509.from_cryptography(cert))
         try:
             ctx.verify_certificate()
         except crypto.X509StoreContextError as e:
@@ -790,7 +790,7 @@ class CertDir:
             name: The name of the CA keypair.
 
         Examples:
-            Get the path to the private key for the CA "myca":
+            Get the path to the private key for the CA "myca"::
 
                 mypath = cdir.getCAKeyPath('myca')
 
@@ -810,7 +810,7 @@ class CertDir:
             name: The name of the user keypair.
 
         Examples:
-            Get the PKCS12 object for the user "myuser":
+            Get the PKCS12 object for the user "myuser"::
 
                 mypkcs12 = cdir.getClientCert('myuser')
 
@@ -830,7 +830,7 @@ class CertDir:
             name: The name of the client keypair.
 
         Examples:
-            Get the path to the client certificate for "myuser":
+            Get the path to the client certificate for "myuser"::
 
                 mypath = cdir.getClientCertPath('myuser')
 
@@ -895,7 +895,7 @@ class CertDir:
             name: The name of the host keypair.
 
         Examples:
-            Get the path to the host certificate for the host "myhost":
+            Get the path to the host certificate for the host "myhost"::
 
                 mypath = cdir.getHostCertPath('myhost')
 
@@ -1549,7 +1549,7 @@ class CertDir:
 
     #
     def _getPathJoin(self, *paths: str) -> str:
-        '''Get the base certidr path + paths'''
+        '''Get the base certdir path + paths'''
         return s_common.genpath(self.certdirs[0], *paths)
 
     def _loadCertPath(self, path: str) -> CertOrNone:
