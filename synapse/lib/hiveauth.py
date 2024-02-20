@@ -1032,7 +1032,7 @@ class HiveUser(HiveRuler):
         for iden in self.info.get('roles', ()):
             role = self.auth.role(iden)
             if role is None:
-                logger.warning('user {self.iden} has non-existent role: {iden}')
+                logger.warning(f'user {self.iden} has non-existent role: {iden}')
                 continue
             yield role
 
