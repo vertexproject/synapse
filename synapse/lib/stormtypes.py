@@ -34,10 +34,14 @@ import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
+
+AXON_MINVERS_PROXY = (2, 97, 0)
+AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
     _storm_typename = 'undef'
@@ -1916,6 +1920,14 @@ class LibStr(Lib):
 class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
+
+    For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
+
+        {
+            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+            'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+            'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+        }
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
@@ -1951,6 +1963,9 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
@@ -1971,6 +1986,9 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
@@ -2288,7 +2306,8 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.del_(sha256b)
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
@@ -2303,6 +2322,7 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
+        ssl_opts = await toprim(ssl_opts)
 
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
@@ -2314,8 +2334,14 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
+
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
 
         axon = self.runt.snap.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
@@ -2323,7 +2349,8 @@ class LibAxon(Lib):
         resp['original_url'] = url
         return resp
 
-    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
+    async def wput(self, sha256, url, headers=None, params=None, method='PUT',
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
@@ -2337,6 +2364,7 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+        ssl_opts = await toprim(ssl_opts)
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2349,10 +2377,17 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
 
-        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, **kwargs)
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
+
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
+                               ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
         gateiden = self.runt.snap.wlyr.iden
