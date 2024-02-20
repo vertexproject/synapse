@@ -587,6 +587,14 @@ class StormTypesTest(s_test.SynTest):
             self.true(s_common.isguid(nodes[1].ndef[1]))
             self.eq(nodes[0].ndef[1], nodes[1].ndef[1])
 
+            guids = await core.callStorm('return(($lib.guid(baz), $lib.guid(baz, valu=newp)))')
+            self.eq(guids[0], guids[1])
+
+            self.ne(s_common.guid('foo'), await core.callStorm('return($lib.guid(foo))'))
+            self.eq(s_common.guid('foo'), await core.callStorm('return($lib.guid(valu=foo))'))
+
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid(valu=$lib))'))
+
             async with core.getLocalProxy() as prox:
                 mesgs = [m async for m in prox.storm('$lib.print("hi there")') if m[0] == 'print']
                 self.len(1, mesgs)
