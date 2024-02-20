@@ -2754,7 +2754,7 @@ class AstTest(s_test.SynTest):
             opts = {'vars': {'asdf': b'asdf'}}
             await core.nodes('[ file:bytes=$asdf ]', opts=opts)
             await core.axon.put(b'asdf')
-            self.len(1, await core.nodes('file:bytes +$lib.bytes.has(:sha256)'))
+            self.len(1, await core.nodes('file:bytes +$lib.axon.has(:sha256)'))
 
     async def test_ast_walkcond(self):
 
