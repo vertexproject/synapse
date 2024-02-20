@@ -181,7 +181,7 @@ wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet
 Examples:
 
     # Specify custom headers and parameters
-    inet:url=https://vertex.link/foo.bar.txt | wget --headers $lib.dict("User-Agent"="Foo/Bar") --params $lib.dict("clientid"="42")
+    inet:url=https://vertex.link/foo.bar.txt | wget --headers ({"User-Agent": "Foo/Bar"}) --params ({"clientid": "42"})
 
     # Download multiple URL targets without inbound nodes
     wget https://vertex.link https://vtx.lk
@@ -3775,7 +3775,23 @@ class MergeCmd(Cmd):
             runt.confirmPropDel(prop, layriden=layr0)
             runt.confirmPropSet(prop, layriden=layr1)
 
+        tags = []
+        tagadds = []
         for tag, valu in sode.get('tags', {}).items():
+            if valu != (None, None):
+                tagadds.append(tag)
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            else:
+                tags.append((len(tag), tag))
+
+        for _, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            tagadds.append(tag)
             tagperm = tuple(tag.split('.'))
             runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
             runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)

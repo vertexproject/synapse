@@ -3682,6 +3682,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if proxyurl is not None:
                 conf['http:proxy'] = proxyurl
 
+            cadir = self.conf.get('tls:ca:dir')
+            if cadir is not None:
+                conf['tls:ca:dir'] = cadir
+
             self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
             self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
@@ -5136,7 +5140,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
 
@@ -5192,7 +5196,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
@@ -5219,7 +5223,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
@@ -5247,7 +5251,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)

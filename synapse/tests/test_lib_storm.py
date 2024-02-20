@@ -735,9 +735,9 @@ class StormTest(s_t_utils.SynTest):
             # check that the feed API uses toprim
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = $lib.dict(email=visi@vertex.link)
+                $props = ({"email": "visi@vertex.link"})
                 $lib.feed.ingest(syn.nodes, (
-                    ( (ps:contact, $iden), $lib.dict(props=$props)),
+                    ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 ps:contact=$iden
                 return(:email)
@@ -746,9 +746,9 @@ class StormTest(s_t_utils.SynTest):
 
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = $lib.dict(email=visi@vertex.link)
+                $props = ({"email": "visi@vertex.link"})
                 yield $lib.feed.genr(syn.nodes, (
-                    ( (ps:contact, $iden), $lib.dict(props=$props)),
+                    ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 return(:email)
             ''')
@@ -777,7 +777,7 @@ class StormTest(s_t_utils.SynTest):
             # and again to test *not* creating it...
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
 
-            self.eq({'foo': 'bar'}, await core.callStorm('return($lib.dict(    foo    =    bar   ))'))
+            self.eq({'foo': 'bar'}, await core.callStorm('return(({    "foo"    :    "bar"   }))'))
 
             ddef0 = await core.callStorm('return($lib.dmon.add(${ $lib.queue.gen(hehedmon).put(lolz) $lib.time.sleep(10) }, name=hehedmon))')
             ddef1 = await core.callStorm('return($lib.dmon.get($iden))', opts={'vars': {'iden': ddef0.get('iden')}})
@@ -1226,12 +1226,12 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('cron.list')
 
             self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('''
-                return($lib.dict( // do foo thing
-                    foo /* hehe */ = /* haha */ bar, //lol
-                    baz // hehe
-                    = // haha
-                    faz // hehe
-                ))
+                return(({ // do foo thing
+                    "foo" /* hehe */ : /* haha */ "bar", //lol
+                    "baz" // hehe
+                    : // haha
+                    "faz" // hehe
+                }))
             '''))
 
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('''
@@ -1808,7 +1808,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Headers as list of tuples, params as dict
             q = '''
-            $params=$lib.dict(key=valu, foo=bar)
+            $params=({"key": "valu", "foo": "bar"})
             $hdr = (
                     ("User-Agent", "my fav ua"),
             )|
@@ -2048,7 +2048,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(await core.callStorm('''
                 [ ps:contact = * ]
                 if $node {
-                    $foo = $lib.dict()
+                    $foo = ({})
                     $foo.bar = $lib.undef
                     return($foo.bar)
                 }
@@ -2067,7 +2067,7 @@ class StormTest(s_t_utils.SynTest):
             # runtsafe variants
             self.eq(('foo', 'baz'), await core.callStorm('$foo = (foo, bar, baz) $foo.1 = $lib.undef return($foo)'))
             self.eq(('foo', 'bar'), await core.callStorm('$foo = (foo, bar, baz) $foo."-1" = $lib.undef return($foo)'))
-            self.none(await core.callStorm('$foo = $lib.dict() $foo.bar = 10 $foo.bar = $lib.undef return($foo.bar)'))
+            self.none(await core.callStorm('$foo = ({}) $foo.bar = 10 $foo.bar = $lib.undef return($foo.bar)'))
             self.eq(('woot',), await core.callStorm('''
                 $foo = (foo, bar, baz)
                 $foo.0 = $lib.undef
@@ -4500,7 +4500,7 @@ class StormTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('node',)))
 
-            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+            size, sha256 = await core.callStorm('return($lib.axon.put($buf))', {'vars': {'buf': b'asdfasdf'}})
 
             self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
 

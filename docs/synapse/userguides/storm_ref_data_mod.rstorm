@@ -691,7 +691,7 @@ Add tag property:
 
 *Add tag with custom tag property and value:*
 
-.. storm-pre:: $tagpropinfo = $lib.dict(doc="A risk tagprop.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
+.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(risk, (int, ({})), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
 ::
 
     <inet:fqdn> [ +#rep.symantec:risk = 87 ]

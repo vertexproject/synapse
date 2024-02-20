@@ -1165,7 +1165,14 @@ class AhaTest(s_test.SynTest):
 
                     async with await s_telepath.open('aha://pool00...') as pool:
 
-                        waiter = pool.waiter('svc:add', 2)
+                        replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
+                        nevents = 5 if replay else 3
+
+                        waiter = pool.waiter(nevents, 'svc:add')
+
+                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (01...) added to service pool (pool00.loop.vertex.link)', msgs)
 
                         msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
                         self.stormHasNoWarnErr(msgs)
@@ -1184,12 +1191,15 @@ class AhaTest(s_test.SynTest):
                         self.eq(core00.auth.rootuser.iden, poolinfo['services']['00.loop.vertex.link']['creator'])
                         self.eq(core00.auth.rootuser.iden, poolinfo['services']['01.loop.vertex.link']['creator'])
 
+                        for client in pool.clients.values():
+                            await client.proxy(timeout=3)
+
                         proxy00 = await pool.proxy(timeout=3)
                         run00 = await (await pool.proxy(timeout=3)).getCellRunId()
                         run01 = await (await pool.proxy(timeout=3)).getCellRunId()
                         self.ne(run00, run01)
 
-                        waiter = pool.waiter('pool:reset', 1)
+                        waiter = pool.waiter(1, 'pool:reset')
 
                         ahaproxy = await pool.aha.proxy()
                         await ahaproxy.fini()
@@ -1197,7 +1207,7 @@ class AhaTest(s_test.SynTest):
                         await waiter.wait(timeout=3)
 
                         # wait for the pool to be notified of the topology change
-                        waiter = pool.waiter('svc:del', 1)
+                        waiter = pool.waiter(1, 'svc:del')
 
                         msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
                         self.stormHasNoWarnErr(msgs)
