@@ -743,3 +743,25 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('#seen'))
             self.nn(nodes[0].getTagProp('seen', 'score'))
             self.nn(nodes[0].nodedata.get('foo'))
+
+            await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
+
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'add', 'rep', 'foo')), gateiden=baselayr)
+
+            await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
+
+            await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+
+            await core.nodes('test:str=foo | merge --apply', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+            await core.nodes('test:str=foo [ +#rep=now ]', opts=viewopts)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)

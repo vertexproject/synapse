@@ -3495,8 +3495,13 @@ def getNodeEditPerms(nodeedits):
     '''
     Yields (offs, perm) tuples that can be used in user.allowed()
     '''
+    tags = []
+    tagadds = []
 
     for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
+
+        tags.clear()
+        tagadds.clear()
 
         for editoffs, (edit, info, _) in enumerate(edits):
 
@@ -3519,7 +3524,11 @@ def getNodeEditPerms(nodeedits):
                 continue
 
             if edit == EDIT_TAG_SET:
-                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                if info[1] != (None, None):
+                    tagadds.append(info[0])
+                    yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                else:
+                    tags.append((len(info[0]), editoffs, info[0]))
                 continue
 
             if edit == EDIT_TAG_DEL:
@@ -3549,3 +3558,11 @@ def getNodeEditPerms(nodeedits):
             if edit == EDIT_EDGE_DEL:
                 yield (permoffs, ('node', 'edge', 'del', info[0]))
                 continue
+
+        for _, editoffs, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            yield ((nodeoffs, editoffs), ('node', 'tag', 'add', *tag.split('.')))
+            tagadds.append(tag)

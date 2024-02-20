@@ -6253,11 +6253,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     # Use dyncalls, not direct object access.
                     asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
-                    size, sha2 = await core.callStorm('return( $lib.bytes.put($buf) )',
+                    size, sha2 = await core.callStorm('return( $lib.axon.put($buf) )',
                                                       {'vars': {'buf': b'asdfasdf'}})
                     self.eq(size, 8)
                     self.eq(sha2, asdfhash_h)
-                    self.true(await core.callStorm('return( $lib.bytes.has($hash) )',
+                    self.true(await core.callStorm('return( $lib.axon.has($hash) )',
                                                    {'vars': {'hash': asdfhash_h}}))
 
                 unset = False

@@ -4516,7 +4516,7 @@ class StormTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('node',)))
 
-            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+            size, sha256 = await core.callStorm('return($lib.axon.put($buf))', {'vars': {'buf': b'asdfasdf'}})
 
             self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
 
