@@ -248,6 +248,8 @@ class Cli(s_base.Base):
         self.echoline = False
         self.colorsenabled = False
 
+        self.completer = None
+
         if isinstance(self.item, s_base.Base):
             self.item.onfini(self._onItemFini)
 
@@ -312,7 +314,12 @@ class Cli(s_base.Base):
             except OSError:  # pragma: no cover
                 logger.warning(f'Unable to create file at {histfp}, cli history will not be stored.')
 
-            self.sess = PromptSession(history=history)
+            self.sess = PromptSession(
+                history=history,
+                completer=self.completer,
+                complete_while_typing=False,
+                reserve_space_for_menu=5,
+            )
 
         if text is None:
             text = self.cmdprompt

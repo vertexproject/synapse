@@ -1558,8 +1558,8 @@ Tool, Storm Editor
 
 Also known as simply "Storm Editor". In :ref:`gloss-optic`, a tool used to compose, test, and store Storm
 queries (including macros - see :ref:`gloss-macro`). Storm Editor includes a number of integrated development
-environment (IDE) features, including syntax highlighting, auto-indenting, and auto-completion (via
-``ctrl-space``) for the names of forms, properties, tags, and libraries.
+environment (IDE) features, including syntax highlighting, auto-indenting, and auto-completion for the names
+of forms, properties, tags, and libraries.
 
 .. _gloss-tool-workflows:
 

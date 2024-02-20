@@ -333,6 +333,16 @@ class StormLibStixTest(s_test.SynTest):
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'oasis-example-00.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
+            # self.stormHasNoWarnErr(msgs)
+            self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
+            self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
+
+            # Pass in a heavy dict object
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            stix = s_common.yamlload(self.getTestFilePath('stix_import', 'oasis-example-00.json'))
+            q = '''init { $data = ({"id": $stix.id, "type": $stix.type, "objects": $stix.objects}) }
+            yield $lib.stix.import.ingest($data)'''
+            msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
             self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
 
@@ -418,6 +428,7 @@ class StormLibStixTest(s_test.SynTest):
                         "stix": {
                             "vtx-mitigation": {
                                 "props": {
+                                    "desc": "return($desc)",
                                     "name": "{+:name return(:name)} return($node.repr())",
                                     "created": "return($lib.stix.export.timestamp(.created))",
                                     "modified": "return($lib.stix.export.timestamp(.created))",
@@ -430,13 +441,14 @@ class StormLibStixTest(s_test.SynTest):
                 }
 
                 [ risk:mitigation=c4f6dc09f1e1e6b7e7b05c9ce4186ce8 :name="patch stuff and do things" ]
-
+                $desc = "scopevar"
                 $bundle.add($node)
 
                 fini { return($bundle) }
             ''')
 
             self.eq('vtx-mitigation--2df2a437-e372-468b-b989-d01753603659', bund['objects'][1]['id'])
+            self.eq('scopevar', bund['objects'][1]['desc'])
             self.eq('patch stuff and do things', bund['objects'][1]['name'])
             self.nn(bund['objects'][1]['created'])
             self.nn(bund['objects'][1]['modified'])

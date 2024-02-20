@@ -27,7 +27,7 @@ class JsonTest(s_test.SynTest):
 
             opts = {'vars': {'schema': s_test.test_schema}}
             q = '''$schemaObj = $lib.json.schema($schema)
-            $item=$lib.dict()
+            $item=({})
             $item."key:integer"=(4)
             return ( $schemaObj.validate($item) )
             '''
@@ -37,7 +37,7 @@ class JsonTest(s_test.SynTest):
             self.eq('Default string!', valu.get('key:string'))
 
             q = '''$schemaObj = $lib.json.schema($schema)
-            $item=$lib.dict()
+            $item=({})
             $item."key:integer"=4
             return ( $schemaObj.validate($item) )
             '''
