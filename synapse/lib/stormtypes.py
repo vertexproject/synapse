@@ -1101,6 +1101,8 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_guid',
                   'args': (
                       {'name': '*args', 'type': 'prim', 'desc': 'Arguments which are hashed to create a guid.', },
+                      {'name': 'valu', 'type': 'prim', 'default': '$lib.undef',
+                       'desc': 'Create a guid from a single value (no positional arguments can be specified).', },
                   ),
                   'returns': {'type': 'str', 'desc': 'A guid.', }}},
         {'name': 'fire', 'desc': '''
@@ -1547,10 +1549,17 @@ class LibBase(Lib):
         return Text(valu)
 
     @stormfunc(readonly=True)
-    async def _guid(self, *args):
+    async def _guid(self, *args, valu=undef):
         if args:
+            if valu is not undef:
+                raise s_exc.BadArg(mesg='Valu cannot be specified if positional arguments are provided')
             args = await toprim(args)
             return s_common.guid(args)
+
+        if valu is not undef:
+            valu = await toprim(valu)
+            return s_common.guid(valu)
+
         return s_common.guid()
 
     @stormfunc(readonly=True)
