@@ -80,6 +80,14 @@ async def acount(genr):
         count += 1
     return count
 
+async def acountPodes(genr):
+    '''Count storm node messages'''
+    count = 0
+    async for (m, _) in genr:
+        if m == 'node':
+            count += 1
+    return count
+
 syntest = s_t_utils.SynTest()
 
 async def layerByName(prox: s_telepath.Proxy, name: str):
@@ -316,7 +324,7 @@ class Benchmarker:
     @benchmark({'remote'})
     async def do00EmptyQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         for _ in range(self.workfactor // 10):
-            count = await acount(prox.eval('', opts=self.opts))
+            count = await acountPodes(prox.storm('', opts=self.opts))
 
         assert count == 0
         return self.workfactor // 10
@@ -324,68 +332,68 @@ class Benchmarker:
     @benchmark({'remote'})
     async def do00NewQuery(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         for i in range(self.workfactor):
-            count = await acount(prox.eval(f'$x={i}', opts=self.opts))
+            count = await acountPodes(prox.storm(f'$x={i}', opts=self.opts))
 
         assert count == 0
         return self.workfactor
 
     @benchmark({'official', 'remote'})
     async def do01SimpleCount(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4 | count | spin', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4 | count | spin', opts=self.opts))
         assert count == 0
         return self.workfactor
 
     @benchmark({'official', 'remote'})
     async def do02LiftSimple(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4', opts=self.opts))
         assert count == self.workfactor
         return count
 
     @benchmark({'official', 'remote'})
     async def do02LiftFilterAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4 | +#newp', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4 | +#newp', opts=self.opts))
         assert count == 0
         return 1
 
     @benchmark({'official', 'remote'})
     async def do02LiftFilterPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4 | +#all', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4 | +#all', opts=self.opts))
         assert count == self.workfactor
         return count
 
     @benchmark({'official', 'remote'})
     async def do03LiftBySecondaryAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:dns:a:fqdn=newp', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:dns:a:fqdn=newp', opts=self.opts))
         assert count == 0
         return 1
 
     @benchmark({'official', 'remote'})
     async def do03LiftBySecondaryPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:dns:a:fqdn=blackhole.website', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:dns:a:fqdn=blackhole.website', opts=self.opts))
         assert count == self.workfactor // 10
         return count
 
     @benchmark({'official', 'remote'})
     async def do04LiftByTagAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4#newp', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4#newp', opts=self.opts))
         assert count == 0
         return 1
 
     @benchmark({'official', 'remote'})
     async def do04LiftByTagPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4#even', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4#even', opts=self.opts))
         assert count == self.workfactor // 2
         return count
 
     @benchmark({'official', 'remote'})
     async def do05PivotAbsent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4#odd -> inet:dns:a', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4#odd -> inet:dns:a', opts=self.opts))
         assert count == 0
         return self.workfactor // 2
 
     @benchmark({'official', 'remote'})
     async def do06PivotPresent(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:ipv4#even -> inet:dns:a', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:ipv4#even -> inet:dns:a', opts=self.opts))
         assert count == self.workfactor // 2 + self.workfactor // 10
         return count
 
@@ -466,21 +474,21 @@ class Benchmarker:
 
     @benchmark({'official', 'remote'})
     async def do09DelNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(prox.eval('inet:url | delnode', opts=self.opts))
+        count = await acountPodes(prox.storm('inet:url | delnode', opts=self.opts))
         assert count == 0
         return self.workfactor
 
     @benchmark({'remote'})
     async def do10AutoAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         q = "inet:ipv4 $val=$lib.str.format('{num}.rev', num=$(1000000-$node.value())) [:dns:rev=$val]"
-        count = await acount(prox.eval(q, opts=self.opts))
+        count = await acountPodes(prox.storm(q, opts=self.opts))
         assert count == self.workfactor
         return self.workfactor
 
     @benchmark({'remote'})
     async def do10SlashAdds(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
         q = '[ inet:ipv4=1.2.0.0/16 ] | spin'
-        count = await acount(prox.eval(q, opts=self.opts))
+        count = await acountPodes(prox.storm(q, opts=self.opts))
         assert count == 0
         return 2 ** 16
 
@@ -490,7 +498,7 @@ class Benchmarker:
         The same as do10AutoAdds without the adds (to isolate the autoadd part)
         '''
         q = "inet:ipv4 $val=$lib.str.format('{num}.rev', num=$(1000000-$node.value()))"
-        count = await acount(prox.eval(q, opts=self.opts))
+        count = await acountPodes(prox.storm(q, opts=self.opts))
         assert count == self.workfactor
         return self.workfactor
 

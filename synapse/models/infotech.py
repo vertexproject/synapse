@@ -577,15 +577,19 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a password hash.',
                 }),
                 ('it:exec:proc', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
                 }),
                 ('it:exec:thread', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A thread executing in a process.',
                 }),
                 ('it:exec:loadlib', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A library load event in a process.',
                 }),
                 ('it:exec:mmap', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A memory mapped segment located in a process.',
                 }),
                 ('it:cmd', ('str', {'strip': True}), {
@@ -600,39 +604,50 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of an executed query.',
                 }),
                 ('it:exec:mutex', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A mutex created by a process at runtime.',
                 }),
                 ('it:exec:pipe', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A named pipe created by a process at runtime.',
                 }),
                 ('it:exec:url', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host requesting a URL.',
                 }),
                 ('it:exec:bind', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host binding a listening port.',
                 }),
                 ('it:fs:file', ('guid', {}), {
                     'doc': 'A file on a host.'
                 }),
                 ('it:exec:file:add', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host adding a file to a filesystem.',
                 }),
                 ('it:exec:file:del', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host deleting a file from a filesystem.',
                 }),
                 ('it:exec:file:read', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host reading a file from a filesystem.',
                 }),
                 ('it:exec:file:write', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host writing a file to a filesystem.',
                 }),
                 ('it:exec:reg:get', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host getting a registry key.',
                 }),
                 ('it:exec:reg:set', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host creating or setting a registry key.',
                 }),
                 ('it:exec:reg:del', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host deleting a registry key.',
                 }),
                 ('it:app:yara:rule', ('guid', {}), {
@@ -1128,10 +1143,11 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK group.',
                     }),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK group ID.',
-                        'ex': 'cno.mitre.g0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use a risk:threat:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK group.',
                     }),
@@ -1156,12 +1172,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK tactic.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK tactic.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK tactic.',
-                        'ex': 'cno.mitre.ta0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
                     }),
@@ -1184,12 +1200,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK technique.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK technique.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK technique.',
-                        'ex': 'cno.mitre.t0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:technique:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK technique.',
                     }),
@@ -1219,12 +1235,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'If deprecated, this field may contain the current value for the software.',
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK software.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK software.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK software.',
-                        'ex': 'cno.mitre.s0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:tool:software:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK software.',
                     }),
@@ -1246,12 +1262,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK mitigation.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK mitigation.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK mitigation.',
-                        'ex': 'cno.mitre.m0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK mitigation.',
                     }),
@@ -1299,10 +1315,11 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time that the campaign was created by Mitre.'}),
                     ('updated', ('time', {}), {
                         'doc': 'The time that the campaign was last updated by Mitre.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK campaign.',
-                        'ex': 'cno.mitre.c0028',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:campaign:tag.'}),
+
                 )),
                 ('it:mitre:attack:flow', {}, (
                     ('name', ('str', {}), {

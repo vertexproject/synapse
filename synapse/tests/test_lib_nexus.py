@@ -1,9 +1,13 @@
+import asyncio
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
+import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tests.utils as s_t_utils
 
