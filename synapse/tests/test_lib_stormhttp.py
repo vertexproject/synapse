@@ -1,5 +1,4 @@
 import os
-import ssl
 import json
 import shutil
 
@@ -65,8 +64,8 @@ class StormHttpTest(s_test.SynTest):
 
             # Header and params as dict
             q = '''
-            $params=({"key": "valu", "foo": "bar", "baz": $lib.false})
-            $hdr = ({"true": $lib.true})
+            $params=$lib.dict(key=valu, foo=bar, baz=$lib.false)
+            $hdr = $lib.dict(true=$lib.true)
             $hdr."User-Agent"="Storm HTTP Stuff"
             $k = (0)
             $hdr.$k="Why"
@@ -241,7 +240,7 @@ class StormHttpTest(s_test.SynTest):
             opts = {'vars': {'url': url, 'noauth_url': noauth_url, 'newp_url': newp_url}}
 
             q = '''
-            $params=({"key": "valu", "foo": "bar"})
+            $params=$lib.dict(key=valu, foo=bar)
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -257,7 +256,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq('1', headers.get('Head'))
 
             q = '''
-            $params=({"key": "valu", "redirect": 'http://test.newp/'})
+            $params=$lib.dict(key=valu, redirect='http://test.newp/')
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -274,7 +273,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq('http://test.newp/', headers.get('Location'))
 
             q = '''
-            $params=({"key": "valu", "redirect": $noauth_url})
+            $params=$lib.dict(key=valu, redirect=$noauth_url)
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -287,7 +286,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(b'', body)
 
             q = '''
-            $params=({"key": "valu", "redirect": $newp_url})
+            $params=$lib.dict(key=valu, redirect=$newp_url)
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -300,7 +299,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(b'', body)
 
             q = '''
-            $params=({"key": "valu", "redirect": "http://127.0.0.1/newp"})
+            $params=$lib.dict(key=valu, redirect="http://127.0.0.1/newp")
             $hdr = (
                 ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -322,7 +321,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url}}
             q = '''
-            $params=({"key": "valu", "foo": "bar"})
+            $params=$lib.dict(key=valu, foo=bar)
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -338,7 +337,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url, 'sleep': 1, 'timeout': 2}}
             q = '''
-            $params=({"key": "valu", "foo": "bar", "sleep": $sleep})
+            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -352,7 +351,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url, 'sleep': 10, 'timeout': 1}}
             q = '''
-            $params=({"key": "valu", "foo": "bar", "sleep": $sleep})
+            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
             )
@@ -375,7 +374,7 @@ class StormHttpTest(s_test.SynTest):
 
             adduser = '''
                 $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
-                $user = ({"name": $name, "passwd": $passwd})
+                $user = $lib.dict(name=$name, passwd=$passwd)
                 $post = $lib.inet.http.post($url, json=$user, ssl_verify=$(0)).json().result.name
                 $lib.print($post)
                 [ test:str=$post ]
@@ -388,7 +387,7 @@ class StormHttpTest(s_test.SynTest):
             adduser = '''
                 $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/auth/adduser", port=$port)
                 $user = $lib.str.format('{"name": "{name}", "passwd": "{passwd}"}', name=$name, passwd=$passwd)
-                $header = ({"Content-Type": "application/json"})
+                $header = $lib.dict("Content-Type"="application/json")
                 $post = $lib.inet.http.post($url, headers=$header, body=$user,  ssl_verify=$(0)).json().result.name
                 [ test:str=$post ]
             '''
@@ -401,7 +400,7 @@ class StormHttpTest(s_test.SynTest):
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url, 'buf': b'1234'}}
             q = '''
-            $params=({"key": "valu", "foo": "bar"})
+            $params=$lib.dict(key=valu, foo=bar)
             $resp = $lib.inet.http.post($url, params=$params, body=$buf, ssl_verify=$lib.false)
             return ( $resp.json() )
             '''
@@ -412,9 +411,9 @@ class StormHttpTest(s_test.SynTest):
 
             q = '''
             $fields=$lib.list(
-                ({"name": "foo", "value": "bar"}),
-                ({"name": "foo", "value": "bar2"}),
-                ({"name": "baz", "value": "cool"})
+                $lib.dict(name=foo, value=bar),
+                $lib.dict(name=foo, value=bar2),
+                $lib.dict(name=baz, value=cool)
             )
             $resp = $lib.inet.http.post($url, fields=$fields, ssl_verify=$lib.false)
             return ( $resp.json() )
@@ -467,8 +466,8 @@ class StormHttpTest(s_test.SynTest):
             await root.setPasswd('root')
             text = '''
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
-            $stormq = "($size, $sha2) = $lib.axon.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
-            $json = ({"query": $stormq})
+            $stormq = "($size, $sha2) = $lib.bytes.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
+            $json = $lib.dict(query=$stormq)
             $bytez = $lib.inet.http.post($url, json=$json, ssl_verify=$(0))
             '''
             opts = {'vars': {'port': port}}
@@ -483,7 +482,7 @@ class StormHttpTest(s_test.SynTest):
 
             text = '''
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
-            $json = ({"query": "test:str"})
+            $json = $lib.dict(query="test:str")
             $body = $json
             $resp=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
             return ( ($resp.code, $resp.err) )
@@ -616,7 +615,7 @@ class StormHttpTest(s_test.SynTest):
                 $hdr = ( { "key": $lib.false } )
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params)
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
@@ -632,7 +631,7 @@ class StormHttpTest(s_test.SynTest):
                 $hdr = ( { "key": $lib.false } )
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, ssl_verify=$lib.false)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
@@ -646,7 +645,7 @@ class StormHttpTest(s_test.SynTest):
             query = '''
             $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy, ssl_verify=$lib.false)
+            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy)
             if (not $ok) { $lib.exit($sock) }
 
             ($ok, $mesg) = $sock.rx()
@@ -673,165 +672,3 @@ class StormHttpTest(s_test.SynTest):
             with self.raises(s_stormctrl.StormExit) as cm:
                 await core.callStorm(query, opts=opts)
             self.isin('connect to proxy 127.0.0.1:1', str(cm.exception))
-
-    async def test_storm_http_mtls(self):
-
-        with self.getTestDir() as dirn:
-
-            cdir = s_common.gendir(dirn, 'certs')
-            cadir = s_common.gendir(cdir, 'cas')
-            tdir = s_certdir.CertDir(cdir)
-            tdir.genCaCert('somelocalca')
-            tdir.genHostCert('localhost', signas='somelocalca')
-
-            localkeyfp = tdir.getHostKeyPath('localhost')
-            localcertfp = tdir.getHostCertPath('localhost')
-            pkeypath = shutil.copyfile(localkeyfp, s_common.genpath(dirn, 'sslkey.pem'))
-            certpath = shutil.copyfile(localcertfp, s_common.genpath(dirn, 'sslcert.pem'))
-
-            tlscadir = s_common.gendir(dirn, 'cadir')
-            cacertpath = shutil.copyfile(os.path.join(cadir, 'somelocalca.crt'), os.path.join(tlscadir, 'somelocalca.crt'))
-
-            pkey, cert = tdir.genUserCert('someuser', signas='somelocalca')
-            user_pkey = tdir._pkeyToByts(pkey).decode()
-            user_cert = tdir._certToByts(cert).decode()
-
-            user_fullchain = user_cert + s_common.getbytes(cacertpath).decode()
-            user_fullchain_key = user_fullchain + user_pkey
-
-            conf = {'tls:ca:dir': tlscadir}
-            async with self.getTestCore(dirn=dirn, conf=conf) as core:
-
-                sslctx = core.initSslCtx(certpath, pkeypath)
-                sslctx.load_verify_locations(cafile=cacertpath)
-
-                addr, port = await core.addHttpsPort(0, sslctx=sslctx)
-                root = await core.auth.getUserByName('root')
-                await root.setPasswd('root')
-
-                core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
-                core.addHttpApi('/test/ws', TstWebSock, {})
-
-                sslopts = {}
-
-                opts = {
-                    'vars': {
-                        'url': f'https://root:root@localhost:{port}/api/v0/test',
-                        'ws': f'https://localhost:{port}/test/ws',
-                        'verify': True,
-                        'sslopts': sslopts,
-                    },
-                }
-
-                q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
-
-                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
-                opts['vars']['sha256'] = sha256
-
-                # mtls required
-
-                sslctx.verify_mode = ssl.CERT_REQUIRED
-
-                ## no client cert provided
-                resp = await core.callStorm(q, opts=opts)
-                self.eq(-1, resp['code'])
-                self.isin('tlsv13 alert certificate required', resp['reason'])
-
-                ## full chain cert w/key
-                sslopts['client_cert'] = user_fullchain_key
-                resp = await core.callStorm(q, opts=opts)
-                self.eq(200, resp['code'])
-
-                ## separate cert and key
-                sslopts['client_cert'] = user_fullchain
-                sslopts['client_key'] = user_pkey
-                resp = await core.callStorm(q, opts=opts)
-                self.eq(200, resp['code'])
-
-                ## sslctx's are cached
-                self.len(3, core._sslctx_cache)
-                resp = await core.callStorm(q, opts=opts)
-                self.eq(200, resp['code'])
-                self.len(3, core._sslctx_cache)
-
-                ## remaining methods
-                self.eq(200, await core.callStorm('return($lib.inet.http.post($url, ssl_opts=$sslopts).code)', opts=opts))
-                self.eq(200, await core.callStorm('return($lib.inet.http.head($url, ssl_opts=$sslopts).code)', opts=opts))
-                self.eq(200, await core.callStorm('return($lib.inet.http.request(get, $url, ssl_opts=$sslopts).code)', opts=opts))
-
-                ## connect
-                ret = await core.callStorm('''
-                    ($ok, $sock) = $lib.inet.http.connect($ws, ssl_opts=$sslopts)
-                    if (not $ok) { return(($ok, $sock)) }
-                    ($ok, $mesg) = $sock.rx()
-                    return(($ok, $mesg))
-                ''', opts=opts)
-                self.true(ret[0])
-                self.eq('woot', ret[1]['hi'])
-
-                # Axon APIs
-
-                axon_queries = {
-                    'postfile': '''
-                        $fields = ([{"name": "file", "sha256": $sha256}])
-                        return($lib.inet.http.post($url, fields=$fields, ssl_opts=$sslopts).code)
-                    ''',
-                    'wget': 'return($lib.axon.wget($url, ssl_opts=$sslopts).code)',
-                    'wput': 'return($lib.axon.wput($sha256, $url, method=POST, ssl_opts=$sslopts).code)',
-                    'urlfile': 'yield $lib.axon.urlfile($url, ssl_opts=$sslopts)',
-                }
-
-                ## version check fails
-                try:
-                    oldv = core.axoninfo['synapse']['version']
-                    core.axoninfo['synapse']['version'] = (2, 161, 0)
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['postfile'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wget'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wput'], opts=opts))
-                    await self.asyncraises(s_exc.BadVersion, core.nodes(axon_queries['urlfile'], opts=opts))
-                finally:
-                    core.axoninfo['synapse']['version'] = oldv
-
-                ## version check succeeds
-                # todo: setting the synapse version can be removed once ssl_opts is released
-                try:
-                    oldv = core.axoninfo['synapse']['version']
-                    core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
-                    self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
-                    self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
-                    self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
-                    self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
-                finally:
-                    core.axoninfo['synapse']['version'] = oldv
-
-                # verify arg precedence
-
-                core.conf.pop('tls:ca:dir')
-                core._sslctx_cache.clear()
-
-                ## fail w/o ca
-                resp = await core.callStorm(q, opts=opts)
-                self.eq(-1, resp['code'])
-                self.isin('self-signed certificate', resp['reason'])
-
-                ## verify arg wins
-                opts['vars']['verify'] = False
-                sslopts['verify'] = True
-                resp = await core.callStorm(q, opts=opts)
-                self.eq(200, resp['code'])
-
-                # bad opts
-
-                ## schema violation
-                sslopts['newp'] = 'wut'
-                await self.asyncraises(s_exc.SchemaViolation, core.callStorm(q, opts=opts))
-                sslopts.pop('newp')
-
-                ## missing key
-                sslopts['client_cert'] = user_fullchain
-                sslopts['client_key'] = None
-                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
-
-                ## bad cert
-                sslopts['client_cert'] = 'not-gonna-work'
-                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))

@@ -247,7 +247,7 @@ _DefaultConfig = {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'size': '+:size return(:size)',
                         'hashes': '''
-                            init { $dict = ({}) }
+                            init { $dict = $lib.dict() }
                             { +:md5 $dict.MD5 = :md5 }
                             { +:sha1 $dict."SHA-1" = :sha1 }
                             { +:sha256 $dict."SHA-256" = :sha256 }
@@ -392,7 +392,7 @@ _DefaultConfig = {
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list(({"source_name": "cve", "external_id": $cve})) return($list) }'
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list($lib.dict(source_name=cve, external_id=$cve)) return($list) }'
                     },
                     'rels': (
 
@@ -872,7 +872,6 @@ class LibStixImport(s_stormtypes.Lib):
         if config is None:
             config = stixingest
 
-        bundle = await s_stormtypes.toprim(bundle)
         config = await s_stormtypes.toprim(config)
 
         config.setdefault('bundle', {})
@@ -1405,10 +1404,7 @@ class StixBundle(s_stormtypes.Prim):
 
     async def _callStorm(self, text, node):
 
-        varz = self.runt.getScopeVars()
-        varz['bundle'] = self
-
-        opts = {'vars': varz}
+        opts = {'vars': {'bundle': self}}
         query = await self.runt.snap.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 

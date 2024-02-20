@@ -14,8 +14,6 @@ This section provides a brief overview / tutorial of some basic Storm queries to
 
 The sample queries below are meant to help users new to Synapse and Storm get started examining forms and tags within a Cortex. The queries all use standard Storm syntax and operations (such as pivots). For more detail on using Storm, see :ref:`storm-ref-intro` and related Storm topics.
 
-.. _introspect-data-model:
-
 Data Model
 ----------
 
@@ -99,8 +97,6 @@ Example Queries
 
 .. storm-cli:: syn:form = inet:whois:rec -> syn:prop:type :form -> syn:form
 
-
-.. _introspect-analytical-model:
 
 Analytical Model
 ----------------

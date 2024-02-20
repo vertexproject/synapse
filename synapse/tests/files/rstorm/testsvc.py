@@ -8,17 +8,10 @@ class TestsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
         {
             'name': 'testsvc',
             'version': (0, 0, 1),
-            'onload': '''
-                $lib.time.sleep($lib.globals.get(onload_sleep, 0))
-                $lib.globals.set(testsvc, testsvc-done)
-            ''',
             'commands': (
                 {
                     'name': 'testsvc.test',
-                    'storm': '''
-                        $lib.print($lib.service.get($cmdconf.svciden).test())
-                        $lib.print($lib.globals.get(testsvc))
-                    ''',
+                    'storm': '$lib.print($lib.service.get($cmdconf.svciden).test())',
                 },
             )
         },

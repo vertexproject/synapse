@@ -96,7 +96,6 @@ reqValidLdef = s_config.getJsValidator({
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'created': {'type': 'integer', 'minimum': 0},
         'lockmemory': {'type': 'boolean'},
         'lmdb:growsize': {'type': 'integer'},
         'logedits': {'type': 'boolean', 'default': True},
@@ -279,23 +278,61 @@ class IndxBy:
     def getStorType(self):
         raise s_exc.NoSuchImpl(name='getStorType')
 
-    def keyNidsByDups(self, indx, reverse=False):
-        if reverse:
-            yield from self.layr.layrslab.scanByDupsBack(self.abrv + indx, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db)
+    def keyBuidsByDups(self, indx):
+        yield from self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db)
 
-    def keyNidsByPref(self, indx=b'', reverse=False):
-        if reverse:
-            yield from self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+    # TODO rename these...
+    def keyBuidsByDupsBack(self, indx):
+        yield from self.layr.layrslab.scanByDupsBack(self.abrv + indx, db=self.db)
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
-        if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByRange(self.abrv + minindx, lmax=self.abrv + maxindx, db=self.db)
+    def buidsByDups(self, indx):
+        for _, buid in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
+            yield buid
+
+    def keyBuidsByPref(self, indx=b''):
+        yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
+
+    def keyBuidsByPrefBack(self, indx=b''):
+        yield from self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db)
+
+    def buidsByPref(self, indx=b''):
+        for _, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
+            yield buid
+
+    def keyBuidsByRange(self, minindx, maxindx):
+        yield from self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db)
+
+    def buidsByRange(self, minindx, maxindx):
+        yield from (x[1] for x in self.keyBuidsByRange(minindx, maxindx))
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        '''
+        Yields backwards from maxindx to minindx
+        '''
+        yield from self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db)
+
+    def buidsByRangeBack(self, minindx, maxindx):
+        yield from (x[1] for x in self.keyBuidsByRangeBack(minindx, maxindx))
+
+    def scanByDups(self, indx):
+        for item in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
+            yield item
+
+    def scanByPref(self, indx=b''):
+        for item in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
+            yield item
+
+    def scanByPrefBack(self, indx=b''):
+        for item in self.layr.layrslab.scanByPrefBack(self.abrv + indx, db=self.db):
+            yield item
+
+    def scanByRange(self, minindx, maxindx):
+        for item in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
+            yield item
+
+    def scanByRangeBack(self, minindx, maxindx):
+        for item in self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db):
+            yield item
 
     def hasIndxNid(self, indx, nid):
         return self.layr.layrslab.hasdup(self.abrv + indx, nid, db=self.db)
@@ -408,13 +445,15 @@ class IndxByPropArray(IndxBy):
 
 class IndxByPropIvalMin(IndxByProp):
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    def keyBuidsByRange(self, minindx, maxindx):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
+        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
+        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
 
 class IndxByPropIvalMax(IndxBy):
 
@@ -454,13 +493,15 @@ class IndxByTagIval(IndxBy):
 
 class IndxByTagIvalMin(IndxByTagIval):
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    def keyBuidsByRange(self, minindx, maxindx):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
+        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
+        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
 
 class IndxByTagIvalMax(IndxBy):
 
@@ -521,13 +562,15 @@ class IndxByTagProp(IndxBy):
 
 class IndxByTagPropIvalMin(IndxByTagProp):
 
-    def keyNidsByRange(self, minindx, maxindx, reverse=False):
+    def keyBuidsByRange(self, minindx, maxindx):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        if reverse:
-            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
-        else:
-            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
+        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
+        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
 
 class IndxByTagPropIvalMax(IndxBy):
 
@@ -631,7 +674,12 @@ class StorType:
         abrvlen = liftby.abrvlen
         isarray = isinstance(liftby, IndxByPropArray)
 
-        for lkey, nid in liftby.keyNidsByPref(reverse=reverse):
+        if reverse:
+            scan = liftby.keyBuidsByPrefBack
+        else:
+            scan = liftby.keyBuidsByPref
+
+        for lkey, nid in scan():
 
             await asyncio.sleep(0)
 
@@ -676,19 +724,34 @@ class StorTypeUtf8(StorType):
         })
 
     async def _liftUtf8Eq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         indx = self._getIndxByts(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     async def _liftUtf8Range(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minindx = self._getIndxByts(valu[0])
         maxindx = self._getIndxByts(valu[1])
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        for item in scan(minindx, maxindx):
             yield item
 
     async def _liftUtf8Prefix(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByPrefBack
+        else:
+            scan = liftby.keyBuidsByPref
+
         indx = self._getIndxByts(valu)
-        for item in liftby.keyNidsByPref(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     def _getIndxByts(self, valu):
@@ -734,13 +797,23 @@ class StorTypeHier(StorType):
         return bytz.decode()[:-len(self.sepr)]
 
     async def _liftHierEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         indx = self.getHierIndx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     async def _liftHierPref(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByPrefBack
+        else:
+            scan = liftby.keyBuidsByPref
+
         indx = self.getHierIndx(valu)
-        for item in liftby.keyNidsByPref(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
 class StorTypeLoc(StorTypeHier):
@@ -774,8 +847,13 @@ class StorTypeFqdn(StorTypeUtf8):
     async def _liftFqdnEq(self, liftby, valu, reverse=False):
 
         if valu[0] == '*':
+            if reverse:
+                scan = liftby.keyBuidsByPrefBack
+            else:
+                scan = liftby.keyBuidsByPref
+
             indx = self._getIndxByts(valu[1:][::-1])
-            for item in liftby.keyNidsByPref(indx, reverse=reverse):
+            for item in scan(indx):
                 yield item
             return
 
@@ -808,45 +886,73 @@ class StorTypeIpv6(StorType):
         return str(ipaddress.IPv6Address(bytz))
 
     async def _liftIPv6Eq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         indx = self.getIPv6Indx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     async def _liftIPv6Range(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minindx = self.getIPv6Indx(valu[0])
         maxindx = self.getIPv6Indx(valu[1])
-
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        for item in scan(minindx, maxindx):
             yield item
 
     async def _liftIPv6Lt(self, liftby, norm, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minindx = self.getIPv6Indx('::')
         maxindx = self.getIPv6Indx(norm)
         maxindx = (int.from_bytes(maxindx) - 1).to_bytes(16)
-
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        for item in scan(minindx, maxindx):
             yield item
 
     async def _liftIPv6Gt(self, liftby, norm, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minindx = self.getIPv6Indx(norm)
         minindx = (int.from_bytes(minindx) + 1).to_bytes(16)
         maxindx = self.getIPv6Indx('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        for item in scan(minindx, maxindx):
             yield item
 
     async def _liftIPv6Le(self, liftby, norm, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minindx = self.getIPv6Indx('::')
         maxindx = self.getIPv6Indx(norm)
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        for item in scan(minindx, maxindx):
             yield item
 
     async def _liftIPv6Ge(self, liftby, norm, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minindx = self.getIPv6Indx(norm)
         maxindx = self.getIPv6Indx('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        for item in scan(minindx, maxindx):
             yield item
 
 class StorTypeInt(StorType):
@@ -890,8 +996,13 @@ class StorTypeInt(StorType):
         if indx < 0 or indx > self.maxval:
             return
 
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         pkey = indx.to_bytes(self.size, 'big')
-        for item in liftby.keyNidsByDups(pkey, reverse=reverse):
+        for item in scan(pkey):
             yield item
 
     async def _liftIntGt(self, liftby, valu, reverse=False):
@@ -903,11 +1014,16 @@ class StorTypeInt(StorType):
         if minv > self.maxval:
             return
 
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minv = max(minv, 0)
 
-        minindx = minv.to_bytes(self.size, 'big')
-        maxindx = self.fullbyts
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        pkeymin = minv.to_bytes(self.size, 'big')
+        pkeymax = self.fullbyts
+        for item in scan(pkeymin, pkeymax):
             yield item
 
     async def _liftIntLt(self, liftby, valu, reverse=False):
@@ -919,11 +1035,16 @@ class StorTypeInt(StorType):
         if maxv < 0:
             return
 
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         maxv = min(maxv, self.maxval)
 
-        minindx = self.zerobyts
-        maxindx = maxv.to_bytes(self.size, 'big')
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        pkeymin = self.zerobyts
+        pkeymax = maxv.to_bytes(self.size, 'big')
+        for item in scan(pkeymin, pkeymax):
             yield item
 
     async def _liftIntRange(self, liftby, valu, reverse=False):
@@ -932,12 +1053,17 @@ class StorTypeInt(StorType):
         if minv > self.maxval or maxv < 0:
             return
 
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minv = max(minv, 0)
         maxv = min(maxv, self.maxval)
 
-        minindx = minv.to_bytes(self.size, 'big')
-        maxindx = maxv.to_bytes(self.size, 'big')
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        pkeymin = minv.to_bytes(self.size, 'big')
+        pkeymax = maxv.to_bytes(self.size, 'big')
+        for item in scan(pkeymin, pkeymax):
             yield item
 
 class StorTypeHugeNum(StorType):
@@ -973,8 +1099,13 @@ class StorTypeHugeNum(StorType):
         return '{:f}'.format(valu.normalize(s_common.hugectx))
 
     async def _liftHugeEq(self, liftby, valu, reverse=False):
-        indx = self.getHugeIndx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
+        byts = self.getHugeIndx(valu)
+        for item in scan(byts):
             yield item
 
     async def _liftHugeGt(self, liftby, valu, reverse=False):
@@ -988,19 +1119,36 @@ class StorTypeHugeNum(StorType):
             yield item
 
     async def _liftHugeGe(self, liftby, valu, reverse=False):
-        minindx = self.getHugeIndx(valu)
-        for item in liftby.keyNidsByRange(minindx, self.fullbyts, reverse=reverse):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        pkeymin = self.getHugeIndx(valu)
+        pkeymax = self.fullbyts
+        for item in scan(pkeymin, pkeymax):
             yield item
 
     async def _liftHugeLe(self, liftby, valu, reverse=False):
-        maxindx = self.getHugeIndx(valu)
-        for item in liftby.keyNidsByRange(self.zerobyts, maxindx, reverse=reverse):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        pkeymin = self.zerobyts
+        pkeymax = self.getHugeIndx(valu)
+        for item in scan(pkeymin, pkeymax):
             yield item
 
     async def _liftHugeRange(self, liftby, valu, reverse=False):
-        minindx = self.getHugeIndx(valu[0])
-        maxindx = self.getHugeIndx(valu[1])
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        pkeymin = self.getHugeIndx(valu[0])
+        pkeymax = self.getHugeIndx(valu[1])
+        for item in scan(pkeymin, pkeymax):
             yield item
 
 class StorTypeFloat(StorType):
@@ -1035,7 +1183,12 @@ class StorTypeFloat(StorType):
         return self.FloatPacker.unpack(bytz)[0]
 
     async def _liftFloatEq(self, liftby, valu, reverse=False):
-        for item in liftby.keyNidsByDups(self.fpack(valu), reverse=reverse):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
+        for item in scan(self.fpack(valu)):
             yield item
 
     async def _liftFloatGeCommon(self, liftby, valu, reverse=False):
@@ -1046,21 +1199,21 @@ class StorTypeFloat(StorType):
 
         if reverse:
             if math.copysign(1.0, valu) < 0.0:  # negative values and -0.0
-                for item in liftby.keyNidsByRange(self.FloatPackPosMin, self.FloatPackPosMax, reverse=True):
+                for item in liftby.keyBuidsByRangeBack(self.FloatPackPosMin, self.FloatPackPosMax):
                     yield item
-                for item in liftby.keyNidsByRange(self.FloatPackNegMax, valupack):
+                for item in liftby.keyBuidsByRange(self.FloatPackNegMax, valupack):
                     yield item
             else:
-                for item in liftby.keyNidsByRange(valupack, self.FloatPackPosMax, reverse=True):
+                for item in liftby.keyBuidsByRangeBack(valupack, self.FloatPackPosMax):
                     yield item
 
         else:
             if math.copysign(1.0, valu) < 0.0:  # negative values and -0.0
-                for item in liftby.keyNidsByRange(self.FloatPackNegMax, valupack, reverse=True):
+                for item in liftby.keyBuidsByRangeBack(self.FloatPackNegMax, valupack):
                     yield item
                 valupack = self.FloatPackPosMin
 
-            for item in liftby.keyNidsByRange(valupack, self.FloatPackPosMax):
+            for item in liftby.keyBuidsByRange(valupack, self.FloatPackPosMax):
                 yield item
 
     async def _liftFloatGe(self, liftby, valu, reverse=False):
@@ -1083,20 +1236,20 @@ class StorTypeFloat(StorType):
 
         if reverse:
             if math.copysign(1.0, valu) > 0.0:
-                for item in liftby.keyNidsByRange(self.FloatPackPosMin, valupack, reverse=True):
+                for item in liftby.keyBuidsByRangeBack(self.FloatPackPosMin, valupack):
                     yield item
                 valupack = self.FloatPackNegMax
 
-            for item in liftby.keyNidsByRange(valupack, self.FloatPackNegMin):
+            for item in liftby.keyBuidsByRange(valupack, self.FloatPackNegMin):
                 yield item
         else:
             if math.copysign(1.0, valu) > 0.0:
-                for item in liftby.keyNidsByRange(self.FloatPackNegMax, self.FloatPackNegMin, reverse=True):
+                for item in liftby.keyBuidsByRangeBack(self.FloatPackNegMax, self.FloatPackNegMin):
                     yield item
-                for item in liftby.keyNidsByRange(self.FloatPackPosMin, valupack):
+                for item in liftby.keyBuidsByRange(self.FloatPackPosMin, valupack):
                     yield item
             else:
-                for item in liftby.keyNidsByRange(valupack, self.FloatPackNegMin, reverse=True):
+                for item in liftby.keyBuidsByRangeBack(valupack, self.FloatPackNegMin):
                     yield item
 
     async def _liftFloatLe(self, liftby, valu, reverse=False):
@@ -1123,32 +1276,40 @@ class StorTypeFloat(StorType):
 
         if math.copysign(1.0, valumin) > 0.0:
             # Entire range is nonnegative
-            for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
-                yield item
+            if reverse:
+                for item in liftby.keyBuidsByRangeBack(pkeymin, pkeymax):
+                    yield item
+            else:
+                for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+                    yield item
             return
 
         if math.copysign(1.0, valumax) < 0.0:  # negative values and -0.0
             # Entire range is negative
-            for item in liftby.keyNidsByRange(pkeymax, pkeymin, reverse=(not reverse)):
-                yield item
+            if reverse:
+                for item in liftby.keyBuidsByRange(pkeymax, pkeymin):
+                    yield item
+            else:
+                for item in liftby.keyBuidsByRangeBack(pkeymax, pkeymin):
+                    yield item
             return
 
         if reverse:
             # Yield all values between max and 0
-            for item in liftby.keyNidsByRange(self.FloatPackPosMin, pkeymax, reverse=True):
+            for item in liftby.keyBuidsByRangeBack(self.FloatPackPosMin, pkeymax):
                 yield item
 
             # Yield all values between -0 and min
-            for item in liftby.keyNidsByRange(self.FloatPackNegMax, pkeymin):
+            for item in liftby.keyBuidsByRange(self.FloatPackNegMax, pkeymin):
                 yield item
 
         else:
             # Yield all values between min and -0
-            for item in liftby.keyNidsByRange(self.FloatPackNegMax, pkeymin, reverse=True):
+            for item in liftby.keyBuidsByRangeBack(self.FloatPackNegMax, pkeymin):
                 yield item
 
             # Yield all values between 0 and max
-            for item in liftby.keyNidsByRange(self.FloatPackPosMin, pkeymax):
+            for item in liftby.keyBuidsByRange(self.FloatPackPosMin, pkeymax):
                 yield item
 
 class StorTypeGuid(StorType):
@@ -1161,13 +1322,23 @@ class StorTypeGuid(StorType):
         })
 
     async def _liftGuidPref(self, liftby, byts, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByPrefBack
+        else:
+            scan = liftby.keyBuidsByPref
+
         # valu is already bytes of the guid prefix
-        for item in liftby.keyNidsByPref(byts, reverse=reverse):
+        for item in scan(byts):
             yield item
 
     async def _liftGuidEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         indx = s_common.uhex(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     def indx(self, valu):
@@ -1188,9 +1359,14 @@ class StorTypeTime(StorTypeInt):
         })
 
     async def _liftAtIval(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.scanByRangeBack
+        else:
+            scan = liftby.scanByRange
+
         minindx = self.getIntIndx(valu[0])
         maxindx = self.getIntIndx(valu[1] - 1)
-        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+        for item in scan(minindx, maxindx):
             yield item
 
 class StorTypeIval(StorType):
@@ -1277,18 +1453,28 @@ class StorTypeIval(StorType):
             yield item
 
     async def _liftIvalEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         indx = self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1])
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     async def _liftIvalAt(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         minindx = self.timetype.getIntIndx(valu[0])
         maxindx = self.timetype.getIntIndx(valu[1] - 1)
 
         pkeymin = self.timetype.zerobyts * 2
         pkeymax = maxindx + self.timetype.fullbyts
 
-        for lkey, nid in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        for lkey, nid in scan(pkeymin, pkeymax):
 
             # check for non-overlap right
             if lkey[-8:] <= minindx:
@@ -1297,8 +1483,13 @@ class StorTypeIval(StorType):
             yield lkey, nid
 
     async def _liftIvalPartEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByPrefBack
+        else:
+            scan = liftby.keyBuidsByPref
+
         indx = self.timetype.getIntIndx(valu)
-        for item in liftby.keyNidsByPref(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     async def _liftIvalPartGt(self, liftby, valu, reverse=False):
@@ -1306,9 +1497,16 @@ class StorTypeIval(StorType):
             yield item
 
     async def _liftIvalPartGe(self, liftby, valu, reverse=False):
-        pkeymin = self.timetype.getIntIndx(max(valu, 0))
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        minv = max(valu, 0)
+
+        pkeymin = self.timetype.getIntIndx(minv)
         pkeymax = self.timetype.maxbyts
-        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        for item in scan(pkeymin, pkeymax):
             yield item
 
     async def _liftIvalPartLt(self, liftby, valu, reverse=False):
@@ -1316,17 +1514,27 @@ class StorTypeIval(StorType):
             yield item
 
     async def _liftIvalPartLe(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         maxv = min(valu, self.timetype.maxval)
 
         pkeymin = self.timetype.zerobyts
         pkeymax = self.timetype.getIntIndx(maxv)
-        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        for item in scan(pkeymin, pkeymax):
             yield item
 
     async def _liftIvalPartAt(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
         pkeymin = self.timetype.getIntIndx(valu[0])
         pkeymax = self.timetype.getIntIndx(valu[1])
-        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
+        for item in scan(pkeymin, pkeymax):
             yield item
 
     def indx(self, valu):
@@ -1345,8 +1553,13 @@ class StorTypeMsgp(StorType):
         })
 
     async def _liftMsgpEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         indx = s_common.buid(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     def indx(self, valu):
@@ -1367,8 +1580,13 @@ class StorTypeLatLon(StorType):
         })
 
     async def _liftLatLonEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
         indx = self._getLatLonIndx(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        for item in scan(indx):
             yield item
 
     async def _liftLatLonNear(self, liftby, valu, reverse=False):
@@ -1386,8 +1604,13 @@ class StorTypeLatLon(StorType):
         latminindx = (round(latmin * self.scale) + self.latspace).to_bytes(5, 'big')
         latmaxindx = (round(latmax * self.scale) + self.latspace).to_bytes(5, 'big')
 
+        if reverse:
+            scan = liftby.scanByRangeBack
+        else:
+            scan = liftby.scanByRange
+
         # scan by lon range and down-select the results to matches.
-        for lkey, nid in liftby.keyNidsByRange(lonminindx, lonmaxindx, reverse=reverse):
+        for lkey, nid in scan(lonminindx, lonmaxindx):
 
             # lkey = <abrv> <lonindx> <latindx>
 
@@ -1471,6 +1694,7 @@ class Layer(s_nexus.Pusher):
         self.fresh = not os.path.exists(path)
 
         self.dirty = {}
+        self.futures = {}
 
         self.stortypes = [
 
@@ -1533,11 +1757,19 @@ class Layer(s_nexus.Pusher):
         self.ctorname = f'{self.__class__.__module__}.{self.__class__.__name__}'
 
         self.windows = []
+        self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
         self.nidcache = s_cache.LruDict(NID_CACHE_SIZE)
         self.weakcache = weakref.WeakValueDictionary()
 
         self.onfini(self._onLayrFini)
+
+        # if we are a mirror, we upstream all our edits and
+        # wait for them to make it back down the pipe...
+        self.leader = None
+        self.leadtask = None
+        self.ismirror = layrinfo.get('mirror') is not None
+        self.activetasks = []
 
         # this must be last!
         self.readonly = layrinfo.get('readonly')
@@ -1547,8 +1779,110 @@ class Layer(s_nexus.Pusher):
             mesg = f'Layer {self.iden} is read only!'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+    @contextlib.contextmanager
+    def getIdenFutu(self, iden=None):
+
+        if iden is None:
+            iden = s_common.guid()
+
+        futu = self.loop.create_future()
+        self.futures[iden] = futu
+
+        try:
+            yield iden, futu
+        finally:
+            self.futures.pop(iden, None)
+
+    async def getMirrorStatus(self):
+        # TODO plumb back to upstream on not self.core.isactive
+        retn = {'mirror': self.leader is not None}
+        if self.leader:
+            proxy = await self.leader.proxy()
+            retn['local'] = {'size': await self.getEditSize()}
+            retn['remote'] = {'size': await proxy.getEditSize()}
+        return retn
+
+    async def initLayerActive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+
+        mirror = self.layrinfo.get('mirror')
+        if mirror is not None:
+            conf = {'retrysleep': 2}
+            self.leader = await s_telepath.Client.anit(mirror, conf=conf)
+            self.leadtask = self.schedCoro(self._runMirrorLoop())
+
+        uplayr = self.layrinfo.get('upstream')
+        if uplayr is not None:
+            if isinstance(uplayr, (tuple, list)):
+                for layr in uplayr:
+                    await self.initUpstreamSync(layr)
+            else:
+                await self.initUpstreamSync(uplayr)
+
+    async def initLayerPassive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+            self.leadtask = None
+
+        if self.leader is not None:
+            await self.leader.fini()
+            self.leader = None
+
+        [t.cancel() for t in self.activetasks]
+        self.activetasks.clear()
+
     async def getEditSize(self):
         return self.nodeeditlog.size
+
+    async def _runMirrorLoop(self):
+
+        while not self.isfini:
+
+            try:
+
+                proxy = await self.leader.proxy()
+
+                leadoffs = await self._getLeadOffs()
+
+                async for offs, edits, meta in proxy.syncNodeEdits2(leadoffs + 1):
+
+                    iden = meta.get('task')
+                    futu = self.futures.pop(iden, None)
+
+                    meta['indx'] = offs
+
+                    try:
+                        item = await self.saveToNexs('edits', edits, meta)
+                        if futu is not None:
+                            futu.set_result(item)
+
+                    except asyncio.CancelledError:  # pragma: no cover
+                        raise
+
+                    except s_exc.LinkShutDown:
+                        raise
+
+                    except Exception as e:
+                        if futu is not None:
+                            futu.set_exception(e)
+                            continue
+                        logger.error(f'Error consuming mirror nodeedit at offset {offs} for (layer: {self.iden}): {e}')
+
+            except asyncio.CancelledError as e:  # pragma: no cover
+                raise
+
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'error in runMirrorLoop() (layer: {self.iden}): ')
+                await self.waitfini(timeout=2)
+
+    async def _getLeadOffs(self):
+        last = self.nodeeditlog.last()
+        if last is None:
+            return -1
+        return last[1][1].get('indx', -1)
 
     async def verifyNidTag(self, nid, formname, tagname, tagvalu):
         abrv = self.core.getIndxAbrv(INDX_TAG, formname, tagname)
@@ -1649,15 +1983,15 @@ class Layer(s_nexus.Pusher):
 
         nodescan = scans.get('nodes', defconf)
         if nodescan is not None:
-            async for error in self.verifyAllNids(nodescan):
+            async for error in self.verifyAllBuids(nodescan):
                 yield error
 
-    async def verifyAllNids(self, scanconf=None):
+    async def verifyAllBuids(self, scanconf=None):
         if scanconf is None:
             scanconf = {}
 
         async for nid, sode in self.getStorNodes():
-            async for error in self.verifyByNid(nid, sode):
+            async for error in self.verifyByBuid(nid, sode):
                 yield error
 
     async def verifyAllTags(self, scanconf=None):
@@ -1942,7 +2276,7 @@ class Layer(s_nexus.Pusher):
                 yield ('NoStorTypeForTagProp', {'nid': s_common.ehex(nid), 'form': form,
                                                 'tag': tag, 'prop': prop, 'stortype': stortype})
 
-    async def verifyByNid(self, nid, sode):
+    async def verifyByBuid(self, nid, sode):
 
         await asyncio.sleep(0)
 
@@ -2004,6 +2338,8 @@ class Layer(s_nexus.Pusher):
 
     async def pack(self):
         ret = self.layrinfo.pack()
+        if ret.get('mirror'):
+            ret['mirror'] = s_urlhelp.sanitizeUrl(ret['mirror'])
         ret['offset'] = await self.getEditIndx()
         ret['totalsize'] = await self.getLayerSize()
         return ret
@@ -2215,6 +2551,9 @@ class Layer(s_nexus.Pusher):
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
+        [futu.cancel() for futu in self.futures.values()]
+        if self.leader is not None:
+            await self.leader.fini()
 
     async def getFormCounts(self):
         formcounts = {}
@@ -2555,6 +2894,24 @@ class Layer(s_nexus.Pusher):
         Note: nexsoffs will be None if there are no changes.
         '''
         self._reqNotReadOnly()
+
+        if self.ismirror:
+
+            if self.core.isactive:
+                proxy = await self.leader.proxy()
+
+                with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
+                    meta['task'] = iden
+                    moff, changes = await proxy.saveNodeEdits(edits, meta)
+                    if any(c[2] for c in changes):
+                        return await futu
+                    return None, ()
+
+            proxy = await self.core.nexsroot.client.proxy()
+            indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
+            await self.core.nexsroot.waitOffs(indx)
+            return indx, changes
+
         return await self.saveToNexs('edits', edits, meta)
 
     def _incSodeRefs(self, buid, sode, inc=1):
@@ -3709,7 +4066,7 @@ class Layer(s_nexus.Pusher):
 
     async def iterNodeDataKeys(self, nid):
         '''
-        Return a generator of all a nid's node data keys
+        Return a generator of all a buid's node data keys
         '''
         for lkey in self.dataslab.scanKeysByPref(nid, db=self.nodedata):
             abrv = lkey[8:]
@@ -3763,6 +4120,95 @@ class Layer(s_nexus.Pusher):
 
             yield nodeedit
 
+    async def initUpstreamSync(self, url):
+        self.activetasks.append(self.schedCoro(self._initUpstreamSync(url)))
+
+    async def _initUpstreamSync(self, url):
+        '''
+        We're a downstream layer, receiving a stream of edits from an upstream layer telepath proxy at url
+        '''
+
+        while not self.isfini:
+
+            try:
+
+                async with await s_telepath.openurl(url) as proxy:
+
+                    creator = self.layrinfo.get('creator')
+
+                    iden = await proxy.getIden()
+                    offs = self.offsets.get(iden)
+                    logger.warning(f'upstream sync connected ({s_urlhelp.sanitizeUrl(url)} offset={offs})')
+
+                    if offs == 0:
+                        offs = await proxy.getEditIndx()
+                        meta = {'time': s_common.now(),
+                                'user': creator,
+                                }
+
+                        async for item in proxy.iterLayerNodeEdits():
+                            await self.storNodeEditsNoLift([item], meta)
+
+                        self.offsets.set(iden, offs)
+
+                        waits = [v for k, v in self.upstreamwaits[iden].items() if k <= offs]
+                        for wait in waits:
+                            [e.set() for e in wait]
+
+                    while not proxy.isfini:
+
+                        offs = self.offsets.get(iden)
+
+                        # pump them into a queue so we can consume them in chunks
+                        q = asyncio.Queue(maxsize=1000)
+
+                        async def consume(x):
+                            try:
+                                async for item in proxy.syncNodeEdits(x):
+                                    await q.put(item)
+                            finally:
+                                await q.put(None)
+
+                        proxy.schedCoro(consume(offs))
+
+                        done = False
+                        while not done:
+
+                            # get the next item so we maybe block...
+                            item = await q.get()
+                            if item is None:
+                                break
+
+                            items = [item]
+
+                            # check if there are more we can eat
+                            for _ in range(q.qsize()):
+
+                                nexi = await q.get()
+                                if nexi is None:
+                                    done = True
+                                    break
+
+                                items.append(nexi)
+
+                            for nodeeditoffs, item in items:
+                                await self.storNodeEditsNoLift(item, {'time': s_common.now(),
+                                                                      'user': creator,
+                                                                      })
+                                self.offsets.set(iden, nodeeditoffs + 1)
+
+                                waits = self.upstreamwaits[iden].pop(nodeeditoffs + 1, None)
+                                if waits is not None:
+                                    [e.set() for e in waits]
+
+            except asyncio.CancelledError:  # pragma: no cover
+                return
+
+            except Exception:
+                logger.exception('error in initUpstreamSync loop')
+
+            await self.waitfini(1)
+
     async def _wipeNodeData(self, buid, sode):
         '''
         Remove all node data for a buid
@@ -3771,9 +4217,7 @@ class Layer(s_nexus.Pusher):
         for lkey, _ in self.dataslab.scanByPref(nid, db=self.nodedata):
             await asyncio.sleep(0)
             self._incSodeRefs(buid, sode, inc=-1)
-
             self.dataslab.delete(lkey, db=self.nodedata)
-            self.dataslab.delete(lkey[8:], nid, db=self.dataname)
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))
@@ -3788,7 +4232,7 @@ class Layer(s_nexus.Pusher):
 
     async def getStorNodes(self):
         '''
-        Yield (nid, sode) tuples for all the nodes with props/tags/tagprops stored in this layer.
+        Yield (buid, sode) tuples for all the nodes with props/tags/tagprops stored in this layer.
         '''
         # flush any dirty sodes so we can yield them from the index in nid order
         await self._saveDirtySodes()
@@ -3945,6 +4389,16 @@ class Layer(s_nexus.Pusher):
 
         return await self.nodeeditlog.waitForOffset(offs, timeout=timeout)
 
+    async def waitUpstreamOffs(self, iden, offs):
+        evnt = asyncio.Event()
+
+        if self.offsets.get(iden) >= offs:
+            evnt.set()
+        else:
+            self.upstreamwaits[iden][offs].append(evnt)
+
+        return evnt
+
     async def delete(self):
         '''
         Delete the underlying storage
@@ -3974,13 +4428,8 @@ def getNodeEditPerms(nodeedits):
     '''
     Yields (offs, perm) tuples that can be used in user.allowed()
     '''
-    tags = []
-    tagadds = []
 
     for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
-
-        tags.clear()
-        tagadds.clear()
 
         for editoffs, (edit, info, _) in enumerate(edits):
 
@@ -4003,11 +4452,7 @@ def getNodeEditPerms(nodeedits):
                 continue
 
             if edit == EDIT_TAG_SET:
-                if info[1] != (None, None):
-                    tagadds.append(info[0])
-                    yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
-                else:
-                    tags.append((len(info[0]), editoffs, info[0]))
+                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
                 continue
 
             if edit == EDIT_TAG_DEL:
@@ -4037,11 +4482,3 @@ def getNodeEditPerms(nodeedits):
             if edit == EDIT_EDGE_DEL:
                 yield (permoffs, ('node', 'edge', 'del', info[0]))
                 continue
-
-        for _, editoffs, tag in sorted(tags, reverse=True):
-            look = tag + '.'
-            if any([tagadd.startswith(look) for tagadd in tagadds]):
-                continue
-
-            yield ((nodeoffs, editoffs), ('node', 'tag', 'add', *tag.split('.')))
-            tagadds.append(tag)

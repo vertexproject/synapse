@@ -346,9 +346,6 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'The friendly name of the id number type.',
                     }),
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The official URL of the issuer.',
-                    }),
                 )),
                 ('ou:id:number', {}, (
                     ('type', ('ou:id:type', {}), {

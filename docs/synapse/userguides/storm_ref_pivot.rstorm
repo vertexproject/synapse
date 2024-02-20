@@ -798,7 +798,7 @@ Pivot from tags syntax allows you to pivot from a set of ``syn:tag`` nodes to th
 
 **Usage Notes:**
 
-- In many cases, pivot from tags is functionally equivalent to :ref:`lift-by-tag`. That is, the following queries will both return all nodes tagged with ``#aka.feye.thr.apt1``:
+- In many cases, pivot from tags is functionally equivalent to :ref:`lift-tag`. That is, the following queries will both return all nodes tagged with ``#aka.feye.thr.apt1``:
 
   ``syn:tag=aka.feye.thr.apt1 -> *``
   

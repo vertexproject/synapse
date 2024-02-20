@@ -420,8 +420,8 @@ class StormLibAuthTest(s_test.SynTest):
         async with self.getTestCore() as core:
             self.none(await core.callStorm('return($lib.user.json.get(foo))'))
             self.none(await core.callStorm('return($lib.user.json.get(foo, prop=bar))'))
-            self.true(await core.callStorm('return($lib.user.json.set(hi, ({"foo": "bar", "baz": "faz"})))'))
-            self.true(await core.callStorm('return($lib.user.json.set(bye/bye, ({"zip": "zop", "bip": "bop"})))'))
+            self.true(await core.callStorm('return($lib.user.json.set(hi, $lib.dict(foo=bar, baz=faz)))'))
+            self.true(await core.callStorm('return($lib.user.json.set(bye/bye, $lib.dict(zip=zop, bip=bop)))'))
             self.eq('bar', await core.callStorm('return($lib.user.json.get(hi, prop=foo))'))
             self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.user.json.get(hi))'))
 
@@ -454,7 +454,7 @@ class StormLibAuthTest(s_test.SynTest):
                 await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))', opts=asvisi)
 
             self.none(await core.callStorm('return($lib.user.json.get(hi))', opts=asvisi))
-            await core.callStorm('if (not $lib.user.json.has(hehe)) { $lib.user.json.set(hehe, ({})) }', opts=asvisi)
+            await core.callStorm('if (not $lib.user.json.has(hehe)) { $lib.user.json.set(hehe, $lib.dict()) }', opts=asvisi)
 
             self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
             self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))

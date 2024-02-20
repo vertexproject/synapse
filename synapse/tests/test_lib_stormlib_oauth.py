@@ -148,9 +148,9 @@ class OAuthTest(s_test.SynTest):
             $csec = boop
             $atkn = neato
             $asec = burrito
-            $headers = ({
-                "content-type": "application/json"
-            })
+            $headers = $lib.dict(
+                "content-type"="application/json"
+            )
             $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_HEADER)
             return($client.sign($url, headers=$headers))
             '''
@@ -182,13 +182,13 @@ class OAuthTest(s_test.SynTest):
             $csec = boop
             $atkn = neato
             $asec = burrito
-            $headers = ({
-                "Content-Type": "application/json"
-            })
-            $body = ({
-                'foo': 'bar',
-                'biz': 'baz',
-            })
+            $headers = $lib.dict(
+                "Content-Type"="application/json"
+            )
+            $body = $lib.dict(
+                foo = bar,
+                biz = baz,
+            )
             $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_BODY)
             return($client.sign($url, method='POST', headers=$headers, body=$body))
             '''
@@ -214,9 +214,9 @@ class OAuthTest(s_test.SynTest):
             $csec = boop
             $atkn = neato
             $asec = burrito
-            $body = ({
-                'awesome': 'possum',
-            })
+            $body = $lib.dict(
+                awesome = possum,
+            )
             $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_BODY)
             return($client.sign($url, method='POST', headers=$lib.null, body=$body))
             '''
@@ -233,13 +233,13 @@ class OAuthTest(s_test.SynTest):
             $csec = boop
             $atkn = neato
             $asec = burrito
-            $headers = ({
-                "Content-Type": "application/json"
-            })
-            $body = ({
-                'foo': 'bar',
-                'biz': 'baz',
-            })
+            $headers = $lib.dict(
+                "Content-Type"="application/json"
+            )
+            $body = $lib.dict(
+                foo = bar,
+                biz = baz,
+            )
             $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_BODY)
             return($client.sign($url, headers=$headers, body=$body))
             '''

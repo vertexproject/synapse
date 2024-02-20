@@ -985,10 +985,10 @@ bar baz",vv
 
             q = f'''
             $fields = $lib.list(
-                ({{'name':'file', 'sha256':$sha256, 'filename':'file'}}),
-                ({{'name':'zip_password', 'value':'test'}}),
-                ({{'name':'dict', 'value':({{'foo':'bar'}}) }}),
-                ({{'name':'bytes', 'value':$bytes}})
+                $lib.dict(name=file, sha256=$sha256, filename=file),
+                $lib.dict(name=zip_password, value=test),
+                $lib.dict(name=dict, value=$lib.dict(foo=bar)),
+                $lib.dict(name=bytes, value=$bytes)
             )
             $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
                                         fields=$fields, ssl_verify=(0))

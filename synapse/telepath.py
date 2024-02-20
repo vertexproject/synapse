@@ -598,7 +598,6 @@ class Proxy(s_base.Base):
         self.tasks = {}
         self.shares = {}
 
-        self._ahainfo = {}
         self.sharinfo = {}
         self.methinfo = {}
 
@@ -903,7 +902,6 @@ class Proxy(s_base.Base):
             raise s_exc.LinkShutDown(mesg=mesg)
 
         self.sess = self.synack[1].get('sess')
-        self._ahainfo = self.synack[1].get('ahainfo', {})
         self.sharinfo = self.synack[1].get('sharinfo', {})
         self.methinfo = self.sharinfo.get('meths', {})
 
@@ -1012,16 +1010,10 @@ class Pool(s_base.Base):
 
         self.onfini(fini)
 
-    def size(self):
-        return len(self.clients)
-
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
         svcinfo = mesg[1].get('svcinfo')
         urlinfo = mergeAhaInfo(self.urlinfo, svcinfo.get('urlinfo', {}))
-
-        if (oldc := self.clients.pop(svcname, None)) is not None:
-            await oldc.fini()
 
         # one-off default user to root
         self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
@@ -1073,6 +1065,7 @@ class Pool(s_base.Base):
                 await reset()
 
                 async for mesg in ahaproxy.iterPoolTopo(poolname):
+
                     hand = self.mesghands.get(mesg[0])
                     if hand is None: # pragma: no cover
                         logger.warning(f'Unknown AHA pool topography message: {mesg}')
@@ -1082,7 +1075,7 @@ class Pool(s_base.Base):
 
             except Exception as e:
                 logger.warning(f'AHA pool topology task restarting: {e}')
-                await self.waitfini(timeout=1)
+                await asyncio.sleep(1)
 
     async def proxy(self, timeout=None):
 

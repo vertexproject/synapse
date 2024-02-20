@@ -831,11 +831,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 guidstor = s_lmdbslab.GuidStor(slab, 'guids')
 
-                self.false(guidstor.has('aaaa'))
                 info0 = guidstor.gen('aaaa')
-                self.false(guidstor.has('aaaa'))
                 info0.set('hehe', 20)
-                self.true(guidstor.has('aaaa'))
                 self.eq(20, info0.get('hehe'))
                 self.none(info0.get('haha'))
 
@@ -848,14 +845,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.none(info0.pop('woot'))
                 self.true(info0.pop('woot', s_common.novalu) is s_common.novalu)
 
-                iden1 = s_common.guid()
-                info1 = guidstor.gen(iden1)
-                self.false(guidstor.has(iden1))
-                info1.set('weeee', 'wowie')
-                self.true(guidstor.has(iden1))
-                await guidstor.del_(iden1)
-                self.false(guidstor.has(iden1))
-
                 # Sad path case
                 self.raises(s_exc.NotMsgpackSafe, info0.set, 'newp', {1, 2, 3})
 
@@ -866,8 +855,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.none(info1.pop('woot'))
                 self.len(1, info1.items())
                 self.eq((('hehe', 20), ), info1.items())
-                self.true(guidstor.has('aaaa'))
-                self.false(guidstor.has(iden1))
 
     async def test_slab_initdb_grow(self):
         self.thisHostMust(platform='linux')

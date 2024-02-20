@@ -650,12 +650,6 @@ class GuidStor:
             self.slab.pop(lkey, db=self.db)
             await asyncio.sleep(0)
 
-    def has(self, iden):
-        bidn = s_common.uhex(iden)
-        for _ in self.slab.scanKeysByPref(bidn, db=self.db):
-            return True
-        return False
-
     def set(self, iden, name, valu):
         bidn = s_common.uhex(iden)
         byts = s_msgpack.en(valu)

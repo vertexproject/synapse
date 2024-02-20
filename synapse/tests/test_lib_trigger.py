@@ -20,7 +20,8 @@ class TrigTest(s_t_utils.SynTest):
 
                 await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
-                await core.callStorm('[ inet:ipv4=1.2.3.4 ]')
+                node = await core.callStorm('[ inet:ipv4=1.2.3.4 ] return($node.pack())')
+                self.none(node[1]['tags'].get('foo'))
 
                 msgs = await core.stormlist('trigger.list')
                 self.stormIsInPrint('true   true   node:add  inet:ipv4', msgs)
@@ -557,21 +558,21 @@ class TrigTest(s_t_utils.SynTest):
             view = await core.callStorm('return ($lib.view.get().fork().iden)')
 
             await self.asyncraises(s_exc.SchemaViolation, core.nodes('''
-                $tdef = ({
-                    'cond':'edge:add',
-                    'form':'test:int',
-                    'storm':'[+#asdfasdf]'
-                })
+                $tdef = $lib.dict(
+                    cond="edge:add",
+                    form="test:int",
+                    storm="[+#asdfasdf]"
+                )
                 $lib.trigger.add($tdef)
             '''))
 
             await self.asyncraises(s_exc.SchemaViolation, core.nodes('''
-                $tdef = ({
-                    'cond':'edge:add',
-                    'form':'test:int',
-                    'storm':'[+#asdfasdf]',
-                    'verb':$lib.null
-                })
+                $tdef = $lib.dict(
+                    cond="edge:add",
+                    form="test:int",
+                    storm="[+#asdfasdf]",
+                    verb=$lib.null
+                )
                 $lib.trigger.add($tdef)
             '''))
 

@@ -987,13 +987,11 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            info = {'subs': {'type': 'loopback', 'scope': 'link-local'}}
+            info = {'subs': {'type': 'loopback'}}
             self.eq(t.norm('::1'), ('::1', info))
             self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', info))
 
-            self.eq(t.norm('ff01::1'), ('ff01::1', {'subs': {'type': 'multicast', 'scope': 'interface-local'}}))
-
-            info = {'subs': {'type': 'private', 'scope': 'global'}}
+            info = {'subs': {'type': 'private'}}
             self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', info))
             self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), ('2001:db8::ff00:42:8329', info))
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
@@ -2662,9 +2660,6 @@ class InetModelTest(s_t_utils.SynTest):
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :cc=(baz@faz.org, foo@bar.com, baz@faz.org)
                 :bytes="*"
-                :received:from:ipv4=1.2.3.4
-                :received:from:ipv6="::1"
-                :received:from:fqdn=smtp.vertex.link
             ]
 
             {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
@@ -2674,9 +2669,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
-            self.eq(nodes[0].get('received:from:ipv6'), '::1')
-            self.eq(nodes[0].get('received:from:ipv4'), 0x01020304)
-            self.eq(nodes[0].get('received:from:fqdn'), 'smtp.vertex.link')
 
             self.len(1, await core.nodes('inet:email:message:to=woot@woot.com'))
             self.len(1, await core.nodes('inet:email:message:date=2015'))

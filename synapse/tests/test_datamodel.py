@@ -184,8 +184,6 @@ class DataModelTest(s_t_utils.SynTest):
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
 
-            self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
-
     async def test_model_deprecation(self):
         # Note: Inverting these currently causes model loading to fail (20200831)
         mods = ['synapse.tests.utils.TestModule',

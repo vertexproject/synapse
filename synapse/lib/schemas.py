@@ -1,4 +1,3 @@
-import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 
@@ -66,25 +65,6 @@ _HttpExtAPIConfSchema = {
 
 reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
 
-_LayerPushPullSchema = {
-    'type': 'object',
-    'properties': {
-        'url': {'type': 'string'},
-        'time': {'type': 'number'},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'queue:size': {'type': 'integer', 'default': s_const.layer_pdef_qsize,
-                       'minimum': 1, 'maximum': s_const.layer_pdef_qsize_max},
-        'chunk:size': {'type': 'integer', 'default': s_const.layer_pdef_csize,
-                       'minimum': 1, 'maximum': s_const.layer_pdef_csize_max}
-
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'url', 'user', 'time'],
-}
-reqValidPush = s_config.getJsValidator(_LayerPushPullSchema)
-reqValidPull = reqValidPush
-
 _CronJobSchema = {
     'type': 'object',
     'properties': {
@@ -118,7 +98,7 @@ _CronJobSchema = {
     },
     'additionalProperties': False,
     'required': ['creator', 'storm'],
-    'dependencies': {
+    'dependencices': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
     },
@@ -169,7 +149,6 @@ reqValidView = s_config.getJsValidator({
         'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'created': {'type': 'integer', 'minimum': 0},
         'nomerge': {'type': 'boolean'},
         'merging': {'type': 'boolean'},
         'layers': {
@@ -263,13 +242,3 @@ _cellUserApiKeySchema = {
     ],
 }
 reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)
-
-reqValidSslCtxOpts = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'verify': {'type': 'boolean', 'default': True},
-        'client_cert': {'type': ['string', 'null'], 'default': None},
-        'client_key': {'type': ['string', 'null'], 'default': None},
-    },
-    'additionalProperties': False,
-})

@@ -450,11 +450,10 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('departed'), 1519945200000)
             self.eq(node.get('roles'), ('speaker', 'staff'))
 
-            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :url="http://foobar.com/ids"]')
+            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
             self.eq('foobar', nodes[0].get('name'))
-            self.eq('http://foobar.com/ids', nodes[0].get('url'))
 
             iden = await core.callStorm('ou:id:type return($node.value())')
 

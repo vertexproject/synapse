@@ -190,23 +190,17 @@ class View(s_nexus.Pusher):  # type: ignore
         s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
-        await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
         return mergeinfo
 
+    @s_nexus.Pusher.onPushAuto('merge:del')
     async def delMergeRequest(self):
-        return await self._push('merge:del')
-
-    @s_nexus.Pusher.onPush('merge:del')
-    async def _delMergeRequest(self):
         self.reqParentQuorum()
         byts = self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
 
         await self._delMergeMeta()
 
         if byts is not None:
-            merge = s_msgpack.un(byts)
-            await self.core.feedBeholder('view:merge:request:del', {'view': self.iden, 'merge': merge})
-            return merge
+            return s_msgpack.un(byts)
 
     async def _delMergeMeta(self):
         for lkey in self.core.slab.scanKeysByPref(self.bidn + b'merge:', db='view:meta'):
@@ -268,30 +262,15 @@ class View(s_nexus.Pusher):  # type: ignore
         vote['offset'] = await self.layers[0].getEditIndx()
         return await self._push('merge:vote:set', vote)
 
-    def reqValidVoter(self, useriden):
-
-        merge = self.getMergeRequest()
-        if merge is None:
-            raise s_exc.BadState(mesg=f'View ({self.iden}) does not have a merge request.')
-
-        if merge.get('creator') == useriden:
-            raise s_exc.AuthDeny(mesg='A user may not vote for their own merge request.')
-
     @s_nexus.Pusher.onPush('merge:vote:set')
     async def _setMergeVote(self, vote):
 
         self.reqParentQuorum()
         s_schemas.reqValidVote(vote)
 
-        useriden = vote.get('user')
+        uidn = s_common.uhex(vote.get('user'))
 
-        self.reqValidVoter(useriden)
-
-        bidn = s_common.uhex(useriden)
-
-        self.core.slab.put(self.bidn + b'merge:vote' + bidn, s_msgpack.en(vote), db='view:meta')
-
-        await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
+        self.core.slab.put(self.bidn + b'merge:vote' + uidn, s_msgpack.en(vote), db='view:meta')
 
         tick = vote.get('created')
         await self.tryToMerge(tick)
@@ -307,16 +286,12 @@ class View(s_nexus.Pusher):  # type: ignore
         self.reqParentQuorum()
         uidn = s_common.uhex(useriden)
 
-        vote = None
         byts = self.core.slab.pop(self.bidn + b'merge:vote' + uidn, db='view:meta')
-
-        if byts is not None:
-            vote = s_msgpack.un(byts)
-            await self.core.feedBeholder('view:merge:vote:del', {'view': self.iden, 'vote': vote})
 
         await self.tryToMerge(tick)
 
-        return vote
+        if byts is not None:
+            return s_msgpack.un(byts)
 
     async def initMergeTask(self):
 
@@ -1085,16 +1060,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 # TODO hack a schema test until the setViewInfo API is updated to
                 # enforce ( which will need to be done very carefully to prevent
                 # existing non-compliant values from causing issues with existing views )
-                if valu is not None:
-                    vdef = self.info.pack()
-                    vdef['quorum'] = s_msgpack.deepcopy(valu)
-                    s_schemas.reqValidView(vdef)
-                else:
-                    for view in self.core.views.values():
-                        if view.parent != self:
-                            continue
-                        if view.getMergeRequest() is not None:
-                            await view._delMergeRequest()
+                vdef = self.info.pack()
+                vdef['quorum'] = s_msgpack.deepcopy(valu)
+
+                s_schemas.reqValidView(vdef)
 
             if valu is None:
                 await self.info.pop(name)
@@ -1420,7 +1389,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         root = await self.core.auth.getUserByName('root')
 
-        tdef.setdefault('created', s_common.now())
         tdef.setdefault('user', root.iden)
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)

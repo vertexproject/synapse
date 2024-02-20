@@ -135,23 +135,17 @@ class Node(NodeBase):
         retn = collections.defaultdict(dict)
         for indx, sode in enumerate(self.sodes):
 
-            iden = self.snap.view.layers[indx].iden
-
             if sode.get('valu') is not None:
-                retn.setdefault('ndef', iden)
+                retn.setdefault('ndef', self.snap.view.layers[indx].iden)
 
             for prop in sode.get('props', {}).keys():
-                retn['props'].setdefault(prop, iden)
+                retn['props'].setdefault(prop, self.snap.view.layers[indx].iden)
 
             for tag in sode.get('tags', {}).keys():
-                retn['tags'].setdefault(tag, iden)
+                retn['tags'].setdefault(tag, self.snap.view.layers[indx].iden)
 
-            for tag, props in sode.get('tagprops', {}).items():
-                if len(props) > 0 and tag not in retn['tagprops']:
-                    retn['tagprops'][tag] = {}
-
-                for prop in props.keys():
-                    retn['tagprops'][tag].setdefault(prop, iden)
+            for tagprop in sode.get('tagprops', {}).keys():
+                retn['tagprops'].setdefault(tagprop, self.snap.view.layers[indx].iden)
 
         return(retn)
 

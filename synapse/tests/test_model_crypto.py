@@ -344,7 +344,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:smart:token=(2bdea834252a220b61aadf592cc0de66, 30)
                         :owner=eth/aaaa
                         :nft:url = https://coin.vertex.link/nfts/30
-                        :nft:meta = ({'name':'WootWoot'})
+                        :nft:meta = $lib.dict(name=WootWoot)
                         :nft:meta:name = WootWoot
                         :nft:meta:description = LoLoL
                         :nft:meta:image = https://vertex.link/favicon.ico

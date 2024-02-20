@@ -97,12 +97,8 @@ class Prop:
             self.isext = name.startswith('._')
         self.isform = False     # for quick Prop()/Form() detection
 
-        self.delperms = [('node', 'prop', 'del', self.full)]
-        self.setperms = [('node', 'prop', 'set', self.full)]
-
-        if form is not None:
-            self.setperms.append(('node', 'prop', 'set', form.name, self.name))
-            self.delperms.append(('node', 'prop', 'del', form.name, self.name))
+        self.setperm = ('node', 'prop', 'set', self.full)
+        self.delperm = ('node', 'prop', 'del', self.full)
 
         self.form = form
         self.type = None
@@ -115,7 +111,7 @@ class Prop:
 
         if form is not None:
             form.setProp(name, self)
-            self.modl.propsbytype[self.type.name][self.full] = self
+            self.modl.propsbytype[self.type.name].append(self)
 
         if self.deprecated or self.type.deprecated:
             async def depfunc(node, oldv):
@@ -432,8 +428,8 @@ class Model:
 
         self.univs = {}
 
-        self.propsbytype = collections.defaultdict(dict)  # name: Prop()
-        self.arraysbytype = collections.defaultdict(dict)
+        self.propsbytype = collections.defaultdict(list)  # name: Prop()
+        self.arraysbytype = collections.defaultdict(list)
         self.ifaceprops = collections.defaultdict(list)
         self.formsbyiface = collections.defaultdict(list)
         self.edgesbyn1 = collections.defaultdict(list)
@@ -558,17 +554,13 @@ class Model:
         })
 
     def getPropsByType(self, name):
-        props = self.propsbytype.get(name)
-        if props is None:
-            return ()
+        props = self.propsbytype.get(name, ())
         # TODO order props based on score...
-        return list(props.values())
+        return props
 
     def getArrayPropsByType(self, name):
-        props = self.arraysbytype.get(name)
-        if props is None:
-            return ()
-        return list(props.values())
+        props = self.arraysbytype.get(name, ())
+        return props
 
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
@@ -829,7 +821,7 @@ class Model:
         self.props[formname] = form
 
         if isinstance(form.type, s_types.Array):
-            self.arraysbytype[form.type.arraytype.name][form.name] = form
+            self.arraysbytype[form.type.arraytype.name].append(form)
 
         for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
             self._addFormUniv(form, univname, typedef, univinfo)
@@ -864,7 +856,7 @@ class Model:
             raise s_exc.CantDelForm(mesg=mesg)
 
         if isinstance(form.type, s_types.Array):
-            self.arraysbytype[form.type.arraytype.name].pop(form.name, None)
+            self.arraysbytype[form.type.arraytype.name].remove(form)
 
         for ifname in form.ifaces.keys():
             self.formsbyiface[ifname].remove(formname)
@@ -927,7 +919,7 @@ class Model:
 
         # index the array item types
         if isinstance(prop.type, s_types.Array):
-            self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
+            self.arraysbytype[prop.type.arraytype.name].append(prop)
 
         self.props[prop.full] = prop
         return prop
@@ -989,12 +981,12 @@ class Model:
             raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         if isinstance(prop.type, s_types.Array):
-            self.arraysbytype[prop.type.arraytype.name].pop(prop.full, None)
+            self.arraysbytype[prop.type.arraytype.name].remove(prop)
 
         self.props.pop(prop.full, None)
         self.props.pop((form.name, prop.name), None)
 
-        self.propsbytype[prop.type.name].pop(prop.full, None)
+        self.propsbytype[prop.type.name].remove(prop)
 
     def delUnivProp(self, propname):
 

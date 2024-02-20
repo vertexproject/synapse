@@ -277,7 +277,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            errors = [e async for e in layr.verifyAllNids()]
+            errors = [e async for e in layr.verifyAllBuids()]
             self.len(0, errors)
 
             errors = [e async for e in layr.verifyAllProps()]
@@ -359,6 +359,254 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadArg):
                 errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
+
+    async def test_layer_upstream(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                await core00.addTagProp('score', ('int', {}), {})
+
+                layriden = core00.view.layers[0].iden
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('[test:str=foo :tick=(12345) +#bar:score=10] $node.data.set(baz, nodedataiscool)')
+                await core00.nodes('[test:str=bar :tick=(12345)] $node.data.set(baz, nodedataiscool)')
+                await core00.nodes('test:str=foo [ +(refs)> { test:str=bar }]')
+
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    # test layer/<iden> mapping
+                    async with core00.getLocalProxy(f'*/layer/{layriden}') as layrprox:
+                        self.eq(layriden, await layrprox.getIden())
+
+                    url = core00.getLocalUrl('*/layer')
+                    conf = {'upstream': url}
+                    ldef = await core01.addLayer(ldef=conf)
+                    layr = core01.getLayer(ldef.get('iden'))
+                    await core01.view.addLayer(layr.iden)
+
+                    # test initial sync
+                    offs = await core00.getView().layers[0].getEditIndx()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                    nodes = await core01.nodes('test:str=foobar')
+                    self.len(1, nodes)
+                    self.nn(nodes[0].getTag('hehe.haha'))
+
+                    nodes = await core01.nodes('test:str=foo')
+                    self.len(1, nodes)
+                    node = nodes[0]
+                    self.nn(node)
+                    self.eq(node.get('tick'), 12345)
+                    self.eq(node.getTagProp('bar', 'score'), 10)
+                    self.eq(await node.getData('baz'), 'nodedataiscool')
+                    self.len(1, await alist(node.iterEdgesN1()))
+
+                    # make sure updates show up
+                    await core00.nodes('[ inet:fqdn=vertex.link ]')
+
+                    offs = await core00.getView().layers[0].getEditIndx()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
+
+                await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+                offs = await core00.getView().layers[0].getEditIndx()
+
+                # test what happens when we go down and come up again...
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    layr = core01.getView().layers[-1]
+
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                    await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+                    offs = await core00.getView().layers[0].getEditIndx()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
+
+                    # make sure time and user are set on the downstream changes
+                    root = await core01.auth.getUserByName('root')
+
+                    nedits = await alist(layr.syncNodeEdits2(0, wait=False))
+                    last_edit = nedits[-1]
+                    offs, edit, meta = last_edit
+                    self.gt(meta.get('time'), 0)
+                    self.eq(meta.get('user'), root.iden)
+                    self.notin('prov', meta)
+
+    async def test_layer_upstream_with_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')  # layer upstream
+            path01 = s_common.gendir(dirn, 'core01')  # layer downstream, mirror leader
+            path02 = s_common.gendir(dirn, 'core02')  # layer downstream, mirror follower
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                layriden = core00.view.layers[0].iden
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.addTagProp('score', ('int', {}), {})
+
+                async with self.getTestCore(dirn=path01) as core01:
+                    url = core00.getLocalUrl('*/layer')
+                    conf = {'upstream': url}
+                    ldef = await core01.addLayer(ldef=conf)
+                    layr = core01.getLayer(ldef.get('iden'))
+                    await core01.view.addLayer(layr.iden)
+
+                s_tools_backup.backup(path01, path02)
+
+                async with self.getTestCore(dirn=path01) as core01:
+                    layr = core01.getLayer(ldef.get('iden'))
+
+                    # Sync core01 with core00
+                    offs = await core00.getView().layers[0].getEditIndx()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    await asyncio.wait_for(evnt.wait(), timeout=8.0)
+
+                    self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+
+                    url = core01.getLocalUrl()
+
+                    async with self.getTestCore(dirn=path02, conf={'mirror': url}) as core02:
+                        await core02.sync()
+
+                        layr = core01.getLayer(ldef.get('iden'))
+                        self.true(len(layr.activetasks))
+
+                        layr = core02.getLayer(ldef.get('iden'))
+                        self.false(len(layr.activetasks))
+
+                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
+
+    async def test_layer_multi_upstream(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+            path02 = s_common.gendir(dirn, 'core02')
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                iden00 = core00.view.layers[0].iden
+
+                await core00.nodes('[test:str=foobar +#hehe.haha]')
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                async with self.getTestCore(dirn=path01) as core01:
+
+                    iden01 = core01.view.layers[0].iden
+
+                    await core01.nodes('[test:str=barfoo +#haha.hehe]')
+                    await core01.nodes('[ inet:ipv4=4.3.2.1 ]')
+
+                    async with self.getTestCore(dirn=path02) as core02:
+
+                        url00 = core00.getLocalUrl('*/layer')
+                        url01 = core01.getLocalUrl('*/layer')
+
+                        conf = {'upstream': [url00, url01]}
+
+                        ldef = await core02.addLayer(ldef=conf)
+                        layr = core02.getLayer(ldef.get('iden'))
+                        await core02.view.addLayer(layr.iden)
+
+                        # core00 is synced
+                        offs = await core00.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
+                        nodes = await core02.nodes('test:str=foobar')
+                        self.len(1, nodes)
+                        self.nn(nodes[0].getTag('hehe.haha'))
+
+                        # core01 is synced
+                        offs = await core01.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=4.3.2.1'))
+                        nodes = await core02.nodes('test:str=barfoo')
+                        self.len(1, nodes)
+                        self.nn(nodes[0].getTag('haha.hehe'))
+
+                        # updates from core00 show up
+                        await core00.nodes('[ inet:fqdn=vertex.link ]')
+
+                        offs = await core00.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:fqdn=vertex.link'))
+
+                        # updates from core01 show up
+                        await core01.nodes('[ inet:fqdn=google.com ]')
+
+                        offs = await core01.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:fqdn=google.com'))
+
+                    await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
+                    await core01.nodes('[ inet:ipv4=6.6.6.6 ]')
+
+                    # test what happens when we go down and come up again...
+                    async with self.getTestCore(dirn=path02) as core02:
+
+                        layr = core02.getView().layers[-1]
+
+                        # test we catch up to core00
+                        offs = await core00.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
+
+                        # test we catch up to core01
+                        offs = await core01.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=6.6.6.6'))
+
+                        # test we get updates from core00
+                        await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+                        offs = await core00.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden00, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=5.6.7.8'))
+
+                        # test we get updates from core01
+                        await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
+
+                        offs = await core01.getView().layers[0].getEditIndx()
+                        evnt = await layr.waitUpstreamOffs(iden01, offs)
+                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                        self.len(1, await core02.nodes('inet:ipv4=8.7.6.5'))
 
     async def test_layer_stortype_hier(self):
         stor = s_layer.StorTypeHier(None, None)
@@ -984,6 +1232,12 @@ class LayerTest(s_t_utils.SynTest):
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
             self.true(await layr.hasTagProp('score'))
+
+            iden = s_common.guid()
+            with self.raises(ValueError) as cm:
+                with layr.getIdenFutu(iden=iden):
+                    raise ValueError('oops')
+            self.none(layr.futures.get(iden))
 
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)

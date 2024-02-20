@@ -59,7 +59,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}
 
   test_steps_doc:
     description: "Documentation test steps"
@@ -74,7 +74,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v3-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v3-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: setup venv
@@ -92,7 +92,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v3-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v2-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: executing docs jupyter notebooks
@@ -112,14 +112,14 @@ commands:
 
       - restore_cache:
           keys:
-            - v3-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
-          key: v3-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: syntax
@@ -145,7 +145,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v3-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: install python dependencies
@@ -158,7 +158,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v3-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: init .pypirc
@@ -413,7 +413,7 @@ jobs:
   python311:
     parallelism: 8
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.11.6
         environment:
           PYVERS: 3.11
           RUN_SYNTAX: 1
@@ -430,7 +430,7 @@ jobs:
   python311_replay:
     parallelism: 6
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.11.6
         environment:
           PYVERS: 3.11
           RUN_SYNTAX: 1
@@ -447,7 +447,7 @@ jobs:
   doctests:
     parallelism: 1
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.11.6
         environment:
           PYVERS: 3.11
 
@@ -458,7 +458,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.11.6
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py311
@@ -470,7 +470,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.11.6
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py311

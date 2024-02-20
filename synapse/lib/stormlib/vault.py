@@ -443,6 +443,10 @@ class LibVault(s_stormtypes.Lib):
             'list': self._listVaults,
         }
 
+    def _reqEasyPerm(self, vault, perm):
+        if not self.runt.isAdmin():
+            self.runt.snap.core._reqEasyPerm(vault, self.runt.user, perm)
+
     async def _addVault(self, name, vtype, scope, owner, secrets, configs):
         name = await s_stormtypes.tostr(name)
         vtype = await s_stormtypes.tostr(vtype)
@@ -477,8 +481,7 @@ class LibVault(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name)
 
         vault = self.runt.snap.core.reqVaultByName(name)
-        mesg = f'User requires read permission on vault: {name}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_READ, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         return Vault(self.runt, vault.get('iden'))
 
@@ -486,8 +489,7 @@ class LibVault(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
 
         vault = self.runt.snap.core.reqVault(iden)
-        mesg = f'User requires read permission on vault: {iden}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_READ, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         return Vault(self.runt, iden)
 
@@ -498,16 +500,13 @@ class LibVault(s_stormtypes.Lib):
         vault = self.runt.snap.core.getVaultByType(vtype, self.runt.user.iden, scope)
         if not vault:
             return None
-
-        iden = vault.get('iden')
-        mesg = f'User requires read permission on vault: {iden}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_READ, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         return Vault(self.runt, vault.get('iden'))
 
     async def _listVaults(self):
         for vault in self.runt.snap.core.listVaults():
-            if not self.runt.allowedEasyPerm(vault, s_cell.PERM_READ):
+            if not self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_READ):
                 continue
 
             yield Vault(self.runt, vault.get('iden'))
@@ -528,14 +527,11 @@ class VaultConfigs(s_stormtypes.Prim):
         self.runt = runt
 
         vault = self.runt.snap.core.reqVault(valu)
-        mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {valu}.'
-        s_stormtypes.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
+        self.runt.snap.core._reqEasyPerm(vault, self.runt.user, self._vault_perm)
 
     @s_stormtypes.stormfunc(readonly=False)
     async def setitem(self, name, valu):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires edit permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_EDIT, mesg=mesg)
 
         name = await s_stormtypes.tostr(name)
 
@@ -548,8 +544,6 @@ class VaultConfigs(s_stormtypes.Prim):
 
     async def deref(self, name):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
 
         name = await s_stormtypes.tostr(name)
 
@@ -558,9 +552,6 @@ class VaultConfigs(s_stormtypes.Prim):
 
     async def iter(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {self.valu}.'
-        self.runt.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
-
         data = vault.get(self._vault_field_name)
 
         for item in data.items():
@@ -573,26 +564,19 @@ class VaultConfigs(s_stormtypes.Prim):
 
     async def stormrepr(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
         data = vault.get(self._vault_field_name)
         return repr(data)
 
     def value(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {self.valu}.'
-        self.runt.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
         return vault.get(self._vault_field_name)
 
 class VaultSecrets(VaultConfigs):
     _vault_field_name = 'secrets'
     _vault_perm = s_cell.PERM_EDIT
 
-    @s_stormtypes.stormfunc(readonly=False)
     async def setitem(self, name, valu):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires edit permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_EDIT, mesg=mesg)
 
         name = await s_stormtypes.tostr(name)
 
@@ -696,10 +680,13 @@ class Vault(s_stormtypes.Prim):
     def __hash__(self):  # pragma: no cover
         return hash((self._storm_typename, self.valu))
 
+    def _reqEasyPerm(self, vault, perm):
+        if not self.runt.isAdmin():
+            self.runt.snap.core._reqEasyPerm(vault, self.runt.user, perm)
+
     async def _storName(self, name):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires edit permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_EDIT, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
 
         name = await s_stormtypes.tostr(name)
 
@@ -716,22 +703,22 @@ class Vault(s_stormtypes.Prim):
     async def _storConfigs(self, configs):
         configs = await s_stormtypes.toprim(configs)
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires edit permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_EDIT, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
         return await self.runt.snap.core.replaceVaultConfigs(self.valu, configs)
 
     async def _gtorSecrets(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        if not s_stormtypes.allowedEasyPerm(vault, s_cell.PERM_EDIT):
-            return None
+        if not self.runt.isAdmin():
+            edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
+            if not edit:
+                return None
 
         return VaultSecrets(self.runt, self.valu)
 
     async def _storSecrets(self, secrets):
         secrets = await s_stormtypes.toprim(secrets)
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires edit permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_EDIT, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
         return await self.runt.snap.core.replaceVaultSecrets(self.valu, secrets)
 
     async def _gtorPermissions(self):
@@ -740,8 +727,7 @@ class Vault(s_stormtypes.Prim):
 
     async def _methSetPerm(self, iden, level):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires admin permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_ADMIN, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
         iden = await s_stormtypes.tostr(iden)
         level = await s_stormtypes.toint(level)
@@ -750,8 +736,7 @@ class Vault(s_stormtypes.Prim):
 
     async def _methDelete(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        mesg = f'User requires admin permission on vault: {self.valu}.'
-        s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_ADMIN, mesg=mesg)
+        self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
         return await self.runt.snap.core.delVault(self.valu)
 
@@ -761,7 +746,9 @@ class Vault(s_stormtypes.Prim):
     def value(self):
         vault = self.runt.snap.core.reqVault(self.valu)
 
-        if not self.runt.allowedEasyPerm(vault, s_cell.PERM_EDIT):
-            vault.pop('secrets')
+        if not self.runt.isAdmin():
+            edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
+            if not edit:
+                vault.pop('secrets')
 
         return vault

@@ -1,9 +1,6 @@
 .. highlight:: none
 
 .. storm-cortex:: default
-.. storm-pre:: $propinfo = ({"doc": "The VirusTotal reputation score."}) $lib.model.ext.addFormProp(inet:fqdn, _virustotal:reputation, (int, ({})), $propinfo)
-.. storm-pre:: $propinfo = ({"doc": "The number of harmless votes from the VirusTotal community."}) $lib.model.ext.addFormProp(inet:fqdn, _virustotal:votes:harmless, (int, ({})), $propinfo)
-.. storm-pre:: $propinfo = ({"doc": "The number of malicious votes from the VirusTotal community."}) $lib.model.ext.addFormProp(inet:fqdn, _virustotal:votes:malicious, (int, ({})), $propinfo)
 
 .. _userguide_datamodel:
 
@@ -97,13 +94,9 @@ All properties in Synapse must have a defined **type;** in many cases, a form is
 ``inet:fqdn`` has a type of ``inet:fqdn``).
 
 Forms may have **secondary properties** that record additional information about the form or further describe it.
-Secondary properties are form-specific. In most cases, secondary properties are explicitly defined for each form.
-If similar forms should share a subset of common properties, the properties may be defined as an **interface**
-that is **inherited** by those forms.
+Secondary properties are form-specific and are explicitly defined for each form.
 
 Synapse also supports a set of universal secondary properties (**universal properties**) that are valid for all forms.
-
-**Extended properties** may be added to forms to store specialized or use case-specific data related to the form.
 
 .. _form-namespace:
 
@@ -130,48 +123,6 @@ form's primary category (e.g., ``inet:fqdn`` represents a fully qualified domain
 **Properties** have a namespace that extends the form namespace (form names are also primary properties). See
 :ref:`data-props` and :ref:`prop-namespace` below for additional detail.
 
-.. _form-extended:
-
-Extended Form
-+++++++++++++
-
-Synapse users can add their own **extended forms** to the data model using the :ref:`stormlibs-lib-model-ext`
-libraries.
-
-.. NOTE::
-  
-  We **strongly encourage** Synapse users who are considering extending the data model by creating custom
-  forms to reach out to The Vertex Project first - you can readily contact us through our `Slack`_ channel.
-  If there are gaps or missing elements in the data model, we would prefer to expand Synapse's data model
-  for all users vs. individual users making numerous one-off customizations. If an extended form is
-  appropriate for the use case, we can also offer feedback to help ensure the form's design is consistent
-  with best practices.
-
-
-.. _interface:
-
-Interface
----------
-
-An **interface** defines a set of secondary properties that should be present on a particular subset of forms.
-Instead of explicitly defining each secondary property on each form, the forms can be defined as **inheriting**
-a particular interface and its associated properties. This both simplifies and ensures consistency in the
-data model.
-
-For example, Synapse uses several forms to represent activity occurring on a host, such as a file being added
-(``it:exec:file:add``) or a process being executed (``it:exec:proc``). These forms represent similar operations,
-so they all share a subset of secondary properties such as the time of execution (``:time``) or the file
-(``:exe``) or process (``:proc``) responsible for the activity. These properties are defined as an
-``it:host:activity`` **interface** which is then declared / inherited for each form.
-
-Interfaces can be inherited by other interfaces. For example, the ``inet:proto:request`` interface, which
-represents a client (host) requesting a network connection, inherits the ``inet:host:activity`` interface.
-
-Interfaces can be used in Storm lift, filter, and pivot operations to make it easier to work with nodes
-of all forms that share the interface (vs. specifying each kind of node separately). See the appropriate
-sections of the :ref:`userguide_storm_ref` for details.
-
-
 .. _data-node:
 
 Node
@@ -181,26 +132,24 @@ A **node** is a unique object within Synapse; they are specific instances of gen
 
 - A **primary property**, represented by the form of the node plus its value (``<form> = <valu>``). All primary
   properties must be unique for a given form; the uniqueness of the ``<form> = <valu>`` pair ensures there can 
-  be only one node in Synapse that represents the domain woot.com ( ``inet:fqdn = woot.com`` ). Because this
-  unique pair "defines" the node, the comma-separated form / value combination (``<form>,<valu>``) is also known
-  as the node’s :ref:`gloss-ndef` (short for "node definition").
+  be only one node in Synapse that represents the domain ``woot.com``.
+  
+  Because the unique pair "defines" the node, the comma-separated form / value combination (``<form>,<valu>``)
+  is also known as the node’s :ref:`gloss-ndef` (short for "node definition").
 
-- One or more **universal properties** and an associated property value. As the name implies, universal properties
-  apply to all nodes.
+- One or more **universal properties.** As the name implies, universal properties are applicable to all nodes.
 
-- Optional **secondary properties**. Similar to primary properties, secondary properties consist of a property name
+- Optional **secondary properties.** Similar to primary properties, secondary properties consist of a property name
   (of a specific **type**) and the property’s value (``<prop> = <pval>``).
 
 - Optional **tags**. A tag acts as a label with a particular meaning that can be applied to a node to provide context.
-
-- Optional **extended properties** and their associated values.
 
 Node Example
 ++++++++++++
 
 The Storm query below lifts and displays the node for the domain ``www.google.com``:
 
-.. storm-pre:: [ inet:fqdn=www.google.com +#rep.moz.500 :_virustotal:reputation=497 :_virustotal:votes:harmless=318 :_virustotal:votes:malicious=53 ]
+.. storm-pre:: [ inet:fqdn=www.google.com +#rep.moz.500 ]
 .. storm-cli:: inet:fqdn=www.google.com
 
 In the output above:
@@ -208,10 +157,8 @@ In the output above:
 - ``inet:fqdn = www.google.com`` is the **primary property** (``<form> = <valu>``).
 - ``.created`` is a **universal property** showing when the node was added to the Cortex.
 - ``:domain``, ``:host``, etc. are form-specific **secondary properties** with their associated values (``<prop> = <pval>``).
-  For readability, secondary properties (including universal properties and extended properties) are displayed as
-  **relative properties** within the namespace of the form’s primary property (e.g., ``:domain`` as opposed to ``inet:fqdn:domain``).
-- The various ``:_virustotal:*`` properties are **extended properties** added to the data model by the `Synapse-VirusTotal`_
-  Power-Up to represent specialized data provided by VirusTotal.
+  For readability, secondary properties are displayed as **relative properties** within the namespace of the form’s
+  primary property (e.g., ``:domain`` as opposed to ``inet:fqdn:domain``).
 - ``#rep.moz.500`` is a **tag** indicating that ``www.google.com`` has been reported by web analytics company Moz_ 
   as one of their top 500 most popular websites.
 
@@ -226,8 +173,6 @@ Property
 **Properties** are the individual elements that define a **form** or (along with their values) that comprise a
 **node.** All properties in Synapse must have a defined **type**.
 
-.. _data-prop-primary:
-
 Primary Property
 ++++++++++++++++
 
@@ -241,8 +186,6 @@ challenging; these forms are often :ref:`gloss-guid` forms.
 
 Because a primary property uniquely defines a node, **it cannot be modified once the node is created.** To "change"
 a node's primary property value you must delete and re-create the node.
-
-.. _data-prop-secondary:
 
 Secondary Property
 ++++++++++++++++++
@@ -262,8 +205,6 @@ the data is available and relevant to your use case; otherwise they can remain u
 (``inet:ipv4``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ipv4:asn``).
 All optional secondary property values can be set, modified, or removed as needed.
 
-.. _data-prop-universal:
-
 Universal Property
 ++++++++++++++++++
 
@@ -274,71 +215,36 @@ Synapse defines a subset of secondary properties as **universal properties** tha
 - ``.seen``, which is optional for all nodes and whose value is a time interval (minimum or "first seen" and
   maximum or "last seen") during which the node was observed, existed, or was valid.
 
-.. _data-prop-extended:
-
-Extended Property
-+++++++++++++++++
-
-Synapse supports the addition of specialized ("extended") properties outside of Synapse's baseline data
-model. Extended properties may be used to represent specialized data that is relevant for specific use
-cases and can be added using the :ref:`stormlibs-lib-model-ext` libraries.
-
-For example, third-party vendors that provide threat intelligence or cybersecurity data may include vendor
-assessments, such as "risk" or "reputation" scores. These values may only be "interesting" to security
-researchers, and are provided by a very specific data source. Instead of adding these specialized values to
-the baseline data model, extended properties can be added as needed to accommodate specialized needs.
-
-Extended properties must start with an underscore ( ``:_<extended_property>`` ) to avoid name collisions
-with baseline data model properties (current or future). In addition, we recommend using the name of the
-vendor or data source (if appropriate) as the first element in the property namespace (e.g.,
-``:_virustotal:reputation``).
-
-.. NOTE::
-  
-  We **strongly encourage** Synapse users who are considering extending the data model by creating custom
-  properties to reach out to The Vertex Project first - you can readily contact us through our `Slack`_
-  channel. If there are gaps or missing elements in the data model, we would prefer to expand Synapse's
-  data model for all users vs. individual users making numerous one-off customizations. If an extended
-  property is appropriate for the use case, we can also offer feedback to help ensure the property's
-  design is consistent with best practices.
-
 .. _prop-namespace:
 
 Property Namespace
 ++++++++++++++++++
 
 Properties extend the :ref:`form-namespace`. Form names are **primary properties**, and consist of at least
-two elements separated by a colon ( ``:`` ).
-
-- **Secondary properties** exist within the namespace of their primary property (form). Secondary properties
-  are preceded by a colon ( ``:`` ) and use the colon to separate additional namespace elements, if needed.
-- **Universal properties** are preceded by a period ( ``.`` ) to distinguish them from form-specific secondary properties.
-- **Extended properties** are preceded by a colon and an underscore ( ``:_`` ).
+two elements separated by a colon ( ``:`` ).  **Secondary properties** exist within the namespace of their primary
+property (form). Secondary properties are preceded by a colon ( ``:`` ) and use the colon to separate additional 
+namespace elements, if needed. Universal properties are preceded by a period ( ``.`` ) to distinguish them from 
+form-specific secondary properties.
 
 For example, the secondary (both universal and form-specific) properties of ``inet:fqdn`` include:
 
 - ``inet:fqdn.created`` (universal property)
 - ``inet:fqdn:zone`` (secondary property)
 
-The VirusTotal Power-Up adds extended properties to various forms, including ``inet:fqdn``:
-
-- ``inet:fqdn:_virustotal:reputation``
-
-Secondary properties (including extended and universal properties) also make up a relative namespace (set of
-**relative properties**) with respect to their primary property (form). The Storm query language allows (or
-in some cases, requires) you to reference a property using its relative property name (i.e., ``:zone`` vs.
-``inet:fqdn:zone``).
+Secondary properties also make up a relative namespace (set of **relative properties**) with respect to their primary
+property (form). The Storm query language allows (or in some cases, requires) you to reference a secondary property
+using its relative property name (i.e., ``:zone`` vs. ``inet:fqdn:zone``).
 
 Relative properties are also used for display purposes within Synapse for visual clarity (see the `Node Example`_ above).
 
-Secondary properties (including extended properties) may have their own namespace. Both primary and secondary
-properties use colons to separate elements of the property name. However, not all separators represent property
-"boundaries"; some act more as "sub-namespace" separators.
+Secondary properties may have their own "namespace". Both primary and secondary properties use colons to separate
+elements of the property name. However, not all separators represent property "boundaries"; some act more as
+"sub-namespace" separators.
 
 For example ``file:bytes`` is a primary property / form. A ``file:bytes`` form may include
-secondary properties such as ``:mime:pe:imphash`` and ``:mime:pe:compiled``.  In these examples, ``:mime``
-and ``:mime:pe`` are not secondary properties, but sub-namespaces for individual MIME data types and the
-"PE executable" data type specifically.
+secondary properties such as ``:mime:pe:imphash`` and ``:mime:pe:compiled``.  In this case ``:mime`` and ``:mime:pe``
+are not secondary properties, but sub-namespaces for individual MIME data types and the "PE executable" data type
+specifically.
 
 .. _data-tag:
 
@@ -363,8 +269,6 @@ For example:
   (such as domain registration records or current and past IP resolutions) to decide whether the domain appears to be
   sinkholed. This assessment can be represented by applying a tag such as ``cno.infra.dns.sink.holed`` to the
   ``inet:fqdn = woot.com`` node.
-
-Tags can include :ref:`tag-timestamps` and support the addition of :ref:`tag-properties`.
 
 Tags are unique within the Synapse model because tags are both **nodes** and **labels applied to nodes.** The tag
 ``cno.infra.dns.sink.holed`` can be applied to another node; but the tag itself also exists as the node 
@@ -416,8 +320,6 @@ Light edges are used for performance and flexibility in certain use cases. For e
   may be **any** kind of node, depending on the context of the relationship. Examples include ``meta:source -(seen)> *``
   (where a data source may "see", observe, or provide data on any ``n2`` object) and ``* -(refs)> *`` (where a
   variety of ``n1`` nodes may "reference" or contain a reference to any ``n2`` node).
-- When the objects (nodes) to be linked do not share any properties in common (i.e., that could allow the nodes to
-  be implicity linked via a shared property value / pivot relationship).
 
 Synapse's source code includes some pre-defined light edges that represent The Vertex Project's conventions. While
 we recommend the use of these conventions, we do not enforce their use. Synapse users are free to create / define
@@ -491,19 +393,17 @@ to represent entities such as people (``ps:person``) or organizations (``ou:org`
 Edge (Digraph) Form
 -------------------
 
-An edge (digraph) form is a specialized **composite form** where the set of values for the primary property
-includes at least one **ndef** ("node definition, or ``<form>,<valu>`` pair). An edge form is a specialized
-relationship form that can be used when one or both of the forms to be linked could be an arbitrary (i.e., any)
-form. For example, a ``meta:seen`` node (now replaced by a ``seen`` light edge) was previously used to link a
-``meta:source`` (using the node's guid value) to an arbitrary node that was "seen" by the source (such as the
-domain "woot.com", using the ndef value ``inet:fqdn, woot.com``).
+.. NOTE::
+  
+  Edge forms predate the addition of light edges to the data model. The use of light edges is generally
+  preferred over edge forms where possible.
 
-Edge forms predate the introduction of light edges to the Synapse data model; light edges were added in order
-to address some of the performance overhead incurred by edge forms (i.e., it is easier and faster to create
-a light edge for simple relationships vs. creating an entire node simply to link two other nodes).
+An edge (digraph) form is a specialized **composite form** whose primary property value consists of two
+``<form>,<valu>`` pairs  ("node definitions", or ndefs). An edge form is a specialized relationship form that
+can be used to link two arbitrary forms in a generic relationship.
 
-Edge forms may be appropriate for particular use cases, but light edges are generally preferred where possible.
-
+Edge forms have not been officially deprecated. However, edge forms (used to create nodes) incur some additional
+performance overhead vs. light edges (particularly for large numbers of edge nodes).
 
 .. _form-generic:
 
@@ -512,7 +412,7 @@ Generic Form
 
 The Synapse data model includes a number of "generic" forms that can be used to represent metadata and / or arbitrary data. 
 
-Synapse's data model can be expanded as needed, so ideally all data in Synapse would be represented using
+Synapse's extensible data model can be expanded as needed, so ideally all data in Synapse would be represented using
 an appropriate form. However, designing a new form may require discussion, subject matter expertise, and testing
 against "real world" data, as well as time to implement the changes. Analysts may have a need to capture data "in
 the moment" without waiting for model updates. Alternatively, some data may be "one off" information that needs to
@@ -646,7 +546,5 @@ nodes when needed.
 .. _Synapse UI (Optic): https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 .. _Data Model Explorer: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/get_help.html#using-data-model-explorer
 .. _Tag Explorer: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/get_help.html#using-tag-explorer
-.. _Synapse-VirusTotal: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html
 .. _Moz: https://moz.com/top500
-.. _Slack: https://v.vtx.lk/slack
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html

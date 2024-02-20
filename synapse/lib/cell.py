@@ -1,6 +1,5 @@
 import gc
 import os
-import ssl
 import copy
 import time
 import fcntl
@@ -13,7 +12,6 @@ import tarfile
 import argparse
 import datetime
 import platform
-import tempfile
 import functools
 import contextlib
 import multiprocessing
@@ -34,7 +32,6 @@ import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
-import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
@@ -61,7 +58,6 @@ import synapse.tools.backup as s_t_backup
 logger = logging.getLogger(__name__)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
-SSLCTX_CACHE_SIZE = 1000
 
 '''
 Base classes for the synapse "cell" microservice architecture.
@@ -1154,8 +1150,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
-
-        self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
         self.hive = await self._initCellHive()
 
@@ -2601,9 +2595,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return defv
         return user.name
 
-    async def hasHttpSess(self, iden):
-        return self.sessstor.has(iden)
-
     async def genHttpSess(self, iden):
 
         # TODO age out http sessions
@@ -2645,16 +2636,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sess = self.sessions.get(iden)
         if sess is not None:
             sess.info[name] = valu
-
-    @s_nexus.Pusher.onPushAuto('http:sess:update')
-    async def updateHttpSessInfo(self, iden, vals: dict):
-        for name, valu in vals.items():
-            s_msgpack.isok(valu)
-        for name, valu in vals.items():
-            self.sessstor.set(iden, name, valu)
-        sess = self.sessions.get(iden)
-        if sess is not None:
-            sess.info.update(vals)
 
     @contextlib.contextmanager
     def getTempDir(self):
@@ -2846,11 +2827,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellDmon(self):
 
-        ahainfo = {
-            'name': self.ahasvcname
-        }
-
-        self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
+        self.dmon = await s_daemon.Daemon.anit()
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)
@@ -3968,11 +3945,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
-                'aha': {
-                    'name': self.conf.get('aha:name'),
-                    'leader': self.conf.get('aha:leader'),
-                    'network': self.conf.get('aha:network'),
-                }
             },
             'features': {
                 'tellready': True,
@@ -4348,60 +4320,3 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.slab.delete(key_iden, db=self.apikeydb)
             self.slab.delete(lkey, db=self.usermetadb)
             await asyncio.sleep(0)
-
-    def _makeCachedSslCtx(self, opts):
-
-        opts = dict(opts)
-
-        cadir = self.conf.get('tls:ca:dir')
-
-        if cadir is not None:
-            sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
-        else:
-            sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
-
-        if not opts['verify']:
-            sslctx.check_hostname = False
-            sslctx.verify_mode = ssl.CERT_NONE
-
-        if not opts['client_cert']:
-            return sslctx
-
-        client_cert = opts['client_cert'].encode()
-
-        if opts['client_key']:
-            client_key = opts['client_key'].encode()
-        else:
-            client_key = None
-            client_key_path = None
-
-        with self.getTempDir() as tmpdir:
-
-            with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
-                fh.write(client_cert)
-                client_cert_path = fh.name
-
-            if client_key:
-                with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
-                    fh.write(client_key)
-                    client_key_path = fh.name
-
-            try:
-                sslctx.load_cert_chain(client_cert_path, keyfile=client_key_path)
-            except ssl.SSLError as e:
-                raise s_exc.BadArg(mesg=f'Error loading client cert: {str(e)}') from None
-
-        return sslctx
-
-    def getCachedSslCtx(self, opts=None, verify=None):
-
-        if opts is None:
-            opts = {}
-
-        if verify is not None:
-            opts['verify'] = verify
-
-        opts = s_schemas.reqValidSslCtxOpts(opts)
-
-        key = tuple(sorted(opts.items()))
-        return self._sslctx_cache.get(key)

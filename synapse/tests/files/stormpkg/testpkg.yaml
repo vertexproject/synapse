@@ -31,10 +31,6 @@ modules:
               type: dict
               desc: A status dictionary.
 
-onload: |
-  $lib.time.sleep($lib.globals.get(onload_sleep, 0))
-  $lib.globals.set(testpkg, testpkg-done)
-
 external_modules:
     - name: testext
       package: synapse.tests.files

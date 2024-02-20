@@ -76,7 +76,7 @@ class StormlibVaultTest(s_test.SynTest):
 
             opts = {'vars': {'iden': uiden}, 'user': visi2.iden}
             msgs = await core.stormlist('$vault = $lib.vault.get($iden)', opts=opts)
-            self.stormIsInErr(f'User requires read permission on vault: {uiden}.', msgs)
+            self.stormIsInErr(f'User (visi2) has insufficient permissions (requires: read).', msgs)
 
             # Set and delete data
             opts = {'vars': {'iden': uiden}}
@@ -142,7 +142,9 @@ class StormlibVaultTest(s_test.SynTest):
 
             # List vaults
             opts = {'user': visi1.iden}
-            self.eq(3, await core.callStorm('return($lib.len($lib.vault.list()))', opts=opts))
+            ret = await core.callStorm('return($lib.vault.list())', opts=opts)
+            vaults = [k async for k in ret]
+            self.len(3, vaults)
 
             # Delete some vaults
             opts = {'vars': {'uiden': uiden}}
@@ -155,7 +157,9 @@ class StormlibVaultTest(s_test.SynTest):
 
             # List vaults again
             opts = {'user': visi1.iden}
-            self.eq(1, await core.callStorm('return($lib.len($lib.vault.list()))', opts=opts))
+            ret = await core.callStorm('return($lib.vault.list())', opts=opts)
+            vaults = [k async for k in ret]
+            self.len(1, vaults)
 
             # Rename vault
             opts = {'vars': {'giden': giden}}
@@ -185,12 +189,6 @@ class StormlibVaultTest(s_test.SynTest):
             opts = {'vars': {'giden': giden}, 'user': visi1.iden}
             q = 'return($lib.vault.get($giden).configs)'
             self.eq(await core.callStorm(q, opts=opts), {'server': 'gvault'})
-
-            # Set config item without EDIT perms
-            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
-            q = '$configs=$lib.vault.get($giden).configs $configs.foo=bar return($configs)'
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(q, opts=opts)
 
             # replace configs
             opts = {'vars': {'giden': giden}}
@@ -224,67 +222,9 @@ class StormlibVaultTest(s_test.SynTest):
 
             # List vaults again
             opts = {'user': visi1.iden}
-            self.eq(0, await core.callStorm('return($lib.len($lib.vault.list()))', opts=opts))
-
-            # Runtime asroot
-
-            await core.addStormPkg({
-                'name': 'vpkg',
-                'version': '0.0.1',
-                'modules': [
-                    {
-                        'name': 'vmod',
-                        'asroot': True,
-                        'storm': '''
-                            function setSecret(iden, key, valu) {
-                                $secrets = $lib.vault.get($iden).secrets
-                                $secrets.$key = $valu
-                                return($secrets)
-                            }
-
-                            function smashSecrets(iden, dict) {
-                                $vault = $lib.vault.get($iden)
-                                $vault.secrets = $dict
-                                return($vault.secrets)
-                            }
-
-                            function setConfig(iden, key, valu) {
-                                $configs = $lib.vault.get($iden).configs
-                                $configs.$key = $valu
-                                return($configs)
-                            }
-
-                            function smashConfigs(iden, dict) {
-                                $vault = $lib.vault.get($iden)
-                                $vault.configs = $dict
-                                return($vault.configs)
-                            }
-                        '''
-                    },
-                ],
-            })
-
-            await core.nodes('auth.user.addrule visi1 storm.asroot.mod.vmod')
-
-            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
-            q = 'return($lib.import(vmod).setSecret($giden, foo, bar))'
-            ret = await core.callStorm(q, opts=opts)
-            self.eq(ret, {'apikey': 'foobar', 'foo': 'bar'})
-
-            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
-            q = 'return($lib.import(vmod).smashSecrets($giden, ({"apikey": "new"})))'
-            ret = await core.callStorm(q, opts=opts)
-            self.eq(ret, {'apikey': 'new'})
-
-            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
-            q = 'return($lib.import(vmod).setConfig($giden, foo, bar))'
-            ret = await core.callStorm(q, opts=opts)
-            self.eq(ret, {'server': 'foobar', 'foo': 'bar'})
-
-            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
-            q = 'return($lib.import(vmod).smashConfigs($giden, ({"server": "new"})))'
-            ret = await core.callStorm(q, opts=opts)
-            self.eq(ret, {'server': 'new'})
+            ret = await core.callStorm('return($lib.vault.list())', opts=opts)
+            vaults = [k async for k in ret]
+            self.len(0, vaults)
 
     async def test_stormlib_vault_cmds(self):
         async with self.getTestCore() as core:

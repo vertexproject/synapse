@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 23)
+maxvers = (0, 2, 22)
 
 class ModelRev:
 
@@ -121,7 +121,7 @@ class ModelRev:
 
             for revvers, revmeth in self.revs:
 
-                todo = [lyr for lyr in layers if await lyr.getModelVers() < revvers]
+                todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
                 if not todo:
                     continue
 
