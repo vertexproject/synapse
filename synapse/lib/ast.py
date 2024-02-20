@@ -457,8 +457,8 @@ class SubGraph:
 
         for pivq in rules.get('pivots', ()):
             indx = 0
-            async for node, path in node.storm(runt, pivq):
-                yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
+            async for n, p in node.storm(runt, pivq):
+                yield (n, p, {'type': 'rules', 'scope': scope, 'index': indx})
                 indx += 1
 
     async def _edgefallback(self, runt, results, resultidens, node):
@@ -3975,7 +3975,7 @@ class EmbedQuery(Const):
     async def compute(self, runt, path):
 
         varz = {}
-        varz.update(runt.vars)
+        varz.update(runt.getScopeVars())
 
         if path is not None:
             varz.update(path.vars)
@@ -4322,7 +4322,7 @@ class EditPropDel(Edit):
             exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
             raise self.kids[0].addExcInfo(exc)
 
-        runt.layerConfirm(('node', 'prop', 'del', prop.full))
+        runt.confirmPropDel(prop)
 
         await node.pop(name)
 

@@ -28,8 +28,8 @@ The ability to create or modify data on the fly gives users a powerful degree of
   - Where possible, :ref:`ug_fork_view` and test and perform your changes in the fork. Once you have validated the
     changes, they can be merged into the parent view; if anything goes wrong, the fork can simply be deleted.
     
-    - Note that in Synapse 2.X, all **delete** operations must be performed in the layer where the data to be deleted exists;
-      that is, deletes cannot be performed in a forked view.
+    - Note that in Synapse 2.x, all **delete** operations must be performed in the layer where the data to be deleted exists;
+      that is, if you are working in forked view, you cannot delete data in the underlying view/layer from the fork.
   
   - Use extreme caution when constructing complex Storm queries that may modify (or delete) large numbers of nodes.
     It is **strongly recommended** that you validate the output of a query by first running the query on its own 
@@ -691,7 +691,7 @@ Add tag property:
 
 *Add tag with custom tag property and value:*
 
-.. storm-pre:: $tagpropinfo = $lib.dict(doc="A risk tagprop.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
+.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(risk, (int, ({})), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
 ::
 
     <inet:fqdn> [ +#rep.symantec:risk = 87 ]

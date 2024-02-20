@@ -181,7 +181,7 @@ wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet
 Examples:
 
     # Specify custom headers and parameters
-    inet:url=https://vertex.link/foo.bar.txt | wget --headers $lib.dict("User-Agent"="Foo/Bar") --params $lib.dict("clientid"="42")
+    inet:url=https://vertex.link/foo.bar.txt | wget --headers ({"User-Agent": "Foo/Bar"}) --params ({"clientid": "42"})
 
     # Download multiple URL targets without inbound nodes
     wget https://vertex.link https://vtx.lk
@@ -2187,6 +2187,35 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def confirmPropSet(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+            return
+
+        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+
+    def confirmPropDel(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+            return
+
+        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+
+    def confirmEasyPerm(self, item, perm, mesg=None):
+        if not self.asroot:
+            self.snap.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
+
+    def allowedEasyPerm(self, item, perm):
+        if self.asroot:
+            return True
+        return self.snap.core._hasEasyPerm(item, self.user, perm)
+
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
@@ -3554,7 +3583,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.getPropNames():
-                    runt.confirm(node.form.props[name].setperm, gateiden=layriden)
+                    runt.confirm(node.form.props[name].setperms, gateiden=layriden)
 
                 for tag in node.getTagNames():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
@@ -3748,11 +3777,27 @@ class MergeCmd(Cmd):
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
-            full = node.form.prop(name).full
-            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+            prop = node.form.prop(name)
+            runt.confirmPropDel(prop, layriden=layr0)
+            runt.confirmPropSet(prop, layriden=layr1)
 
+        tags = []
+        tagadds = []
         for tag, valu in sode.get('tags', {}).items():
+            if valu != (None, None):
+                tagadds.append(tag)
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            else:
+                tags.append((len(tag), tag))
+
+        for _, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            tagadds.append(tag)
             tagperm = tuple(tag.split('.'))
             runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
             runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
@@ -4556,12 +4601,15 @@ class DelNodeCmd(Cmd):
         pars.add_argument('--delbytes', default=False, action='store_true',
                           help='For file:bytes nodes, remove the bytes associated with the '
                                'sha256 property from the axon as well if present.')
+        pars.add_argument('--deledges', default=False, action='store_true',
+                          help='Delete N2 light edges before deleting the node.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
         force = await s_stormtypes.tobool(self.opts.force)
         delbytes = await s_stormtypes.tobool(self.opts.delbytes)
+        deledges = await s_stormtypes.tobool(self.opts.deledges)
 
         if force:
             if runt.user is not None and not runt.isAdmin():
@@ -4580,6 +4628,24 @@ class DelNodeCmd(Cmd):
                 runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
+
+            if deledges:
+                async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
+                    seenverbs = set()
+
+                    async for (verb, n2nid) in node.iterEdgesN2():
+                        if verb not in seenverbs:
+                            runt.layerConfirm(('node', 'edge', 'del', verb))
+                            seenverbs.add(verb)
+                        await edges.add((verb, n2nid))
+
+                    async with self.runt.snap.getEditor() as editor:
+                        async for (verb, n2nid) in edges:
+                            n2 = await editor.getNodeByNid(n2nid)
+                            if n2 is not None:
+                                if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
+                                    await self.runt.snap.saveNodeEdits(editor.getNodeEdits())
+                                    editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.get('sha256')
@@ -5569,7 +5635,9 @@ class EdgesDelCmd(Cmd):
             n2iden = node.iden()
             async for (v, n1nid) in node.iterEdgesN2(verb):
                 n1 = await self.runt.snap.getNodeByNid(n1nid)
-                await n1.delEdge(v, n2iden)
+                if n1 is not None:
+                    await n1.delEdge(v, n2iden)
+
         else:
             async for (v, n2nid) in node.iterEdgesN1(verb):
                 n2buid = self.runt.snap.core.getBuidByNid(n2nid)

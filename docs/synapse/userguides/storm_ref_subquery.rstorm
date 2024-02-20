@@ -11,7 +11,7 @@ This section discusses the following topics:
 
 - `Subquery`_
 - `Subquery Filter`_
-- `Setting Properties with Subqueries`_
+- `Using Subqueries to Reference Nodes`_
 
 .. _storm-subquery:
 
@@ -77,7 +77,7 @@ For example, the following query will return zero nodes, even though the ``yield
 
 .. storm-pre:: [ (inet:ipv4=12.34.56.78 :loc=us.oh) (inet:ipv4=44.44.44.44) (inet:server=tcp://12.34.56.78:80) (inet:server=tcp://44.44.44.44:443)]
 .. storm-pre:: inet:ipv4 { -:loc } -> inet:server
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=ipgeoloc, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $query=${} $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [({'name': 'ipgeoloc', 'storm': $query })] }) $lib.print($pkg) $lib.pkg.add($pkg)
 ::
 
     <inet:ipv4> { -:loc | ipgeoloc } -> inet:server
@@ -113,7 +113,43 @@ A subquery filter allows you to use a subquery to filter the current set of node
 
 For additional detail on subquery filters and examples of their use, refer to the :ref:`filter-subquery` section of the :ref:`storm-ref-filter` guide.
 
-Setting Properties with Subqueries
-----------------------------------
+.. _subquery-ref-nodes:
 
-A subquery can be used in data modification (i.e., edit) operations to specify the value that should be assigned to a node's secondary property. This is useful when the value to be assigned is a :ref:`gloss-guid` that would be inconvenient to type or copy and paste. See the :ref:`prop-add-mod-subquery` section of the :ref:`storm-ref-data-mod` document for examples and additional detail.
+Using Subqueries to Reference Nodes
+-----------------------------------
+
+A subquery can be used as an alternative (and potentially simpler) way to reference a node in Synapse.
+
+A common use case is to use a subquery as a simpler way to refer to a :ref:`gloss-guid-form` or :ref:`gloss-comp-form`
+without needing to enter (type, copy and paste) the form's primary property.
+
+**Examples:**
+
+*Lift all of the contacts (ps:contact nodes) for The Vertex Project:*
+
+.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex :names+=('the vertex project')) (ps:contact=* :org=4b0c2c5671874922ce001d69215d032f :name='ron the cat') ]
+.. storm-pre:: ps:contact:org = { ou:org:name = vertex }
+
+::
+  
+  ps:contact:org = { ou:org:name = vertex }
+
+*Set the :id:number property of a contact (ps:contact node) to the ID number whose value is 444-44-4444:*
+
+.. storm-pre:: [ ou:id:number=(d41d8cd98f00b204e9800998ecf8427e,111-11-1111) ou:id:number=(d41d8cd98f00b204e9800998ecf8427e,444-44-4444) ]
+.. storm-pre:: ps:contact:name='ron the cat' [ :id:number = { ou:id:number:value = 444-44-4444 } ]
+
+::
+  
+  ps:contact:name='ron the cat' [ :id:number = { ou:id:number:value = 444-44-4444 } ]
+
+
+.. TIP::
+  
+  When a subquery is used to specify a property value (as in the queries above), Synapse will generate an error
+  if the subquery expression returns more than node. Specifically, the ``:org`` property of a ``ps:contact``
+  node is a single ``ou:org`` guid. If ``ou:org:name = vertex`` returns more than one org node, Synapse
+  returns a ``BadTypeValu`` error.
+
+See the :ref:`prop-add-mod-subquery` section of the :ref:`storm-ref-data-mod` document for additional examples of
+setting properties using subqueries.

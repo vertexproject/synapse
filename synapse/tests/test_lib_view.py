@@ -606,7 +606,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('view.merge $forkviden --delete', opts={'vars': {'forkviden': forkviden}})
 
-            # can wipe push/pull/mirror layers
+            # can wipe through layer push/pull
 
             self.len(1, await core.nodes('test:str=chicken'))
             baseoffs = await layr.getEditOffs()
@@ -657,23 +657,8 @@ class ViewTest(s_t_utils.SynTest):
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
                 pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
 
-                mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
-                mirror_view, mirror_layr = await core2.callStorm('''
-                    $ldef = $lib.dict(mirror=$lib.str.concat($baseurl, "/", $baseiden))
-                    $lyr = $lib.layer.add(ldef=$ldef)
-                    $view = $lib.view.add(($lyr.iden,))
-                    return(($view.iden, $lyr.iden))
-                ''', opts=opts)
+                await core.nodes('$lib.view.get().wipeLayer()')
 
-                self.true(await core2.getLayer(iden=mirror_layr).waitEditOffs(mirror_catchup, timeout=2))
-                self.len(1, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
-
-                # wipe the mirror view which will writeback
-                # and then get pushed/pulled into the other layers
-
-                await core2.nodes('$lib.view.get().wipeLayer()', opts={'view': mirror_view})
-
-                self.len(0, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
                 self.len(0, await core.nodes('test:str=chicken'))
 
                 self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(puller_offs + 1, timeout=2))
@@ -747,3 +732,25 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('#seen'))
             self.nn(nodes[0].getTagProp('seen', 'score'))
             self.nn(nodes[0].nodedata.get('foo'))
+
+            await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
+
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'add', 'rep', 'foo')), gateiden=baselayr)
+
+            await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
+
+            await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+
+            await core.nodes('test:str=foo | merge --apply', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+            await core.nodes('test:str=foo [ +#rep=now ]', opts=viewopts)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
