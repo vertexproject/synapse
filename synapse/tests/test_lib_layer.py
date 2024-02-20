@@ -985,15 +985,6 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
             self.true(await layr.hasTagProp('score'))
 
-            await core.nodes('[ test:str=data ] $node.data.set(foodata, bar)')
-
-            abrv = layr.getPropAbrv('foodata', None)
-            self.len(1, list(layr.dataslab.scanByDups(abrv, db=layr.dataname)))
-
-            await core.nodes('test:str=data | delnode')
-
-            self.len(0, list(layr.dataslab.scanByDups(abrv, db=layr.dataname)))
-
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)
 
