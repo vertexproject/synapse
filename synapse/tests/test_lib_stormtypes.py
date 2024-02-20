@@ -3004,15 +3004,11 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint("Working", msgs)
 
-    async def test_storm_lib_bytes(self):
+    async def test_storm_lib_axon_bytes(self):
 
         async with self.getTestCore() as core:
 
             opts = {'vars': {'bytes': 10}}
-
-            with self.raises(s_exc.BadArg):
-                text = '($size, $sha2) = $lib.bytes.put($bytes)'
-                nodes = await core.nodes(text, opts=opts)
 
             with self.raises(s_exc.BadArg):
                 text = '($size, $sha2) = $lib.axon.put($bytes)'
@@ -3026,23 +3022,18 @@ class StormTypesTest(s_test.SynTest):
             asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
             self.eq(asdfhash_h, hashes['sha256'])
 
-            ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
+            ret = await core.callStorm('return($lib.axon.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.false(ret)
-            self.false(await core.callStorm('return($lib.bytes.has($lib.null))'))
             self.false(await core.callStorm('return($lib.axon.has($lib.null))'))
 
             opts = {'vars': {'bytes': asdf}}
-            text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
+            text = '($size, $sha2) = $lib.axon.put($bytes) [ test:int=$size test:str=$sha2 ]'
 
             nodes = await core.nodes(text, opts=opts)
             self.len(2, nodes)
 
             opts = {'vars': {'sha256': asdfhash_h}}
-            self.eq(8, await core.callStorm('return($lib.bytes.size($sha256))', opts=opts))
             self.eq(8, await core.callStorm('return($lib.axon.size($sha256))', opts=opts))
-
-            hashset = await core.callStorm('return($lib.bytes.hashset($sha256))', opts=opts)
-            self.eq(hashset, hashes)
 
             hashset = await core.callStorm('return($lib.axon.hashset($sha256))', opts=opts)
             self.eq(hashset, hashes)
@@ -3053,9 +3044,6 @@ class StormTypesTest(s_test.SynTest):
             bkey = s_common.uhex(asdfhash_h)
             byts = b''.join([b async for b in core.axon.get(bkey)])
             self.eq(b'asdfasdf', byts)
-
-            ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
-            self.true(ret)
 
             ret = await core.callStorm('return($lib.axon.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.true(ret)
@@ -3106,9 +3094,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(8, bobj)
 
             opts = {'vars': {'chunks': (b'visi', b'kewl')}}
-            retn = await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
-            self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
-
             retn = await core.callStorm('return($lib.axon.upload($chunks))', opts=opts)
             self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
 
@@ -3117,23 +3102,23 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'user': visi.iden, 'vars': {'hash': asdfhash_h}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.bytes.has($hash))', opts=opts)
+                await core.callStorm('return($lib.axon.has($hash))', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.bytes.size($hash))', opts=opts)
+                await core.callStorm('return($lib.axon.size($hash))', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.bytes.hashset($hash))', opts=opts)
+                await core.callStorm('return($lib.axon.hashset($hash))', opts=opts)
 
             await visi.addRule((False, ('axon', 'upload')))
 
             opts = {'user': visi.iden, 'vars': {'byts': b'foo'}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.bytes.put($byts))', opts=opts)
+                await core.callStorm('return($lib.axon.put($byts))', opts=opts)
 
             opts = {'user': visi.iden, 'vars': {'chunks': (b'visi', b'kewl')}}
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
+                await core.callStorm('return($lib.axon.upload($chunks))', opts=opts)
 
     async def test_storm_lib_base64(self):
 
