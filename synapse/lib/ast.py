@@ -4250,7 +4250,7 @@ class EditPropSet(Edit):
 
         if not node.form.isrunt:
             # runt node property permissions are enforced by the callback
-            runt.layerConfirm(('node', 'prop', 'set', prop.full))
+            runt.confirmPropSet(prop)
 
         isarray = isinstance(prop.type, s_types.Array)
 
