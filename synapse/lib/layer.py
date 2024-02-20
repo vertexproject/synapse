@@ -3539,7 +3539,7 @@ def getNodeEditPerms(nodeedits):
         tags.clear()
         tagadds.clear()
 
-        for editoffs, (edit, info, _) in enumerate(edits):
+        for editoffs, (edit, info) in enumerate(edits):
 
             permoffs = (nodeoffs, editoffs)
 
