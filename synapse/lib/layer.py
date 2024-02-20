@@ -408,15 +408,13 @@ class IndxByPropArray(IndxBy):
 
 class IndxByPropIvalMin(IndxByProp):
 
-    def keyBuidsByRange(self, minindx, maxindx):
+    def keyNidsByRange(self, minindx, maxindx, reverse=False):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
-
-    def keyBuidsByRangeBack(self, minindx, maxindx):
-        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
-        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+        if reverse:
+            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+        else:
+            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
 
 class IndxByPropIvalMax(IndxBy):
 
@@ -456,15 +454,13 @@ class IndxByTagIval(IndxBy):
 
 class IndxByTagIvalMin(IndxByTagIval):
 
-    def keyBuidsByRange(self, minindx, maxindx):
+    def keyNidsByRange(self, minindx, maxindx, reverse=False):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
-
-    def keyBuidsByRangeBack(self, minindx, maxindx):
-        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
-        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+        if reverse:
+            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+        else:
+            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
 
 class IndxByTagIvalMax(IndxBy):
 
@@ -525,15 +521,13 @@ class IndxByTagProp(IndxBy):
 
 class IndxByTagPropIvalMin(IndxByTagProp):
 
-    def keyBuidsByRange(self, minindx, maxindx):
+    def keyNidsByRange(self, minindx, maxindx, reverse=False):
         strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
         stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
-
-    def keyBuidsByRangeBack(self, minindx, maxindx):
-        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
-        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
-        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+        if reverse:
+            yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+        else:
+            yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
 
 class IndxByTagPropIvalMax(IndxBy):
 
@@ -1294,7 +1288,7 @@ class StorTypeIval(StorType):
         pkeymin = self.timetype.zerobyts * 2
         pkeymax = maxindx + self.timetype.fullbyts
 
-        for lkey, nid in liftby.keyNidsByPref(pkeymin, pkeymax, reverse=reverse):
+        for lkey, nid in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
 
             # check for non-overlap right
             if lkey[-8:] <= minindx:
@@ -1303,13 +1297,8 @@ class StorTypeIval(StorType):
             yield lkey, nid
 
     async def _liftIvalPartEq(self, liftby, valu, reverse=False):
-        if reverse:
-            scan = liftby.keyBuidsByPrefBack
-        else:
-            scan = liftby.keyBuidsByPref
-
         indx = self.timetype.getIntIndx(valu)
-        for item in scan(indx):
+        for item in liftby.keyNidsByPref(indx, reverse=reverse):
             yield item
 
     async def _liftIvalPartGt(self, liftby, valu, reverse=False):
@@ -1317,16 +1306,9 @@ class StorTypeIval(StorType):
             yield item
 
     async def _liftIvalPartGe(self, liftby, valu, reverse=False):
-        if reverse:
-            scan = liftby.keyBuidsByRangeBack
-        else:
-            scan = liftby.keyBuidsByRange
-
-        minv = max(valu, 0)
-
-        pkeymin = self.timetype.getIntIndx(minv)
+        pkeymin = self.timetype.getIntIndx(max(valu, 0))
         pkeymax = self.timetype.maxbyts
-        for item in scan(pkeymin, pkeymax):
+        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     async def _liftIvalPartLt(self, liftby, valu, reverse=False):
@@ -1334,27 +1316,17 @@ class StorTypeIval(StorType):
             yield item
 
     async def _liftIvalPartLe(self, liftby, valu, reverse=False):
-        if reverse:
-            scan = liftby.keyBuidsByRangeBack
-        else:
-            scan = liftby.keyBuidsByRange
-
         maxv = min(valu, self.timetype.maxval)
 
         pkeymin = self.timetype.zerobyts
         pkeymax = self.timetype.getIntIndx(maxv)
-        for item in scan(pkeymin, pkeymax):
+        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     async def _liftIvalPartAt(self, liftby, valu, reverse=False):
-        if reverse:
-            scan = liftby.keyBuidsByRangeBack
-        else:
-            scan = liftby.keyBuidsByRange
-
         pkeymin = self.timetype.getIntIndx(valu[0])
         pkeymax = self.timetype.getIntIndx(valu[1])
-        for item in scan(pkeymin, pkeymax):
+        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     def indx(self, valu):
