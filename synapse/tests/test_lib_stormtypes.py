@@ -587,11 +587,12 @@ class StormTypesTest(s_test.SynTest):
             self.true(s_common.isguid(nodes[1].ndef[1]))
             self.eq(nodes[0].ndef[1], nodes[1].ndef[1])
 
-            guids = await core.callStorm('return(($lib.guid(baz), $lib.guid(baz, valu=newp)))')
-            self.eq(guids[0], guids[1])
-
             self.ne(s_common.guid('foo'), await core.callStorm('return($lib.guid(foo))'))
             self.eq(s_common.guid('foo'), await core.callStorm('return($lib.guid(valu=foo))'))
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.callStorm('return($lib.guid(foo, valu=bar))')
+            self.eq('Valu cannot be specified if positional arguments are provided', ectx.exception.errinfo['mesg'])
 
             await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid(valu=$lib))'))
 
