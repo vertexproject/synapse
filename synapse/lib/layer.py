@@ -1326,7 +1326,7 @@ class StorTypeIval(StorType):
     async def _liftIvalPartAt(self, liftby, valu, reverse=False):
         pkeymin = self.timetype.getIntIndx(valu[0])
         pkeymax = self.timetype.getIntIndx(valu[1] - 1)
-        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse)
+        for item in liftby.keyNidsByRange(pkeymin, pkeymax, reverse=reverse):
             yield item
 
     def indx(self, valu):
