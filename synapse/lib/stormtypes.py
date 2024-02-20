@@ -2217,18 +2217,6 @@ class LibAxon(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('axon',)
-    _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'axon', 'del'), 'gate': 'cortex',
-            'desc': 'Controls the ability to remove a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'get'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'has'), 'gate': 'cortex',
-            'desc': 'Controls the ability to check if the Axon contains a file.'},
-        {'perm': ('storm', 'lib', 'axon', 'wget'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
-            'desc': 'Controls the ability to push a file from the Axon to a URL.'},
-    )
 
     def getObjLocals(self):
         return {
@@ -2258,8 +2246,7 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def readlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2268,8 +2255,7 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def jsonlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2278,8 +2264,7 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2295,8 +2280,7 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256 = await tostr(sha256)
 
@@ -2309,8 +2293,7 @@ class LibAxon(Lib):
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
                    ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
-        if not self.runt.allowed(('axon', 'wget')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        self.runt.confirm(('axon', 'upload'))
 
         url = await tostr(url)
         method = await tostr(method)
@@ -2352,8 +2335,7 @@ class LibAxon(Lib):
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
                    ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
-        if not self.runt.allowed(('axon', 'wput')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        self.runt.confirm(('axon', 'get'))
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
@@ -2457,8 +2439,7 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        self.runt.confirm(('axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2469,8 +2450,7 @@ class LibAxon(Lib):
     @stormfunc(readonly=True)
     async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
         await self.runt.snap.core.getAxon()
 
@@ -2484,8 +2464,7 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def metrics(self):
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        self.runt.confirm(('axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
     async def upload(self, genr):
@@ -2539,173 +2518,6 @@ class LibAxon(Lib):
 
         await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
-
-@registry.registerLib
-class LibBytes(Lib):
-    '''
-    A Storm Library for interacting with bytes storage. This Library is deprecated; use ``$lib.axon.*`` instead.
-    '''
-    _storm_locals = (
-        {'name': 'put', 'desc': '''
-            Save the given bytes variable to the Axon the Cortex is configured to use.
-
-            Examples:
-                Save a base64 encoded buffer to the Axon::
-
-                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
-                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
-
-                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
-         'type': {'type': 'function', '_funcname': '_libBytesPut',
-                  'args': (
-                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-        {'name': 'has', 'desc': '''
-            Check if the Axon the Cortex is configured to use has a given sha256 value.
-
-            Examples:
-                Check if the Axon has a given file::
-
-                    # This example assumes the Axon does have the bytes
-                    cli> storm if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
-                            $lib.print("Has bytes")
-                        } else {
-                            $lib.print("Does not have bytes")
-                        }
-
-                    Has bytes
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesHas',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the Axon has the file, false if it does not.', }}},
-        {'name': 'size', 'desc': '''
-            Return the size of the bytes stored in the Axon for the given sha256.
-
-            Examples:
-                Get the size for a file given a variable named ``$sha256``::
-
-                    $size = $lib.bytes.size($sha256)
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesSize',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': ['int', 'null'],
-                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
-        {'name': 'hashset', 'desc': '''
-            Return additional hashes of the bytes stored in the Axon for the given sha256.
-
-            Examples:
-                Get the md5 hash for a file given a variable named ``$sha256``::
-
-                    $hashset = $lib.bytes.hashset($sha256)
-                    $md5 = $hashset.md5
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesHashset',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
-        {'name': 'upload', 'desc': '''
-            Upload a stream of bytes to the Axon as a file.
-
-            Examples:
-                Upload bytes from a generator::
-
-                    ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesUpload',
-                  'args': (
-                      {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-    )
-    _storm_lib_path = ('bytes',)
-
-    def getObjLocals(self):
-        return {
-            'put': self._libBytesPut,
-            'has': self._libBytesHas,
-            'size': self._libBytesSize,
-            'upload': self._libBytesUpload,
-            'hashset': self._libBytesHashset,
-        }
-
-    async def _libBytesUpload(self, genr):
-        s_common.deprecated('$lib.bytes.upload()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.upload() is deprecated. Use $lib.axon.upload() instead.')
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        async with await self.runt.snap.core.axon.upload() as upload:
-            async for byts in s_coro.agen(genr):
-                await upload.write(byts)
-            size, sha256 = await upload.save()
-            return size, s_common.ehex(sha256)
-
-    @stormfunc(readonly=True)
-    async def _libBytesHas(self, sha256):
-        s_common.deprecated('$lib.bytes.has()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.has() is deprecated. Use $lib.axon.has() instead.')
-
-        sha256 = await tostr(sha256, noneok=True)
-        if sha256 is None:
-            return None
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('has', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    @stormfunc(readonly=True)
-    async def _libBytesSize(self, sha256):
-        s_common.deprecated('$lib.bytes.size()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.size() is deprecated. Use $lib.axon.size() instead.')
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('size', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    async def _libBytesPut(self, byts):
-        s_common.deprecated('$lib.bytes.put()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.put() is deprecated. Use $lib.axon.put() instead.')
-
-        if not isinstance(byts, bytes):
-            mesg = '$lib.bytes.put() requires a bytes argument'
-            raise s_exc.BadArg(mesg=mesg)
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('put', byts)
-        size, sha2 = await self.dyncall('axon', todo)
-
-        return (size, s_common.ehex(sha2))
-
-    @stormfunc(readonly=True)
-    async def _libBytesHashset(self, sha256):
-        s_common.deprecated('$lib.bytes.hashset()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.hashset() is deprecated. Use $lib.axon.hashset() instead.')
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('hashset', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
 
 @registry.registerLib
 class LibLift(Lib):

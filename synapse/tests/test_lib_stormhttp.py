@@ -507,8 +507,8 @@ class StormHttpTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             visi = await core.auth.addUser('visi')
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            await visi.addRule((True, ('axon', 'get')))
+            await visi.addRule((True, ('axon', 'upload')))
 
             errmsg = f'User {visi.name!r} ({visi.iden}) must have permission {{perm}}'
 
@@ -552,8 +552,8 @@ class StormHttpTest(s_test.SynTest):
 
             visi = await core.auth.addUser('visi')
 
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            await visi.addRule((True, ('axon', 'get')))
+            await visi.addRule((True, ('axon', 'upload')))
 
             _, sha256 = await core.axon.put(b'asdf')
             sha256 = s_common.ehex(sha256)
@@ -725,7 +725,7 @@ class StormHttpTest(s_test.SynTest):
 
                 q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
 
-                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                size, sha256 = await core.callStorm('return($lib.axon.put($lib.base64.decode(Zm9v)))')
                 opts['vars']['sha256'] = sha256
 
                 # mtls required
