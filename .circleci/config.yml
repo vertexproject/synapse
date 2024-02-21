@@ -487,9 +487,9 @@ jobs:
       - image: docker:24.0.2
     steps:
       - build_docker:
-          image-tag: ${CIRCLE_BRANCH}
+          image-tag: ${CIRCLE_BRANCH//\//_}
       - push_docker_image:
-          image-tag: ${CIRCLE_BRANCH}
+          image-tag: ${CIRCLE_BRANCH//\//_}
           registry: ${DOCKER_PRIMARY_REGISTRY}
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
