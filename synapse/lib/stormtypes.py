@@ -2644,8 +2644,6 @@ class LibBytes(Lib):
         }
 
     async def _libBytesUpload(self, genr):
-        s_common.deprecated('$lib.bytes.upload()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.upload() is deprecated. Use $lib.axon.upload() instead.')
 
         self.runt.confirm(('axon', 'upload'), default=True)
 
@@ -2658,8 +2656,6 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesHas(self, sha256):
-        s_common.deprecated('$lib.bytes.has()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.has() is deprecated. Use $lib.axon.has() instead.')
 
         sha256 = await tostr(sha256, noneok=True)
         if sha256 is None:
@@ -2674,8 +2670,6 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesSize(self, sha256):
-        s_common.deprecated('$lib.bytes.size()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.size() is deprecated. Use $lib.axon.size() instead.')
 
         sha256 = await tostr(sha256)
 
@@ -2687,8 +2681,6 @@ class LibBytes(Lib):
         return ret
 
     async def _libBytesPut(self, byts):
-        s_common.deprecated('$lib.bytes.put()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.put() is deprecated. Use $lib.axon.put() instead.')
 
         if not isinstance(byts, bytes):
             mesg = '$lib.bytes.put() requires a bytes argument'
@@ -2704,8 +2696,6 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesHashset(self, sha256):
-        s_common.deprecated('$lib.bytes.hashset()', curv='2.162.0')
-        await self.runt.warnonce('$lib.bytes.hashset() is deprecated. Use $lib.axon.hashset() instead.')
 
         sha256 = await tostr(sha256)
 
