@@ -1165,12 +1165,14 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes(addq)
             await core.nodes(delq, opts=viewopts2)
 
-            await core.nodes('auth.user.grant root all')
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('view', 'read')))
+            visiopts = {'view': viewiden2, 'user': visi.iden}
 
             setq = '$lib.view.get().set(quorum, ({"count": 1, "roles": [$lib.auth.roles.byname(all).iden]}))'
             await core.nodes(setq)
             await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
-            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
 
             self.true(await view2.waitfini(timeout=5))
 
@@ -1179,13 +1181,14 @@ class LayerTest(s_t_utils.SynTest):
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
 
             await core.nodes('inet:ipv4=1.2.3.4 [ :asn=4 ]')
             await core.nodes('inet:ipv4=1.2.3.4 [ :loc=us -:asn ]', opts=viewopts2)
             await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]')
 
             await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
-            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
 
             self.true(await view2.waitfini(timeout=5))
 
@@ -1197,12 +1200,13 @@ class LayerTest(s_t_utils.SynTest):
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
 
             await core.nodes(addq)
             await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
 
             await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
-            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
 
             self.true(await view2.waitfini(timeout=5))
 
@@ -1211,13 +1215,14 @@ class LayerTest(s_t_utils.SynTest):
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
 
             await core.nodes(addq)
             await core.nodes(delq, opts=viewopts2)
             await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
 
             await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
-            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
 
             self.true(await view2.waitfini(timeout=5))
 
@@ -1227,13 +1232,14 @@ class LayerTest(s_t_utils.SynTest):
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
 
             await core.nodes(addq)
             await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
             await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
 
             await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
-            await core.nodes('$lib.view.get().setMergeVote()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
 
             self.true(await view2.waitfini(timeout=5))
 

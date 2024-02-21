@@ -741,6 +741,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
 
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'del', 'seen')), gateiden=baselayr)
             await core.addUserRule(useriden, (True, ('node', 'tag', 'add', 'rep', 'foo')), gateiden=baselayr)
 
             await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
