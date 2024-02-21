@@ -29,6 +29,7 @@ re_directive = regex.compile(r'^\.\.\s(storm.*|[^:])::(?:\s(.*)$|$)')
 
 logger = logging.getLogger(__name__)
 
+ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 
 class OutPutRst(s_output.OutPutStr):
     '''
@@ -413,7 +414,16 @@ class StormRst(s_base.Base):
         core = self._reqCore()
 
         pkg = s_genpkg.loadPkgProto(text)
+
+        if pkg.get('onload') is not None:
+            waiter = core.waiter(1, 'core:pkg:onload:complete')
+        else:
+            waiter = None
+
         await core.addStormPkg(pkg)
+
+        if waiter is not None and not await waiter.wait(timeout=ONLOAD_TIMEOUT):
+            raise s_exc.SynErr(mesg=f'Package onload failed to run for {pkg.get("name")}')
 
     async def _handleStormPre(self, text):
         '''
@@ -453,6 +463,9 @@ class StormRst(s_base.Base):
 
         svc = await self._getCell(ctor, conf=svcconf)
 
+        onloadcnt = len([p for p in svc.cellapi._storm_svc_pkgs if p.get('onload') is not None])
+        waiter = core.waiter(onloadcnt, 'core:pkg:onload:complete') if onloadcnt else None
+
         svc.dmon.share('svc', svc)
         root = await svc.auth.getUserByName('root')
         await root.setPasswd('root')
@@ -462,6 +475,9 @@ class StormRst(s_base.Base):
         surl = f'tcp://root:root@127.0.0.1:{port}/svc'
         await core.nodes(f'service.add {svcname} {surl}')
         await core.nodes(f'$lib.service.wait({svcname})')
+
+        if waiter is not None and not await waiter.wait(timeout=ONLOAD_TIMEOUT):
+            raise s_exc.SynErr(mesg=f'Package onload failed to run for service {svcname}')
 
     async def _handleStormFail(self, text):
         valu = json.loads(text)

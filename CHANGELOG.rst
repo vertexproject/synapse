@@ -1,10 +1,407 @@
 .. vim: set textwidth=79
 
--.. _changelog:
+.. _changelog:
 
 *****************
 Synapse Changelog
 *****************
+
+v2.162.0 - 2024-02-15
+=====================
+
+Model Changes
+-------------
+- Updates to the ``inet``, ``infotech``,  ``ou``,  ``proj``, and ``risk`` models.
+  (`#3549 <https://github.com/vertexproject/synapse/pull/3549>`_)
+  (`#3551 <https://github.com/vertexproject/synapse/pull/3551>`_)
+  (`#3564 <https://github.com/vertexproject/synapse/pull/3564>`_)
+
+  **New Properties**
+
+  ``inet:email:message``
+    The form had the following properties added to it:
+
+    ``received:from:ipv4``
+      The sending SMTP server IPv4, potentially from the Received: header.
+
+    ``received:from:ipv6``
+      The sending SMTP server IPv6, potentially from the Received: header.
+
+    ``received:from:fqdn``
+      The sending server FQDN, potentially from the Received: header.
+
+  ``ou:oid:type``
+    The form had the following property added to it:
+
+      ``url``
+        The official URL of the issuer.
+
+  ``proj:project``
+    The form had the following property added to it:
+
+      ``type``
+        The project type.
+
+  ``risk:alert``
+    The form had the following properties added to it:
+
+    ``status``
+      The status of the alert.
+
+    ``assignee``
+      The Synapse user who is assigned to investigate the alert.
+
+    ``ext:assignee``
+      The alert assignee contact information from an external system.
+
+  ``risk:mitigation``
+    The form had the following properties added to it:
+
+    ``reporter``
+      The organization reporting on the mitigation.
+
+    ``reporter:name``
+      The name of the organization reporting on the mitigation.
+
+    ``tag``
+      The tag used to annotate nodes which have the mitigation in place.
+
+  **New Forms**
+
+  ``proj:project:type:taxonomy``
+    A type taxonomy for projects.
+
+  **Deprecated Properties**
+
+  ``it:mitre:attack:group``
+    The ``it:mitre:attack:group`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:tactic``
+    The ``it:mitre:attack:tactic`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:technique``
+    The ``it:mitre:attack:technique`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:software``
+    The ``it:mitre:attack:software`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+  ``it:mitre:attack:campaign``
+    The ``it:mitre:attack:campaign`` form had the following property marked as deprecated:
+
+    * ``tag``
+
+Features and Enhancements
+-------------------------
+- Add Storm API methods for inspecting and manipulating dictionary objects
+  in Storm. These are ``$lib.dict.has()``, ``$lib.dict.keys()``,
+  ``$lib.dict.pop()``, ``$lib.dict.update()``, and ``$lib.dict.values()`
+  (`#3548 <https://github.com/vertexproject/synapse/pull/3548>`_)
+- Add a ``json()`` method to the ``str`` type in Storm to deserialize a string
+  as JSON data.
+  (`#3555 <https://github.com/vertexproject/synapse/pull/3555>`_)
+- Add an ``_ahainfo`` attribute to the ``Telepath.Proxy``, containing AHA
+  service name information if that is provided to the Dmon.
+  (`#3552 <https://github.com/vertexproject/synapse/pull/3552>`_)
+- Add permissions checks to ``$lib.bytes`` APIs using ``axon.has`` for APIs
+  that check for information about the Axon or metrics; and ``axon.upload``
+  for APIs which put bytes in the Axon. These are checked with
+  ``default=True`` for backward compatibility.
+  (`#3563 <https://github.com/vertexproject/synapse/pull/3563>`_)
+- The rstorm ``storm-svc`` and ``storm-pkg`` directives now wait for any
+  ``onload`` handlers to complete.
+  (`#3567 <https://github.com/vertexproject/synapse/pull/3567>`_)
+- Update the Synapse Python package trove classifiers to list the platforms
+  we support using Synapse with.
+  (`#3557 <https://github.com/vertexproject/synapse/pull/3557>`_)
+
+Bugfixes
+--------
+- Fix a bug in the ``Cell.updateHttpSessInfo()`` API when the Cell does not
+  have the session in memory.
+  (`#3556 <https://github.com/vertexproject/synapse/pull/3556>`_)
+- Fix a bug where a user was allowed to vote for their own View merge request.
+  (`#3565 <https://github.com/vertexproject/synapse/pull/3565>`_)
+- Include Storm variables from the current and parent scopes when resolving
+  STIX properties and relationships.
+  (`#3571 <https://github.com/vertexproject/synapse/pull/3571>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm automation documentation. Added additional information
+  about permissions used to manage automations. Added examples for
+  ``edge:add`` and ``edge:del`` triggers. Added examples for managing Macro
+  permissions.
+  (`#3547 <https://github.com/vertexproject/synapse/pull/3547>`_)
+- Update the Storm filtering and lifting documentation to add information
+  about using interfaces and wildcard values with those operations.
+  (`#3560 <https://github.com/vertexproject/synapse/pull/3560>`_)
+- Update the Synapse introduction to note that Synapse is not intended to
+  replace big-data or data-lake solutions.
+  (`#3553 <https://github.com/vertexproject/synapse/pull/3553>`_)
+
+Deprecations
+------------
+- The Storm function ``$lib.dict()`` has been deprecated, in favor of using
+  the ``({"key": "value"})`` style syntax for directly declaring a dictionary
+  in Storm.
+  (`#3548 <https://github.com/vertexproject/synapse/pull/3548>`_)
+- Writeback layer mirrors and upstream layer mirrors have been marked as
+  deprecated configuration options.
+  (`#3562 <https://github.com/vertexproject/synapse/pull/3562>`_)
+
+v2.161.0 - 2024-02-06
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a Storm command ``gen.it.av.scan.result`` to help generate
+  ``it:av:scan:result`` nodes.
+  (`#3516 <https://github.com/vertexproject/synapse/pull/3516>`_)
+- Add item specific error message when users do not have sufficient permissions
+  on an object which is using easyperms.
+  (`#3532 <https://github.com/vertexproject/synapse/pull/3532>`_)
+- Ensure that Nexus events which are written to the log are always applied and
+  cannot be cancelled while the Nexus handler is running.
+  (`#3518 <https://github.com/vertexproject/synapse/pull/3518>`_)
+- Add ``getMergeRequest()`` and ``getMergeRequestSummary()`` Storm APIs to the
+  ``View`` object, in order to get information about View merges via Storm.
+  (`#3541 <https://github.com/vertexproject/synapse/pull/3541>`_)
+- Add AHA information to the output of the ``Cell.getCellInfo()`` API. This
+  includes the service name, leader, and network.
+  (`#3519 <https://github.com/vertexproject/synapse/pull/3519>`_)
+- Logs related to AHA service registration and setting services as offline are
+  now logged at the ``INFO`` level.
+  (`#3534 <https://github.com/vertexproject/synapse/pull/3534>`_)
+- When creating Cron jobs and Triggers, record their creation time.
+  (`#3521 <https://github.com/vertexproject/synapse/pull/3521>`_)
+  (`#3538 <https://github.com/vertexproject/synapse/pull/3538>`_)
+- Add a ``Cell.updateHttpSessInfo()`` API to set multiple keys at once on a
+  HTTP session.
+  (`#3544 <https://github.com/vertexproject/synapse/pull/3544>`_)
+- Update the allowed versions of the ``cbor2`` and `` pycryptodome``
+  libraries.
+  (`#3540 <https://github.com/vertexproject/synapse/pull/3540>`_)
+
+Bugfixes
+--------
+- The Storm API for creating websockets, ``$lib.inet.http.connect()``, did not
+  properly handle the ``ssl_verify`` argument, causing SSL verification of
+  Websocket requests to default to being disabled. This argument is now
+  handled correctly, with SSL verification being enabled by default.
+  (`#3527 <https://github.com/vertexproject/synapse/pull/3527>`_)
+- Fix a bug in embedded Storm queries where they failed to grab their variables
+  properly.
+  (`#3531 <https://github.com/vertexproject/synapse/pull/3531>`_)
+- Fix a bad variable reference in the Storm ``graph`` implementation.
+  (`#3531 <https://github.com/vertexproject/synapse/pull/3531>`_)
+- Fix a bug where modifying nodes in a Storm Dmon did not properly update the
+  in-flight node.
+  (`#3520 <https://github.com/vertexproject/synapse/pull/3520>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide with additional information about removing
+  extended forms and properties.
+  (`#3510 <https://github.com/vertexproject/synapse/pull/3510>`_)
+- Update the Data Model documentation to include additional information about
+  extended forms and properties.
+  (`#3523 <https://github.com/vertexproject/synapse/pull/3523>`_)
+- Update the Data Model documentation to include information about property
+  interfaces.
+  (`#3523 <https://github.com/vertexproject/synapse/pull/3523>`_)
+
+v2.160.0 - 2024-01-24
+=====================
+
+Automatic Migrations
+--------------------
+- Update ``inet:ipv6`` nodes to set their ``:type`` and ``:scope`` properties.
+  (`#3498 <https://github.com/vertexproject/synapse/pull/3498>`_)
+- Update existing layer push and layer pull configurations to set the default
+  chunk size and queue size values on them.
+  (`#3480 <https://github.com/vertexproject/synapse/pull/3480>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Updates to the ``infotech``, ``ou``,  and ``risk`` models.
+  (`#3501 <https://github.com/vertexproject/synapse/pull/3501>`_)
+  (`#3504 <https://github.com/vertexproject/synapse/pull/3504>`_)
+  (`#3498 <https://github.com/vertexproject/synapse/pull/3498>`_)
+
+  **New Properties**
+
+  ``risk:vuln``
+    The form had the following properties added to it:
+
+    ``severity``
+      The severity of the vulnerability.
+
+    ``priority``
+      The priority of the vulnerability.
+
+  ``inet:ipv6``
+    The form had the following properties added to it:
+
+    ``type``
+      The type of IP address (e.g., private, multicast, etc.).
+
+    ``scope``
+      The IPv6 scope of the address (e.g., global, link-local, etc.).
+
+  **Updated Types**
+
+  ``it:exec:proc``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:thread``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:loadlib``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:mmap``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:mutex``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:pipe``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:url``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:bind``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:add``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:read``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:write``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:file:del``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:reg:get``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:reg:set``
+    This now inherits the ``it:host:activity`` interface.
+
+  ``it:exec:reg:del``
+    This now inherits the ``it:host:activity`` interface.
+
+Features and Enhancements
+-------------------------
+- Add tab completion of commands, forms, properties, tags, and ``$lib.``
+  functions the Storm CLI tool.
+  (`#3493 <https://github.com/vertexproject/synapse/pull/3493>`_)
+  (`#3507 <https://github.com/vertexproject/synapse/pull/3507>`_)
+- Add ``node.set.<form>.<prop>`` and ``node.del.<form>.<prop>`` permissions
+  conventions to the Cortex for property sets and deletes.
+  (`#3505 <https://github.com/vertexproject/synapse/pull/3505>`_)
+- Add experimental support for Storm query offloading to the Cortex. This can
+  be used to offload Storm queries to an AHA service pool. This can be
+  configured with the ``storm:pool`` option on the Cortex.
+  (`#3452 <https://github.com/vertexproject/synapse/pull/3452>`_)
+  (`#3513 <https://github.com/vertexproject/synapse/pull/3513>`_)
+- Add a ``--deledges`` option to the ``delnode`` command. This deletes the N2
+  edges for a node before deleting the node.
+  (`#3503 <https://github.com/vertexproject/synapse/pull/3503>`_)
+- When creating layer push or pull configurations, the chunk size and queue
+  size can now be set.
+  (`#3480 <https://github.com/vertexproject/synapse/pull/3480>`_)
+- Add a ``cell.hasHttpSess()`` API to check if a given Cell has a known HTTP
+  session.
+  (`#3485 <https://github.com/vertexproject/synapse/pull/3485>`_)
+- Fire a ``core:pkg:onload:complete`` event when a Storm package ``onload``
+  handler is completed. This can be used when writing unit tests for Rapid
+  Power-ups.
+  (`#3497 <https://github.com/vertexproject/synapse/pull/3497>`_)
+
+Bugfixes
+--------
+- Remove dataname index entries when removing all nodedata from a node.
+  (`#3499 <https://github.com/vertexproject/synapse/pull/3499>`_)
+- Fix an issue with ``tagprops`` not being correctly returned in
+  ``$node.getByLayer()``.
+  (`#3500 <https://github.com/vertexproject/synapse/pull/3500>`_)
+- Fix an issue with the ``edges.del`` command when using the ``--n2`` option.
+  This now behaves correctly when the N1 node does not exist.
+  (`#3506 <https://github.com/vertexproject/synapse/pull/3506>`_)
+- Fix an issue with duplicate properties being tracked in the property type
+  map of the data model. This could have resulted in multiple nodes being
+  lifted with interface properties.
+  (`#3512 <https://github.com/vertexproject/synapse/pull/3512>`_)
+
+Improved Documentation
+----------------------
+- Update Storm filter documentation. Additional information about tag globbing
+  and interval filtering has been included.
+  (`#3489 <https://github.com/vertexproject/synapse/pull/3489>`_)
+
+v2.159.0 - 2024-01-16
+=====================
+
+Automatic Migrations
+--------------------
+- Update any extended model elements which used the ``taxonomy`` interface
+  to now use the ``meta:taxonomy`` interface.
+  (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Add support for lifting, pivoting, and filtering using wildcards, lists,
+  variables, and interfaces as form and property names.
+  (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
+- Migrate the name of the ``taxonomy`` interface to ``meta:taxonomy``.
+  (`#3334 <https://github.com/vertexproject/synapse/pull/3334>`_)
+- Update the pinned version of the ``lark`` library to ``1.1.9`` for
+  compatibility with Python 3.11.7.
+  (`#3488 <https://github.com/vertexproject/synapse/pull/3488>`_)
+
+Bugfixes
+--------
+- Prevent re-adding extended model elements in Nexus handlers.
+  (`#3486 <https://github.com/vertexproject/synapse/pull/3486>`_)
+- Add missing permissions checks on the ``$lib.axon.urlfile()`` API. This now
+  requires the ``node.add.file:bytes`` and ``node.add.inet:urlfile``
+  permissions.
+  (`#3490 <https://github.com/vertexproject/synapse/pull/3490>`_)
+- Fix the permission checking for Vaults to check the Storm runtime ``asroot``
+  status.
+  (`#3492 <https://github.com/vertexproject/synapse/pull/3492>`_)
+- Fix an issue with ``$lib.stix.import.ingest()`` not converting ``bundle``
+  to a dictionary.
+  (`#3495 <https://github.com/vertexproject/synapse/pull/3495>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the ``reverse`` keyword.
+  (`#3487 <https://github.com/vertexproject/synapse/pull/3487>`_)
+- Clarify the use of the "try" operator ( ``+?`` ) in edit operations.
+  (`#3482 <https://github.com/vertexproject/synapse/pull/3482>`_)
+  (`#3487 <https://github.com/vertexproject/synapse/pull/3487>`_)
+- Update Storm lift documentation to add additional examples and clarify
+  existing documentation.
+  (`#3487 <https://github.com/vertexproject/synapse/pull/3487>`_)
+- Update Storm data modification documentation to add additional examples and
+  clarify existing documentation.
+  (`#3482 <https://github.com/vertexproject/synapse/pull/3482>`_)
 
 v2.158.0 - 2024-01-03
 =====================

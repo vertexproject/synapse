@@ -272,7 +272,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await alist(view1.eval('inet:ipv4 +:asn=42')))
             self.len(1, await alist(view1.eval('inet:ipv4 +#woot')))
 
-    async def test_cortex_lift_layers_bad_filter2(self):
+    async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''

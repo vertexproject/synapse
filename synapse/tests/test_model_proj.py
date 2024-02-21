@@ -19,6 +19,12 @@ class ProjModelTest(s_test.SynTest):
             self.nn(proj)
             self.len(1, await core.nodes('proj:project:desc=bar'))
 
+            nodes = await core.nodes('proj:project [ :type=foo.bar ]')
+            self.len(1, nodes)
+            self.eq('foo.bar.', nodes[0].get('type'))
+
+            self.len(1, await core.nodes('proj:project -> proj:project:type:taxonomy'))
+
             opts = {'user': visi.iden, 'vars': {'proj': proj}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.projects.get($proj).epics.add(bar))', opts=opts)

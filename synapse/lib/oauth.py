@@ -230,13 +230,7 @@ class OAuthMixin(s_nexus.Pusher):
 
         timeout = aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
 
-        cadir = self.conf.get('tls:ca:dir')
-        if ssl_verify is False:
-            ssl = False
-        elif cadir:
-            ssl = s_common.getSslCtx(cadir)
-        else:
-            ssl = None
+        ssl = self.getCachedSslCtx(verify=ssl_verify)
 
         async with aiohttp.ClientSession(timeout=timeout) as sess:
 

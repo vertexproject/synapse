@@ -139,6 +139,8 @@ class Node(NodeBase):
 
             iden = self.snap.view.layers[indx].iden
 
+            iden = self.snap.view.layers[indx].iden
+
             if sode.get('valu') is not None:
                 retn.setdefault('ndef', iden)
 

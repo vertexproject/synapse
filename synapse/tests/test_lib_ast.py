@@ -495,7 +495,7 @@ class AstTest(s_test.SynTest):
             self.none(await core.callStorm('$foo = $lib.null return($foo.bar.baz)'))
 
             q = '''
-            $d = $lib.dict(foo=bar, bar=baz, baz=biz)
+            $d = ({"foo": "bar", "bar": "baz", "baz": "biz"})
             for ($key, $val) in $d {
                 [ test:str=$d.$key ]
             }
@@ -506,7 +506,7 @@ class AstTest(s_test.SynTest):
             self.eq(set(['bar', 'baz', 'biz']), reprs)
 
             q = '''
-            $data = $lib.dict(foo=$lib.dict(bar=$lib.dict(woot=final)))
+            $data = ({"foo": ({"bar": ({"woot": "final"}) }) })
             $varkey=woot
             [ test:str=$data.foo.bar.$varkey ]
             '''
@@ -520,11 +520,11 @@ class AstTest(s_test.SynTest):
 
             $f = var
             $g = tar
-            $de = $lib.dict(car=$f, zar=$g)
-            $dd = $lib.dict(mar=$de)
-            $dc = $lib.dict(bar=$dd)
-            $db = $lib.dict(var=$dc)
-            $foo = $lib.dict(woot=$db)
+            $de = ({"car": $f, "zar": $g})
+            $dd = ({"mar": $de})
+            $dc = ({"bar": $dd})
+            $db = ({"var": $dc})
+            $foo = ({"woot": $db})
             [ test:str=$foo.woot.var.$bar.mar.$car ]
             '''
             nodes = await core.nodes(q)
@@ -532,7 +532,7 @@ class AstTest(s_test.SynTest):
             self.eq('var', nodes[0].repr())
 
             q = '''
-            $data = $lib.dict('vertex project'=foobar)
+            $data = ({'vertex project': 'foobar'})
             $"spaced key" = 'vertex project'
             [ test:str = $data.$"spaced key" ]
             '''
@@ -541,7 +541,7 @@ class AstTest(s_test.SynTest):
             self.eq('foobar', nodes[0].repr())
 
             q = '''
-            $data = $lib.dict('bar baz'=woot)
+            $data = ({'bar baz': "woot"})
             $'new key' = 'bar baz'
             [ test:str=$data.$'new key' ]
             '''
@@ -550,9 +550,9 @@ class AstTest(s_test.SynTest):
             self.eq('woot', nodes[0].repr())
 
             q = '''
-            $bottom = $lib.dict(lastkey=synapse)
-            $subdata = $lib.dict('bar baz'=$bottom)
-            $data = $lib.dict(vertex=$subdata)
+            $bottom = ({"lastkey": "synapse"})
+            $subdata = ({'bar baz': $bottom})
+            $data = ({"vertex": $subdata})
             $'new key' = 'bar baz'
             $'over key' = vertex
             [ test:str=$data.$'over key'.$"new key".lastkey ]
@@ -562,7 +562,7 @@ class AstTest(s_test.SynTest):
             self.eq('synapse', nodes[0].repr())
 
             q = '''
-            $data = $lib.dict(foo=bar)
+            $data = ({"foo": "bar"})
             $key = nope
             [ test:str=$data.$key ]
             '''
@@ -1850,7 +1850,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
                 $x = asdf
-                $y = $lib.dict()
+                $y = ({})
 
                 $y.foo = bar
                 $y."baz faz" = hehe
@@ -1870,7 +1870,7 @@ class AstTest(s_test.SynTest):
             self.eq(nodes[5].ndef[1], 'qwer')
 
             # non-runtsafe test
-            q = '''$dict = $lib.dict()
+            q = '''$dict = ({})
             [(test:str=key1 :hehe=val1) (test:str=key2 :hehe=val2)]
             $key=$node.value()
             $dict.$key=:hehe
@@ -2754,7 +2754,7 @@ class AstTest(s_test.SynTest):
             opts = {'vars': {'asdf': b'asdf'}}
             await core.nodes('[ file:bytes=$asdf ]', opts=opts)
             await core.axon.put(b'asdf')
-            self.len(1, await core.nodes('file:bytes +$lib.bytes.has(:sha256)'))
+            self.len(1, await core.nodes('file:bytes +$lib.axon.has(:sha256)'))
 
     async def test_ast_walkcond(self):
 
@@ -2822,7 +2822,7 @@ class AstTest(s_test.SynTest):
             mesgs = await core.stormlist(q, opts={'vars': {'ret': 'foo'}})
             self.stormIsInErr('Cannot find name [squeeeeeee]', mesgs)
 
-            q = '$ret=$lib.dict(bar=$ret)'
+            q = '$ret=({"bar": $ret})'
             mesgs = await core.stormlist(q)
             self.stormIsInErr('Missing variable: ret', mesgs)
 
@@ -3578,6 +3578,14 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test2'))
 
+            q = '''
+            $foo = bar
+            $q = ${ $lib.print($foo) }
+            for $x in $q { $lib.print(bar) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('bar', msgs)
+
         # Should produce the same results in a macro sub-runtime
         async with self.getTestCore() as core:
             nodes = await core.nodes('[test:str=test1]')
@@ -3617,6 +3625,20 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test2'))
 
+            q = '''
+            $q = ${
+                $foo = bar
+                $q = ${ $lib.print($foo) }
+                for $x in $q { $lib.print(bar) }
+            }
+            $lib.macro.set(test, $q)
+            return($lib.true)
+            '''
+            self.true(await core.callStorm(q))
+
+            msgs = await core.stormlist('macro.exec test')
+            self.stormIsInPrint('bar', msgs)
+
     async def test_ast_subq_runtsafety(self):
 
         async with self.getTestCore() as core:
@@ -3625,3 +3647,28 @@ class AstTest(s_test.SynTest):
 
             msgs = await core.stormlist('$lib.print({[test:str=foo] return($node.value())})')
             self.stormIsInPrint('foo', msgs)
+
+    async def test_ast_prop_perms(self):
+
+        async with self.getTestCore() as core:
+            visi = (await core.addUser('visi'))['iden']
+
+            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 ]'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'user': visi})
+            self.isin('must have permission node.prop.set.inet:ipv4.asn', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi})
+            self.isin('must have permission node.prop.del.inet:ipv4.asn', cm.exception.get('mesg'))
+
+            msgs = await core.stormlist('auth.user.addrule visi node.prop.set.inet:ipv4.asn')
+            self.stormHasNoWarnErr(msgs)
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'user': visi}))
+
+            msgs = await core.stormlist('auth.user.addrule visi node.prop.del.inet:ipv4.asn')
+            self.stormHasNoWarnErr(msgs)
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi}))

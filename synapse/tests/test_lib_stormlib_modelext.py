@@ -12,16 +12,16 @@ class StormtypesModelextTest(s_test.SynTest):
                 $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
 
                 $propinfo = ({"doc": "A test prop doc."})
-                $lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $propinfo)
+                $lib.model.ext.addFormProp(_visi:int, tick, (time, ({})), $propinfo)
 
                 $univinfo = ({"doc": "A test univ doc."})
-                $lib.model.ext.addUnivProp(_woot, (int, $lib.dict()), $univinfo)
+                $lib.model.ext.addUnivProp(_woot, (int, ({})), $univinfo)
 
                 $tagpropinfo = ({"doc": "A test tagprop doc."})
-                $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
+                $lib.model.ext.addTagProp(score, (int, ({})), $tagpropinfo)
 
                 $pinfo = ({"doc": "Extended a core model."})
-                $lib.model.ext.addFormProp(test:int, _tick, (time, $lib.dict()), $propinfo)
+                $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $propinfo)
             ''')
 
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
@@ -37,11 +37,11 @@ class StormtypesModelextTest(s_test.SynTest):
             self.eq(nodes[0].get('_tick'), 1609459200000)
 
             with self.raises(s_exc.DupPropName):
-                q = '''$lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addFormProp(_visi:int, tick, (time, ({})), ({}))'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.DupPropName):
-                q = '''$lib.model.ext.addUnivProp(_woot, (time, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addUnivProp(_woot, (time, ({})), ({}))'''
                 await core.callStorm(q)
 
             # Grab the extended model definitions
@@ -64,45 +64,45 @@ class StormtypesModelextTest(s_test.SynTest):
             self.none(core.model.tagprop('score'))
 
             # Underscores can exist in extended names but only at specific locations
-            q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
+            q = '''$l =$lib.list('str', ({})) $d=({"doc": "Foo"})
             $lib.model.ext.addFormProp('test:str', '_test:_myprop', $l, $d)
             '''
             self.none(await core.callStorm(q))
-            q = '$lib.model.ext.addUnivProp(_woot:_stuff, (int, $lib.dict()), $lib.dict())'
+            q = '$lib.model.ext.addUnivProp(_woot:_stuff, (int, ({})), ({}))'
             self.none(await core.callStorm(q))
 
-            q = '''$lib.model.ext.addTagProp(_score, (int, $lib.dict()), $lib.dict())'''
+            q = '''$lib.model.ext.addTagProp(_score, (int, ({})), ({}))'''
             self.none(await core.callStorm(q))
 
-            q = '''$lib.model.ext.addTagProp(some:_score, (int, $lib.dict()), $lib.dict())'''
+            q = '''$lib.model.ext.addTagProp(some:_score, (int, ({})), ({}))'''
             self.none(await core.callStorm(q))
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
+                q = '''$l =$lib.list('str', ({})) $d=({"doc": "Foo"})
                 $lib.model.ext.addFormProp('test:str', '_test:_my^prop', $l, $d)
                 '''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
+                q = '''$l =$lib.list('str', ({})) $d=({"doc": "Foo"})
                 $lib.model.ext.addFormProp('test:str', '_test::_myprop', $l, $d)
                 '''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addUnivProp(_woot^stuff, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addUnivProp(_woot^stuff, (int, ({})), ({}))'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addUnivProp(_woot:_stuff^2, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addUnivProp(_woot:_stuff^2, (int, ({})), ({}))'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addTagProp(some^score, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addTagProp(some^score, (int, ({})), ({}))'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addTagProp(_someones:_score^value, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addTagProp(_someones:_score^value, (int, ({})), ({}))'''
                 await core.callStorm(q)
 
             # Permission errors
@@ -110,27 +110,27 @@ class StormtypesModelextTest(s_test.SynTest):
             opts = {'user': visi.iden}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('''
-                    $typeinfo = $lib.dict()
-                    $forminfo = $lib.dict(doc="A test form doc.")
+                    $typeinfo = ({})
+                    $forminfo = ({"doc": "A test form doc."})
                     $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
                 ''', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('''
-                    $propinfo = $lib.dict(doc="A test prop doc.")
-                    $lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $propinfo)
+                    $propinfo = ({"doc": "A test prop doc."})
+                    $lib.model.ext.addFormProp(_visi:int, tick, (time, ({})), $propinfo)
                 ''', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('''
-                    $univinfo = $lib.dict(doc="A test univ doc.")
-                    $lib.model.ext.addUnivProp(".woot", (int, $lib.dict()), $univinfo)
+                    $univinfo = ({"doc": "A test univ doc."})
+                    $lib.model.ext.addUnivProp(".woot", (int, ({})), $univinfo)
                 ''', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('''
-                    $tagpropinfo = $lib.dict(doc="A test tagprop doc.")
-                    $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
+                    $tagpropinfo = ({"doc": "A test tagprop doc."})
+                    $lib.model.ext.addTagProp(score, (int, ({})), $tagpropinfo)
                 ''', opts=opts)
 
         # Reload the model extensions automatically
@@ -164,16 +164,16 @@ class StormtypesModelextTest(s_test.SynTest):
                 $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
 
                 $propinfo = ({"doc": "NEWP"})
-                $lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $propinfo)
+                $lib.model.ext.addFormProp(_visi:int, tick, (time, ({})), $propinfo)
 
                 $univinfo = ({"doc": "NEWP"})
-                $lib.model.ext.addUnivProp(_woot, (int, $lib.dict()), $univinfo)
+                $lib.model.ext.addUnivProp(_woot, (int, ({})), $univinfo)
 
                 $tagpropinfo = ({"doc": "NEWP"})
-                $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
+                $lib.model.ext.addTagProp(score, (int, ({})), $tagpropinfo)
 
                 $pinfo = ({"doc": "NEWP"})
-                $lib.model.ext.addFormProp(test:int, _tick, (time, $lib.dict()), $propinfo)
+                $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $propinfo)
             ''')
 
             q = '''return ($lib.model.ext.addExtModel($model_defs))'''
@@ -248,10 +248,10 @@ class StormtypesModelextTest(s_test.SynTest):
                     self.eq(mesg['type'], 'init')
 
                     await core.callStorm('''
-                        $lib.model.ext.addForm(_behold:score, int, $lib.dict(), $lib.dict(doc="first string"))
-                        $lib.model.ext.addFormProp(_behold:score, rank, (int, $lib.dict()), $lib.dict(doc="second string"))
-                        $lib.model.ext.addUnivProp(_beep, (int, $lib.dict()), $lib.dict(doc="third string"))
-                        $lib.model.ext.addTagProp(thingy, (int, $lib.dict()), $lib.dict(doc="fourth string"))
+                        $lib.model.ext.addForm(_behold:score, int, ({}), ({"doc": "first string"}))
+                        $lib.model.ext.addFormProp(_behold:score, rank, (int, ({})), ({"doc": "second string"}))
+                        $lib.model.ext.addUnivProp(_beep, (int, ({})), ({"doc": "third string"}))
+                        $lib.model.ext.addTagProp(thingy, (int, ({})), ({"doc": "fourth string"}))
                     ''')
 
                     formmesg = await sock.receive_json()
@@ -310,12 +310,12 @@ class StormtypesModelextTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             await core.callStorm('''
-                $typeinfo = $lib.dict()
-                $forminfo = $lib.dict(doc="A test form doc.")
+                $typeinfo = ({})
+                $forminfo = ({"doc": "A test form doc."})
                 $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
 
-                $propinfo = $lib.dict(doc="A test prop doc.")
-                $lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $propinfo)
+                $propinfo = ({"doc": "A test prop doc."})
+                $lib.model.ext.addFormProp(_visi:int, tick, (time, ({})), $propinfo)
             ''')
 
             self.nn(core.model.form('_visi:int'))
@@ -326,7 +326,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm(q)
             self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
 
-            await core.callStorm('$lib.model.ext.addFormProp(_visi:int, tock, (time, $lib.dict()), $lib.dict())')
+            await core.callStorm('$lib.model.ext.addFormProp(_visi:int, tock, (time, ({})), ({}))')
 
             self.nn(core.model.form('_visi:int'))
             self.nn(core.model.prop('_visi:int:tick'))
