@@ -2629,7 +2629,7 @@ class Layer(s_nexus.Pusher):
 
             for edit in edits:
                 kvpairs.extend(await self.editors[edit[0]](buid, form, edit, sode, meta))
-                
+
                 if len(kvpairs) > 20:
                     self.layrslab.putmulti(kvpairs, db=self.indxdb)
                     kvpairs.clear()
@@ -2637,7 +2637,7 @@ class Layer(s_nexus.Pusher):
 
         if kvpairs:
             self.layrslab.putmulti(kvpairs, db=self.indxdb)
-            
+
         if self.logedits and nexsitem is not None:
             nexsindx = nexsitem[0] if nexsitem is not None else None
             offs = self.nodeeditlog.add(None, indx=nexsindx)
@@ -2649,19 +2649,19 @@ class Layer(s_nexus.Pusher):
     def mayDelNid(self, nid, sode):
         if sode.get('valu'):
             return False
-        
+
         if sode.get('props'):
             return False
 
         if sode.get('tags'):
             return False
-          
+
         if sode.get('tagprops'):
             return False
 
         if sode.get('n1verbs'):
             return False
-          
+
         if sode.get('n2verbs'):
             return False
 
@@ -2906,7 +2906,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_EDGE_DEL, (verb, n2nid)),
         )
 
-    async def _editNodeAdd(self, nid, form, edit, sode, meta): 
+    async def _editNodeAdd(self, nid, form, edit, sode, meta):
 
         if sode.get('valu') is not None:
             return ()
@@ -3009,7 +3009,7 @@ class Layer(s_nexus.Pusher):
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
-            
+
         return ()
 
     async def _editPropSet(self, nid, form, edit, sode, meta):
@@ -3143,7 +3143,7 @@ class Layer(s_nexus.Pusher):
                         kvpairs.append((univmaxabrv + indx, nid))
 
         return kvpairs
-      
+
     async def _editPropDel(self, nid, form, edit, sode, meta):
 
         prop = edit[1][0]
@@ -3152,7 +3152,7 @@ class Layer(s_nexus.Pusher):
             return ()
 
         valu, stortype = valt
-        
+
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
         univabrv = None
 
@@ -3234,7 +3234,7 @@ class Layer(s_nexus.Pusher):
             self.indxcounts.inc(formabrv)
 
         else:
-          
+
             if oldv == (None, None):
                 self.layrslab.delete(abrv, nid, db=self.indxdb)
                 self.layrslab.delete(formabrv, nid, db=self.indxdb)
@@ -3346,7 +3346,7 @@ class Layer(s_nexus.Pusher):
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
-            
+
         return ()
 
     async def _editTagPropSet(self, nid, form, edit, sode, meta):
@@ -3434,9 +3434,9 @@ class Layer(s_nexus.Pusher):
 
         if (oldv := tp_dict.pop(prop, None)) is None:
             return ()
-          
+
         (oldv, oldt) = oldv
-        
+
         if len(tp_dict) == 0:
             sode['tagprops'].pop(tag)
 
@@ -3491,7 +3491,7 @@ class Layer(s_nexus.Pusher):
         if self.dataslab.delete(nid + abrv, db=self.nodedata):
             self.dataslab.delete(abrv, nid, db=self.dataname)
             self.mayDelNid(nid, sode)
-            
+
         return ()
 
     async def _editNodeEdgeAdd(self, nid, form, edit, sode, meta):
@@ -3530,12 +3530,12 @@ class Layer(s_nexus.Pusher):
         vabrv = self.core.setVerbAbrv(verb)
 
         if not self.layrslab.delete(self.edgen1n2abrv + n1nid + n2nid, vabrv, db=self.indxdb):
-            return ()      
-        
+            return ()
+
         self.layrslab.delete(self.edgen1abrv + n1nid + vabrv, n2nid, db=self.indxdb)
         self.layrslab.delete(self.edgen2abrv + n2nid + vabrv, n1nid, db=self.indxdb)
         self.layrslab.delete(self.edgeverbabrv + vabrv + n1nid, n2nid, db=self.indxdb)
-        
+
         newvalu = sode['n1verbs'].get(verb, 0) - 1
         if newvalu == 0:
             sode['n1verbs'].pop(verb)
@@ -3650,7 +3650,7 @@ class Layer(s_nexus.Pusher):
         for lkey, vabrv in self.layrslab.scanByDups(self.edgen1n2abrv + n1nid + n2nid, db=self.indxdb):
             yield self.core.getAbrvVerb(vabrv)
 
-    async def hasNodeEdge(self, n1nid, verb, n2nid):    
+    async def hasNodeEdge(self, n1nid, verb, n2nid):
         try:
             vabrv = self.core.getVerbAbrv(verb)
         except s_exc.NoSuchAbrv:
