@@ -468,13 +468,16 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:repo:diff:comment', ('guid', {}), {
                     'doc': 'A comment on a diff in a repository.',
                 }),
+
                 ('it:prod:soft', ('guid', {}), {
-                    'doc': 'A software product.',
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:software.'}),
+
                 ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'A software product name.',
                 }),
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
+                    'deprecated': True,  # ?
                     'doc': 'A software type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
                 }),
@@ -528,32 +531,44 @@ class ItModule(s_module.CoreModule):
                                               )}), {
                     'doc': 'The given software broadcasts the given Android intent.'}),
 
+                ('it:software', ('guid', {}), {
+                    'doc': 'A software product.'}),
+
+                # TODO many to many?
+                ('it:software:file', ('guid', {}), {
+                    'doc': 'An individual file included with a software distribution.'})
+
                 ('it:prod:softver', ('guid', {}), {
-                    'doc': 'A specific version of a software product.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:software.'}),
 
                 ('it:prod:softfile', ('comp', {'fields': (
                                             ('soft', 'it:prod:softver'),
                                             ('file', 'file:bytes'))}), {
-                    'doc': 'A file is distributed by a specific software version.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:software:file'}),
 
                 ('it:prod:softreg', ('comp', {'fields': (
                                             ('softver', 'it:prod:softver'),
                                             ('regval', 'it:dev:regval'))}), {
-                    'doc': 'A registry entry is created by a specific software version.'}),
+                    'deprecated': True,
+                    'doc': 'TODO'}),
 
                 ('it:prod:softlib', ('comp', {'fields': (
                                             ('soft', 'it:prod:softver'),
                                             ('lib', 'it:prod:softver'))}), {
-                    'doc': 'A software version contains a library software version.'}),
+                    'deprecated': True,
+                    'doc': 'TODO'}),
 
                 ('it:prod:softos', ('comp', {'fields': (
                                             ('soft', 'it:prod:softver'),
                                             ('os', 'it:prod:softver'))}), {
-                    'doc': 'The software version is known to be compatible with the given os software version.'}),
+                    'deprecated': True,
+                    'doc': 'TODO'}),
 
                 ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
-                   'doc': 'A version of a software product which is present on a given host.',
-                }),
+                    'deprecated': True,
+                    'doc': 'TODO'}),
 
                 ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
                     'deprecated': True,
@@ -707,8 +722,16 @@ class ItModule(s_module.CoreModule):
                 }),
             ),
             'edges': (
-                (('it:prod:soft', 'uses', 'ou:technique'), {
+
+                (('it:software', 'uses', 'ou:technique'), {
                     'doc': 'The software uses the technique.'}),
+
+                (('it:software', 'has', 'it:software'), {
+                    'doc': 'The source software comes with the target software included.'}),
+
+                (('it:software', 'uses', 'it:software'), {
+                    'doc': 'The source software depends on the target software being installed separately.'}),
+
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
                 (('it:app:snort:rule', 'detects', None), {
@@ -1592,7 +1615,37 @@ class ItModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The it:host which has this component installed.'}),
                 )),
+
+                ('it:software', {}, (
+
+                    ('name', ('it:prod:softname', {}), {
+                        'doc': 'Name of the software.'}),
+
+                    ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Alternative names for the software.'}),
+
+                    ('type', ('it:prod:soft:taxonomy', {}), {
+                        'doc': 'The software type.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the software.'}),
+
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this software.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact information of author of the software.'}),
+
+                    ('released', ('time', {}), {
+                        'doc': 'The date that the software was released.'}),
+
+                    # TODO make virtual property for semver comparison
+                    ('version', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The version of the software.'}),
+                )),
                 ('it:prod:soft:taxonomy', {}, ()),
+
                 ('it:prod:soft', {}, (
                     ('name', ('it:prod:softname', {}), {
                         'doc': 'Name of the software.',

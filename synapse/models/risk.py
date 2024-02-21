@@ -128,7 +128,10 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
             ),
             'edges': (
-                # some explicit examples...
+
+                ((None, 'has', 'risk:vuln'), {
+                    'doc': 'The source node is susceptible to the vulnerability.'}),
+
                 (('risk:attack', 'uses', 'ou:technique'), {
                     'doc': 'The attackers used the technique in the attack.'}),
                 (('risk:threat', 'uses', 'ou:technique'), {
