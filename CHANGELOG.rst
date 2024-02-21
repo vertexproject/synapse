@@ -16,10 +16,10 @@ Features and Enhancements
   ``$lib.axon.put``, ``$lib.axon.size``, and ``$lib.axon.upload``.
   (`#3570 <https://github.com/vertexproject/synapse/pull/3570>`_)
   (`#3576 <https://github.com/vertexproject/synapse/pull/3576>`_)
-- Add support for user provided certificates for doing MTLS in Storm HTTP
+- Add support for user provided certificates for doing mTLS in Storm HTTP
   requests.
   (`#3566 <https://github.com/vertexproject/synapse/pull/3566>`_)
-- Enable constructing a guid in storm from a single value with
+- Enable constructing a guid in Storm from a single value with
   ``$lib.guid(valu=$item)``.
   (`#3575 <https://github.com/vertexproject/synapse/pull/3575>`_)
 
