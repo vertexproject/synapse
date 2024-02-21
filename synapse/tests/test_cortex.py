@@ -1178,11 +1178,11 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await core.nodes(q)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
 
+                with self.raises(s_exc.NoSuchCmpr):
+                    await core.nodes('test:int=10 +#foo:score*newp=66')
+
                 nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
                 self.false(nodes[0].hasTagProp('foo', 'score'))
-
-                with self.raises(s_exc.NoSuchCmpr):
-                    await core.nodes('test:int=10 +#foo.bar:score*newp=66')
 
                 modl = await core.getModelDict()
                 self.nn(modl['tagprops'].get('score'))
@@ -1212,6 +1212,9 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchTagProp):
                     await core.nodes('test:int=10 +#foo.bar:score=66')
+
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.nodes('test:int=10 $lib.print(#foo.bar:score)')
 
                 with self.raises(s_exc.NoSuchType):
                     await core.addTagProp('derp', ('derp', {}), {})

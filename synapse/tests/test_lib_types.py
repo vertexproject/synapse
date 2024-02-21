@@ -853,7 +853,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('ou:campaign.created +:period*min>=2022-01-01'))
             self.len(2, await core.nodes('ou:campaign.created +:period*min>2022-01-01'))
             self.len(1, await core.nodes('ou:campaign.created +:period*min@=2020'))
-            self.len(3, await core.nodes('ou:campaign.created +:period*min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min@=(2020-01-01, 2022-01-01)'))
 
             self.len(1, await core.nodes('ou:campaign.created +:period*max=2020-01-02'))
             self.len(2, await core.nodes('ou:campaign.created +:period*max<2022-05-01'))
@@ -861,7 +861,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('ou:campaign.created +:period*max>=2022-05-01'))
             self.len(2, await core.nodes('ou:campaign.created +:period*max>2022-05-01'))
             self.len(1, await core.nodes('ou:campaign.created +:period*max@=2022-05-01'))
-            self.len(3, await core.nodes('ou:campaign.created +:period*max@=(2020-01-02, 2022-05-01)'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max@=(2020-01-02, 2022-05-01)'))
 
             self.len(1, await core.nodes('ou:campaign.created +:period*duration=1D'))
             self.len(1, await core.nodes('ou:campaign.created +:period*duration<31D'))

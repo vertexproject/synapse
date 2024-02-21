@@ -1261,6 +1261,44 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 valu = abrv.nameToAbrv('haha')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
+                long1 = b'\x00' * 1024
+
+                valu = abrv.setBytsToAbrv(long1)
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x03')
+
+                valu = abrv.bytsToAbrv(long1)
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x03')
+
+                self.eq(long1, abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x03'))
+
+                # Fake a hash collision
+                long2 = b'\x00' * 1023 + b'\x01'
+                long3 = b'\x00' * 1023 + b'\x02'
+
+                def badhash(valu):
+                    return b'\x00' * 8
+
+                with patch('xxhash.xxh64_digest', badhash):
+                    valu = abrv.setBytsToAbrv(long2)
+                    self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x04')
+
+                    valu = abrv.setBytsToAbrv(long3)
+                    self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x05')
+
+                    self.eq(2, abrv.slab.count(b'\x00' * 256, db=abrv.name2abrv))
+
+                    allitems = [
+                        (long2, b'\x00\x00\x00\x00\x00\x00\x00\x04'),
+                        (long3, b'\x00\x00\x00\x00\x00\x00\x00\x05'),
+                        (long1, b'\x00\x00\x00\x00\x00\x00\x00\x03'),
+                        (b'haha', b'\x00\x00\x00\x00\x00\x00\x00\x01'),
+                        (b'hehe', b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+                        (b'hoho', b'\x00\x00\x00\x00\x00\x00\x00\x02'),
+                    ]
+                    self.eq(allitems, list(abrv.items()))
+
+                    self.eq(allitems[:3], list(abrv.iterByPref(b'\x00' * 248)))
+
     async def test_lmdbslab_hotkeyval(self):
         with self.getTestDir() as dirn:
 
