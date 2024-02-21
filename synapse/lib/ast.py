@@ -388,13 +388,13 @@ class SubGraph:
 
     async def omit(self, runt, node):
 
-        answ = self.omits.get(node.buid)
+        answ = self.omits.get(node.nid)
         if answ is not None:
             return answ
 
         for filt in self.rules.get('filters'):
             if await node.filter(runt, filt):
-                self.omits[node.buid] = True
+                self.omits[node.nid] = True
                 return True
 
         rules = self.rules['forms'].get(node.form.name)
@@ -402,15 +402,15 @@ class SubGraph:
             rules = self.rules['forms'].get('*')
 
         if rules is None:
-            self.omits[node.buid] = False
+            self.omits[node.nid] = False
             return False
 
         for filt in rules.get('filters', ()):
             if await node.filter(runt, filt):
-                self.omits[node.buid] = True
+                self.omits[node.nid] = True
                 return True
 
-        self.omits[node.buid] = False
+        self.omits[node.nid] = False
         return False
 
     async def pivots(self, runt, node, path, existing):
@@ -2031,7 +2031,7 @@ class PivotOut(PivotOper):
                 continue
 
             # avoid self references
-            if pivo.buid == node.buid:
+            if pivo.nid == node.nid:
                 continue
 
             yield pivo, path.fork(pivo)
@@ -4472,7 +4472,7 @@ class EditEdgeAdd(Edit):
                 mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
 
-            iden = node.iden()
+            nid = node.nid
             verb = await tostr(await self.kids[0].compute(runt, path))
 
             allowed(verb)
@@ -4485,7 +4485,7 @@ class EditEdgeAdd(Edit):
                             mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                        await subn.addEdge(verb, iden)
+                        await subn.addEdge(verb, nid)
 
                 else:
                     async with node.snap.getEditor() as editor:
@@ -4496,7 +4496,7 @@ class EditEdgeAdd(Edit):
                                 mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                            await proto.addEdge(verb, subn.iden())
+                            await proto.addEdge(verb, subn.nid)
                             await asyncio.sleep(0)
 
                             if len(proto.edges) >= 1000:
@@ -4536,7 +4536,7 @@ class EditEdgeDel(Edit):
                 mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
 
-            iden = node.iden()
+            nid = node.nid
             verb = await tostr(await self.kids[0].compute(runt, path))
 
             allowed(verb)
@@ -4547,7 +4547,7 @@ class EditEdgeDel(Edit):
                         if subn.form.isrunt:
                             mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-                        await subn.delEdge(verb, iden)
+                        await subn.delEdge(verb, nid)
 
                 else:
                     async with node.snap.getEditor() as editor:
@@ -4558,7 +4558,7 @@ class EditEdgeDel(Edit):
                                 mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                            await proto.delEdge(verb, subn.iden())
+                            await proto.delEdge(verb, subn.nid)
                             await asyncio.sleep(0)
 
                             if len(proto.edgedels) >= 1000:

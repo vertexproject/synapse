@@ -44,6 +44,11 @@ class ProtoNode:
 
         self.edgedels = set()
 
+        if node is not None:
+            self.nid = node.nid
+        else:
+            self.nid = self.ctx.snap.core.getNidByBuid(buid)
+
     def iden(self):
         return s_common.ehex(self.buid)
 
@@ -52,90 +57,97 @@ class ProtoNode:
         edits = []
 
         if not self.node:
-            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype), ()))
+            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype)))
 
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()))
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype)))
 
         for name, valu in self.tags.items():
-            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
+            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
 
         for verb, n2iden in self.edges:
-            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
+            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden)))
 
         for verb, n2iden in self.edgedels:
-            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()))
+            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden)))
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype), ()))
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype)))
 
         for name, valu in self.nodedata.items():
-            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
 
         if not edits:
             return None
 
-        return (self.buid, self.form.name, edits)
+        return (self.nid, self.form.name, edits)
 
-    async def addEdge(self, verb, n2iden):
+    async def addEdge(self, verb, n2nid):
 
         if not isinstance(verb, str):
             mesg = f'addEdge() got an invalid type for verb: {verb}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not isinstance(n2iden, str):
-            mesg = f'addEdge() got an invalid type for n2iden: {n2iden}'
+        if not isinstance(n2nid, bytes):
+            mesg = f'addEdge() got an invalid type for n2nid: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'addEdge() got an invalid node iden: {n2iden}'
+        if len(n2nid) != 8:
+            mesg = f'addEdge() got an invalid node id: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        tupl = (verb, n2iden)
+        tupl = (verb, n2nid)
         if tupl in self.edges:
             return False
+
+        if self.nid is None:
+            self.edges.add(tupl)
+            return True
 
         if tupl in self.edgedels:
             self.edgedels.remove(tupl)
             return True
 
-        if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+        if not await self.ctx.snap.hasNodeEdge(self.nid, verb, n2nid):
             self.edges.add(tupl)
             return True
 
         return False
 
-    async def delEdge(self, verb, n2iden):
+    async def delEdge(self, verb, n2nid):
 
         if not isinstance(verb, str):
             mesg = f'delEdge() got an invalid type for verb: {verb}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not isinstance(n2iden, str):
-            mesg = f'delEdge() got an invalid type for n2iden: {n2iden}'
+        if not isinstance(n2nid, bytes):
+            mesg = f'delEdge() got an invalid type for n2nid: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'delEdge() got an invalid node iden: {n2iden}'
+        if len(n2nid) != 8:
+            mesg = f'delEdge() got an invalid node id: {n2nid}'
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
-        tupl = (verb, n2iden)
-        if tupl in self.edgedels:
-            return False
-
+        tupl = (verb, n2nid)
         if tupl in self.edges:
             self.edges.remove(tupl)
             return True
 
-        if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+        if self.nid is None:
+            return False
+
+        if tupl in self.edgedels:
+            return False
+
+        if await self.ctx.snap.layers[-1].hasNodeEdge(self.nid, verb, n2nid):
             self.edgedels.add(tupl)
             return True
 
@@ -695,8 +707,8 @@ class Snap(s_base.Base):
         self.nodecache.clear()
         self.livenodes.clear()
 
-    def clearCachedNode(self, buid):
-        self.livenodes.pop(buid, None)
+    def clearCachedNode(self, nid):
+        self.livenodes.pop(nid, None)
 
     async def keepalive(self, period):
         while not await self.waitfini(period):
@@ -1008,7 +1020,7 @@ class Snap(s_base.Base):
         callbacks = []
 
         # hold a reference to  all the nodes about to be edited...
-        nodes = {e[0]: await self.getNodeByBuid(e[0]) for e in edits}
+        nodes = {e[0]: await self.getNodeByNid(e[0]) for e in edits if e[0] is not None}
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
@@ -1016,18 +1028,18 @@ class Snap(s_base.Base):
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for buid, form, edits in nodeedits:
+        for nid, form, edits in nodeedits:
 
-            node = nodes.get(buid)
+            node = nodes.get(nid)
             if node is None:
-                node = await self.getNodeByBuid(buid)
+                node = await self.getNodeByNid(nid)
 
-            if node is None:
+            if node is None:  # pragma: no cover
                 continue
 
             for edit in edits:
 
-                etyp, parms, _ = edit
+                etyp, parms = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
                     callbacks.append((node.form.wasAdded, (node,), {}))
@@ -1098,13 +1110,13 @@ class Snap(s_base.Base):
                     continue
 
                 if etyp == s_layer.EDIT_EDGE_ADD:
-                    verb, n2iden = parms
-                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    verb, n2nid = parms
+                    n2 = await self.getNodeByNid(n2nid)
                     callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
 
                 if etyp == s_layer.EDIT_EDGE_DEL:
-                    verb, n2iden = parms
-                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    verb, n2nid = parms
+                    n2 = await self.getNodeByNid(n2nid)
                     callbacks.append((self.view.runEdgeDel, (node, verb, n2), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
@@ -1299,16 +1311,47 @@ class Snap(s_base.Base):
                     for name, valu in props.items():
                         await protonode.setTagProp(tag, name, valu)
 
-            for verb, n2iden in forminfo.get('edges', ()):
+            if (edges := forminfo.get('edges')) is not None:
+                n2adds = []
+                for verb, n2iden in edges:
+                    if isinstance(n2iden, (tuple, list)):
+                        (n2formname, n2valu) = n2iden
+                        n2form = self.core.model.form(n2formname)
+                        if n2form is None:
+                            continue
 
-                if isinstance(n2iden, (tuple, list)):
-                    n2proto = await editor.addNode(*n2iden)
-                    if n2proto is None:
+                        try:
+                            n2valu, _ = n2form.type.norm(n2valu)
+                        except s_exc.BadTypeValu as e:
+                            e.errinfo['form'] = n2form.name
+                            await self.warn(f'addNodes() BadTypeValu {n2form.name}={n2valu} {e}')
+                            continue
+
+                        n2buid = s_common.buid((n2formname, n2valu))
+                        n2nid = self.core.getNidByBuid(n2buid)
+                        if n2nid is None:
+                            n2adds.append((n2iden, verb, n2buid))
+                            continue
+
+                    elif isinstance(n2iden, str) and s_common.isbuidhex(n2iden):
+                        n2nid = self.core.getNidByBuid(s_common.uhex(n2iden))
+                        if n2nid is None:
+                            continue
+                    else:
                         continue
 
-                    n2iden = n2proto.iden()
+                    await protonode.addEdge(verb, n2nid)
 
-                await protonode.addEdge(verb, n2iden)
+                if n2adds:
+                    async with self.getEditor() as n2editor:
+                        for (n2ndef, verb, n2buid) in n2adds:
+                            await n2editor.addNode(*n2ndef)
+                            break
+
+                    for (n2ndef, verb, n2buid) in n2adds:
+                        if (nid := self.core.getNidByBuid(n2buid)) is not None:
+                            await protonode.addEdge(verb, nid)
+                        break
 
         return await self.getNodeByBuid(protonode.buid)
 
@@ -1404,22 +1447,22 @@ class Snap(s_base.Base):
             last = verb
             yield verb
 
-    async def hasNodeData(self, buid, name):
+    async def hasNodeData(self, nid, name):
         '''
-        Return True if the buid has nodedata set on it under the given name
+        Return True if the nid has nodedata set on it under the given name
         False otherwise
         '''
         for layr in reversed(self.layers):
-            if await layr.hasNodeData(buid, name):
+            if await layr.hasNodeData(nid, name):
                 return True
         return False
 
-    async def getNodeData(self, buid, name, defv=None):
+    async def getNodeData(self, nid, name, defv=None):
         '''
         Get nodedata from closest to write layer, no merging involved
         '''
         for layr in reversed(self.layers):
-            ok, valu = await layr.getNodeData(buid, name)
+            ok, valu = await layr.getNodeData(nid, name)
             if ok:
                 return valu
         return defv
