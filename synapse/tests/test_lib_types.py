@@ -838,6 +838,42 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes(q)
 
+            await core.nodes('''[
+                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
+                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
+                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
+                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
+                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
+                (ou:campaign=*)
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min<2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min>2022-01-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*min@=2020'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min@=(2020-01-01, 2022-01-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max>2022-05-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*max@=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max@=(2020-01-02, 2022-05-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign.created +:period*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*duration>31D'))
+
+            self.len(0, await core.nodes('ou:campaign.created +:period*min@=(2022-01-01, 2020-01-01)'))
+
+            with self.raises(s_exc.NoSuchFunc):
+                await core.nodes('ou:campaign.created +:period*min@=({})')
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')

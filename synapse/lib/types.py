@@ -55,6 +55,9 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
+        self.subindx = {}
+        self.subtypes = {}
+
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
         self.setCmprCtor('~=', self._ctorCmprRe)
@@ -113,6 +116,20 @@ class Type:
             raise s_exc.NoSuchCmpr(mesg=mesg)
 
         return func(cmpr, valu)
+
+    def getSubType(self, name, valu):
+        (subtype, getr) = self.subtypes.get(name, (None, None))
+        if subtype is None:
+            raise s_exc.NoSuchType(name=name, valu=valu, mesg=f'Invalid subtype {name} for type {self.name}')
+
+        return (subtype, getr(valu))
+
+    def getSubIndx(self, name):
+        indx = self.subindx.get(name, s_common.novalu)
+        if indx is s_common.novalu:
+            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for type {self.name}')
+
+        return indx
 
     def getRuntPode(self):
 
@@ -1164,12 +1181,31 @@ class Ival(Type):
         self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.timetype = self.modl.type('time')
+        self.duratype = self.modl.type('duration')
+
+        self.subtypes.update({
+            'min': (self.timetype, self._getMin),
+            'max': (self.timetype, self._getMax),
+            'duration': (self.duratype, self._getDuration),
+        })
+
+        self.subindx.update({
+            'min': None,
+            'max': s_layer.INDX_IVAL_MAX,
+            'duration': s_layer.INDX_IVAL_DURATION
+        })
+
+        self.tagsubindx = {
+            'min': s_layer.INDX_TAG,
+            'max': s_layer.INDX_TAG_MAX,
+            'duration': s_layer.INDX_TAG_DURATION
+        }
 
         # Range stuff with ival's don't make sense
-        # self.indxcmpr.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
+
         # _ctorCmprAt implements its own custom norm-style resolution
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -1179,6 +1215,16 @@ class Ival(Type):
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
+
+        for part in ('min', 'max'):
+            self.storlifts[f'{part}@='] = self._storLiftPartAt
+
+        for part in ('min', 'max'):
+            for oper in ('=', '<', '>', '<=', '>='):
+                self.storlifts[f'{part}{oper}'] = self._storLiftPart
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.storlifts[f'duration{oper}'] = self._storLiftDuration
 
     def _storLiftAt(self, cmpr, valu):
 
@@ -1230,6 +1276,54 @@ class Ival(Type):
             return True
 
         return cmpr
+
+    def _storLiftPart(self, cmpr, valu):
+        norm, _ = self.timetype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
+    def _storLiftPartAt(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            return self._storLiftNorm(cmpr, valu)
+
+        ticktock = self.timetype.getTickTock(valu)
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
+
+    def _storLiftDuration(self, cmpr, valu):
+        norm, _ = self.duratype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
+    def _getMin(self, valu):
+        if valu is None:
+            return None
+        return valu[0]
+
+    def _getMax(self, valu):
+        if valu is None:
+            return None
+        return valu[1]
+
+    def _getDuration(self, valu):
+        if valu is None:
+            return None
+
+        if valu[1] == self.futsize:
+            return self.duratype.maxval
+
+        return valu[1] - valu[0]
+
+    def getTagSubIndx(self, name):
+        indx = self.tagsubindx.get(name, s_common.novalu)
+        if indx is s_common.novalu:
+            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for tag ival')
+
+        return indx
 
     def _normPyInt(self, valu):
         minv, _ = self.timetype._normPyInt(valu)
@@ -1945,6 +2039,8 @@ class Duration(IntBase):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
+        self.maxval = 2 ** ((8 * 8) - 1)
+
     def _normPyInt(self, valu):
         return valu, {}
 
@@ -1954,6 +2050,9 @@ class Duration(IntBase):
         if not text:
             mesg = 'Duration string must have non-zero length.'
             raise s_exc.BadTypeValu(mesg=mesg)
+
+        if text == '?':
+            return self.maxval, {}
 
         dura = 0
 

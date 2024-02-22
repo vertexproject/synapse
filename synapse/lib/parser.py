@@ -27,6 +27,7 @@ terminalEnglishMap = {
     'BOOL': 'boolean',
     'BREAK': 'break',
     'BYNAME': 'named comparison operator',
+    'BYNAMECMPR': 'named comparison operator',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -457,6 +458,12 @@ class AstConverter(lark.Transformer):
         kids[0].reverseLift(astinfo)
         return kids[0]
 
+    @lark.v_args(meta=True)
+    def byname(self, meta, kids):
+        kids = self._convert_children(kids)
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.ByNameCmpr(astinfo, kids[0].valu + kids[1].valu, kids)
+
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
@@ -717,6 +724,7 @@ ruleClassMap = {
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
     'stormfunc': s_ast.Function,
+    'subprop': s_ast.SubProp,
     'tagcond': s_ast.TagCond,
     'tagname': s_ast.TagName,
     'tagmatch': s_ast.TagMatch,

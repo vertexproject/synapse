@@ -1178,11 +1178,11 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await core.nodes(q)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
 
+                with self.raises(s_exc.NoSuchCmpr):
+                    await core.nodes('test:int=10 +#foo:score*newp=66')
+
                 nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
                 self.false(nodes[0].hasTagProp('foo', 'score'))
-
-                with self.raises(s_exc.NoSuchCmpr):
-                    await core.nodes('test:int=10 +#foo.bar:score*newp=66')
 
                 modl = await core.getModelDict()
                 self.nn(modl['tagprops'].get('score'))
@@ -1212,6 +1212,9 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchTagProp):
                     await core.nodes('test:int=10 +#foo.bar:score=66')
+
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.nodes('test:int=10 $lib.print(#foo.bar:score)')
 
                 with self.raises(s_exc.NoSuchType):
                     await core.addTagProp('derp', ('derp', {}), {})
@@ -7152,7 +7155,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (nid1, (tm('2020', '2021'), 'inet:ipv4')),
                     (nid2, (tm('2019', '2020'), 'inet:ipv4')),
                     (nid3, (tm('2018', '2020'), 'inet:ipv4')),
-                ], key=lambda x: x[0])
+                ], key=lambda x: x[1])
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform'))
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform'))
@@ -7801,6 +7804,24 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.delHttpExtApi('notAGuid')
+
+    async def test_cortex_abrv(self):
+
+        async with self.getTestCore() as core:
+
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+                    core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
+            # another to check the cache...
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+                    core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x09',
+                    core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
+            self.eq(('visi', 'foo'),
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
+            self.eq(('whip', None),
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x09'))
+            self.raises(s_exc.NoSuchAbrv,
+                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x0a')
 
     async def test_cortex_query_offload(self):
         async with self.getTestAhaProv() as aha:

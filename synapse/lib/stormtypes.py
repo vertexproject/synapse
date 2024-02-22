@@ -6431,8 +6431,6 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
-                      {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.',
-                       'default': None, },
                       {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'A specific value of the property to look up.', },
                   ),
@@ -6827,9 +6825,8 @@ class Layer(Prim):
         return await layr.getTagCount(tagname, formname=formname)
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, maxsize=None, valu=undef):
+    async def _methGetPropCount(self, propname, valu=undef):
         propname = await tostr(propname)
-        maxsize = await toint(maxsize, noneok=True)
 
         prop = self.runt.snap.core.model.prop(propname)
         if prop is None:
@@ -6842,12 +6839,12 @@ class Layer(Prim):
 
         if valu is undef:
             if prop.isform:
-                return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+                return await layr.getPropCount(prop.name, None)
 
             if prop.isuniv:
-                return await layr.getPropCount(None, prop.name, maxsize=maxsize)
+                return await layr.getPropCount(None, prop.name)
 
-            return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
+            return await layr.getPropCount(prop.form.name, prop.name)
 
         valu = await toprim(valu)
         norm, info = prop.type.norm(valu)

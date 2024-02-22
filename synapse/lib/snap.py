@@ -762,13 +762,17 @@ class Snap(s_base.Base):
         buid = s_common.buid(ndef)
         return await self.getNodeByBuid(buid)
 
-    async def nodesByTagProp(self, form, tag, name, reverse=False):
+    async def nodesByTagProp(self, form, tag, name, reverse=False, subtype=None):
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        async for nid, srefs in self.view.liftByTagProp(form, tag, name, reverse=reverse):
+        indx = None
+        if subtype is not None:
+            indx = prop.type.getSubIndx(subtype)
+
+        async for nid, srefs in self.view.liftByTagProp(form, tag, name, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
@@ -835,7 +839,7 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def nodesByProp(self, full, reverse=False):
+    async def nodesByProp(self, full, reverse=False, subtype=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -847,14 +851,18 @@ class Snap(s_base.Base):
                 yield node
             return
 
+        indx = None
+        if subtype is not None:
+            indx = prop.type.getSubIndx(subtype)
+
         if prop.isform:
-            genr = self.view.liftByProp(prop.name, None, reverse=reverse)
+            genr = self.view.liftByProp(prop.name, None, reverse=reverse, indx=indx)
 
         elif prop.isuniv:
-            genr = self.view.liftByProp(None, prop.name, reverse=reverse)
+            genr = self.view.liftByProp(None, prop.name, reverse=reverse, indx=indx)
 
         else:
-            genr = self.view.liftByProp(prop.form.name, prop.name)
+            genr = self.view.liftByProp(prop.form.name, prop.name, reverse=reverse, indx=indx)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)
@@ -908,16 +916,21 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def nodesByTag(self, tag, form=None, reverse=False):
-        async for nid, srefs in self.view.liftByTag(tag, form=form, reverse=reverse):
+    async def nodesByTag(self, tag, form=None, reverse=False, subtype=None):
+
+        indx = None
+        if subtype is not None:
+            indx = self.core.model.type('ival').getTagSubIndx(subtype)
+
+        async for nid, srefs in self.view.liftByTag(tag, form=form, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
 
-        norm, info = self.core.model.type('ival').norm(valu)
-        async for nid, srefs in self.view.liftByTagValu(tag, cmpr, norm, form, reverse=reverse):
+        cmprvals = self.core.model.type('ival').getStorCmprs(cmpr, valu)
+        async for nid, srefs in self.view.liftByTagValu(tag, cmprvals, form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node

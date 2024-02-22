@@ -252,6 +252,7 @@ testmodel = {
             'doc': 'test interface',
             'props': (
                 ('size', ('int', {}), {}),
+                ('seen', ('ival', {}), {}),
                 ('names', ('array', {'type': 'str'}), {}),
             ),
         }),
