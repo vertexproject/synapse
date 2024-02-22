@@ -14,6 +14,7 @@ from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.crypto.rsa as s_rsa
 
@@ -37,8 +38,8 @@ NSCERTTYPE_CLIENT = b'\x03\x02\x07\x80'   # client
 NSCERTTYPE_SERVER = b'\x03\x02\x06@'      # server
 NSCERTTYPE_OBJSIGN = b'\x03\x02\x04\x10'  # objsign
 
-TEN_YEARS = 10 * 365 * 24 * 60 * 60  # 10 years in seconds
-TEN_YEARS_TD = datetime.timedelta(seconds=TEN_YEARS)
+TEN_YEARS = 10 * s_const.year  # 10 years in milliseconds
+TEN_YEARS_TD = datetime.timedelta(milliseconds=TEN_YEARS)
 
 StrOrNone = Union[str | None]
 BytesOrNone = Union[bytes | None]
