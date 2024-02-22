@@ -26,13 +26,13 @@ commands:
             . venv/bin/activate
             python -m coverage xml
             # Execute the binary...
-              ./codecov \
-                -t "${CODECOV_TOKEN}" \
-                -n "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}" \
-                -F "${CODECOV_FLAG}" \
-                -f ./coverage.xml \
-                -v \
-                -Z || echo 'Codecov upload failed'
+            ./codecov \
+              -t "${CODECOV_TOKEN}" \
+              -n "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}" \
+              -F "${CODECOV_FLAG}" \
+              -f ./coverage.xml \
+              -v \
+              -Z || echo 'Codecov upload failed'
 
   do_venv_setup:
     description: "Setup venv for testing"
