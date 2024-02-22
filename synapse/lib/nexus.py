@@ -12,8 +12,11 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
+
+leaderversion = 'Leader is a higer version than we are.'
 
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
@@ -471,6 +474,14 @@ class NexsRoot(s_base.Base):
             await proxy.readyToMirror()
 
         cellvers = cellinfo['synapse']['version']
+        if cellvers > s_version.version:
+            logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
+            self.setReadOnly(True, leaderversion)
+            return
+
+        # When we reconnect and the leader version has become ok...
+        if self.readonly and self.readonlyreason == leaderversion:
+            self.setReadOnly(False)
 
         if self.celliden is not None:
             if self.celliden != await proxy.getCellIden():
