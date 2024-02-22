@@ -1566,7 +1566,7 @@ class Layer(s_nexus.Pusher):
         return self.nodeeditlog.size
 
     async def verifyNidTag(self, nid, formname, tagname, tagvalu):
-        abrv = self.core.getIndxAbrv(INDX_TAG, formname, tagname)
+        abrv = self.core.getIndxAbrv(INDX_TAG, None, tagname)
         if not self.layrslab.hasdup(abrv, nid, db=self.indxdb):
             yield ('NoTagIndex', {'nid': nid, 'tag': tagname, 'valu': tagvalu})
 
@@ -1575,7 +1575,7 @@ class Layer(s_nexus.Pusher):
             yield ('NoTagIndex', {'nid': nid, 'form': formname, 'tag': tagname, 'valu': tagvalu})
 
     def _testDelTagIndx(self, nid, form, tag):
-        tagabrv = self.core.setIndxAbrv(INDX_TAG, form, tag)
+        tagabrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
         tagformabrv = self.core.setIndxAbrv(INDX_TAG, form, tag)
         self.layrslab.delete(tagabrv, nid, db=self.indxdb)
         self.layrslab.delete(tagformabrv, nid, db=self.indxdb)
@@ -2628,7 +2628,7 @@ class Layer(s_nexus.Pusher):
             sode = self._genStorNode(nid)
 
             for edit in edits:
-                kvpairs.extend(await self.editors[edit[0]](buid, form, edit, sode, meta))
+                kvpairs.extend(await self.editors[edit[0]](nid, form, edit, sode, meta))
 
                 if len(kvpairs) > 20:
                     self.layrslab.putmulti(kvpairs, db=self.indxdb)
@@ -2845,7 +2845,7 @@ class Layer(s_nexus.Pusher):
             )
 
         try:
-            abrv = self.getPropAbrv(name, None)
+            abrv = self.core.getIndxAbrv(INDX_PROP, name, None)
         except s_exc.NoSuchAbrv:
             return (
                 (EDIT_NODEDATA_SET, (name, valu, None)),
@@ -2870,7 +2870,7 @@ class Layer(s_nexus.Pusher):
 
         name, valu = edit[1]
         try:
-            abrv = self.getPropAbrv(name, None)
+            abrv = self.core.getIndxAbrv(INDX_PROP, name, None)
         except s_exc.NoSuchAbrv:
             return
 
@@ -2885,7 +2885,14 @@ class Layer(s_nexus.Pusher):
 
         verb, n2nid = edit[1]
 
-        if sode is not None and self.layrslab.hasdup(nid + n2nid, verb.encode(), db=self.edgesn1n2):
+        try:
+            vabrv = self.core.getVerbAbrv(verb)
+        except s_exc.NoSuchAbrv:
+            return (
+                (EDIT_EDGE_ADD, (verb, n2nid)),
+            )
+
+        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
             return
 
         return (
@@ -2899,7 +2906,12 @@ class Layer(s_nexus.Pusher):
 
         verb, n2nid = edit[1]
 
-        if not self.layrslab.hasdup(nid + n2nid, verb.encode(), db=self.edgesn1n2):
+        try:
+            vabrv = self.core.getVerbAbrv(verb)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if not self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
             return
 
         return (
@@ -2960,7 +2972,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeDel(self, buid, form, edit, sode, meta):
+    async def _editNodeDel(self, nid, form, edit, sode, meta):
 
         if (valt := sode.pop('valu', None)) is None:
             return ()
@@ -3306,7 +3318,7 @@ class Layer(s_nexus.Pusher):
 
         tag = edit[1][0]
 
-        if sode['tags'].pop(tag, None) is None:
+        if (oldv := sode['tags'].pop(tag, None)) is None:
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
@@ -3361,6 +3373,8 @@ class Layer(s_nexus.Pusher):
 
                 if (valu, stortype) == oldv:
                     return ()
+
+                (oldv, oldt) = oldv
 
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(tp_abrv + oldi, nid, db=self.indxdb)
@@ -3473,7 +3487,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeDataSet(self, buid, form, edit, sode, meta):
+    async def _editNodeDataSet(self, nid, form, edit, sode, meta):
 
         name, valu, _ = edit[1]
         abrv = self.core.setIndxAbrv(INDX_PROP, name, None)
@@ -3500,7 +3514,7 @@ class Layer(s_nexus.Pusher):
 
         vabrv = self.core.setVerbAbrv(verb)
 
-        if self.layrslab.hasdup(self.edgen1n2abrv + n1nid + n2nid, vabrv, db=self.indxdb):
+        if self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
                 return ()
 
         n2sode = self._genStorNode(n2nid)
@@ -3515,10 +3529,10 @@ class Layer(s_nexus.Pusher):
         # FIXME do a verb lookup and increment verb stats
 
         kvpairs = [
-            (self.edgen1abrv + n1nid + vabrv, n2nid),
-            (self.edgen2abrv + n2nid + vabrv, n1nid),
-            (self.edgen1n2abrv + n1nid + n2nid, vabrv),
-            (self.edgeverbabrv + vabrv + n1nid, n2nid)
+            (self.edgen1abrv + nid + vabrv, n2nid),
+            (self.edgen2abrv + n2nid + vabrv, nid),
+            (self.edgen1n2abrv + nid + n2nid, vabrv),
+            (self.edgeverbabrv + vabrv + nid, n2nid)
         ]
 
         return kvpairs
@@ -3529,12 +3543,12 @@ class Layer(s_nexus.Pusher):
 
         vabrv = self.core.setVerbAbrv(verb)
 
-        if not self.layrslab.delete(self.edgen1n2abrv + n1nid + n2nid, vabrv, db=self.indxdb):
+        if not self.layrslab.delete(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
             return ()
 
-        self.layrslab.delete(self.edgen1abrv + n1nid + vabrv, n2nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen2abrv + n2nid + vabrv, n1nid, db=self.indxdb)
-        self.layrslab.delete(self.edgeverbabrv + vabrv + n1nid, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen1abrv + nid + vabrv, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen2abrv + n2nid + vabrv, nid, db=self.indxdb)
+        self.layrslab.delete(self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb)
 
         newvalu = sode['n1verbs'].get(verb, 0) - 1
         if newvalu == 0:
@@ -3582,14 +3596,14 @@ class Layer(s_nexus.Pusher):
 
         sode.pop('n1verbs', None)
 
-        for lkey, n2nid in self.layrslab.scanByPref(self.edgen1abrv + n1nid, db=self.indxdb):
+        for lkey, n2nid in self.layrslab.scanByPref(self.edgen1abrv + nid, db=self.indxdb):
             await asyncio.sleep(0)
             vabrv = lkey[-8:]
 
-            self.layrslab.delete(self.edgen1abrv + n1nid + vabrv, n2nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen2abrv + n2nid + vabrv, n1nid, db=self.indxdb)
-            self.layrslab.delete(self.edgen1n2abrv + n1nid + n2nid, vabrv, db=self.indxdb)
-            self.layrslab.delete(self.edgeverbabrv + vabrv + n1nid, n2nid, db=self.indxdb)
+            self.layrslab.delete(self.edgen1abrv + nid + vabrv, n2nid, db=self.indxdb)
+            self.layrslab.delete(self.edgen2abrv + n2nid + vabrv, nid, db=self.indxdb)
+            self.layrslab.delete(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb)
+            self.layrslab.delete(self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb)
 
             verb = self.core.getAbrvVerb(vabrv)
             n2sode = self._genStorNode(n2nid)

@@ -444,11 +444,11 @@ PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
 WILDPROPS.2: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+([:.][a-z0-9_]+)*:?\*)(?![:.a-z0-9_\-\[])/
 // A universal property
 UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
-univprop:  (UNIVNAME | "." _varvalu)
+univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: (RELNAME | _COLONDOLLAR _varvaluatom)
+relprop: RELNAME | _COLONDOLLAR _varvaluatom
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
 RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/

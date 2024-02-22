@@ -7155,7 +7155,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (nid1, (tm('2020', '2021'), 'inet:ipv4')),
                     (nid2, (tm('2019', '2020'), 'inet:ipv4')),
                     (nid3, (tm('2018', '2020'), 'inet:ipv4')),
-                ], key=lambda x: x[0])
+                ], key=lambda x: x[1])
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform'))
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform'))
