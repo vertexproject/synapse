@@ -34,6 +34,8 @@ commands:
                   -f ./coverage.xml \
                   -v \
                   -Z || echo 'Codecov upload failed'
+            else
+              echo "No coverage results found to upload."
             fi
 
   do_venv_setup:
