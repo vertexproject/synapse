@@ -34,10 +34,14 @@ import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
+
+AXON_MINVERS_PROXY = (2, 97, 0)
+AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
     _storm_typename = 'undef'
@@ -1097,6 +1101,8 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_guid',
                   'args': (
                       {'name': '*args', 'type': 'prim', 'desc': 'Arguments which are hashed to create a guid.', },
+                      {'name': 'valu', 'type': 'prim', 'default': '$lib.undef',
+                       'desc': 'Create a guid from a single value (no positional arguments can be specified).', },
                   ),
                   'returns': {'type': 'str', 'desc': 'A guid.', }}},
         {'name': 'fire', 'desc': '''
@@ -1543,10 +1549,17 @@ class LibBase(Lib):
         return Text(valu)
 
     @stormfunc(readonly=True)
-    async def _guid(self, *args):
+    async def _guid(self, *args, valu=undef):
         if args:
+            if valu is not undef:
+                raise s_exc.BadArg(mesg='Valu cannot be specified if positional arguments are provided')
             args = await toprim(args)
             return s_common.guid(args)
+
+        if valu is not undef:
+            valu = await toprim(valu)
+            return s_common.guid(valu)
+
         return s_common.guid()
 
     @stormfunc(readonly=True)
@@ -1916,6 +1929,14 @@ class LibStr(Lib):
 class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
+
+    For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
+
+        {
+            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+            'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+            'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+        }
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
@@ -1951,6 +1972,9 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
@@ -1971,6 +1995,9 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
@@ -2121,6 +2148,82 @@ class LibAxon(Lib):
         ''',
         'type': {'type': 'function', '_funcname': 'metrics',
                  'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
+        {'name': 'put', 'desc': '''
+            Save the given bytes variable to the Axon the Cortex is configured to use.
+
+            Examples:
+                Save a base64 encoded buffer to the Axon::
+
+                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
+                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
+
+                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
+         'type': {'type': 'function', '_funcname': 'put',
+                  'args': (
+                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
+        {'name': 'has', 'desc': '''
+            Check if the Axon the Cortex is configured to use has a given sha256 value.
+
+            Examples:
+                Check if the Axon has a given file::
+
+                    # This example assumes the Axon does have the bytes
+                    cli> storm if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
+                            $lib.print("Has bytes")
+                        } else {
+                            $lib.print("Does not have bytes")
+                        }
+
+                    Has bytes
+            ''',
+         'type': {'type': 'function', '_funcname': 'has',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the Axon has the file, false if it does not.', }}},
+        {'name': 'size', 'desc': '''
+            Return the size of the bytes stored in the Axon for the given sha256.
+
+            Examples:
+                Get the size for a file given a variable named ``$sha256``::
+
+                    $size = $lib.axon.size($sha256)
+            ''',
+         'type': {'type': 'function', '_funcname': 'size',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
+                  ),
+                  'returns': {'type': ['int', 'null'],
+                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
+        {'name': 'hashset', 'desc': '''
+            Return additional hashes of the bytes stored in the Axon for the given sha256.
+
+            Examples:
+                Get the md5 hash for a file given a variable named ``$sha256``::
+
+                    $hashset = $lib.axon.hashset($sha256)
+                    $md5 = $hashset.md5
+            ''',
+         'type': {'type': 'function', '_funcname': 'hashset',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
+        {'name': 'upload', 'desc': '''
+            Upload a stream of bytes to the Axon as a file.
+
+            Examples:
+                Upload bytes from a generator::
+
+                    ($size, $sha256) = $lib.axon.upload($getBytesChunks())
+            ''',
+         'type': {'type': 'function', '_funcname': 'upload',
+                  'args': (
+                      {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('axon',)
     _storm_lib_perms = (
@@ -2148,6 +2251,11 @@ class LibAxon(Lib):
             'jsonlines': self.jsonlines,
             'csvrows': self.csvrows,
             'metrics': self.metrics,
+            'put': self.put,
+            'has': self.has,
+            'size': self.size,
+            'upload': self.upload,
+            'hashset': self.hashset,
         }
 
     def strify(self, item):
@@ -2207,7 +2315,8 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.del_(sha256b)
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
@@ -2222,6 +2331,7 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
+        ssl_opts = await toprim(ssl_opts)
 
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
@@ -2233,8 +2343,14 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
+
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
 
         axon = self.runt.snap.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
@@ -2242,7 +2358,8 @@ class LibAxon(Lib):
         resp['original_url'] = url
         return resp
 
-    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
+    async def wput(self, sha256, url, headers=None, params=None, method='PUT',
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
@@ -2256,6 +2373,7 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+        ssl_opts = await toprim(ssl_opts)
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2268,10 +2386,17 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
 
-        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, **kwargs)
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
+
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
+                               ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
         gateiden = self.runt.snap.wlyr.iden
@@ -2372,10 +2497,62 @@ class LibAxon(Lib):
             self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
+    async def upload(self, genr):
+
+        self.runt.confirm(('axon', 'upload'))
+
+        await self.runt.snap.core.getAxon()
+        async with await self.runt.snap.core.axon.upload() as upload:
+            async for byts in s_coro.agen(genr):
+                await upload.write(byts)
+            size, sha256 = await upload.save()
+            return size, s_common.ehex(sha256)
+
+    @stormfunc(readonly=True)
+    async def has(self, sha256):
+        sha256 = await tostr(sha256, noneok=True)
+        if sha256 is None:
+            return None
+
+        self.runt.confirm(('axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.has(s_common.uhex(sha256))
+
+    @stormfunc(readonly=True)
+    async def size(self, sha256):
+        sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.size(s_common.uhex(sha256))
+
+    async def put(self, byts):
+        if not isinstance(byts, bytes):
+            mesg = '$lib.axon.put() requires a bytes argument'
+            raise s_exc.BadArg(mesg=mesg)
+
+        self.runt.confirm(('axon', 'upload'))
+
+        await self.runt.snap.core.getAxon()
+        size, sha256 = await self.runt.snap.core.axon.put(byts)
+
+        return (size, s_common.ehex(sha256))
+
+    @stormfunc(readonly=True)
+    async def hashset(self, sha256):
+        sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
+
 @registry.registerLib
 class LibBytes(Lib):
     '''
-    A Storm Library for interacting with bytes storage.
+    A Storm Library for interacting with bytes storage. This Library is deprecated; use ``$lib.axon.*`` instead.
     '''
     _storm_locals = (
         {'name': 'put', 'desc': '''
@@ -2479,6 +2656,7 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesHas(self, sha256):
+
         sha256 = await tostr(sha256, noneok=True)
         if sha256 is None:
             return None
@@ -2492,6 +2670,7 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesSize(self, sha256):
+
         sha256 = await tostr(sha256)
 
         self.runt.confirm(('axon', 'has'), default=True)
@@ -2502,6 +2681,7 @@ class LibBytes(Lib):
         return ret
 
     async def _libBytesPut(self, byts):
+
         if not isinstance(byts, bytes):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
@@ -2516,6 +2696,7 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesHashset(self, sha256):
+
         sha256 = await tostr(sha256)
 
         self.runt.confirm(('axon', 'has'), default=True)

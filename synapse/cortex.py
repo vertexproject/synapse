@@ -3879,6 +3879,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if proxyurl is not None:
                 conf['http:proxy'] = proxyurl
 
+            cadir = self.conf.get('tls:ca:dir')
+            if cadir is not None:
+                conf['tls:ca:dir'] = cadir
+
             self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
             self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
