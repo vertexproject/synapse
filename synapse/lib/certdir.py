@@ -8,7 +8,7 @@ import logging
 import datetime
 import collections
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 from OpenSSL import crypto  # type: ignore
 
@@ -399,7 +399,7 @@ class CertDir:
 
     def genUserCert(self,
                     name: str,
-                    signas: Optional[str | None] = None,
+                    signas: StrOrNone = None,
                     outp: OutPutOrNone = None,
                     csr: PubKeyOrNone = None,
                     save: bool = True) -> PkeyOrNoneAndCert:
