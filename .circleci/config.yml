@@ -17,7 +17,7 @@ commands:
             # Activate our venv and generate a xml report
             . venv/bin/activate
             python -m coverage xml
-            if [ $? -eq 0 -a -e coverage.xml ]; then
+            if [ $? -eq 0 -a -f coverage.xml ]; then
               # Download and verify the codecov binary
               curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import # One-time step
               curl -Os https://uploader.codecov.io/latest/linux/codecov
