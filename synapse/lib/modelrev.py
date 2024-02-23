@@ -42,15 +42,15 @@ class ModelRev:
 
                 stortype = prop.type.stortype | s_layer.STOR_FLAG_ARRAY
 
-                async for buid, propvalu in layr.iterPropRows(formname, propreln):
+                async for nid, propvalu in layr.iterPropRows(formname, propreln):
 
                     uniqvalu = sortuniq(propvalu)
                     if uniqvalu == propvalu:
                         continue
 
                     nodeedits.append(
-                        (buid, formname, (
-                            (s_layer.EDIT_PROP_SET, (propreln, uniqvalu, propvalu, stortype), ()),
+                        (nid, formname, (
+                            (s_layer.EDIT_PROP_SET, (propreln, uniqvalu, propvalu, stortype)),
                         )),
                     )
 
@@ -146,18 +146,18 @@ class ModelRev:
 
             prop = self.core.model.prop(propfull)
 
-            async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
+            async for nid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
                     norm, info = prop.type.norm(propvalu)
                 except s_exc.BadTypeValu as e:
                     nodeedits.append(
-                        (buid, prop.form.name, (
-                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
-                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                        (nid, prop.form.name, (
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None)),
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype)),
                         )),
                     )
                     oldm = e.errinfo.get('mesg')
-                    iden = s_common.ehex(buid)
+                    iden = s_common.ehex(self.core.getBuidByNid(nid))
                     logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
                                    extra={'synapse': {'node': iden, 'layer': layr.iden}})
                     continue
@@ -166,8 +166,8 @@ class ModelRev:
                     continue
 
                 nodeedits.append(
-                    (buid, prop.form.name, (
-                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                    (nid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype)),
                     )),
                 )
 
@@ -191,7 +191,7 @@ class ModelRev:
             prop = self.core.model.prop(propfull)
             stortype = prop.type.stortype
 
-            async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
+            async for lkey, nid, sode in layr.liftByProp(prop.form.name, prop.name):
 
                 props = sode.get('props')
 
@@ -204,8 +204,8 @@ class ModelRev:
                     continue
 
                 nodeedits.append(
-                    (buid, prop.form.name, (
-                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype), ()),
+                    (nid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype)),
                     )),
                 )
 
@@ -262,7 +262,7 @@ class ModelRev:
                 cmprvals = form.type.getStorCmprs(cmpr, cmprvalu)
                 genr = layr.liftByPropValu(form.name, liftprop, cmprvals)
 
-            async for _, buid, sode in genr:
+            async for _, nid, sode in genr:
 
                 sodevalu = sode.get('valu')
                 if sodevalu is None: # pragma: no cover
@@ -311,12 +311,12 @@ class ModelRev:
                         if subcurv == subnorm:
                             continue
 
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype)))
 
                     if not edits: # pragma: no cover
                         continue
 
-                    nodeedits.append((buid, formname, edits))
+                    nodeedits.append((nid, formname, edits))
 
                     if len(nodeedits) >= 1000:  # pragma: no cover
                         await save()

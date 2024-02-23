@@ -510,7 +510,7 @@ class Trigger:
             return
 
         if self.tdef.get('async'):
-            triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
+            triginfo = {'nid': node.nid, 'trig': self.iden, 'vars': vars}
             await self.view.addTrigQueue(triginfo)
             return
 
