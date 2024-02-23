@@ -739,7 +739,7 @@ class Node(NodeBase):
                 continue
 
             if (propvals := tagprops.get(tag)) is None:
-    
+
         return edits
 
     def getTagProps(self, tag):

@@ -3319,7 +3319,7 @@ class Layer(s_nexus.Pusher):
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
-            
+
         return ()
 
     async def _editPropTomb(self, buid, form, edit, sode, meta):
@@ -3670,7 +3670,6 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-
     async def _editTagPropTomb(self, buid, form, edit, sode, meta):
 
         tag, prop = edit[1]
@@ -3726,7 +3725,7 @@ class Layer(s_nexus.Pusher):
 
         self.dataslab.put(nid + abrv + FLAG_NORM, s_msgpack.en(valu), db=self.nodedata)
         self.dataslab.put(abrv + FLAG_NORM, nid, db=self.dataname)
-        
+
         if oldv is None and self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
             self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
@@ -3945,7 +3944,7 @@ class Layer(s_nexus.Pusher):
             yield lkey[-9:-1], vabrv, lval, lkey[-1:] == FLAG_TOMB
 
     async def _delNodeEdges(self, nid, sode):
-      
+
         sode.pop('n1verbs', None)
 
         for lkey, n2nid in self.layrslab.scanByPref(self.edgen1abrv + nid, db=self.indxdb):

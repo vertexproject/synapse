@@ -4092,7 +4092,7 @@ class MergeCmd(Cmd):
                                     await sync()
 
                     async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(node.nid):
-                        verb = core.getAbrvVerb(abrv)                        
+                        verb = core.getAbrvVerb(abrv)
                         if tomb:
                             if not self.opts.apply:
                                 dest = s_common.ehex(core.getBuidByNid(n2nid))
