@@ -769,60 +769,9 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
 
-                    self.len(6, await alist(layrprox.syncNodeEdits2(0, wait=False)))
+                    self.len(5, await alist(layrprox.syncNodeEdits2(0, wait=False)))
 
                 layr = core1.view.layers[0]  # type: s_layer.Layer
-
-                ############################################################################
-                # TEST ONLY - Force the layer nexus handler to consume a truncate event.
-                # This is for backwards compatibility for a mirror that consumes a truncate
-                # event.
-                # This can be removed in 3.0.0.
-
-                await layr._push('layer:truncate')
-
-                async with await s_telepath.openurl(url) as layrprox:
-
-                    for nodeedits in editlist:
-                        self.none(await layrprox.storNodeEditsNoLift(nodeedits))
-
-                    nodelist1 = []
-                    nodelist1.extend(await core1.nodes('test:str'))
-                    nodelist1.extend(await core1.nodes('inet:ipv4'))
-
-                    nodelist1 = [node.pack() for node in nodelist1]
-
-                    self.eq(nodelist0, nodelist1)
-
-                    meta = {'user': s_common.guid(),
-                            'time': 0,
-                            }
-
-                    await layr._push('layer:truncate')
-
-                    for nodeedits in editlist:
-                        self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
-
-                    lastoffs = layr.nodeeditlog.index()
-                    for offs, _ in layr.nodeeditlog.sliceBack(lastoffs, 2):
-                        nexsitem = await core1.nexsroot.nexslog.get(offs)
-                        nodeedit = nexsitem[2]
-                        self.eq(meta, nodeedit[1])
-
-                    async def waitForEdit():
-                        edit = (0, ('endofquery', 1))
-                        async for item in layr.syncNodeEdits(lastoffs):
-                            if item[1][0][1] == 'test:str' and edit in item[1][0][2]:
-                                return
-                            await asyncio.sleep(0)
-
-                    async def doEdit():
-                        await core1.nodes('sleep 1 | [ test:str=endofquery ]')
-
-                    core1.schedCoro(doEdit())
-                    await asyncio.wait_for(waitForEdit(), timeout=6)
-
-                ############################################################################
 
             await core0.addTagProp('score', ('int', {}), {})
 
