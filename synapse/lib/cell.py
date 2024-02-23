@@ -61,7 +61,7 @@ import synapse.tools.backup as s_t_backup
 logger = logging.getLogger(__name__)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
-SSLCTX_CACHE_SIZE = 1000
+SSLCTX_CACHE_SIZE = 64
 
 '''
 Base classes for the synapse "cell" microservice architecture.
