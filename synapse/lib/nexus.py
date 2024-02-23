@@ -16,7 +16,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-leaderversion = 'Leader is a higer version than we are.'
+leaderversion = 'Leader is a higher version than we are.'
 
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
