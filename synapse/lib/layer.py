@@ -264,23 +264,6 @@ INDX_TAG_DURATION = b'\x00\x09'
 INDX_IVAL_MAX = b'\x00\x0a'
 INDX_IVAL_DURATION = b'\x00\x0b'
 
-INDX_PROP = b'\x00\x00'
-INDX_TAGPROP = b'\x00\x01'
-
-INDX_ARRAY = b'\x00\x02'
-
-INDX_EDGE_N1 = b'\x00\x03'
-INDX_EDGE_N2 = b'\x00\x04'
-INDX_EDGE_N1N2 = b'\x00\x05'
-INDX_EDGE_VERB = b'\x00\x06'
-
-INDX_TAG = b'\x00\x07'
-INDX_TAG_MAX = b'\x00\x08'
-INDX_TAG_DURATION = b'\x00\x09'
-
-INDX_IVAL_MAX = b'\x00\x0a'
-INDX_IVAL_DURATION = b'\x00\x0b'
-
 class IndxBy:
     '''
     IndxBy sub-classes encapsulate access methods and encoding details for
@@ -3096,8 +3079,6 @@ class Layer(s_nexus.Pusher):
 
         sode['props'][prop] = (valu, stortype)
         self.dirty[nid] = sode
-
-        kvpairs = []
 
         kvpairs = []
 
