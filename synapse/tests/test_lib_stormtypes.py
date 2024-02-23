@@ -587,6 +587,15 @@ class StormTypesTest(s_test.SynTest):
             self.true(s_common.isguid(nodes[1].ndef[1]))
             self.eq(nodes[0].ndef[1], nodes[1].ndef[1])
 
+            self.ne(s_common.guid('foo'), await core.callStorm('return($lib.guid(foo))'))
+            self.eq(s_common.guid('foo'), await core.callStorm('return($lib.guid(valu=foo))'))
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.callStorm('return($lib.guid(foo, valu=bar))')
+            self.eq('Valu cannot be specified if positional arguments are provided', ectx.exception.errinfo['mesg'])
+
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid(valu=$lib))'))
+
             async with core.getLocalProxy() as prox:
                 mesgs = [m async for m in prox.storm('$lib.print("hi there")') if m[0] == 'print']
                 self.len(1, mesgs)
@@ -5973,6 +5982,13 @@ words\tword\twrd'''
 
             with self.raises(s_exc.BadCast):
                 await core.nodes('ou:industry $node.delEdge(foo, bar)')
+
+            fakebuid = s_common.ehex(s_common.buid('newp'))
+            with self.raises(s_exc.BadArg):
+                await core.nodes(f'ou:industry $node.addEdge(foo, {fakebuid})')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes(f'ou:industry $node.delEdge(foo, {fakebuid})')
 
     async def test_storm_layer_lift(self):
 

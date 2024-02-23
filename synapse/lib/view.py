@@ -49,11 +49,11 @@ class ViewApi(s_cell.CellApi):
 
         return await self.view.storNodeEdits(edits, meta)
 
-    async def syncNodeEdits2(self, offs, wait=True):
+    async def syncNodeEdits2(self, offs, wait=True, compat=False):
         await self._reqUserAllowed(('view', 'read'))
         # present a layer compatible API to remote callers
         layr = self.view.layers[0]
-        async for item in layr.syncNodeEdits2(offs, wait=wait):
+        async for item in layr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item
 
     @s_cell.adminapi()
@@ -600,7 +600,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             async for offs, triginfo in self.trigqueue.gets(0):
 
-                buid = triginfo.get('buid')
+                nid = triginfo.get('nid')
                 varz = triginfo.get('vars')
                 trigiden = triginfo.get('trig')
 
@@ -610,7 +610,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     async with await self.snap(trig.user) as snap:
-                        node = await snap.getNodeByBuid(buid)
+                        node = await snap.getNodeByNid(nid)
                         if node is None:
                             continue
 
@@ -627,7 +627,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getStorNodes(self, nid):
         '''
-        Return a list of storage nodes for the given buid in layer order.
+        Return a list of storage nodes for the given nid in layer order.
         NOTE: This returns a COPY of the storage node and will not receive updates!
         '''
         return [layr.getStorNode(nid) for layr in self.layers]
@@ -1416,7 +1416,6 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.snap(user=user) as snap:
             meta = await snap.getSnapMeta()
             async for nodeedit in self.layers[0].iterWipeNodeEdits():
-                await snap.getNodeByBuid(nodeedit[0])  # to load into livenodes for callbacks
                 await snap.saveNodeEdits([nodeedit], meta)
 
     def _confirm(self, user, perms):

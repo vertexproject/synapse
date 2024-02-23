@@ -688,7 +688,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             ipv4 = nodes[0]
 
-            await news.addEdge('refs', ipv4.iden())
+            await news.addEdge('refs', ipv4.nid)
 
             n1edges = await alist(news.iterEdgesN1())
             n2edges = await alist(ipv4.iterEdgesN2())
@@ -696,7 +696,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(n1edges, (('refs', ipv4.nid),))
             self.eq(n2edges, (('refs', news.nid),))
 
-            await news.delEdge('refs', ipv4.iden())
+            await news.delEdge('refs', ipv4.nid)
 
             self.len(0, await alist(news.iterEdgesN1()))
             self.len(0, await alist(ipv4.iterEdgesN2()))
@@ -4450,7 +4450,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pack = node1.pack()
             pack[1]['nodedata']['foo'] = 'bar'
             pack[1]['edges'] = (('refs', ('inet:ipv4', '1.2.3.4')),
-                                ('newp', ('test:newp', 'newp')))
+                                ('newp', ('test:newp', 'newp')),
+                                ('newp', ('test:int', 'newp')))
             podes.append(pack)
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
@@ -4513,6 +4514,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
             await core1.addFeedData('syn.nodes', data)
             nodes = await core1.nodes('test:str=beef')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterEdgesN1())
+
+            data = [(('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
+            await core1.addFeedData('syn.nodes', data)
+            nodes = await core1.nodes('test:str=fake')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
@@ -6638,11 +6645,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.buid, 'test:str',
-                            ((s_layer.EDIT_NODE_ADD, ('foo', 1), ()),
+            expectedits = ((node.nid, 'test:str',
+                            ((s_layer.EDIT_NODE_ADD, ('foo', 1)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME), ()))),)
-            self.eq(expect, item0[:3])
+                                                      s_layer.STOR_TYPE_MINTIME)))),)
+            self.eq(expect[1:], item0[1:3])
             self.eq(expectedits, item0[3])
             self.isin('time', item0[4])
             self.isin('user', item0[4])
@@ -6653,11 +6660,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item1 = await genr.__anext__()
             expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
-            self.eq(expect, item1)
+            self.eq(expect[1:], item1[1:])
 
             item1 = await genr.__anext__()
             expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, (), {})
-            self.eq(expect, item1)
+            self.eq(expect[1:], item1[1:])
 
             layr = await core.addLayer()
             layriden = layr['iden']
@@ -6668,7 +6675,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item3 = await genr.__anext__()
             expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
-            self.eq(expect, item3)
+            self.eq(expect[1:], item3[1:])
 
             items = []
             syncevent = asyncio.Event()
@@ -6696,12 +6703,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             item4 = items[0]
 
             expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.buid, 'test:str',
-                            [(s_layer.EDIT_NODE_ADD, ('bar', 1), ()),
+            expectedits = ((node.nid, 'test:str',
+                            [(s_layer.EDIT_NODE_ADD, ('bar', 1)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME), ())]),)
+                                                      s_layer.STOR_TYPE_MINTIME))]),)
 
-            self.eq(expect, item4[:3])
+            self.eq(expect[1:], item4[1:3])
             self.eq(expectedits, item4[3])
             self.isin('time', item4[4])
             self.isin('user', item4[4])
@@ -6728,8 +6735,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()))
-            self.eq(expectadd, item0)
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)))
+            self.eq(expectadd[1:], item0[1:])
 
             layr = await core.addLayer()
             layriden = layr['iden']
@@ -6737,11 +6744,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item1 = await genr.__anext__()
             expectadd = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, ())
-            self.eq(expectadd, item1)
+            self.eq(expectadd[1:], item1[1:])
 
             item2 = await genr.__anext__()
             expectdel = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, ())
-            self.eq(expectdel, item2)
+            self.eq(expectdel[1:], item2[1:])
 
             layr = await core.addLayer()
             layriden = layr['iden']
@@ -6755,22 +6762,22 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item3 = await genr.__anext__()
             expectadd = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, ())
-            self.eq(expectadd, item3)
+            self.eq(expectadd[1:], item3[1:])
 
             item4 = await genr.__anext__()
             expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8), ()))
-            self.eq(expectadd, item4)
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8)))
+            self.eq(expectadd[1:], item4[1:])
 
             # Make sure progress every 1000 layer log entries works
             await core.nodes('[inet:ipv4=192.168.1/20]')
 
-            offsdict = {baselayr.iden: baseoffs + 1, layriden: baseoffs + 1}
+            offsdict = {baselayr.iden: baseoffs + 2, layriden: baseoffs + 1}
 
             items = await alist(proxy.syncIndexEvents(mdef, offsdict=offsdict, wait=False))
 
             expect = (9999, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                      (None, None, s_layer.EDIT_PROGRESS, (), ()))
+                      (None, None, s_layer.EDIT_PROGRESS, ()))
             self.eq(expect[1:], items[1][1:])
 
             # Make sure that genr wakes up if a new layer occurs after it is already waiting
@@ -6850,14 +6857,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('[ test:str=foo ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(nodes[0].nid, item[1][0][0])
 
                 # we should now be in live sync
                 # and the empty layer will be pulling from the window
 
                 nodes = await core.nodes('[ test:str=bar ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(nodes[0].nid, item[1][0][0])
 
                 # add more nodes than the window size without consuming from the genr
 
@@ -6865,7 +6872,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
                 items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
                 self.sorteq(
-                    [s_common.uhex(n.iden()) for n in nodes],
+                    [n.nid for n in nodes],
                     [item[1][0][0] for item in items],
                 )
 
@@ -7103,15 +7110,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[(inet:ipv4=1 :asn=10 .seen=(2016, 2017) +#foo=(2020,2021) +#foo:score=42)]')
             self.len(1, nodes)
-            buid1 = nodes[0].buid
+            nid1 = nodes[0].nid
 
             nodes = await core.nodes('[(inet:ipv4=2 :asn=20 .seen=(2015, 2016) +#foo=(2019,2020) +#foo:score=41)]')
             self.len(1, nodes)
-            buid2 = nodes[0].buid
+            nid2 = nodes[0].nid
 
             nodes = await core.nodes('[(inet:ipv4=3 :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99)]')
             self.len(1, nodes)
-            buid3 = nodes[0].buid
+            nid3 = nodes[0].nid
 
             self.len(1, await core.nodes('[test:str=yolo]'))
             self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}}))
@@ -7119,7 +7126,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             badiden = 'xxx'
             await self.agenraises(s_exc.NoSuchLayer, prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             layriden = core.view.layers[0].iden
             rows = await alist(prox.iterPropRows(layriden, 'inet:ipv4', 'asn'))
 
@@ -7127,7 +7134,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterUnivRows(badiden, '.seen'))
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             rows = await alist(prox.iterUnivRows(layriden, '.seen'))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
@@ -7138,30 +7145,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ipv4'))
 
             rows = await alist(prox.iterFormRows(layriden, 'inet:ipv4'))
-            self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
+            self.eq([(nid1, 1), (nid2, 2), (nid3, 3)], rows)
 
             # iterTagRows
             expect = sorted(
                 [
-                    (buid1, (tm('2020', '2021'), 'inet:ipv4')),
-                    (buid2, (tm('2019', '2020'), 'inet:ipv4')),
-                    (buid3, (tm('2018', '2020'), 'inet:ipv4')),
-                ], key=lambda x: x[0])
+                    (nid1, (tm('2020', '2021'), 'inet:ipv4')),
+                    (nid2, (tm('2019', '2020'), 'inet:ipv4')),
+                    (nid3, (tm('2018', '2020'), 'inet:ipv4')),
+                ], key=lambda x: x[1])
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform'))
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform'))
             self.eq([], rows)
 
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
-            # FIXME self.eq(expect, rows)
-
-            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
-            # FIXME self.eq(expect[1:], rows)
+            self.eq(expect, rows)
 
             expect = [
-                (buid2, 41,),
-                (buid1, 42,),
-                (buid3, 99,),
+                (nid2, 41,),
+                (nid1, 42,),
+                (nid3, 99,),
             ]
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4',

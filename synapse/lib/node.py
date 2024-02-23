@@ -739,6 +739,17 @@ class Node(NodeBase):
                 continue
 
             if (propvals := tagprops.get(tag)) is None:
+    
+        return edits
+
+    def getTagProps(self, tag):
+
+        propnames = set()
+
+        for sode in self.sodes:
+
+            tagprops = sode.get('tagprops')
+            if tagprops is None:
                 continue
 
             if prop in propvals:
@@ -865,7 +876,7 @@ class Node(NodeBase):
 
             async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
 
-                if refr.buid == self.buid:
+                if refr.nid == self.nid:
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
@@ -890,14 +901,14 @@ class Node(NodeBase):
         if name in self.nodedata:
             return True
 
-        return await self.snap.hasNodeData(self.buid, name, stop=self.lastlayr())
+        return await self.snap.hasNodeData(selfnid, name, stop=self.lastlayr())
 
     async def getData(self, name, defv=None):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
-        return await self.snap.getNodeData(self.buid, name, defv=defv, stop=self.lastlayr())
+        return await self.snap.getNodeData(self.nid, name, defv=defv, stop=self.lastlayr())
 
     async def setData(self, name, valu):
         async with self.snap.getNodeEditor(self) as protonode:
@@ -926,6 +937,8 @@ class RuntNode(NodeBase):
         self.pode = pode
         self.buid = s_common.buid(self.ndef)
         self.form = snap.core.model.form(self.ndef[0])
+
+        self.nid = self.buid
 
     def get(self, name, defv=None):
         return self.pode[1]['props'].get(name, defv)

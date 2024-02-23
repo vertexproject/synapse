@@ -61,6 +61,17 @@ commands:
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
 
+  check_runner_has_work:
+    description: Check that this runner has work to do
+    steps:
+      - run:
+          name: Check workload
+          command: |
+            mkdir -p ./tmp && \
+            >./tmp/tests.txt && \
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command ">./tmp/tests.txt xargs echo"
+            [ -s tmp/tests.txt ] || circleci-agent step halt #if there are no tests, terminate execution after this step
+
   test_steps_doc:
     description: "Documentation test steps"
     steps:
@@ -104,6 +115,8 @@ commands:
     description: "Python test steps"
     steps:
       - checkout
+
+      - check_runner_has_work
 
       - run:
           name: checkout regression repo
@@ -487,9 +500,9 @@ jobs:
       - image: docker:24.0.2
     steps:
       - build_docker:
-          image-tag: ${CIRCLE_BRANCH}
+          image-tag: ${CIRCLE_BRANCH//\//_}
       - push_docker_image:
-          image-tag: ${CIRCLE_BRANCH}
+          image-tag: ${CIRCLE_BRANCH//\//_}
           registry: ${DOCKER_PRIMARY_REGISTRY}
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
