@@ -89,7 +89,7 @@ class NexsRoot(s_base.Base):
         self.started = False
         self.celliden = self.cell.iden
         self.readonly = False
-        self.readonlyreason = None
+        self.writeholds = set()
 
         self.applytask = None
         self.applylock = asyncio.Lock()
@@ -269,22 +269,45 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
-    def setReadOnly(self, readonly, reason=None):
-        self.readonly = readonly
-        self.readonlyreason = reason
+    async def addWriteHold(self, reason):
+
+        self.readonly = True
+
+        if reason not in self.writeholds:
+            self.ready.clear()
+            self.writeholds.add(reason)
+            logger.error(f'Entering Read-Only Mode because: {reason}')
+
+            return True
+
+        return False
+
+    async def delWriteHold(self, reason):
+
+        if reason in self.writeholds:
+
+            self.writeholds.remove(reason)
+
+            if not self.writeholds:
+                self.readonly = False
+                self.ready.set()
+
+            return True
+
+        return False
 
     async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-        assert self.started, 'Attempt to issue before nexsroot is started'
-
         if self.readonly:
-            mesg = self.readonlyreason
-            if mesg is None:
-                mesg = 'Unable to issue Nexus events when readonly is set.'
 
+            # sets have stable order like dicts, so use the first message...
+            for reason in self.writeholds:
+                raise s_exc.IsReadOnly(mesg=reason)
+
+            mesg = 'Unable to issue Nexus events when readonly is set.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
         # pick up a reference to avoid race when we eventually can promote
@@ -476,12 +499,12 @@ class NexsRoot(s_base.Base):
         cellvers = cellinfo['synapse']['version']
         if cellvers > s_version.version:
             logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
-            self.setReadOnly(True, leaderversion)
+            await self.addWriteHold(leaderversion)
+            # this will fire again on reconnect...
             return
 
         # When we reconnect and the leader version has become ok...
-        if self.readonly and self.readonlyreason == leaderversion:
-            self.setReadOnly(False)
+        await self.delWriteHold(leaderversion)
 
         if self.celliden is not None:
             if self.celliden != await proxy.getCellIden():
@@ -493,6 +516,7 @@ class NexsRoot(s_base.Base):
         while not proxy.isfini:
 
             try:
+
                 offs = self.nexslog.index()
 
                 opts = {}
@@ -503,9 +527,8 @@ class NexsRoot(s_base.Base):
                 async for item in genr:
 
                     if self.readonly:
-                        logger.error('Unable to consume Nexus events when readonly is set')
-                        await self.client.fini()
-                        return
+                        await self.waitfini(timeout=2)
+                        break
 
                     if proxy.isfini:  # pragma: no cover
                         break
