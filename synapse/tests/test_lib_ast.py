@@ -825,10 +825,11 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('test:interface:names*[=foo]'))
             self.len(3, await core.nodes('test:interface:names*[^=foo]'))
 
-            await core.nodes('[ inet:http:request=* :sandbox:file=* ]')
-            self.len(1, await core.nodes('inet:http:request:sandbox:file'))
-            self.len(1, await core.nodes('it:host:activity:sandbox:file'))
+            await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
+            self.len(1, await core.nodes('test:hasiface:sandbox:file'))
+            self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
+            self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
     async def test_ast_edge_walknjoin(self):
 
