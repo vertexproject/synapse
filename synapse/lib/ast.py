@@ -1788,7 +1788,7 @@ class LiftProp(LiftOper):
 
                     prop = runt.model.prop(fullname)
                     if prop is None:
-                        continue
+                        return
 
                     cmpr = hint[1].get('cmpr')
                     valu = hint[1].get('valu')

@@ -246,7 +246,9 @@ class View(s_nexus.Pusher):  # type: ignore
         await layr.layrinfo.set('readonly', True)
 
         merge = self.getMergeRequest()
-        merge['votes'] = [vote async for vote in self.getMergeVotes()]
+        votes = [vote async for vote in self.getMergeVotes()]
+
+        merge['votes'] = votes
         merge['merged'] = tick
 
         tick = s_common.int64en(tick)
@@ -258,7 +260,7 @@ class View(s_nexus.Pusher):  # type: ignore
         lkey = self.parent.bidn + b'hist:merge:time' + tick + bidn
         self.core.slab.put(lkey, bidn, db='view:meta')
 
-        await self.core.feedBeholder('view:merge:init', {'view': self.iden})
+        await self.core.feedBeholder('view:merge:init', {'view': self.iden, 'merge': merge, 'votes': votes})
 
         await self.initMergeTask()
 
@@ -343,6 +345,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.layers[0]._saveDirtySodes()
 
             merge = self.getMergeRequest()
+            votes = [vote async for vote in self.getMergeVotes()]
 
             # merge edits as the merge request user
             meta = {
@@ -369,7 +372,7 @@ class View(s_nexus.Pusher):  # type: ignore
             count = 0
             nextprog = 1000
 
-            await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total})
+            await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total, 'merge': merge, 'votes': votes})
 
             async with await self.parent.snap(user=self.core.auth.rootuser) as snap:
 
@@ -383,10 +386,10 @@ class View(s_nexus.Pusher):  # type: ignore
                     count += len(edits)
 
                     if count >= nextprog:
-                        await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total})
+                        await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total, 'merge': merge, 'votes': votes})
                         nextprog += 1000
 
-            await self.core.feedBeholder('view:merge:fini', {'view': self.iden})
+            await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
             await self.core.delView(self.iden)
