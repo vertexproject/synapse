@@ -3239,7 +3239,7 @@ class PropValue(Value):
         if not path:
             return None, None
 
-        name = await self.kids[0].compute(runt, path)
+        name = await tostr(await self.kids[0].compute(runt, path))
 
         ispiv = name.find('::') != -1
         if not ispiv:
@@ -3812,7 +3812,7 @@ class RelProp(PropName):
 
 class UnivProp(RelProp):
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
+        valu = await tostr(await self.kids[0].compute(runt, path))
         if self.isconst:
             return valu
         return '.' + valu
@@ -3933,7 +3933,7 @@ class EditNodeAdd(Edit):
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
-                    formname = await self.kids[0].compute(runt, path)
+                    formname = await tostr(await self.kids[0].compute(runt, path))
                     runt.layerConfirm(('node', 'add', formname))
 
                     form = runt.model.form(formname)
@@ -3949,7 +3949,7 @@ class EditNodeAdd(Edit):
 
             else:
 
-                formname = await self.kids[0].compute(runt, None)
+                formname = await tostr(await self.kids[0].compute(runt, None))
                 runt.layerConfirm(('node', 'add', formname))
 
                 form = runt.model.form(formname)
@@ -3997,7 +3997,7 @@ class EditPropSet(Edit):
 
         async for node, path in genr:
 
-            name = await self.kids[0].compute(runt, path)
+            name = await tostr(await self.kids[0].compute(runt, path))
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -4078,7 +4078,7 @@ class EditPropDel(Edit):
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         async for node, path in genr:
-            name = await self.kids[0].compute(runt, path)
+            name = await tostr(await self.kids[0].compute(runt, path))
 
             prop = node.form.props.get(name)
             if prop is None:
