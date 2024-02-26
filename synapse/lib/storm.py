@@ -4473,7 +4473,7 @@ class MoveNodesCmd(Cmd):
                     if not self.opts.apply:
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
                     else:
-                        (retn, valu, tomb) = await self.lyrs[layr].getNodeData(node.buid, name)
+                        (retn, valu, tomb) = await self.lyrs[layr].getNodeData(node.nid, name)
                         if retn:
                             if tomb:
                                 self.adds.append((s_layer.EDIT_NODEDATA_TOMB, (name,)))

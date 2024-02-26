@@ -354,10 +354,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 nodeedits = []
                 editor = s_snap.SnapEditor(snap)
 
-                async for (buid, form, edits) in self.layers[0].iterLayerNodeEdits():
+                async for (nid, form, edits) in self.layers[0].iterLayerNodeEdits():
 
                     if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
-                        protonode = await editor.getNodeByBuid(buid)
+                        protonode = await editor.getNodeByNid(nid)
                         if protonode is None:
                             continue
 
@@ -375,7 +375,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                             if etyp == s_layer.EDIT_PROP_TOMB:
                                 if protonode is None:
-                                    if (protonode := await editor.getNodeByBuid(buid)) is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
                                         continue
 
                                 await protonode.pop(parms[0])
@@ -383,7 +383,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                             if etyp == s_layer.EDIT_TAG_TOMB:
                                 if protonode is None:
-                                    if (protonode := await editor.getNodeByBuid(buid)) is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
                                         continue
 
                                 await protonode.delTag(parms[0])
@@ -391,7 +391,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                             if etyp == s_layer.EDIT_TAGPROP_TOMB:
                                 if protonode is None:
-                                    if (protonode := await editor.getNodeByBuid(buid)) is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
                                         continue
 
                                 (tag, prop) = parms
@@ -401,7 +401,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                             if etyp == s_layer.EDIT_NODEDATA_TOMB:
                                 if protonode is None:
-                                    if (protonode := await editor.getNodeByBuid(buid)) is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
                                         continue
 
                                 await protonode.popData(parms[0])
@@ -409,18 +409,18 @@ class View(s_nexus.Pusher):  # type: ignore
 
                             if etyp == s_layer.EDIT_EDGE_TOMB:
                                 if protonode is None:
-                                    if (protonode := await editor.getNodeByBuid(buid)) is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
                                         continue
 
-                                (verb, n2iden) = parms
+                                (verb, n2nid) = parms
 
-                                await protonode.delEdge(verb, n2iden)
+                                await protonode.delEdge(verb, n2nid)
                                 continue
 
                             realedits.append(edit)
 
                         if protonode is None:
-                            nodeedits.append((buid, form, realedits))
+                            nodeedits.append((nid, form, realedits))
                         else:
                             deledits = editor.getNodeEdits()
                             editor.protonodes.clear()
@@ -428,7 +428,7 @@ class View(s_nexus.Pusher):  # type: ignore
                                 deledits[0][2].extend(realedits)
                                 nodeedits.extend(deledits)
                             else:
-                                nodeedits.append((buid, form, realedits))
+                                nodeedits.append((nid, form, realedits))
 
                     if len(nodeedits) >= 10:
                         yield nodeedits
@@ -860,10 +860,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if item[-1]:
                 continue
 
-            n1buid = s_common.ehex(self.core.getBuidByNid(edge[0]))
-            verb = self.core.getAbrvVerb(edge[1])
-            n2buid = s_common.ehex(self.core.getBuidByNid(edge[2]))
-            yield (n1buid, verb, n2buid)
+            yield edge
 
     async def _initViewLayers(self):
 
@@ -1319,10 +1316,10 @@ class View(s_nexus.Pusher):  # type: ignore
             meta = await snap.getSnapMeta()
             editor = s_snap.SnapEditor(snap)
 
-            async for (buid, form, edits) in fromlayr.iterLayerNodeEdits():
+            async for (nid, form, edits) in fromlayr.iterLayerNodeEdits():
 
                 if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
-                    protonode = await editor.getNodeByBuid(buid)
+                    protonode = await editor.getNodeByNid(nid)
                     if protonode is None:
                         continue
 
@@ -1343,7 +1340,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if etyp == s_layer.EDIT_PROP_TOMB:
                         if protonode is None:
-                            if (protonode := await editor.getNodeByBuid(buid)) is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
                                 continue
 
                         await protonode.pop(parms[0])
@@ -1351,7 +1348,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if etyp == s_layer.EDIT_TAG_TOMB:
                         if protonode is None:
-                            if (protonode := await editor.getNodeByBuid(buid)) is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
                                 continue
 
                         await protonode.delTag(parms[0])
@@ -1359,7 +1356,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if etyp == s_layer.EDIT_TAGPROP_TOMB:
                         if protonode is None:
-                            if (protonode := await editor.getNodeByBuid(buid)) is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
                                 continue
 
                         (tag, prop) = parms
@@ -1369,7 +1366,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if etyp == s_layer.EDIT_NODEDATA_TOMB:
                         if protonode is None:
-                            if (protonode := await editor.getNodeByBuid(buid)) is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
                                 continue
 
                         await protonode.popData(parms[0])
@@ -1377,18 +1374,18 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if etyp == s_layer.EDIT_EDGE_TOMB:
                         if protonode is None:
-                            if (protonode := await editor.getNodeByBuid(buid)) is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
                                 continue
 
-                        (verb, n2iden) = parms
+                        (verb, n2nid) = parms
 
-                        await protonode.delEdge(verb, n2iden)
+                        await protonode.delEdge(verb, n2nid)
                         continue
 
                     realedits.append(edit)
 
                 if protonode is None:
-                    await self.parent.storNodeEdits([(buid, form, realedits)], meta)
+                    await self.parent.storNodeEdits([(nid, form, realedits)], meta)
                     continue
 
                 deledits = editor.getNodeEdits()
@@ -1398,7 +1395,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     deledits[0][2].extend(realedits)
                     await self.parent.storNodeEdits(deledits, meta)
                 else:
-                    await self.parent.storNodeEdits([(buid, form, realedits)], meta)
+                    await self.parent.storNodeEdits([(nid, form, realedits)], meta)
 
     async def wipeLayer(self, useriden=None):
         '''

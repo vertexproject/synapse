@@ -7580,8 +7580,16 @@ class View(Prim):
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.snap.core.getView(viewiden)
 
-        async for n1nid, verb, n2nid in view.getEdges():
+        if verb is not None:
+            async for n1nid, _, n2nid in view.getEdges(verb=verb):
+                n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+                n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
+                yield (n1buid, verb, n2buid)
+            return
+
+        async for n1nid, vabrv, n2nid in view.getEdges(verb=verb):
             n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+            verb = self.runt.snap.core.getAbrvVerb(vabrv)
             n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
             yield (n1buid, verb, n2buid)
 
