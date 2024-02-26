@@ -4000,6 +4000,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - totalmem - Total memory in the system
                 - availmem - Available memory in the system
                 - cpucount - Number of CPUs on system
+                - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
         uptime = int((time.monotonic() - self.starttime) * 1000)
         disk = shutil.disk_usage(self.dirn)
@@ -4016,6 +4017,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
         sysctls = s_thisplat.getSysctls()
+        tmpdir = s_thisplat.getTempDir()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -4031,7 +4033,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
-            'sysctls': sysctls                 # Performance related sysctls
+            'sysctls': sysctls,                # Performance related sysctls
+            'tmpdir': tmpdir,                  # Temporary File / Folder Directory
         }
 
         return retn
