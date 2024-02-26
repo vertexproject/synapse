@@ -1639,7 +1639,11 @@ class Snap(s_base.Base):
 
     async def delTombstone(self, nid, tombtype, tombinfo):
 
-        ndef = self.core.getNidNdef(nid)
+        if (ndef := self.core.getNidNdef(nid)) is None:
+            mesg = f'delTombstone() got an invalid nid: {nid}'
+            await self._raiseOnStrict(s_exc.BadArg, mesg)
+            return
+
         edit = None
 
         if tombtype == s_layer.INDX_PROP:

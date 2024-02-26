@@ -6616,7 +6616,7 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'delTombstone',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the node.'},
+                      {'name': 'nid', 'type': 'str', 'desc': 'The node id of the node.'},
                       {'name': 'tombtype', 'type': 'int', 'desc': 'The tombstone type.'},
                       {'name': 'tombinfo', 'type': 'list', 'desc': 'The tombstone info to delete.'},
                   ),
@@ -7019,11 +7019,11 @@ class Layer(Prim):
             verb = self.runt.snap.core.getAbrvVerb(abrv)
             yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid)))
 
-    async def delTombstone(self, iden, tombtype, tombinfo):
-        buid = s_common.uhex(await tostr(iden))
+    async def delTombstone(self, nid, tombtype, tombinfo):
+        nid = await toprim(nid)
         tombtype = await toprim(tombtype)
         tombinfo = await toprim(tombinfo)
-        return await self.runt.snap.delTombstone(buid, tombtype, tombinfo)
+        return await self.runt.snap.delTombstone(nid, tombtype, tombinfo)
 
     @stormfunc(readonly=True)
     async def getTombstones(self):

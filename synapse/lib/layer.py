@@ -4372,18 +4372,16 @@ class Layer(s_nexus.Pusher):
 
             if tombtype == INDX_EDGE_VERB:
                 verb = self.core.getAbrvVerb(lkey[10:18])
-                n1iden = s_common.ehex(self.core.getBuidByNid(lkey[18:26]))
+                n1nid = lkey[18:26]
 
-                for _, nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
-                    n2iden = s_common.ehex(self.core.getBuidByNid(nid))
-                    yield (n1iden, tombtype, (verb, n2iden))
+                for _, n2nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
+                    yield (n1nid, tombtype, (verb, n2nid))
 
             else:
                 tombinfo = s_msgpack.un(byts[2:])
 
                 for _, nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
-                    n1iden = s_common.ehex(self.core.getBuidByNid(nid))
-                    yield (n1iden, tombtype, tombinfo)
+                    yield (nid, tombtype, tombinfo)
 
     async def iterLayerNodeEdits(self):
         '''
