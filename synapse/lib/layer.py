@@ -587,8 +587,8 @@ class StorType:
             raise s_exc.NoSuchCmpr(cmpr=cmpr)
 
         abrvlen = liftby.abrvlen
-        async for lkey, buid in func(liftby, valu, reverse=reverse):
-            yield lkey[abrvlen:], buid
+        async for lkey, nid in func(liftby, valu, reverse=reverse):
+            yield lkey[abrvlen:], nid
 
     async def indxByForm(self, form, cmpr, valu, reverse=False):
         try:
@@ -1572,6 +1572,18 @@ class Layer(s_nexus.Pusher):
             self._calcNodeDataDel,
             self._calcNodeEdgeAdd,
             self._calcNodeEdgeDel,
+            self._calcNodeTomb,
+            self._calcNodeTombDel,
+            self._calcPropTomb,
+            self._calcPropTombDel,
+            self._calcTagTomb,
+            self._calcTagTombDel,
+            self._calcTagPropTomb,
+            self._calcTagPropTombDel,
+            self._calcNodeDataTomb,
+            self._calcNodeDataTombDel,
+            self._calcNodeEdgeTomb,
+            self._calcNodeEdgeTombDel,
         ]
 
         self.canrev = True
@@ -2070,8 +2082,7 @@ class Layer(s_nexus.Pusher):
                 ndef = self.core.getNidNdef(nid)
                 form = ndef[0]
 
-            buid = self.core.getBuidByNid(nid)
-            yield (buid, form, edits)
+            yield (nid, form, edits)
 
     async def clone(self, newdirn):
         '''
@@ -2691,22 +2702,22 @@ class Layer(s_nexus.Pusher):
         return nodeedits
 
     def mayDelNid(self, nid, sode):
-        if sode.get('valu'):
+        if sode.get('valu') or sode.get('antivalu'):
             return False
 
-        if sode.get('props'):
+        if sode.get('props') or sode.get('antiprops'):
             return False
 
-        if sode.get('tags'):
+        if sode.get('tags') or sode.get('antitags'):
             return False
 
-        if sode.get('tagprops'):
+        if sode.get('tagprops') or sode.get('antitagprops'):
             return False
 
-        if sode.get('n1verbs'):
+        if sode.get('n1verbs') or sode.get('n1antiverbs'):
             return False
 
-        if sode.get('n2verbs'):
+        if sode.get('n2verbs') or sode.get('n2antiverbs'):
             return False
 
         if self.dataslab.prefexists(nid, self.nodedata):
@@ -2750,6 +2761,24 @@ class Layer(s_nexus.Pusher):
 
         return (
             (EDIT_NODE_DEL, oldv),
+        )
+
+    async def _calcNodeTomb(self, nid, edit, sode, newsode):
+
+        if sode is not None and sode.get('antivalu') is not None:
+            return
+
+        return (
+            (EDIT_NODE_TOMB, ()),
+        )
+
+    async def _calcNodeTombDel(self, nid, edit, sode, newsode):
+
+        if sode is None or (oldv := sode.get('antivalu')) is None:
+            return
+
+        return (
+            (EDIT_NODE_TOMB_DEL, ()),
         )
 
     async def _calcPropSet(self, nid, edit, sode, newsode):
@@ -2801,6 +2830,33 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_DEL, (prop, *valt)),
         )
 
+    async def _calcPropTomb(self, nid, edit, sode, newsode):
+
+        prop = edit[1][0]
+
+        if sode is not None:
+            antiprops = sode.get('antiprops')
+            if antiprops is not None and antiprops.get(prop) is not None:
+                return
+
+        return (
+            (EDIT_PROP_TOMB, (prop,)),
+        )
+
+    async def _calcPropTombDel(self, nid, edit, sode, newsode):
+
+        if sode is None:
+            return
+        else:
+            prop = edit[1][0]
+            antiprops = sode.get('antiprops')
+            if antiprops is None or antiprops.get(prop) is None:
+                return
+
+        return (
+            (EDIT_PROP_TOMB_DEL, (prop,)),
+        )
+
     async def _calcTagSet(self, nid, edit, sode, newsode):
 
         tag, valu, _ = edit[1]
@@ -2832,6 +2888,33 @@ class Layer(s_nexus.Pusher):
 
         return (
             (EDIT_TAG_DEL, (tag, oldv)),
+        )
+
+    async def _calcTagTomb(self, nid, edit, sode, newsode):
+
+        tag = edit[1][0]
+
+        if sode is not None:
+            antitags = sode.get('antitags')
+            if antitags is not None and antitags.get(tag) is not None:
+                return
+
+        return (
+            (EDIT_TAG_TOMB, (tag,)),
+        )
+
+    async def _calcTagTombDel(self, nid, edit, sode, newsode):
+
+        if sode is None:
+            return
+        else:
+            tag = edit[1][0]
+            antitags = sode.get('antitags')
+            if antitags is None or antitags.get(tag) is None:
+                return
+
+        return (
+            (EDIT_TAG_TOMB_DEL, (tag,)),
         )
 
     async def _calcTagPropSet(self, nid, edit, sode, newsode):
@@ -2879,6 +2962,35 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAGPROP_DEL, (tag, prop, *oldv)),
         )
 
+    async def _calcTagPropTomb(self, nid, edit, sode, newsode):
+
+        tag, prop = edit[1]
+
+        if sode is not None:
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
+                    return
+
+        return (
+            (EDIT_TAGPROP_TOMB, (tag, prop)),
+        )
+
+    async def _calcTagPropTombDel(self, nid, edit, sode, newsode):
+
+        if sode is None:
+            return
+        else:
+            tag, prop = edit[1]
+            if (antitags := sode.get('antitagprops')) is None:
+                return
+
+            if (antiprops := antitags.get(tag)) is None or prop not in antiprops:
+                return
+
+        return (
+            (EDIT_TAGPROP_TOMB_DEL, (tag, prop)),
+        )
+
     async def _calcNodeDataSet(self, nid, edit, sode, newsode):
 
         name, valu, _ = edit[1]
@@ -2889,7 +3001,7 @@ class Layer(s_nexus.Pusher):
             )
 
         try:
-            abrv = self.core.getIndxAbrv(INDX_PROP, name, None)
+            abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
         except s_exc.NoSuchAbrv:
             return (
                 (EDIT_NODEDATA_SET, (name, valu, None)),
@@ -2898,7 +3010,7 @@ class Layer(s_nexus.Pusher):
         oldv = None
         byts = s_msgpack.en(valu)
 
-        if (oldb := self.dataslab.get(nid + abrv, db=self.nodedata)) is not None:
+        if (oldb := self.dataslab.get(nid + abrv + FLAG_NORM, db=self.nodedata)) is not None:
             if oldb == byts:
                 return
             oldv = s_msgpack.un(oldb)
@@ -2914,15 +3026,51 @@ class Layer(s_nexus.Pusher):
 
         name, valu = edit[1]
         try:
-            abrv = self.core.getIndxAbrv(INDX_PROP, name, None)
+            abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
         except s_exc.NoSuchAbrv:
             return
 
-        if (oldb := self.dataslab.get(nid + abrv, db=self.nodedata)) is None:
+        if (oldb := self.dataslab.get(nid + abrv + FLAG_NORM, db=self.nodedata)) is None:
             return
 
         return (
             (EDIT_NODEDATA_DEL, (name, s_msgpack.un(oldb))),
+        )
+
+    async def _calcNodeDataTomb(self, nid, edit, sode, newsode):
+
+        name = edit[1][0]
+
+        try:
+            abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
+        except s_exc.NoSuchAbrv:
+            return (
+                (EDIT_NODEDATA_TOMB, (name,)),
+            )
+
+        if self.dataslab.has(nid + abrv + FLAG_TOMB, db=self.nodedata):
+            return
+
+        return (
+            (EDIT_NODEDATA_TOMB, (name,)),
+        )
+
+    async def _calcNodeDataTombDel(self, nid, edit, sode, newsode):
+
+        name = edit[1][0]
+
+        try:
+            abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
+        except s_exc.NoSuchAbrv:
+            return (
+                (EDIT_NODEDATA_TOMB, (name,)),
+            )
+
+        if not self.dataslab.has(nid + abrv + FLAG_TOMB, db=self.nodedata):
+            return
+
+        return (
+            (EDIT_NODEDATA_TOMB_DEL, (name,)),
         )
 
     async def _calcNodeEdgeAdd(self, nid, edit, sode, newsode):
@@ -2936,7 +3084,7 @@ class Layer(s_nexus.Pusher):
                 (EDIT_EDGE_ADD, (verb, n2nid)),
             )
 
-        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
+        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb):
             return
 
         return (
@@ -2955,11 +3103,43 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        if not self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
+        if not self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb):
             return
 
         return (
             (EDIT_EDGE_DEL, (verb, n2nid)),
+        )
+
+    async def _calcNodeEdgeTomb(self, nid, edit, sode, newsode):
+
+        verb, n2nid = edit[1]
+
+        try:
+            vabrv = self.core.getVerbAbrv(verb)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb):
+            return
+
+        return (
+            (EDIT_EDGE_TOMB, (verb, n2nid)),
+        )
+
+    async def _calcNodeEdgeTombDel(self, nid, edit, sode, newsode):
+
+        verb, n2nid = edit[1]
+
+        try:
+            vabrv = self.core.getVerbAbrv(verb)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if sode is None or not self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb):
+            return
+
+        return (
+            (EDIT_EDGE_TOMB_DEL, (verb, n2nid)),
         )
 
     async def _editNodeAdd(self, nid, form, edit, sode, meta):
@@ -3013,7 +3193,6 @@ class Layer(s_nexus.Pusher):
 
         if sode.pop('antivalu', None) is not None:
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-            self._incSodeRefs(buid, sode, inc=-1)
 
         if self.nodeAddHook is not None:
             self.nodeAddHook()
@@ -3072,43 +3251,36 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeTomb(self, buid, form, edit, sode, meta):
+    async def _editNodeTomb(self, nid, form, edit, sode, meta):
 
         if sode.get('antivalu') is not None:
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         sode['form'] = form
         sode['antivalu'] = True
-        self._incSodeRefs(buid, sode)
 
-        await self._wipeNodeData(buid, sode)
-        await self._delNodeEdges(buid, sode)
+        self.dirty[nid] = sode
 
-        return (
-            (EDIT_NODE_TOMB, (), ()),
-        ), ((INDX_TOMB + abrv, nid),)
+        await self._wipeNodeData(nid, sode)
+        await self._delNodeEdges(nid, sode)
 
-    async def _editNodeTombDel(self, buid, form, edit, sode, meta):
+        return ((INDX_TOMB + abrv, nid),)
+
+    async def _editNodeTombDel(self, nid, form, edit, sode, meta):
 
         if (oldv := sode.pop('antivalu', None)) is None:
-            return (), ()
+            return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-        self._incSodeRefs(buid, sode, inc=-1)
 
-        return (
-            (EDIT_NODE_TOMB_DEL, (), ()),
-        ), ()
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
+
+        return ()
 
     async def _editPropSet(self, nid, form, edit, sode, meta):
 
@@ -3186,7 +3358,6 @@ class Layer(s_nexus.Pusher):
             tomb = antiprops.pop(prop, None)
             if tomb is not None:
                 self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-                self._incSodeRefs(buid, sode, inc=-1)
 
         sode['props'][prop] = (valu, stortype)
         self.dirty[nid] = sode
@@ -3322,43 +3493,35 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editPropTomb(self, buid, form, edit, sode, meta):
+    async def _editPropTomb(self, nid, form, edit, sode, meta):
 
         prop = edit[1][0]
 
         if (antiprops := sode.get('antiprops')) is not None and prop in antiprops:
-            return (), ()
+            return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         sode['antiprops'][prop] = True
-        self._incSodeRefs(buid, sode)
+        self.dirty[nid] = sode
 
-        return (
-            (EDIT_PROP_TOMB, (prop,), ()),
-        ), ((INDX_TOMB + abrv, nid),)
+        return ((INDX_TOMB + abrv, nid),)
 
-    async def _editPropTombDel(self, buid, form, edit, sode, meta):
+    async def _editPropTombDel(self, nid, form, edit, sode, meta):
 
         prop = edit[1][0]
 
         if (antiprops := sode.get('antiprops')) is None or antiprops.pop(prop, None) is None:
-            return (), ()
+            return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-        self._incSodeRefs(buid, sode, inc=-1)
 
-        return (
-            (EDIT_PROP_TOMB_DEL, (prop,), ()),
-        ), ()
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
+
+        return ()
 
     async def _editTagSet(self, nid, form, edit, sode, meta):
 
@@ -3414,7 +3577,6 @@ class Layer(s_nexus.Pusher):
             tomb = antitags.pop(tag, None)
             if tomb is not None:
                 self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-                self._incSodeRefs(buid, sode, inc=-1)
 
         kvpairs = []
 
@@ -3497,43 +3659,35 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagTomb(self, buid, form, edit, sode, meta):
+    async def _editTagTomb(self, nid, form, edit, sode, meta):
 
         tag = edit[1][0]
 
         if (antitags := sode.get('antitags')) is not None and tag in antitags:
-            return (), ()
+            return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         sode['antitags'][tag] = True
-        self._incSodeRefs(buid, sode)
+        self.dirty[nid] = sode
 
-        return (
-            (EDIT_TAG_TOMB, (tag,), ()),
-        ), ((INDX_TOMB + abrv, nid),)
+        return ((INDX_TOMB + abrv, nid),)
 
-    async def _editTagTombDel(self, buid, form, edit, sode, meta):
+    async def _editTagTombDel(self, nid, form, edit, sode, meta):
 
         tag = edit[1][0]
 
         if (antitags := sode.get('antitags')) is None or antitags.pop(tag, None) is None:
-            return (), ()
+            return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-        self._incSodeRefs(buid, sode, inc=-1)
 
-        return (
-            (EDIT_TAG_TOMB_DEL, (tag,), ()),
-        ), ()
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
+
+        return ()
 
     async def _editTagPropSet(self, nid, form, edit, sode, meta):
 
@@ -3670,53 +3824,45 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagPropTomb(self, buid, form, edit, sode, meta):
+    async def _editTagPropTomb(self, nid, form, edit, sode, meta):
 
         tag, prop = edit[1]
 
         if (antitags := sode.get('antitagprops')) is not None:
             if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
-                return (), ()
+                return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         if antitags is None or antiprops is None:
             sode['antitagprops'][tag] = {}
 
         sode['antitagprops'][tag][prop] = True
-        self._incSodeRefs(buid, sode)
+        self.dirty[nid] = sode
 
-        return (
-            (EDIT_TAGPROP_TOMB, (tag, prop), ()),
-        ), ((INDX_TOMB + abrv, nid),)
+        return ((INDX_TOMB + abrv, nid),)
 
-    async def _editTagPropTombDel(self, buid, form, edit, sode, meta):
+    async def _editTagPropTombDel(self, nid, form, edit, sode, meta):
 
         tag, prop = edit[1]
 
         if (antitags := sode.get('antitagprops')) is None:
-            return (), ()
+            return ()
 
         if (antiprops := antitags.get(tag)) is None or antiprops.pop(prop, None) is None:
-            return (), ()
+            return ()
 
         if len(antiprops) == 0:
             antitags.pop(tag)
 
         abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-        self._incSodeRefs(buid, sode, inc=-1)
 
-        return (
-            (EDIT_TAGPROP_TOMB_DEL, (tag, prop), ()),
-        ), ()
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
+
+        return ()
 
     async def _editNodeDataSet(self, nid, form, edit, sode, meta):
 
@@ -3743,44 +3889,34 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeDataTomb(self, buid, form, edit, sode, meta):
+    async def _editNodeDataTomb(self, nid, form, edit, sode, meta):
 
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
-
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
 
         if not self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, overwrite=False):
-            return (), ()
+            return ()
 
         self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
-        self._incSodeRefs(buid, sode)
+        self.dirty[nid] = sode
 
-        return (
-            (EDIT_NODEDATA_TOMB, (name,), ()),
-        ), ((INDX_TOMB + abrv, nid),)
+        return ((INDX_TOMB + abrv, nid),)
 
-    async def _editNodeDataTombDel(self, buid, form, edit, sode, meta):
+    async def _editNodeDataTombDel(self, nid, form, edit, sode, meta):
 
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        nid = sode.get('nid')
-        if nid is None:
-            nid = sode['nid'] = self.core.genBuidNid(buid)
-
         if not self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
-            return (), ()
+            return ()
 
         self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
         self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
-        self._incSodeRefs(buid, sode, inc=-1)
 
-        return (
-            (EDIT_NODEDATA_TOMB_DEL, (name,), ()),
-        ), ()
+        if not self.mayDelNid(nid, sode):
+            self.dirty[nid] = sode
+
+        return ()
 
     async def _editNodeEdgeAdd(self, nid, form, edit, sode, meta):
 
@@ -3855,67 +3991,68 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeEdgeTomb(self, buid, form, edit, sode, meta):
+    async def _editNodeEdgeTomb(self, nid, form, edit, sode, meta):
 
-        verb, n2iden = edit[1]
+        verb, n2nid = edit[1]
 
         vabrv = self.core.setVerbAbrv(verb)
 
-        n1nid = sode.get('nid')
-        if n1nid is None:
-            n1nid = sode['nid'] = self.core.genBuidNid(buid)
-
-        n2buid = s_common.uhex(n2iden)
-        n2nid = self.core.getNidByBuid(n2buid)
-
-        if not self.layrslab.put(INDX_TOMB + self.edgeverbabrv + vabrv + n1nid, n2nid, db=self.indxdb, overwrite=False):
-            return (), ()
+        if not self.layrslab.put(INDX_TOMB + self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
+            return ()
 
         n2sode = self._genStorNode(n2nid)
 
-        self._incSodeRefs(buid, sode)
-        self._incSodeRefs(n2buid, n2sode)
+        sode['n1antiverbs'][verb] = sode['n1antiverbs'].get(verb, 0) + 1
+        n2sode['n2antiverbs'][verb] = n2sode['n2antiverbs'].get(verb, 0) + 1
+
+        self.dirty[nid] = sode
+        self.dirty[n2nid] = n2sode
 
         kvpairs = [
-            (self.edgen1abrv + n1nid + vabrv + FLAG_TOMB, n2nid),
-            (self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, n1nid),
-            (self.edgen1n2abrv + n1nid + n2nid + FLAG_TOMB, vabrv),
-            (self.edgeverbabrv + vabrv + n1nid + FLAG_TOMB, n2nid)
+            (self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid),
+            (self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid),
+            (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv),
+            (self.edgeverbabrv + vabrv + nid + FLAG_TOMB, n2nid)
         ]
 
-        return (
-            (EDIT_EDGE_TOMB, (verb, n2iden), ()),
-        ), kvpairs
+        return kvpairs
 
-    async def _editNodeEdgeTombDel(self, buid, form, edit, sode, meta):
+    async def _editNodeEdgeTombDel(self, nid, form, edit, sode, meta):
 
-        verb, n2iden = edit[1]
+        verb, n2nid = edit[1]
 
         vabrv = self.core.setVerbAbrv(verb)
 
-        n1nid = sode.get('nid')
-        if n1nid is None:
-            n1nid = sode['nid'] = self.core.genBuidNid(buid)
+        if not self.layrslab.delete(INDX_TOMB + self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb):
+            return ()
 
-        n2buid = s_common.uhex(n2iden)
-        n2nid = self.core.getNidByBuid(n2buid)
-
-        if not self.layrslab.delete(INDX_TOMB + self.edgeverbabrv + vabrv + n1nid, n2nid, db=self.indxdb):
-            return (), ()
-
-        self.layrslab.delete(self.edgen1abrv + n1nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, n1nid, db=self.indxdb)
-        self.layrslab.delete(self.edgen1n2abrv + n1nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
-        self.layrslab.delete(self.edgeverbabrv + vabrv + n1nid + FLAG_TOMB, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
+        self.layrslab.delete(self.edgeverbabrv + vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
 
         n2sode = self._genStorNode(n2nid)
 
-        self._incSodeRefs(buid, sode, inc=-1)
-        self._incSodeRefs(n2buid, n2sode, inc=-1)
+        newvalu = sode['n1antiverbs'].get(verb, 0) - 1
+        if newvalu == 0:
+            sode['n1antiverbs'].pop(verb)
+            if not self.mayDelNid(nid, sode):
+                self.dirty[nid] = sode
+        else:
+            sode['n1antiverbs'][verb] = newvalu
+            self.dirty[nid] = sode
 
-        return (
-            (EDIT_EDGE_TOMB_DEL, (verb, n2iden), ()),
-        ), ()
+        n2sode = self._genStorNode(n2nid)
+        newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
+        if newvalu == 0:
+            n2sode['n2antiverbs'].pop(verb)
+            if not self.mayDelNid(n2nid, n2sode):
+                self.dirty[n2nid] = n2sode
+        else:
+            n2sode['n2antiverbs'][verb] = newvalu
+            self.dirty[n2nid] = n2sode
+
+        return ()
 
     async def getEdgeVerbs(self):
         for byts, abrv in self.core.verbabrv.items():
@@ -3946,6 +4083,7 @@ class Layer(s_nexus.Pusher):
     async def _delNodeEdges(self, nid, sode):
 
         sode.pop('n1verbs', None)
+        sode.pop('n1antiverbs', None)
 
         for lkey, n2nid in self.layrslab.scanByPref(self.edgen1abrv + nid, db=self.indxdb):
             await asyncio.sleep(0)
@@ -3958,19 +4096,29 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + tomb, vabrv, db=self.indxdb)
             self.layrslab.delete(self.edgeverbabrv + vabrv + nid + tomb, n2nid, db=self.indxdb)
 
-            if tomb == FLAG_TOMB:
-                self.layrslab.delete(INDX_TOMB + self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb)
-
             verb = self.core.getAbrvVerb(vabrv)
             n2sode = self._genStorNode(n2nid)
-            newvalu = n2sode['n2verbs'].get(verb, 0) - 1
-            if newvalu == 0:
-                n2sode['n2verbs'].pop(verb)
-                if not self.mayDelNid(n2nid, n2sode):
+
+            if tomb == FLAG_TOMB:
+                self.layrslab.delete(INDX_TOMB + self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb)
+                newvalu = n2sode['n2antiverbs'].get(verb, 0) - 1
+                if newvalu == 0:
+                    n2sode['n2antiverbs'].pop(verb)
+                    if not self.mayDelNid(n2nid, n2sode):
+                        self.dirty[n2nid] = n2sode
+                else:
+                    n2sode['n2antiverbs'][verb] = newvalu
                     self.dirty[n2nid] = n2sode
+
             else:
-                n2sode['n2verbs'][verb] = newvalu
-                self.dirty[n2nid] = n2sode
+                newvalu = n2sode['n2verbs'].get(verb, 0) - 1
+                if newvalu == 0:
+                    n2sode['n2verbs'].pop(verb)
+                    if not self.mayDelNid(n2nid, n2sode):
+                        self.dirty[n2nid] = n2sode
+                else:
+                    n2sode['n2verbs'][verb] = newvalu
+                    self.dirty[n2nid] = n2sode
 
     def getStorIndx(self, stortype, valu):
 

@@ -739,17 +739,6 @@ class Node(NodeBase):
                 continue
 
             if (propvals := tagprops.get(tag)) is None:
-
-        return edits
-
-    def getTagProps(self, tag):
-
-        propnames = set()
-
-        for sode in self.sodes:
-
-            tagprops = sode.get('tagprops')
-            if tagprops is None:
                 continue
 
             if prop in propvals:
@@ -901,7 +890,7 @@ class Node(NodeBase):
         if name in self.nodedata:
             return True
 
-        return await self.snap.hasNodeData(selfnid, name, stop=self.lastlayr())
+        return await self.snap.hasNodeData(self.nid, name, stop=self.lastlayr())
 
     async def getData(self, name, defv=None):
         valu = self.nodedata.get(name, s_common.novalu)

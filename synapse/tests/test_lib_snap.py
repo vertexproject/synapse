@@ -649,20 +649,14 @@ class SnapTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#baz.tag:score=6 ]', opts=viewopts2)
 
             n2node = (await core.nodes('it:dev:str=n2'))[0]
-            n2buid = n2node.buid
-            n2iden = s_common.ehex(n2buid)
-            badiden = s_common.ehex(s_common.buid('newp'))
+            n2nid = n2node.nid
 
             async with await view2.snap(user=root) as snap:
                 async with snap.getEditor() as editor:
                     node = await editor.getNodeByBuid(nodes[0].buid)
-                    self.true(await node.delEdge('foo', n2iden))
-                    self.true(await node.addEdge('foo', n2iden))
-
-                    self.true(await node.delEdge('foo', n2iden))
-
-                    self.false(await node.addEdge('foo', badiden))
-                    self.false(await node.delEdge('foo', badiden))
+                    self.true(await node.delEdge('foo', n2nid))
+                    self.true(await node.addEdge('foo', n2nid))
+                    self.true(await node.delEdge('foo', n2nid))
 
                     self.true(await node.setTagProp('cool.tag', 'score', 7))
                     self.isin('score', node.getTagProps('cool.tag'))
@@ -685,18 +679,18 @@ class SnapTest(s_t_utils.SynTest):
 
                     manynode = await editor.addNode('it:dev:str', 'manyedges')
                     for x in range(1001):
-                        await manynode.addEdge(str(x), node.iden())
+                        await manynode.addEdge(str(x), node.nid)
 
                 self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
 
                 async with snap.getEditor() as editor:
                     node = await editor.getNodeByBuid(nodes[0].buid)
-                    self.false(await node.delEdge('foo', n2iden))
+                    self.false(await node.delEdge('foo', n2nid))
                     await node.delEdgesN2()
 
                     self.true(await node.set('asn', 5))
 
-                    n2node = await editor.getNodeByBuid(n2buid)
+                    n2node = await editor.getNodeByNid(n2nid)
                     await n2node.delEdgesN2()
 
                     self.false(node.istomb())
@@ -706,7 +700,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     newnode = await editor.addNode('it:dev:str', 'new')
                     self.false(newnode.istomb())
-                    self.false(await newnode.delEdge('foo', n2iden))
+                    self.false(await newnode.delEdge('foo', n2nid))
 
                 self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(*)- *', opts=viewopts2))
 

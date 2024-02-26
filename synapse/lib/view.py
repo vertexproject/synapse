@@ -371,7 +371,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                         protonode = None
                         for edit in edits:
-                            etyp, parms, _ = edit
+                            etyp, parms = edit
 
                             if etyp == s_layer.EDIT_PROP_TOMB:
                                 if protonode is None:
@@ -1339,7 +1339,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 protonode = None
                 for edit in edits:
-                    etyp, parms, _ = edit
+                    etyp, parms = edit
 
                     if etyp == s_layer.EDIT_PROP_TOMB:
                         if protonode is None:
