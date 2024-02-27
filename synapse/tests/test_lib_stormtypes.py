@@ -4066,11 +4066,12 @@ class StormTypesTest(s_test.SynTest):
 
             rootiden = await core.auth.getUserIdenByName('root')
 
-            for node in nodes:
-                self.eq(node.get('user'), rootiden)
+            trigs = await core.callStorm('return($lib.trigger.list())')
+            for trig in trigs:
+                self.eq(trig.get('user'), rootiden)
 
-            goodbuid = nodes[1].ndef[1][:6]
-            goodbuid2 = nodes[2].ndef[1][:6]
+            goodbuid = trigs[1].get('iden')[:6]
+            goodbuid2 = trigs[2].get('iden')[:6]
 
             # Trigger is created disabled, so no nodes yet
             self.len(0, await core.nodes('test:int=6'))
@@ -4222,6 +4223,9 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
             self.stormNotInPrint(mainview, mesgs)
             self.stormIsInPrint(forkview, mesgs)
+
+            trigs = await core.callStorm('return($lib.trigger.list())', opts=forkopts)
+            othr = trigs[0].get('iden')
 
             # fetch a trigger from another view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))

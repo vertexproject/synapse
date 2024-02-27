@@ -2695,9 +2695,6 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
             self.stormHasNoWarnErr(msgs)
 
-            msgs = await core.stormlist('syn:prop limit 1 | scrape :base --refs')
-            self.stormIsInWarn('Edges cannot be used with runt nodes: syn:prop', msgs)
-
     async def test_storm_tee(self):
 
         async with self.getTestCore() as core:
