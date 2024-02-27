@@ -4039,8 +4039,6 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            self.len(0, await core.nodes('syn:trigger'))
-
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('No triggers found', mesgs)
@@ -4050,17 +4048,11 @@ class StormTypesTest(s_test.SynTest):
 
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
-            nodes = await core.nodes('syn:trigger')
-            self.len(1, nodes)
-            self.eq('trigger_test_str', nodes[0].get('name'))
 
             await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
-            nodes = await core.nodes('syn:trigger:tag^=footag')
-            self.len(1, nodes)
-            self.eq('', nodes[0].get('name'))
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
@@ -4071,9 +4063,6 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('user', mesgs)
             self.stormIsInPrint('node:add', mesgs)
             self.stormIsInPrint('root', mesgs)
-
-            nodes = await core.nodes('syn:trigger')
-            self.len(3, nodes)
 
             rootiden = await core.auth.getUserIdenByName('root')
 
@@ -4231,12 +4220,8 @@ class StormTypesTest(s_test.SynTest):
             forkopts = {'view': forkview}
             await core.nodes('trigger.add tag:add --view $view --tag neato.* --query {[ +#awesome ]}', opts={'vars': forkopts})
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
-            nodes = await core.nodes('syn:trigger', opts=forkopts)
             self.stormNotInPrint(mainview, mesgs)
             self.stormIsInPrint(forkview, mesgs)
-            self.len(1, nodes)
-            othr = nodes[0].ndef[1]
-            self.nn(nodes[0].get('.created'))
 
             # fetch a trigger from another view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))

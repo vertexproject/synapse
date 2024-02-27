@@ -936,8 +936,7 @@ Node, Runt
 
 Short for "runtime node". A runt node is a node that does not persist within a Cortex but is created at runtime when
 a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model
-elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``)
-or cron jobs (``syn:cron``).
+elements like forms (``syn:form``) and properties (``syn:prop``).
 
 .. _gloss-node-storage:
 

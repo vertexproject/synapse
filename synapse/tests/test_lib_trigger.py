@@ -477,13 +477,9 @@ class TrigTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='newb') as proxy:
 
-                self.eq(1, await proxy.count('syn:trigger'))
-
                 await newb.addRule((True, ('trigger', 'get')))
                 with self.raises(s_exc.AuthDeny):
                     await proxy.callStorm('$lib.trigger.del($iden)', opts={'vars': {'iden': trigs[0][0]}})
-
-                self.eq(1, await proxy.count('syn:trigger'))
 
                 with self.raises(s_exc.AuthDeny):
                     opts = {'vars': {'iden': trigiden}}
@@ -502,29 +498,6 @@ class TrigTest(s_t_utils.SynTest):
             await newb.addRule((True, ('node', 'add')))
             async with core.getLocalProxy(user='newb') as proxy:
                 self.eq(0, await proxy.count('[inet:ipv4 = 99] +#foo'))
-
-    async def test_trigger_runts(self):
-
-        async with self.getTestCore() as core:
-
-            tdef = await core.view.addTrigger({
-                'cond': 'node:add',
-                'form': 'test:str',
-                'storm': '[ test:int=1 ]',
-            })
-            iden = tdef['iden']
-
-            nodes = await core.nodes('syn:trigger')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('doc'), '')
-
-            nodes = await core.nodes(f'syn:trigger={iden} [ :doc="hehe haha" :name=visitrig ]')
-            self.eq(nodes[0].get('doc'), 'hehe haha')
-            self.eq(nodes[0].get('name'), 'visitrig')
-
-            nodes = await core.nodes(f'syn:trigger={iden}')
-            self.eq(nodes[0].get('doc'), 'hehe haha')
-            self.eq(nodes[0].get('name'), 'visitrig')
 
     async def test_trigger_set_user(self):
 
@@ -661,17 +634,17 @@ class TrigTest(s_t_utils.SynTest):
             ])
             self.eq(ndefs, set([n.ndef for n in nodes]))
 
-            nodes = await core.nodes('syn:trigger:cond="edge:add"', opts=opts)
-            self.len(5, nodes)
+            trigs = await core.callStorm('return($lib.trigger.list())', opts=opts)
+            self.len(5, trigs)
             n2 = 0
-            for n in nodes:
-                self.eq(n.get('verb'), 'refs')
-                if n.get('n2form') is not None:
+            for trig in trigs:
+                self.eq(trig.get('verb'), 'refs')
+                if trig.get('n2form') is not None:
                     n2 += 1
             self.eq(n2, 3)
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
-            self.len(0, await core.nodes('syn:trigger', opts=opts))
+            self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))
 
             # edge:del triggers
             await core.nodes('trigger.add edge:del --verb refs  --query { [ +#cookies ] | spin | iden $auto.opts.n2iden | [ +#milk ] }', opts=opts)  # only edge
@@ -724,12 +697,12 @@ class TrigTest(s_t_utils.SynTest):
             node = await core.nodes('test:int=1357 | [ -(refs)> { test:int=2468 } ]', opts=opts)
             self.nn(node[0].getTag('scone'))
 
-            nodes = await core.nodes('syn:trigger:cond="edge:del"', opts=opts)
-            self.len(5, nodes)
+            trigs = await core.callStorm('return($lib.trigger.list())', opts=opts)
+            self.len(5, trigs)
             n2 = 0
-            for n in nodes:
-                self.eq(n.get('verb'), 'refs')
-                if n.get('n2form') is not None:
+            for trig in trigs:
+                self.eq(trig.get('verb'), 'refs')
+                if trig.get('n2form') is not None:
                     n2 += 1
             self.eq(n2, 3)
 
@@ -746,7 +719,7 @@ class TrigTest(s_t_utils.SynTest):
             # the other two edge:del triggers cannot run because we can't get to n2 anymore
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
-            self.len(0, await core.nodes('syn:trigger', opts=opts))
+            self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))
 
     async def test_trigger_edge_globs(self):
         async with self.getTestCore() as core:
@@ -800,7 +773,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('cache.destroy'))
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
-            self.len(0, await core.nodes('syn:trigger'))
+            self.len(0, await core.callStorm('return($lib.trigger.list())'))
 
             nodes = await core.nodes('[test:int=12345 +(note)> { [ test:str=scrambledeggs ] } ]')
             self.len(1, nodes)
@@ -865,4 +838,4 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('coffee'))
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
-            self.len(0, await core.nodes('syn:trigger'))
+            self.len(0, await core.callStorm('return($lib.trigger.list())'))
