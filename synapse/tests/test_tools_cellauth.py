@@ -16,8 +16,13 @@ class CellAuthTest(s_t_utils.SynTest):
 
             argv = [coreurl]
             outp = self.getTestOutp()
-            self.eq(await s_cellauth.main(argv, outp), 1)
+            with self.getLoggerStream('synapse.tools.cellauth') as stream:
+                self.eq(await s_cellauth.main(argv, outp), 1)
             outp.expect('the following arguments are required:')
+
+            stream.seek(0)
+            data = stream.read()
+            self.isin('"synapse.tools.cellauth" is deprecated in 2.164.0 and will be removed in 3.0.0', data)
 
             outp.clear()
             argv = [coreurl, 'modify', '--adduser', 'foo', '--object', 'foo:bar']

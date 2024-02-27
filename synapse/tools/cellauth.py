@@ -4,7 +4,6 @@ import asyncio
 import logging
 import functools
 import traceback
-import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -273,6 +272,8 @@ async def main(argv, outprint=None):
         outprint = s_output.OutPut()
     global outp
     outp = outprint
+
+    logger.warning(s_common.deprecated('synapse.tools.cellauth', curv='2.164.0'))
 
     async with s_telepath.withTeleEnv():
 
