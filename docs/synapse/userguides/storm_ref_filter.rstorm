@@ -240,17 +240,6 @@ Filter by Interface Property
 If a form inherits an :ref:`interface`, you can filter all nodes of all forms that have an interface-derived
 property by specifying the full name of the interface and its property.
 
-.. TIP::
-  
-  You must specify the interface where the property is defined. If an interface inherits another interface, you
-  cannot perform a filter using an inherited property name. For example, the following filter is invalid because
-  the ``:sandbox:file`` property of the ``inet:proto:request`` interface is inherited from the ``it:host:activity``
-  interface:
-  
-  ::
-    
-    <query> +inet:proto:request:sandbox:file
-
 **Syntax:**
 
 *<query>* **+** | **-** *<interface>* **:** *<prop>*
@@ -471,11 +460,6 @@ Filter by Interface Property Value
 
 If a form inherits an :ref:`interface`, you can filter all nodes of all forms with a specific interface-derived
 property value by using the name of the interface.
-
-.. TIP::
-  
-  You must specify the interface where the property is defined. If an interface inherits another interface, you
-  cannot perform this type of filter using an interface and an inherited property name.
 
 **Syntax:**
 

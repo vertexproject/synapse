@@ -882,7 +882,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'celluptime', 'cellrealdisk',
@@ -893,7 +893,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(conf=conf, dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
