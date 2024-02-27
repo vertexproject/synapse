@@ -273,7 +273,8 @@ async def main(argv, outprint=None):
     global outp
     outp = outprint
 
-    logger.warning(s_common.deprecated('synapse.tools.cellauth', curv='2.164.0'))
+    mesg = s_common.deprecated('synapse.tools.cellauth', curv='2.164.0')
+    outp.printf(f'WARNING: {mesg}')
 
     async with s_telepath.withTeleEnv():
 
