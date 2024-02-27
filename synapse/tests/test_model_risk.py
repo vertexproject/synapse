@@ -512,6 +512,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :software=*
                     :reporter:name=vertex
                     :reporter = { gen.ou.org vertex }
+                    :mitre:attack:mitigation=M1036
             ]''')
             self.eq('FooBar', nodes[0].props['name'])
             self.eq('BazFaz', nodes[0].props['desc'])
@@ -520,6 +521,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
+            self.len(1, await core.nodes('risk:mitigation -> it:mitre:attack:mitigation'))
 
     async def test_model_risk_tool_software(self):
 

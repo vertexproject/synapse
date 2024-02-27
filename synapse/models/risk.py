@@ -313,6 +313,9 @@ class RiskModule(s_module.CoreModule):
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the mitigation.'}),
 
+                    ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
+                        'doc': 'A mapping to a Mitre ATT&CK mitigation if applicable.'}),
+
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
                 )),
