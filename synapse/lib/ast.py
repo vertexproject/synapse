@@ -3239,13 +3239,20 @@ class PropValue(Value):
         if not path:
             return None, None
 
-        name = await tostr(await self.kids[0].compute(runt, path))
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         ispiv = name.find('::') != -1
         if not ispiv:
 
             prop = path.node.form.props.get(name)
             if prop is None:
+                if not isinstance(propname, str):
+                    styp = await s_stormtypes.totype(propname, basetypes=True)
+                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
+                    raise self.kids[0].addExcInfo(err)
+
                 mesg = f'No property named {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
                                                     name=name, form=path.node.form.name))
@@ -3271,6 +3278,12 @@ class PropValue(Value):
 
             prop = node.form.props.get(name)
             if prop is None:  # pragma: no cover
+                if not isinstance(propname, str):
+                    styp = await s_stormtypes.totype(propname, basetypes=True)
+                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
+                    raise self.kids[0].addExcInfo(err)
+
                 mesg = f'No property named {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
                                                 name=name, form=node.form.name))
@@ -3933,11 +3946,18 @@ class EditNodeAdd(Edit):
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
-                    formname = await tostr(await self.kids[0].compute(runt, path))
+                    name = await self.kids[0].compute(runt, path)
+                    formname = await tostr(name)
                     runt.layerConfirm(('node', 'add', formname))
 
                     form = runt.model.form(formname)
                     if form is None:
+                        if not isinstance(name, str):
+                            styp = await s_stormtypes.totype(name, basetypes=True)
+                            mesg = f"Form names must be stringlike, got '{styp}'."
+                            err = s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
+                            raise self.kids[0].addExcInfo(err)
+
                         raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
 
                     # must use/resolve all variables from path before yield
@@ -3949,11 +3969,18 @@ class EditNodeAdd(Edit):
 
             else:
 
-                formname = await tostr(await self.kids[0].compute(runt, None))
+                name = await self.kids[0].compute(runt, None)
+                formname = await tostr(name)
                 runt.layerConfirm(('node', 'add', formname))
 
                 form = runt.model.form(formname)
                 if form is None:
+                    if not isinstance(name, str):
+                        styp = await s_stormtypes.totype(name, basetypes=True)
+                        mesg = f"Form names must be stringlike, got '{styp}'."
+                        err = s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
+                        raise self.kids[0].addExcInfo(err)
+
                     raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
 
                 valu = await self.kids[2].compute(runt, None)
@@ -3997,10 +4024,17 @@ class EditPropSet(Edit):
 
         async for node, path in genr:
 
-            name = await tostr(await self.kids[0].compute(runt, path))
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
 
             prop = node.form.props.get(name)
             if prop is None:
+                if not isinstance(propname, str):
+                    styp = await s_stormtypes.totype(propname, basetypes=True)
+                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
+                    raise self.kids[0].addExcInfo(err)
+
                 mesg = f'No property named {name}.'
                 exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
                 raise self.kids[0].addExcInfo(exc)
@@ -4078,10 +4112,17 @@ class EditPropDel(Edit):
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         async for node, path in genr:
-            name = await tostr(await self.kids[0].compute(runt, path))
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
 
             prop = node.form.props.get(name)
             if prop is None:
+                if not isinstance(propname, str):
+                    styp = await s_stormtypes.totype(propname, basetypes=True)
+                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
+                    raise self.kids[0].addExcInfo(err)
+
                 mesg = f'No property named {name}.'
                 exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
                 raise self.kids[0].addExcInfo(exc)

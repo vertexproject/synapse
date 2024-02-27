@@ -364,13 +364,13 @@ class AstTest(s_test.SynTest):
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
 
             q = '$newp=(foo, bar) [test:str=newp] $lib.print(:$newp)'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             q = '$newp=(foo, bar) [test:str=newp :$newp=foo]'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             q = '$newp=(foo, bar) [test:str=newp -:$newp]'
-            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             q = '$newp=(foo, bar) [test:str=newp .$newp=foo]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
@@ -379,7 +379,10 @@ class AstTest(s_test.SynTest):
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
 
             q = '$newp=(foo, bar) [*$newp=foo]'
-            await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_ast_editparens(self):
 
