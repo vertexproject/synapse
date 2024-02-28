@@ -30,9 +30,6 @@ Syntax
 
 ::
   
-  usage: synapse.tools.csvtool [-h] [--logfile LOGFILE] [--csv-header] [--cli] [--debug]
-    (--cortex CORTEX | --test) [--export] stormfile csvfiles [csvfiles ...]
-
   usage: synapse.tools.csvtool [-h] [--logfile LOGFILE] [--csv-header] [--cli] [--debug] 
     (--cortex CORTEX | --test) [--export] [--view VIEW] [--optsfile OPTSFILE]
     stormfile csvfiles [csvfiles ...]

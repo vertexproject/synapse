@@ -191,6 +191,12 @@ class StormCore(s_base.Base):
         with suppress_logging(suppress):
             yield None
 
+    async def addFeedData(self, name, items, *, viewiden=None):
+        '''
+        Add feed data to the cortex.
+        '''
+        return await self.core.addFeedData(name, items, viewiden=viewiden)
+
     async def runCmdLine(self, text, opts=None):
         '''
         Run a line of text directly via storm cli.
@@ -236,12 +242,12 @@ class StormCore(s_base.Base):
             nodes = [m for m in mesgs if m[0] == 'node']
             if len(nodes) != num:
                 raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
-
+        print(mesgs)
         return mesgs
 
 async def getTempCoreProx(mods=None):
     '''
-    Get a Telepath Proxt to a Cortex instance which is backed by a temporary Cortex.
+    Get a Telepath Proxy to a Cortex instance which is backed by a temporary Cortex.
 
     Args:
         mods (list): A list of additional CoreModules to load in the Cortex.
