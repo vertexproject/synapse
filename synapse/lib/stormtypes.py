@@ -9449,3 +9449,9 @@ async def totype(valu, basetypes=False) -> str:
         return fp._storm_typename
 
     return valu.__class__.__name__
+
+async def typeerr(name, reqt):
+    if not isinstance(name, reqt):
+        styp = await totype(name, basetypes=True)
+        mesg = f"Expected value of type '{reqt}', got '{styp}' with value {name}."
+        return s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)

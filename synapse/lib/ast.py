@@ -3247,15 +3247,11 @@ class PropValue(Value):
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                if not isinstance(propname, str):
-                    styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
-                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
-                    raise self.kids[0].addExcInfo(err)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
 
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                    name=name, form=path.node.form.name))
+                raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
             if isinstance(valu, (dict, list, tuple)):
@@ -3278,15 +3274,11 @@ class PropValue(Value):
 
             prop = node.form.props.get(name)
             if prop is None:  # pragma: no cover
-                if not isinstance(propname, str):
-                    styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
-                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
-                    raise self.kids[0].addExcInfo(err)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                name=name, form=node.form.name))
+                raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
                 if isinstance(valu, (dict, list, tuple)):
@@ -3952,13 +3944,10 @@ class EditNodeAdd(Edit):
 
                     form = runt.model.form(formname)
                     if form is None:
-                        if not isinstance(name, str):
-                            styp = await s_stormtypes.totype(name, basetypes=True)
-                            mesg = f"Form names must be stringlike, got '{styp}' with value {name}."
-                            err = s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
-                            raise self.kids[0].addExcInfo(err)
+                        if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                            exc = s_exc.NoSuchForm.init(formname)
 
-                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                        raise self.kids[0].addExcInfo(exc)
 
                     # must use/resolve all variables from path before yield
                     async for item in self.addFromPath(form, runt, path):
@@ -3975,13 +3964,10 @@ class EditNodeAdd(Edit):
 
                 form = runt.model.form(formname)
                 if form is None:
-                    if not isinstance(name, str):
-                        styp = await s_stormtypes.totype(name, basetypes=True)
-                        mesg = f"Form names must be stringlike, got '{styp}' with value {name}."
-                        err = s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
-                        raise self.kids[0].addExcInfo(err)
+                    if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                        exc = s_exc.NoSuchForm.init(formname)
 
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                    raise self.kids[0].addExcInfo(exc)
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.tostor(valu)
@@ -4029,14 +4015,10 @@ class EditPropSet(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                if not isinstance(propname, str):
-                    styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
-                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
-                    raise self.kids[0].addExcInfo(err)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
                 raise self.kids[0].addExcInfo(exc)
 
             if not node.form.isrunt:
@@ -4117,14 +4099,10 @@ class EditPropDel(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                if not isinstance(propname, str):
-                    styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
-                    err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
-                    raise self.kids[0].addExcInfo(err)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
                 raise self.kids[0].addExcInfo(exc)
 
             runt.confirmPropDel(prop)
