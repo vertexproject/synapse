@@ -671,13 +671,6 @@ Help for individual ``cron.*`` commands can be displayed using:
 
   ``<command> --help``
 
-.. TIP::
-  
-  Cron jobs (including jobs created with ``cron.at``) are added to Synapse as **runtime nodes** ("runt
-  nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. With a few restrictions, these runt nodes
-  can be lifted, filtered, and operated on similar to the way you work with other nodes.
-
-
 .. _storm-cron-add:
 
 cron.add
@@ -695,9 +688,7 @@ The ``cron.add`` command creates an individual cron job within a Cortex.
 cron.at
 +++++++
 
-The ``cron.at`` command creates a non-recurring (one-time) cron job within a Cortex. Just like standard
-(recurring) cron jobs, jobs created with ``cron.at`` will persist (remain in the list of cron jobs and
-as ``syn:cron`` runt nodes) until they are explicitly removed using ``cron.del``.
+The ``cron.at`` command creates a non-recurring (one-time) cron job within a Cortex.
 
 **Syntax:**
 
@@ -741,8 +732,7 @@ cron.stat
 The ``cron.stat`` command displays statistics for an individual cron job and provides more detail on
 an individual job vs. ``cron.list``, including any errors and the interval at which the job executes.
 To view the stats for a job, you must provide the first portion of the job's iden (i.e., enough of the
-iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting
-the appropriate ``syn:cron`` node.
+iden that the job can be uniquely identified), which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -756,7 +746,7 @@ cron.mod
 
 The ``cron.mod`` command modifies the Storm query associated with a specific cron job. To modify a job,
 you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely
-identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+identified), which can be obtained using ``cron.list``.
 
 .. NOTE::
   
@@ -787,8 +777,7 @@ cron.disable
 
 The ``cron.disable`` command disables a job and prevents it from executing without removing it from the
 Cortex. To disable a job, you must provide the first portion of the job's iden (i.e., enough of the iden
-that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the
-appropriate ``syn:cron`` node.
+that the job can be uniquely identified), which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -802,7 +791,7 @@ cron.enable
 
 The ``cron.enable`` command enables a disabled cron job. To enable a job, you must provide the first portion
 of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained
-using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+using ``cron.list``.
 
 .. NOTE::
 
@@ -820,7 +809,7 @@ cron.del
 
 The ``cron.del`` command permanently removes a cron job from the Cortex. To delete a job, you must provide
 the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified),
-which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -2455,10 +2444,6 @@ Help for individual ``trigger.*`` commands can be displayed using:
 
   ``<command> --help``
 
-Triggers are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`)
-of the form ``syn:trigger``. These runt nodes can be lifted and filtered just like standard nodes
-in Synapse.
-
 .. _storm-trigger-add:
 
 trigger.add
@@ -2485,10 +2470,6 @@ Triggers are displayed in alphanumeric order by iden. Triggers are sorted upon C
 so newly-created triggers will be displayed at the bottom of the list until the list is re-sorted the
 next time the Cortex is restarted.
 
-.. NOTE::
-
-  Triggers can also be viewed in runt node form as ``syn:trigger`` nodes.
-
 **Syntax:**
 
 .. storm-cli:: trigger.list --help
@@ -2501,8 +2482,7 @@ trigger.mod
 
 The ``trigger.mod`` command modifies the Storm query associated with a specific trigger. To modify
 a trigger, you must provide the first portion of the trigger's iden (i.e., enough of the iden that
-the trigger can be uniquely identified), which can be obtained using ``trigger.list`` or by lifting
-the appropriate ``syn:trigger`` node.
+the trigger can be uniquely identified), which can be obtained using ``trigger.list``.
 
 .. NOTE::
 
@@ -2522,8 +2502,7 @@ trigger.disable
 
 The ``trigger.disable`` command disables a trigger and prevents it from firing without removing it from
 the Cortex. To disable a trigger, you must provide the first portion of the trigger's iden (i.e., enough
-of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list``
-or by lifting the appropriate ``syn:trigger`` node.
+of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list``.
 
 **Syntax:**
 
@@ -2537,7 +2516,7 @@ trigger.enable
 
 The ``trigger-enable`` command enables a disabled trigger. To enable a trigger, you must provide the
 first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified),
-which can be obtained using ``trigger.list`` or by lifting the appropriate ``syn:trigger`` node.
+which can be obtained using ``trigger.list``.
 
 .. NOTE::
 
@@ -2555,8 +2534,7 @@ trigger.del
 
 The ``trigger.del`` command permanently removes a trigger from the Cortex. To delete a trigger, you
 must provide the first portion of the trigger's iden (i.e., enough of the iden that the trigger can
-be uniquely identified), which can be obtained using ``trigger.list`` or by lifting the appropriate
-``syn:trigger`` node.
+be uniquely identified), which can be obtained using ``trigger.list``.
 
 **Syntax:**
 

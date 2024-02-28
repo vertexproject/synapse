@@ -304,17 +304,6 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
-    def getRuntPode(self):
-        ndef = ('syn:cron', self.iden)
-        return (ndef, {
-            'props': {
-                'doc': self.doc,
-                'name': self.name,
-                'storm': self.query,
-                '.created': self.created,
-            },
-        })
-
     def __eq__(self, other):
         ''' For heap logic to sort upcoming events lower '''
         return (self.nexttime, self.indx) == (other.nexttime, other.indx)

@@ -999,8 +999,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.trigson = self.conf.get('trigger:enable')
 
-        await self._initRuntFuncs()
-
         taghive = await self.hive.open(('cortex', 'tagmeta'))
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
         pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
@@ -1954,44 +1952,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
         await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
-
-    async def _initRuntFuncs(self):
-
-        async def onSetTrigDoc(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            trig = node.snap.view.triggers.get(iden)
-            node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
-            await trig.set('doc', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        async def onSetTrigName(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            trig = node.snap.view.triggers.get(iden)
-            node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
-            await trig.set('name', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        async def onSetCronDoc(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await self.editCronJob(iden, 'doc', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        async def onSetCronName(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await self.editCronJob(iden, 'name', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
-        self.addRuntPropSet('syn:cron:name', onSetCronName)
-
-        self.addRuntPropSet('syn:trigger:doc', onSetTrigDoc)
-        self.addRuntPropSet('syn:trigger:name', onSetTrigName)
 
     async def _initStormDmons(self):
 

@@ -11,12 +11,10 @@ class SynModule(s_module.CoreModule):
     def initCoreModule(self):
 
         self.core.addRuntLift('syn:cmd', self._liftRuntSynCmd)
-        self.core.addRuntLift('syn:cron', self._liftRuntSynCron)
         self.core.addRuntLift('syn:form', self._liftRuntSynForm)
         self.core.addRuntLift('syn:prop', self._liftRuntSynProp)
         self.core.addRuntLift('syn:type', self._liftRuntSynType)
         self.core.addRuntLift('syn:tagprop', self._liftRuntSynTagProp)
-        self.core.addRuntLift('syn:trigger', self._liftRuntSynTrigger)
 
     async def _liftRuntSynCmd(self, view, prop, cmprvalu=None):
         if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
@@ -27,17 +25,6 @@ class SynModule(s_module.CoreModule):
 
         for scmd in self.core.stormcmds.values():
             yield scmd.getRuntPode()
-
-    async def _liftRuntSynCron(self, view, prop, cmprvalu=None):
-
-        if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
-            item = self.core.agenda.appts.get(cmprvalu[1])
-            if item is not None:
-                yield item.getRuntPode()
-            return
-
-        for item in self.core.agenda.appts.values():
-            yield item.getRuntPode()
 
     async def _liftRuntSynForm(self, view, prop, cmprvalu=None):
 
@@ -89,17 +76,6 @@ class SynModule(s_module.CoreModule):
         for item in self.model.tagprops.values():
             yield item.getRuntPode()
 
-    async def _liftRuntSynTrigger(self, view, prop, cmprvalu=None):
-
-        if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
-            item = view.triggers.triggers.get(cmprvalu[1])
-            if item is not None:
-                yield item.getRuntPode()
-            return
-
-        for item in view.triggers.triggers.values():
-            yield item.getRuntPode()
-
     def getModelDefs(self):
 
         return (('syn', {
@@ -116,12 +92,6 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:tagprop', ('str', {'strip': True}), {
                     'doc': 'A user defined tag property.'
-                }),
-                ('syn:cron', ('guid', {}), {
-                    'doc': 'A Cortex cron job.',
-                }),
-                ('syn:trigger', ('guid', {}), {
-                    'doc': 'A Cortex trigger.'
                 }),
                 ('syn:cmd', ('str', {'strip': True}), {
                     'doc': 'A Synapse storm command.'
@@ -204,63 +174,6 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Description of the tagprop definition.'}),
                     ('type', ('syn:type', {}), {
                         'doc': 'The synapse type for this tagprop.', 'ro': True}),
-                )),
-                ('syn:trigger', {'runt': True}, (
-                    ('vers', ('int', {}), {
-                        'doc': 'Trigger version.', 'ro': True,
-                    }),
-                    ('doc', ('str', {}), {
-                        'doc': 'A documentation string describing the trigger.',
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('name', ('str', {}), {
-                        'doc': 'A user friendly name/alias for the trigger.',
-                    }),
-                    ('cond', ('str', {'strip': True, 'lower': True}), {
-                        'doc': 'The trigger condition.', 'ro': True,
-                    }),
-                    ('user', ('str', {}), {
-                        'doc': 'User who owns the trigger.', 'ro': True,
-                    }),
-                    ('storm', ('str', {}), {
-                        'doc': 'The Storm query for the trigger.', 'ro': True,
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('enabled', ('bool', {}), {
-                        'doc': 'Trigger enabled status.', 'ro': True,
-                    }),
-                    ('form', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Form the trigger is watching for.'
-                    }),
-                    ('verb', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Edge verb the trigger is watching for.'
-                    }),
-                    ('n2form', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'N2 form the trigger is watching for.'
-                    }),
-                    ('prop', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Property the trigger is watching for.'
-                    }),
-                    ('tag', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Tag the trigger is watching for.'
-                    }),
-                )),
-                ('syn:cron', {'runt': True}, (
-
-                    ('doc', ('str', {}), {
-                        'doc': 'A description of the cron job.',
-                        'disp': {'hint': 'text'},
-                    }),
-
-                    ('name', ('str', {}), {
-                        'doc': 'A user friendly name/alias for the cron job.'}),
-
-                    ('storm', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The storm query executed by the cron job.',
-                        'disp': {'hint': 'text'},
-                    }),
-
                 )),
                 ('syn:cmd', {'runt': True}, (
                     ('doc', ('str', {'strip': True}), {

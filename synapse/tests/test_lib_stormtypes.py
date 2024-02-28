@@ -4039,8 +4039,6 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            self.len(0, await core.nodes('syn:trigger'))
-
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('No triggers found', mesgs)
@@ -4050,17 +4048,11 @@ class StormTypesTest(s_test.SynTest):
 
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
-            nodes = await core.nodes('syn:trigger')
-            self.len(1, nodes)
-            self.eq('trigger_test_str', nodes[0].get('name'))
 
             await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
-            nodes = await core.nodes('syn:trigger:tag^=footag')
-            self.len(1, nodes)
-            self.eq('', nodes[0].get('name'))
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
@@ -4072,16 +4064,14 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('node:add', mesgs)
             self.stormIsInPrint('root', mesgs)
 
-            nodes = await core.nodes('syn:trigger')
-            self.len(3, nodes)
-
             rootiden = await core.auth.getUserIdenByName('root')
 
-            for node in nodes:
-                self.eq(node.get('user'), rootiden)
+            trigs = await core.callStorm('return($lib.trigger.list())')
+            for trig in trigs:
+                self.eq(trig.get('user'), rootiden)
 
-            goodbuid = nodes[1].ndef[1][:6]
-            goodbuid2 = nodes[2].ndef[1][:6]
+            goodbuid = trigs[1].get('iden')[:6]
+            goodbuid2 = trigs[2].get('iden')[:6]
 
             # Trigger is created disabled, so no nodes yet
             self.len(0, await core.nodes('test:int=6'))
@@ -4231,12 +4221,11 @@ class StormTypesTest(s_test.SynTest):
             forkopts = {'view': forkview}
             await core.nodes('trigger.add tag:add --view $view --tag neato.* --query {[ +#awesome ]}', opts={'vars': forkopts})
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
-            nodes = await core.nodes('syn:trigger', opts=forkopts)
             self.stormNotInPrint(mainview, mesgs)
             self.stormIsInPrint(forkview, mesgs)
-            self.len(1, nodes)
-            othr = nodes[0].ndef[1]
-            self.nn(nodes[0].get('.created'))
+
+            trigs = await core.callStorm('return($lib.trigger.list())', opts=forkopts)
+            othr = trigs[0].get('iden')
 
             # fetch a trigger from another view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))
