@@ -3249,7 +3249,7 @@ class PropValue(Value):
             if prop is None:
                 if not isinstance(propname, str):
                     styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
                     err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
                     raise self.kids[0].addExcInfo(err)
 
@@ -3280,7 +3280,7 @@ class PropValue(Value):
             if prop is None:  # pragma: no cover
                 if not isinstance(propname, str):
                     styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
                     err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
                     raise self.kids[0].addExcInfo(err)
 
@@ -3954,7 +3954,7 @@ class EditNodeAdd(Edit):
                     if form is None:
                         if not isinstance(name, str):
                             styp = await s_stormtypes.totype(name, basetypes=True)
-                            mesg = f"Form names must be stringlike, got '{styp}'."
+                            mesg = f"Form names must be stringlike, got '{styp}' with value {name}."
                             err = s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
                             raise self.kids[0].addExcInfo(err)
 
@@ -3977,7 +3977,7 @@ class EditNodeAdd(Edit):
                 if form is None:
                     if not isinstance(name, str):
                         styp = await s_stormtypes.totype(name, basetypes=True)
-                        mesg = f"Form names must be stringlike, got '{styp}'."
+                        mesg = f"Form names must be stringlike, got '{styp}' with value {name}."
                         err = s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
                         raise self.kids[0].addExcInfo(err)
 
@@ -4031,7 +4031,7 @@ class EditPropSet(Edit):
             if prop is None:
                 if not isinstance(propname, str):
                     styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
                     err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
                     raise self.kids[0].addExcInfo(err)
 
@@ -4119,7 +4119,7 @@ class EditPropDel(Edit):
             if prop is None:
                 if not isinstance(propname, str):
                     styp = await s_stormtypes.totype(propname, basetypes=True)
-                    mesg = f"Property names must be stringlike, got '{styp}'."
+                    mesg = f"Property names must be stringlike, got '{styp}' with value {propname}."
                     err = s_exc.StormRuntimeError(mesg=mesg, name=propname, type=styp)
                     raise self.kids[0].addExcInfo(err)
 
