@@ -55,7 +55,6 @@ import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
@@ -1071,19 +1070,6 @@ class SynTest(unittest.TestCase):
             with self.getTestDir() as dirn:
                 async with await s_axon.Axon.anit(dirn, conf) as axon:
                     yield axon
-
-    @contextlib.contextmanager
-    def withTestCmdr(self, cmdg):
-
-        getItemCmdr = s_cmdr.getItemCmdr
-
-        async def getTestCmdr(*a, **k):
-            cli = await getItemCmdr(*a, **k)
-            cli.prompt = cmdg
-            return cli
-
-        with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
-            yield
 
     @contextlib.contextmanager
     def withCliPromptMockExtendOutp(self, outp):

@@ -244,9 +244,9 @@ COMMANOSPACE: /(?<!\s),(?!\s)/
 RSQBNOSPACE: /(?<!\s)\](?!\s)/
 EQNOSPACE: /(?<!\s)=(?!\s)/
 
-// an argv parser for cmdr commands which may contain embedded queries
-cmdrargs: _cmdrargv (EQNOSPACE? _cmdrargv)*
-_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT (EQNOSPACE (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
+// an argv parser for commands which may contain embedded queries
+cmdargs: _cmdargv (EQNOSPACE? _cmdargv)*
+_cmdargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDTOKN | CMDOPT (EQNOSPACE (CMDTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
 
 // A tag with either a variable reference or tag name segments without asterisks
 tagname: _HASH (_varvalu | _tagsegs)
@@ -375,8 +375,8 @@ _EMBEDQUERYSTART: "${"
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
 NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|\=])/
 
-// A white-space *only* delimited string immediate for use in legacy cmdr parser
-CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
+// A white-space *only* delimited string immediate for use in CLI parser
+CMDTOKN.-1: /[^="'\s\{}][^\s\{}]*/
 
 WHITETOKN.-1: /[^\s|]+/
 

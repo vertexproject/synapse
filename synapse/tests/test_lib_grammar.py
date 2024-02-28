@@ -1376,7 +1376,7 @@ class GrammarTest(s_t_utils.SynTest):
             tree = parser.query()
             self.eq(str(tree), _ParseResults[i])
 
-    def test_cmdrargs(self):
+    def test_cmdargs(self):
         q = '''add {inet:fqdn | graph 2 --filter { -#nope } } inet:f-M +1 { [ graph:node='*' :type=m1]}'''
         correct = (
             'add',
@@ -1386,18 +1386,18 @@ class GrammarTest(s_t_utils.SynTest):
             "[ graph:node='*' :type=m1]"
             )
         parser = s_parser.Parser(q)
-        args = parser.cmdrargs()
+        args = parser.cmdargs()
         self.eq(args, correct)
 
         q = 'add --filter={inet:fqdn | limit 1}'
         parser = s_parser.Parser(q)
-        args = parser.cmdrargs()
+        args = parser.cmdargs()
         self.eq(args, ['add', '--filter=inet:fqdn | limit 1'])
 
         query = 'add {uniq +#*}'
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
-            parser.cmdrargs()
+            parser.cmdargs()
 
     def test_mode_lookup(self):
         q = '1.2.3.4 vertex.link | spin'

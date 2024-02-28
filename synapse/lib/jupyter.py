@@ -9,7 +9,6 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.base as s_base
-import synapse.lib.cmdr as s_cmdr
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.storm as s_t_storm
@@ -114,7 +113,7 @@ async def genTempCoreProxy(mods=None):
                 yield prox
 
 @contextlib.asynccontextmanager
-async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
+async def genTempStormsvcProxy(stormcore, svcname, svcctor, conf=None):
     if conf is None:
         conf = {}
 
@@ -132,8 +131,8 @@ async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
             host, port = info
             surl = f'tcp://root:secret@127.0.0.1:{port}/'
 
-            await cmdrcore.storm(f'service.add {svcname} {surl}')
-            await cmdrcore.storm(f'$lib.service.wait({svcname})')
+            await stormcore.storm(f'service.add {svcname} {surl}')
+            await stormcore.storm(f'$lib.service.wait({svcname})')
 
             async with svc.getLocalProxy() as prox:
                 # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
@@ -145,14 +144,6 @@ async def getItemStorm(prox, outp=None):
     storm = await s_t_storm.StormCli.anit(prox, outp=outp)
     storm.echoline = True
     return storm
-
-async def getItemCmdr(prox, outp=None, locs=None):
-    '''Get a Cmdr instance with prepopulated locs'''
-    cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
-    cmdr.echoline = True
-    if locs:
-        cmdr.locs.update(locs)
-    return cmdr
 
 @contextlib.contextmanager
 def suppress_logging(suppress):
@@ -182,10 +173,10 @@ class StormCore(s_base.Base):
         await s_base.Base.__anit__(self)
         self.core = core
         self.stormcli = await getItemStorm(self.core, outp=outp)
-        self.onfini(self._onCmdrCoreFini)
+        self.onfini(self._onStormCoreFini)
         self.acm = None  # A placeholder for the context manager
 
-    async def _onCmdrCoreFini(self):
+    async def _onStormCoreFini(self):
         await self.stormcli.fini()
         # await self.core.fini()
         # If self.acm is set, acm.__aexit should handle the self.core fini.
@@ -235,7 +226,7 @@ class StormCore(s_base.Base):
             suppress_logging (bool): If True, suppresses some logging related to Storm runtime exceptions.
 
         Notes:
-            The opts dictionary will not be used if cmdr=True.
+            The opts dictionary will not be used if cli=True.
 
         Returns:
             list: A list of storm messages.
@@ -247,120 +238,6 @@ class StormCore(s_base.Base):
                 raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
 
         return mesgs
-
-class CmdrCore(s_base.Base):
-    '''
-    A helper for jupyter/cmdr CLI interaction
-    '''
-    async def __anit__(self, core, outp=None):
-        await s_base.Base.__anit__(self)
-        self.prefix = 'storm'  # Eventually we may remove or change this
-        self.core = core
-        locs = {'storm:hide-unknown': True}
-        self.cmdr = await getItemCmdr(self.core, outp=outp, locs=locs)
-        self.onfini(self._onCmdrCoreFini)
-        self.acm = None  # A placeholder for the context manager
-
-    async def addFeedData(self, name, items, *, viewiden=None):
-        '''
-        Add feed data to the cortex.
-        '''
-        return await self.core.addFeedData(name, items, viewiden=viewiden)
-
-    async def runCmdLine(self, text):
-        '''
-        Run a line of text directly via cmdr.
-        '''
-        await self.cmdr.runCmdLine(text)
-
-    @contextlib.contextmanager
-    def suppress_logging(self, suppress):
-        '''
-        Context manager to suppress specific loggers.
-        '''
-        with suppress_logging(suppress):
-            yield None
-
-    async def _runStorm(self, text, opts=None, cmdr=False, suppress_logging=False):
-        mesgs = []
-        with self.suppress_logging(suppress_logging):
-            if cmdr:
-                if self.prefix:
-                    text = ' '.join((self.prefix, text))
-
-                def onEvent(event):
-                    mesg = event[1].get('mesg')
-                    mesgs.append(mesg)
-
-                with self.cmdr.onWith('storm:mesg', onEvent):
-                    await self.runCmdLine(text)
-
-            else:
-                async for mesg in self.core.storm(text, opts=opts):
-                    mesgs.append(mesg)
-
-        return mesgs
-
-    async def storm(self, text, opts=None, num=None, cmdr=False, suppress_logging=False):
-        '''
-        A helper for executing a storm command and getting a list of storm messages.
-
-        Args:
-            text (str): Storm command to execute.
-            opts (dict): Opt to pass to the cortex during execution.
-            num (int): Number of nodes to expect in the output query. Checks that with an assert statement.
-            cmdr (bool): If True, executes the line via the Cmdr CLI and will send output to outp.
-            suppress_logging (bool): If True, suppresses some logging related to Storm runtime exceptions.
-
-        Notes:
-            The opts dictionary will not be used if cmdr=True.
-
-        Returns:
-            list: A list of storm messages.
-        '''
-        mesgs = await self._runStorm(text, opts, cmdr, suppress_logging)
-        if num is not None:
-            nodes = [m for m in mesgs if m[0] == 'node']
-            if len(nodes) != num:
-                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
-
-        return mesgs
-
-    async def eval(self, text, opts=None, num=None, cmdr=False):
-        '''
-        A helper for executing a storm command and getting a list of packed nodes.
-
-        Args:
-            text (str): Storm command to execute.
-            opts (dict): Opt to pass to the cortex during execution.
-            num (int): Number of nodes to expect in the output query. Checks that with an assert statement.
-            cmdr (bool): If True, executes the line via the Cmdr CLI and will send output to outp.
-
-        Notes:
-            The opts dictionary will not be used if cmdr=True.
-
-        Returns:
-            list: A list of packed nodes.
-        '''
-        mesgs = await self._runStorm(text, opts, cmdr)
-        for mesg in mesgs:
-            if mesg[0] == 'err':  # pragma: no cover
-                raise AssertionError(f'Query { {text} } got err: {mesg!r}')
-
-        nodes = [m[1] for m in mesgs if m[0] == 'node']
-
-        if num is not None:
-            if len(nodes) != num:  # pragma: no cover
-                raise AssertionError(f'Query { {text} } expected {num} nodes, got {len(nodes)}')
-
-        return nodes
-
-    async def _onCmdrCoreFini(self):
-        await self.cmdr.fini()
-        # await self.core.fini()
-        # If self.acm is set, acm.__aexit should handle the self.core fini.
-        if self.acm:
-            await self.acm.__aexit__(None, None, None)
 
 async def getTempCoreProx(mods=None):
     '''
@@ -391,7 +268,7 @@ async def getTempCoreStorm(mods=None, outp=None):
 
     Args:
         mods (list): A list of additional CoreModules to load in the Cortex.
-        outp: A output helper.  Will be used for the Cmdr instance.
+        outp: A output helper.  Will be used for the StormCli instance.
 
     Notes:
         The StormCore returned by this should be fini()'d to tear down the temporary Cortex.
@@ -405,55 +282,6 @@ async def getTempCoreStorm(mods=None, outp=None):
     stormcore.acm = acm
     return stormcore
 
-async def getTempCoreCmdr(mods=None, outp=None):
-    '''
-    Get a CmdrCore instance which is backed by a temporary Cortex.
-
-    Args:
-        mods (list): A list of additional CoreModules to load in the Cortex.
-        outp: A output helper.  Will be used for the Cmdr instance.
-
-    Notes:
-        The CmdrCore returned by this should be fini()'d to tear down the temporary Cortex.
-
-    Returns:
-        CmdrCore: A CmdrCore instance.
-    '''
-    acm = genTempCoreProxy(mods)
-    prox = await acm.__aenter__()
-    cmdrcore = await CmdrCore.anit(prox, outp=outp)
-    cmdrcore.acm = acm
-    return cmdrcore
-
-async def getTempCoreCmdrStormsvc(svcname, svcctor, svcconf=None, outp=None):
-    '''
-    Get a proxy to a Storm service and a CmdrCore instance backed by a temporary Cortex with the service added.
-
-    Args:
-        svcname (str): Storm service name
-        svcctor: Storm service constructor (e.g. Example.anit)
-        svcconf: Optional conf for the Storm service
-        outp: A output helper for the Cmdr instance
-
-    Notes:
-        Both the CmdrCore and Storm service proxy should be fini()'d for proper teardown
-
-    Returns:
-        (CmdrCore, Proxy): A CmdrCore instance and proxy to the Storm service
-    '''
-    cmdrcore = await getTempCoreCmdr(outp=outp)
-
-    acm = genTempStormsvcProxy(cmdrcore, svcname, svcctor, svcconf)
-    svcprox = await acm.__aenter__()
-    # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
-    object.__setattr__(svcprox, '_acm', acm)
-
-    async def onfini():
-        await svcprox._acm.__aexit__(None, None, None)
-    svcprox.onfini(onfini)
-
-    return cmdrcore, svcprox
-
 async def getTempCoreStormStormsvc(svcname, svcctor, svcconf=None, outp=None):
     '''
     Get a proxy to a Storm service and a StormCore instance backed by a temporary Cortex with the service added.
@@ -462,7 +290,7 @@ async def getTempCoreStormStormsvc(svcname, svcctor, svcconf=None, outp=None):
         svcname (str): Storm service name
         svcctor: Storm service constructor (e.g. Example.anit)
         svcconf: Optional conf for the Storm service
-        outp: A output helper for the Cmdr instance
+        outp: A output helper for the StormCli instance
 
     Notes:
         Both the StormCore and Storm service proxy should be fini()'d for proper teardown

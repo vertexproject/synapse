@@ -32,13 +32,13 @@ HI
 ##
 ::
 
-    > $lib.print($bar) $lib.warn(omgomgomg)
+    storm> $lib.print($bar) $lib.warn(omgomgomg)
     baz
     WARNING: omgomgomg
 
 ::
 
-    > testpkgcmd foo
+    storm> testpkgcmd foo
     inet:ipv6=::ffff:0
 
 ::
@@ -49,20 +49,12 @@ HI
 ::
 
 
-
 ::
 
-    > testsvc.test
+    storm> testsvc.test
     jupiter
     testsvc-done
 
-'''
-
-rst_in_debug = '''
-HI
-##
-.. storm-cortex:: default
-.. storm:: --debug [ inet:ipv4=0 ]
 '''
 
 rst_in_props = '''
@@ -77,7 +69,7 @@ HI
 ##
 ::
 
-    > [ inet:ipv4=0 ]
+    storm> [ inet:ipv4=0 ]
     inet:ipv4=0.0.0.0
             :type = private
 
@@ -192,7 +184,7 @@ multiline_storm_output = '''
 Hello
 ::
 
-    > [inet:ipv4=1.4.2.3]
+    storm> [inet:ipv4=1.4.2.3]
     [+#test.tag]
     inet:ipv4=1.4.2.3
             :type = unicast
@@ -214,7 +206,7 @@ multiline00_output = '''
 A multiline secondary property.
 ::
 
-    > [graph:node=(n1,) :name=$name]
+    storm> [graph:node=(n1,) :name=$name]
     graph:node=85d3511b97098d7fd9e07be21f6390de
             :name = Node
                     With a
@@ -278,19 +270,6 @@ async def get_rst_text(rstfile):
         lines = await rstorm.run()
         return ''.join(lines)
 
-def fix_input_for_cli(rst):
-    lines = rst.split('\n')
-    ret = []
-    for line in lines:
-        if line.startswith('.. storm::') and '.. storm:: --' not in line:
-            line = line.replace('.. storm::', '.. storm-cli::')
-        ret.append(line)
-    return '\n'.join(ret)
-
-def fix_output_for_cli(rst):
-    rst = rst.replace('\n    >', '\n    storm>')
-    return rst
-
 callback_dict = {}
 def vcrcallbacktst(recorder: vcr.VCR):
     assert isinstance(recorder, vcr.VCR), f'Wrong callback type, got a {type(recorder)}'
@@ -308,15 +287,6 @@ class RStormLibTest(s_test.SynTest):
 
             text = await get_rst_text(path)
             self.eq(text, rst_out)
-
-            # debug output
-            path = s_common.genpath(dirn, 'test2.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(rst_in_debug.encode())
-
-            text = await get_rst_text(path)
-            self.isin('node:edits', text)
-            self.isin('inet:ipv4', text)
 
             # props output
             path = s_common.genpath(dirn, 'test3.rst')
@@ -486,9 +456,8 @@ class RStormLibTest(s_test.SynTest):
             with s_common.genfile(path) as fd:
                 fd.write(fail00.encode())
             text = await get_rst_text(path)
-            self.isin('''ERROR: ('BadTypeValu''', text)
-            self.isin('illegal IP address string passed to inet_aton', text)
-            self.isin('> inet:ipv4=1.2.3.4', text)
+            self.isin('ERROR: illegal IP address string passed to inet_aton', text)
+            self.isin('storm> inet:ipv4=1.2.3.4', text)
             self.isin(':type = unicast', text)
 
             path = s_common.genpath(dirn, 'fail01.rst')
@@ -531,115 +500,3 @@ class RStormLibTest(s_test.SynTest):
 
             finally:
                 s_rstorm.ONLOAD_TIMEOUT = oldv
-
-    async def test_rstorm_cli(self):
-
-        with self.getTestDir() as dirn:
-
-            # props output
-            path = s_common.genpath(dirn, 'test3.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(rst_in_props).encode())
-
-            text = await get_rst_text(path)
-            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
-            self.eq(text_nocrt, fix_output_for_cli(rst_out_props))
-
-            # Multiline secondary properties
-            path = s_common.genpath(dirn, 'multiline00.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(multiline00_input).encode())
-            text = await get_rst_text(path)
-            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
-
-            self.eq(text_nocrt, fix_output_for_cli(multiline00_output))
-
-            path = s_common.genpath(dirn, 'multiline_input.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(multiline_storm_input).encode())
-            text = await get_rst_text(path)
-            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
-            self.eq(text_nocrt, fix_output_for_cli(multiline_storm_output))
-
-            # http
-            path = s_common.genpath(dirn, 'http.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(rst_in_http).encode())
-
-            text = await get_rst_text(path)
-            self.isin('inet:ipv4=1.2.3.4', text)  # first mock
-            self.isin('inet:ipv4=5.6.7.8', text)  # one mock at a time
-            self.isin('it:dev:str=notjson', text)  # one mock at a time
-
-            # multi reqest in 1 rstorm command
-            path = s_common.genpath(dirn, 'http_multi.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(multi_rst_in_http).encode())
-            text = await get_rst_text(path)
-            self.isin("<ANSI STANDARD PIZZA>", text)
-            self.isin("<This is (not) a test>", text)
-
-            # Pass some vcr opts through
-            path = s_common.genpath(dirn, 'http_multi_opts.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(multi_rst_in_http_opts).encode())
-            text = await get_rst_text(path)
-            self.isin('this test passed', text)
-
-            # clear the current set of things
-            path = s_common.genpath(dirn, 'clear_storm_opts.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(clear_storm_opts).encode())
-            with self.raises(s_exc.StormRuntimeError):
-                text = await get_rst_text(path)
-
-            # boom1 test
-            path = s_common.genpath(dirn, 'boom1.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(boom1).encode())
-
-            with self.raises(s_exc.NoSuchVar):
-                await get_rst_text(path)
-
-            # boom2 test - skipped - its a storm-pre
-            # boom3 test
-            path_boom3 = s_common.genpath(dirn, 'boom3.rst')
-            with s_common.genfile(path_boom3) as fd:
-                fd.write(fix_input_for_cli(boom3).encode())
-
-            with self.raises(s_exc.StormRuntimeError):
-                text = await get_rst_text(path_boom3)
-
-            # make sure things get cleaned up
-            async with await s_rstorm.StormRst.anit(path_boom3) as rstorm:
-                try:
-                    await rstorm.run()
-                    self.fail('This must raise')
-                except s_exc.StormRuntimeError:
-                    pass
-
-            self.true(rstorm.core.isfini)
-            self.true(rstorm.isfini)
-            self.false(os.path.exists(rstorm.core.dirn))
-
-            # storm-fail tests
-            path = s_common.genpath(dirn, 'fail00.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(fail00).encode())
-            text = await get_rst_text(path)
-            self.isin('''ERROR: illegal IP address string passed to inet_aton''', text)
-            self.isin('illegal IP address string passed to inet_aton', text)
-            self.isin('> inet:ipv4=1.2.3.4', text)
-            self.isin(':type = unicast', text)
-
-            path = s_common.genpath(dirn, 'fail01.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(fail01).encode())
-            with self.raises(s_exc.StormRuntimeError):
-                await get_rst_text(path)
-
-            path = s_common.genpath(dirn, 'fail02.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(fix_input_for_cli(fail02).encode())
-            with self.raises(s_exc.StormRuntimeError):
-                await get_rst_text(path)
