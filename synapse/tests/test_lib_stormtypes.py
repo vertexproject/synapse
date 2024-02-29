@@ -6487,7 +6487,7 @@ words\tword\twrd'''
             forkview = core.getView(fork00)
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('$lib.view.get().updateMergeComment("no wait you cant do that")', opts={'view':fork00, 'user': newp.iden})
+                await core.callStorm('$lib.view.get().updateMergeComment("no wait you cant do that")', opts={'view': fork00, 'user': newp.iden})
 
             await core.callStorm('$lib.view.get().updateMergeVoteComment("no really, fix your stuff")', opts=opts)
             votes = [vote async for vote in forkview.getMergeVotes()]
