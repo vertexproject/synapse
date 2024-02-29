@@ -105,6 +105,14 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A lang:language node with the given code.'}}},
+        {'name': 'campaign',
+         'desc': 'Returns an ou:campaign node based on the campaign and reporter names, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The reported name of the campaign.'},
+                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the campaign.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'An ou:campaign node.'}}},
         {'name': 'itAvScanResultByTarget',
          'desc': 'Returns an it:av:scan:result node by deconflicting with a target and signature name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -325,12 +333,17 @@ class LibGen(s_stormtypes.Lib):
         function campaign(name, reporter) {
 
             ou:campname = $name -> ou:campaign +:reporter:name=$reporter
+            { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
             $name = $lib.cast(ou:campname, $name)
             $reporter = $lib.cast(ou:name, $reporter)
 
-            [ ou:campaign=(gen, name, reporter, $name, $reporter) :name=$name :reporter:name=$reporter ]
+            [ ou:campaign=(gen, name, reporter, $name, $reporter)
+                :name=$name
+                :reporter:name=$reporter
+                :reporter=$orgByName($reporter)
+            ]
             return($node)
         }
 
