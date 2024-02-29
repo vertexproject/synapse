@@ -254,6 +254,7 @@ testmodel = {
                 ('seen', ('ival', {}), {}),
                 ('names', ('array', {'type': 'str'}), {}),
             ),
+            'interfaces': ('inet:proto:request',)
         }),
     ),
     'types': (

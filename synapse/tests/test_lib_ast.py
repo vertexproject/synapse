@@ -359,8 +359,30 @@ class AstTest(s_test.SynTest):
             # Sad paths
             q = '[test:str=newp -.newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
             q = '$newp=newp [test:str=newp -.$newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp] $lib.print(:$newp)'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp :$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp -:$newp]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp .$newp=foo]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp -.$newp]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [*$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_ast_editparens(self):
 
@@ -824,6 +846,12 @@ class AstTest(s_test.SynTest):
 
             self.len(2, await core.nodes('test:interface:names*[=foo]'))
             self.len(3, await core.nodes('test:interface:names*[^=foo]'))
+
+            await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
+            self.len(1, await core.nodes('test:hasiface:sandbox:file'))
+            self.len(1, await core.nodes('test:interface:sandbox:file'))
+            self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
+            self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
     async def test_ast_edge_walknjoin(self):
 
@@ -2720,6 +2748,14 @@ class AstTest(s_test.SynTest):
                     self.len(1, [m for m in msgs if m[0] == 'node:edits'])
                     self.len(0, [m for m in msgs if m[0] == 'node'])
                     self.eq(calls, [('prop', 'inet:ipv4')])
+
+                    calls = []
+
+                    # Skip lifting forms when there is a prop filter for
+                    # prop they don't have
+                    msgs = await core.stormlist('inet:ipv4 +:name')
+                    self.stormHasNoWarnErr(msgs)
+                    self.len(0, calls)
 
     async def test_ast_cmdoper(self):
 

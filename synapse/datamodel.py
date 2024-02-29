@@ -932,7 +932,7 @@ class Model:
         self.props[prop.full] = prop
         return prop
 
-    def _addFormIface(self, form, name):
+    def _addFormIface(self, form, name, subifaces=None):
 
         iface = self.ifaces.get(name)
 
@@ -950,11 +950,23 @@ class Model:
             prop = self._addFormProp(form, propname, typedef, propinfo)
             self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
+            if subifaces is not None:
+                for subi in subifaces:
+                    self.ifaceprops[f'{subi}:{propname}'].append(prop.full)
+
         form.ifaces[name] = iface
         self.formsbyiface[name].append(form.name)
 
-        for ifname in iface.get('interfaces', ()):
-            self._addFormIface(form, ifname)
+        if (ifaces := iface.get('interfaces')) is not None:
+            if subifaces is None:
+                subifaces = []
+            else:
+                subifaces = list(subifaces)
+
+            subifaces.append(name)
+
+            for ifname in ifaces:
+                self._addFormIface(form, ifname, subifaces=subifaces)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

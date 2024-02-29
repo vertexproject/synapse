@@ -6445,8 +6445,21 @@ words\tword\twrd'''
             await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
 
             msgs = await waiter.wait(timeout=12)
+            self.eq(msgs[0][1]['event'], 'view:merge:vote:set')
+            self.eq(msgs[0][1]['info']['vote']['user'], visi.iden)
+
+            self.eq(msgs[1][1]['event'], 'view:merge:init')
+            self.eq(msgs[1][1]['info']['merge']['creator'], core.auth.rootuser.iden)
+            self.eq(msgs[1][1]['info']['votes'][0]['user'], visi.iden)
+
+            self.eq(msgs[-2][1]['info']['merge']['creator'], core.auth.rootuser.iden)
             self.eq(msgs[-2][1]['event'], 'view:merge:prog')
+            self.eq(msgs[-2][1]['info']['merge']['creator'], core.auth.rootuser.iden)
+            self.eq(msgs[-2][1]['info']['votes'][0]['user'], visi.iden)
+
             self.eq(msgs[-1][1]['event'], 'view:merge:fini')
+            self.eq(msgs[-1][1]['info']['merge']['creator'], core.auth.rootuser.iden)
+            self.eq(msgs[-1][1]['info']['votes'][0]['user'], visi.iden)
 
             # test coverage for bad state for merge request
             fork00 = await core.getView().fork()
