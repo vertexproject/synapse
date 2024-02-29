@@ -44,6 +44,7 @@ from prompt_toolkit.formatted_text import FormattedText
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -886,14 +887,28 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.IsolatedAsyncioTestCase):
+class SynTest(unittest.TestCase):
+    '''
+    Wrap all async test methods with s_glob.sync.
+
+    Note:
+        This precludes running a single unit test via path using the unittest module.
+    '''
     def __init__(self, *args, **kwargs):
-        unittest.IsolatedAsyncioTestCase.__init__(self, *args, **kwargs)
+        unittest.TestCase.__init__(self, *args, **kwargs)
         self._NextBuid = 0
         self._NextGuid = 0
 
-    async def asyncSetUp(self):
-        asyncio.get_running_loop().set_debug(False)
+        def synchelp(f):
+            def wrap(*args, **kwargs):
+                return s_glob.sync(f(*args, **kwargs))
+            return wrap
+
+        for s in dir(self):
+            attr = getattr(self, s, None)
+            # If s is an instance method and starts with 'test_', synchelp wrap it
+            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
+                setattr(self, s, synchelp(attr))
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
