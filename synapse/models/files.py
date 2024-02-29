@@ -256,6 +256,8 @@ class FileModule(s_module.CoreModule):
                             'doc': 'MIME specific lat/long information extracted from metadata.'}),
                         ('altitude', ('geo:altitude', {}), {
                             'doc': 'MIME specific altitude information extracted from metadata.'}),
+                        ('text', ('str', {}), {
+                            'doc': 'The text contained within the image.'}),
                     ),
                     'doc': 'Properties common to image file formats.',
                     'interfaces': ('file:mime:meta',),
