@@ -7539,11 +7539,11 @@ class View(Prim):
                               'desc': 'Yields previously successful merges into the view.'}}},
         {'name': 'updateMergeVoteComment', 'desc': 'Update the comment associated with your vote on a merge request.',
          'type': {'type': 'function', '_funcname': 'updateMergeVoteComment',
-             'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'}),
+             'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
                   'returns': {'type': 'null'}}},
         {'name': 'updateMergeComment', 'desc': 'Update the main comment/description of a merge request.',
          'type': {'type': 'function', '_funcname': 'updateMergeComment',
-             'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}),
+             'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}, ),
                   'returns': {'type': 'null'}}},
     )
     _storm_typename = 'view'
