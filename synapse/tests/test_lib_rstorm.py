@@ -21,10 +21,12 @@ HI
 .. storm-pre:: [ inet:ipv6=0 ]
 .. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
 .. storm:: --hide-props testpkgcmd foo
+.. storm-pre:: inet:ipv6=0 [ +#foo ]
+.. storm:: --hide-props --hide-tags testpkgcmd foo
 .. storm:: --hide-query $lib.print(secret) $lib.print($lib.globals.get(testpkg))
 .. storm:: --hide-query file:bytes
 .. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
-.. storm:: testsvc.test
+.. storm-cli:: testsvc.test
 '''
 
 rst_out = '''
@@ -35,6 +37,11 @@ HI
     storm> $lib.print($bar) $lib.warn(omgomgomg)
     baz
     WARNING: omgomgomg
+
+::
+
+    storm> testpkgcmd foo
+    inet:ipv6=::ffff:0
 
 ::
 
