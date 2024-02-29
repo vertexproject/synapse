@@ -85,38 +85,3 @@ def sync(coro, timeout=None):
     '''
     loop = initloop()
     return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout)
-
-def synchelp(f):
-    '''
-    The synchelp decorator allows the transparent execution of
-    a coroutine using the global loop from a thread other than
-    the event loop.  In both use cases, the actual work is done
-    by the global event loop.
-
-    Examples:
-
-        Use as a decorator::
-
-            @s_glob.synchelp
-            async def stuff(x, y):
-                await dostuff()
-
-        Calling the stuff function as regular async code using the standard await syntax::
-
-            valu = await stuff(x, y)
-
-        Calling the stuff function as regular sync code outside of the event loop thread::
-
-            valu = stuff(x, y)
-
-    '''
-    def wrap(*args, **kwargs):
-
-        coro = f(*args, **kwargs)
-
-        if not iAmLoop():
-            return sync(coro)
-
-        return coro
-
-    return wrap
