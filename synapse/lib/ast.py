@@ -4342,15 +4342,10 @@ class N1Walk(Oper):
             return False
 
         forms = set()
-        formprops = collections.defaultdict(dict)
 
         for destform in destforms:
-            prop = runt.model.prop(destform)
-            if prop is not None:
-                if prop.isform:
-                    forms.add(destform)
-                else:
-                    formprops[prop.form.name][prop.name] = prop
+            if (form := runt.model.form(destform)) is not None:
+                forms.add(destform)
                 continue
 
             formlist = runt.model.reqFormsByLook(destform, extra=self.kids[0].addExcInfo)
@@ -4358,30 +4353,13 @@ class N1Walk(Oper):
 
         if cmpr is None:
             async def destfilt(node, path, cmprvalu):
-                if node.form.full in forms:
-                    return True
-
-                props = formprops.get(node.form.full)
-                if props is not None:
-                    for prop in props:
-                        if node.get(prop) is not None:
-                            return True
-
-                return False
+                return node.form.full in forms
 
             return destfilt
 
         async def destfilt(node, path, cmprvalu):
-
             if node.form.full in forms:
                 return node.form.type.cmpr(node.ndef[1], cmpr, cmprvalu)
-
-            props = formprops.get(node.form.full)
-            if props is not None:
-                for name, prop in props.items():
-                    if (propvalu := node.get(name)) is not None:
-                        if prop.type.cmpr(propvalu, cmpr, cmprvalu):
-                            return True
 
             return False
 

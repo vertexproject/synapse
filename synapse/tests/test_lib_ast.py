@@ -2771,15 +2771,15 @@ class AstTest(s_test.SynTest):
 
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- *'))
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source +:name'))
 
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source=$iden', opts=opts))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name^=wo'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name=woot'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source +:name^=wo'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source +:name=woot'))
 
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source=*'))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name^=vi'))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name=visi'))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source +:name^=vi'))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source +:name=visi'))
 
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (inet:fqdn, inet:ipv4)'))
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (meta:source, inet:fqdn)'))
@@ -2787,7 +2787,7 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('[ inet:ipv4=1.2.3.4 <(seen)+ { [meta:source=*] } ]')
             self.len(2, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source +:name'))
 
     async def test_ast_contexts(self):
         async with self.getTestCore() as core:
