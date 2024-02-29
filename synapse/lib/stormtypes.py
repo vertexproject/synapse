@@ -7539,12 +7539,12 @@ class View(Prim):
                               'desc': 'Yields previously successful merges into the view.'}}},
         {'name': 'updateMergeVoteComment', 'desc': 'Update the comment associated with your vote on a merge request.',
          'type': {'type': 'function', '_funcname': 'updateMergeVoteComment',
-             'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
-                  'returns': {'type': 'null'}}},
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
+                  'returns': {'type': 'dict', 'desc': 'The fully updated vote record.'}}},
         {'name': 'updateMergeComment', 'desc': 'Update the main comment/description of a merge request.',
          'type': {'type': 'function', '_funcname': 'updateMergeComment',
-             'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}, ),
-                  'returns': {'type': 'null'}}},
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}, ),
+                  'returns': {'type': 'dict', 'desc': 'The updated merge request.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7930,7 +7930,6 @@ class View(Prim):
 
     async def updateMergeVoteComment(self, comment):
         view = self._reqView()
-        quorum = view.reqParentQuorum()
 
         return await view.updateMergeVoteComment(self.runt.user.iden, (await tostr(comment)))
 
