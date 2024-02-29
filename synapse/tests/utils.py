@@ -44,7 +44,6 @@ from prompt_toolkit.formatted_text import FormattedText
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -892,6 +891,9 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         unittest.IsolatedAsyncioTestCase.__init__(self, *args, **kwargs)
         self._NextBuid = 0
         self._NextGuid = 0
+
+    async def asyncSetUp(self):
+        asyncio.get_running_loop().set_debug(False)
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
