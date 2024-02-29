@@ -242,7 +242,7 @@ class StormCore(s_base.Base):
             nodes = [m for m in mesgs if m[0] == 'node']
             if len(nodes) != num:
                 raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
-        print(mesgs)
+
         return mesgs
 
 async def getTempCoreProx(mods=None):
