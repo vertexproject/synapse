@@ -193,6 +193,25 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
         return mergeinfo
 
+    async def updateMergeComment(self, comment):
+        self.reqParentQuorum()
+
+        return await self._push('merge:update', s_common.now(), comment)
+
+    @s_nexus.Pusher.onPush('merge:update')
+    async def _updateMergeRequest(self, updated, comment):
+        merge = self.getMergeRequest()
+        if merge is None:
+            return
+
+        merge['updated'] = updated
+        merge['comment'] = comment
+        s_schemas.reqValidMerge(merge)
+        lkey = self.bidn + b'merge:req'
+        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+
+        await self.core.feedBeholder('view:merge:update', {'view': self.iden, 'merge': merge})
+
     async def delMergeRequest(self):
         return await self._push('merge:del')
 
@@ -299,6 +318,25 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.tryToMerge(tick)
 
         return vote
+
+    async def updateMergeVoteComment(self, useriden, comment):
+        return await self._push('merge:vote:update', s_common.now(), useriden, comment)
+
+    @s_nexus.Pusher.onPush('merge:vote:update')
+    async def _updateMergeVote(self, tick, useriden, comment):
+        self.reqParentQuorum()
+
+        uidn = s_common.uhex(useriden)
+
+        lkey = self.bidn + b'merge:vote' + uidn
+        byts = self.core.slab.pop(lkey, db='view:meta')
+
+        if byts is not None:
+            vote = s_msgpack.un(byts)
+            vote['updated'] = tick
+            vote['comment'] = comment
+            self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
+            await self.core.feedBeholder('view:merge:vote:update', {'view': self.iden, 'vote': vote})
 
     async def delMergeVote(self, useriden):
         return await self._push('merge:vote:del', useriden, s_common.now())

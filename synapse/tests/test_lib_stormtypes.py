@@ -6452,14 +6452,19 @@ words\tword\twrd'''
             self.nn(merge['created'])
             self.eq(merge['comment'], 'woot')
             self.eq(merge['creator'], core.auth.rootuser.iden)
+            self.none(merge.get('updated'))
 
             with self.raises(s_exc.AuthDeny):
                 core.getView(fork00).reqValidVoter(root.iden)
 
+            await core.callStorm('$lib.view.get().updateMergeComment("mergin some dataaz")', opts={'view': fork00})
+
             merge = await core.callStorm('return($lib.view.get().getMergeRequest())', opts={'view': fork00})
             self.nn(merge['iden'])
             self.nn(merge['created'])
-            self.eq(merge['comment'], 'woot')
+            self.nn(merge['updated'])
+            self.gt(merge['updated'], merge['created'])
+            self.eq(merge['comment'], 'mergin some dataaz')
             self.eq(merge['creator'], core.auth.rootuser.iden)
 
             with self.raises(s_exc.AuthDeny):
@@ -6479,6 +6484,18 @@ words\tword\twrd'''
             self.eq(vote['user'], visi.iden)
             self.eq(vote['comment'], 'fixyourstuff')
 
+            forkview = core.getView(fork00)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.view.get().updateMergeComment("no wait you cant do that")', opts={'view':fork00, 'user': newp.iden})
+
+            await core.callStorm('$lib.view.get().updateMergeVoteComment("no really, fix your stuff")', opts=opts)
+            votes = [vote async for vote in forkview.getMergeVotes()]
+            self.len(1, votes)
+            self.eq(votes[0]['comment'], 'no really, fix your stuff')
+            self.nn(votes[0]['updated'])
+            self.gt(votes[0]['updated'], votes[0]['created'])
+
             opts = {'user': newp.iden, 'view': fork00}
             vote = await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
             self.nn(vote['offset'])
@@ -6496,8 +6513,6 @@ words\tword\twrd'''
             with self.raises(s_exc.AuthDeny):
                 opts = {'user': newp.iden, 'view': fork00, 'vars': {'visi': visi.iden}}
                 await core.callStorm('return($lib.view.get().delMergeVote(useriden=$visi))', opts=opts)
-
-            forkview = core.getView(fork00)
 
             # removing the last veto triggers the merge
             opts = {'user': visi.iden, 'view': fork00}
