@@ -6,6 +6,53 @@
 Synapse Changelog
 *****************
 
+v2.164.0 - 2024-03-01
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the Beholder messages ``view:merge:init``, ``view:merge:prog``, and
+  ``view:merge:fini`` to add ``merge`` and ``vote`` information.
+  (`#3580 <https://github.com/vertexproject/synapse/pull/3580>`_)
+- When optimizing Storm lift operations, skip lifts that would be fully
+  filtered out.
+  (`#3582 <https://github.com/vertexproject/synapse/pull/3582>`_)
+- Add ``tmpdir`` information to the ``getSystemInfo()`` APIs. This is the
+  directory that the service would use for creating any temporary files.
+  (`#3583 <https://github.com/vertexproject/synapse/pull/3583>`_)
+- Update the ``synapse.tools.modrole`` tool to add a ``--del`` option to
+  delete a role.
+  (`#3586 <https://github.com/vertexproject/synapse/pull/3586>`_)
+- Add the ``reporter`` `ou:org`` to ``ou:campaign`` nodes generated with
+  ``gen.ou.campaign``
+  (`#3594 <https://github.com/vertexproject/synapse/pull/3594>`_)
+- The ``synapse.lib.certdir.CertDir`` class has been update to use the
+  ``cryptography`` APIs instead of the ``PyOpenSSL`` APIs where possible.
+  The ``CertDir`` apis no longer return ``PyOpenSSL`` objects, and now
+  return ``cryptography`` related objects.
+  (`#3568 <https://github.com/vertexproject/synapse/pull/3568>`_)
+- Update the ``cryptography`` and ``PyOpenSSL`` libraries to require their
+  latest versions.
+  (`#3568 <https://github.com/vertexproject/synapse/pull/3568>`_)
+
+Bugfixes
+--------
+- Model interfaces now populated properties for the sub-interfaces.
+  (`#3582 <https://github.com/vertexproject/synapse/pull/3582>`_)
+- Use ``tostr`` on property and form names when computing lifts and pivots
+  to avoid a Python ``AttributeError`` exception. Invalid types will now
+  raise a ``StormRuntimeException``.
+  (`#3584 <https://github.com/vertexproject/synapse/pull/3584>`_)
+
+Deprecations
+------------
+- The tool ``synapse.tools.cellauth`` has been marked as deprecated and will
+  be removed in ``v3.0.0``.
+  (`#3587 <https://github.com/vertexproject/synapse/pull/3587>`_)
+- The tool ``synapse.tools.cmdr`` has been marked as deprecated and will
+  be removed in ``v3.0.0``.
+  (`#3589 <https://github.com/vertexproject/synapse/pull/3589>`_)
+
 v2.163.0 - 2024-02-21
 =====================
 
