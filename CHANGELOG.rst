@@ -23,12 +23,12 @@ Features and Enhancements
 - Update the ``synapse.tools.modrole`` tool to add a ``--del`` option to
   delete a role.
   (`#3586 <https://github.com/vertexproject/synapse/pull/3586>`_)
-- Add the ``reporter`` `ou:org`` to ``ou:campaign`` nodes generated with
+- Add the ``reporter`` ``ou:org`` to ``ou:campaign`` nodes generated with
   ``gen.ou.campaign``
   (`#3594 <https://github.com/vertexproject/synapse/pull/3594>`_)
-- The ``synapse.lib.certdir.CertDir`` class has been update to use the
+- The ``synapse.lib.certdir.CertDir`` class has been updated to use the
   ``cryptography`` APIs instead of the ``PyOpenSSL`` APIs where possible.
-  The ``CertDir`` apis no longer return ``PyOpenSSL`` objects, and now
+  The ``CertDir`` APIs no longer return ``PyOpenSSL`` objects, and now
   return ``cryptography`` related objects.
   (`#3568 <https://github.com/vertexproject/synapse/pull/3568>`_)
 - Update the ``cryptography`` and ``PyOpenSSL`` libraries to require their
@@ -37,7 +37,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Model interfaces now populated properties for the sub-interfaces.
+- Model interfaces now populate properties for the sub-interfaces.
   (`#3582 <https://github.com/vertexproject/synapse/pull/3582>`_)
 - Use ``tostr`` on property and form names when computing lifts and pivots
   to avoid a Python ``AttributeError`` exception. Invalid types will now
