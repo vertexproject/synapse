@@ -2003,7 +2003,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.onfini(self.v3stor.fini)
 
-        self.verbabrv = self.v3stor.getNameAbrv('verbabrv')
         self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
 
         self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
@@ -2070,19 +2069,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getAbrvIndx(self, abrv):
         byts = self.indxabrv.abrvToByts(abrv)
         return s_msgpack.un(byts[2:])
-
-    @s_cache.memoizemethod()
-    def getVerbAbrv(self, verb):
-        return self.verbabrv.bytsToAbrv(verb.encode())
-
-    @s_cache.memoizemethod()
-    def setVerbAbrv(self, verb):
-        return self.verbabrv.setBytsToAbrv(verb.encode())
-
-    @s_cache.memoizemethod()
-    def getAbrvVerb(self, abrv):
-        byts = self.verbabrv.abrvToByts(abrv)
-        return byts.decode()
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
