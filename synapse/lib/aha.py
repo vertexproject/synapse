@@ -5,6 +5,8 @@ import asyncio
 import logging
 import collections
 
+import cryptography.x509 as c_x509
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.daemon as s_daemon
@@ -379,8 +381,9 @@ class EnrollApi:
         username = f'{ahauser}@{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != username:
-            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != username:
+            mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
@@ -407,8 +410,9 @@ class ProvApi:
         hostname = f'{ahaname}.{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != hostname:
-            mesg = f'Invalid host CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != hostname:
+            mesg = f'Invalid host CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
 
         pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw, save=False)
@@ -422,8 +426,9 @@ class ProvApi:
         username = f'{ahauser}@{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != username:
-            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != username:
+            mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
@@ -938,7 +943,7 @@ class AhaCell(s_cell.Cell):
     async def signHostCsr(self, csrtext, signas=None, sans=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
-        hostname = xcsr.get_subject().CN
+        hostname = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         hostpath = s_common.genpath(self.dirn, 'certs', 'hosts', f'{hostname}.crt')
         if os.path.isfile(hostpath):
@@ -957,7 +962,7 @@ class AhaCell(s_cell.Cell):
     async def signUserCsr(self, csrtext, signas=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
-        username = xcsr.get_subject().CN
+        username = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         userpath = s_common.genpath(self.dirn, 'certs', 'users', f'{username}.crt')
         if os.path.isfile(userpath):
