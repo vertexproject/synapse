@@ -6486,6 +6486,9 @@ words\tword\twrd'''
 
             forkview = core.getView(fork00)
 
+            vote = await core.callStorm('return($lib.view.get().updateMergeVoteComment("wait that doesnt exist"))', opts={'view': fork00, 'user': newp.iden})
+            self.none(vote)
+
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.view.get().updateMergeComment("no wait you cant do that")', opts={'view': fork00, 'user': newp.iden})
 
