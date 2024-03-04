@@ -333,17 +333,17 @@ class View(s_nexus.Pusher):  # type: ignore
         lkey = self.bidn + b'merge:vote' + uidn
         byts = self.core.slab.pop(lkey, db='view:meta')
 
-        if byts is not None:
-            vote = s_msgpack.un(byts)
-            vote['updated'] = tick
-            vote['comment'] = comment
-            self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
-            await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
-
-            return vote
-        else:
+        if byts is None:
             mesg = 'Cannot set the comment for a vote that does not exist.'
             raise s_exc.BadState(mesg=mesg)
+
+        vote = s_msgpack.un(byts)
+        vote['updated'] = tick
+        vote['comment'] = comment
+        self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
+        await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
+
+        return vote
 
     async def delMergeVote(self, useriden):
         return await self._push('merge:vote:del', useriden, s_common.now())
