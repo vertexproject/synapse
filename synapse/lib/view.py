@@ -193,15 +193,16 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
         return mergeinfo
 
-    async def updateMergeComment(self, comment):
+    async def setMergeComment(self, comment):
         return await self._push('merge:update:comment', s_common.now(), comment)
 
     @s_nexus.Pusher.onPush('merge:update:comment')
-    async def _updateMergeRequest(self, updated, comment):
+    async def _setMergeRequestComment(self, updated, comment):
         self.reqParentQuorum()
         merge = self.getMergeRequest()
         if merge is None:
-            return
+            mesg = 'Cannot set the comment of a merge request that does not exist.'
+            raise s_exc.BadState(mesg=mesg)
 
         merge['updated'] = updated
         merge['comment'] = comment
@@ -320,11 +321,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return vote
 
-    async def updateMergeVoteComment(self, useriden, comment):
+    async def setMergeVoteComment(self, useriden, comment):
         return await self._push('merge:vote:update:comment', s_common.now(), useriden, comment)
 
     @s_nexus.Pusher.onPush('merge:vote:update:comment')
-    async def _updateMergeVote(self, tick, useriden, comment):
+    async def _setMergeVoteComment(self, tick, useriden, comment):
         self.reqParentQuorum()
 
         uidn = s_common.uhex(useriden)
@@ -340,6 +341,9 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.core.feedBeholder('view:merge:vote:update', {'view': self.iden, 'vote': vote})
 
             return vote
+        else:
+            mesg = 'Cannot set the comment for a vote that does not exist.'
+            raise s_exc.BadState(mesg=mesg)
 
     async def delMergeVote(self, useriden):
         return await self._push('merge:vote:del', useriden, s_common.now())

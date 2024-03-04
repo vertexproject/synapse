@@ -6432,6 +6432,9 @@ words\tword\twrd'''
 
             fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
 
+            with self.raises(s_exc.BadState):
+                await core.callStorm('$lib.view.get().setMergeComment("that doesnt exist")', opts={'user': root.iden, 'view': fork00})
+
             msgs = await core.stormlist('[ inet:fqdn=vertex.link ]', opts={'view': fork00})
             self.stormHasNoWarnErr(msgs)
 
@@ -6457,7 +6460,7 @@ words\tword\twrd'''
             with self.raises(s_exc.AuthDeny):
                 core.getView(fork00).reqValidVoter(root.iden)
 
-            await core.callStorm('$lib.view.get().updateMergeComment("mergin some dataaz")', opts={'view': fork00})
+            await core.callStorm('$lib.view.get().setMergeComment("mergin some dataaz")', opts={'view': fork00})
 
             merge = await core.callStorm('return($lib.view.get().getMergeRequest())', opts={'view': fork00})
             self.nn(merge['iden'])
@@ -6486,13 +6489,13 @@ words\tword\twrd'''
 
             forkview = core.getView(fork00)
 
-            vote = await core.callStorm('return($lib.view.get().updateMergeVoteComment("wait that doesnt exist"))', opts={'view': fork00, 'user': newp.iden})
-            self.none(vote)
+            with self.raises(s_exc.BadState):
+                await core.callStorm('$lib.view.get().setMergeVoteComment("wait that doesnt exist")', opts={'view': fork00, 'user': newp.iden})
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('$lib.view.get().updateMergeComment("no wait you cant do that")', opts={'view': fork00, 'user': newp.iden})
+                await core.callStorm('$lib.view.get().setMergeComment("no wait you cant do that")', opts={'view': fork00, 'user': newp.iden})
 
-            await core.callStorm('$lib.view.get().updateMergeVoteComment("no really, fix your stuff")', opts=opts)
+            await core.callStorm('$lib.view.get().setMergeVoteComment("no really, fix your stuff")', opts=opts)
             votes = [vote async for vote in forkview.getMergeVotes()]
             self.len(1, votes)
             self.eq(votes[0]['comment'], 'no really, fix your stuff')

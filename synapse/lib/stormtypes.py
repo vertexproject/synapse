@@ -7537,12 +7537,12 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
-        {'name': 'updateMergeVoteComment', 'desc': 'Update the comment associated with your vote on a merge request.',
-         'type': {'type': 'function', '_funcname': 'updateMergeVoteComment',
+        {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
                   'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
                   'returns': {'type': 'dict', 'desc': 'The fully updated vote record.'}}},
-        {'name': 'updateMergeComment', 'desc': 'Update the main comment/description of a merge request.',
-         'type': {'type': 'function', '_funcname': 'updateMergeComment',
+        {'name': 'setMergeComment', 'desc': 'Set the main comment/description of a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeComment',
                   'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}, ),
                   'returns': {'type': 'dict', 'desc': 'The updated merge request.'}}},
     )
@@ -7585,12 +7585,12 @@ class View(Prim):
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
             'setMergeVote': self.setMergeVote,
-            'updateMergeVoteComment': self.updateMergeVoteComment,
+            'setMergeVoteComment': self.setMergeVoteComment,
             'getMergeRequest': self.getMergeRequest,
             'getMergeRequestSummary': self.getMergeRequestSummary,
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
-            'updateMergeComment': self.updateMergeComment,
+            'setMergeComment': self.setMergeComment,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7898,7 +7898,7 @@ class View(Prim):
 
         return await view.setMergeRequest(mreq)
 
-    async def updateMergeComment(self, comment):
+    async def setMergeComment(self, comment):
         view = self._reqView()
         quorum = view.reqParentQuorum()
 
@@ -7906,7 +7906,7 @@ class View(Prim):
             mesg = 'Editing a merge request requires admin permissions on the view.'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        return await view.updateMergeComment((await tostr(comment)))
+        return await view.setMergeComment((await tostr(comment)))
 
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
@@ -7928,10 +7928,10 @@ class View(Prim):
 
         return await view.setMergeVote(vote)
 
-    async def updateMergeVoteComment(self, comment):
+    async def setMergeVoteComment(self, comment):
         view = self._reqView()
 
-        return await view.updateMergeVoteComment(self.runt.user.iden, (await tostr(comment)))
+        return await view.setMergeVoteComment(self.runt.user.iden, (await tostr(comment)))
 
     async def delMergeVote(self, useriden=None):
         view = self._reqView()
