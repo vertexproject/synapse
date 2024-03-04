@@ -194,9 +194,9 @@ class View(s_nexus.Pusher):  # type: ignore
         return mergeinfo
 
     async def setMergeComment(self, comment):
-        return await self._push('merge:update:comment', s_common.now(), comment)
+        return await self._push('merge:set:comment', s_common.now(), comment)
 
-    @s_nexus.Pusher.onPush('merge:update:comment')
+    @s_nexus.Pusher.onPush('merge:set:comment')
     async def _setMergeRequestComment(self, updated, comment):
         self.reqParentQuorum()
         merge = self.getMergeRequest()
@@ -210,7 +210,7 @@ class View(s_nexus.Pusher):  # type: ignore
         lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
 
-        await self.core.feedBeholder('view:merge:update', {'view': self.iden, 'merge': merge})
+        await self.core.feedBeholder('view:merge:set', {'view': self.iden, 'merge': merge})
 
         return merge
 
@@ -322,9 +322,9 @@ class View(s_nexus.Pusher):  # type: ignore
         return vote
 
     async def setMergeVoteComment(self, useriden, comment):
-        return await self._push('merge:vote:update:comment', s_common.now(), useriden, comment)
+        return await self._push('merge:vote:set:comment', s_common.now(), useriden, comment)
 
-    @s_nexus.Pusher.onPush('merge:vote:update:comment')
+    @s_nexus.Pusher.onPush('merge:vote:set:comment')
     async def _setMergeVoteComment(self, tick, useriden, comment):
         self.reqParentQuorum()
 
@@ -338,7 +338,7 @@ class View(s_nexus.Pusher):  # type: ignore
             vote['updated'] = tick
             vote['comment'] = comment
             self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
-            await self.core.feedBeholder('view:merge:vote:update', {'view': self.iden, 'vote': vote})
+            await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
 
             return vote
         else:
