@@ -433,7 +433,7 @@ stormcmds = (
     },
     {
         'name': 'gen.ou.campaign',
-        'descr': 'Lift or create an ou:campaign based on the name and reporting organization.',
+        'descr': 'Lift (or create) an ou:campaign based on the name and reporting organization.',
         'cmdargs': (
             ('name', {'help': 'The name of the campaign.'}),
             ('reporter', {'help': 'The name of the reporting organization.'}),
