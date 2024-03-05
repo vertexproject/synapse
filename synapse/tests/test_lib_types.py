@@ -6,6 +6,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.time as s_time
 import synapse.lib.const as s_const
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -248,6 +249,9 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.norm('0'), (0, {}))
         self.eq(t.norm('1'), (1, {}))
 
+        self.eq(t.norm(s_stormtypes.Number('1')), (1, {}))
+        self.eq(t.norm(s_stormtypes.Number('0')), (0, {}))
+
         for s in ('trUe', 'T', 'y', ' YES', 'On '):
             self.eq(t.norm(s), (1, {}))
 
@@ -486,6 +490,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.norm(True)[0], 1)
         self.eq(t.norm(False)[0], 0)
         self.eq(t.norm(decimal.Decimal('1.0'))[0], 1)
+        self.eq(t.norm(s_stormtypes.Number('1.0'))[0], 1)
 
         # Test merge
         self.eq(30, t.merge(20, 30))
@@ -572,6 +577,7 @@ class TypesTest(s_t_utils.SynTest):
         self.true(math.isnan(t.norm('NaN')[0]))
         self.eq(t.norm('-0.0')[0], -0.0)
         self.eq(t.norm('42')[0], 42.0)
+        self.eq(t.norm(s_stormtypes.Number('1.23'))[0], 1.23)
         minmax = model.type('float').clone({'min': -10.0, 'max': 100.0, 'maxisvalid': True, 'minisvalid': False})
         self.raises(s_exc.BadTypeValu, minmax.norm, 'NaN')
         self.raises(s_exc.BadTypeValu, minmax.norm, '-inf')
@@ -621,6 +627,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq((0, 5356800000), ival.norm((0, '1970-03-04'))[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
+        self.eq((1451606400000, 1451606400001), ival.norm(s_stormtypes.Number(1451606400000))[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1483228800000), ival.norm(('2016', '  2017'))[0])
         self.eq((1451606400000, 1483228800000), ival.norm(('2016-01-01', '  2017'))[0])
@@ -1077,6 +1084,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('1234567891.1234567', flt.norm(1234567890.123456790123456790123456789 + 1)[0])
         self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789 + 0.0000000001)[0])
         self.eq('2.718281828459045', flt.norm(2.718281828459045)[0])
+        self.eq('1.23', flt.norm(s_stormtypes.Number(1.23))[0])
 
     def test_syntag(self):
 
