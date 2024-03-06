@@ -1570,7 +1570,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The sending server FQDN, potentially from the Received: header.'}),
 
                         ('flow', ('inet:flow', {}), {
-                            'doc': 'The raw inet:flow representing the delivery of the email message.'}),
+                            'doc': 'The inet:flow which delivered the message.'}),
 
                     )),
 
