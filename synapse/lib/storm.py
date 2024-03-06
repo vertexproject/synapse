@@ -6050,7 +6050,7 @@ class StormPoolGetCmd(Cmd):
 
         item = await self.runt.snap.core.getStormPool()
         if item is None:
-            await self.runt.printf('No storm pool configuration found.')
+            await self.runt.printf('No Storm pool configuration found.')
             return
 
         url, opts = item
