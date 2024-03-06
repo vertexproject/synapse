@@ -8067,7 +8067,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    # test that it reverts to local when referencing self
+                    self.notin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
 
                     waiter = core01.stormpool.waiter(1, 'svc:del')

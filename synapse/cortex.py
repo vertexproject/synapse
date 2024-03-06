@@ -5338,6 +5338,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             timeout = self.stormpoolopts.get('conntimeout')
             proxy = await self.stormpool.proxy(timeout=timeout)
+            proxyname = proxy._ahainfo.get('name')
+            if proxyname is not None and proxyname == self.ahasvcname:
+                # we are part of the pool and were selected. Convert to local use.
+                return None
         except (TimeoutError, s_exc.IsFini):
             mesg = 'Unable to get proxy for query mirror, running locally instead.'
             logger.warning(mesg)
