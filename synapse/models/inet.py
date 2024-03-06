@@ -1569,6 +1569,9 @@ class InetModule(s_module.CoreModule):
                         ('received:from:fqdn', ('inet:fqdn', {}), {
                             'doc': 'The sending server FQDN, potentially from the Received: header.'}),
 
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The raw inet:flow containing the delivery of the email message.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
