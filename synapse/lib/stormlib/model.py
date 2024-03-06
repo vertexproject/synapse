@@ -329,6 +329,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methType(self, name):
+        name = await s_stormtypes.tostr(name)
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
@@ -336,6 +337,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methProp(self, name):
+        name = await s_stormtypes.tostr(name)
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
@@ -343,6 +345,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methForm(self, name):
+        name = await s_stormtypes.tostr(name)
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
@@ -350,6 +353,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoize(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methTagProp(self, name):
+        name = await s_stormtypes.tostr(name)
         tagprop = self.model.getTagProp(name)
         if tagprop is not None:
             return ModelTagProp(tagprop)
@@ -394,7 +398,8 @@ class ModelForm(s_stormtypes.Prim):
         return ModelType(self.valu.type, path=path)
 
     @s_stormtypes.stormfunc(readonly=True)
-    def _getFormProp(self, name):
+    async def _getFormProp(self, name):
+        name = await s_stormtypes.tostr(name)
         prop = self.valu.prop(name)
         if prop is not None:
             return ModelProp(prop)
