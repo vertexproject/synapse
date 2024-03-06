@@ -7537,6 +7537,14 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
+        {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
+                  'returns': {'type': 'dict', 'desc': 'The fully updated vote record.'}}},
+        {'name': 'setMergeComment', 'desc': 'Set the main comment/description of a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeComment',
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}, ),
+                  'returns': {'type': 'dict', 'desc': 'The updated merge request.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7577,10 +7585,12 @@ class View(Prim):
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
             'setMergeVote': self.setMergeVote,
+            'setMergeVoteComment': self.setMergeVoteComment,
             'getMergeRequest': self.getMergeRequest,
             'getMergeRequestSummary': self.getMergeRequestSummary,
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
+            'setMergeComment': self.setMergeComment,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7888,6 +7898,16 @@ class View(Prim):
 
         return await view.setMergeRequest(mreq)
 
+    async def setMergeComment(self, comment):
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Editing a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        return await view.setMergeComment((await tostr(comment)))
+
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
         quorum = view.reqParentQuorum()
@@ -7907,6 +7927,11 @@ class View(Prim):
             vote['comment'] = await tostr(comment)
 
         return await view.setMergeVote(vote)
+
+    async def setMergeVoteComment(self, comment):
+        view = self._reqView()
+
+        return await view.setMergeVoteComment(self.runt.user.iden, (await tostr(comment)))
 
     async def delMergeVote(self, useriden=None):
         view = self._reqView()
