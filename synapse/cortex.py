@@ -1528,6 +1528,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.finiStormPool()
         self.slab.pop(b'storm:pool', db='cell:conf')
 
+        if self.isactive:
+            await self.finiStormPool()
+
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
 
