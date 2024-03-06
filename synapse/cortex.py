@@ -1511,9 +1511,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('storm:pool:set')
     async def setStormPool(self, url, opts):
 
-        self.stormpoolurl = url
-        self.stormpoolopts = opts
-
         s_schemas.reqValidStormPoolOpts(opts)
 
         info = (url, opts)
