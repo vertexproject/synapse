@@ -182,6 +182,42 @@ include a :ref:`datamigration` while it comes back online::
 
     Once a Synapse service update has been deployed, you may **NOT** revert to a previous version!
 
+.. _devops-task-storm-pool:
+
+Configure a Storm Query Pool
+----------------------------
+
+.. note::
+    We will be using AHA relative service names which end with ``...`` which will be automatically converted
+    to use the configured AHA network.
+
+A ``Cortex`` may be configured to use a pool of mirrors in order to offload ``Storm`` query load and distribute
+query load among a configurable group of mirrors. We will assume you have configured two additional mirrors named
+``01.cortex...`` and ``02.cortex...`` using the process described in the _FIXME Deploying a Cortex Mirror section
+of the FIXME Deployment guide. In our example, we will also assume that the mirrors will be used for both query
+parallelism and for graceful promotions to minimize downtime during uprades and optimization.
+
+To begin the process, use the ``Storm`` command ``aha.pool.add`` to create a new AHA pool::
+
+    aha.pool.add pool00.cortex...
+
+Then add the ``Cortex`` leader as well as the two mirrors to the pool::
+
+    aha.pool.svc.add pool00.cortex... 00.cortex...
+    aha.pool.svc.add pool00.cortex... 01.cortex...
+    aha.pool.svc.add pool00.cortex... 02.cortex...
+
+Then configure the ``Cortex`` to use the newly created AHA service pool::
+
+    storm.pool.set aha://pool00.cortex...
+
+Now your ``Cortex`` will distribute ``Storm`` queries across the available mirrors. You may add or remove mirrors
+from the pool at any time using the ``aha.pool.svc.add`` and ``aha.pool.svc.del`` commands and the pool topology
+updates will be automatically sent. You may want to review some of the command options to adjust timeouts for your
+environment.
+
+If you wish to remove the pool configuration from the ``Cortex`` you may use the ``storm.pool.del`` command.
+
 .. _datamigration:
 
 Data Migration

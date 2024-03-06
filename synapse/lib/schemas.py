@@ -93,6 +93,7 @@ _CronJobSchema = {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
+        'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
         'incunit': {
             'oneOf': [
@@ -273,3 +274,14 @@ reqValidSslCtxOpts = s_config.getJsValidator({
     },
     'additionalProperties': False,
 })
+
+_stormPoolOptsSchema = {
+    'type': 'object',
+    'properties': {
+        'timeout:sync': {'type': 'integer', 'minimum': 1},
+        'timeout:connection': {'type': 'integer', 'minimum': 1},
+
+    },
+    'additionalProperties': False,
+}
+reqValidStormPoolOpts = s_config.getJsValidator(_stormPoolOptsSchema)

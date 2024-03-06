@@ -5971,3 +5971,90 @@ class IntersectCmd(Cmd):
                         path = runt.initPath(node)
                         path.vars.update(pathvars.get(buid))
                         yield (node, path)
+
+class StormPoolSetCmd(Cmd):
+    '''
+    Setup a Storm query offload mirror pool for the Cortex.
+    '''
+    name = 'storm.pool.set'
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--connection-timeout', type='int', default=2,
+            help='The maxiumem amount of time to wait for a connection from the pool to become available.')
+        pars.add_argument('--sync-timeout', type='int', default=2,
+            help='The maxiumem amount of time to wait for a connection from the pool to become available.')
+        pars.add_argument('url', type='str', required=True, help='The telepath URL for the AHA service pool. Use $lib.null to unset.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe: # pragma: no cover
+            mesg = 'storm.pool.set arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        if not self.runt.isAdmin(): # pragma: no cover
+            mesg = 'storm.pool.set command requires global admin permissions.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        async for node, path in genr:
+            yield node, path
+
+        opts = {
+            'timeout:sync': self.opts.sync_timeout,
+            'timeout:connection': self.opts.connection_timeout,
+        }
+
+        await self.runt.snap.core.setStormPool(self.opts.url, opts)
+        await self.runt.printf('Storm pool configuration set.')
+
+class StormPoolDelCmd(Cmd):
+    '''
+    Remove a Storm query offload mirror pool configuration.
+    '''
+    name = 'storm.pool.del'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runt.isAdmin(): # pragma: no cover
+            mesg = 'storm.pool.del command requires global admin permissions.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        async for node, path in genr:
+            yield node, path
+
+        await self.runt.snap.core.delStormPool()
+        await self.runt.printf('Storm pool configuration removed.')
+
+class StormPoolGetCmd(Cmd):
+    '''
+    Display the current storm pool configuration.
+    '''
+    name = 'storm.pool.get'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runt.isAdmin(): # pragma: no cover
+            mesg = 'storm.pool.get command requires global admin permissions.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        async for node, path in genr:
+            yield node, path
+
+        item = await self.runt.snap.core.getStormPool()
+        if item is None:
+            await self.runt.printf('No storm pool configuration found.')
+            return
+
+        url, opts = item
+
+        await self.runt.printf(f'Storm Pool URL: {url}')
+        await self.runt.printf(f'Sync Timeout (secs): {opts.get("timeout:sync")}')
+        await self.runt.printf(f'Connection Timeout (secs): {opts.get("timeout:connection")}')
