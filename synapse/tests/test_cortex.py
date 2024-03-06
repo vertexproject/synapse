@@ -7926,7 +7926,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await core00.stormlist('storm.pool.get')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('No storm pool configuration found.', msgs)
+                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
@@ -8107,7 +8107,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await core00.stormlist('storm.pool.get')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('No storm pool configuration found.', msgs)
+                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
 
                     msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
                     self.len(1, [m for m in msgs if m[0] == 'node'])
