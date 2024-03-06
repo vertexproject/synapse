@@ -225,6 +225,11 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'required': ['cert', 'sign'],
         },
+        # TODO: Remove me after Synapse 3.0.0.
+        'synapse_minversion': {
+            'type': ['array', 'null'],
+            'items': {'type': 'number'}
+        },
         'synapse_version': {
             'type': 'string',
         },
