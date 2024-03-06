@@ -5982,7 +5982,7 @@ class StormPoolSetCmd(Cmd):
         pars.add_argument('--connection-timeout', type='int', default=2,
             help='The maximum amount of time to wait for a connection from the pool to become available.')
         pars.add_argument('--sync-timeout', type='int', default=2,
-            help='The maxiumem amount of time to wait for a connection from the pool to become available.')
+            help='The maximum amount of time to wait for the mirror to be in sync with the leader')
         pars.add_argument('url', type='str', required=True, help='The telepath URL for the AHA service pool. Use $lib.null to unset.')
         return pars
 
