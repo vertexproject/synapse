@@ -6031,7 +6031,7 @@ class StormPoolDelCmd(Cmd):
 
 class StormPoolGetCmd(Cmd):
     '''
-    Display the current storm pool configuration.
+    Display the current Storm query offload mirror pool configuration.
     '''
     name = 'storm.pool.get'
 
