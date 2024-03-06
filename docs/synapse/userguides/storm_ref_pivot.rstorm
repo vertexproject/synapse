@@ -551,7 +551,8 @@ When pivoting from a secondary property of a set of source nodes to target nodes
 property (e.g., from the ``:ipv4`` property of a set of DNS A nodes to a set of network flow nodes with
 the same IPv4 as a ``:dst:ipv4`` property), the target can be:
 
-- a form name and property name; or
+- a form name and property name;
+- a list of form and property names; or
 - an interface name and property name.
 
 You must use explicit syntax to specify both the source and target properties.
@@ -591,6 +592,15 @@ You must use explicit syntax to specify both the source and target properties.
 ::
   
   <inet:dns:request nodes> :exe -> it:host:activity:exe
+
+*Pivot from a set of DNS A records (inet:dns:a nodes) to any network flows (inet:flow) or service banners (inet:banner) associated with the IPs:*
+
+.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :dst:ipv4=8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
+.. storm-pre:: inet:dns:a :ipv4 -> ( inet:flow:dst:ipv4, inet:banner:server:ipv4 )
+
+::
+  
+  <inet:dns:a nodes> -> ( inet:flow:dst:ipv4, inet:banner:server:ipv4 )
 
 
 .. _pivot-in:
@@ -1302,6 +1312,9 @@ by convention. In contrast, the traversal operator can "point" in either directi
 Unless otherwise specified, the target ( *<target>* ) of an edge traversal can be:
 
 - a form name (e.g., ``hash:md5`` );
+- a form name, comparison operator, and value (e.g., a primary property value, such as ``inet:fqdn~=news``);
+- a form and property name (e.g., ``inet:url:fqdn``);
+- a form and property name, comparison operator, and value (e.g., a secondary property value, such as ``risk:tool:software:used@=(2018, 2022)``)
 - a partial form name (wildcard match, e.g., ``hash:*``);
 - an interface name (e.g., ``it:host:activity``);
 - a list of form names (e.g., ``( hash:sha256, file:bytes )``); or
@@ -1309,14 +1322,15 @@ Unless otherwise specified, the target ( *<target>* ) of an edge traversal can b
 
 .. NOTE::
   
-  You cannot specify property **values** in traversal operations. For example, the following is invalid:
+  The ability to specify a secondary property **and value** is supported in Synapse 2.x.x, but will be removed in 3.x.x.
+  You can obtain the same result by traversing to a form and property name, and then filtering on the value. For example,
+  the following Storm queries are equivalent:
   
-  ``media:news -(refs)> inet:fqdn=woot.com``
+  ``media:news -(refs)> inet:url:fqdn~=justice.gov``
   
-  If you want to traverse to a specific node or subset of nodes, you must navigate to the target forms, and
-  then filter your results based on the property value(s) you are interested in:
+  and
   
-  ``media:news -(refs)> inet:fqdn +inet:fqdn=woot.com``
+  ``media:news -(refs)> inet:url:fqdn +:fqdn~=justice.gov``
 
 
 .. _walk-single-edge:
@@ -1444,8 +1458,8 @@ Use the wildcard (asterisk) character ( ``*`` ) to traverse any edges present in
   risk:vuln <(*)- *
 
 Vertex Project conventions can link ``risk:vuln`` nodes to things that have the vulnerability ( via ``<(has)-``
-edges) or things that use the vulnerability ( via ``<(uses)-`` edges - e.g., a threat cluster (``risk:threat``),
-a file (``file:bytes``) that makes use of an exploit for the vulnerability, etc.
+edges) or things that use the vulnerability ( via ``<(uses)-`` edges - e.g., a threat cluster (``risk:threat``)
+or a file (``file:bytes``) that makes use of an exploit for the vulnerability, etc.).
 
 
 .. _storm-pivot-traverse:
