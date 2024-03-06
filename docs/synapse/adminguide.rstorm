@@ -1513,6 +1513,14 @@ ready for future model updates.
 Configure a Mirrored Layer
 ==========================
 
+.. note::
+
+    Mirrored layers are deprecated in 2.x and will be removed in 3.0.0. The `layer.pull.add`_
+    and `layer.push.add`_ commands can be used to configure streaming edits to/from 
+    layers in a separate Cortex.
+
+Once a mirrored layer is configured, it will need to stream down the entire history of events from the upstream
+layer.  During this process, the layer will be readable but writes will hang due to needing to await the write-back
 A Cortex may be configured to mirror a layer from a remote Cortex which will synchronize all edits from the
 remote layer and use write-back support to facilitate edits originating from the downstream layer. The mirrored
 layer will be an exact copy of the layer on the remote system including all edit history and will only allow
@@ -1555,6 +1563,8 @@ you may track progress by calling the ``getMirrorStatus()`` API on the ``layer``
 .. _`Docker containers`: https://www.docker.com/resources/what-container/
 
 .. _`$lib.macro.grant`: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-macro-grant-name-scope-iden-level
+.. _`layer.pull.add`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#layer-pull-add
+.. _`layer.push.add`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#layer-push-add
 .. _`Power-Up documentation`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _`Rapid Power-Ups`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups/rapid_power_ups.html
 .. _`Optic Deployment Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/deploymentguide.html

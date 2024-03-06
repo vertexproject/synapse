@@ -39,3 +39,23 @@ class ModRoleTest(s_test.SynTest):
             visi = await core.auth.getRoleByName('visi')
             self.true(bool(visi.allowed('foo.bar.gaz'.split('.'))))
             self.false(bool(visi.allowed('foo.bar.baz'.split('.'))))
+
+            argv = (
+                '--svcurl', svcurl,
+                '--add',
+                '--del',
+                'visi',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_modrole.main(argv, outp=outp))
+            self.isin('ERROR: Cannot specify --add and --del together.', str(outp))
+
+            argv = (
+                '--svcurl', svcurl,
+                '--del',
+                'visi',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_modrole.main(argv, outp=outp))
+            self.isin('...deleting role: visi', str(outp))
+            self.none(await core.auth.getRoleByName('visi'))

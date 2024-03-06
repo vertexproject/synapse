@@ -2451,7 +2451,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.BadPkgDef(mesg=mesg)
 
             try:
-                cert = self.certdir.loadCertByts(certbyts)
+                cert = self.certdir.loadCertByts(certbyts.encode('utf-8'))
             except s_exc.BadCertBytes as e:
                 raise s_exc.BadPkgDef(mesg='Storm package has malformed certificate!') from None
 
@@ -2465,7 +2465,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     mesg = 'Storm package has invalid certificate!'
                 raise s_exc.BadPkgDef(mesg=mesg) from None
 
-            pubk = s_rsa.PubKey(cert.get_pubkey().to_cryptography_key())
+            pubk = s_rsa.PubKey(cert.public_key())
             if not pubk.verifyitem(pkgcopy, s_common.uhex(signbyts)):
                 mesg = 'Storm package signature does not match!'
                 raise s_exc.BadPkgDef(mesg=mesg)
@@ -3878,6 +3878,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             proxyurl = self.conf.get('http:proxy')
             if proxyurl is not None:
                 conf['http:proxy'] = proxyurl
+
+            cadir = self.conf.get('tls:ca:dir')
+            if cadir is not None:
+                conf['tls:ca:dir'] = cadir
 
             self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
             self.axoninfo = await self.axon.getCellInfo()

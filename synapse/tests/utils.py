@@ -254,6 +254,7 @@ testmodel = {
                 ('size', ('int', {}), {}),
                 ('names', ('array', {'type': 'str'}), {}),
             ),
+            'interfaces': ('inet:proto:request',)
         }),
     ),
     'types': (

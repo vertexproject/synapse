@@ -1560,6 +1560,15 @@ class InetModule(s_module.CoreModule):
                         ('headers', ('array', {'type': 'inet:email:header'}), {
                             'doc': 'An array of email headers from the message.'}),
 
+                        ('received:from:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The sending SMTP server IPv4, potentially from the Received: header.'}),
+
+                        ('received:from:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The sending SMTP server IPv6, potentially from the Received: header.'}),
+
+                        ('received:from:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The sending server FQDN, potentially from the Received: header.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
