@@ -191,7 +191,7 @@ A ``Cortex`` may be configured to use a pool of mirrors in order to offload ``St
 query load among a configurable group of mirrors. We will assume you have configured two additional mirrors named
 ``01.cortex...`` and ``02.cortex...`` using the process described in the :ref:`deployment-guide-mirror` section of the
 :ref:`deploymentguide`. In our example, we will also assume that the mirrors will be used for both query parallelism
-and for graceful promotions to minimize downtime during uprades and optimization.
+and for graceful promotions to minimize downtime during upgrades and optimization.
 
 To begin the process, use the ``Storm`` command ``aha.pool.add`` to create a new AHA pool::
 
