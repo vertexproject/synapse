@@ -107,10 +107,6 @@ class StormPoolDelCmd(s_storm.Cmd):
     '''
     name = 'storm.pool.del'
 
-    def getArgParser(self):
-        pars = s_storm.Cmd.getArgParser(self)
-        return pars
-
     async def execStormCmd(self, runt, genr):
 
         if not self.runt.isAdmin(): # pragma: no cover
@@ -128,10 +124,6 @@ class StormPoolGetCmd(s_storm.Cmd):
     Display the current Storm query offload mirror pool configuration.
     '''
     name = 'storm.pool.get'
-
-    def getArgParser(self):
-        pars = s_storm.Cmd.getArgParser(self)
-        return pars
 
     async def execStormCmd(self, runt, genr):
 
