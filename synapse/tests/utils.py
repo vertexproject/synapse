@@ -889,7 +889,7 @@ class ReloadCell(s_cell.Cell):
 
 class SynTest(unittest.TestCase):
     '''
-    Mark all async test methods as s_glob.synchelp decorated.
+    Wrap all async test methods with s_glob.sync.
 
     Note:
         This precludes running a single unit test via path using the unittest module.
@@ -899,11 +899,16 @@ class SynTest(unittest.TestCase):
         self._NextBuid = 0
         self._NextGuid = 0
 
+        def synchelp(f):
+            def wrap(*args, **kwargs):
+                return s_glob.sync(f(*args, **kwargs))
+            return wrap
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
+                setattr(self, s, synchelp(attr))
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected

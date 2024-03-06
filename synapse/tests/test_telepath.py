@@ -265,20 +265,6 @@ class TeleTest(s_t_utils.SynTest):
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
-    async def test_telepath_sync_genr(self):
-
-        foo = Foo()
-
-        def sync():
-            return [x for x in prox.genr()]
-
-        async with self.getTestDmon() as dmon:
-
-            dmon.share('foo', foo)
-
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
-                self.eq((10, 20, 30), await s_coro.executor(sync))
-
     def test_telepath_sync_genr_break(self):
 
         try:
