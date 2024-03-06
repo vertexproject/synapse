@@ -302,6 +302,8 @@ Remember, you can view the container logs in real-time using::
 
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml logs -f
 
+.. _deployment-guide-mirror:
+
 Deploy Cortex Mirror (optional)
 ===============================
 

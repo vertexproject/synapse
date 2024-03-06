@@ -187,15 +187,11 @@ include a :ref:`datamigration` while it comes back online::
 Configure a Storm Query Pool
 ----------------------------
 
-.. note::
-    We will be using AHA relative service names which end with ``...`` which will be automatically converted
-    to use the configured AHA network.
-
 A ``Cortex`` may be configured to use a pool of mirrors in order to offload ``Storm`` query load and distribute
 query load among a configurable group of mirrors. We will assume you have configured two additional mirrors named
-``01.cortex...`` and ``02.cortex...`` using the process described in the _FIXME Deploying a Cortex Mirror section
-of the FIXME Deployment guide. In our example, we will also assume that the mirrors will be used for both query
-parallelism and for graceful promotions to minimize downtime during uprades and optimization.
+``01.cortex...`` and ``02.cortex...`` using the process described in the :ref:`deployment-guide-mirror` section of the
+:ref:`deploymentguide`. In our example, we will also assume that the mirrors will be used for both query parallelism
+and for graceful promotions to minimize downtime during uprades and optimization.
 
 To begin the process, use the ``Storm`` command ``aha.pool.add`` to create a new AHA pool::
 
