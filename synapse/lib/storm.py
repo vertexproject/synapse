@@ -5996,7 +5996,7 @@ class StormPoolSetCmd(Cmd):
             mesg = 'storm.pool.set command requires global admin permissions.'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        async for node, path in genr:
+        async for node, path in genr: # pragma: no cover
             yield node, path
 
         opts = {
@@ -6023,7 +6023,7 @@ class StormPoolDelCmd(Cmd):
             mesg = 'storm.pool.del command requires global admin permissions.'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        async for node, path in genr:
+        async for node, path in genr: # pragma: no cover
             yield node, path
 
         await self.runt.snap.core.delStormPool()
@@ -6045,7 +6045,7 @@ class StormPoolGetCmd(Cmd):
             mesg = 'storm.pool.get command requires global admin permissions.'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        async for node, path in genr:
+        async for node, path in genr: # pragma: no cover
             yield node, path
 
         item = await self.runt.snap.core.getStormPool()
