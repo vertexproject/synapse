@@ -1522,7 +1522,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('storm:pool:del')
     async def delStormPool(self):
-        await self.finiStormPool()
+
         self.slab.pop(b'storm:pool', db='cell:conf')
 
         if self.isactive:
