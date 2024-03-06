@@ -74,9 +74,9 @@ class StormPoolSetCmd(s_storm.Cmd):
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
         pars.add_argument('--connection-timeout', type='int', default=2,
-            help='The maxiumem amount of time to wait for a connection from the pool to become available.')
+            help='The maximum amount of time to wait for a connection from the pool to become available.')
         pars.add_argument('--sync-timeout', type='int', default=2,
-            help='The maxiumem amount of time to wait for a connection from the pool to become available.')
+            help='The maximum amount of time to wait for the mirror to be in sync with the leader')
         pars.add_argument('url', type='str', required=True, help='The telepath URL for the AHA service pool.')
         return pars
 
@@ -125,7 +125,7 @@ class StormPoolDelCmd(s_storm.Cmd):
 
 class StormPoolGetCmd(s_storm.Cmd):
     '''
-    Display the current storm pool configuration.
+    Display the current Storm query offload mirror pool configuration.
     '''
     name = 'storm.pool.get'
 
@@ -144,7 +144,7 @@ class StormPoolGetCmd(s_storm.Cmd):
 
         item = await self.runt.snap.core.getStormPool()
         if item is None:
-            await self.runt.printf('No storm pool configuration found.')
+            await self.runt.printf('No Storm pool configuration found.')
             return
 
         url, opts = item
