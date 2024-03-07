@@ -3193,7 +3193,7 @@ class LibRegx(Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string with matches replaced.', }}},
         {'name': 'escape', 'desc': '''
-            Escape a string for use as a literal in a regular expression pattern.
+            Escape a string for use in a regular expression pattern.
 
             Example:
 
