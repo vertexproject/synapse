@@ -1155,6 +1155,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
 
+        # for runtime cell configuration values
+        self.slab.initdb('cell:conf')
+
         self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
         self.hive = await self._initCellHive()
