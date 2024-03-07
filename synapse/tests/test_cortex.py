@@ -7924,7 +7924,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core01.sync()
                     self.len(1, await core01.nodes('inet:asn=0'))
 
-                    msgs = await core00.stormlist('storm.pool.get')
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('No Storm pool configuration found.', msgs)
 
@@ -7936,7 +7936,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
 
-                    msgs = await core00.stormlist('storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Storm pool configuration set.', msgs)
 
@@ -8097,15 +8097,15 @@ class CortexBasicTest(s_t_utils.SynTest):
                     data = stream.read()
                     self.notin('Storm query mirror pool is empty', data)
 
-                    msgs = await core00.stormlist('storm.pool.get')
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Storm Pool URL: aha://pool00...', msgs)
 
-                    msgs = await core00.stormlist('storm.pool.del')
+                    msgs = await core00.stormlist('cortex.storm.pool.del')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Storm pool configuration removed.', msgs)
 
-                    msgs = await core00.stormlist('storm.pool.get')
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('No Storm pool configuration found.', msgs)
 

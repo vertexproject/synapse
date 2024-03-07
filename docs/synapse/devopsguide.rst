@@ -254,14 +254,14 @@ Then add the ``Cortex`` leader as well as the two mirrors to the pool::
 
 Then configure the ``Cortex`` to use the newly created AHA service pool::
 
-    storm.pool.set aha://pool00.cortex...
+    cortex.storm.pool.set aha://pool00.cortex...
 
 Now your ``Cortex`` will distribute ``Storm`` queries across the available mirrors. You may add or remove mirrors
 from the pool at any time using the ``aha.pool.svc.add`` and ``aha.pool.svc.del`` commands and the pool topology
 updates will be automatically sent. You may want to review some of the command options to adjust timeouts for your
 environment.
 
-If you wish to remove the pool configuration from the ``Cortex`` you may use the ``storm.pool.del`` command.
+If you wish to remove the pool configuration from the ``Cortex`` you may use the ``cortex.storm.pool.del`` command.
 
 .. _devops-task-logging:
 
