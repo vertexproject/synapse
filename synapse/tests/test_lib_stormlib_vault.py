@@ -397,21 +397,30 @@ class StormlibVaultTest(s_test.SynTest):
             self.true(core._hasEasyPerm(vault, visi1, s_cell.PERM_READ))
 
             rvault_out = split(f'''
-            Vault: rvault
+            Vault: {riden}
+              Name: rvault
               Type: {vtype}
               Scope: role
-              Iden: {riden}
               Permissions:
                 Users:
                   visi1: read
                 Roles:
                   contributor: read
+              Configs:
+                server: rvault
             ''')[1:]
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
             msgs = await core.stormlist('vault.list --type $vtype', opts=opts)
-            for line in uvault_out:
+            for line in rvault_out:
                 self.stormIsInPrint(line, msgs)
+
+            msgs = await core.stormlist('vault.set.perm rvault --level admin --role contributor')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('Successfully set permissions on vault rvault.', msgs)
+
+            msgs = await core.stormlist('vault.list --type $vtype', opts=opts)
+            self.stormIsInPrint('contributor: admin', msgs)
 
             # vault.del
             msgs = await core.stormlist('vault.del uvault')
