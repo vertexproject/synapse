@@ -3198,11 +3198,13 @@ class LibRegx(Lib):
             Example:
 
                 Escape node values for use in a regex pattern::
+
                     for $match in $lib.regex.findall($lib.regex.escape($node.repr()), $mydocument) {
                         // do something with $match
                     }
 
                 Escape node values for use in regular expression filters::
+
                     it:dev:str~=$lib.regex.escape($node.repr())
                     ''',
          'type': {'type': 'function', '_funcname': 'escape',
