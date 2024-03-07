@@ -3192,6 +3192,22 @@ class LibRegx(Lib):
                        'default': 0, },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string with matches replaced.', }}},
+        {'name': 'escape', 'desc': '''
+            Escape a string for use as a literal in a regular expression pattern.
+
+            Example:
+
+                Escape node values for use in a regex pattern::
+                    it:dev:mutex#rep.foo.bar
+                    for $match in $lib.regex.findall($lib.regex.escape($node.repr()), $mydocument) {
+                        // do something with $match
+                    }
+                    ''',
+         'type': {'type': 'function', '_funcname': 'escape',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to escape.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'Input string with special characters escaped.', }}},
         {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
          'type': 'int', },
         {'name': 'flags.m', 'desc': 'Regex flag to indicate that multiline matches are allowed.', 'type': 'int', },
@@ -3208,6 +3224,7 @@ class LibRegx(Lib):
             'matches': self.matches,
             'findall': self.findall,
             'replace': self.replace,
+            'escape': self.escape,
             'flags': {'i': regex.IGNORECASE,
                       'm': regex.MULTILINE,
                       },
@@ -3257,6 +3274,11 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         regx = await self._getRegx(pattern, flags)
         return regx.findall(text)
+
+    @stormfunc(readonly=True)
+    async def escape(self, text):
+        text = await tostr(text)
+        return regex.escape(text)
 
 @registry.registerLib
 class LibCsv(Lib):

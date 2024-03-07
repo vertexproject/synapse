@@ -1323,6 +1323,8 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('foo bar baz faz', await core.callStorm('return($lib.regex.replace("[ ]{2,}", " ", "foo  bar   baz faz"))'))
 
+            self.eq('foo\.bar\.baz', await core.callStorm('return($lib.regex.escape("foo.bar.baz"))'))
+
             self.eq(((1, 2, 3)), await core.callStorm('return(("[1, 2, 3]").json())'))
 
             with self.raises(s_exc.BadJsonText):
