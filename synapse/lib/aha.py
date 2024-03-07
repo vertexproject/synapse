@@ -327,6 +327,20 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.delAhaUserEnroll(iden)
 
+    @s_cell.adminapi()
+    async def dropAhaSvcProvs(self):
+        '''
+        Remove all unused service provisioning values.
+        '''
+        return await self.cell.dropAhaSvcProvs()
+
+    @s_cell.adminapi()
+    async def dropAhaUserEnrolls(self):
+        '''
+        Remove all unused user enrollment provisioning values.
+        '''
+        return await self.cell.dropAhaUserEnrolls()
+
 class ProvDmon(s_daemon.Daemon):
 
     async def __anit__(self, aha):
@@ -1123,6 +1137,20 @@ class AhaCell(s_cell.Cell):
         iden = provinfo.get('iden')
         self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
         return iden
+
+    @s_nexus.Pusher.onPushAuto('aha:svc:prov:drop')
+    async def dropAhaSvcProvs(self):
+        for iden, byts in self.slab.scanByFull(db='aha:provs'):
+            self.slab.delete(iden, db='aha:provs')
+            provinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted service provisioning service={provinfo.get("conf").get("aha:name")}, iden={iden.decode()}')
+
+    @s_nexus.Pusher.onPushAuto('aha:enroll:drop')
+    async def dropAhaUserEnrolls(self):
+        for iden, byts in self.slab.scanByFull(db='aha:enrolls'):
+            self.slab.delete(iden, db='aha:enrolls')
+            userinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted user enrollment service={userinfo.get("name")}, iden={iden.decode()}')
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):
