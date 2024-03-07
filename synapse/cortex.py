@@ -1499,9 +1499,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.stormpool.fini()
             self.stormpool = None
 
-    async def setStormPool(self, url, opts):
-        return await self._push('set:storm:pool', url, opts)
-
     async def getStormPool(self):
         byts = self.slab.get(b'storm:pool', db='cell:conf')
         if byts is None:
