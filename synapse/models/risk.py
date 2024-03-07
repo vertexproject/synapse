@@ -60,7 +60,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
 
                 ('risk:hasvuln', ('guid', {}), {
-                    'doc': 'An instance of a vulnerability present in a target.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use -(has)> risk:vuln edges.',
                 }),
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
@@ -170,6 +171,9 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
+
+                ((None, 'has', 'risk:vuln'), {
+                    'doc': 'The source node contains the vulnerability.'}),
             ),
             'forms': (
 

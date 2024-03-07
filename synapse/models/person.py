@@ -68,6 +68,16 @@ class PsModule(s_module.CoreModule):
                     'doc': 'The assessment that a given contact possesses a specific skill.'
                 }),
             ),
+            'edges': (
+                (('ps:contact', 'has', None), {
+                    'doc': 'The contact is or was in posession of target node.'}),
+                (('ps:person', 'has', None), {
+                    'doc': 'The person is or was in posession of target node.'}),
+                (('ps:contact', 'owns', None), {
+                    'doc': 'The contact owns or owned the target node.'}),
+                (('ps:person', 'owns', None), {
+                    'doc': 'The person owns or owned the target node.'}),
+            ),
             'forms': (
                 ('ps:workhist', {}, (
                     ('contact', ('ps:contact', {}), {
