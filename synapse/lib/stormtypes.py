@@ -3193,15 +3193,17 @@ class LibRegx(Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string with matches replaced.', }}},
         {'name': 'escape', 'desc': '''
-            Escape a string for use in a regular expression pattern.
+            Escape arbitrary strings for use in a regular expression pattern.
 
             Example:
 
                 Escape node values for use in a regex pattern::
-                    it:dev:mutex#rep.foo.bar
                     for $match in $lib.regex.findall($lib.regex.escape($node.repr()), $mydocument) {
                         // do something with $match
                     }
+
+                Escape node values for use in regular expression filters::
+                    it:dev:str~=$lib.regex.escape($node.repr())
                     ''',
          'type': {'type': 'function', '_funcname': 'escape',
                   'args': (
