@@ -121,7 +121,7 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
