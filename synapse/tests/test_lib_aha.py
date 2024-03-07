@@ -1320,3 +1320,75 @@ class AhaTest(s_test.SynTest):
                     svcinfo = snfo.get('svcinfo')
                     ready = svcinfo.get('ready')
                     self.true(ready)
+
+    async def test_aha_provision_longname(self):
+        # Run a long network name and try provisioning with values that would exceed CSR
+        # and certificate functionality.
+        with self.withNexusReplay() as stack:
+
+            with self.getTestDir() as dirn:
+                aha00dirn = s_common.gendir(dirn, 'aha00')
+                svc0dirn = s_common.gendir(dirn, 'svc00')
+                svc1dirn = s_common.gendir(dirn, 'svc01')
+                async with await s_base.Base.anit() as cm:
+                    # Add enough space to allow aha CA bootstraping.
+                    basenet = 'loop.vertex.link'
+                    networkname = f'{"x" * (64 - 7 - len(basenet))}.{basenet}'
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': networkname,
+                        'provision:listen': f'ssl://aha.{networkname}:0'
+                    }
+                    name = aconf.get('aha:name')
+                    netw = aconf.get('aha:network')
+                    dnsname = f'{name}.{netw}'
+
+                    aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    addr, port = aha.provdmon.addr
+                    # update the config to reflect the dynamically bound port
+                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+                    # do this config ex-post-facto due to port binding...
+                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaSvcProv('00.svc', provinfo=None)
+                    self.isin('Computed hostname value must not exceed 64 characters in length.',
+                              errcm.exception.get('mesg'))
+                    self.isin('len=65', errcm.exception.get('mesg'))
+
+                    # We can generate a 64 character names though.
+                    onetime = await aha.addAhaSvcProv('00.sv', provinfo=None)
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
+                    await cm.enter_context(svc0)
+
+                    # Cannot generate a user cert that would be a problem for signing
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaUserEnroll('ruhroh')
+                    self.isin('Computed username value must not exceed 64 characters in length.',
+                              errcm.exception.get('mesg'))
+                    self.isin('len=65', errcm.exception.get('mesg'))
+
+                    # We can generate a name that is 64 characters in length and have its csr signed
+                    onetime = await aha.addAhaUserEnroll('vvvvv')
+                    async with await s_telepath.openurl(onetime) as prox:
+                        userinfo = await prox.getUserInfo()
+                        ahauser = userinfo.get('aha:user')
+                        ahanetw = userinfo.get('aha:network')
+                        username = f'{ahauser}@{ahanetw}'
+                        byts = aha.certdir.genUserCsr(username)
+                        byts = await prox.signUserCsr(byts)
+                        self.nn(byts)
+
+                    # 0 length inputs
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaSvcProv('')
+                    self.isin('Empty name values are not allowed for provisioning.', errcm.exception.get('mesg'))
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaUserEnroll('')
+                    self.isin('Empty name values are not allowed for provisioning.', errcm.exception.get('mesg'))

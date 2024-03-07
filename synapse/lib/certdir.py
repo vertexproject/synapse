@@ -1501,6 +1501,11 @@ class CertDir:
         return c_rsa.generate_private_key(65537, self.crypto_numbits)
 
     def _genCertBuilder(self, name: str, pubkey: c_types.PublicKeyTypes) -> c_x509.CertificateBuilder:
+
+        if not 1 <= len(name) <= 64:
+            mesg = f'certificate name values must be between 1-64 characters. got name={name}, len={len(name)}'
+            raise s_exc.CryptoErr(mesg=mesg)
+
         builder = c_x509.CertificateBuilder()
         builder = builder.subject_name(c_x509.Name([
             c_x509.NameAttribute(c_x509.NameOID.COMMON_NAME, name),
@@ -1514,6 +1519,10 @@ class CertDir:
         return builder
 
     def _genPkeyCsr(self, name: str, mode: str, outp: OutPutOrNone = None) -> bytes:
+
+        if not 1 <= len(name) <= 64:
+            mesg = f'csr name values must be between 1-64 characters. got name={name}, len={len(name)}'
+            raise s_exc.CryptoErr(mesg=mesg)
 
         pkey = self._genPrivKey()
 
