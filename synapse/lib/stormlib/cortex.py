@@ -1189,9 +1189,8 @@ class StormPoolSetCmd(s_storm.Cmd):
             mesg = 'cortex.storm.pool.set arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        if not self.runt.isAdmin(): # pragma: no cover
-            mesg = 'cortex.storm.pool.set command requires global admin permissions.'
-            raise s_exc.AuthDeny(mesg=mesg)
+        mesg = 'cortex.storm.pool.set command requires global admin permissions.'
+        self.runt.reqAdmin(mesg=mesg)
 
         async for node, path in genr: # pragma: no cover
             yield node, path
@@ -1212,9 +1211,8 @@ class StormPoolDelCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runt.isAdmin(): # pragma: no cover
-            mesg = 'cortex.storm.pool.del command requires global admin permissions.'
-            raise s_exc.AuthDeny(mesg=mesg)
+        mesg = 'cortex.storm.pool.del command requires global admin permissions.'
+        self.runt.reqAdmin(mesg=mesg)
 
         async for node, path in genr: # pragma: no cover
             yield node, path
@@ -1230,9 +1228,8 @@ class StormPoolGetCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runt.isAdmin(): # pragma: no cover
-            mesg = 'cortex.storm.pool.get command requires global admin permissions.'
-            raise s_exc.AuthDeny(mesg=mesg)
+        mesg = 'cortex.storm.pool.get command requires global admin permissions.'
+        self.runt.reqAdmin(mesg=mesg)
 
         async for node, path in genr: # pragma: no cover
             yield node, path

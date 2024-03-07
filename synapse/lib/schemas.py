@@ -281,7 +281,6 @@ _stormPoolOptsSchema = {
     'properties': {
         'timeout:sync': {'type': 'integer', 'minimum': 1},
         'timeout:connection': {'type': 'integer', 'minimum': 1},
-
     },
     'additionalProperties': False,
 }
