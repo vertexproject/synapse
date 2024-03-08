@@ -452,7 +452,7 @@ class HttpApi(s_stormtypes.StormType):
 @s_stormtypes.registry.registerType
 class HttpApiMethods(s_stormtypes.Prim):
     '''
-    Accessor dictionary for getting and setting Extened HTTP API methods.
+    Accessor dictionary for getting and setting Extended HTTP API methods.
 
     Notes:
         The Storm code used to run these methods will have a $request object
