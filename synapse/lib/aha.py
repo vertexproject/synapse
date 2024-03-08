@@ -1052,7 +1052,7 @@ class AhaCell(s_cell.Cell):
         hostname = f'{name}.{netw}'
 
         if len(hostname) > 64:
-            mesg = f'Computed hostname value must not exceed 64 characters in length. {hostname=}, len={len(hostname)}'
+            mesg = f'Hostname value must not exceed 64 characters in length. {hostname=}, len={len(hostname)}'
             raise s_exc.BadArg(mesg=mesg)
 
         conf.setdefault('aha:name', name)
@@ -1162,7 +1162,7 @@ class AhaCell(s_cell.Cell):
         username = f'{name}@{ahanetw}'
 
         if len(username) > 64:
-            mesg = f'Computed username value must not exceed 64 characters in length. username={username}, len={len(username)}'
+            mesg = f'Username value must not exceed 64 characters in length. username={username}, len={len(username)}'
             raise s_exc.BadArg(mesg=mesg)
 
         user = await self.auth.getUserByName(username)
