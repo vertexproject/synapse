@@ -728,7 +728,7 @@ class Agenda(s_base.Base):
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
 
-                if not appt.enabled: # or not self.enabled:
+                if not appt.enabled:
                     continue
 
                 if appt.isrunning:  # pragma: no cover

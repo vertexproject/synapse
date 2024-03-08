@@ -4298,10 +4298,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return ret
 
     async def _checkLayerModels(self):
-        self.migration = True
-        mrev = s_modelrev.ModelRev(self)
-        await mrev.revCoreLayers()
-        self.migration = False
+        with self.enterMigrationMode():
+            mrev = s_modelrev.ModelRev(self)
+            await mrev.revCoreLayers()
 
     async def _loadView(self, node):
 
@@ -6019,6 +6018,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         appt = await self.agenda.get(iden)
         await appt.edits(edits)
+
+    @contextlib.contextmanager
+    def enterMigrationMode(self):
+        self.migration = True
+        yield
+        self.migration = False
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''
