@@ -450,7 +450,6 @@ class Agenda(s_base.Base):
 
         self._hivenode = await self.core.hive.open(('agenda', 'appts'))  # Persistent storage
 
-        self._running_tasks = []  # The actively running cron job tasks
         await self._load_all()
 
     async def _load_all(self):
@@ -781,12 +780,10 @@ class Agenda(s_base.Base):
             return
 
         info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
-        task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
 
-        appt.task = task
-        self._running_tasks.append(task)
-
-        task.onfini(functools.partial(self._running_tasks.remove, task))
+        coro = self._runJob(user, appt)
+        task = self.core.addActiveTask(coro)
+        appt.task = self.core.boss.promotetask(task, f'Cron {appt.iden}', user, info=info)
 
     async def _markfailed(self, appt, reason):
         now = self._getNowTick()
