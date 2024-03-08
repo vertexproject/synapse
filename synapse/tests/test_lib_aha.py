@@ -1355,7 +1355,7 @@ class AhaTest(s_test.SynTest):
 
                     with self.raises(s_exc.BadArg) as errcm:
                         await aha.addAhaSvcProv('00.svc', provinfo=None)
-                    self.isin('Computed hostname value must not exceed 64 characters in length.',
+                    self.isin('Hostname value must not exceed 64 characters in length.',
                               errcm.exception.get('mesg'))
                     self.isin('len=65', errcm.exception.get('mesg'))
 
@@ -1369,7 +1369,7 @@ class AhaTest(s_test.SynTest):
                     # Cannot generate a user cert that would be a problem for signing
                     with self.raises(s_exc.BadArg) as errcm:
                         await aha.addAhaUserEnroll('ruhroh')
-                    self.isin('Computed username value must not exceed 64 characters in length.',
+                    self.isin('Username value must not exceed 64 characters in length.',
                               errcm.exception.get('mesg'))
                     self.isin('len=65', errcm.exception.get('mesg'))
 
@@ -1406,4 +1406,4 @@ class AhaTest(s_test.SynTest):
                     }
                     with self.raises(s_exc.CryptoErr) as errcm:
                         await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
-                    self.isin('certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
+                    self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
