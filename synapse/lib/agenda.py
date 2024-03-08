@@ -449,45 +449,9 @@ class Agenda(s_base.Base):
         self.onfini(self._wake_event.set)
 
         self._hivenode = await self.core.hive.open(('agenda', 'appts'))  # Persistent storage
-        self.onfini(self.stop)
-
-        self.enabled = False
-        self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
 
         self._running_tasks = []  # The actively running cron job tasks
         await self._load_all()
-
-    async def start(self):
-        '''
-        Enable cron jobs to start running, start the scheduler loop
-
-        Go through all the appointments, making sure the query is valid, and remove the ones that aren't.  (We can't
-        evaluate queries until enabled because not all the modules are loaded yet.)
-        '''
-        if self.enabled:
-            return
-
-        await self._load_all()
-        for iden, appt in self.appts.items():
-            try:
-                await self.core.getStormQuery(appt.query)
-            except Exception as e:
-                logger.exception(f'Invalid appointment {iden} {appt.name} found in storage. Disabling. {e}',
-                                 extra={'synapse': {'iden': iden, 'name': appt.name, 'text': appt.query}})
-                appt.enabled = False
-
-        self._schedtask = self.schedCoro(self._scheduleLoop())
-        self.enabled = True
-
-    async def stop(self):
-        "Cancel the scheduler loop, and set self.enabled to False."
-        if not self.enabled:
-            return
-        self._schedtask.cancel()
-        for task in self._running_tasks:
-            await task.fini()
-
-        self.enabled = False
 
     async def _load_all(self):
         '''
@@ -683,8 +647,7 @@ class Agenda(s_base.Base):
         if not query:
             raise ValueError('empty query')
 
-        if self.enabled:
-            await self.core.getStormQuery(query)
+        await self.core.getStormQuery(query)
 
         appt.query = query
         appt.enabled = True  # in case it was disabled for a bad query
@@ -736,7 +699,7 @@ class Agenda(s_base.Base):
         self.tickoff += offs
         self._wake_event.set()
 
-    async def _scheduleLoop(self):
+    async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
         '''
@@ -766,7 +729,7 @@ class Agenda(s_base.Base):
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
 
-                if not appt.enabled or not self.enabled:
+                if not appt.enabled: # or not self.enabled:
                     continue
 
                 if appt.isrunning:  # pragma: no cover
