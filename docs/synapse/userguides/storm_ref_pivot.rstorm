@@ -7,512 +7,1527 @@
 Storm Reference - Pivoting
 ==========================
 
-Pivot operations are performed on the output of a previous Storm operation such as a lift or filter. Pivot operators are used to perform pivot operations by navigating from one set of nodes to another based on a specified relationship. Most often, this relationship is two properties (primary and / or secondary) that share the same **value**, and that may also share the same :ref:`data-type`. 
+Pivot operations are performed on the output of a previous Storm operation such as a lift or filter.
+A pivot operation navigates from one set of nodes to another based on some relationship between the
+nodes. This relationship is commonly one of the following:
 
-That is, other than some specialized use cases (such as pivoting to or from tags), most pivots involve navigating between the following kinds of properties:
+- The nodes have `properties`_ that share the same value.
+- The nodes are joined by a `light edge`_.
+
+While all node-to-node navigation is referred to generically as "pivoting", for clarity we make a
+distinction with respect to Storm:
+
+- a **pivot** operation navigates between nodes that share a **property value**; and
+- a **traversal** operation navigates between nodes that are connected by a **light edge**.
+
+.. TIP::
+  
+  Traversal is also known as a "walk" operation (i.e., you can *traverse* a light edge or *walk* a light edge).
+
+Pivots and traversals each have their own operator (symbol) used to represent the operation. The
+operations can also be combined ("pivot and traverse") in various ways using additional operators.
+
+Generically, all variations of pivots and traversals (including combined operations) require:
+
+- a set of source nodes;
+- an operator (symbol) for the kind of operation to be performed; and
+- the target node(s) for the operation.
+
+Pivot and traversal operations both `consume`_ nodes - each operation navigates "away" from the
+source nodes to the target nodes, which become your new result set / working set. :ref:`storm-join`
+can be used to retain the source nodes and combine (join) them with the target nodes in your result set.
+
+See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
+
+See :ref:`storm-ref-type-specific` for details on special syntax or handling for specific data types.
+
+
+.. _model-navigation:
+
+Navigating the Data Model
+-------------------------
+
+To navigate the data in Synapse (pivot between properties or traverse light edges), it helps to
+understand how forms, properties, and types are related, and to be familiar with common light
+edge conventions and how they are used to connect various forms.
+
+- The Synapse Data Model :ref:`dm-forms` documentation lists:
+  
+  - All forms in Synapse, with their associated properties and types.
+  - The edges that can be used to link a given form (whether as the source or target of the edge).
+
+- For :ref:`gloss-optic` users, Optic's `Data Model Explorer`_ allows you to search, cross-reference,
+  and view data model objects. In addition to the information above, Data Model Explorer also lists
+  all of the forms that a form is **referenced by** (i.e., where that form's type is a secondary property
+  on another form).
+
+
+.. _pivot-wildcard:
+
+Using the Wildcard as a Target
+------------------------------
+
+In many cases you can use the wildcard or asterisk ( ``*`` ) as the target of a pivot or traversal to
+represent "all the things" that can be reached by your operation. One use for the wildcard is to
+"explore" a subset of connected data - for example, if you are not sure what relationships exist
+among the data in your instance of Synapse, and you want to see "what's connected".
+  
+Keep in mind that individual wildcard pivots or traversals (as described below) **only** show you
+nodes that are connected to your source nodes by the specific operation performed; this is generally
+**not** "all the nodes" that are connected. (See the examples below for details on individual operations.)
+  
+The following Storm expression can be used to show **all** nodes that are connected to your source
+nodes by **any** type of property pivot or edge traversal relationship:
+  
+::
+  
+  <source_nodes> tee { --> * } { <-- * }
+
+The expression uses the Storm :ref:`storm-tee` command to perform two operations on the set of
+source nodes (a :ref:`pivot-out-and-walk` and a :ref:`pivot-in-and-walk`, with the wildcard as
+the target in each case) and return the combined results.
+
+.. TIP::
+  
+  This query is equivalent to using the `Explore button`_ in the Optic UI to navigate.
+
+There are two minor exceptions to this "show me all the connections" query:
+
+- The query will not return connections to `edge nodes`_ where the source node is an :ref:`gloss-ndef`
+  of an associated edge node. Edge nodes are not commonly used (in many cases, they have been
+  deprecated in favor of light edges). Pivot operations involving edge nodes are described below.
+
+- The query will not return property connections where nodes may have have a common property **value**,
+  but the properties are of different **types** (use of the wildcard to "find" relationships
+  depends on :ref:`gloss-type-aware`).
+
+
+.. _storm-pivot:
+
+Pivot Operations
+----------------
+
+Pivot operations navigate between sets of nodes that have properties that share a common value. Each
+pivot operation requires:
+
+- the source node(s) for the pivot;
+- a pivot operator (such as ``->``); and
+- the target of the pivot.
+
+Unless otherwise specified, the target ( *<target>* ) of a pivot can be:
+
+- a form name (e.g., ``hash:md5`` );
+- a partial form name (wildcard match, e.g., ``hash:*``);
+- a form and property name (e.g., ``file:bytes:md5``);
+- an :ref:`interface` name (e.g., ``it:host:activity``);
+- an interface and property name (e.g., ``file:mime:msoffice:application``);
+- a list of form names (e.g., ``( inet:dns:request, inet:flow )``); or
+- a wildcard / asterisk ( ``*`` ).
+
+For the specialized use case of :ref:`raw-pivot-syntax`, the target of the pivot is a Storm expression.
+
+.. NOTE::
+  
+  You cannot specify property **values** in pivot operations. For example, the following is invalid:
+  
+  ``inet:fqdn=vertex.link -> inet:dns:a:ipv4=127.0.0.1``
+  
+  If you want to pivot to a specific node or subset of nodes, you must navigate to the target forms,
+  and then filter your results based on the property value(s) you are interested in:
+  
+  ``inet:fqdn=vertex.link -> inet:dns:a +:ipv4=127.0.0.1``
+
+Depending on the kind of pivot operation, you may need to specify a **source property** for the pivot as
+well; see the discussion of :ref:`implicit-pivot-syntax` below.
+
+While there are a few specialized use cases (such as pivoting to or from tags), most pivots involve navigating
+between the following kinds of properties:
 
 - primary to secondary;
 - secondary to primary;
 - secondary to secondary; or
 - primary to primary.
 
+Primary to primary property pivots are a specialized use case that is commonly handled using
+:ref:`raw-pivot-syntax`.
+
+.. TIP::
+  
+  In Synapse, these property-to-property relationships are **implicit** relationships. You do not
+  need to explicitly "define" the relationship or "link" the nodes. In fact, if the source and target
+  properties have the same value **and** the same :ref:`gloss-type`, Storm can use Synapse's
+  :ref:`gloss-type-aware` to simplify pivot operations and identify relationships among nodes.
+
+
+.. _implicit-pivot-syntax:
+
+Implicit Pivot Syntax
++++++++++++++++++++++
+
+Pivot operations in Storm can always be executed by **explicitly** specifying the source and target
+properties for the pivot. This is referred to as **explicit pivot syntax** or "explicit syntax" for
+short.
+
+When researching network infrastructure, a common set of pivots is to navigate from a set of FQDNs
+(``inet:fqdn`` nodes) to their DNS A records (``inet:dns:a`` nodes) and then to the IPv4 addresses
+(``inet:ipv4`` nodes) that the A records point to. The following Storm query performs those pivots
+using **explicit syntax**:
+
+.. storm-pre:: [ inet:dns:a=(vertex.link,1.1.1.1) ]
+.. storm-pre:: inet:fqdn = vertex.link -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
+::
+  
+  inet:fqdn = vertex.link -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
+
+The query:
+
+- lifts the FQDN ``vertex.link``;
+- pivots from the FQDN to any DNS A node with the same FQDN property value (``-> inet:dns:a:fqdn``); and
+- pivots from the ``:ipv4`` property of the ``inet:dns:a`` nodes to any ``inet:ipv4`` nodes with the
+  same value ( ``:ipv4 -> inet:ipv4`` ).
+
+We explicitly specify ``inet:dns:a:fqdn`` as the **target** property of our first pivot; and we explicitly
+specify the ``:ipv4`` property of the ``inet:dns:a`` nodes as the **source** property of our second pivot.
+Explicit syntax tells Storm **exactly** what you want to do; there is no ambiguity in the query or in
+"how" you want to navigate the data.
+
 .. NOTE::
   
-  Primary to primary property pivots are a specialized use case that is commonly handled using :ref:`raw-pivot-syntax`, below.
+  When specifying a secondary property as the source of a pivot (such as ``:ipv4`` above), you must
+  specify the property using relative property syntax (i.e., using the property name alone). If you
+  were to use full property syntax (``inet:dns:a:ipv4``) Synapse would interpret that as a lift
+  operation - i.e., "after you pivot to the DNS A records with an FQDN of vertex.link, then lift all
+  DNS A records that have an IPv4 property, and pivot to ALL of the associated IPv4 nodes".
 
-Where the source and target properties have the same value **and** the same type, Storm can leverage Synapse's :ref:`gloss-type-aware` to simplify pivot operations and identify implicit relationships. For example, type awareness is used for :ref:`implicit-pivot-syntax` and also for "wildcard" pivot operations (specialized use cases for the :ref:`pivot-out` and the :ref:`pivot-in`).
+Explicit syntax is precise, but there is extra work ("more typing") involved to create the query,
+especially when there is an "obvious" source and / or target for the pivot. In other words, if you are
+pivoting from an FQDN (``inet:fqdn``) to a DNS A record (``inet:dns:a``), the ``:fqdn`` property is
+the only target property that makes sense.
 
-The pivot operations available within Storm are:
+In these cases, you can use **implicit pivot syntax** (implicit syntax) for your Storm query. Implicit
+syntax takes advantage of Synapse's :ref:`gloss-type-aware` to "know" which properties can be pivoted
+to (or from), given the source and target forms for the pivot operation. With implicit syntax, you do
+not need to specify the source or target property in cases where it is self-evident for the forms used.
 
-- `Pivot Out Operator`_
-- `Pivot In Operator`_
-- `Pivot With Join`_
-- `Traverse (Walk) Light Edges`_
-- `Traverse (Walk) and Join Light Edges`_
-- `Pivot Out and Walk`_
-- `Pivot Out and Join`_
-- `Pivot In and Walk`_
-- `Pivot In and Join`_
-- `Pivot to Digraph (Edge) Nodes`_
-- `Pivot Across Digraph (Edge) Nodes`_
-- `Pivot to Tags`_
-- `Pivot from Tags`_
-- `Implicit Pivot Syntax`_
-- `Raw Pivot Syntax`_
+Using implicit syntax, we can rewrite the above query as follows:
 
-.. NOTE::
+.. storm-pre:: inet:fqdn = vertex.link -> inet:dns:a -> inet:ipv4
+
+::
   
-  Light edges represent a special use case within the Synapse hypergraph; navigating (traversing) light edges (:ref:`data-light-edge`) is included here as a "pivot-like" operation.
+  inet:fqdn = vertex.link -> inet:dns:a -> inet:ipv4
 
-See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
+With implicit syntax, we can simply specify the source and target **forms**, and allow Synapse to identify
+the source and target **properties** using `types`_ and type awareness.
 
-See :ref:`storm-ref-type-specific` for details on special syntax or handling for specific data types.
+Implicit syntax can be used in the following cases where the source and target properties have the **same type**
+and the **same value**:
+
+- Primary to secondary property pivots.
+- Secondary to primary property pivots.
+
+.. TIP::
+  
+  This includes cases where the secondary property value is the **node definition** (:ref:`gloss-ndef`) of the corresponding
+  primary property (these cases are uncommon, but includes forms such as ``risk:technique:masquerade``). Note
+  that this does not extend to legacy `edge nodes`_ that are `composite forms`_, which have their own optimizations
+  and pivot syntax (see :ref:`storm-pivot-edge`, below).
+
+Implicit pivot syntax **cannot** be used in the following cases:
+
+- Primary to primary property pivots (see :ref:`raw-pivot-syntax`).
+- Secondary to secondary property pivots.
+- Pivots between primary and secondary properties involving tags (i.e., where the type is ``syn:tag``).
+  See :ref:`storm-pivot-tags` below.
+- Pivots between primary and secondary properties with the same value but of different **types**.
+- Pivots between primary and secondary properties where the source or target is ambiguous (e.g., where a form
+  has more than one property of the same type, and you only want to pivot to (or from) one of them).
+
+.. TIP::
+  
+  The examples below use implicit syntax where possible and may include explicit syntax for completeness.
+  Where implicit syntax cannot be used, only explicit syntax is shown.
+
 
 .. _pivot-out:
 
-Pivot Out Operator
-------------------
+Pivot Out
++++++++++
 
-The pivot out operator ( ``->`` ) is the primary Storm pivot operator. The pivot out operator is used for:
+Most pivots are "pivot out" operations (or variations). "Pivot out" refers to the "direction" of the
+pivot operator symbol: an "arrow" ( ``->`` ) that points "out" from left to right. "Pivot out" operations
+are so common that they are generally just referred to as "pivots" or "pivot operations".
 
-- primary to secondary property pivots,
-- secondary to primary property pivots,
-- secondary to secondary property pivots, and
-- "wildcard" pivot out - pivot from any / all **secondary** properties of the inbound set of nodes to the equivalent **primary** property of any nodes, leveraging Synapse's :ref:`gloss-type-aware`.
+Pivot out operations require:
 
-`Pivot to Digraph (Edge) Nodes`_ and `Pivot Across Digraph (Edge) Nodes`_ are covered separately below.
+- the source node(s) for the pivot;
+- the pivot operator ( ``->`` ); and
+- the target of the pivot.
+
+The target(s) that are appropriate for a particular pivot out operation depend on the source and target
+properties and the specific navigation you want to perform.
+
+
+.. _pivot-primary-secondary:
+
+Primary to Secondary Property Pivot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When pivoting from the primary property of a set of source nodes to target nodes with the same secondary
+property value (e.g., from a set of FQDNs to their associated DNS A nodes), the target can be:
+
+- a form name or interface name;
+- a form or interface name with a property name; or
+- a partial form name (wildcard form match).
+
+Implicit syntax can be used for these pivots if the target property is self-evident / unambiguous.
+
 
 **Syntax:**
 
-- *Primary to Secondary:*
-  
-  *<query>* **->** *<form>* **:** *<prop>*
+*<query>* **->** *<form>* [ **:** | **.** | **._** *<prop>* ]
 
-- *Secondary to Primary:*
-  
-  *<query>* **:** *<prop>* **->** *<form>*
+*<query>* **->** *<interface>* [ **:** *<prop>* ]
 
-- *Secondary to Secondary:*
-  
-  *<query>* **:** *<prop>* **->** *<form>* **:** *<prop>*
+*<query>* **->** *<partial_form_name>* *****
 
-- *"Wildcard" Pivot Out:*
-  
-  *<query>* **-> ***
 
 **Examples:**
 
-*Pivot from primary property (<form> = <valu>) to secondary property (<prop> = <pval>):*
+*Pivot from a set of FQDNs (inet:fqdn nodes) to their associated DNS requests (inet:dns:request nodes):*
 
-- Pivot from a set of domains to all of their subdomains regardless of depth (i.e., from a domain to all of the domains where the inbound domain is a zone):
+.. storm-pre:: [ inet:fqdn=vertex.link inet:fqdn=woot.com (inet:dns:request=* :query:name:fqdn=woot.com) ]
+.. storm-pre:: inet:fqdn -> inet:dns:request
+.. storm-pre:: inet:fqdn -> inet:dns:request:query:name:fqdn
 
-
-
-
-.. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com] -> inet:fqdn:zone
 ::
-
-    <inet:fqdn> -> inet:fqdn:zone
-
-
-- Pivot from a set of domains to the DNS A records for those domains:
-
-
-.. storm-pre:: [inet:dns:a = (woot.com, 1.2.3.4)] -> inet:fqdn -> inet:dns:a:fqdn
-::
-
-    <inet:fqdn> -> inet:dns:a:fqdn
-
-
-*Pivot from secondary property (<prop> = <pval>) to primary property (<form> = <valu>):*
-
-- Pivot from a set of DNS A records to the resolution IP addresses contained in those records:
-
-
-.. storm-pre:: inet:dns:a :ipv4 -> inet:ipv4
-::
-
-    <inet:dns:a> :ipv4 -> inet:ipv4
-
-
-*Pivot from secondary property (<prop> = <pval>) to secondary property (<prop> = <pval>):*
-
-- Pivot from the WHOIS records for a set of domains to the DNS A records for the same domains:
-
-
-.. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
-::
-
-    <inet:whois:rec> :fqdn -> inet:dns:a:fqdn
-
-
-*"Wildcard" pivot out - pivot from all secondary properties to the primary properties of the equivalent forms (<prop> = <pval> to <form> = <valu>):*
-
-- Pivot from a set of WHOIS records to all nodes whose primary property equals *any* of the secondary properties of the WHOIS record:
-
-
-.. storm-pre:: inet:whois:rec -> *
-::
-
-    <inet:whois:rec> -> *
-
-
-In the example above, the pivot would navigate from the ``:fqdn``, ``:registrar``,  and ``:registrant`` secondary properties of the ``inet:whois:rec`` nodes (for example) to the associated ``inet:fqdn``, ``inet:whois:rar``, and ``inet:whois:reg`` nodes.
-
-**Usage Notes:**
-
-- When pivoting **from** a secondary property (*<prop> = <pval>*), the secondary property **must** be specified using the relative property name only (``:baz`` vs. ``foo:bar:baz``). If you specify the full property name before the pivot, Storm interprets that as an additional lift (i.e., ``<inet:dns:a> inet:dns:a:fqdn -> inet:fqdn`` would be interpreted as "take a set of DNS A records from an initial query, lift **all** DNS A records with an :fqdn property (i.e., every DNS A node in the Cortex), and then pivot to the associated FQDN nodes").
-
-- Pivoting out using the asterisk wildcard ( ``*`` ) is sometimes called a **refs out** pivot because it pivots from **all** secondary properties of the inbound nodes to **all nodes referenced by** those properties. That is, for each inbound node, the "refs out" pivot will pivot from the node's **secondary properties** to all the nodes that have a **primary property** equal to that type and value.
-
-- Pivoting using the wildcard is based on strong data typing within the Synapse data model and Synapse's **type awareness**, so will only pivot out to properties that match both *<type>* and *<valu>* / *<pval>*. This means that the following nodes will **not** be returned by a wildcard pivot out:
-
-  - Nodes with matching *<valu>* / *<pval>* but of different *<type>*. For example, if a node’s secondary property is a string (type *<str>*) that happens to contain a valid domain (type *<inet:fqdn>*), a wildcard pivot out from the node with the string value will **not** return the ``inet:fqdn`` node.
-  - Digraph (edge) nodes, whose properties are of type *<ndef>* (node definition, or *<form>,<valu>* tuples). See `Pivot to Digraph (Edge) Nodes`_ and `Pivot Across Digraph (Edge) Nodes`_ for details on pivoting to / through those forms.
   
-- It is possible to perform an explicit pivot between properties of different types. For example: ``<inet:dns:query> :name -> inet:fqdn``
-- See :ref:`pivot-out-and-walk` for a more comprehensive alternative to the wildcard pivot out.
+  <inet:fqdn nodes> -> inet:dns:request
 
-.. _pivot-in:
+The query above uses implicit syntax; Synapse recognizes that the logical target property (given source nodes
+that are FQDNs) is ``:query:name:fqdn``. You could optionally use explicit syntax instead:
 
-Pivot In Operator
------------------
+::
+  
+  <inet:fqdn nodes> -> inet:dns:request:query:name:fqdn
 
-The pivot in ( ``<-``) operator is similar to but separate from the pivot out ( ``->``) operator. The pivot in operator pivots to the set of nodes that **reference** the current set of nodes.
+*Pivot from a set of IPv4 addresses (inet:ipv4 nodes) to any network flows (inet:flow nodes) associated with the IPs:*
 
-Logically, any pivot in operation can be expressed as an equivalent pivot out operation. For example, the following two pivots would be functionally equivalent:
+.. storm-pre:: [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 inet:ipv4=3.3.3.3 (inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=2.2.2.2 :dst:port=1337) (inet:flow=* :dst:ipv4=3.3.3.3 :dst:port=80) ]
+.. storm-pre:: inet:ipv4 -> inet:flow
+.. storm-pre:: inet:ipv4 -> inet:flow:dst:ipv4
 
-- Pivot from a set of domains to their associated DNS A records:
+::
+  
+  <inet:ipv4 nodes> -> inet:flow
 
-  ``<inet:fqdn> -> inet:dns:a:fqdn``
+The query above uses implicit syntax. Note that because ``inet:flow`` nodes have two target properties of type
+``inet:ipv4`` (``:src:ipv4`` and ``:dst:ipv4``), the result of this query will be all ``inet:flow`` nodes where
+the inbound IPv4s are either the source **or** destination IP. If you only want to see flows where the inbound
+IPv4s are the destination IP (for example), you must use explicit syntax to clarify this:
 
-- Use "pivot in" to navigate from a set of domains to the DNS A records that **reference** a set of domains:
+::
+  
+  <inet:ipv4 nodes> -> inet:flow:dst:ipv4
 
-  ``<inet:fqdn> <- inet:dns:a:fqdn``
+*Pivot from a set of tags (syn:tag nodes) to the threat clusters (risk:threat nodes) represented by those tags:*
 
-Because of this equivalence, and because "left to right" logic is generally more intuitive, **only pivot out has been fully implemented in Storm.** (The second example, above, will actually return an error.) The pivot in operator exists, but is only used for certain special case pivot operations:
+.. storm-pre:: [ syn:tag=rep.eset.vicious_wombat (risk:threat=* :reporter:name=eset :tag=rep.eset.vicious_wombat) syn:tag=rep.symantec.sparkling_unicorn (risk:threat=* :reporter:name=symantec :tag=rep.symantec.sparkling_unicorn) ]
+.. storm-pre:: syn:tag -> risk:threat:tag
 
-- "wildcard" pivot in - pivot from any / all **primary** properties of the inbound set of nodes to the equivalent **secondary** property of any nodes, leveraging Synapse's :ref:`gloss-type-aware`, and
-- reverse `Pivot to Digraph (Edge) Nodes`_ and reverse `Pivot Across Digraph (Edge) Nodes`_ (covered separately below).
+::
+  
+  <syn:tag nodes> -> risk:threat:tag
+
+The query above uses explicit syntax. Even though the ``:tag`` property is of type ``syn:tag``, ``syn:tag`` nodes
+have specialized handling with respect to pivoting in Storm (see :ref:`pivot-from-tags` and :ref:`pivot-to-tags`
+below). Because pivots involving ``syn:tag`` nodes are handled differently by default, you must use explicit
+syntax when pivoting between tags (``syn:tag`` nodes) and properties whose type is ``syn:tag``.
+
+
+*Pivot from a set of FQDNs (inet:fqdn nodes) to any associated DNS records (e.g., inet:dns:a, inet:dns:cname, inet:dns:ns, inet:dns:request, etc.):*
+
+.. storm-pre:: [ inet:dns:a=(woot.com,4.4.4.4) inet:dns:ns=(woot.com,ns1.woot.com) inet:dns:mx=(woot.com,mx.woot.com) ]
+.. storm-pre:: inet:fqdn -> inet:dns:*
+
+::
+  
+  <inet:fqdn nodes> -> inet:dns:*
+
+The query above uses the wildcard ( ``*`` ) as a partial match for any form name that starts with ``inet:dns:``.
+
+*Pivot from a set of FQDNs (inet:fqdn nodes) to any associated DNS A or DNS AAAA records:*
+
+.. storm-pre:: inet:fqdn -> inet:dns:a*
+
+::
+  
+  <inet:fqdn nodes> -> inet:dns:a*
+
+The query above uses the wildcard ( ``*`` ) as a partial match for any form name that starts with ``inet:dns:a``
+followed by zero or more characters.
+
+*Pivot from a set of files to all host execution nodes (all nodes of all forms that inherit the it:host:activity interface - e.g., it:exec:file:add, it:exec:url, etc.) associated with those files:*
+
+.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (it:exec:file:write=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:mutex=* :sandbox:file=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) ]
+.. storm-pre:: file:bytes -> it:host:activity
+.. storm-pre:: file:bytes -> it:host:activity:exe
+
+::
+  
+  <file:bytes nodes> -> it:host:activity
+
+The query above uses implicit syntax. The ``it:host:activity`` interface defines two properties of type
+``file:bytes`` for host activity nodes - ``:exe`` and ``:sandbox:file``. The query above will return all
+activity nodes where the inbound files appear in either property. If you only want to see activity nodes
+whose ``:exe`` property (for example) matches the inbound files, you need to use explicit syntax:
+
+::
+  
+  <file:bytes nodes> -> it:host:activity:exe
+
+*Pivot from a set of usernames (inet:user nodes) to any file paths (file:path nodes) where the username is an element of the path (a :base value - for example, where a username might appear in a PDB path):*
+
+.. storm-pre:: [ inet:user=swanson file:path='c:\users\swanson\dev\projects\getthesnacks\release\getthesnacks.pdb' ]
+.. storm-pre:: inet:user=swanson -> file:path:base
+.. storm-pre:: inet:user=swanson -> file:path:base tree { -> file:path:dir }
+
+::
+  
+  <inet:user nodes> -> file:path:base
+
+The query above uses explicit syntax. The ``inet:user`` form has a type of ``inet:user``, but the ``:base``
+property of the ``file:path`` form has a type of ``file:base``. Because the properties are two different types,
+you must use explicit syntax.
+
+.. TIP::
+  
+  The query above will return the (partial) ``file:path`` whose final element is the user name (e.g.,
+  if your source node is ``inet:user=evilhacker``, the query will return ``c:\users\evilhacker``). You can
+  use the Storm :ref:`storm-tree` command to recursively pivot through the remaining ``file:path`` elements
+  to obtain the full path containing the username:
+  
+  ::
+    
+    <inet:user nodes> -> file:path:base tree { -> file:path:dir }
+
+*Pivot from a set of FQDNs (inet:fqdn nodes) to the "masquerade" technique nodes (risk:technique:masquerade nodes) associated with those FQDNs:*
+
+.. storm-pre:: [ (risk:technique:masquerade=* :target=(inet:fqdn,nato.int) :node=(inet:fqdn,nato-hq.com) ) ]
+.. storm-pre:: inet:fqdn -> risk:technique:masquerade
+.. storm-pre:: inet:fqdn -> risk:technique:masquerade:node
+
+::
+  
+  <inet:fqdn nodes> -> risk:technique:masquerade
+
+The above query uses implicit pivot syntax.
+
+A ``risk:technique:masquerade`` node represents an object that is purposely crafted to imitate (masquerade as)
+another object, typically for malicious purposes. The node records the relationship between the "original"
+object being imitated (``risk:technique:masquerade:target``) and the object that is imitating it
+(``risk:technique:masquerade:node``). (Both properties are of type "ndef" (node definition), and consist of
+``( <form>, <valu> )`` pairs.)
+
+Because the query above uses implicit syntax, it will return any ``risk:technique:masquerade`` nodes where
+the inbound FQDNs are either the ``:target`` or ``:node`` value. If (for example) the inbound FQDNs were a
+set of suspicious FQDNs and you wanted to return only those "masquerade" nodes where the inbound FQDNs were
+the ``:node`` masquerading as a valid FQDN, you would need to use explicit syntax:
+
+::
+  
+  <inet:fqdn nodes> -> risk:technique:masquerade:node
+
+
+.. _pivot-secondary-primary:
+
+Secondary to Primary Property Pivot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When pivoting from a secondary property of a set of source nodes to target nodes with the same primary
+property (e.g., from a set of DNS A nodes to their associated FQDNs), the target can be:
+
+- a form name;
+- a list of form names;
+- a wildcard.
+
+Implicit syntax can be used for these pivots if the source property is self-evident / unambiguous.
+
+.. TIP::
+  
+  Use of the the wildcard (asterisk) character ( ``*`` ) is known as a "wildcard pivot out". This pivot
+  navigates from any/all secondary properties on the source nodes to the nodes corresponding to those
+  property values. Contrast this operation with the "wildcard pivot in", described under :ref:`pivot-in`.
+
 
 **Syntax:**
 
-- *"Wildcard" Pivot In*
+*<query>* [ **:** | **.** | **:_** *<prop>* ] **->** *<form>*
+
+*<query>* [ **:** | **.** | **:_** *<prop>* ] **->** **(** *<form_1>* **,** *<form_2>* ... **)**
+
+*<query>* **->** *****
+
+.. NOTE::
   
-  *<query>* **<- ***
+  If you specify a source property for the pivot, you must use the relative property name (i.e., the
+  property name alone, preceded by its separator character).
+
+
+**Examples:**
+
+*Pivot from a set of DNS A records (inet:dns:a nodes) to their associated FQDNs (inet:fqdn nodes):*
+
+.. storm-pre:: inet:dns:a -> inet:fqdn
+.. storm-pre:: inet:dns:a :fqdn -> inet:fqdn
+
+::
+  
+  <inet:dns:a nodes> -> inet:fqdn
+
+The query above uses implicit syntax. Synapse recognizes that, given a target form of ``inet:fqdn``,
+the logical source property is the ``:fqdn`` property of the ``inet:dns:a`` nodes. You could optionally
+use explicit syntax:
+
+::
+  
+  <inet:dns:a nodes> :fqdn -> inet:fqdn
+
+
+*Pivot from a set of DNS NS records (inet:dns:ns nodes) to their associated FQDNs (inet:fqdn nodes):*
+
+.. storm-pre:: [ inet:dns:ns=(woot.com,ns1.woot.com) inet:dns:ns=(woot.com,ns2.woot.com) ]
+.. storm-pre:: inet:dns:ns -> inet:fqdn
+.. storm-pre:: inet:dns:ns :ns -> inet:fqdn
+
+::
+  
+  <inet:dns:ns nodes> -> inet:fqdn
+
+The query above uses implicit syntax. Because ``inet:dns:ns`` nodes have two properties of type ``inet:fqdn``
+(``:zone`` and ``:ns``), Synapse will pivot to the FQDNs associated with both values. If you only want to
+pivot to the FQDNs associated with the name server (NS) FQDNs (for example), you must use explicit syntax:
+
+::
+  
+  <inet:dns:ns nodes> :ns -> inet:fqdn
+
+
+*Pivot from a set of X509 certificate metadata nodes (crypto:x509:cert nodes) to the associated SHA1 fingerprints (hash:sha1 nodes) and to any FQDNs (inet:fqdn nodes) associated with the certificates:*
+
+.. storm-pre:: [ crypto:x509:cert=* :md5=6b9fdcadf7ea5de1f1402a1cb62c7a65 :sha1=0008e9f15b9ff20de82c276cc54ec9dc094f54f8 :sha256=b1ee0920c4f4d5ded50732d15186eae5357eb743cbbb98ee935bd0791520b5f7 :identities:fqdns=(aliceplants.com,) ]
+.. storm-pre:: crypto:x509:cert -> ( hash:sha1, inet:fqdn )
+
+::
+  
+  <crypto:x509:cert nodes> -> ( hash:sha1, inet:fqdn )
+
+.. TIP::
+  
+  Specifying a list of target forms allows you to perform a more focused pivot (in contrast to pivoting to
+  any / all target forms using a wildcard). The elements of the list must be enclosed in parentheses and
+  separated by commas.
+
+*Pivot from a set of X509 certificate metadata nodes (crypto:x509:cert nodes) to any/all nodes associated with any of the certificates' secondary properties:*
+
+.. storm-pre:: crypto:x509:cert -> *
+
+::
+
+  <crypto:x509:cert nodes> -> *
+
+The query above is an example of a **wildcard pivot out**. For any secondary properties on the source nodes,
+the query will return the associated nodes. For example, if the ``crypto:x509:cert:identities:ipv4s`` property
+is set, the query will return the associated ``inet:ipv4`` nodes. A wildcard pivot out is also known as a "refs
+out" pivot (for "references") because it pivots to the nodes "referenced by" the source nodes' secondary properties.
+
+
+.. _pivot-secondary-secondary:
+
+Secondary to Secondary Property Pivot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When pivoting from a secondary property of a set of source nodes to target nodes with the same secondary
+property (e.g., from the ``:ipv4`` property of a set of DNS A nodes to a set of network flow nodes with
+the same IPv4 as a ``:dst:ipv4`` property), the target can be:
+
+- a form name and property name;
+- a list of form and property names; or
+- an interface name and property name.
+
+You must use explicit syntax to specify both the source and target properties.
+
+
+**Syntax:**
+
+*<query>* **:** | **.** | **:_** *<prop>* **->** *<form>* **:** | **.** | **:_** *<prop>*
+
+*<query>* **:** | **.** | **:_** *<prop>* **->** *<interface>* **:** *<prop>*
+
+
+**Examples:**
+
+*Pivot from the WHOIS records (inet:whois:rec nodes) for a set of domains to the DNS A records (inet:dns:a nodes) for the same domains:*
+
+.. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
+
+::
+  
+  <inet:whois:rec nodes> :fqdn -> inet:dns:a:fqdn
+
+.. TIP::
+  
+  In many cases, secondary to secondary property pivots are a "shortcut" for two pivot operations (secondary to
+  primary and primary to secondary) that perform the equivalent navigation. For example:
+  
+  ::
+    
+    <inet:whois:rec nodes> -> inet:fqdn -> inet:dns:a
+
+*Pivot from a set of DNS requests (inet:dns:request nodes) to all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that share the same file as their :exe property:*
+
+.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 (inet:dns:request=* :query:name:fqdn=woot.com :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855) (it:exec:file:write=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/scvhost.exe') (it:exec:file:read=* :exe=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :path='c:/windows/autoexec.bat') ]
+.. storm-pre:: inet:dns:request :exe -> it:host:activity:exe
+
+::
+  
+  <inet:dns:request nodes> :exe -> it:host:activity:exe
+
+*Pivot from a set of DNS A records (inet:dns:a nodes) to any network flows (inet:flow) or service banners (inet:banner) associated with the IPs:*
+
+.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :dst:ipv4=8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
+.. storm-pre:: inet:dns:a :ipv4 -> ( inet:flow:dst:ipv4, inet:banner:server:ipv4 )
+
+::
+  
+  <inet:dns:a nodes> -> ( inet:flow:dst:ipv4, inet:banner:server:ipv4 )
+
+
+.. _pivot-in:
+
+Pivot In
+++++++++
+
+The pivot in operator is an "arrow" ( ``<-`` ) that points "in" from right to left.
+
+Pivot operations navigate between sets of nodes that share a common property value. There is no "direction"
+to this relationship; logically, pivot operations are functionally equivalent whether the pivot "arrow" points
+out (left to right) or in (right to left):
+
+- Pivot from a set of FQDNs to their associated DNS A records:
+  
+  ``<inet:fqdn nodes> -> inet:dns:a``
+
+- Pivot from a set of FQDNs to the DNS A records that reference them:
+  
+  ``<inet:fqdn nodes> <- inet:dns:a``
+
+Because Storm evaluates operations from left to right, the "pivot out" arrow is generally more intuitive and
+has been used to implement nearly all pivot operations in Storm (the second example, above, is not supported
+and will generate a ``StormRuntimeError``).
+
+The pivot in operation is a specialized operation that can only be used with the wildcard ( ``*`` ) as a
+target. This **wildcard pivot in** operation navigates from the primary property of the source node(s) to
+any nodes where that value is a secondary property. A wildcard pivot in is also known as a "refs in" pivot
+(for "references") because it pivots out to the nodes that "reference" the source nodes' primary property.
+Contrast this operation with the "wildcard pivot out", described under :ref:`pivot-secondary-primary`.
+
+
+**Syntax:**
+
+*<query>* **<-** *****
  
 **Example:**
 
-*Pivot from all primary properties to all nodes with an equivalent secondary property (<form> = <valu> to <prop> = <pval>):*
-
-- Pivot from a set of domains to all nodes with a secondary property that references the domains:
-
+*Pivot from a set of FQDNs (inet:fqdn nodes) to all nodes with a secondary property that references a source FQDN:*
 
 .. storm-pre:: inet:fqdn <- *
 ::
 
-    <inet:fqdn> <- *
+    <inet:fqdn nodes> <- *
+
+A wildcard pivot in will return any node with a secondary property value that matches any of the source FQDNs.
+For example, the above query could return various DNS records (``inet:dns:a``, ``inet:dns:mx``), URLs
+(``inet:url``), email addresses (``inet:email``), articles (``media:news``), and so on.
 
 
-In this example, the pivot might return nodes with secondary properties such as ``inet:whois:email:fqdn``, ``inet:dns:ns:zone``, ``inet:dns:query:name:fqdn``, and so on.
+.. _raw-pivot-syntax:
 
-**Usage Notes:**
+Raw Pivot Syntax
+++++++++++++++++
 
-- Pivoting in using the asterisk wildcard ( ``*`` ) is sometimes called a **refs in** pivot because it pivots from the inbound nodes to **all nodes that reference** those nodes. That is, for each inbound node, the "refs in" pivot will pivot from the **primary property** of a node to all nodes that have a **secondary property** equal to that type and value.
-- Pivoting in using the wildcard will return an instance of a node for **each** matching secondary property. For example, where a node may have the same *<pval>* for two different secondary properties (such as ``:domain`` and ``:zone`` on an ``inet:fqdn`` node), the pivot in will return two copies of the node. Results can be de-duplicated using the Storm :ref:`storm-uniq` command.
-- Pivoting using the wildcard is based on strong data typing within the Synapse data model and Synapse's **type awareness**, so will only pivot in from properties that match both *<type>* and *<valu>* / *<pval>*. This means that the following nodes will **not** be returned by a wildcard pivot in:
+Raw pivot syntax is a pivot operation where the target of the pivot is expressed as a **Storm query**. The use of
+raw pivot syntax is uncommon for interactive Storm queries, but is useful when you need greater flexibility in
+specifying the pivot target vs. using standard property-to-property pivot syntax.
 
-  - Nodes with matching *<valu>* / *<pval>* but of different *<type>*. For example, if a node’s primary property (such as a domain, type *<inet:fqdn>*) - happens to be referenced as as a different type (such as a string, type *<str>*) as a secondary property of another node, a wildcard pivot in to the ``inet:fqdn`` node will **not** return the node with the string value.
-  - Digraph (edge) nodes, whose properties are of type *<ndef>* (node definition, or *<form>,<valu>* tuples). See `Pivot to Digraph (Edge) Nodes`_ and `Pivot Across Digraph (Edge) Nodes`_ for details on pivoting to / through those forms.
+Raw pivot syntax requires:
 
-- Other than digraph (edge) node navigation / traversal, **pivot in can only be used with the wildcard** ( ``*`` ). That is, pivot in does not support specifying a particular target form:
+- the source node(s) for the pivot;
+- a pivot operator; and
+- the target of the pivot (specified as a Storm query enclosed in curly braces).
 
-  ``inet:fqdn=woot.com <- inet:dns:a:fqdn``
+Both pivot ( ``->`` ) and pivot and join ( ``-+>`` ) operators can be used with raw pivot syntax. Pivot in
+( ``<-`` ) and pivot in and join ( ``<+-`` ) are not supported.
 
-  The above query will return an error. A filter operation (see :ref:`storm-ref-filter`) can be used to downselect the results of a wildcard pivot in operation to a specific set of forms:
+Use cases for raw pivot syntax include primary-to-primary property pivots and pivots where the value of the target
+property (primary or secondary) is computed from the input node(s) (e.g., using a variable derived from the
+inbound nodes. See :ref:`storm-adv-vars` for a discussion of using variables in Storm).
+
+**Syntax:**
+
+*<query>* *<pivot operator>* **{** *<query>* **}**
+
+**Examples:**
+
+The following is a simple example to illustrate the concept.
+
+*Pivot from a set of strings (it:dev:str nodes) representing domains to the associated FQDNs (inet:fqdn nodes):*
+
+.. storm-pre:: [ it:dev:str=woot.com ]
+.. storm-pre:: it:dev:str=woot.com $fqdn=$node.value() -> { inet:fqdn ?= $fqdn }
+.. storm-pre:: it:dev:str=woot.com $fqdn=$node.value() inet:fqdn ?= $fqdn -it:dev:str
+
+::
   
-  ``inet:fqdn=woot.com <- * +inet:dns:a``
+  <it:dev:str nodes> $fqdn = $node.value() -> { inet:fqdn ?= $fqdn }
 
-- See :ref:`pivot-in-and-walk` for a more comprehensive alternative to the wildcard pivot in.
+The query above is a primary-to-primary property pivot between forms of different types. The query lifts
+the ``it:dev:str`` nodes, defines the variable ``$fqdn`` as the value of the node, then pivots to the
+``inet:fqdn`` nodes with the same value. The FQDN nodes are lifted using the Storm query; the
+:ref:`lift-try` is used in the event that any of the inbound ``it:dev:str`` nodes are invalid as FQDNs.
 
-.. _pivot-join:
+Note that you could create an equivalent Storm query using only lift and filter operations:
 
-Pivot With Join
----------------
+::
+  
+  <it:dev:str nodes> $fqdn = $node.value() inet:fqdn ?= $fqdn -it:dev:str
 
-The pivot and join operator ( ``-+>`` ) performs the specified pivot operation but joins the results with the inbound set of nodes. That is, the inbound nodes are retained and combined with the results of the pivot.
+This second query still lifts the ``it:dev:str`` nodes and sets the ``$fqdn`` variable, but then lifts
+the ``inet:fqdn`` nodes directly and drops (filters out) the original ``it:dev:str`` nodes.
 
-Another way to look at the difference between a pivot and a join is that a pivot operation **consumes** nodes (the inbound set is discarded and only nodes resulting from the pivot operation are returned) but a pivot and join does **not** consume the inbound nodes.
+While both queries return the same result (the ``inet:fqdn`` nodes), using raw pivot syntax is slightly more efficient
+because the pivot operation drops the ``it:dev:str`` nodes for you (pivots `consume`_ nodes); there is no need to
+filter them out at the end, as in the second example. As always, these efficiencies may be trivial for smaller
+queries but can be significant for larger queries.
 
-The pivot and join operator is used to retain the inbound nodes in any of the following cases:
+*Pivot from a set of HTTP referer headers (inet:http:request:header nodes) to any URLs (inet:url nodes) specified as the header value:*
 
-- primary to secondary property pivots,
-- secondary to primary property pivots,
-- secondary to secondary property pivots, and
-- "wildcard" pivot out - pivot from any / all **secondary** properties of the inbound set of nodes to the equivalent **primary** property of any nodes.
+.. storm-pre:: [ inet:http:request:header=(referer,https://www.google.com/) inet:http:request:header=(referer,'/some/partial/uri') ]
+.. storm-pre:: inet:http:request:header:name = referer $url = :value -> { inet:url ?= $url }
+
+::
+  
+  inet:http:request:header:name = referer $url = :value -> { inet:url ?= $url }
+
+The query above illustrates using raw pivot syntax to pivot from a secondary to a primary property where the
+properties are of different types. The query lifts all ``inet:http:request:header`` nodes where the ``:name`` value
+is ``referer``, sets the associated ``:value`` property (a ``str`` type) as the variable ``$url``, then pivots to any ``inet:url``
+nodes (an ``inet:url`` type) that have the same value. The :ref:`lift-try` operator is used in the event any of the referer
+values contain bad or malformed data.
+
+
+.. _storm-pivot-tags:
+
+Tag Pivots
+----------
+
+Tags in Synapse are unique in that they are both nodes and labels that are applied to other nodes.
+(See the :ref:`analytical-model` document for additional discussion of tags as both nodes and labels.)
+
+Because of tags' unique role, pivot syntax used with tags navigates between **tags as nodes** (``syn:tag``
+nodes) and **tags as labels** (i.e., nodes that have the tags applied), as opposed to performing standard
+property-to-property pivots.
+
+Both the pivot out ( ``->`` ) and pivot out and join ( ``-+>`` ) operator are supported for tag pivots.
+Pivot in ( ``<-`` ) and pivot in and join ( ``<+-`` ) are not supported.
+
+.. TIP::
+  
+  The custom behavior used with tag pivots may lead to counterintuitive results when attempting to pivot
+  between tags (``syn:tag`` nodes) and properties that are ``syn:tag`` types (such as ``risk:threat:tag``
+  or ``ou:technique:tag``).
+  
+  For example, if you attempt to pivot from a ``syn:tag`` node used to associate nodes with a threat cluster
+  to the ``risk:threat`` node representing the cluster, the following Storm query will fail to return
+  the expected results:
+  
+  ::
+    
+    syn:tag=rep.talos.lazarus -> risk:threat
+  
+  The query looks as though it should return the appropriate ``risk:threat`` node using implicit syntax
+  to navigate to the ``risk:threat:tag`` property, using type awareness. However, because the default
+  Storm behavior when pivoting from a ``syn:tag`` node is to pivot to **nodes that have the tag**,
+  the above query is actualy attempting to pivot to any ``risk:threat`` nodes that are tagged
+  ``#rep.talos.lazarus``. The query is syntactically correct, so will not generate an error; but it will
+  not return the expected nodes (and likely will not return any nodes at all).
+  
+  Explicitly specifying the ``:tag`` property will return the ``risk:threat`` node as expected:
+  
+  ::
+    
+    syn:tag=rep.talos.lazarus -> risk:threat:tag
+
+
+.. _pivot-to-tags:
+
+Pivot to Tags
++++++++++++++
+
+Pivot to tags syntax allows you to pivot from a set of nodes with tags to the set of ``syn:tag`` nodes
+representing those tags. Pivot to tag operations require:
+
+- the source node(s) for the pivot;
+- a pivot operator; and
+- the set of tags (``syn:tag`` nodes) that is the target of the pivot.
+
+Pivot to tags uses the "hashtag" symbol ( ``#`` ) to indicate that the target of the pivot is a set of
+``syn:tag`` nodes (by default, the set of all leaf tags on the source nodes). The target expression can
+be modified to refer to:
+
+- all tag nodes,
+- all tag nodes matching a specified pattern, or
+- the tag node matching a specific tag.
+
+
+Pivot to Leaf Tags
+~~~~~~~~~~~~~~~~~~
+
+The hashtag symbol ( ``#`` ) used by itself as a target refers to the ``syn:tag`` nodes for all **leaf** tags
+applied to the source nodes. A leaf tag is the longest / final tag in a tag tree. For example, if a node has
+the tag ``#rep.eset.sednit`` (which is comprised of the three tags ``#rep``, ``#rep.eset``, and ``#rep.eset.sednit``),
+the leaf tag is ``#rep.eset.sednit``.
+
+**Syntax:**
+
+*<query>* *<pivot_operator>* **#**
+
+**Examples:**
+
+*Pivot from a set of nodes to the tags (syn:tag nodes) for all leaf tags applied to those nodes:*
+
+.. storm-pre:: [ inet:fqdn=woot.com +#rep.microsoft.volt_typhoon ]
+.. storm-pre:: inet:fqdn -> #
+
+::
+  
+  <query> -> #
+
+
+Pivot to All Tags
+~~~~~~~~~~~~~~~~~
+
+The hashtag symbol can be used with the wildcard ( ``#*`` ) to pivot to all ``syn:tag`` nodes applied to the
+source nodes, not just the leaf tags. For example, if a node has the tag ``#rep.eset.sednit`` (which is comprised
+of the three tags ``#rep``, ``#rep.eset``, and ``#rep.eset.sednit``), all three tags will be returned.
+
+**Syntax:**
+
+*<query>* *<pivot_operator>* **#***
+
+*Pivot from a set of nodes to the tags (syn:tag nodes) for all tags applied to those nodes:*
+
+
+.. storm-pre:: [ file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.mal ]
+.. storm-pre:: file:bytes -> #*
+
+::
+  
+  <query> -> #*
+
+
+Pivot to Tags Matching a Pattern
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The single ( ``*`` ) or double ( ``**`` ) asterisk can be used to specify a set of target tags that match the
+specified tag glob expression. The single asterisk is used to match **within** a single tag element. The
+double asterisk is used to match **across** tag elements.
+
+**Syntax:**
+
+*<query>* *<pivot_operator>* **#** *<string>* | ***** | ****** [ **.** *<string>*  | ***** | ****** ... ]
+
+
+*Pivot from a set of nodes to the tags (syn:tag nodes) associated with any third-party reporting where the third tag element is "bisonal":*
+
+.. storm-pre:: [ file:bytes=sha256:89f250599e09f8631040e73cd9ea5e515d87e3d1d989f484686893becec1a9bc +#rep.alienvault.bisonal +#rep.malwarebazaar.bisonal +#rep.malwarebazaar.3p.intezer.bisonal ]
+.. storm-pre:: file:bytes -> #rep.*.bisonal
+.. storm-pre:: file:bytes -+> #rep.**bisonal
+
+::
+  
+  <query> -> #rep.*.bisonal
+
+Vertex uses the ``rep`` tag tree to indicate third-party reporting / assertions. The query above will match
+``syn:tag`` nodes from the source nodes where the tag has ``rep`` as the first tag element, has any value as
+the second element, and has ``bisonal`` as the third element. This would include tags such as:
+
+- ``rep.alienvault.bisonal``
+- ``rep.malwarebazaar.bisonal``
+
+*Pivot from a set of nodes to the tags (syn:tag nodes) representing any third party reporting where the tag ends in the string "bisonal":*
+
+::
+  
+  <query> -> #rep.**bisonal
+
+The query above will match any tag that has ``rep`` as the first element, followed by any number of elements
+that end in the string "bisonal". This would include the tags noted above, as well as tags such as:
+
+- ``rep.malwarebazaar.3p.intezer.bisonal``
+
+
+Pivot to Specific Tag
+~~~~~~~~~~~~~~~~~~~~~
+
+Pivot to the ``syn:tag`` node for a specific tag by specifying the exact tag as the target.
+
+**Syntax:**
+
+*<query>* *<pivot operator>* **#** *<tag>*
+
+
+*Pivot from a set of nodes to the syn:tag node for the tag "cno.ttp.phish.attach":*
+
+.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#cno.ttp.phish.attach ]
+.. storm-pre:: file:bytes -> #cno.ttp.phish.attach
+
+::
+  
+  <query> -> #cno.ttp.phish.attach
+
+
+.. _pivot-from-tags:
+
+Pivot from Tags
++++++++++++++++
+
+Pivot from tags syntax allows you to pivot from a set of ``syn:tag`` nodes to the nodes that have those tags.
+
+Pivot from tag operations require:
+
+- the source node(s) for the pivot (``syn:tag`` nodes);
+- a pivot operator; and
+- the target forms for the pivot.
+
+The target for a pivot from tags operation can be:
+
+- a form name;
+- a partial form name (wildcard match);
+- an interface name;
+- a list of form names; or
+- a wildcard.
+
+Pivot from tags pivots to nodes that have the exact source tag(s) applied. For example, pivoting from the
+tag ``syn:tag=rep.eset.sednit`` will **not** return nodes with only ``#rep`` or ``#rep.eset``. Conversely,
+pivoting from ``syn:tag=rep`` will return nodes with **any** tag in the ``rep`` tag tree (because the ``rep``
+tag is included in all of those trees).
+
+.. TIP::
+  
+  A pivot from tags operation is similar to a :ref:`lift-by-tag` or :ref:`lift-form-by-tag` operation. The following Storm
+  queries are equivalent:
+  
+  ``syn:tag=rep.microsoft.forest_blizzard -> *``
+  
+  ``#rep.microsoft.forest_blizzard``
+  
+  As are these:
+  
+  ``syn:tag=rep.microsoft.forest_blizzard -> ( inet:fqdn, inet:ipv4 )``
+  
+  ``inet:fqdn#rep.microsoft.forest_blizzard inet:ipv4#rep.microsoft.forest_blizzard``
+  
+  Pivot from tags can be useful when used with :ref:`pivot-to-tags`. For example, you can take a set of inbound
+  tagged nodes, use pivot to tags to navigate to some or all of the associated ``syn:tag`` nodes, and then
+  use pivot from tags to navigate to other nodes that have the same tags.
 
 
 **Syntax:**
 
-- *Primary to Secondary*
-  
-  *<query>* **-+>** *<form>* **:** *<prop>*
+*<syn:tag node(s)>* *<pivot operator>* *<form>*
 
-- *Secondary to Primary*
-  
-  *<query>* **:** *<prop>* **-+>** *<form>*
+*<syn:tag node(s)>* *<pivot operator>* *<partial_form_name>* *****
 
-- *Secondary to Secondary*
-  
-  *<query>* **:** *<prop>* **-+>** *<form>* **:** *<prop>*
+*<syn:tag node(s)>* *<pivot operator>* *<interface>*
 
-- *"Wildcard" Pivot Out and Join*
-  
-  *<query>* **-+> ***
+*<syn:tag node(s)>* *<pivot operator>* **(** *<form_1>* **,** *<form_2>* ... **)**
+
+*<syn:tag node(s)>* *<pivot operator>* *****
+
 
 **Examples:**
 
-*Pivot and join from primary property (<form> = <valu>) to secondary property (<prop> = <pval>):*
+*Pivot from a set of syn:tag nodes to any files (file:bytes nodes) with those tags applied:*
 
-- Return a set of domains and all of their immediate subdomains:
+.. storm-pre:: syn:tag -> file:bytes
 
-
-.. storm-pre:: inet:fqdn -+> inet:fqdn:domain
 ::
+  
+  <syn:tag nodes> -> file:bytes
 
-    <inet:fqdn> -+> inet:fqdn:domain
+*Pivot from a set of syn:tag nodes to any DNS nodes with those tags applied:*
 
+.. storm-pre:: syn:tag -> inet:dns:*
 
-*Pivot and join from secondary property (<prop> = <pval>) to primary property (<form> = <valu>):*
-
-- Return a set of DNS A records and their associated IP addresses:
-
-
-.. storm-pre:: inet:dns:a :ipv4 -+> inet:ipv4
 ::
+  
+  <syn:tag nodes> -> inet:dns:*
 
-    <inet:dns:a> :ipv4 -+> inet:ipv4
+The query above would return (for example) ``inet:dns:a`` nodes, ``inet:dns:request`` nodes, etc.
 
+*Pivot from a set of syn:tag nodes to any host activity nodes (all nodes of all forms that inherit the it:host:activity interface) with those tags applied:*
 
-*Pivot and join from secondary property (<prop> = <pval>) to secondary property (<prop> = <pval>):*
+.. storm-pre:: syn:tag -> it:host:activity
 
-- Return the WHOIS records for a set of domains and the DNS A records for the same domains:
-
-
-.. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
 ::
+  
+  <syn:tag nodes> -> it:host:activity
 
-    <inet:whois:rec> :fqdn -+> inet:dns:a:fqdn
+*Pivot from a set of syn:tag nodes to any IPv4 (inet:ipv4), IPv6 (inet:ipv6), server (inet:server), or network flow (inet:flow) nodes with those tags applied and retain the syn:tag nodes in the results (pivot and join):*
 
+.. storm-pre:: syn:tag -+> ( inet:ipv4, inet:ipv6, inet:server, inet:flow )
 
-**"Wildcard" pivot out and join - pivot from all secondary properties to the primary properties of the equivalent forms (<prop> = <pval> to <form> = <valu>):**
-
-- Return a set of WHOIS records and all nodes whose primary property equals any of the secondary properties of the WHOIS record:
-
-
-.. storm-pre:: inet:whois:rec -+> *
 ::
+  
+  <syn:tag nodes> -+> ( inet:ipv4, inet:ipv6, inet:server, inet:flow )
 
-    <inet:whois:rec> -+> *
+*Pivot from a set of syn:tag nodes to all nodes that have any of the tags applied:*
+
+.. storm-pre:: syn:tag -> *
+
+::
+  
+  <syn:tag nodes> -> *
 
 
-**Usage Notes:**
+.. _storm-pivot-edge:
 
-- A pivot out and join operation follows the same caveats and constraints as the standard :ref:`pivot-out`.
+Edge Node Pivots
+----------------
 
-.. _walk-light-edge:
+`Edge nodes`_ (also called digraph nodes) are specialized nodes whose purpose is to link two arbitrary nodes
+in a specific relationship. Edge nodes are `composite forms`_ but are unique in that, because
+the node(s) in the relationship may be arbitrary, the edge node's primary property consists of at least one value
+that is a :ref:`gloss-node-def` or **ndef** - that is, a ``(<form>, <valu>)`` pair vs. a standard ``<valu>``.
+(Some edge nodes include a time value as a third element of the primary property if the arbitrary relationship
+occurred at a specific time.)
 
-Traverse (Walk) Light Edges
----------------------------
+This means that pivots to or from edge nodes must account for having a form **and** property value in common between
+the source and target, not just a property value.
 
-The traverse (walk) light edges operator ( ``-(<verb>)>`` or ``<(<verb>)-`` ) is used to traverse from a set of inbound
-nodes to the set of nodes they are linked to by the specified light edge(s). Because a light edge is not a node, the
-navigation is technically a "traversal" of the light edge as opposed to a property-to-property pivot.
+Both the pivot ( ``->`` ) and pivot and join ( ``-+>`` ) operators are supported for edge pivots. The pivot in
+operator ( ``<-`` ) is supported for specialized cases. The pivot in and join operator ( ``<+-`` ) is not
+supported.
 
-Similar to an edge in a traditional directed graph, light edges have a "direction" (i.e., the relationship represented
-by a light edge is "one way"). From a Storm syntax perspective, light edges can be traversed in either direction.
+.. NOTE::
+  
+  Composite edge nodes are largely legacy elements in the Synapse data model. In many cases, the use of lightweight
+  (light) edges is now preferred over edge nodes. For example, ``edge:has`` nodes have largely been replaced by
+  ``-(has)>`` light edges; and the use of ``meta:seen`` nodes is discouraged in favor of ``-(seen)>`` light edges.
+  
+  Edge nodes may be preferred when you need to record additional information about the relationship (edge
+  nodes have properties, and you can apply tags to edge nodes). We recommend choosing one option (edge nodes
+  or light edges) for a given relationship for consistency (i.e., so analysts do not have to query for
+  the same type of relationship in two different ways).
+  
+  In addition, where there is a need to:
+  
+  - link two arbitrary nodes in some type of relationship, and
+  - record additional information about the relationships (i.e., where use of a light edge is not appropriate)
+  
+  ...the current preference is to create a `guid form`_ whose secondary properties include one or more ndefs instead
+  of a composite edge node (an example of this kind of form is the ``risk:technique:masquerade`` form). In particular,
+  use of a guid form with ndef secondary properties greatly simplifies pivoting to or from nodes that use ndefs,
+  eliminating the need for analysts to use or be aware of specialized :ref:`storm-pivot-edge`.
+  
+  By using guid forms, the ndef value(s) are no longer tied to the node's primary property the way they are in a
+  legacy composite edge node. This allows Synapse and Storm to treat pivots between nodes and ndef properties
+  as "standard" primary-to-secondary or secondary-to-primary property pivots (using an optimization similar to that
+  used for type awareness and implicit pivot syntax).
+
+
+.. _pivot-to-edge:
+
+Pivot to Edge Nodes
++++++++++++++++++++
+
+Pivoting to edge nodes requires:
+
+- the source node(s) for the pivot;
+- the pivot operator;
+- the target of the pivot.
+
+When pivoting to edge nodes, the target can be:
+
+- a form name (edge form);
+- a partial edge form name (wildcard match) - supported for pivot out / pivot out and join only;
+- an interface (in cases where an edge form inherits an interface); or
+- a form (edge form) and property name.
+
+.. TIP::
+  
+  Storm uses some optimizations to simplify working with edge nodes.
+  
+  When pivoting out ( ``->`` or ``-+>`` ) to a set of edge nodes, the target of the pivot is assumed
+  to be the edge nodes whose ``n1`` value matches the ``(<form>, <valu>)`` of the inbound nodes. This
+  means that you do not need to specify the target property for an edge pivot **unless** the target is
+  the edge nodes' ``n2`` property.
+  
+  As an alternative, the pivot in operator ( ``<-`` ) can be used specifically to pivot from the source
+  nodes to the ``n2`` property of the target edge nodes.
+  
+  Note that the use of the pivot in operator ( ``<-`` ) to pivot to edge nodes' ``n1`` property is not 
+  supported, even if you specify it as the target property. In addition, the target of a pivot in operation
+  cannot be a partial edge form name (wildcard match).
+
 
 **Syntax:**
 
-- *Walk - Single Light Edge*
-  
-  *<query>* **-(** *<verb>* **)>** ***** | *<form>*
-  
-  *<query>* **<(** *<verb>* **)-** ***** | *<form>*
+*<query>* *<pivot operator>* *<target>* [ **:n2** ]
 
-- *Walk - Multiple Light Edges*
-  
-  *<query>* **-( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )>** ***** | *<form>*
-  
-  *<query>* **<( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )-** ***** | *<form>*
-
-- *Walk - Any Light Edge (Wildcard)*
-  
-  *<query>* **-(** ***** **)>** ***** | *<form>*
-  
-  *<query>* **<(** ***** **)-** ***** | *<form>*
+*<query>* **<-** *<edge_form>*
 
 **Examples:**
 
-*Traverse the "refs" light edge from an article to the FQDNs "referenced" by the article:*
+.. NOTE::
+  
+  The examples below are for illustrative purposes to show the Storm syntax used to navigate edge nodes. Based on
+  current modeling best practices, the relationships shown here using edge nodes would typically be represented
+  using light edges or guid forms.
+
+*Pivot from a set of articles (media:news nodes) to the edge nodes (edge:refs nodes) showing things that the articles reference (e.g., such as indicators like hashes or FQDNs):*
+
+.. storm-pre:: [ media:news=fff6a48214f22b966bb8b74c808180a8 edge:refs=((media:news,fff6a48214f22b966bb8b74c808180a8),(inet:fqdn,woot.com)) ]
+.. storm-pre:: media:news -> edge:refs
+
+::
+  
+  <media:news nodes> -> edge:refs
+
+*Pivot from a set of vulnerabilities (risk:vuln nodes) to the edge nodes (edge:has nodes) showing which nodes have those vulnerabilities (e.g., such as an it:host):*
+
+.. storm-pre:: [ it:host=0006b0fec30a4bcbf719e326b9cf6437 (risk:vuln=00000af5ccc04021351fb42bdb47f4d7 :cve=cve-2020-17530) edge:has=((it:host,0006b0fec30a4bcbf719e326b9cf6437),(risk:vuln,00000af5ccc04021351fb42bdb47f4d7)) ]
+.. storm-pre:: risk:vuln -> edge:has:n2
+.. storm-pre:: risk:vuln <- edge:has
+
+::
+  
+  <risk:vuln nodes> -> edge:has:n2
+
+Because the ``risk:vuln`` ndefs are the ``n2`` value of the edge nodes, we must specify ``:n2`` as the target
+property. The following pivot in operation will return the same results:
+
+::
+  
+  <risk:vuln nodes> <- edge:has
 
 
-.. storm-pre:: [media:news="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)> inet:fqdn
+*Pivot from a set of nodes to any edge nodes (e.g., edge:has, edge:refs) where the inbound nodes are the n1 of any of the edge nodes:*
+
+.. storm-pre:: .created -> edge:*
+
+::
+  
+  <query> -> edge:*
+
+
+.. _pivot-from-edge:
+
+Pivot from Edge Nodes
++++++++++++++++++++++
+
+Pivoting from edge nodes requires:
+
+- the source node(s) (edge nodes) for the pivot;
+- the pivot operator;
+- the target of the pivot.
+
+When pivoting from edge nodes, the target can be:
+
+- a form name;
+- a partial form name (wildcard match) - supported for pivot out / pivot out and join only;
+- an interface; or
+- a wildcard.
+
+.. TIP::
+  
+  Storm uses some optimizations to simplify working with edge nodes.
+  
+  When pivoting out ( ``->`` or ``-+>`` ) from a set of edge nodes, the source of the pivot is assumed
+  to be the ``n2`` of the edge nodes. If you want to pivot out from edge nodes' ``n1`` property, you must
+  specify ``:n1`` as the source property.  
+  
+  As an alternative, the pivot in operator ( ``<-`` ) can be used to specifically to pivot from the
+  edge nodes' to the ``n1`` property. The use of the pivot in operator to pivot from edge nodes' ``n2``
+  property is not supported, even if you specify it as the source property. In addition, the target of
+  a pivot in operation cannot be a partial form name (wildcard match).
+
+
+**Syntax:**
+
+*<edge_form>* [ **:n1** ] *<pivot operator>* *<target>*
+
+*<edge_form>* **<-** *<form>* | *<interface>* | *****
+
+**Examples:**
+
+.. NOTE::
+  
+  The examples below are for illustrative purposes to show the Storm syntax used to navigate edge nodes. Based on
+  current modeling best practices, the relationships shown here using edge nodes would typically be represented
+  using light edges.
+
+*Pivot from a set of "has" edge nodes (edge:has nodes) to all of the objects the nodes "have":*
+
+.. storm-pre:: edge:has -> *
+
+::
+  
+  <edge:has nodes> -> *
+
+*Pivot from a set of "has" edge nodes (edge:has nodes) to all of the objects that "have" things:*
+
+.. storm-pre:: edge:has :n1 -> *
+.. storm-pre:: edge:has <- *
+
+::
+  
+  <edge:has nodes> :n1 -> *
+
+You can also use the pivot in operator to pivot from the ``:n1`` property by default:
+
+::
+  
+  <edge:has nodes> <- *
+
+
+*Pivot from a set of "has" edge nodes to any vulnerabilities that the objects "have":*
+
+.. storm-pre:: edge:has -> risk:vuln
+
+::
+  
+  <edge:has nodes> -> risk:vuln
+
+
+.. _pivot-across-edge:
+
+Pivot Across Edge Nodes
++++++++++++++++++++++++
+
+Because edge nodes represent relationships, analytically we are often more interested in the nodes on "either
+side" of the edge node than we are in the edge node itself. For this reason, the pivot operators have been
+optimized to allow for easily navigating "across" these edge nodes.
+
+Pivoting across edge nodes still entails two pivot operations (pivot to edges and pivot from edges, as described
+above). Like all Storm operations, each type of pivot can be performed independently and combined with other
+operations (e.g., lift, pivot to edges, filter, etc.)
+
+When you pivot to edge nodes and immediately pivot from edge nodes (navigating "across" the edges), Storm
+optimizes the pivot syntax to simplify this process.
+
+Specifically:
+
+Two pivot out operators ( ``->`` or ``-+>`` ) can be combined to easily pivot from:
+
+- source nodes to the edge nodes' ``:n1`` property, and
+- the edge nodes; ``:n2`` property to the target nodes.
+
 ::
 
-    <media:news> -(refs)> inet:fqdn
+  <source_nodes> -> <edge_nodes> -> <target_nodes>
+
+By optimizing which proprty of the edge node is assumed to be the source or target of the pivot operation,
+Synapse makes it easy to navigate across the edge relationship intuitively from left (``:n1``) to right
+(``:n2``) without the need to explicitly specify source and target properties.
 
 
-*Traverse the "refs" light edge from an article to all of the nodes "referenced" by the article:*
+Similarly, two pivot in operators ( ``<-`` or ``<+-`` ) can be used to pivot from:
+
+- source nodes to the edge nodes' ``:n2`` property, and
+- the edge nodes' ``:n1`` property to the target nodes.
+
+::
+
+  <source_nodes> <- <edge_nodes> <- <target_nodes>
+
+This allows you to navigate intuitively across the edge relationship "backwards" from right (``:n2``) to
+left (``:n1``).
 
 
+.. _storm-traverse:
+
+Traversal Operations
+--------------------
+
+Traversal operations are used to navigate between sets of nodes that are linked using a lightweight (light)
+edge. Traversal is still considered a "pivot" between sets of nodes, but is named differently to distinguish
+light edge navigation from property-to-property pivot navigation.
+
+.. TIP::
+  
+  There are no light edges (i.e., specific light edge verbs) defined within Synapse by default. Users can create
+  and define their own according to their needs. However, both the Synapse Data Model :ref:`dm-forms` documentation
+  and the Optic UI's `Data Model Explorer`_ list edges used by The Vertex Project by convention which are
+  recommended for use (note that `Power-Ups`_ may create these edges).
+  
+  The Storm :ref:`storm-model`, :ref:`storm-edges`, and :ref:`storm-lift-byverb` commands can be used to work with
+  light edges in Synapse.
+
+
+Each traversal operation requires:
+
+- the source node(s) for the operation;
+- the traversal operator; and
+- the target forms for the traversal.
+
+Traversal is also referred to as "walking" - that is, you can traverse a light edge or walk a light edge.
+
+The traversal operator is an "arrow" with embedded parentheses. The parentheses enclose a string (commonly a
+verb) for the relationship(s) represented by the edge:
+
+- ``-(<verb>)>``
+
+``<verb>`` can be a single edge, a list of edges, or a wildcard.
+
+Unlike property-to-property relationships, edge relationships have a **direction**. There is a "source" node
+(``n1``) and a "target" node (``n2``) for the relationship itself; an article (``media:news`` node, the ``n1``)
+can reference an indicator such as a hash (``hash:md5`` node, the ``n2``) but it does not make sense for a
+hash to "reference" an article.
+
+The pivot operator ( ``->`` ) and its variations "point" from left to right (other than a few specialized cases)
+by convention. In contrast, the traversal operator can "point" in either direction, depending on which nodes
+(which "side" of the edge relationship) are inbound. Both of the syntaxes below are equally valid:
+
+``<media:news nodes> -(refs)> <hash:md5 nodes>``
+
+``<hash:md5 nodes> <(refs)- <media:news nodes>``
+
+.. TIP::
+  
+  In Synapse, lightweight edge relationships are **explicit** relationships. The light edges used to
+  connect nodes must be defined within Synapse, and nodes joined by light edges must be explicitly linked.
+
+Unless otherwise specified, the target ( *<target>* ) of an edge traversal can be:
+
+- a form name (e.g., ``hash:md5`` );
+- a form name, comparison operator, and value (e.g., a primary property value, such as ``inet:fqdn~=news``);
+- a form and property name (e.g., ``inet:url:fqdn``);
+- a form and property name, comparison operator, and value (e.g., a secondary property value, such as ``risk:tool:software:used@=(2018, 2022)``)
+- a partial form name (wildcard match, e.g., ``hash:*``);
+- an interface name (e.g., ``it:host:activity``);
+- a list of form names (e.g., ``( hash:sha256, file:bytes )``); or
+- a wildcard / asterisk ( ``*`` ).
+
+.. NOTE::
+  
+  The ability to specify a secondary property **and value** is supported in Synapse 2.x.x, but will be removed in 3.x.x.
+  You can obtain the same result by traversing to a form and property name, and then filtering on the value. For example,
+  the following Storm queries are equivalent:
+  
+  ``media:news -(refs)> inet:url:fqdn~=justice.gov``
+  
+  and
+  
+  ``media:news -(refs)> inet:url:fqdn +:fqdn~=justice.gov``
+
+
+.. _walk-single-edge:
+
+Traverse a Specific Edge
+++++++++++++++++++++++++
+
+Specify the name (verb) of the edge you want to traverse to navigate a single edge.
+
+**Syntax:**
+
+*<query>* **-(** *<verb>* **)>** *<target>*
+
+*<query>* **<(** *<verb>* **)-** *<target>*
+
+**Examples:**
+
+*Traverse the "uses" light edge from a threat cluster (risk:threat node) to the tools or malware (risk:tool:software nodes) used by the cluster:*
+
+.. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
+.. storm-pre:: risk:threat -(uses)> risk:tool:software
+
+::
+  
+  <risk:threat> -(uses)> risk:tool:software
+
+*Traverse the "references" (refs) light edge from an article (media:news node) to all of the nodes "referenced" by the article:*
+
+.. storm-pre:: [media:news="*" +(refs)> { inet:fqdn=woot.com } ]
 .. storm-pre:: media:news -(refs)> *
+
 ::
+  
+  <media:news> -(refs)> *
 
-    <media:news> -(refs)> *
+*Traverse the "ipwhois" light edge from a set of IPv4 addresses (inet:ipv4 nodes) to the network registration / network WHOIS records (inet:whois:iprec nodes) the IPs are associated with:*
 
+.. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net4:min=8.8.8.0 :net4:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ipv4=8.8.8.8 ] } ]
+.. storm-pre:: inet:ipv4 <(ipwhois)- inet:whois:iprec
 
-*Traverse the "hasip" light edge from an IPv4 address to the CIDR block(s) the IP is part of:*
-
-
-.. storm-pre:: inet:ipv4 <(hasip)- inet:cidr4
 ::
+  
+  <inet:ipv4 nodes> <(ipwhois)- inet:whois:iprec
+  
+*Traverse the "seen" light edges from a set of DNS A records (inet:dns:a nodes) to the sources (meta:source nodes) that "saw" (observed or provided data for) the record:*
 
-    <inet:ipv4> <(hasip)- inet:cidr4
+.. storm-pre:: [ inet:dns:a=(woot.com,12.12.12.12) ] [ <(seen)+ { [ meta:source=* meta:source=* ] } ]
+.. storm-pre:: inet:dns:a <(seen)- meta:source
 
-
-*Traverse the "hasip" and "ipwhois" light edges from an IPv4 address to any nodes linked via those light edges (i.e., typically the CIDR block(s) the IP is part of and the netblock registration record(s) for the IP):*
-
-
-.. storm-pre:: inet:ipv4 <((hasip, ipwhois))- *
 ::
-
-    <inet:ipv4> <((hasip, ipwhois))- *
-
-
-*Traverse any / all light edges from an article to all nodes linked by any light edge:*
+  
+  <inet:dns:a nodes> <(seen)- meta:source
 
 
-.. storm-pre:: media:news -(*)> *
-::
+.. _walk-multi-edges:
 
-    <media:news> -(*)> *
+Traverse Multiple Edges
++++++++++++++++++++++++
 
-
-**Usage Notes:**
-
-- The traversal syntax allows specification of a single verb, a list of verbs, or the "wildcard" / asterisk ( ``*`` ) to reference any / all light edge verbs that may be present.
-- There are no light edges (i.e., specific light edge verbs) defined in a Cortex by default. Users can create and define their own according to their needs.
-- The Storm :ref:`storm-model`, :ref:`storm-edges`, and :ref:`storm-lift-byverb` commands can be used to work with  light edges in a Cortex.
-
-.. _join-light-edge:
-
-Traverse (Walk) and Join Light Edges
-------------------------------------
-
-Much like the :ref:`walk-light-edge` operators, the traverse (walk) and join light edges operator (``-(<verb>)+>`` or ``<+(<verb>)-``) is used to traverse from a set of inbound nodes to the set of nodes they are linked to by the specified light edge(s). Unlike :ref:`walk-light-edge`, the inbound nodes are retained and combined with the results of the pivot.
+Specify a list of edge names (verbs) to traverse multiple edges to their targets.
 
 **Syntax:**
 
-- *Walk and Join - Single Light Edge*
+*<query>* **-(** **(** *<verb1>* **,** *<verb2>* [ **,** *<verb3>* ] **)** **)>** *<target>*
 
-  *<query>* **-(** *<verb>* **)+>** ***** | *<form>*
+*<query>* **<(** **(** *<verb1>* **,** *<verb2>* [ **,** *<verb3>* ] **)** **)-** *<target>*
+
+
+.. TIP::
   
-  *<query>* **<+(** *<verb>* **)-** ***** | *<form>*
-
-- *Walk and Join - Multiple Light Edges*
-
-  *<query>* **-( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )+>** ***** | *<form>*
-  
-  *<query>* **<+( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )-** ***** | *<form>*
-
-- *Walk and Join - Any Light Edge*
-
-  *<query>* **-(** ***** **)+>** ***** | *<form>*
-  
-  *<query>* **<+(** ***** **)-** ***** | *<form>*
-
-**Examples:**
-
-*Traverse the "refs" light edge from an article and join the article with the FQDNs "referenced" by the article:*
-
-.. storm-pre:: [media:news="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
-::
-
-   <media:news> -(refs)+> inet:fqdn
-
-*Join an article with any/all the nodes referenced by the article:*
-
-.. storm-pre::  media:news -(refs)+> *
-::
-
-   <media:news> -(refs)+> *
-
-*Traverse the "hasip" light edge from an IPv4 address to the CIDR block(s) the IP is part of and join the two sets together:*
-
-.. storm-pre:: inet:ipv4 <+(hasip)- inet:cidr4
-::
-
-   <inet:ipv4> <+(hasip)- inet:cidr4
-
-*Join a set of IPv4 address with the set of any nodes linked to those IPv4 addresses via the "hasip" or "ipwhois" light edges:*
-
-.. storm-pre:: inet:ipv4 <+((hasip, ipwhois))- inet:cidr4
-::
-
-    <inet:ipv4> <+((hasip, ipwhois))- *
-
-*Traverse and join any/all light edges from an article to all nodes linked by any light edge:*
-
-.. storm-pre:: media:news -(*)+> *
-::
-
-   <media:news> -(*)+> *
-
-.. _pivot-out-and-walk:
-
-Pivot Out and Walk
-------------------
-
-The pivot out and walk (traverse) light edges operator ( ``--> *`` ) combines a wildcard pivot out ("refs out") operation ( ``-> *`` ) with a wildcard walk light edges operation ( ``-(*)>`` ).
-
-**Syntax:**
-
-*<query>* **\-\-> ***
-
-**Examples:**
-
-*Pivot from an IP netblock registration record to all nodes referenced by the record's secondary properties and all nodes linked to the record by light edges:*
-
-
-.. storm-pre:: [inet:whois:iprec="*" :net4:min=89.249.65.0] --> *
-::
-
-    <inet:whois:iprec> --> *
-
-
-**Usage Notes:**
-
-- The pivot out and walk operator can only be used with a wildcard ( ``*`` ); it is not possible to specify a particular form as the target of the operation. A filter operation can be used to refine the results of the pivot and walk operation if necessary.
-
-- The pivot and walk operators (pivot out and walk / pivot in and walk) are useful for "exploring" data in a Cortex as they will return all the nodes "next to" the working set of nodes (subject to :ref:`gloss-type-aware`) without requiring the user to have specific knowledge of the data model.
-- The Storm :ref:`storm-tee` command can be used to perform concurrent pivot in and walk / pivot out and walk operations on an inbound set of nodes:
-  
-.. storm-pre:: inet:dns:a inet:fqdn | tee { --> * } { <-- * }
-::
-  
-  <query> | tee { --> * } { <-- * }
-
-.. _pivot-out-and-join:
-
-Pivot Out and Join
-------------------
-
-The pivot out and join operator (``--+>``) is similar to the :ref:`pivot-out-and-walk` operator, but joins the results with the inbound set of nodes. That is, the inbound nodes are retained and combined with the results of the edge pivot.
-
-**Syntax:**
-
-*<query>* **\-\-+> ***
+  Because each light edge represents a different relationship whose targets may vary widely, the wildcard
+  ( ``*`` )  is frequently used as the target when traversing multiple edges (though this is not a requirement).
 
 **Example:**
 
-*Join any/all media:news with all nodes linked by any light edge:*
+*Traverse the "references" (refs) and "seen" light edges from an FQDN to any nodes linked via those light edges (i.e., articles (media:news nodes) that reference the FQDN and data sources (meta:source nodes) that "saw" the FQDN):*
 
-.. storm-pre:: media:news --+> *
+.. storm-pre:: [ inet:fqdn=woot.com ] [ <(refs)+ { [ media:news=* ] } ] [ <(seen)+ { [ meta:source=* ] } ]
+.. storm-pre:: inet:fqdn <( ( refs, seen ) )- *
 ::
 
-   <media:news> --+> *
+    <inet:fqdn> <( ( refs, seen ) )- *
 
-**Usage Notes:**
 
-- Much like the pivot out and walk operator, the pivot out and join operator can only be used with a wildcard ( ``*`` ); it is not possible to specify a particular form as the target of the operation. A filter operation can be used to refine the results of the pivot and walk operation if necessary.
+.. _walk-all-edges:
+
+Traverse All Edges
+++++++++++++++++++
+
+Use the wildcard (asterisk) character ( ``*`` ) to traverse any edges present in the specified direction to their targets.
+
+.. TIP::
+  
+  Using the wildcard to specify any edge name is useful when:
+  
+  - you want to traverse any / all edges;
+  - you want to navigate to a specific set of targets (regardless of the particular edges); or
+  - if you are not familiar with the edges that may be used with your source nodes and simply want to explore any
+    connections that may be present.
+
+
+**Syntax:**
+
+*<query>* **-(** ***** **)>** *<target>*
+
+*<query>* **<(** ***** **)-** *<target>*
+
+**Examples:**
+
+*For a threat cluster (risk:threat node), traverse any light edges linking the cluster to any vulnerabilities (risk:vuln nodes) or victim organizations (ou:org nodes):*
+
+.. storm-pre:: risk:threat -(*)> ( risk:vuln, ou:org )
+
+::
+  
+  <risk:threat> -(*)> ( risk:vuln, ou:org )
+
+*For a vulnerability (risk:vuln node), navigate to any forms that are connected to the vulnerability by any edge:*
+
+.. storm-pre:: [ risk:vuln=* ] [ <(has)+ { [ it:host=* ] } ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
+.. storm-pre:: risk:vuln <(*)- *
+
+::
+  
+  risk:vuln <(*)- *
+
+Vertex Project conventions can link ``risk:vuln`` nodes to things that have the vulnerability ( via ``<(has)-``
+edges) or things that use the vulnerability ( via ``<(uses)-`` edges - e.g., a threat cluster (``risk:threat``)
+or a file (``file:bytes``) that makes use of an exploit for the vulnerability, etc.).
+
+
+.. _storm-pivot-traverse:
+
+Pivot and Traverse Operations
+-----------------------------
+
+Property pivots and edge traversals can be combined into a single "pivot and traverse" operation to perform "both types"
+of navigation simultaneously from a set of source nodes. "Pivot and traverse" combines a pivot operation with a traverse
+all edges operation in the specified direction.
+
+Each pivot and traverse operation requires:
+
+- the source node(s) for the operation;
+- the pivot and traverse operator; and
+- the target of the operation.
+
+The pivot and traverse operator is a "double arrow" ( ``-->`` ) with two dashes (vs. one for a standard pivot).
+The operator can point "out" or "in", depending on the specific pivot and traverse operation you want to perform.
+
+Because pivot and traverse operations perform "all available" navigation in a given direction, the only valid target
+for this operation is the wildcard ( ``*`` ).
+
+.. TIP::
+  
+  The combined "pivot and traverse" operators are commonly used to "explore" a subset of connected nodes. Note that the
+  Storm :ref:`storm-tee` command can be used to perform concurrent pivot in and traverse / pivot out and traverse
+  operations on an inbound set of nodes:
+  
+  ::
+    
+    <query> | tee { --> * } { <-- * }
+  
+  This combined operation shows you **all** nodes connected to your source nodes by **any** property or edge. It is
+  equivalent to using the `Explore button`_ in the Optic UI.
+
+
+.. _pivot-out-and-walk:
+
+Pivot Out and Traverse 
+++++++++++++++++++++++
+
+The pivot out and traverse (walk) light edges operator ( ``-->`` ) combines a wildcard pivot out ("refs out")
+operation ( ``-> *`` ) with a wildcard (any / all edges) edge traversal operation ( ``-(*)> *`` ).
+
+**Syntax:**
+
+*<query>* **\-\->** *****
+
+**Examples:**
+
+*Pivot from a set of IP netblock registration records (inet:whois:iprec nodes) to all nodes associated with the records' secondary properties and all nodes linked to the records by light edges:*
+
+.. storm-pre:: [ (inet:whois:iprec="*" :net4:min=89.249.65.0 :net4:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ipv4=89.249.65.153 ] } ]
+.. storm-pre:: inet:whois:iprec --> *
+
+::
+  
+  <inet:whois:iprec nodes> --> *
+
 
 .. _pivot-in-and-walk:
 
-Pivot In and Walk
------------------
+Pivot In and Traverse
++++++++++++++++++++++
 
-The pivot in and walk (traverse) light edges operator ( ``<-- *`` ) combines a wildcard pivot in ("refs in") operation ( ``<- *`` ) with a wildcard walk light edges operation ( ``<(*)-`` ).
+The pivot in and traverse (walk) light edges operator ( ``<-- *`` ) combines a wildcard pivot in ("refs in")
+operation ( ``<- *`` ) with a wildcard (any / all edges) edge traversal operation ( ``<(*)- *`` ).
 
 **Syntax:**
 
@@ -520,7 +1535,7 @@ The pivot in and walk (traverse) light edges operator ( ``<-- *`` ) combines a w
 
 **Examples:**
 
-*Pivot from a set of IP addresses to all nodes that reference the IPs and all nodes linked to the IPs by light edges:*
+*Pivot from a set of IPv4 addresses (inet:ipv4 nodes) to all nodes that reference the IPs and all nodes linked to the IPs by light edges:*
 
 
 .. storm-pre:: inet:ipv4 <-- *
@@ -529,505 +1544,198 @@ The pivot in and walk (traverse) light edges operator ( ``<-- *`` ) combines a w
     <inet:ipv4> <-- *
 
 
-**Usage Notes:**
+.. _storm-join:
 
-- The pivot in and walk operator can only be used with a wildcard ( ``*`` ); it is not possible to specify a particular form as the target of the operation. A filter operation can be used to refine the results of the pivot and walk operation if necessary.
+Join Operations
+---------------
 
-- The pivot and walk operators (pivot out and walk / pivot in and walk) are useful for "exploring" data in a Cortex as they will return all the nodes "next to" the working set of nodes (subject to :ref:`gloss-type-aware`) without requiring the user to have specific knowledge of the data model.
+Like most Storm operations, pivots and traversals `consume`_ nodes. With both types of operations, you navigate "away"
+from your source nodes; the nodes that are the target of your operation become your working set / result set.
 
-- The Storm :ref:`storm-tee` command can be used to perform concurrent pivot in and walk / pivot out and walk operations on an inbound set of nodes:
-  
-.. storm-pre:: inet:fqdn | tee { --> * } { <-- * }
-::
-  
-  <query> | tee { --> * } { <-- * }
+With join operations, the inbound nodes are retained and combined (joined) with the target nodes in a single
+result set.
+
+Each join operation requires:
+
+- the source node(s) for the operation;
+- the appropriate join operator; and
+- the target of the operation.
+
+Join operators are variations on the standard pivot and traversal operators, but include a "plus" sign ( ``+`` )
+in the operator to indicate the join. For example, the pivot and join operator is the pivot arrow ( ``->`` )
+combined with the plus sign to represent "pivot and join" ( ``-+>`` ).
 
 
-.. _pivot-in-and-join:
+.. _pivot-join:
 
-Pivot In and Join
------------------
+Pivot and Join
+++++++++++++++
 
-The pivot in and join operator (``<+--``) is similar to the :ref:`pivot-in-and-walk` operator, but joins the results with the inbound set of nodes. That is, the inbound nodes are retained and combined with the results of the edge pivot.
-
-**Syntax:**
-
-*<query>* **<+\-\- ***
+The pivot and join operator ( ``-+>`` ) is the pivot "arrow" with an embedded plus sign ( ``+`` ) to represent joining
+the source and target nodes. The operator can be used anywhere the standard pivot operator ( ``->`` ) is used, including
+the wildcard pivot out. Refer to the syntax examples under :ref:`pivot-out` for the various types of pivot operations (e.g.,
+primary to secondary property, secondary to secondary property, etc.)
 
 **Examples:**
 
-*Join a set of IP addresses with all the nodes that reference the IPs and all nodes linked to the IPs by light edges:*
+*Pivot from a set of organizations (ou:org nodes) to any associated contacts (ps:contact nodes), retaining the organizations in the results:*
+
+.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex  :hq=d41d8cd98f00b204e9800998ecf8427e) (ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname=vertex :org=4b0c2c5671874922ce001d69215d032f) ]
+.. storm-pre:: ou:org -+> ps:contact
+
+::
+  
+  <ou:org nodes> -+> ps:contact
+
+*Pivot from a set of DNS A records (inet:dns:a nodes) to their associated IPv4 addresses (inet:ipv4 nodes), retaining the DNS A records in the results:*
+
+.. storm-pre:: inet:dns:a :ipv4 -+> inet:ipv4
+
+::
+  
+  <inet:dns:a nodes> -+> inet:ipv4
+
+
+*Pivot from a set of domain WHOIS records (inet:whois:rec nodes) to the DNS A records (inet:dns:a nodes) associated with the FQDNs, retaining the WHOIS records in the results:*
+
+.. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
+
+::
+  
+  <inet:whois:rec nodes> :fqdn -+> inet:dns:a:fqdn
+
+*Pivot from all secondary properties of a set of files (file:bytes nodes) to the associated nodes, retaining the files in the results:*
+
+.. storm-pre:: file:bytes -+> *
+
+::
+  
+  <file:bytes nodes> -+> *
+
+
+.. _pivot-in-join:
+
+Pivot In and Join
++++++++++++++++++
+
+The pivot in and join operator ( ``<+-`` ) can be used to perform a wildcard pivot in operation and join the results
+with the source nodes. Just as with a standard pivot in, the wildcard is the only valid target for this operation.
+
+**Syntax:**
+
+*<query>* **<+-** *****
+
+**Example:**
+
+*Pivot from a set of files (file:bytes nodes) to any nodes that reference the files, retaining the original files in the results:*
+
+.. storm-pre:: file:bytes <+- *
+
+::
+  
+  <file:bytes nodes> <+- *
+
+
+.. _join-light-edge:
+
+Traverse and Join
++++++++++++++++++
+
+The traverse and join operator ( ``-(<verb>)+>`` ) is a traversal "arrow" with a plus sign ( ``+`` ) to represent
+joining the source and target nodes. The operator can be used anywhere the standard ( ``-(<verb>)>`` ) traversal
+operator is used. The operator can be used with a named edge or edges (e.g., ``-(refs)+>`` or ``<+((uses, targets))-``)
+or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
+
+**Syntax:**
+
+*<query>* **-(** *<verb>* **)+>** *<target>*
+
+*<query>* **<+(** *<verb>* **)-** *<target>*
+
+*<query>* **-( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )+>** *<target>*
+
+*<query>* **<+( (** *<verb1>* **,** *<verb2>*  [ **,** *<verb3>* ...] **) )-** *<target>*
+
+*<query>* **-(** ***** **)+>** *<target>*
+
+*<query>* **<+(** ***** **)-** *<target>*
+
+**Examples:**
+
+*Traverse the "refs" light edge from an article (media:news node) and join the article with the FQDNs (inet:fqdn nodes) "referenced" by the article:*
+
+.. storm-pre:: [ media:news="*" +(refs)> { inet:fqdn=woot.com } ] -(refs)+> inet:fqdn
+::
+  
+  <media:news> -(refs)+> inet:fqdn
+
+*Join an article (media:news node) with any/all nodes referenced by the article:*
+
+.. storm-pre::  media:news -(refs)+> *
+::
+  
+  <media:news> -(refs)+> *
+
+*Join a threat cluster (risk:threat node) with any nodes used or targeted by the cluster:*
+
+.. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
+.. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:alias=vertex } ]
+.. storm-pre:: risk:threat -( (uses, targets) )+> *
+
+::
+  
+  <risk:threat> -( (uses, targets) )+> *
+
+*Traverse and join any/all light edges from a vulnerability (risk:vuln node) to all nodes linked by any light edge:*
+
+.. storm-pre:: risk:vuln <+(*)- *
+::
+  
+  <risk:vuln> <+(*)- *
+
+Common edges used with vulnerabilites (``risk:vuln`` nodes) include "uses" and "has".
+
+
+.. _pivot-walk-join:
+
+Pivot, Traverse, and Join
++++++++++++++++++++++++++
+
+The pivot, traverse, and join operator ( ``--+>`` ) combines the "pivot and traverse" double arrow with a plus sign
+( ``+`` ) to represent joining the source and target nodes. The operator can be used anywhere the standard pivot
+and traverse operator ( ``-->`` ) is used. Because combined pivot and traverse operations perform "all available"
+navigation, the only valid target for this operation is the wildcard ( ``*`` ).
+
+**Syntax:**
+
+*<query>* **\-\-+>** *****
+
+*<query>* **<+\-\-** *****
+
+**Examples:**
+
+*Join a set of articles (media:news nodes) with all nodes representing the articles' secondary properties (pivot out) and all nodes linked by any "right-facing" light edge:*
+
+.. storm-pre:: media:news --+> *
+::
+  
+  <media:news> --+> *
+
+*Join a set of IPv4 addresses (inet:ipv4 nodes) with all nodes that reference the IPs (pivot in) and all nodes linked to the IPs by "left-facing" light edges:*
 
 .. storm-pre:: inet:ipv4 <+-- *
 ::
 
    <inet:ipv4> <+-- *
 
-**Usage Notes:**
-
-- Much like the pivot in and walk operator, the pivot in and join operator can only be used with a wildcard ( ``*`` ); it is not possible to specify a particular form as the target of the operation. A filter operation can be used to refine the results of the pivot and walk operation if necessary.
-
-
-.. _pivot-to-edge:
-
-Pivot to Digraph (Edge) Nodes
------------------------------
-
-Digraph (edge) nodes (:ref:`form-edge`) are of type ``edge`` or ``timeedge``. These nodes (forms) are unique in that
-their primary property value is a pair of **node definitions** (type :ref:`gloss-ndef`) - that is, *<form>, <valu>*
-tuples. (``timeedge`` forms are comprised of two *<form>, <valu>* tuples and an additional *<time>* value). Each
-*<form>, <valu>* tuple from the primary property is broken out as secondary property ``:n1`` or ``:n2`` of type
-*<ndef>*. This means that pivoting to and from digraph nodes is a bit different than pivoting to and from nodes whose
-properties are a simple *<valu>* or *<pval>*.
-
-.. NOTE::
-  
-  Edge nodes are not formally deprecated, but the use of light edges (see :ref:`data-light-edge`) is now preferred
-  over edge nodes.
-
-**Syntax:**
-
-*<query>* **->** *<edge>* | *<timeedge>* [**:n2**]
-
-*<query>* **-+>** *<edge>* | *<timeedge>* [**:n2**]
-
-*<query>* **<-** *<edge>* | *<timeedge>*
-
-**Examples:**
-
-*Pivot out from a set of nodes whose ndefs (<form>, <valu>) are the first element (:n1) in a set of a digraph nodes:*
-
-- Pivot out from a person node to the set of digraph nodes representing things that person “has”:
-
-
-
-.. storm-pre:: [ps:person="*"] -> edge:has
-::
-
-    <ps:person> -> edge:has
-
-
-- Pivot out from a person node to the set of ``timeedge`` digraph nodes representing places that person has been to (and when):
-
-
-.. storm-pre::  ps:person -> edge:wentto
-::
-
-    <ps:person> -> edge:wentto
-
-
-*Pivot in from a set of nodes whose ndefs (<form>, <valu>) are the second element (:n2) in a set of a digraph nodes:*
-
-- Pivot in from an article to the set of digraph nodes representing things that “have” the article (e.g., people or organizations who authored the article):
-
-
-.. storm-pre:: media:news <- edge:has
-::
-
-    <media:news> <- edge:has
-
-
-**Usage Notes:**
-
-- To simplify working with digraph nodes and their ``ndef`` properties, Storm makes some assumptions (optimizations) when using the pivot out and pivot in operators:
-
-  - When pivoting to or from a set of nodes to a set of digraph nodes, pivot using the ``ndef`` (*<form>,<valu>*) of the inbound nodes and not their primary property (*<valu>*) alone.
-  - When pivoting **out** to a digraph node, the inbound nodes’ *<form>,<valu>* ``ndef`` will be the **first** element (``:n1``) of the digraph. You must explicitly specify ``:n2`` as the target property to pivot using the second element.
-  - When pivoting **in** to a digraph node, the inbound nodes’ *<form>,<valu>* ``ndef`` will be the **second** element (``:n2``) of the digraph. It is not possible to pivot into the ``:n1`` value.
-
-- Pivoting to / from digraph nodes is one of the specialized use cases for the pivot in ( ``<-``) operator, however the primary use case of pivot in with digraph nodes is reverse edge traversal (see `Pivot Across Digraph (Edge) Nodes`_). See `Pivot In Operator`_ for general limitations of the pivot in operator.
-
-
-
-.. _pivot-across-edge:
-
-Pivot Across Digraph (Edge) Nodes
----------------------------------
-
-Because digraph nodes represent generic edge relationships, analytically we are often more interested in the nodes
-on "either side" of the edge than in the digraph node itself. For this reason, the pivot operators have been
-optimized to allow a syntax for easily navigating "across" these digraphs (edges).
-
-.. NOTE::
-  
-  Edge nodes are not formally deprecated, but the use of light edges (see :ref:`data-light-edge`) is now preferred
-  over edge nodes.
-
-**Syntax:**
-
-*<query>* **->** *<edge>* | *<timeedge>* **->** ***** | *<form>*
-
-*<query>* **<-** *<edge>* | *<timeedge>* **<-** ***** | *<form>*
-
-**Examples:**
-
-- Traverse a set of ``edge:has`` nodes to pivot from a person to all the things the person "has":
-
-
-.. storm-pre:: ps:person -> edge:has -> *
-::
-
-    <ps:person> -> edge:has -> *
-
-
-- Traverse a set of ``edge:wentto`` nodes to pivot from a person to the locations the person has visited:
-
-
-.. storm-pre:: ps:person -> edge:wentto -> *
-::
-
-    <ps:person> -> edge:wentto -> *
-
-
-**Usage Notes:**
-
-- Storm makes the following assumptions to optimize the two pivots:
-
-  - For pivots out, the first pivot is to the digraph nodes’ ``:n1`` property and the second pivot is from the digraph nodes’ ``:n2`` property.
-  - For pivots in, the first pivot is to the digraph nodes’ ``:n2`` property and the second pivot is from the digraph nodes’ ``:n1`` property.
-
-- Pivoting "across" the digraph nodes still performs two pivot operations (i.e., to the digraph nodes and then from them). As such it is still possible to apply an optional filter to the digraph nodes themselves before the second pivot.
-
-.. _pivot-to-tags:
-
-Pivot to Tags
--------------
-
-Pivot to tags syntax allows you to pivot from a set of nodes with tags to the set of ``syn:tag`` nodes representing those tags. This includes:
-
-- pivot to all leaf tag nodes,
-- pivot to all tag nodes,
-- pivot to all tag nodes matching a specified pattern, and
-- pivot to tag nodes matching an exact tag.
-
-See the :ref:`analytical-model` document for additional discussion of tags as nodes (``syn:tag`` nodes) and tags as labels applied to other nodes.
-
-**Syntax:**
-
-*<query>* **-> #** [ ***** | *<tag>* **.*** | *<tag>* ]
-
-**Examples:**
-
-*Pivot to all leaf tag nodes:*
-
-- Pivot from a set of domains to the ``syn:tag`` nodes for all **leaf** tags applied to those domains (i.e., the  longest / final tag in each tree applied to each node):
-
-
-.. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com -> #
-::
-
-    <inet:fqdn> -> #
-
-
-*Pivot to ALL tag nodes:*
-
-- Pivot from a set of files to the ``syn:tag`` nodes for **all** tags applied to those files (i.e., each tag in each tag tree applied to each node, from root to leaf):
-
-
-.. storm-pre:: [file:bytes=sha256:b6e7343b9250ad141db66c7bb2cd18c8a6939ff6cdff616683ba6b6a4ff7aa91 +#cno.rel] -> #*
-::
-
-    <file:bytes> -> #*
-
-
-*Pivot to all tag nodes matching the specified pattern:*
-
-- Pivot from a set of IP addresses to the ``syn:tag`` nodes for all tags applied to those IPs that are part of the anonymized infrastructure tag tree:
-
-
-.. storm-pre:: inet:ipv4 -> #cno.infra.anon.*
-::
-
-    <inet:ipv4> -> #cno.infra.anon.*
-
-
-*Pivot to tag nodes exactly matching the specified tag:*
-
-- Pivot from a set of nodes to the ``syn:tag`` node for ``#foo.bar`` (if present on the inbound set of nodes):
-
-
-.. storm-pre:: inet:fqdn -> #foo.bar
-::
-
-    <query> -> #foo.bar
-
-
-**Usage Notes:**
-
-- Pivot to all tags ( ``#*`` ) and pivot by matching an initial pattern ( ``#<tag>.*`` ) will match **all** tags in the relevant tag trees from the inbound nodes, not just the leaf tags. For example, for an inbound node with tag ``#foo.bar.baz``, ``#*`` will return the ``syn:tag`` nodes for ``foo``, ``foo.bar``, and ``foo.bar.baz``.
-- When using the asterisk / wildcard ( ``*`` ) to match a pattern, the wildcard(s) can be used anywhere within the tag name (value); they are not limited to matching elements within the tag's dotted namespace. For example, all of the following are valid (though may return different results):
-
-  - ``-> #aka.thr.*``
-  - ``-> #aka.t*``
-  - ``-> #a*``
-  - ``-> #*thr*``
-  - ``-> #*.thr.*``
-
-- The pivot to tags operator does not support pivoting directly to a set of tags specified by a prefix match ( ``^`` ) or regular expression ( ``~`` ). However, these operators can be used as part of a subsequent filter operation to further refine the results of the pivot.
-
-.. _pivot-from-tags:
-
-Pivot from Tags
----------------
-
-Pivot from tags syntax allows you to pivot from a set of ``syn:tag`` nodes to the set of nodes that have those tags.
-
-**Syntax:**
-
-*<syn:tag>* **->** ***** | *<form>*
-
-**Examples:**
-
-- Pivot to all domains tagged with tags from any of the inbound ``syn:tag`` nodes:
-
-
-.. storm-pre:: syn:tag -> inet:fqdn
-::
-
-    <syn:tag> -> inet:fqdn
-
-
-- Pivot to **all** nodes tagged with tags from any of the inbound ``syn:tag`` nodes:
-
-
-.. storm-pre:: syn:tag -> *
-::
-
-    <syn:tag> -> *
-
-
-**Usage Notes:**
-
-- In many cases, pivot from tags is functionally equivalent to :ref:`lift-by-tag`. That is, the following queries will both return all nodes tagged with ``#aka.feye.thr.apt1``:
-
-  ``syn:tag=aka.feye.thr.apt1 -> *``
-  
-  ``#aka.feye.thr.apt1``
-  
-  Pivoting from tags is most useful when used in conjunction with `Pivot to Tags`_ - that is, taking a set of inbound nodes, pivoting to the ``syn:tag`` nodes for any associated tags (pivot to tags), and then pivoting out again to other nodes tagged with some or all of those tags (pivot from tags).
-
-.. _implicit-pivot-syntax:
-
-Implicit Pivot Syntax
----------------------
-
-Pivot operations in Storm can always be executed by **explicitly** specifying the source and target properties for the pivot. This is referred to as **explicit pivot syntax** or explicit syntax. For example:
-
-.. storm-pre:: inet:fqdn=vertex.link -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
-::
-  
-  inet:fqdn=vertex.link -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
-
-The above query:
-
-- lifts the FQDN ``vertex.link``,
-- explicitly pivots from the primary property of the FQDN to any ``inet:dns:a:fqdn`` secondary property with the same value, and
-- explicitly pivots from the ``:ipv4`` secondary property of the ``inet:dns:a`` nodes to the primary property of  any ``inet:ipv4`` nodes with the same value.
-
-Using explicit pivot syntax tells Storm **exactly** what you want to do; there is no ambiguity in the query. (Explicit syntax may also be useful when first learning Storm to reinforce exactly what navigation is being carried out when you perform a pivot operation.) However, the need to fully specify target properties (using form and property names) and specifically reference source properties (using relative property names) can add overhead ("more typing") to a Storm query that is not necessary if the query is unambiguous (i.e., based on the inbound and outbound forms).
-
-For this reason, Storm also supports **implicit pivot syntax** for certain types of pivots. Implicit pivot syntax takes advantage of Synapse's :ref:`gloss-type-aware` to "know" which properties can be pivoted to (or from), given the forms that are inbound to and outbound from the pivot operation. In these cases, the source and/or target do not need to be explicitly specified. This allows for more concise Storm syntax in cases where the source and / or target of the pivot is self-evident given the forms used.
-
-Implicit pivot syntax can be used in the following cases where the source and target properties have both the same **type** AND the same **value**:
-
-- Primary to secondary property pivots.
-- Secondary to primary property pivots.
-
-Implicit pivot syntax **cannot** be used for the following:
-
-- Primary to primary property pivots (see :ref:`raw-pivot-syntax`, below)
-- Secondary to secondary property pivots.
-- Pivots between primary and secondary (or secondary and primary) properties with the same value but of different **types**. 
-
-**Examples:**
-
-*Pivot from primary property (<form> = <valu>) to secondary property (<prop> = <pval>) using implicit syntax:*
-
-- Pivot from a set of domains to their associated DNS A records:
-
-**Explicit syntax:**
-
-
-.. storm-pre:: inet:fqdn -> inet:dns:a:fqdn
-::
-
-    <inet:fqdn> -> inet:dns:a:fqdn
-
-
-**Implicit syntax:**
-
-
-.. storm-pre:: inet:fqdn -> inet:dns:a
-::
-
-    <inet:fqdn> -> inet:dns:a
-
-
-With implicit syntax, the target property ``:fqdn`` can be omitted because it is the only logical target given ``inet:fqdn`` nodes as the source and ``inet:dns:a`` nodes as the target of the pivot.
-
-.. NOTE::
-
-  While the ``inet:fqdn`` form has secondary properties that are also of type ``inet:fqdn`` (e.g., both ``:domain`` and ``:zone``) implicit syntax can only be used to pivot between primary and secondary OR secondary and primary properties, but not both. That is, implicit syntax does not allow you to go from any / all properties of a given type in the source nodes to  any / all properties with the same type and value in the target nodes.
-  Because the target of the pivot is ``inet:dns:a`` nodes, the only logical target given the inbound nodes is the ``:fqdn`` **secondary** property, which means the only logical source is the **primary** property of the ``inet:fqdn``.
-
-*Pivot from secondary property (<prop> = <pval>) to primary property (<form> = <valu>) using implicit syntax:*
-
-- Pivot from a set of DNS A records to their associated IP addresses:
-
-**Explicit syntax:**
-
-
-.. storm-pre:: inet:dns:a :ipv4 -> inet:ipv4
-::
-
-    <inet:dns:a> :ipv4 -> inet:ipv4
-
-
-**Implicit syntax:**
-
-
-.. storm-pre:: inet:dns:a -> inet:ipv4
-::
-
-    <inet:dns:a> -> inet:ipv4
-
-
-With implicit syntax, the source property ``:ipv4`` can be omitted because it is the only logical source given a set of ``inet:ipv4`` nodes as the target.
-
-.. NOTE::
-  
-  Similar to the last example, while the ``inet:dns:a`` form has both ``:ipv4`` and ``:fqdn`` secondary properties, implicit syntax can only be used to pivot between primary and secondary OR secondary and primary properties, but not both. Because the target of the pivot is ``inet:ipv4`` nodes, the only logical source property is the ``:ipv4`` secondary property of the ``inet:dns:a`` node.
-
-*Use of multiple implicit pivots:*
-
-- Pivot from a set of domains to their DNS A records and then to the associated IP addresses:
-
-**Regular (full) syntax:**
-
-
-.. storm-pre:: inet:fqdn -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
-::
-
-    <inet:fqdn> -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
-
-
-**Implicit syntax:**
-
-
-.. storm-pre::  inet:fqdn -> inet:dns:a -> inet:ipv4
-::
-
-    <inet:fqdn> -> inet:dns:a -> inet:ipv4
-
-
-The above example simply combines the previous two examples to illustrate the use of multiple implicit pivot operations in a longer query.
-
-*Implicit syntax with multiple target properties:*
-
-- Pivot from a set of domains to the associated DNS MX records:
-
-**Implicit syntax:**
-
-
-.. storm-pre:: inet:fqdn -> inet:dns:mx
-::
-
-    <inet:fqdn> -> inet:dns:mx
-
-
-In the example above, given the source and target forms, the logical pivot for implicit syntax is from the primary property of the inbound FQDN to the secondary properties of the DNS MX nodes. However, an ``inet:dns:mx`` form has **two** secondary properties of type ``inet:fqdn``: the mail exchange server (``inet:dns:mx:mx``) and the domain that uses the MX (``inet:dns:mx:fqdn``).
-
-Using implicit syntax, Storm will pivot from the source FQDN(s) to any DNS MX records where the domain matches **either** of those secondary properties. For example, querying the FQDN ``google.com`` will return DNS MX records **for** Google (i.e., ``inet:dns:mx:fqdn=google.com``) as well as MX records that may **use** Google as their mail exchange (i.e., ``inet:dns:mx:mx=google.com``).
-
-If you want only one or the other of those types of records, you need to use explicit syntax to specify the target property, i.e.:
-
-
-.. storm-pre:: inet:fqdn -> inet:dns:mx:fqdn
-::
-
-    <inet:fqdn> -> inet:dns:mx:fqdn
-    
-    or
-    
-    <inet:fqdn> -> inet:dns:mx:mx
-
-
-*Implicit syntax with multiple source properties:*
-
-- Pivot from a set of files to their associated SHA256 hashes:
-
-**Implicit syntax:**
-
-
-.. storm-pre::  file:bytes -> hash:sha256
-::
-
-    <file:bytes> -> hash:sha256
-
-
-In the example above, given the source and target forms, the logical pivot for implicit syntax is from the secondary properties of the inbound file to the primary property of the SHA256 nodes. However, a ``file:bytes`` form has **two** secondary properties of type ``hash:sha256``: the file's SHA256 hash (``file:bytes:sha256``) and the hash of the file's rich header data (if the file is a PE executable - ``file:bytes:mime:pe:richhdr``).
-
-Using implicit syntax, Storm will pivot from **both** source properties (where present) to **all** of the associated SHA256 nodes - that is, those that match either the ``:sha256`` or ``:mime:pe:richhdr`` value.
-
-If you want only one or the other of those types of records, you need to use explicit syntax to specify the source  property, i.e.:
-
-
-.. storm-pre::  file:bytes :sha256 -> hash:sha256
-::
-
-    <file:bytes> :sha256 -> hash:sha256
-    
-    or
-    
-    <file:bytes> :mime:pe:richhdr -> hash:sha256
-
-
-.. _raw-pivot-syntax:
-
-Raw Pivot Syntax
-----------------
-
-For certain edge cases, standard Storm pivot syntax (explicit or implicit) is insufficient. In these instances raw pivot syntax acts as a "get out of jail free" card to perform specialized pivot operations. These include:
-
-- primary-to-primary property pivots;
-- pivots where the value of the target property (primary or secondary) is computed from the input node(s);
-- extramodel pivots.
-
-In raw pivot syntax, the target of the pivot is specified as a Storm query enclosed in curly braces. Raw pivots often involve specifying a variable derived from the inbound node(s) and performing the raw pivot using the variable, though this is not technically required. (See :ref:`storm-adv-vars` for a discussion of using variables in Storm).
-
-For some raw pivot syntax use cases, you can compose an equivalent Storm query using lift and filter operations. For example:
-
- - lift a set of nodes;
- - define a variable based on those nodes;
- - lift a second set of nodes using the variable;
- - filter out the original nodes you lifted, thus leaving only the second set of lifted nodes.
- 
-However, executing this type of query using raw pivot syntax is slightly more efficient; the Storm query within the raw pivot's curly braces may still be a lift operation, but performing it inside a raw pivot means you do not have to explicitly drop (filter out) your original nodes. (As with a regular pivot, the inbound nodes are consumed by the pivot operation itself, eliminating the need for the filter.)
-
-As always, these efficiencies may be trivial for smaller queries but can be significant for larger queries.
-
-**Syntax:**
-
-*<query>* **->** **{** *<query>* **}**
-
-**Examples:**
-
-- Pivot from a string (``it:dev:str``) representing an FQDN to the ``inet:fqdn`` node for that FQDN (i.e., pivot between two primary properties of different types).
-
-**Standard syntax (no raw pivot, lift / filter only):**
-
-
-.. storm-pre:: [it:dev:str="woot.com"] $fqdn=$node.value() inet:fqdn=$fqdn -it:dev:str
-::
-
-    <it:dev:str> $fqdn=$node.value() inet:fqdn=$fqdn -it:dev:str
-
-
-**Raw pivot syntax:**
-
-
-.. storm-pre:: it:dev:str $fqdn=$node.value() -> { inet:fqdn=$fqdn }
-::
-
-    <it:dev:str> $fqdn=$node.value() -> { inet:fqdn=$fqdn }
-
+.. _properties: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#property
+.. _light edge: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#lightweight-light-edge
+.. _Data Model Explorer: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/get_help.html#using-data-model-explorer
+.. _Explore button: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/quick_tour.html#explore-button-breadcrumbs
+.. _edge nodes: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#edge-digraph-form
+.. _composite forms: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#composite-comp-form
+.. _guid form: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#guid-form
+.. _types: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#data-type
+.. _consume: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_intro.html#node-consumption
+.. _Edge nodes: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#edge-digraph-form
+.. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#power-up
