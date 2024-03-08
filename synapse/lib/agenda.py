@@ -782,8 +782,8 @@ class Agenda(s_base.Base):
         info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
 
         coro = self._runJob(user, appt)
-        task = self.core.addActiveTask(coro)
-        appt.task = self.core.boss.promotetask(task, f'Cron {appt.iden}', user, info=info)
+        task = self.core.runActiveTask(coro)
+        appt.task = await self.core.boss.promotetask(task, f'Cron {appt.iden}', user, info=info)
 
     async def _markfailed(self, appt, reason):
         now = self._getNowTick()

@@ -1869,16 +1869,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
-            await self.initServicePassive()
             await self.activebase.fini()
             self.activebase = None
+            await self.initServicePassive()
 
         await self._setAhaActive()
 
-    async def runActiveTask(self, coro):
+    def runActiveTask(self, coro):
         # an API for active coroutines to use when running a an
         # ephemeral task which should be automatically torn down
-        # if the cell goes inactive but is not something to re-fire
+        # if the cell becomes inactive
         return self.activebase.schedCoro(coro)
 
     async def initServiceActive(self):  # pragma: no cover
