@@ -275,3 +275,13 @@ reqValidSslCtxOpts = s_config.getJsValidator({
     },
     'additionalProperties': False,
 })
+
+_stormPoolOptsSchema = {
+    'type': 'object',
+    'properties': {
+        'timeout:sync': {'type': 'integer', 'minimum': 1},
+        'timeout:connection': {'type': 'integer', 'minimum': 1},
+    },
+    'additionalProperties': False,
+}
+reqValidStormPoolOpts = s_config.getJsValidator(_stormPoolOptsSchema)
