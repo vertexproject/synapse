@@ -1329,7 +1329,6 @@ class AhaTest(s_test.SynTest):
             with self.getTestDir() as dirn:
                 aha00dirn = s_common.gendir(dirn, 'aha00')
                 svc0dirn = s_common.gendir(dirn, 'svc00')
-                svc1dirn = s_common.gendir(dirn, 'svc01')
                 async with await s_base.Base.anit() as cm:
                     # Add enough space to allow aha CA bootstraping.
                     basenet = 'loop.vertex.link'
@@ -1392,3 +1391,19 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.BadArg) as errcm:
                         await aha.addAhaUserEnroll('')
                     self.isin('Empty name values are not allowed for provisioning.', errcm.exception.get('mesg'))
+
+            # add an aha bootstrapping test failure
+            with self.getTestDir() as dirn:
+                aha00dirn = s_common.gendir(dirn, 'aha00')
+                async with await s_base.Base.anit() as cm:
+                    # Make the network too long that we cannot bootstrap the CA
+                    basenet = 'loop.vertex.link'
+                    networkname = f'{"x" * (64 - len(basenet))}.{basenet}'
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': networkname,
+                        'provision:listen': f'ssl://aha.{networkname}:0'
+                    }
+                    with self.raises(s_exc.CryptoErr) as errcm:
+                        await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
+                    self.isin('certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
