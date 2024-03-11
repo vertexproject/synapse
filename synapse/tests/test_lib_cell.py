@@ -2159,6 +2159,7 @@ class CellTest(s_t_utils.SynTest):
                             self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
                             revt.clear()
 
+                        revt.clear()
                         self.true(await asyncio.wait_for(revt.wait(), 1))
                         await core01.sync()
 
@@ -2208,6 +2209,12 @@ class CellTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[inet:fqdn=newp.fail]')
 
             self.stormIsInErr('LOLWRITE TESTING', msgs)
+
+            await core.nexsroot.delWriteHold('LOLWRITE TESTING')
+
+            core.nexsroot.readonly = True
+            with self.raises(s_exc.IsReadOnly):
+                core.nexsroot.reqNotReadOnly()
 
     async def test_cell_onboot_optimize(self):
 

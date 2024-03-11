@@ -303,7 +303,6 @@ class NexsRoot(s_base.Base):
         for reason in self.writeholds:
             raise s_exc.IsReadOnly(mesg=reason)
 
-        # pragma: no cover
         mesg = 'Unable to issue Nexus events when readonly is set.'
         raise s_exc.IsReadOnly(mesg=mesg)
 
