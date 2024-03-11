@@ -407,7 +407,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
                 buf = b''
                 async for bytz in axon.get(sha256):
-                    buf =+ bytz
+                    buf += bytz
 
                 await dostuff(buf)
 
@@ -610,7 +610,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
-            The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
+            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
             The ssl_opts dictionary may contain the following values::
@@ -1662,7 +1662,7 @@ class Axon(s_cell.Cell):
             ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
-            The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
+            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
 
             The ssl_opts dictionary may contain the following values::
