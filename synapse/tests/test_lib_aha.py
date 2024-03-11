@@ -885,6 +885,27 @@ class AhaTest(s_test.SynTest):
                 self.isin('Provisioning aha:network must be equal to the Aha servers network',
                           cm.exception.get('mesg'))
 
+                # We can generate urls and then drop them en-mass. They will not usable.
+                provurls = []
+                enrlursl = []
+                async with aha.getLocalProxy() as proxy:
+                    provurls.append(await proxy.addAhaSvcProv('00.cell'))
+                    provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
+                    enrlursl.append(await proxy.addAhaUserEnroll('alice@the.place.here'))
+                    enrlursl.append(await proxy.addAhaUserEnroll('bob@some.place.there'))
+
+                    await proxy.dropAhaSvcProvs()
+                    await proxy.dropAhaUserEnrolls()
+
+                for url in provurls:
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        async with await s_telepath.openurl(url) as client:
+                            self.fail(f'Connected to an expired provisioning URL {url}')  # pragma: no cover
+                for url in enrlursl:
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        async with await s_telepath.openurl(url) as prox:
+                            self.fail(f'Connected to an expired enrollment URL {url}')  # pragma: no cover
+
     async def test_aha_httpapi(self):
 
         conf = {
