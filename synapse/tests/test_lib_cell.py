@@ -12,6 +12,8 @@ import multiprocessing
 
 from unittest import mock
 
+import cryptography.x509 as c_x509
+
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
@@ -34,9 +36,6 @@ import synapse.lib.crypto.passwd as s_passwd
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
-
-from OpenSSL import crypto
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -747,7 +746,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await prox.cullNexsLog(offs))
 
                     # last entry in nexus log is cull
-                    retn = await alist(cell.nexsroot.nexslog.iter(0))
+                    retn = await s_t_utils.alist(cell.nexsroot.nexslog.iter(0))
                     self.len(1, retn)
                     self.eq(ind, retn[0][0])
                     self.eq('nexslog:cull', retn[0][1][1])
@@ -884,7 +883,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'celluptime', 'cellrealdisk',
@@ -895,7 +894,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(conf=conf, dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
@@ -2359,8 +2358,9 @@ class CellTest(s_t_utils.SynTest):
                     return ssl.DER_cert_to_PEM_cert(der_cert)
 
                 original_cert = await s_coro.executor(get_pem_cert)
-                ocert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
-                self.eq(ocert.get_subject().CN, 'reloadcell')
+                ocert = c_x509.load_pem_x509_certificate(original_cert.encode())
+                cname = ocert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                self.eq(cname, 'reloadcell')
 
                 # Start a beholder session that runs over TLS
 
@@ -2405,8 +2405,9 @@ class CellTest(s_t_utils.SynTest):
                         await cell.reload()
 
                         reloaded_cert = await s_coro.executor(get_pem_cert)
-                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)
-                        self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
+                        rcert = c_x509.load_pem_x509_certificate(reloaded_cert.encode())
+                        rname = rcert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                        self.eq(rname, 'SomeTestCertificate')
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                             resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')

@@ -211,16 +211,6 @@ Lift by Interface Property
 If a form inherits an :ref:`interface`, you can lift all nodes of all forms that have an interface-derived property
 by specifying the full name of the interface and its property.
 
-.. TIP::
-  
-  You must specify the interface where the property is defined. If an interface inherits another interface, you cannot
-  perform a lift using an inherited property name. For example, the following lift is invalid because the ``:sandbox:file``
-  property of the ``inet:proto:request`` interface is inherited from the ``it:host:activity`` interface:
-  
-  ::
-    
-    inet:proto:request:sandbox:file
-
 **Syntax:**
 
 *<interface>* **:** *<prop>*
@@ -508,9 +498,6 @@ If a form inherits an :ref:`interface`, you can lift all nodes of all forms with
 by using the name of the interface.
 
 .. TIP::
-  
-  You must specify the interface where the property is defined. If an interface inherits another interface, you cannot
-  perform this type of lift using an interface and an inherited property name.
   
   Synapse returns results in lexical order (sorted, ascending to descending) based on the way the queried property is
   indexed. When using an interface to lift by secondary property, Synapse performs the lifts for each form in parallel,
