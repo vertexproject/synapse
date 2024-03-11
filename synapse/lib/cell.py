@@ -1694,11 +1694,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.BadArg(mesg=mesg)
 
             myurl = f'aha://{ahaname}.{ahanetw}'
-            logger.info(f'PROMOTION: Connecting to {mirurl} for handoff from {ahaname=}')
+            logger.info(f'PROMOTION: Connecting to {mirurl} for handoff from ahaname={ahaname}')
             async with await s_telepath.openurl(mirurl) as lead:
-                logger.info(f'PROMOTION: Performing handoff from leader to {ahaname=}')
+                logger.info(f'PROMOTION: Performing handoff from leader to ahaname={ahaname}')
                 await lead.handoff(myurl)
-                logger.info(f'PROMOTION: Completed handoff from leader to {ahaname=}')
+                logger.info(f'PROMOTION: Completed handoff from leader to ahaname={ahaname}')
                 return
 
         logger.info(f'PROMOTION: Clearing mirror configuration for ahaname={self.conf.get("aha:name")}')
