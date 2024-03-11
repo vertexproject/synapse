@@ -659,7 +659,7 @@ def iterfd(fd, size=10000000):
     Notes:
         If the first read call on the file descriptor is a empty bytestring,
         that zero length bytestring will be yielded and the generator will
-        then be exhuasted. This behavior is intended to allow the yielding of
+        then be exhausted. This behavior is intended to allow the yielding of
         contents of a zero byte file.
 
     Yields:
