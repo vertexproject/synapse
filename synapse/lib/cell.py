@@ -121,7 +121,8 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
+        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -1154,6 +1155,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        # for runtime cell configuration values
+        self.slab.initdb('cell:conf')
 
         self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
@@ -4000,6 +4004,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - totalmem - Total memory in the system
                 - availmem - Available memory in the system
                 - cpucount - Number of CPUs on system
+                - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
         uptime = int((time.monotonic() - self.starttime) * 1000)
         disk = shutil.disk_usage(self.dirn)
@@ -4016,6 +4021,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
         sysctls = s_thisplat.getSysctls()
+        tmpdir = s_thisplat.getTempDir()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -4031,7 +4037,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
-            'sysctls': sysctls                 # Performance related sysctls
+            'sysctls': sysctls,                # Performance related sysctls
+            'tmpdir': tmpdir,                  # Temporary File / Folder Directory
         }
 
         return retn

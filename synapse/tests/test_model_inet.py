@@ -2650,6 +2650,9 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_model_inet_email_message(self):
 
         async with self.getTestCore() as core:
+
+            flow = s_common.guid()
+
             q = '''
             [
             inet:email:message="*"
@@ -2665,18 +2668,20 @@ class InetModelTest(s_t_utils.SynTest):
                 :received:from:ipv4=1.2.3.4
                 :received:from:ipv6="::1"
                 :received:from:fqdn=smtp.vertex.link
+                :flow=$flow
             ]
 
             {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
             {[( inet:email:message:attachment=($node, "*") :name=sploit.exe )]}
             '''
-            nodes = await core.nodes(q)
+            nodes = await core.nodes(q, opts={'vars': {'flow': flow}})
             self.len(1, nodes)
 
             self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
             self.eq(nodes[0].get('received:from:ipv6'), '::1')
             self.eq(nodes[0].get('received:from:ipv4'), 0x01020304)
             self.eq(nodes[0].get('received:from:fqdn'), 'smtp.vertex.link')
+            self.eq(nodes[0].get('flow'), flow)
 
             self.len(1, await core.nodes('inet:email:message:to=woot@woot.com'))
             self.len(1, await core.nodes('inet:email:message:date=2015'))

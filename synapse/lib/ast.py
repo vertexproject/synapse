@@ -1864,7 +1864,7 @@ class LiftProp(LiftOper):
 
                     prop = runt.model.prop(fullname)
                     if prop is None:
-                        continue
+                        return
 
                     cmpr = hint[1].get('cmpr')
                     valu = hint[1].get('valu')
@@ -3390,7 +3390,8 @@ class PropValue(Value):
         if not path:
             return None, None
 
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         subtype = None
         if len(self.kids) > 1:
@@ -3401,9 +3402,11 @@ class PropValue(Value):
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                    name=name, form=path.node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
             if subtype is not None:
@@ -3429,9 +3432,11 @@ class PropValue(Value):
 
             prop = node.form.props.get(name)
             if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                name=name, form=node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
                 if subtype is not None:
@@ -4011,7 +4016,7 @@ class RelProp(PropName):
 
 class UnivProp(RelProp):
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
+        valu = await tostr(await self.kids[0].compute(runt, path))
         if self.isconst:
             return valu
         return '.' + valu
@@ -4181,12 +4186,16 @@ class EditNodeAdd(Edit):
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
-                    formname = await self.kids[0].compute(runt, path)
+                    name = await self.kids[0].compute(runt, path)
+                    formname = await tostr(name)
                     runt.layerConfirm(('node', 'add', formname))
 
                     form = runt.model.form(formname)
                     if form is None:
-                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                        if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                            exc = s_exc.NoSuchForm.init(formname)
+
+                        raise self.kids[0].addExcInfo(exc)
 
                     # must use/resolve all variables from path before yield
                     async for item in self.addFromPath(form, runt, path):
@@ -4197,12 +4206,16 @@ class EditNodeAdd(Edit):
 
             else:
 
-                formname = await self.kids[0].compute(runt, None)
+                name = await self.kids[0].compute(runt, None)
+                formname = await tostr(name)
                 runt.layerConfirm(('node', 'add', formname))
 
                 form = runt.model.form(formname)
                 if form is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                    if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                        exc = s_exc.NoSuchForm.init(formname)
+
+                    raise self.kids[0].addExcInfo(exc)
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.tostor(valu)
@@ -4240,12 +4253,15 @@ class EditPropSet(Edit):
     async def runEdit(self, runt, node, path):
 
         expand = True
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         prop = node.form.props.get(name)
         if prop is None:
-            mesg = f'No property named {name} on form {node.form.name}.'
-            exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+            if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                mesg = f'No property named {name} on form {node.form.name}.'
+                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
             raise self.kids[0].addExcInfo(exc)
 
         if not node.form.isrunt:
@@ -4314,12 +4330,15 @@ class EditPropDel(Edit):
 
     async def runEdit(self, runt, node, path):
 
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         prop = node.form.props.get(name)
         if prop is None:
-            mesg = f'No property named {name}.'
-            exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+            if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                mesg = f'No property named {name}.'
+                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
             raise self.kids[0].addExcInfo(exc)
 
         runt.confirmPropDel(prop)
@@ -4393,15 +4412,10 @@ class N1Walk(Oper):
             return False
 
         forms = set()
-        formprops = collections.defaultdict(dict)
 
         for destform in destforms:
-            prop = runt.model.prop(destform)
-            if prop is not None:
-                if prop.isform:
-                    forms.add(destform)
-                else:
-                    formprops[prop.form.name][prop.name] = prop
+            if (form := runt.model.form(destform)) is not None:
+                forms.add(destform)
                 continue
 
             formlist = runt.model.reqFormsByLook(destform, extra=self.kids[0].addExcInfo)
@@ -4409,30 +4423,13 @@ class N1Walk(Oper):
 
         if cmpr is None:
             async def destfilt(node, path, cmprvalu):
-                if node.form.full in forms:
-                    return True
-
-                props = formprops.get(node.form.full)
-                if props is not None:
-                    for prop in props:
-                        if node.get(prop) is not None:
-                            return True
-
-                return False
+                return node.form.full in forms
 
             return destfilt
 
         async def destfilt(node, path, cmprvalu):
-
             if node.form.full in forms:
                 return node.form.type.cmpr(node.ndef[1], cmpr, cmprvalu)
-
-            props = formprops.get(node.form.full)
-            if props is not None:
-                for name, prop in props.items():
-                    if (propvalu := node.get(name)) is not None:
-                        if prop.type.cmpr(propvalu, cmpr, cmprvalu):
-                            return True
 
             return False
 

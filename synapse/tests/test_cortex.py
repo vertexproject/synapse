@@ -732,6 +732,17 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4 <(*)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
+            layr = core.getLayer()
+            self.eq(1, await layr.getEdgeVerbCount('refs'))
+            self.eq(0, await layr.getEdgeVerbCount('newp'))
+
+            self.eq(1, await layr.getFormEdgeVerbCount('media:news', 'refs'))
+            self.eq(0, await layr.getFormEdgeVerbCount('media:news', 'refs', reverse=True))
+            self.eq(0, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs'))
+            self.eq(1, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs', reverse=True))
+
+            self.eq(0, await layr.getFormEdgeVerbCount('newp', 'refs'))
+
             # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
             self.len(0, await core.nodes('media:news -(*)> mat:spec'))
@@ -7809,19 +7820,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
             # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
                     core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x09',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
             self.eq(('visi', 'foo'),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x07'))
             self.eq(('whip', None),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x09'))
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
             self.raises(s_exc.NoSuchAbrv,
-                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x0a')
+                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x09')
 
     async def test_cortex_query_offload(self):
         async with self.getTestAhaProv() as aha:
@@ -7833,11 +7844,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     dirn00 = s_common.genpath(dirn, 'cell00')
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
-                    conf = {
-                        'storm:pool': 'aha://pool00...',
-                        'storm:pool:timeout:sync': 1,
-                        'storm:pool:timeout:connection': 1
-                    }
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
                     provinfo = {'mirror': '00.core'}
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
@@ -7845,6 +7851,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core00.nodes('[inet:asn=0]'))
                     await core01.sync()
                     self.len(1, await core01.nodes('inet:asn=0'))
+
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
@@ -7854,9 +7864,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
 
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration set.', msgs)
+
                     await core00.fini()
 
-                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00, conf=conf))
+                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
@@ -7970,7 +7984,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     data = stream.read()
                     self.isin('Unable to get proxy', data)
 
-                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf=conf))
+                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01))
                     await core01.promote(graceful=True)
 
                     self.true(core01.isactive)
@@ -7984,7 +7998,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    # test that it reverts to local when referencing self
+                    self.notin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
 
                     waiter = core01.stormpool.waiter(1, 'svc:del')
@@ -8009,3 +8024,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                     stream.seek(0)
                     data = stream.read()
                     self.notin('Storm query mirror pool is empty', data)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm Pool URL: aha://pool00...', msgs)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.del')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration removed.', msgs)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
+
+                    msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
+                    self.len(1, [m for m in msgs if m[0] == 'node'])

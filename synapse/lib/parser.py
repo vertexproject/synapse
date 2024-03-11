@@ -33,7 +33,7 @@ terminalEnglishMap = {
     'CCOMMENT': 'C comment',
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
-    'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
+    'CMDTOKN': 'An unquoted string parsed as a cmd arg',
     'CMPR': 'comparison operator',
     'CMPROTHER': 'comparison operator',
     'COLON': ':',
@@ -73,6 +73,7 @@ terminalEnglishMap = {
     'MODSET': '+= or -=',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
+    'NULL': 'null',
     'NUMBER': 'number',
     'OCTNUMBER': 'number',
     'OR': 'or',
@@ -369,7 +370,7 @@ class AstConverter(lark.Transformer):
         return s_ast.FuncArgs(astinfo, newkids)
 
     @lark.v_args(meta=True)
-    def cmdrargs(self, meta, kids):
+    def cmdargs(self, meta, kids):
         argv = []
         indx = 0
 
@@ -409,7 +410,7 @@ class AstConverter(lark.Transformer):
                     continue
 
             # pragma: no cover
-            mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
+            mesg = f'Unhandled AST node type in cmdargs: {kid!r}'
             self.raiseBadSyntax(mesg, kid.astinfo)
 
         return argv
@@ -467,7 +468,7 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
@@ -571,12 +572,12 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    def cmdrargs(self):
+    def cmdargs(self):
         '''
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = LarkParser.parse(self.text, start='cmdrargs')
+            tree = LarkParser.parse(self.text, start='cmdargs')
             return AstConverter(self.text).transform(tree)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
@@ -625,6 +626,7 @@ terminalClassMap = {
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
+    'NULL': lambda astinfo, x: s_ast.Const(astinfo, None),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,

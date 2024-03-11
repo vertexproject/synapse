@@ -55,7 +55,6 @@ import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
@@ -255,6 +254,7 @@ testmodel = {
                 ('seen', ('ival', {}), {}),
                 ('names', ('array', {'type': 'str'}), {}),
             ),
+            'interfaces': ('inet:proto:request',)
         }),
     ),
     'types': (
@@ -889,7 +889,7 @@ class ReloadCell(s_cell.Cell):
 
 class SynTest(unittest.TestCase):
     '''
-    Mark all async test methods as s_glob.synchelp decorated.
+    Wrap all async test methods with s_glob.sync.
 
     Note:
         This precludes running a single unit test via path using the unittest module.
@@ -899,11 +899,16 @@ class SynTest(unittest.TestCase):
         self._NextBuid = 0
         self._NextGuid = 0
 
+        def synchelp(f):
+            def wrap(*args, **kwargs):
+                return s_glob.sync(f(*args, **kwargs))
+            return wrap
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
+                setattr(self, s, synchelp(attr))
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -1071,19 +1076,6 @@ class SynTest(unittest.TestCase):
             with self.getTestDir() as dirn:
                 async with await s_axon.Axon.anit(dirn, conf) as axon:
                     yield axon
-
-    @contextlib.contextmanager
-    def withTestCmdr(self, cmdg):
-
-        getItemCmdr = s_cmdr.getItemCmdr
-
-        async def getTestCmdr(*a, **k):
-            cli = await getItemCmdr(*a, **k)
-            cli.prompt = cmdg
-            return cli
-
-        with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
-            yield
 
     @contextlib.contextmanager
     def withCliPromptMockExtendOutp(self, outp):

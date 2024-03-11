@@ -244,9 +244,9 @@ COMMANOSPACE: /(?<!\s),(?!\s)/
 RSQBNOSPACE: /(?<!\s)\](?!\s)/
 EQNOSPACE: /(?<!\s)=(?!\s)/
 
-// an argv parser for cmdr commands which may contain embedded queries
-cmdrargs: _cmdrargv (EQNOSPACE? _cmdrargv)*
-_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT (EQNOSPACE (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
+// an argv parser for commands which may contain embedded queries
+cmdargs: _cmdargv (EQNOSPACE? _cmdargv)*
+_cmdargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDTOKN | CMDOPT (EQNOSPACE (CMDTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
 
 // A tag with either a variable reference or tag name segments without asterisks
 tagname: _HASH (_varvalu | _tagsegs)
@@ -310,7 +310,7 @@ evalvalu: _valu
 exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
 exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
-_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
+_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
@@ -375,8 +375,8 @@ _EMBEDQUERYSTART: "${"
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
 NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|\=])/
 
-// A white-space *only* delimited string immediate for use in legacy cmdr parser
-CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
+// A white-space *only* delimited string immediate for use in CLI parser
+CMDTOKN.-1: /[^="'\s\{}][^\s\{}]*/
 
 WHITETOKN.-1: /[^\s|]+/
 
@@ -590,6 +590,7 @@ OCTNUMBER.1: /
 /x
 
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
+NULL.2: "null"
 NOT.2: "not"
 OR.2: "or"
 AND.2: "and"

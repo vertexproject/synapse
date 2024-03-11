@@ -56,7 +56,7 @@ class HelpCmd(s_cli.CmdHelp):
 
 class StormCliCmd(s_cli.Cmd):
 
-    # cut the Cmd instance over to using argparser and cmdrargv split
+    # cut the Cmd instance over to using argparser and cmdargv split
 
     def getArgParser(self):
         desc = self.getCmdDoc()
@@ -65,7 +65,7 @@ class StormCliCmd(s_cli.Cmd):
 
     def getCmdOpts(self, text):
         pars = self.getArgParser()
-        argv = s_parser.Parser(text).cmdrargs()
+        argv = s_parser.Parser(text).cmdargs()
         return pars.parse_args(argv[1:])
 
 class RunFileCmd(StormCliCmd):
@@ -458,11 +458,12 @@ class StormCli(s_cli.Cli):
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
     async def runCmdLine(self, line, opts=None):
-        if self.echoline:
-            self.outp.printf(f'{self.cmdprompt}{line}')
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
+
+        if self.echoline:
+            self.printf(f'{self.cmdprompt}{line}')
 
         await self.storm(line, opts=opts)
 
@@ -607,6 +608,20 @@ def getArgParser():
     pars.add_argument('--optsfile', default=None, help='A JSON/YAML file which contains storm runtime options.')
     return pars
 
+async def runItemStorm(prox, outp=None, color=True, opts=None):
+
+    async with await StormCli.anit(prox, outp=outp, opts=opts) as cli:
+
+        completer = StormCompleter(cli)
+        cli.completer = completer
+        await completer.load()
+
+        cli.colorsenabled = color
+        cli.printf(welcome)
+
+        await cli.addSignalHandlers()
+        await cli.runCmdLoop()
+
 async def main(argv, outp=s_output.stdout):
 
     pars = getArgParser()
@@ -616,22 +631,12 @@ async def main(argv, outp=s_output.stdout):
 
         async with await s_telepath.openurl(opts.cortex) as proxy:
 
-            async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
-
-                if opts.onecmd:
+            if opts.onecmd:
+                async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
                     await cli.runCmdLine(opts.onecmd)
 
-                else:  # pragma: no cover
-
-                    completer = StormCompleter(cli)
-                    cli.completer = completer
-                    await completer.load()
-
-                    cli.colorsenabled = True
-                    cli.printf(welcome)
-
-                    await cli.addSignalHandlers()
-                    await cli.runCmdLoop()
+            else:  # pragma: no cover
+                await runItemStorm(proxy, outp=outp, opts=opts)
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

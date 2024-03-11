@@ -2088,7 +2088,6 @@ class Layer(s_nexus.Pusher):
         self.edgen1abrv = self.core.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.core.setIndxAbrv(INDX_EDGE_N2)
         self.edgen1n2abrv = self.core.setIndxAbrv(INDX_EDGE_N1N2)
-        self.edgeverbabrv = self.core.setIndxAbrv(INDX_EDGE_VERB)
 
         self.indxcounts = await self.layrslab.getLruHotCount('indxcounts')
 
@@ -2368,6 +2367,32 @@ class Layer(s_nexus.Pusher):
             count += self.layrslab.count(abrv + indx, db=self.indxdb)
 
         return count
+
+    async def getEdgeVerbCount(self, verb):
+        '''
+        Return the number of edges in the layer with a specific verb.
+        '''
+        try:
+            abrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return self.indxcounts.get(abrv, 0)
+
+    async def getFormEdgeVerbCount(self, form, verb, reverse=False):
+        '''
+        Return the number of edges in the layer for the given form and verb.
+        '''
+        try:
+            verbabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+            formabrv = self.core.getIndxAbrv(INDX_PROP, form, None)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        if reverse:
+            return self.indxcounts.get(INDX_EDGE_N2 + formabrv + verbabrv, 0)
+        else:
+            return self.indxcounts.get(INDX_EDGE_N1 + formabrv + verbabrv, 0)
 
     async def liftByTag(self, tag, form=None, reverse=False, indx=None):
 
@@ -2867,7 +2892,7 @@ class Layer(s_nexus.Pusher):
         verb, n2nid = edit[1]
 
         try:
-            vabrv = self.core.getVerbAbrv(verb)
+            vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
             return (
                 (EDIT_EDGE_ADD, (verb, n2nid)),
@@ -2888,7 +2913,7 @@ class Layer(s_nexus.Pusher):
         verb, n2nid = edit[1]
 
         try:
-            vabrv = self.core.getVerbAbrv(verb)
+            vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
             return
 
@@ -2998,7 +3023,7 @@ class Layer(s_nexus.Pusher):
             self.nodeDelHook()
 
         await self._wipeNodeData(nid, sode)
-        await self._delNodeEdges(nid, sode)
+        await self._delNodeEdges(nid, abrv, sode)
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
@@ -3493,10 +3518,10 @@ class Layer(s_nexus.Pusher):
 
         verb, n2nid = edit[1]
 
-        vabrv = self.core.setVerbAbrv(verb)
+        vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
         if self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
-                return ()
+            return ()
 
         n2sode = self._genStorNode(n2nid)
 
@@ -3507,13 +3532,23 @@ class Layer(s_nexus.Pusher):
         self.dirty[nid] = sode
         self.dirty[n2nid] = n2sode
 
-        # FIXME do a verb lookup and increment verb stats
+        formabrv = self.core.setIndxAbrv(INDX_PROP, form, None)
+
+        self.indxcounts.inc(vabrv, 1)
+        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, 1)
+
+        if (n2form := n2sode.get('form')) is None:
+            n2form = self.core.getNidNdef(n2nid)[0]
+
+        if n2form is not None:
+            n2formabrv = self.core.setIndxAbrv(INDX_PROP, n2form, None)
+            self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, 1)
 
         kvpairs = [
+            (vabrv + nid, n2nid),
             (self.edgen1abrv + nid + vabrv, n2nid),
             (self.edgen2abrv + n2nid + vabrv, nid),
-            (self.edgen1n2abrv + nid + n2nid, vabrv),
-            (self.edgeverbabrv + vabrv + nid, n2nid)
+            (self.edgen1n2abrv + nid + n2nid, vabrv)
         ]
 
         return kvpairs
@@ -3522,14 +3557,14 @@ class Layer(s_nexus.Pusher):
 
         verb, n2nid = edit[1]
 
-        vabrv = self.core.setVerbAbrv(verb)
+        vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
-        if not self.layrslab.delete(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb):
+        if not self.layrslab.delete(vabrv + nid, n2nid, db=self.indxdb):
             return ()
 
         self.layrslab.delete(self.edgen1abrv + nid + vabrv, n2nid, db=self.indxdb)
         self.layrslab.delete(self.edgen2abrv + n2nid + vabrv, nid, db=self.indxdb)
-        self.layrslab.delete(self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb)
+        self.layrslab.delete(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb)
 
         newvalu = sode['n1verbs'].get(verb, 0) - 1
         if newvalu == 0:
@@ -3550,30 +3585,41 @@ class Layer(s_nexus.Pusher):
             n2sode['n2verbs'][verb] = newvalu
             self.dirty[n2nid] = n2sode
 
+        formabrv = self.core.setIndxAbrv(INDX_PROP, form, None)
+
+        self.indxcounts.inc(vabrv, -1)
+        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
+
+        if (n2form := n2sode.get('form')) is None:
+            n2form = self.core.getNidNdef(n2nid)[0]
+
+        if n2form is not None:
+            n2formabrv = self.core.setIndxAbrv(INDX_PROP, n2form, None)
+            self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
+
         return ()
 
     async def getEdgeVerbs(self):
-        for byts, abrv in self.core.verbabrv.items():
-            for _ in self.layrslab.scanKeysByPref(self.edgeverbabrv + abrv, db=self.indxdb):
-                yield byts.decode()
-                break
+        for byts, abrv in self.core.indxabrv.iterByPref(INDX_EDGE_VERB):
+            if self.indxcounts.get(abrv) > 0:
+                yield s_msgpack.un(byts[2:])[0]
 
     async def getEdges(self, verb=None):
 
         if verb is None:
-            for lkey, lval in self.layrslab.scanByPref(self.edgeverbabrv, db=self.indxdb):
-                yield (lkey[-8:], self.core.getAbrvVerb(lkey[-16:-8]), lval)
+            for lkey, lval in self.layrslab.scanByPref(self.edgen1abrv, db=self.indxdb):
+                yield (lkey[-16:-8], self.core.getAbrvIndx(lkey[-8:])[0], lval)
             return
 
         try:
-            vabrv = self.core.getVerbAbrv(verb)
+            vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
             return
 
-        for lkey, lval in self.layrslab.scanByPref(self.edgeverbabrv + vabrv, db=self.indxdb):
+        for lkey, lval in self.layrslab.scanByPref(vabrv, db=self.indxdb):
             yield (lkey[-8:], verb, lval)
 
-    async def _delNodeEdges(self, nid, sode):
+    async def _delNodeEdges(self, nid, formabrv, sode):
 
         sode.pop('n1verbs', None)
 
@@ -3581,12 +3627,12 @@ class Layer(s_nexus.Pusher):
             await asyncio.sleep(0)
             vabrv = lkey[-8:]
 
+            self.layrslab.delete(vabrv + nid, n2nid, db=self.indxdb)
             self.layrslab.delete(self.edgen1abrv + nid + vabrv, n2nid, db=self.indxdb)
             self.layrslab.delete(self.edgen2abrv + n2nid + vabrv, nid, db=self.indxdb)
             self.layrslab.delete(self.edgen1n2abrv + nid + n2nid, vabrv, db=self.indxdb)
-            self.layrslab.delete(self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb)
 
-            verb = self.core.getAbrvVerb(vabrv)
+            verb = self.core.getAbrvIndx(vabrv)[0]
             n2sode = self._genStorNode(n2nid)
             newvalu = n2sode['n2verbs'].get(verb, 0) - 1
             if newvalu == 0:
@@ -3596,6 +3642,16 @@ class Layer(s_nexus.Pusher):
             else:
                 n2sode['n2verbs'][verb] = newvalu
                 self.dirty[n2nid] = n2sode
+
+            self.indxcounts.inc(vabrv, -1)
+            self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
+
+            if (n2form := n2sode.get('form')) is None:
+                n2form = self.core.getNidNdef(n2nid)[0]
+
+            if n2form is not None:
+                n2formabrv = self.core.setIndxAbrv(INDX_PROP, n2form, None)
+                self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
 
     def getStorIndx(self, stortype, valu):
 
@@ -3614,7 +3670,7 @@ class Layer(s_nexus.Pusher):
         pref = self.edgen1abrv + nid
         if verb is not None:
             try:
-                pref += self.core.getVerbAbrv(verb)
+                pref += self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
             except s_exc.NoSuchAbrv:
                 return
 
@@ -3623,14 +3679,14 @@ class Layer(s_nexus.Pusher):
             return
 
         for lkey, n2nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-            yield self.core.getAbrvVerb(lkey[-8:]), n2nid
+            yield self.core.getAbrvIndx(lkey[-8:])[0], n2nid
 
     async def iterNodeEdgesN2(self, nid, verb=None):
 
         pref = self.edgen2abrv + nid
         if verb is not None:
             try:
-                pref += self.core.getVerbAbrv(verb)
+                pref += self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
             except s_exc.NoSuchAbrv:
                 return
 
@@ -3639,15 +3695,15 @@ class Layer(s_nexus.Pusher):
             return
 
         for lkey, n1nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-            yield self.core.getAbrvVerb(lkey[-8:]), n1nid
+            yield self.core.getAbrvIndx(lkey[-8:])[0], n1nid
 
     async def iterEdgeVerbs(self, n1nid, n2nid):
         for lkey, vabrv in self.layrslab.scanByDups(self.edgen1n2abrv + n1nid + n2nid, db=self.indxdb):
-            yield self.core.getAbrvVerb(vabrv)
+            yield self.core.getAbrvIndx(vabrv)[0]
 
     async def hasNodeEdge(self, n1nid, verb, n2nid):
         try:
-            vabrv = self.core.getVerbAbrv(verb)
+            vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
             return
 

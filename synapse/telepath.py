@@ -460,7 +460,6 @@ class Method:
         self.__name__ = name
         self.__self__ = proxy
 
-    @s_glob.synchelp
     async def __call__(self, *args, **kwargs):
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
@@ -1342,7 +1341,6 @@ def alias(name):
 
     return url
 
-@s_glob.synchelp
 async def openurl(url, **opts):
     '''
     Open a URL to a remote telepath object.

@@ -17,6 +17,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.grammar as s_grammar
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -375,6 +376,7 @@ class Bool(Type):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyInt)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
     def _normPyStr(self, valu):
 
@@ -394,6 +396,9 @@ class Bool(Type):
 
     def _normPyInt(self, valu):
         return int(bool(valu)), {}
+
+    def _normNumber(self, valu):
+        return int(bool(valu.valu)), {}
 
     def repr(self, valu):
         return repr(bool(valu)).lower()
@@ -895,6 +900,7 @@ class IntBase(Type):
         })
 
         self.setNormFunc(decimal.Decimal, self._normPyDecimal)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
     def _storLiftRange(self, cmpr, valu):
         minv, minfo = self.norm(valu[0])
@@ -931,6 +937,9 @@ class IntBase(Type):
 
     def _normPyDecimal(self, valu):
         return self._normPyInt(int(valu))
+
+    def _normNumber(self, valu):
+        return self._normPyInt(int(valu.valu))
 
 class Int(IntBase):
 
@@ -1140,6 +1149,7 @@ class Float(Type):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(float, self._normPyFloat)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
     def _normPyStr(self, valu):
 
@@ -1153,6 +1163,9 @@ class Float(Type):
     def _normPyInt(self, valu):
         valu = float(valu)
         return self._normPyFloat(valu)
+
+    def _normNumber(self, valu):
+        return self._normPyFloat(float(valu.valu))
 
     def _normPyFloat(self, valu):
 
@@ -1212,6 +1225,7 @@ class Ival(Type):
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
@@ -1327,6 +1341,11 @@ class Ival(Type):
 
     def _normPyInt(self, valu):
         minv, _ = self.timetype._normPyInt(valu)
+        maxv, info = self.timetype._normPyInt(minv + 1)
+        return (minv, maxv), info
+
+    def _normNumber(self, valu):
+        minv, _ = self.timetype._normPyInt(valu.valu)
         maxv, info = self.timetype._normPyInt(minv + 1)
         return (minv, maxv), info
 
@@ -1716,6 +1735,7 @@ class Str(Type):
         self.setNormFunc(bool, self._normPyBool)
         self.setNormFunc(float, self._normPyFloat)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
         self.storlifts.update({
             '=': self._storLiftEq,
@@ -1780,6 +1800,9 @@ class Str(Type):
 
     def _normPyInt(self, valu):
         return self._normPyStr(str(valu))
+
+    def _normNumber(self, valu):
+        return self._normPyStr(str(valu.valu))
 
     def _normPyFloat(self, valu):
         deci = s_common.hugectx.create_decimal(str(valu))
