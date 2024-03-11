@@ -274,7 +274,6 @@ class NexsRoot(s_base.Base):
         self.readonly = True
 
         if reason not in self.writeholds:
-            await self.setNexsReady(False)
             self.writeholds.add(reason)
             return True
 
@@ -288,10 +287,6 @@ class NexsRoot(s_base.Base):
 
             if not self.writeholds:
                 self.readonly = False
-                if self.isactive:
-                    # if we are not active, we need to wait until we
-                    # are in the real-time window from our leader.
-                    await self.setNexsReady(True)
 
             return True
 
