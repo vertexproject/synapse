@@ -121,7 +121,8 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
+        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -1154,6 +1155,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        # for runtime cell configuration values
+        self.slab.initdb('cell:conf')
 
         self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
