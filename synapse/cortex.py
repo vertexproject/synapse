@@ -836,20 +836,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
-        'storm:pool': {
-            'description': 'EXPERIMENTAL: Telepath URL for a Cortex mirror or AHA pool to offload Storm queries to.',
-            'type': 'string',
-        },
-        'storm:pool:timeout:sync': {
-            'description': 'The maximum time (in seconds) to wait for the mirror to be in sync with the leader.',
-            'type': 'integer',
-            'default': 1
-        },
-        'storm:pool:timeout:connection': {
-            'description': 'The maximum time (in seconds) to wait for a mirror connection.',
-            'type': 'integer',
-            'default': 1
-        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -920,12 +906,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.stormpool = None
-        self.stormpoolurl = self.conf.get('storm:pool')
-        if self.stormpoolurl is not None:
-            self.stormpoolopts = {
-                'nexstimeout': self.conf.get('storm:pool:timeout:sync'),
-                'conntimeout': self.conf.get('storm:pool:timeout:connection')
-            }
+        self.stormpoolurl = None
+        self.stormpoolopts = None
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1470,7 +1452,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.initTrigTask()
             await view.initMergeTask()
 
-        await self.initQueryMirror()
+        await self.initStormPool()
 
     async def initServicePassive(self):
 
@@ -1481,14 +1463,55 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.finiTrigTask()
             await view.finiMergeTask()
 
+        await self.finiStormPool()
+
+    async def initStormPool(self):
+
+        byts = self.slab.get(b'storm:pool', db='cell:conf')
+        if byts is None:
+            return
+
+        url, opts = s_msgpack.un(byts)
+
+        self.stormpoolurl = url
+        self.stormpoolopts = opts
+
+        self.stormpool = await s_telepath.open(url)
+
+        # make this one a fini weakref vs the fini() handler
+        self.onfini(self.stormpool)
+
+    async def finiStormPool(self):
+
         if self.stormpool is not None:
             await self.stormpool.fini()
             self.stormpool = None
 
-    async def initQueryMirror(self):
-        if self.stormpoolurl is not None:
-            self.stormpool = await s_telepath.open(self.stormpoolurl)
-            self.onfini(self.stormpool.fini)
+    async def getStormPool(self):
+        byts = self.slab.get(b'storm:pool', db='cell:conf')
+        if byts is None:
+            return None
+        return s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPushAuto('storm:pool:set')
+    async def setStormPool(self, url, opts):
+
+        s_schemas.reqValidStormPoolOpts(opts)
+
+        info = (url, opts)
+        self.slab.put(b'storm:pool', s_msgpack.en(info), db='cell:conf')
+
+        if self.isactive:
+            await self.finiStormPool()
+            await self.initStormPool()
+
+    @s_nexus.Pusher.onPushAuto('storm:pool:del')
+    async def delStormPool(self):
+
+        self.slab.pop(b'storm:pool', db='cell:conf')
+
+        if self.isactive:
+            await self.finiStormPool()
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -3720,6 +3743,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
+        self.addStormCmd(s_stormlib_cortex.StormPoolDelCmd)
+        self.addStormCmd(s_stormlib_cortex.StormPoolGetCmd)
+        self.addStormCmd(s_stormlib_cortex.StormPoolSetCmd)
 
         for cdef in s_stormsvc.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
@@ -5129,7 +5155,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mirropts = s_msgpack.deepcopy(opts)
         mirropts['mirror'] = False
         mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
-        mirropts['nexstimeout'] = self.stormpoolopts.get('nexstimeout')
+        mirropts['nexstimeout'] = self.stormpoolopts.get('timeout:sync')
         return mirropts
 
     async def _getMirrorProxy(self):
@@ -5140,8 +5166,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         proxy = None
         try:
-            timeout = self.stormpoolopts.get('conntimeout')
+            timeout = self.stormpoolopts.get('timeout:connection')
             proxy = await self.stormpool.proxy(timeout=timeout)
+            proxyname = proxy._ahainfo.get('name')
+            if proxyname is not None and proxyname == self.ahasvcname:
+                # we are part of the pool and were selected. Convert to local use.
+                return None
         except (TimeoutError, s_exc.IsFini):
             mesg = 'Unable to get proxy for query mirror, running locally instead.'
             logger.warning(mesg)

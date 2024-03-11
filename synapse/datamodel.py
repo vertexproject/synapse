@@ -937,7 +937,7 @@ class Model:
         iface = self.ifaces.get(name)
 
         if iface is None:
-            mesg = f'Form {form.name} depends on non-existant interface: {name}'
+            mesg = f'Form {form.name} depends on non-existent interface: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):

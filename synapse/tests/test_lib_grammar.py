@@ -717,7 +717,9 @@ Queries = [
     'inet:ipv4 <+(*)- media:news',
     'media:news -(*)+> inet:fqdn',
     'inet:ipv4 <+(*)- *',
-    'media:news -(*)+> *'
+    'media:news -(*)+> *',
+    '$foo=(null)',
+    '$foo=({"bar": null})',
 ]
 
 # Generated with print_parse_list below
@@ -1340,6 +1342,8 @@ _ParseResults = [
     'Query: [LiftProp: [Const: media:news], N1Walk: [Const: *, Const: inet:fqdn], isjoin=True]',
     'Query: [LiftProp: [Const: inet:ipv4], N2Walk: [Const: *, Const: *], isjoin=True]',
     'Query: [LiftProp: [Const: media:news], N1Walk: [Const: *, Const: *], isjoin=True]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [Const: None]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: bar, Const: None]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

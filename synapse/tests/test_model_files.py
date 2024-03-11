@@ -474,6 +474,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(('foo', 'bar'), n.get('file:data'))
                 self.eq('aaaa', n.get('desc'))
                 self.eq('bbbb', n.get('comment'))
+                self.eq('foo bar', n.get('text'))
                 self.eq(1578236238000, n.get('created'))
                 self.eq('a6b4', n.get('imageid'))
                 self.eq(conguid, n.get('author'))
@@ -494,6 +495,7 @@ class FileTest(s_t_utils.SynTest):
                 :file:data=(foo, bar)
                 :desc=aaaa
                 :comment=bbbb
+                :text="  Foo   Bar   "
                 :created="2020-01-05 14:57:18"
                 :imageid=a6b4
                 :author=$conguid

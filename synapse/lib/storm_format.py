@@ -56,6 +56,7 @@ TerminalPygMap = {
     'MODSET': p_t.Operator,
     'NONQUOTEWORD': p_t.Literal,
     'NOT': p_t.Keyword,
+    'NULL': p_t.Keyword,
     'NUMBER': p_t.Literal.Number,
     'OCTNUMBER': p_t.Literal.Number,
     'OR': p_t.Keyword,

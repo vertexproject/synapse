@@ -310,7 +310,7 @@ evalvalu: _valu
 exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
 exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
-_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
+_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
@@ -590,6 +590,7 @@ OCTNUMBER.1: /
 /x
 
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
+NULL.2: "null"
 NOT.2: "not"
 OR.2: "or"
 AND.2: "and"

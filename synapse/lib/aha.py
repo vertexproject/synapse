@@ -327,6 +327,20 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.delAhaUserEnroll(iden)
 
+    @s_cell.adminapi()
+    async def clearAhaSvcProvs(self):
+        '''
+        Remove all unused service provisioning values.
+        '''
+        return await self.cell.clearAhaSvcProvs()
+
+    @s_cell.adminapi()
+    async def clearAhaUserEnrolls(self):
+        '''
+        Remove all unused user enrollment provisioning values.
+        '''
+        return await self.cell.clearAhaUserEnrolls()
+
 class ProvDmon(s_daemon.Daemon):
 
     async def __anit__(self, aha):
@@ -386,6 +400,9 @@ class EnrollApi:
             mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
 
+        logger.info(f'Signing user CSR for [{username}], signas={ahanetw}',
+                   extra=await self.aha.getLogExtra(name=username, signas=ahanetw))
+
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
 
@@ -415,6 +432,9 @@ class ProvApi:
             mesg = f'Invalid host CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
 
+        logger.info(f'Signing host CSR for [{hostname}], signas={ahanetw}',
+                    extra=await self.aha.getLogExtra(name=hostname, signas=ahanetw))
+
         pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
 
@@ -430,6 +450,9 @@ class ProvApi:
         if name != username:
             mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
+
+        logger.info(f'Signing user CSR for [{username}], signas={ahanetw}',
+                    extra=await self.aha.getLogExtra(name=username, signas=ahanetw))
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -1010,6 +1033,9 @@ class AhaCell(s_cell.Cell):
             mesg = 'The AHA server does not have a provision:listen URL!'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if not name:
+            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+
         if provinfo is None:
             provinfo = {}
 
@@ -1038,6 +1064,10 @@ class AhaCell(s_cell.Cell):
             raise s_exc.BadConfValu(mesg=mesg, name='aha:network', expected=mynetw, got=netw)
 
         hostname = f'{name}.{netw}'
+
+        if len(hostname) > 64:
+            mesg = f'Hostname value must not exceed 64 characters in length. {hostname=}, len={len(hostname)}'
+            raise s_exc.BadArg(mesg=mesg)
 
         conf.setdefault('aha:name', name)
         dmon_port = provinfo.get('dmon:port', 0)
@@ -1124,6 +1154,20 @@ class AhaCell(s_cell.Cell):
         self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
         return iden
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:prov:clear')
+    async def clearAhaSvcProvs(self):
+        for iden, byts in self.slab.scanByFull(db='aha:provs'):
+            self.slab.delete(iden, db='aha:provs')
+            provinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted service provisioning service={provinfo.get("conf").get("aha:name")}, iden={iden.decode()}')
+
+    @s_nexus.Pusher.onPushAuto('aha:enroll:clear')
+    async def clearAhaUserEnrolls(self):
+        for iden, byts in self.slab.scanByFull(db='aha:enrolls'):
+            self.slab.delete(iden, db='aha:enrolls')
+            userinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
+
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):
         self.slab.delete(iden.encode(), db='aha:provs')
@@ -1140,7 +1184,14 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server requires aha:network configuration.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if not name:
+            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+
         username = f'{name}@{ahanetw}'
+
+        if len(username) > 64:
+            mesg = f'Username value must not exceed 64 characters in length. username={username}, len={len(username)}'
+            raise s_exc.BadArg(mesg=mesg)
 
         user = await self.auth.getUserByName(username)
 
