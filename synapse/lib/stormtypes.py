@@ -6073,6 +6073,8 @@ class Node(Prim):
                        'desc': 'An optional prefix to match tags under.', },
                       {'name': 'apply', 'type': 'boolean', 'desc': 'If true, apply the diff.',
                        'default': False, },
+                      {'name': 'norm', 'type': 'boolean', 'default': False,
+                       'desc': 'Optionally norm the list of tags. If a prefix is provided, it will not be normed.'},
                   ),
                   'returns':
                       {'type': 'dict',
@@ -6224,8 +6226,23 @@ class Node(Prim):
                     ret.append(groups)
         return ret
 
-    async def _methNodeDiffTags(self, tags, prefix=None, apply=False):
-        tags = set(await toprim(tags))
+    async def _methNodeDiffTags(self, tags, prefix=None, apply=False, norm=False):
+        norm = await tobool(norm)
+        apply = await tobool(apply)
+
+        if norm:
+            normtags = set()
+            tagpart = self.valu.snap.core.model.type('syn:tag:part')
+
+            async for part in toiter(tags):
+                try:
+                    normtags.add(tagpart.norm(part)[0])
+                except s_exc.BadTypeValu:
+                    pass
+
+            tags = normtags
+        else:
+            tags = set(await toprim(tags))
 
         if prefix:
             prefix = tuple((await tostr(prefix)).split('.'))

@@ -490,6 +490,12 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz", ""]), apply=$lib.true)')
             self.sorteq(nodes[0].tags, ['foo', 'baz'])
 
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo-bar", ""]), apply=$lib.true, norm=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo_bar'])
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo-bar", "foo", "baz"]), apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo', 'baz'])
+
             await core.setTagModel("foo", "regex", (None, "[a-zA-Z]{3}"))
             async with await core.snap() as snap:
                 snap.strict = False
