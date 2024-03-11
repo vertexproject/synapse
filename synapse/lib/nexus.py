@@ -276,8 +276,6 @@ class NexsRoot(s_base.Base):
         if reason not in self.writeholds:
             self.ready.clear()
             self.writeholds.add(reason)
-            logger.error(f'Entering Read-Only Mode because: {reason}')
-
             return True
 
         return False
@@ -305,6 +303,7 @@ class NexsRoot(s_base.Base):
         for reason in self.writeholds:
             raise s_exc.IsReadOnly(mesg=reason)
 
+        # pragma: no cover
         mesg = 'Unable to issue Nexus events when readonly is set.'
         raise s_exc.IsReadOnly(mesg=mesg)
 
