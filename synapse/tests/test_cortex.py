@@ -732,6 +732,17 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4 <(*)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
 
+            layr = core.getLayer()
+            self.eq(1, await layr.getEdgeVerbCount('refs'))
+            self.eq(0, await layr.getEdgeVerbCount('newp'))
+
+            self.eq(1, await layr.getFormEdgeVerbCount('media:news', 'refs'))
+            self.eq(0, await layr.getFormEdgeVerbCount('media:news', 'refs', reverse=True))
+            self.eq(0, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs'))
+            self.eq(1, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs', reverse=True))
+
+            self.eq(0, await layr.getFormEdgeVerbCount('newp', 'refs'))
+
             # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
             self.len(0, await core.nodes('media:news -(*)> mat:spec'))
@@ -7809,19 +7820,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
             # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
                     core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x09',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
             self.eq(('visi', 'foo'),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x07'))
             self.eq(('whip', None),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x09'))
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
             self.raises(s_exc.NoSuchAbrv,
-                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x0a')
+                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x09')
 
     async def test_cortex_query_offload(self):
         async with self.getTestAhaProv() as aha:
