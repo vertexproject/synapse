@@ -900,11 +900,11 @@ class AhaTest(s_test.SynTest):
                 for url in provurls:
                     with self.raises(s_exc.NoSuchName) as cm:
                         async with await s_telepath.openurl(url) as client:
-                            self.fail(f'Connected to a expired provisioning URL {url}')  # pragma: no cover
+                            self.fail(f'Connected to an expired provisioning URL {url}')  # pragma: no cover
                 for url in enrlursl:
                     with self.raises(s_exc.NoSuchName) as cm:
                         async with await s_telepath.openurl(url) as prox:
-                            self.fail(f'Connected to a expired enrollment URL {url}')  # pragma: no cover
+                            self.fail(f'Connected to an expired enrollment URL {url}')  # pragma: no cover
 
     async def test_aha_httpapi(self):
 

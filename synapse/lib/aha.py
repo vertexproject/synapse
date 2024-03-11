@@ -1150,7 +1150,7 @@ class AhaCell(s_cell.Cell):
         for iden, byts in self.slab.scanByFull(db='aha:enrolls'):
             self.slab.delete(iden, db='aha:enrolls')
             userinfo = s_msgpack.un(byts)
-            logger.info(f'Deleted user enrollment service={userinfo.get("name")}, iden={iden.decode()}')
+            logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):
