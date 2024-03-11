@@ -289,6 +289,8 @@ class NexsRoot(s_base.Base):
             if not self.writeholds:
                 self.readonly = False
                 if self.isactive:
+                    # if we are not active, we need to wait until we
+                    # are in the real-time window from our leader.
                     await self.setNexsReady(True)
 
             return True
