@@ -274,7 +274,7 @@ class NexsRoot(s_base.Base):
         self.readonly = True
 
         if reason not in self.writeholds:
-            self.ready.clear()
+            await self.setNexsReady(False)
             self.writeholds.add(reason)
             return True
 
@@ -288,7 +288,8 @@ class NexsRoot(s_base.Base):
 
             if not self.writeholds:
                 self.readonly = False
-                self.ready.set()
+                if self.isactive:
+                    await self.setNexsReady(True)
 
             return True
 
