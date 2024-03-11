@@ -2117,8 +2117,7 @@ class CellTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
                     self.stormIsInErr(errmsg, msgs)
 
-                    revt.clear()
-
+                revt.clear()
                 self.true(await asyncio.wait_for(revt.wait(), 1))
 
                 self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
