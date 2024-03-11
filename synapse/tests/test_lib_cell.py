@@ -2090,15 +2090,22 @@ class CellTest(s_t_utils.SynTest):
 
         revt = asyncio.Event()
         addWriteHold = s_nexus.NexsRoot.addWriteHold
+        delWriteHold = s_nexus.NexsRoot.delWriteHold
         async def wrapAddWriteHold(root, reason):
-            retn = s_nexus.NexsRoot.addWriteHold(root, reason)
+            retn = await addWriteHold(root, reason)
+            revt.set()
+            return retn
+
+        async def wrapDelWriteHold(root, reason):
+            retn = await delWriteHold(root, reason)
             revt.set()
             return retn
 
         errmsg = 'Insufficient free space on disk.'
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
-             mock.patch.object(s_nexus.NexsRoot, 'addWriteHold', wrapAddWriteHold):
+             mock.patch.object(s_nexus.NexsRoot, 'addWriteHold', wrapAddWriteHold), \
+             mock.patch.object(s_nexus.NexsRoot, 'delWriteHold', wrapDelWriteHold):
 
             async with self.getTestCore() as core:
 
@@ -2196,7 +2203,7 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.nexsroot.addWriteHold('LOLWRITE TESTING')
+            await core.nexsroot.addWriteHold('LOLWRITE TESTING')
 
             msgs = await core.stormlist('[inet:fqdn=newp.fail]')
 

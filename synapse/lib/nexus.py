@@ -296,25 +296,33 @@ class NexsRoot(s_base.Base):
 
         return False
 
+    def reqNotReadOnly(self):
+
+        if not self.readonly:
+            return
+
+        # sets have stable order like dicts, so use the first message...
+        for reason in self.writeholds:
+            raise s_exc.IsReadOnly(mesg=reason)
+
+        mesg = 'Unable to issue Nexus events when readonly is set.'
+        raise s_exc.IsReadOnly(mesg=mesg)
+
     async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-        if self.readonly:
-
-            # sets have stable order like dicts, so use the first message...
-            for reason in self.writeholds:
-                raise s_exc.IsReadOnly(mesg=reason)
-
-            mesg = 'Unable to issue Nexus events when readonly is set.'
-            raise s_exc.IsReadOnly(mesg=mesg)
 
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
 
         if client is None:
             return await self.eat(nexsiden, event, args, kwargs, meta)
+
+        # check here because we shouldn't be sending an edit upstream if we
+        # are in readonly mode because the mirror sync will never complete.
+        self.reqNotReadOnly()
 
         try:
             await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
@@ -341,6 +349,7 @@ class NexsRoot(s_base.Base):
             meta = {}
 
         async with self.applylock:
+            self.reqNotReadOnly()
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
             return await asyncio.shield(self.applytask)
