@@ -1880,7 +1880,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._setAhaActive()
 
     def runActiveTask(self, coro):
-        # an API for active coroutines to use when running a an
+        # an API for active coroutines to use when running an
         # ephemeral task which should be automatically torn down
         # if the cell becomes inactive
         return self.activebase.schedCoro(coro)
