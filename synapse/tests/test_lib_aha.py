@@ -891,11 +891,11 @@ class AhaTest(s_test.SynTest):
                 async with aha.getLocalProxy() as proxy:
                     provurls.append(await proxy.addAhaSvcProv('00.cell'))
                     provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
-                    enrlursl.append(await proxy.addAhaUserEnroll('alice@the.place.here'))
-                    enrlursl.append(await proxy.addAhaUserEnroll('bob@some.place.there'))
+                    enrlursl.append(await proxy.addAhaUserEnroll('bob'))
+                    enrlursl.append(await proxy.addAhaUserEnroll('alice'))
 
-                    await proxy.dropAhaSvcProvs()
-                    await proxy.dropAhaUserEnrolls()
+                    await proxy.clearAhaSvcProvs()
+                    await proxy.clearAhaUserEnrolls()
 
                 for url in provurls:
                     with self.raises(s_exc.NoSuchName) as cm:
