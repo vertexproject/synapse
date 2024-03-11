@@ -342,7 +342,7 @@ class CellApi(s_base.Base):
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
 
-    @adminapi()
+    @adminapi(log=True)
     async def handoff(self, turl, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
 
@@ -1679,6 +1679,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        logger.info(f'PROMOTION: Performing leadership promotion {graceful=} ahaname={self.conf.get("aha:name")}')
+
         if graceful:
 
             ahaname = self.conf.get('aha:name')
@@ -1692,20 +1694,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.BadArg(mesg=mesg)
 
             myurl = f'aha://{ahaname}.{ahanetw}'
+            logger.info(f'PROMOTION: Connecting to {mirurl} for handoff from {ahaname=}')
             async with await s_telepath.openurl(mirurl) as lead:
+                logger.info(f'PROMOTION: Performing handoff from leader to {ahaname=}')
                 await lead.handoff(myurl)
+                logger.info(f'PROMOTION: Completed handoff from leader to {ahaname=}')
                 return
 
+        logger.info(f'PROMOTION: Clearing mirror configuration for ahaname={self.conf.get("aha:name")}')
         self.modCellConf({'mirror': None})
 
+        logger.info(f'PROMOTION: Promoting the nexus root for ahaname={self.conf.get("aha:name")}')
         await self.nexsroot.promote()
+
+        logger.info(f'PROMOTION: Setting the service as active ahaname={self.conf.get("aha:name")}')
         await self.setCellActive(True)
+
+        logger.info(f'PROMOTION: Done promoting service={self.conf.get("aha:name")}')
 
     async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
+        logger.info(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)} from ahaname={self.conf.get("aha:name")}')
         async with await s_telepath.openurl(turl) as cell:
+
+            logger.info(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)} from ahaname={self.conf.get("aha:name")}')
 
             if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
@@ -1715,19 +1729,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
+            logger.info(f'HANDOFF: Obtaining nexus applylock ahaname={self.conf.get("aha:name")}')
+
             async with self.nexsroot.applylock:
 
+                logger.info(f'HANDOFF: Obtained nexus applylock ahaname={self.conf.get("aha:name")}')
                 indx = await self.getNexsIndx()
+
+                logger.info(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}, ahaname={self.conf.get("aha:name")}')
                 if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)
 
+                logger.info(f'HANDOFF: Mirror has caught up to the current leader, performing promotion ahaname={self.conf.get("aha:name")}')
                 await cell.promote()
+
+                logger.info(f'HANDOFF: Setting the service as inactive ahaname={self.conf.get("aha:name")}')
                 await self.setCellActive(False)
 
+                logger.info(f'HANDOFF: Configuring service to use the new leader as its mirror ahaname={self.conf.get("aha:name")}')
                 self.modCellConf({'mirror': turl})
+
+                logger.info(f'HANDOFF: Restarting the nexus ahaname={self.conf.get("aha:name")}')
                 await self.nexsroot.startup()
+
+            logger.info(f'HANDOFF: Done performing the handoff with {s_urlhelp.sanitizeUrl(turl)} ahaname={self.conf.get("aha:name")}')
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
