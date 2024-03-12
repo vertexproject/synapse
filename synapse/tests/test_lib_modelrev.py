@@ -432,3 +432,25 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_23(self):
         async with self.getRegrCore('model-0.2.23') as core:
             self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
+
+    async def test_modelrev_0_2_24(self):
+        async with self.getRegrCore('model-0.2.24') as core:
+
+            self.len(1, await core.nodes('transport:sea:telem:speed'))
+            self.len(1, await core.nodes('transport:sea:telem:_multispeed'))
+            self.len(1, await core.nodes('transport:sea:telem:_multispeed*[=5]'))
+
+            self.len(1, await core.nodes('transport:air:telem:speed'))
+            self.len(1, await core.nodes('transport:air:telem:airspeed'))
+            self.len(1, await core.nodes('transport:air:telem:verticalspeed'))
+
+            nodes = await core.nodes('transport:sea:telem')
+            node = nodes[0]
+            self.eq(4, node.get('speed'))
+            self.eq((5, 6), node.get('_multispeed'))
+
+            nodes = await core.nodes('transport:air:telem')
+            node = nodes[0]
+            self.eq(1, node.get('speed'))
+            self.eq(2, node.get('airspeed'))
+            self.eq(3, node.get('verticalspeed'))
