@@ -274,6 +274,7 @@ class NexsRoot(s_base.Base):
         self.readonly = True
 
         if reason not in self.writeholds:
+            logger.error(f'Entering Read-Only Mode: {reason}')
             self.writeholds.add(reason)
             return True
 
@@ -536,6 +537,9 @@ class NexsRoot(s_base.Base):
                 async for item in genr:
 
                     if proxy.isfini:  # pragma: no cover
+                        break
+
+                    if self.readonly:
                         break
 
                     # with tellready we move to ready=true when we get a None
