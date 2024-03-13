@@ -2,9 +2,8 @@ import hashlib
 
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.serialization as c_ser
-import cryptography.hazmat.primitives.asymmetric.utils as c_utils
+import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 import cryptography.hazmat.primitives.asymmetric.padding as c_padding
-import cryptography.hazmat.backends.openssl.rsa as c_rsa
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -23,7 +22,7 @@ class PriKey:
         self.priv = priv  # type: c_rsa.RSAPrivateKey
         self.publ = self.public()
 
-    def iden(self):
+    def iden(self) -> str:
         '''
         Return a SHA256 hash for the public key (to be used as a GUID).
 
@@ -32,7 +31,7 @@ class PriKey:
         '''
         return self.publ.iden()
 
-    def sign(self, byts):
+    def sign(self, byts: bytes) -> bytes:
         '''
         Compute the RSA signature for the given bytestream.
 
@@ -46,7 +45,7 @@ class PriKey:
         pad = c_padding.PSS(c_padding.MGF1(sha256), c_padding.PSS.MAX_LENGTH)
         return self.priv.sign(byts, pad, sha256)
 
-    def signitem(self, item):
+    def signitem(self, item) -> bytes:
         '''
         Compute the RSA signature for the given python primitive.
 

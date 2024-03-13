@@ -359,8 +359,30 @@ class AstTest(s_test.SynTest):
             # Sad paths
             q = '[test:str=newp -.newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
             q = '$newp=newp [test:str=newp -.$newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp] $lib.print(:$newp)'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp :$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp -:$newp]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp .$newp=foo]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp -.$newp]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [*$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_ast_editparens(self):
 
@@ -2342,6 +2364,12 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('if (false) { [inet:ipv4=1.2.3.4] }')
             self.len(0, nodes)
+
+            nodes = await core.nodes('if (null) { [inet:ipv4=1.2.3.4] }')
+            self.len(0, nodes)
+
+            self.none(await core.callStorm('return((null))'))
+            self.eq({'foo': None}, await core.callStorm('return(({"foo": null}))'))
 
             nodes = await core.nodes('[ test:int=(18 + 2) ]')
             self.len(1, nodes)

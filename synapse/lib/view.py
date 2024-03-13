@@ -193,6 +193,27 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
         return mergeinfo
 
+    async def setMergeComment(self, comment):
+        return await self._push('merge:set:comment', s_common.now(), comment)
+
+    @s_nexus.Pusher.onPush('merge:set:comment')
+    async def _setMergeRequestComment(self, updated, comment):
+        self.reqParentQuorum()
+        merge = self.getMergeRequest()
+        if merge is None:
+            mesg = 'Cannot set the comment of a merge request that does not exist.'
+            raise s_exc.BadState(mesg=mesg)
+
+        merge['updated'] = updated
+        merge['comment'] = comment
+        s_schemas.reqValidMerge(merge)
+        lkey = self.bidn + b'merge:req'
+        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+
+        await self.core.feedBeholder('view:merge:set', {'view': self.iden, 'merge': merge})
+
+        return merge
+
     async def delMergeRequest(self):
         return await self._push('merge:del')
 
@@ -297,6 +318,30 @@ class View(s_nexus.Pusher):  # type: ignore
 
         tick = vote.get('created')
         await self.tryToMerge(tick)
+
+        return vote
+
+    async def setMergeVoteComment(self, useriden, comment):
+        return await self._push('merge:vote:set:comment', s_common.now(), useriden, comment)
+
+    @s_nexus.Pusher.onPush('merge:vote:set:comment')
+    async def _setMergeVoteComment(self, tick, useriden, comment):
+        self.reqParentQuorum()
+
+        uidn = s_common.uhex(useriden)
+
+        lkey = self.bidn + b'merge:vote' + uidn
+        byts = self.core.slab.pop(lkey, db='view:meta')
+
+        if byts is None:
+            mesg = 'Cannot set the comment for a vote that does not exist.'
+            raise s_exc.BadState(mesg=mesg)
+
+        vote = s_msgpack.un(byts)
+        vote['updated'] = tick
+        vote['comment'] = comment
+        self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
+        await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
 
         return vote
 
@@ -1327,87 +1372,57 @@ class View(s_nexus.Pusher):  # type: ignore
                 self._confirm(user, perm)
                 await asyncio.sleep(0)
 
-    async def runTagAdd(self, node, tag, valu, view=None):
+    async def runTagAdd(self, node, tag, valu):
 
-        # Run the non-glob callbacks, then the glob callbacks
-        funcs = itertools.chain(self.core.ontagadds.get(tag, ()), (x[1] for x in self.core.ontagaddglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception:
-                logger.exception('onTagAdd Error')
-
-        if view is None:
-            view = self.iden
+        if self.core.migration:
+            return
 
         # Run any trigger handlers
-        await self.triggers.runTagAdd(node, tag, view=view)
+        await self.triggers.runTagAdd(node, tag)
 
-    async def runTagDel(self, node, tag, valu, view=None):
+    async def runTagDel(self, node, tag, valu):
 
-        funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception:
-                logger.exception('onTagDel Error')
-
-        if view is None:
-            view = self.iden
-
-        await self.triggers.runTagDel(node, tag, view=view)
-
-    async def runNodeAdd(self, node, view=None):
-        if not node.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runTagDel(node, tag)
 
-        await self.triggers.runNodeAdd(node, view=view)
+    async def runNodeAdd(self, node):
 
-    async def runNodeDel(self, node, view=None):
-        if not node.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runNodeAdd(node)
 
-        await self.triggers.runNodeDel(node, view=view)
+    async def runNodeDel(self, node):
 
-    async def runPropSet(self, node, prop, oldv, view=None):
+        if self.core.migration:
+            return
+
+        await self.triggers.runNodeDel(node)
+
+    async def runPropSet(self, node, prop, oldv):
         '''
         Handle when a prop set trigger event fired
         '''
-        if not node.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runPropSet(node, prop, oldv)
 
-        await self.triggers.runPropSet(node, prop, oldv, view=view)
+    async def runEdgeAdd(self, n1, edge, n2):
 
-    async def runEdgeAdd(self, n1, edge, n2, view=None):
-        if not n1.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runEdgeAdd(n1, edge, n2)
 
-        await self.triggers.runEdgeAdd(n1, edge, n2, view=view)
+    async def runEdgeDel(self, n1, edge, n2):
 
-    async def runEdgeDel(self, n1, edge, n2, view=None):
-        if not n1.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
-
-        await self.triggers.runEdgeDel(n1, edge, n2, view=view)
+        await self.triggers.runEdgeDel(n1, edge, n2)
 
     async def addTrigger(self, tdef):
         '''

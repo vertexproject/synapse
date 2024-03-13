@@ -3239,16 +3239,19 @@ class PropValue(Value):
         if not path:
             return None, None
 
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         ispiv = name.find('::') != -1
         if not ispiv:
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                    name=name, form=path.node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
             if isinstance(valu, (dict, list, tuple)):
@@ -3271,9 +3274,11 @@ class PropValue(Value):
 
             prop = node.form.props.get(name)
             if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                name=name, form=node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
                 if isinstance(valu, (dict, list, tuple)):
@@ -3812,7 +3817,7 @@ class RelProp(PropName):
 
 class UnivProp(RelProp):
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
+        valu = await tostr(await self.kids[0].compute(runt, path))
         if self.isconst:
             return valu
         return '.' + valu
@@ -3933,12 +3938,16 @@ class EditNodeAdd(Edit):
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
-                    formname = await self.kids[0].compute(runt, path)
+                    name = await self.kids[0].compute(runt, path)
+                    formname = await tostr(name)
                     runt.layerConfirm(('node', 'add', formname))
 
                     form = runt.model.form(formname)
                     if form is None:
-                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                        if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                            exc = s_exc.NoSuchForm.init(formname)
+
+                        raise self.kids[0].addExcInfo(exc)
 
                     # must use/resolve all variables from path before yield
                     async for item in self.addFromPath(form, runt, path):
@@ -3949,12 +3958,16 @@ class EditNodeAdd(Edit):
 
             else:
 
-                formname = await self.kids[0].compute(runt, None)
+                name = await self.kids[0].compute(runt, None)
+                formname = await tostr(name)
                 runt.layerConfirm(('node', 'add', formname))
 
                 form = runt.model.form(formname)
                 if form is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                    if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                        exc = s_exc.NoSuchForm.init(formname)
+
+                    raise self.kids[0].addExcInfo(exc)
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.tostor(valu)
@@ -3997,12 +4010,15 @@ class EditPropSet(Edit):
 
         async for node, path in genr:
 
-            name = await self.kids[0].compute(runt, path)
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
 
             prop = node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
                 raise self.kids[0].addExcInfo(exc)
 
             if not node.form.isrunt:
@@ -4078,12 +4094,15 @@ class EditPropDel(Edit):
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         async for node, path in genr:
-            name = await self.kids[0].compute(runt, path)
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
 
             prop = node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
                 raise self.kids[0].addExcInfo(exc)
 
             runt.confirmPropDel(prop)
