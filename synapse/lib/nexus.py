@@ -274,7 +274,7 @@ class NexsRoot(s_base.Base):
         self.readonly = True
 
         if reason not in self.writeholds:
-            self.ready.clear()
+            logger.error(f'Entering Read-Only Mode: {reason}')
             self.writeholds.add(reason)
             return True
 
@@ -288,7 +288,6 @@ class NexsRoot(s_base.Base):
 
             if not self.writeholds:
                 self.readonly = False
-                self.ready.set()
 
             return True
 
@@ -524,6 +523,10 @@ class NexsRoot(s_base.Base):
 
             try:
 
+                if self.readonly:
+                    await self.waitfini(timeout=2)
+                    continue
+
                 offs = self.nexslog.index()
 
                 opts = {}
@@ -533,11 +536,10 @@ class NexsRoot(s_base.Base):
                 genr = proxy.getNexusChanges(offs, **opts)
                 async for item in genr:
 
-                    if self.readonly:
-                        await self.waitfini(timeout=2)
+                    if proxy.isfini:  # pragma: no cover
                         break
 
-                    if proxy.isfini:  # pragma: no cover
+                    if self.readonly:
                         break
 
                     # with tellready we move to ready=true when we get a None
@@ -560,9 +562,6 @@ class NexsRoot(s_base.Base):
                     try:
                         retn = await self.eat(*args)
 
-                    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                        raise
-
                     except Exception as e:
                         if respfutu is not None:
                             assert not respfutu.done()
@@ -573,9 +572,6 @@ class NexsRoot(s_base.Base):
                     else:
                         if respfutu is not None:
                             respfutu.set_result(retn)
-
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
 
             except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
