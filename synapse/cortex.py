@@ -578,12 +578,12 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delStormDmon(iden)
 
     @s_cell.adminapi(log=True)
-    async def enableMigrationMode(self):
-        await self.cell._enableMigrationMode()
+    async def enableMigrationMode(self): # pragma: no cover
+        s_common.deprdate('CoreApi.enableMigrationMode', '2024-05-05')
 
     @s_cell.adminapi(log=True)
-    async def disableMigrationMode(self):
-        await self.cell._disableMigrationMode()
+    async def disableMigrationMode(self): # pragma: no cover
+        s_common.deprdate('CoreApi.disableMigrationMode', '2024-05-05')
 
     @s_cell.adminapi()
     async def cloneLayer(self, iden, ldef=None):
@@ -773,12 +773,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'cron:enable': {
             'default': True,
-            'description': 'Enable cron jobs running.',
+            'description': 'Deprecated. This option no longer controls cron execution and will be removed in Synapse 3.0.',
             'type': 'boolean'
         },
         'trigger:enable': {
             'default': True,
-            'description': 'Enable triggers running.',
+            'description': 'Deprecated. This option no longer controls trigger execution and will be removed in Synapse 3.0.',
             'type': 'boolean'
         },
         'layer:lmdb:map_async': {
@@ -900,11 +900,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
 
-        self.ontagadds = collections.defaultdict(list)
-        self.ontagdels = collections.defaultdict(list)
-        self.ontagaddglobs = s_cache.TagGlobs()
-        self.ontagdelglobs = s_cache.TagGlobs()
-
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
@@ -982,8 +977,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.agenda)
 
         await self._initStormGraphs()
-
-        self.trigson = self.conf.get('trigger:enable')
 
         await self._initRuntFuncs()
 
@@ -1442,6 +1435,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
+        self.addActiveCoro(self.agenda.runloop)
+
         await self._initStormDmons()
         await self._initStormSvcs()
 
@@ -1450,8 +1445,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.dmon.share('cortex', self)
 
     async def initServiceActive(self):
-        if self.conf.get('cron:enable'):
-            await self.agenda.start()
+
         await self.stormdmons.start()
 
         for view in self.views.values():
@@ -1465,7 +1459,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def initServicePassive(self):
 
-        await self.agenda.stop()
         await self.stormdmons.stop()
 
         for view in self.views.values():
@@ -4270,77 +4263,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 counts[name] += valu
         return dict(counts)
 
-    def onTagAdd(self, name, func):
-        '''
-        Register a callback for tag addition.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        # TODO allow name wild cards
-        if '*' in name:
-            self.ontagaddglobs.add(name, func)
-        else:
-            self.ontagadds[name].append(func)
-
-    def offTagAdd(self, name, func):
-        '''
-        Unregister a callback for tag addition.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        if '*' in name:
-            self.ontagaddglobs.rem(name, func)
-            return
-
-        cblist = self.ontagadds.get(name)
-        if cblist is None:
-            return
-        try:
-            cblist.remove(func)
-        except ValueError:
-            pass
-
-    def onTagDel(self, name, func):
-        '''
-        Register a callback for tag deletion.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        if '*' in name:
-            self.ontagdelglobs.add(name, func)
-        else:
-            self.ontagdels[name].append(func)
-
-    def offTagDel(self, name, func):
-        '''
-        Unregister a callback for tag deletion.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        if '*' in name:
-            self.ontagdelglobs.rem(name, func)
-            return
-
-        cblist = self.ontagdels.get(name)
-        if cblist is None:
-            return
-        try:
-            cblist.remove(func)
-        except ValueError:
-            pass
-
     def addRuntLift(self, prop, func):
         '''
         Register a runt lift helper for a given prop.
@@ -4402,8 +4324,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return ret
 
     async def _checkLayerModels(self):
-        mrev = s_modelrev.ModelRev(self)
-        await mrev.revCoreLayers()
+        with self.enterMigrationMode():
+            mrev = s_modelrev.ModelRev(self)
+            await mrev.revCoreLayers()
 
     async def _loadView(self, node):
 
@@ -6126,30 +6049,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
         await appt.edits(edits)
 
-    @contextlib.asynccontextmanager
-    async def enterMigrationMode(self):
-        await self._enableMigrationMode()
-        yield
-        await self._disableMigrationMode()
-
-    async def _enableMigrationMode(self):
-        '''
-        Prevents cron jobs and triggers from running
-        '''
+    @contextlib.contextmanager
+    def enterMigrationMode(self):
         self.migration = True
-        self.agenda.enabled = False
-        self.trigson = False
-
-    async def _disableMigrationMode(self):
-        '''
-        Allows cron jobs and triggers to run
-        '''
+        yield
         self.migration = False
-        if self.conf.get('cron:enable'):
-            self.agenda.enabled = True
-
-        if self.conf.get('trigger:enable'):
-            self.trigson = True
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

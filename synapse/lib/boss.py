@@ -41,6 +41,9 @@ class Boss(s_base.Base):
             s_task.Task: The Synapse Task object.
         '''
         task = asyncio.current_task()
+        return await self.promotetask(task, name, user, info=info, taskiden=taskiden)
+
+    async def promotetask(self, task, name, user, info=None, taskiden=None):
 
         synt = getattr(task, '_syn_task', None)
 

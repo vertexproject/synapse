@@ -79,6 +79,8 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
+diskspace = "Insufficient free space on disk."
+
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -1058,6 +1060,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellparent = parent
         self.sessions = {}
         self.isactive = False
+        self.activebase = None
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
@@ -1389,31 +1392,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if (disk.free / disk.total) <= self.minfree:
 
-                reason = "Insufficient free space on disk."
-
-                await self._setReadOnly(True, reason=reason)
-                nexsroot.setReadOnly(True, reason=reason)
+                await nexsroot.addWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             elif nexsroot.readonly:
 
-                await self._setReadOnly(False)
-                nexsroot.setReadOnly(False)
-
-                await self.nexsroot.startup()
+                await nexsroot.delWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
-
-    async def _setReadOnly(self, valu, reason=None):
-        # implement any behavior necessary to change the cell read-only status
-        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1886,17 +1879,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.isactive
 
     async def setCellActive(self, active):
+
+        if active == self.isactive:
+            return
+
         self.isactive = active
 
         if self.isactive:
+            self.activebase = await s_base.Base.anit()
             self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
+            await self.activebase.fini()
+            self.activebase = None
             await self.initServicePassive()
 
         await self._setAhaActive()
+
+    def runActiveTask(self, coro):
+        # an API for active coroutines to use when running an
+        # ephemeral task which should be automatically torn down
+        # if the cell becomes inactive
+        return self.activebase.schedCoro(coro)
 
     async def initServiceActive(self):  # pragma: no cover
         pass
