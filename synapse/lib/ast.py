@@ -1649,12 +1649,13 @@ class LiftFormTagProp(LiftOper):
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             for form in forms:
-                genrs.append(runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
+                genrs.append(runt.snap.nodesByTagPropValu(form.name, tag, prop, cmpr, valu, reverse=self.reverse))
 
         else:
 
             for form in forms:
-                genrs.append(runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse))
+                # TODO plumb form/prop objects into the snap API
+                genrs.append(runt.snap.nodesByTagProp(form.name, tag, prop, reverse=self.reverse))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -1719,13 +1720,14 @@ class LiftFormTag(LiftOper):
             valu = await toprim(await self.kids[3].compute(runt, path))
 
             for form in forms:
-                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
+                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form.name, reverse=self.reverse):
                     yield node
 
             return
 
         for form in forms:
-            async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
+            # TODO we should plumb heavy form/prop objects deeper into the API
+            async for node in runt.snap.nodesByTag(tag, form=form.name, reverse=self.reverse):
                 yield node
 
 class LiftProp(LiftOper):
@@ -2227,12 +2229,13 @@ class FormPivot(PivotOper):
                     hits = False
                     for form in runt.model.reqFormsByLook(refsform):
 
-                        if not form.isHeirOf(refsform):
+                        if not form.isHeirOf(destform.name):
                             continue
 
                         found = True
 
-                        async for pivo in runt.snap.nodesByPropValu(refsform, '=', refsvalu):
+                        # TODO plumb form/prop types into snap API
+                        async for pivo in runt.snap.nodesByPropValu(form.name, '=', refsvalu):
                             hits = True
                             yield pivo
 

@@ -7228,7 +7228,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.none(core.model.ifaces.get('taxonomy'))
             self.none(core.model.formsbyiface.get('taxonomy'))
-            self.isin('_auto:taxonomy', core.model.formsbyiface.get('meta:taxonomy'))
+            form = core.model.form('_auto:taxonomy')
+            self.isin(form, core.model.formsbyiface.get('meta:taxonomy'))
 
     async def test_cortex_vaults(self):
         '''

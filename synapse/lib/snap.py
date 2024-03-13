@@ -1489,7 +1489,7 @@ class Snap(s_base.Base):
 
                 await protonode.addEdge(verb, n2iden)
 
-        await self.getNodeByBuid(protonode.buid)
+        return await self.getNodeByBuid(protonode.buid)
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
