@@ -24,6 +24,8 @@ class ScienceModule(s_module.CoreModule):
             'edges': (
                 (('sci:experiment', 'uses', None), {
                     'doc': 'The experiement used the target nodes when it was run.'}),
+                (('sci:observation', 'has', None), {
+                    'doc': 'The observations are summarized from the target nodes.'}),
                 (('sci:evidence', 'has', None), {
                     'doc': 'The evidence includes observations from the target nodes.'}),
             ),
