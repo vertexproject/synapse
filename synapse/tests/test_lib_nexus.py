@@ -264,3 +264,41 @@ class NexusTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
                 self.len(vcnt + viewadds, core.views)
+
+    async def test_mirror_version(self):
+
+        with self.getTestDir() as dirn:
+
+            s_common.yamlsave({'nexslog:en': True}, dirn, 'cell.yaml')
+            async with await s_cell.Cell.anit(dirn=dirn) as cell00:
+
+                getCellInfo = cell00.getCellInfo
+                async def getCrazyVersion():
+                    info = await getCellInfo()
+                    info['synapse']['version'] = (9999, 0, 0)
+                    return info
+
+                await cell00.runBackup(name='cell01')
+
+                path = s_common.genpath(dirn, 'backups', 'cell01')
+
+                conf = s_common.yamlload(path, 'cell.yaml')
+                conf['mirror'] = f'cell://{dirn}'
+                s_common.yamlsave(conf, path, 'cell.yaml')
+
+                evnt = asyncio.Event()
+                cell00.getCellInfo = getCrazyVersion
+
+                async with await s_cell.Cell.anit(dirn=path) as cell01:
+                    addWriteHold = cell01.nexsroot.addWriteHold
+                    def wrapAddWriteHold(reason):
+                        retn = addWriteHold(reason)
+                        evnt.set()
+                        return retn
+
+                    cell01.nexsroot.addWriteHold = wrapAddWriteHold
+                    await asyncio.wait_for(evnt.wait(), timeout=3)
+
+                    with self.raises(s_exc.IsReadOnly):
+                        await cell01.sync()
+                    self.isin(s_nexus.leaderversion, cell01.nexsroot.writeholds)

@@ -1,5 +1,6 @@
 import gc
 import os
+import ssl
 import copy
 import time
 import fcntl
@@ -12,6 +13,7 @@ import tarfile
 import argparse
 import datetime
 import platform
+import tempfile
 import functools
 import contextlib
 import multiprocessing
@@ -32,6 +34,7 @@ import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
@@ -58,6 +61,7 @@ import synapse.tools.backup as s_t_backup
 logger = logging.getLogger(__name__)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
+SSLCTX_CACHE_SIZE = 64
 
 '''
 Base classes for the synapse "cell" microservice architecture.
@@ -74,6 +78,8 @@ permnames = {
     PERM_EDIT: 'edit',
     PERM_ADMIN: 'admin',
 }
+
+diskspace = "Insufficient free space on disk."
 
 def adminapi(log=False):
     '''
@@ -117,7 +123,8 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
+        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -1053,6 +1060,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellparent = parent
         self.sessions = {}
         self.isactive = False
+        self.activebase = None
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
@@ -1150,6 +1158,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        # for runtime cell configuration values
+        self.slab.initdb('cell:conf')
+
+        self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
         self.hive = await self._initCellHive()
 
@@ -1379,31 +1392,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if (disk.free / disk.total) <= self.minfree:
 
-                reason = "Insufficient free space on disk."
-
-                await self._setReadOnly(True, reason=reason)
-                nexsroot.setReadOnly(True, reason=reason)
+                await nexsroot.addWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             elif nexsroot.readonly:
 
-                await self._setReadOnly(False)
-                nexsroot.setReadOnly(False)
-
-                await self.nexsroot.startup()
+                await nexsroot.delWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
-
-    async def _setReadOnly(self, valu, reason=None):
-        # implement any behavior necessary to change the cell read-only status
-        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1849,17 +1852,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.isactive
 
     async def setCellActive(self, active):
+
+        if active == self.isactive:
+            return
+
         self.isactive = active
 
         if self.isactive:
+            self.activebase = await s_base.Base.anit()
             self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
+            await self.activebase.fini()
+            self.activebase = None
             await self.initServicePassive()
 
         await self._setAhaActive()
+
+    def runActiveTask(self, coro):
+        # an API for active coroutines to use when running an
+        # ephemeral task which should be automatically torn down
+        # if the cell becomes inactive
+        return self.activebase.schedCoro(coro)
 
     async def initServiceActive(self):  # pragma: no cover
         pass
@@ -3994,6 +4010,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - totalmem - Total memory in the system
                 - availmem - Available memory in the system
                 - cpucount - Number of CPUs on system
+                - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
         uptime = int((time.monotonic() - self.starttime) * 1000)
         disk = shutil.disk_usage(self.dirn)
@@ -4010,6 +4027,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
         sysctls = s_thisplat.getSysctls()
+        tmpdir = s_thisplat.getTempDir()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -4025,7 +4043,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
-            'sysctls': sysctls                 # Performance related sysctls
+            'sysctls': sysctls,                # Performance related sysctls
+            'tmpdir': tmpdir,                  # Temporary File / Folder Directory
         }
 
         return retn
@@ -4342,3 +4361,60 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.slab.delete(key_iden, db=self.apikeydb)
             self.slab.delete(lkey, db=self.usermetadb)
             await asyncio.sleep(0)
+
+    def _makeCachedSslCtx(self, opts):
+
+        opts = dict(opts)
+
+        cadir = self.conf.get('tls:ca:dir')
+
+        if cadir is not None:
+            sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
+        else:
+            sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+
+        if not opts['verify']:
+            sslctx.check_hostname = False
+            sslctx.verify_mode = ssl.CERT_NONE
+
+        if not opts['client_cert']:
+            return sslctx
+
+        client_cert = opts['client_cert'].encode()
+
+        if opts['client_key']:
+            client_key = opts['client_key'].encode()
+        else:
+            client_key = None
+            client_key_path = None
+
+        with self.getTempDir() as tmpdir:
+
+            with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                fh.write(client_cert)
+                client_cert_path = fh.name
+
+            if client_key:
+                with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                    fh.write(client_key)
+                    client_key_path = fh.name
+
+            try:
+                sslctx.load_cert_chain(client_cert_path, keyfile=client_key_path)
+            except ssl.SSLError as e:
+                raise s_exc.BadArg(mesg=f'Error loading client cert: {str(e)}') from None
+
+        return sslctx
+
+    def getCachedSslCtx(self, opts=None, verify=None):
+
+        if opts is None:
+            opts = {}
+
+        if verify is not None:
+            opts['verify'] = verify
+
+        opts = s_schemas.reqValidSslCtxOpts(opts)
+
+        key = tuple(sorted(opts.items()))
+        return self._sslctx_cache.get(key)

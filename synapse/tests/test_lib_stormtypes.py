@@ -490,6 +490,12 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz", ""]), apply=$lib.true)')
             self.sorteq(nodes[0].tags, ['foo', 'baz'])
 
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo-bar", ""]), apply=$lib.true, norm=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo_bar'])
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo-bar", "foo", "baz"]), apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo', 'baz'])
+
             await core.setTagModel("foo", "regex", (None, "[a-zA-Z]{3}"))
             async with await core.snap() as snap:
                 snap.strict = False
@@ -586,6 +592,15 @@ class StormTypesTest(s_test.SynTest):
             self.true(s_common.isguid(nodes[0].ndef[1]))
             self.true(s_common.isguid(nodes[1].ndef[1]))
             self.eq(nodes[0].ndef[1], nodes[1].ndef[1])
+
+            self.ne(s_common.guid('foo'), await core.callStorm('return($lib.guid(foo))'))
+            self.eq(s_common.guid('foo'), await core.callStorm('return($lib.guid(valu=foo))'))
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.callStorm('return($lib.guid(foo, valu=bar))')
+            self.eq('Valu cannot be specified if positional arguments are provided', ectx.exception.errinfo['mesg'])
+
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid(valu=$lib))'))
 
             async with core.getLocalProxy() as prox:
                 mesgs = [m async for m in prox.storm('$lib.print("hi there")') if m[0] == 'print']
@@ -1313,6 +1328,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('foo,bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(",", maxsplit=1))'))
 
             self.eq('foo bar baz faz', await core.callStorm('return($lib.regex.replace("[ ]{2,}", " ", "foo  bar   baz faz"))'))
+
+            self.eq(r'foo\.bar\.baz', await core.callStorm('return($lib.regex.escape("foo.bar.baz"))'))
+            self.eq(r'foo\ bar\ baz', await core.callStorm('return($lib.regex.escape("foo bar baz"))'))
 
             self.eq(((1, 2, 3)), await core.callStorm('return(("[1, 2, 3]").json())'))
 
@@ -3008,9 +3026,14 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            opts = {'vars': {'bytes': 10}}
+
             with self.raises(s_exc.BadArg):
-                opts = {'vars': {'bytes': 10}}
                 text = '($size, $sha2) = $lib.bytes.put($bytes)'
+                nodes = await core.nodes(text, opts=opts)
+
+            with self.raises(s_exc.BadArg):
+                text = '($size, $sha2) = $lib.axon.put($bytes)'
                 nodes = await core.nodes(text, opts=opts)
 
             asdf = b'asdfasdf'
@@ -3024,6 +3047,7 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.false(ret)
             self.false(await core.callStorm('return($lib.bytes.has($lib.null))'))
+            self.false(await core.callStorm('return($lib.axon.has($lib.null))'))
 
             opts = {'vars': {'bytes': asdf}}
             text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
@@ -3033,8 +3057,12 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'vars': {'sha256': asdfhash_h}}
             self.eq(8, await core.callStorm('return($lib.bytes.size($sha256))', opts=opts))
+            self.eq(8, await core.callStorm('return($lib.axon.size($sha256))', opts=opts))
 
             hashset = await core.callStorm('return($lib.bytes.hashset($sha256))', opts=opts)
+            self.eq(hashset, hashes)
+
+            hashset = await core.callStorm('return($lib.axon.hashset($sha256))', opts=opts)
             self.eq(hashset, hashes)
 
             self.eq(nodes[0].ndef, ('test:int', 8))
@@ -3045,6 +3073,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(b'asdfasdf', byts)
 
             ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
+            self.true(ret)
+
+            ret = await core.callStorm('return($lib.axon.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.true(ret)
 
             # Allow bytes to be directly decoded as a string
@@ -3096,6 +3127,32 @@ class StormTypesTest(s_test.SynTest):
             retn = await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
             self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
 
+            retn = await core.callStorm('return($lib.axon.upload($chunks))', opts=opts)
+            self.eq((8, '9ed8ffd0a11e337e6e461358195ebf8ea2e12a82db44561ae5d9e638f6f922c4'), retn)
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((False, ('axon', 'has')))
+
+            opts = {'user': visi.iden, 'vars': {'hash': asdfhash_h}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.bytes.has($hash))', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.bytes.size($hash))', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.bytes.hashset($hash))', opts=opts)
+
+            await visi.addRule((False, ('axon', 'upload')))
+
+            opts = {'user': visi.iden, 'vars': {'byts': b'foo'}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.bytes.put($byts))', opts=opts)
+
+            opts = {'user': visi.iden, 'vars': {'chunks': (b'visi', b'kewl')}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.bytes.upload($chunks))', opts=opts)
+
     async def test_storm_lib_base64(self):
 
         async with self.getTestCore() as core:
@@ -3110,7 +3167,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE_'))
 
             opts = {'vars': {'bytes': nodes[0].ndef[1]}}
-            text = '$lib.bytes.put($lib.base64.decode($bytes))'
+            text = '$lib.axon.put($lib.base64.decode($bytes))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
             byts = b''.join([b async for b in core.axon.get(key)])
@@ -3124,7 +3181,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'Zm9vYmE/'))
 
             opts = {'vars': {'bytes': nodes[0].ndef[1]}}
-            text = '$lib.bytes.put($lib.base64.decode($bytes, $(0)))'
+            text = '$lib.axon.put($lib.base64.decode($bytes, $(0)))'
             nodes = await core.nodes(text, opts)
             key = binascii.unhexlify(hashlib.sha256(base64.urlsafe_b64decode(opts['vars']['bytes'])).hexdigest())
             byts = b''.join([b async for b in core.axon.get(key)])
@@ -5686,7 +5743,7 @@ class StormTypesTest(s_test.SynTest):
 
             self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
 
-            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', opts={'vars': {'buf': b'foo'}})
+            size, sha256 = await core.callStorm('return($lib.axon.put($buf))', opts={'vars': {'buf': b'foo'}})
 
             items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.len(2, items)
@@ -5708,9 +5765,9 @@ class StormTypesTest(s_test.SynTest):
             self.true(resp['ok'])
 
             opts = {'vars': {'linesbuf': linesbuf, 'jsonsbuf': jsonsbuf, 'asdfbuf': b'asdf'}}
-            asdfitem = await core.callStorm('return($lib.bytes.put($asdfbuf))', opts=opts)
-            linesitem = await core.callStorm('return($lib.bytes.put($linesbuf))', opts=opts)
-            jsonsitem = await core.callStorm('return($lib.bytes.put($jsonsbuf))', opts=opts)
+            asdfitem = await core.callStorm('return($lib.axon.put($asdfbuf))', opts=opts)
+            linesitem = await core.callStorm('return($lib.axon.put($linesbuf))', opts=opts)
+            jsonsitem = await core.callStorm('return($lib.axon.put($jsonsbuf))', opts=opts)
 
             opts = {'vars': {'sha256': asdfitem[1]}}
             self.eq(('asdf',), await core.callStorm('''
@@ -6384,6 +6441,9 @@ words\tword\twrd'''
 
             fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
 
+            with self.raises(s_exc.BadState):
+                await core.callStorm('$lib.view.get().setMergeComment("that doesnt exist")', opts={'user': root.iden, 'view': fork00})
+
             msgs = await core.stormlist('[ inet:fqdn=vertex.link ]', opts={'view': fork00})
             self.stormHasNoWarnErr(msgs)
 
@@ -6393,6 +6453,9 @@ words\tword\twrd'''
             with self.raises(s_exc.SynErr):
                 await core.callStorm('$lib.view.get().merge()', opts={'view': fork00})
 
+            with self.raises(s_exc.BadState):
+                core.getView(fork00).reqValidVoter(visi.iden)
+
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.view.get().setMergeRequest()', opts={'user': visi.iden, 'view': fork00})
 
@@ -6401,12 +6464,23 @@ words\tword\twrd'''
             self.nn(merge['created'])
             self.eq(merge['comment'], 'woot')
             self.eq(merge['creator'], core.auth.rootuser.iden)
+            self.none(merge.get('updated'))
+
+            with self.raises(s_exc.AuthDeny):
+                core.getView(fork00).reqValidVoter(root.iden)
+
+            await core.callStorm('$lib.view.get().setMergeComment("mergin some dataaz")', opts={'view': fork00})
 
             merge = await core.callStorm('return($lib.view.get().getMergeRequest())', opts={'view': fork00})
             self.nn(merge['iden'])
             self.nn(merge['created'])
-            self.eq(merge['comment'], 'woot')
+            self.nn(merge['updated'])
+            self.gt(merge['updated'], merge['created'])
+            self.eq(merge['comment'], 'mergin some dataaz')
             self.eq(merge['creator'], core.auth.rootuser.iden)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.view.get().setMergeVote()', opts={'view': fork00})
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.view.get().setMergeVote()', opts={'user': visi.iden, 'view': fork00})
@@ -6421,6 +6495,21 @@ words\tword\twrd'''
             self.false(vote['approved'])
             self.eq(vote['user'], visi.iden)
             self.eq(vote['comment'], 'fixyourstuff')
+
+            forkview = core.getView(fork00)
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm('$lib.view.get().setMergeVoteComment("wait that doesnt exist")', opts={'view': fork00, 'user': newp.iden})
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.view.get().setMergeComment("no wait you cant do that")', opts={'view': fork00, 'user': newp.iden})
+
+            await core.callStorm('$lib.view.get().setMergeVoteComment("no really, fix your stuff")', opts=opts)
+            votes = [vote async for vote in forkview.getMergeVotes()]
+            self.len(1, votes)
+            self.eq(votes[0]['comment'], 'no really, fix your stuff')
+            self.nn(votes[0]['updated'])
+            self.gt(votes[0]['updated'], votes[0]['created'])
 
             opts = {'user': newp.iden, 'view': fork00}
             vote = await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
@@ -6439,8 +6528,6 @@ words\tword\twrd'''
             with self.raises(s_exc.AuthDeny):
                 opts = {'user': newp.iden, 'view': fork00, 'vars': {'visi': visi.iden}}
                 await core.callStorm('return($lib.view.get().delMergeVote(useriden=$visi))', opts=opts)
-
-            forkview = core.getView(fork00)
 
             # removing the last veto triggers the merge
             opts = {'user': visi.iden, 'view': fork00}
@@ -6496,8 +6583,21 @@ words\tword\twrd'''
             await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
 
             msgs = await waiter.wait(timeout=12)
+            self.eq(msgs[0][1]['event'], 'view:merge:vote:set')
+            self.eq(msgs[0][1]['info']['vote']['user'], visi.iden)
+
+            self.eq(msgs[1][1]['event'], 'view:merge:init')
+            self.eq(msgs[1][1]['info']['merge']['creator'], core.auth.rootuser.iden)
+            self.eq(msgs[1][1]['info']['votes'][0]['user'], visi.iden)
+
+            self.eq(msgs[-2][1]['info']['merge']['creator'], core.auth.rootuser.iden)
             self.eq(msgs[-2][1]['event'], 'view:merge:prog')
+            self.eq(msgs[-2][1]['info']['merge']['creator'], core.auth.rootuser.iden)
+            self.eq(msgs[-2][1]['info']['votes'][0]['user'], visi.iden)
+
             self.eq(msgs[-1][1]['event'], 'view:merge:fini')
+            self.eq(msgs[-1][1]['info']['merge']['creator'], core.auth.rootuser.iden)
+            self.eq(msgs[-1][1]['info']['votes'][0]['user'], visi.iden)
 
             # test coverage for bad state for merge request
             fork00 = await core.getView().fork()

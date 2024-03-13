@@ -26,6 +26,11 @@ to modify their behavior:
 - `"reverse" Keyword`_
 - `"Try" Operator`_
 
+.. TIP::
+  
+  When performing lift operations, you can specify the name of an :ref:`interface` to represent all forms that
+  inherit that interface. See the sections below for details and examples.
+
 See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
 
 See :ref:`storm-ref-type-specific` for details on special syntax or handling for specific data types.
@@ -35,7 +40,27 @@ See :ref:`storm-ref-type-specific` for details on special syntax or handling for
 Lift by Form
 ------------
 
-A "lift by form" operation returns all nodes for the specified :ref:`data-form`. This type of lift
+"Lift by form" operations return **all** nodes of that form in Synapse. The wildcard (asterisk) character ( ``*`` )
+can be used to lift all nodes of all forms that match a partial form name / namespace.
+
+If a form inherits an :ref:`interface`, you can specify the interface name to lift all nodes of all forms that
+inherit the interface.
+
+.. TIP::
+  
+  In a production instance of Synapse, lifting **all** nodes of a commonly used form (e.g., ``inet:fqdn`` or
+  ``inet:ipv4``) or lifting by an interface that is inherited by numerous forms (e.g. ``it:host:activity``)
+  may return thousands or tens of thousands of nodes. Lifting by form or interface can be used with the Storm
+  :ref:`storm-limit` command to return only a specified number of nodes (for example, to view a sample of
+  available data).
+
+
+.. _lift-form-name:
+
+Lift by Form Name
++++++++++++++++++
+
+A "lift by form name" operation returns all nodes for the specified :ref:`data-form`. This type of lift
 requires the name of the form whose nodes you want to lift.
 
 **Syntax:**
@@ -60,13 +85,84 @@ requires the name of the form whose nodes you want to lift.
   
   media:news
 
-**Usage notes:**
+.. _lift-form-wildcard:
 
-- A "lift by form" returns **all** nodes of that form in Synapse. In a production instance of Synapse, lifting
-  **all** nodes of a commonly used form (e.g., ``inet:fqdn`` or ``inet:ipv4``) may return thousands or tens of
-  thousands of nodes.
-- A "lift by form" can be used with the Storm :ref:`storm-limit` command to return only a specified number of
-  nodes (for example, to view a sample of available data).
+Lift by Form Name - Wildcard
+++++++++++++++++++++++++++++
+
+You can use the wildcard (asterisk) character ( ``*`` ) to specify all forms that match a partial form name.
+Use of the wildcard is not limited to form namespace boundaries.
+
+.. NOTE::
+  
+  The wildcard can only be used at the end of the partial match. It cannot be used at the beginning or in
+  the middle of the form name. For example, both of the following are **invalid**:
+  
+  ``*:header``
+  
+  ``it:exec:*:del``
+  
+  In addition, use of the wildcard does not extetnd to partial matching of property names. For example, the
+  following is **invalid**:
+  
+  ``file:bytes:mime:pe:*``
+
+**Syntax:**
+
+*<partial_form_name>* *****
+
+**Examples:**
+
+*Lift all nodes in the MITRE ATT&CK form namespace (e.g., it:mitre:attack:group, it:mitre:attack:technique, etc.):*
+
+.. storm-pre:: [ it:mitre:attack:technique=T1566 it:mitre:attack:group=G0004 it:mitre:attack:software=S0366 ]
+.. storm-pre:: it:mitre:attack:*
+::
+  
+  it:mitre:attack:*
+
+*Lift all DNS A (inet:dns:a) and DNS AAAA (inet:dns:aaaa) nodes:*
+
+.. storm-pre:: [ inet:dns:a=(woot.com,1.1.1.1) inet:dns:aaaa=(woot.com,2600:1419:9c00:283::356e)  ]
+.. storm-pre:: inet:dns:a*
+::
+  
+  inet:dns:a*
+
+.. _lift-form-interface:
+
+Lift Form by Interface
+++++++++++++++++++++++
+
+You can use the name of an :ref:`interface` to lift all forms that inherit that interface.
+
+.. NOTE::
+  
+  When lifting by interface, you cannot use the wildcard ( ``*`` ) character to match multiple interface names.
+  Synapse will interpret use of the wildcard as an attempt to match multiple form names.
+
+**Syntax:**
+
+*<interface>*
+
+**Examples:**
+
+*Lift all host activity nodes (all nodes of all forms that inherit it:host:activity interface):*
+
+.. storm-pre:: [ it:exec:file:add=* it:exec:reg:set=* it:exec:url=*  ]
+.. storm-pre:: it:host:activity
+::
+  
+  it:host:activity
+
+*Lift all taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
+
+.. storm-pre:: [ ou:camptype=io.disinformation risk:tool:software:taxonomy=backdoor ]
+.. storm-pre:: meta:taxonomy
+
+::
+  
+  meta:taxonomy
 
 
 .. _lift-prop:
@@ -75,9 +171,9 @@ Lift by Property
 ----------------
 
 A "lift by property" operation returns all nodes that **have** the specified :ref:`data-props` set, regardless of the property value.
-When lifting by secondary or extended property, this type of lift requires the full name (i.e., the combined form and property name)
-of the property you want to use to lift the nodes. When lifting by universal property, the form name is only needed if you want to
-lift nodes of a specific form that have the universal property.
+In most cases, this type of lift requires the full name (i.e., the combined form and property name) of the property you want to use
+to lift the nodes. When lifting by universal property, the form name is only needed if you want to lift nodes of a specific form that 
+have the universal property.
 
 .. _lift-prop-second:
 
@@ -105,6 +201,39 @@ Lift by Secondary Property
 ::
   
   file:bytes:mime:pe:pdbpath
+
+
+.. _lift-prop-interface:
+
+Lift by Interface Property
+++++++++++++++++++++++++++
+
+If a form inherits an :ref:`interface`, you can lift all nodes of all forms that have an interface-derived property
+by specifying the full name of the interface and its property.
+
+**Syntax:**
+
+*<interface>* **:** *<prop>*
+
+**Examples:**
+
+*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that have a :time property:*
+
+.. storm-pre:: [ (it:exec:file:add=* :time=now) (it:exec:reg:set=* :time=2024/01/01) (it:exec:url=* :time=2023/12/18) ] 
+.. storm-pre:: it:host:activity:time
+
+::
+  
+  it:host:activity:time
+
+*Lift all protocol request nodes (all nodes of all forms that inherit the inet:proto:request interface) that have an associated network flow (i.e., that have a :flow property):*
+
+.. storm-pre:: [ (inet:http:request=* :flow={ [ inet:flow=* ] } ) ]
+.. storm-pre:: inet:proto:request:flow
+
+::
+  
+  inet:proto:request:flow
 
 
 .. _lift-prop-univ:
@@ -194,6 +323,10 @@ A "lift by property value" operation returns the node(s) whose property matches 
 - the property value.
 
 A "lift by property value" can be performed using primary, secondary, universal, or extended properties.
+
+.. TIP::
+  
+  When lifting by a secondary property value, you can specify either a form name or an :ref:`interface` name.
 
 In Synapse, we define **standard comparison operators** as the following set of operators:
 
@@ -356,6 +489,52 @@ Lift by Secondary Property Value
   the wildcard expression. See the type-specific documentation for :ref:`type-time` types for a detailed discussion of
   these behaviors.
 
+.. _lift-prop-std-interface:
+
+Lift by Interface Property Value
+++++++++++++++++++++++++++++++++
+
+If a form inherits an :ref:`interface`, you can lift all nodes of all forms with a specific interface-derived property value
+by using the name of the interface.
+
+.. TIP::
+  
+  Synapse returns results in lexical order (sorted, ascending to descending) based on the way the queried property is
+  indexed. When using an interface to lift by secondary property, Synapse performs the lifts for each form in parallel,
+  and yields the results in order. See the :ref:`lift-reverse` section for additional discussion of this concept.
+
+
+**Syntax:**
+
+*<interface>* **:** *<prop>* *<operator>* *<pval>*
+
+**Examples:**
+
+*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) associated with the host name "ron-pc":*
+
+.. storm-pre:: [ ( it:host=* :name=ron-pc ) ( it:exec:file:add=* :host={ it:host:name=ron-pc } ) ( it:exec:url=* :host={ it:host:name=ron-pc } ) ]
+.. storm-pre:: it:host:activity:host = { it:host:name=ron-pc } 
+
+::
+  
+  it:host:activity:host = { it:host:name=ron-pc }
+
+.. TIP::
+  
+  The ``:host`` property is a guid value (the guid of an ``it:host`` node). The example above uses a :ref:`gloss-subquery`
+  to specify the host guid value using another Storm query (i.e., "The guid of the it:host node whose :name is ron-pc")
+  insetad of specifying the guid value directly. Subqueries are a useful way to work with guid forms by referencing
+  nodes using more human-friendly secondary property values. See :ref:`subquery-ref-nodes` for a more detailed discussion.
+
+*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that were observed on or after February 1, 2024:*
+
+.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:reg:del=* :time=2023/06/23) (it:exec:url=* :time=2024/02/04) ]
+.. storm-pre:: it:host:activity:time >= 2024/02/01
+
+::
+  
+  it:host:activity:time >= 2024/02/01
+
 
 .. _lift-prop-std-universal:
 
@@ -451,6 +630,15 @@ requires:
 Each extended comparison operator can be used with any kind of property (primary, secondary, universal, or
 extended) whose :ref:`gloss-type` is appropriate for the comparison used.
 
+.. TIP::
+  
+  When lifting by a secondary property value, you can specify either a form name or an :ref:`interface` name.
+  
+  Synapse returns results in lexical order (sorted, ascending to descending) based on the way the queried property is
+  indexed. When using an interface to lift by secondary property, Synapse performs the lifts for each form in parallel,
+  and yields the results in order. See the :ref:`lift-reverse` section for additional discussion of this concept.
+
+
 .. _lift-regex:
 
 Lift by Regular Expression (~=)
@@ -467,6 +655,8 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 **Syntax:**
 
 *<form>* [ **:** | **.** | **:_** *<prop>* ] **~=** *<regex>*
+
+*<interface>* **:** *<prop>* **~=** *<regex>*
 
 **Examples:**
 
@@ -510,6 +700,8 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 
 *<form>* [  **:** | **.** | **:_** *<prop>* ] **^=** *<prefix>*
 
+*<interface>* **:** *<prop>* **^=** *<prefix>*
+
 **Examples:**
 
 *Lift all email addresses that start with "abuse":*
@@ -527,6 +719,15 @@ or *<pval>* starts with a given prefix (substring). The extended comparator ``^=
 ::
   
   ou:org:name ^= ministry
+
+*Lift all Microsoft Office metadata nodes (all nodes of all forms that inherit the file:mime:msoffice interface) whose :author name starts with "DESKTOP":*
+
+.. storm-pre:: [ (file:mime:msdoc=* :author='DESKTOP-BCXJXDX') (file:mime:msppt=* :author='Ozzie') (file:mime:msxls=* :author='DESKTOP-KOCEDSI') ]
+.. storm-pre:: file:mime:msoffice:author ^= DESKTOP
+
+::
+  
+  file:mime:msoffice:author ^= DESKTOP
 
 *Lift all tags (syn:tag) nodes in the "rep.alienvault" tree where the third tag element starts with the numeral "0":*
 
@@ -569,6 +770,10 @@ used to lift nodes based on comparisons among various combinations of times and 
 *<form>* **:** | **.** | **:_** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
 
 *<form>* **:** | **.** | **:_** *<prop>* **@=** *<time>*
+
+*<interface>* **:** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
+
+*<interface>* **:** *<prop>* **@=** *<time>*
 
 
 **Examples:**
@@ -613,6 +818,14 @@ used to lift nodes based on comparisons among various combinations of times and 
   
   inet:flow:time @= ( now, '-1 day' )
 
+*Lift all host activity nodes (all nodes of all forms that inherit the it:host:activity interface) that occurred within the past three hours:*
+
+.. storm-pre:: [ (it:exec:file:write=* :time=now) (it:exec:mutex=* :time=2024/01/15) ]
+.. storm-pre:: it:host:activity:time @= (now, '-3 hours')
+
+::
+  
+  it:host:activity:time @= (now, '-3 hours')
 
 **Usage Notes:**
 
@@ -673,6 +886,8 @@ within a specified range of values. The comparator can be used with types such a
 **Syntax:**
 
 *<form>* [ **:** | **.** | **:_** *<prop>* ] ***range = (** *<range_min>* **,** *<range_max>* **)**
+
+*<interface>* **:** *<prop>* ***range = (** *<range_min>* **,** *<range_max>* **)**
 
 **Examples:**
 
@@ -737,6 +952,8 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
 **Syntax:**
 
 *<form>* [ **:** | **.** | **:_** *<prop>* ] ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
+
+*<interface>* **:** *<prop>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
 
 **Examples:**
 
@@ -1152,6 +1369,18 @@ order). To perform a "reverse" lift, specify the ``reverse`` keyword and enclose
 
 A "reverse" lift can be followed by additional Storm operations (pivots, filters, commands) just like a "normal" lift.
 
+.. TIP::
+  
+  When using the ``reverse`` keyword to lift by secondary property value using an :ref:`interface` name, Synapse
+  performs the lifts for each form in parallel, and yields the results in descending order. For example, the following
+  query will return all nodes of all forms that inherit the ``it:host:activity`` interface that have a ``:time``
+  value greater than or equal to 2024/02/01, sorted in descending order (most recent first):
+  
+  ::
+    
+    reverse (it:host:activity:time >= 2024/02/01)
+
+
 **Syntax:**
 
 **reverse (** *<lift>* **)**
@@ -1222,12 +1451,18 @@ complex Storm queries or Storm-based automation (see :ref:`storm-ref-automation`
 lift operation (potentially relying on input or data from a third-party data source) could cause the query to fail
 during execution.
 
+.. TIP::
+  
+  The try operator can also be used when lifting using an :ref:`interface`.
+
 
 **Syntax:**
 
 *<form>* **?=** *<valu>*
 
 *<form>* **:** *<prop>* **?=** *<pval>*
+
+*<interface>* **:** *<prop>* **?=** *<pval>*
 
 .. TIP::
   
@@ -1254,6 +1489,15 @@ Notice that despite the first email address being entered incorrectly, the error
 
 .. storm-pre:: [ inet:email=ron@vertex.link inet:email=ozzie@vertex.link ]
 .. storm-cli:: inet:email ?= 'ron[at]vertex.link' inet:email ?= 'ozzie@vertex.link'
+
+*Try to lift any Microsoft Office document metadata nodes (all nodes of all forms that inherit the file:mime:msoffice interface) whose author (:author property) is 'Rafael Moon':*
+
+.. storm-pre:: [ (file:mime:msdoc=* :author='Rafael Moon') (file:mime:msdoc=* :author='Tran Duy Lin') (file:mime:msxls=* :author='Windows User') ]
+.. storm-pre:: file:mime:msoffice:author ?= 'Rafael Moon'
+
+::
+  
+  file:mime:msoffice:author ?= 'Rafael Moon'
 
 
 .. _Synapse-VirusTotal: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html

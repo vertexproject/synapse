@@ -328,7 +328,7 @@ before attempting to download it.
   
   <inbound file:bytes node(s)>
   
-  if $lib.bytes.has(:sha256) { }
+  if $lib.axon.has(:sha256) { }
   
   else { | malware.download }
 
@@ -336,9 +336,9 @@ before attempting to download it.
 The Storm query above:
 
 - takes an inbound ``file:bytes`` node;
-- checks for the file in the Axon (:ref:`stormlibs-lib-bytes-has`) using the ``:sha256`` value of the inbound
+- checks for the file in the Axon (:ref:`stormlibs-lib-axon-has`) using the ``:sha256`` value of the inbound
   file;
-- if ``$lib.bytes.has(:sha256)`` returns ``true`` (i.e., we have the file), do nothing (``{  }``);
+- if ``$lib.axon.has(:sha256)`` returns ``true`` (i.e., we have the file), do nothing (``{  }``);
 - otherwise call the ``malware.download`` service to attempt to download the file.
 
 **Note:** In the above example, ``malware.download`` is used as an example Storm command; it does not exist

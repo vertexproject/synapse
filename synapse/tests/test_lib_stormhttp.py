@@ -1,4 +1,5 @@
 import os
+import ssl
 import json
 import shutil
 
@@ -466,7 +467,7 @@ class StormHttpTest(s_test.SynTest):
             await root.setPasswd('root')
             text = '''
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
-            $stormq = "($size, $sha2) = $lib.bytes.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
+            $stormq = "($size, $sha2) = $lib.axon.put($lib.base64.decode('dmVydGV4')) [ test:str = $sha2 ] [ test:int = $size ]"
             $json = ({"query": $stormq})
             $bytez = $lib.inet.http.post($url, json=$json, ssl_verify=$(0))
             '''
@@ -672,3 +673,165 @@ class StormHttpTest(s_test.SynTest):
             with self.raises(s_stormctrl.StormExit) as cm:
                 await core.callStorm(query, opts=opts)
             self.isin('connect to proxy 127.0.0.1:1', str(cm.exception))
+
+    async def test_storm_http_mtls(self):
+
+        with self.getTestDir() as dirn:
+
+            cdir = s_common.gendir(dirn, 'certs')
+            cadir = s_common.gendir(cdir, 'cas')
+            tdir = s_certdir.CertDir(cdir)
+            tdir.genCaCert('somelocalca')
+            tdir.genHostCert('localhost', signas='somelocalca')
+
+            localkeyfp = tdir.getHostKeyPath('localhost')
+            localcertfp = tdir.getHostCertPath('localhost')
+            pkeypath = shutil.copyfile(localkeyfp, s_common.genpath(dirn, 'sslkey.pem'))
+            certpath = shutil.copyfile(localcertfp, s_common.genpath(dirn, 'sslcert.pem'))
+
+            tlscadir = s_common.gendir(dirn, 'cadir')
+            cacertpath = shutil.copyfile(os.path.join(cadir, 'somelocalca.crt'), os.path.join(tlscadir, 'somelocalca.crt'))
+
+            pkey, cert = tdir.genUserCert('someuser', signas='somelocalca')
+            user_pkey = tdir._pkeyToByts(pkey).decode()
+            user_cert = tdir._certToByts(cert).decode()
+
+            user_fullchain = user_cert + s_common.getbytes(cacertpath).decode()
+            user_fullchain_key = user_fullchain + user_pkey
+
+            conf = {'tls:ca:dir': tlscadir}
+            async with self.getTestCore(dirn=dirn, conf=conf) as core:
+
+                sslctx = core.initSslCtx(certpath, pkeypath)
+                sslctx.load_verify_locations(cafile=cacertpath)
+
+                addr, port = await core.addHttpsPort(0, sslctx=sslctx)
+                root = await core.auth.getUserByName('root')
+                await root.setPasswd('root')
+
+                core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+                core.addHttpApi('/test/ws', TstWebSock, {})
+
+                sslopts = {}
+
+                opts = {
+                    'vars': {
+                        'url': f'https://root:root@localhost:{port}/api/v0/test',
+                        'ws': f'https://localhost:{port}/test/ws',
+                        'verify': True,
+                        'sslopts': sslopts,
+                    },
+                }
+
+                q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
+
+                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                opts['vars']['sha256'] = sha256
+
+                # mtls required
+
+                sslctx.verify_mode = ssl.CERT_REQUIRED
+
+                ## no client cert provided
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(-1, resp['code'])
+                self.isin('tlsv13 alert certificate required', resp['reason'])
+
+                ## full chain cert w/key
+                sslopts['client_cert'] = user_fullchain_key
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])
+
+                ## separate cert and key
+                sslopts['client_cert'] = user_fullchain
+                sslopts['client_key'] = user_pkey
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])
+
+                ## sslctx's are cached
+                self.len(3, core._sslctx_cache)
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])
+                self.len(3, core._sslctx_cache)
+
+                ## remaining methods
+                self.eq(200, await core.callStorm('return($lib.inet.http.post($url, ssl_opts=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.inet.http.head($url, ssl_opts=$sslopts).code)', opts=opts))
+                self.eq(200, await core.callStorm('return($lib.inet.http.request(get, $url, ssl_opts=$sslopts).code)', opts=opts))
+
+                ## connect
+                ret = await core.callStorm('''
+                    ($ok, $sock) = $lib.inet.http.connect($ws, ssl_opts=$sslopts)
+                    if (not $ok) { return(($ok, $sock)) }
+                    ($ok, $mesg) = $sock.rx()
+                    return(($ok, $mesg))
+                ''', opts=opts)
+                self.true(ret[0])
+                self.eq('woot', ret[1]['hi'])
+
+                # Axon APIs
+
+                axon_queries = {
+                    'postfile': '''
+                        $fields = ([{"name": "file", "sha256": $sha256}])
+                        return($lib.inet.http.post($url, fields=$fields, ssl_opts=$sslopts).code)
+                    ''',
+                    'wget': 'return($lib.axon.wget($url, ssl_opts=$sslopts).code)',
+                    'wput': 'return($lib.axon.wput($sha256, $url, method=POST, ssl_opts=$sslopts).code)',
+                    'urlfile': 'yield $lib.axon.urlfile($url, ssl_opts=$sslopts)',
+                }
+
+                ## version check fails
+                try:
+                    oldv = core.axoninfo['synapse']['version']
+                    core.axoninfo['synapse']['version'] = (2, 161, 0)
+                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['postfile'], opts=opts))
+                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wget'], opts=opts))
+                    await self.asyncraises(s_exc.BadVersion, core.callStorm(axon_queries['wput'], opts=opts))
+                    await self.asyncraises(s_exc.BadVersion, core.nodes(axon_queries['urlfile'], opts=opts))
+                finally:
+                    core.axoninfo['synapse']['version'] = oldv
+
+                ## version check succeeds
+                # todo: setting the synapse version can be removed once ssl_opts is released
+                try:
+                    oldv = core.axoninfo['synapse']['version']
+                    core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
+                    self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
+                    self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
+                    self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
+                    self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
+                finally:
+                    core.axoninfo['synapse']['version'] = oldv
+
+                # verify arg precedence
+
+                core.conf.pop('tls:ca:dir')
+                core._sslctx_cache.clear()
+
+                ## fail w/o ca
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(-1, resp['code'])
+                self.isin('self-signed certificate', resp['reason'])
+
+                ## verify arg wins
+                opts['vars']['verify'] = False
+                sslopts['verify'] = True
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])
+
+                # bad opts
+
+                ## schema violation
+                sslopts['newp'] = 'wut'
+                await self.asyncraises(s_exc.SchemaViolation, core.callStorm(q, opts=opts))
+                sslopts.pop('newp')
+
+                ## missing key
+                sslopts['client_cert'] = user_fullchain
+                sslopts['client_key'] = None
+                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+
+                ## bad cert
+                sslopts['client_cert'] = 'not-gonna-work'
+                await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))

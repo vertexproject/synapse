@@ -203,6 +203,7 @@ reqValidMerge = s_config.getJsValidator({
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'number', 'minval': 0},
         'comment': {'type': 'string'},
+        'updated': {'type': 'number', 'minval': 0},
     },
     'required': ['iden', 'creator', 'created'],
     'additionalProperties': False,
@@ -216,6 +217,7 @@ reqValidVote = s_config.getJsValidator({
         'created': {'type': 'number', 'minval': 0},
         'approved': {'type': 'boolean'},
         'comment': {'type': 'string'},
+        'updated': {'type': 'number', 'minval': 0},
     },
     'required': ['user', 'offset', 'created', 'approved'],
     'additionalProperties': False,
@@ -263,3 +265,23 @@ _cellUserApiKeySchema = {
     ],
 }
 reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)
+
+reqValidSslCtxOpts = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'verify': {'type': 'boolean', 'default': True},
+        'client_cert': {'type': ['string', 'null'], 'default': None},
+        'client_key': {'type': ['string', 'null'], 'default': None},
+    },
+    'additionalProperties': False,
+})
+
+_stormPoolOptsSchema = {
+    'type': 'object',
+    'properties': {
+        'timeout:sync': {'type': 'integer', 'minimum': 1},
+        'timeout:connection': {'type': 'integer', 'minimum': 1},
+    },
+    'additionalProperties': False,
+}
+reqValidStormPoolOpts = s_config.getJsValidator(_stormPoolOptsSchema)
