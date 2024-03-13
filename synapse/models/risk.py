@@ -64,7 +64,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'Deprecated. Please use risk:vulnerable.'}),
 
                 ('risk:vulnerable', ('guid', {}), {
-                    'doc': 'Indicates that a node is suceptible to a vulnerability.'}),
+                    'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
@@ -605,7 +605,7 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:vulnerable', {}, (
                     ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The vulnerability that the node is vulnerable to.'}),
+                        'doc': 'The vulnerability that the node is susceptible to.'}),
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
                     ('node', ('ndef', {}), {
