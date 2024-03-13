@@ -3967,9 +3967,6 @@ class Bool(Const):
 class EmbedQuery(Const):
     runtopaque = True
 
-    def isSafeEdit(self):
-        return False
-
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
         pass
@@ -4043,7 +4040,7 @@ class Edit(Oper):
 
     def optimize(self):
 
-        if self.optimized:
+        if self.optimized:  # pragma: no cover
             return
 
         self.optimized = True
@@ -4087,7 +4084,7 @@ class Edit(Oper):
                 await self.runEdit(runt, node, path)
 
                 for gopr in self.gops:
-                    node, path = await gopr.runEdit(runt, node, path)
+                    await gopr.runEdit(runt, node, path)
                     await asyncio.sleep(0)
 
                 yield node, path
@@ -4725,11 +4722,7 @@ class EditTagPropSet(Edit):
         valu = await self.kids[2].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
 
-        normtupl = await runt.snap.getTagNorm(tag)
-        if normtupl is None:
-            return
-
-        tag, info = normtupl
+        tag, info = await runt.snap.getTagNorm(tag)
         tagparts = tag.split('.')
 
         # for now, use the tag add perms
@@ -4750,12 +4743,7 @@ class EditTagPropDel(Edit):
 
         tag, prop = await self.kids[0].compute(runt, path)
 
-        normtupl = await runt.snap.getTagNorm(tag)
-        if normtupl is None:
-            return
-
-        tag, info = normtupl
-
+        tag, info = await runt.snap.getTagNorm(tag)
         tagparts = tag.split('.')
 
         # for now, use the tag add perms

@@ -97,6 +97,31 @@ class NodeBase:
 
         return dict(reps)
 
+    def getTagNames(self):
+        return ()
+
+    def _getTagTree(self):
+
+        root = (None, {})
+        for tag in self.getTagNames():
+            node = root
+
+            for part in tag.split('.'):
+
+                kidn = node[1].get(part)
+
+                if kidn is None:
+
+                    full = part
+                    if node[0] is not None:
+                        full = f'{node[0]}.{full}'
+
+                    kidn = node[1][part] = (full, {})
+
+                node = kidn
+
+        return root
+
 
 class Node(NodeBase):
     '''
@@ -550,29 +575,6 @@ class Node(NodeBase):
         async with self.snap.getNodeEditor(self) as protonode:
             await protonode.addTag(tag, valu=valu)
 
-    def _getTagTree(self):
-
-        root = (None, {})
-        tags = self._getTagsDict()
-        for tag in tags.keys():
-            node = root
-
-            for part in tag.split('.'):
-
-                kidn = node[1].get(part)
-
-                if kidn is None:
-
-                    full = part
-                    if node[0] is not None:
-                        full = f'{node[0]}.{full}'
-
-                    kidn = node[1][part] = (full, {})
-
-                node = kidn
-
-        return root
-
     async def _getTagDelEdits(self, tag, init=False):
 
         path = s_chop.tagpath(tag)
@@ -581,8 +583,8 @@ class Node(NodeBase):
 
         pref = name + '.'
 
-        tags = self._getTagsDict()
-        todel = [(len(t), t) for t in tags.keys() if t.startswith(pref)]
+        tags = self.getTagNames()
+        todel = [(len(t), t) for t in tags if t.startswith(pref)]
 
         if len(path) > 1:
 
@@ -880,9 +882,6 @@ class RuntNode(NodeBase):
     async def delete(self, force=False):
         mesg = f'You can not delete a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
-
-    def getTagNames(self):
-        return ()
 
 class Path:
     '''

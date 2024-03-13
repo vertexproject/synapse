@@ -265,29 +265,6 @@ class ProtoNode(s_node.NodeBase):
 
         return list(sorted(alltags - self.tagdels))
 
-    def _getTagTree(self):
-
-        root = (None, {})
-        for tag in self.getTagNames():
-
-            node = root
-
-            for part in tag.split('.'):
-
-                kidn = node[1].get(part)
-
-                if kidn is None:
-
-                    full = part
-                    if node[0] is not None:
-                        full = f'{node[0]}.{full}'
-
-                    kidn = node[1][part] = (full, {})
-
-                node = kidn
-
-        return root
-
     def _delTag(self, name):
         self.tagdels.add(name)
         self.tags.pop(name, None)

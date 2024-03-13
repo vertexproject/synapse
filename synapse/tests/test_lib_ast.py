@@ -2929,7 +2929,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes(q)
             self.false(err.exception.errinfo.get('runtsafe'))
 
-    async def test_ast_oversize_query(self):
+    async def test_ast_edit_aggregation(self):
 
         async with self.getTestCore() as core:
 
@@ -2953,8 +2953,39 @@ class AstTest(s_test.SynTest):
             self.len(10, nodes[1].getTags())
             self.eq(5, await core.getNexsIndx())
 
+            nodes = await core.nodes('''
+            [ inet:asn=5 ]
+            $valu=($node.value() + 1)
+            [(inet:asn=$valu) :name=foo :name=bar ]
+            ''')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('bar', node.get('name'))
+
+            nodes = await core.nodes('''
+            inet:asn=5
+            $valu=($node.value() + 1)
+            [inet:asn=$valu :name=foo :name=baz ]
+            ''')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('baz', node.get('name'))
+
+            nodes = await core.nodes('''
+            inet:asn=5
+            $valu=($node.value() + 1)
+            [(inet:asn=$valu :name=$lib.max($valu, 10))]
+            ''')
+            self.len(2, nodes)
+            self.eq('baz', nodes[0].get('name'))
+            self.eq('10', nodes[1].get('name'))
+
             nodes = await core.nodes('[ou:org=(testorg,) :desc=test :subs={ou:org:desc=test}]')
             self.eq(nodes[0].get('subs'), [nodes[0].ndef[1]])
+
+            nodes = await core.nodes('test:runt [ :lulz=foo.sys :lulz=bar.sys ]')
+            for node in nodes:
+                self.eq('bar.sys', node.get('lulz'))
 
     async def test_ast_maxdepth(self):
 
