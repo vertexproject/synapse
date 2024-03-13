@@ -340,6 +340,22 @@ class CertDirTest(s_t_utils.SynTest):
             inter_cakey = cdir.getCaKey(inter_name)
             self.basic_assertions(cdir, inter_cacert, inter_cakey, cacert=cacert)
 
+            # Per RFC5280 common-name has a length of 1 to 64 characters
+            # https://datatracker.ietf.org/doc/html/rfc5280#appendix-A.1
+            c64 = 'V' * 64
+            cakey64, cacert64 = cdir.genCaCert(c64)
+            self.basic_assertions(cdir, cacert64, cakey64)
+
+            c1 = 'V' * 1
+            cakey1, cacert1 = cdir.genCaCert(c1)
+            self.basic_assertions(cdir, cacert1, cakey1)
+
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genCaCert('V' * 65)
+
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genCaCert('')
+
     def test_certdir_hosts(self):
         with self.getCertDir() as cdir:
             caname = 'syntest'
@@ -557,6 +573,14 @@ class CertDirTest(s_t_utils.SynTest):
             key = cdir.getHostKey(hostname)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
 
+            # Per RFC5280 common-name has a length of 1 to 64 characters
+            # Do not generate CSRs which exceed that name range.
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genHostCsr('V' * 65)
+
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genHostCsr('')
+
     def test_certdir_users_csr(self):
         with self.getCertDir() as cdir:
             caname = 'syntest'
@@ -579,6 +603,14 @@ class CertDirTest(s_t_utils.SynTest):
             cert = cdir.getUserCert(username)
             key = cdir.getUserKey(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
+
+            # Per RFC5280 common-name has a length of 1 to 64 characters
+            # Do not generate CSRs which exceed that name range.
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genUserCsr('V' * 65)
+
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genUserCsr('')
 
     def test_certdir_importfile(self):
         with self.getCertDir() as cdir:
