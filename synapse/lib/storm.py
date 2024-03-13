@@ -2179,8 +2179,6 @@ class Runtime(s_base.Base):
             return True
 
         if default is None:
-            default = False
-
             permdef = self.snap.core.getPermDef(perms)
             if permdef:
                 default = permdef.get('default', False)
@@ -2192,20 +2190,28 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+        allowed0 = self.allowed(prop.setperms[0], gateiden=self.snap.wlyr.iden)
+        if allowed0:
+            for perm in prop.setperms[1:]:
+                if self.allowed(perm, gateiden=self.snap.wlyr.iden) is False:  # Something has denied this rule.
+                    self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
             return
 
-        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+        self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+        allowed0 = self.allowed(prop.delperms[0], gateiden=self.snap.wlyr.iden)
+        if allowed0:
+            for perm in prop.delperms[1:]:
+                if self.allowed(perm, gateiden=self.snap.wlyr.iden) is False:
+                    self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
             return
 
-        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+        self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:

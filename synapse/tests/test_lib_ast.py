@@ -3579,3 +3579,52 @@ class AstTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi}))
+
+        # Negative permission tests
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news.published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser node')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) .seen=2020 :published=2020]'
+            msgs = await core.stormlist(q, opts=aslow)
+            for m in msgs:
+                print(m)
+            self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
+
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news.published"')
+            await core.callStorm('auth.user.addrule lowuser node')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) .seen=2021 :published=2021]'
+            msgs = await core.stormlist(q, opts=aslow)
+            for m in msgs:
+                print(m)
+            self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
+
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news.published"')
+            await core.callStorm('auth.user.addrule lowuser node')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) .seen=2022 :published=2022]'
+            msgs = await core.stormlist(q, opts=aslow)
+            for m in msgs:
+                print(m)
+            self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
+
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+
+            await core.callStorm('auth.user.addrule lowuser node')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) .seen=2023 :published=2023]'
+            msgs = await core.stormlist(q, opts=aslow)
+            for m in msgs:
+                print(m)
+            self.stormHasNoErr(msgs)

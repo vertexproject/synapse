@@ -827,7 +827,7 @@ class HiveRole(HiveRuler):
                         return allow
             return default
 
-        # 2. check user rules
+        # 2. check role rules
         for allow, path in self.info.get('rules', ()):
             if perm[:len(path)] == path:
                 return allow
