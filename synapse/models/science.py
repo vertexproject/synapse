@@ -7,15 +7,18 @@ class ScienceModule(s_module.CoreModule):
             'types': (
                 ('sci:hypothesis:type:taxonomy', {}, {}),
                 ('sci:hypothesis', ('guid', {}), {
-                    'doc': 'A hypothesis.'}),
+                    'doc': 'A hypothesis or theory.'}),
 
                 # TODO link experiment to eventual procedure node
                 ('sci:experiment:type:taxonomy', {}, {}),
                 ('sci:experiment', ('guid', {}), {
                     'doc': 'An instance of running an experiment to test a hypothesis.'}),
 
+                ('sci:observation', ('guid', {}), {
+                    'doc': 'An observation which may have resulted from an experiment.'}),
+
                 ('sci:evidence', ('guid', {}), {
-                    'doc': 'Evidence resulting from an experiement which supports or refutes a hypothesis.'}),
+                    'doc': 'An assessment of how an observation supports or refutes a hypothesis.'}),
             ),
 
             'edges': (
@@ -26,6 +29,7 @@ class ScienceModule(s_module.CoreModule):
             ),
 
             'forms': (
+                # TODO many of these forms need author/contact props
                 ('sci:hypothesis:type:taxonomy', {}, {}),
                 ('sci:hypothesis', {}, (
 
@@ -35,10 +39,11 @@ class ScienceModule(s_module.CoreModule):
                     ('type', ('sci:hypothesis:type:taxonomy', {}), {
                         'doc': 'A taxonomy of hypothesis types.'}),
 
-                    ('text': ('str', {}), {
-                        'doc': 'The stated hypothesis.'}),
+                    ('summary': ('str', {}), {
+                        'doc': 'A summary of the hypothesis.'}),
                 )),
 
+                # TODO eventually link to a procedure form
                 ('sci:experiment', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -55,17 +60,31 @@ class ScienceModule(s_module.CoreModule):
 
                 )),
 
-                ('sci:evidence', {}, (
+                ('sci:observation', {}, (
 
                     ('experiment', ('sci:experiment', {}), {
-                        'doc': 'The experiment which produced the evidence.'}),
+                        'doc': 'The experiment which produced the observation.'}),
 
                     ('summary', ('str', {}), {
-                        'doc': 'A description of the evidence and how it supports or refutes the hypothesis.'}),
+                        'doc': 'A summary of the observation.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the observation occurred.'}),
+                )),
+
+                ('sci:evidence', {}, (
+
+                    ('hypothesis', ('sci:experiment', {}), {
+                        'doc': 'The hypothesis which which the evidence supports or refutes.'}),
+
+                    ('observation', ('sci:observation', {}), {
+                        'doc': 'The observation which supports or refutes the hypothesis.'}),
+
+                    ('summary', ('str', {}), {
+                        'doc': 'A description of how the observation supports or refutes the hypothesis.'}),
 
                     ('refutes', ('bool', {}), {
                         'doc': 'Set to true if the evidence refutes the hypothesis or false if it supports the hypothesis.'}),
-
                 )),
             ),
         }),)
