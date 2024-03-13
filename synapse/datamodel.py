@@ -107,6 +107,10 @@ class Prop:
             self.isrunt = False
             self.compoffs = None
             self.isext = name.startswith('._')
+
+        self.heirs = [self]
+        self.allnames = [self.full]
+
         self.isform = False     # for quick Prop()/Form() detection
 
         self.delperms = [('node', 'prop', 'del', self.full)]
@@ -127,13 +131,17 @@ class Prop:
 
         if form is not None:
             form.setProp(name, self)
-            self.modl.propsbytype[self.type.name][self.full] = self
+            self.modl.propsbytype[self.type.name].append(self)
 
         if self.deprecated or self.type.deprecated:
             async def depfunc(node, oldv):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
             self.onSet(depfunc)
+
+    def addHeir(self, prop):
+        self.heirs.append(prop)
+        self.allnames.append(prop.full)
 
     def __repr__(self):
         return f'DataModel Prop: {self.full}'
@@ -256,6 +264,9 @@ class Form:
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
 
+        self.heirs = [self]
+        self.allnames = [name]
+
         self.onadds = []
         self.ondels = []
 
@@ -281,6 +292,20 @@ class Form:
                 mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
+
+    def addHeir(self, form):
+        self.heirs.append(form)
+        self.allnames.append(form.name)
+
+    def isHeirOf(self, formname):
+
+        form = self
+        while form is not None:
+            if form.name == formname:
+                return True
+            form = self.modl.form(form.type.subof)
+
+        return False
 
     def getStorNode(self, form):
 
@@ -455,8 +480,8 @@ class Model:
 
         self.univs = {}
 
-        self.propsbytype = collections.defaultdict(dict)  # name: Prop()
-        self.arraysbytype = collections.defaultdict(dict)
+        self.propsbytype = collections.defaultdict(list)
+        self.arraysbytype = collections.defaultdict(list)
         self.ifaceprops = collections.defaultdict(list)
         self.formsbyiface = collections.defaultdict(list)
         self.edgesbyn1 = collections.defaultdict(list)
@@ -581,17 +606,10 @@ class Model:
         })
 
     def getPropsByType(self, name):
-        props = self.propsbytype.get(name)
-        if props is None:
-            return ()
-        # TODO order props based on score...
-        return list(props.values())
+        return self.propsbytype.get(name, ())
 
     def getArrayPropsByType(self, name):
-        props = self.arraysbytype.get(name)
-        if props is None:
-            return ()
-        return list(props.values())
+        return self.arraysbytype.get(name, ())
 
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
@@ -624,14 +642,18 @@ class Model:
         return forms
 
     def reqFormsByLook(self, name, extra=None):
+
         if (form := self.form(name)) is not None:
-            return (form.name,)
+            return form.heirs
 
         if (forms := self.formsbyiface.get(name)) is not None:
             return forms
 
         if name.endswith('*'):
-            return self.reqFormsByPrefix(name[:-1], extra=extra)
+            forms = set()
+            names = self.reqFormsByPrefix(name[:-1], extra=extra)
+            [forms.update(self.reqFormsByLook(n)) for n in names]
+            return list(forms)
 
         exc = s_exc.NoSuchForm.init(name)
         if extra is not None:
@@ -640,6 +662,10 @@ class Model:
         raise exc
 
     def reqPropsByLook(self, name, extra=None):
+
+        if (prop := self.prop(name)) is not None:
+            return prop.heirs
+
         if (forms := self.formsbyiface.get(name)) is not None:
             return forms
 
@@ -836,6 +862,20 @@ class Model:
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
 
+    def getFormParents(self, form):
+        # get a list of forms that the given type inherits from.
+        retn = []
+        subof = form.type.subof
+
+        while subof is not None:
+            subt = self.types.get(subof)
+            subf = self.forms.get(subof)
+            subof = subt.subof
+            if subf is not None:
+                retn.append(subf)
+
+        return retn
+
     def addForm(self, formname, forminfo, propdefs):
 
         if not s_grammar.isFormName(formname):
@@ -852,7 +892,7 @@ class Model:
         self.props[formname] = form
 
         if isinstance(form.type, s_types.Array):
-            self.arraysbytype[form.type.arraytype.name][form.name] = form
+            self.arraysbytype[form.type.arraytype.name].append(form)
 
         for univname, typedef, univinfo in (u.getPropDef() for u in self.univs.values()):
             self._addFormUniv(form, univname, typedef, univinfo)
@@ -869,6 +909,23 @@ class Model:
         # maintain backward compatibility for populated models
         for ifname in form.type.info.get('interfaces', ()):
             self._addFormIface(form, ifname)
+
+        # load up the props / interfaces we inherit from our parent forms
+        for baseform in self.getFormParents(form):
+
+            baseform.addHeir(form)
+
+            for baseprop in baseform.props.values():
+
+                prop = form.props.get(baseprop.name)
+                if prop is None:
+                    prop = self._addFormProp(form, baseprop.name, baseprop.typedef, baseprop.info)
+
+                baseprop.addHeir(prop)
+
+            # we also implement any interfaces that our parents do
+            for ifname in baseform.type.info.get('interfaces', ()):
+                self._addFormIface(form, ifname)
 
         self.formprefixcache.clear()
 
@@ -887,10 +944,10 @@ class Model:
             raise s_exc.CantDelForm(mesg=mesg)
 
         if isinstance(form.type, s_types.Array):
-            self.arraysbytype[form.type.arraytype.name].pop(form.name, None)
+            self.arraysbytype[form.type.arraytype.name].remove(form)
 
         for ifname in form.ifaces.keys():
-            self.formsbyiface[ifname].remove(formname)
+            self.formsbyiface[ifname].remove(form)
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
@@ -950,7 +1007,7 @@ class Model:
 
         # index the array item types
         if isinstance(prop.type, s_types.Array):
-            self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
+            self.arraysbytype[prop.type.arraytype.name].append(prop)
 
         self.props[prop.full] = prop
         return prop
@@ -971,14 +1028,14 @@ class Model:
             if typedef[0] == '$self':
                 typedef = (form.name, typedef[1])
             prop = self._addFormProp(form, propname, typedef, propinfo)
-            self.ifaceprops[f'{name}:{propname}'].append(prop.full)
+            self.ifaceprops[f'{name}:{propname}'].append(prop)
 
             if subifaces is not None:
                 for subi in subifaces:
-                    self.ifaceprops[f'{subi}:{propname}'].append(prop.full)
+                    self.ifaceprops[f'{subi}:{propname}'].append(prop)
 
         form.ifaces[name] = iface
-        self.formsbyiface[name].append(form.name)
+        self.formsbyiface[name].append(form)
 
         if (ifaces := iface.get('interfaces')) is not None:
             if subifaces is None:
@@ -1024,12 +1081,12 @@ class Model:
             raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         if isinstance(prop.type, s_types.Array):
-            self.arraysbytype[prop.type.arraytype.name].pop(prop.full, None)
+            self.arraysbytype[prop.type.arraytype.name].remove(prop)
 
         self.props.pop(prop.full, None)
         self.props.pop((form.name, prop.name), None)
 
-        self.propsbytype[prop.type.name].pop(prop.full, None)
+        self.propsbytype[prop.type.name].remove(prop)
 
     def delUnivProp(self, propname):
 

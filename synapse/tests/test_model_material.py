@@ -43,3 +43,28 @@ class MatTest(s_t_utils.SynTest):
             self.eq(node3.props.get('file'), f0_valu)
 
             self.len(1, await core.nodes('mat:spec:name="f16 fighter jet" -> mat:item'))
+
+    async def test_model_mat_spec_heirs(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ mat:itemimage=({[transport:air:craft=*]}, *) ]')
+
+            self.len(1, await core.nodes('transport:air:craft'))
+            self.len(1, await core.nodes('transport:air:craft -> mat:itemimage'))
+
+            self.len(2, await core.nodes('mat:itemimage -> *'))
+            self.len(1, await core.nodes('mat:itemimage -> mat:item'))
+            self.len(1, await core.nodes('mat:itemimage -> transport:air:craft'))
+            self.len(2, await core.nodes('mat:itemimage -> (mat:item, transport:air:craft)'))
+
+            self.len(1, await core.nodes('mat:itemimage :item -> *'))
+            self.len(1, await core.nodes('mat:itemimage :item -> mat:item'))
+            self.len(1, await core.nodes('mat:itemimage :item -> transport:air:craft'))
+            self.len(1, await core.nodes('mat:itemimage :item -> (mat:item, transport:air:craft)'))
+
+            self.len(1, await core.nodes('transport:air:craft <- *'))
+
+            self.len(1, await core.nodes('[ media:news=* +(refs)> { transport:air:craft }]'))
+            self.len(1, await core.nodes('media:news -(refs)> *'))
+            self.len(1, await core.nodes('media:news -(refs)> transport:air:craft'))
+            self.len(1, await core.nodes('media:news -(refs)> mat:item'))
+            self.len(1, await core.nodes('media:news -(refs)> (mat:item, transport:air:craft)'))
