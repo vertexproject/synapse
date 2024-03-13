@@ -501,6 +501,20 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:technique:masquerade :node -> * +inet:fqdn=microsoft-verify.com'))
             self.len(1, await core.nodes('risk:technique:masquerade :target -> * +inet:fqdn=microsoft.com'))
 
+            nodes = await core.nodes('''
+                [ risk:vulnerable=*
+                    :period=(2022, ?)
+                    :node=(inet:fqdn, vertex.link)
+                    :vuln={[ risk:vuln=* :name=redtree ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('vuln'))
+            self.eq((1640995200000, 9223372036854775807), nodes[0].get('period'))
+            self.eq(('inet:fqdn', 'vertex.link'), nodes[0].get('node'))
+            self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
+            self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
+
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
