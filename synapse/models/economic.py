@@ -61,10 +61,16 @@ class EconModule(s_module.CoreModule):
                 ('econ:fin:tick', ('guid', {}), {
                     'doc': 'A sample of the price of a security at a single moment in time'}),
 
+                ('econ:bank:account', ('guid', {}), {
+                    'doc': 'A bank account.'})
+
+                ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
+                    'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
+
+                ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
+                    'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
+
                 # econ:acct:bill
-                # econ:bank:us:aba:rtn ( ABA Routing Number )
-                # econ:bank:us:account = (econ:bank:us:aba:rtn, acct)
-                # econ:bank:swift:...
             ),
 
             'edges': (
@@ -105,6 +111,12 @@ class EconModule(s_module.CoreModule):
 
                     ('pin', ('econ:pay:pin', {}), {
                         'doc': 'The Personal Identification Number on the card.'}),
+
+                    ('account', ('econ:bank:account', {}), {
+                        'doc': 'A back account associated with the payment card.'}),
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact information associated with the payment card.'}),
                 )),
 
                 ('econ:purchase', {}, (
@@ -296,5 +308,25 @@ class EconModule(s_module.CoreModule):
                     ('price:high', ('econ:price', {}), {
                         'doc': 'The high price of the security'}),
                 )),
+
+                ('econ:bank:aba:rtn', {}, ()),
+                ('econ:bank:swift:bic', {}, ()),
+
+                ('econ:bank:account', {}, (
+
+                    ('number', ('str', {'regex': '[0-9]+'}), {
+                        'doc': 'The account number.'}),
+
+                    ('aba:rtn', ('econ:bank:aba:rtn', {}), {
+                        'doc': 'The ABA routing transit number for the bank which issued the account.'})
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact information associated with the account.'}),
+
+                    ('issuer', ('ou:org', {}), {
+                        'doc': 'The bank which issued the account number.'}),
+
+                    ('issuer:name', ('ou:name', {}), {
+                        'doc': 'The name of the bank which issued the account number.'}),
             ),
         }),)
