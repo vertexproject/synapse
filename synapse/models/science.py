@@ -52,7 +52,7 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'The name of the experiment.'}),
 
                     ('summary', ('str', {}), {
-                        'doc': 'A description of the experiment and summary of results.'}),
+                        'doc': 'A summary of the experiment.'}),
 
                     ('type', ('sci:experiment:type:taxonomy', {}), {
                         'doc': 'A taxonomy of experiment types.'}),
@@ -83,7 +83,7 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'The observation which supports or refutes the hypothesis.'}),
 
                     ('summary', ('str', {}), {
-                        'doc': 'A description of how the observation supports or refutes the hypothesis.'}),
+                        'doc': 'A summary of how the observation supports or refutes the hypothesis.'}),
 
                     ('refutes', ('bool', {}), {
                         'doc': 'Set to true if the evidence refutes the hypothesis or false if it supports the hypothesis.'}),
