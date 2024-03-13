@@ -3383,6 +3383,11 @@ class PropValue(Value):
     def isRuntSafe(self, runt):
         return False
 
+    def isSafeEdit(self):
+        if not self.isconst:
+            return False
+        return self.kids[0].value() != '.created'
+
     def isRuntSafeAtom(self, runt):
         return False
 
@@ -4023,26 +4028,35 @@ class UnivProp(RelProp):
 
 class Edit(Oper):
 
+    def __init__(self, astinfo, kids=()):
+        AstNode.__init__(self, astinfo, kids=kids)
+        self.gops = []
+
+    def isRuntSafe(self, runt):
+        if not all(k.isRuntSafe(runt) for k in self.kids):
+            return False
+
+        return all(k.isRuntSafe(runt) for k in self.gops)
+
+    def isRuntSafeAtom(self, runt):
+        return all(k.isRuntSafe(runt) for k in self.gops)
+
     def optimize(self):
 
         if self.optimized:
             return
 
-        self.gops = [self]
         self.optimized = True
         [k.optimize() for k in self.kids]
-
-        if isinstance(self, (EditNodeAdd, EditParens)) or not self.isSafeEdit():
-            return
 
         offs = self.pindex + 1
         while offs < len(self.parent.kids):
             kid = self.parent.kids[offs]
-            if not isinstance(kid, Edit) or isinstance(kid, (EditNodeAdd, EditParens)) or not kid.isSafeEdit():
+            if not isinstance(kid, Edit) or not kid.isSafeEdit():
                 break
             self.gops.append(self.parent.kids.pop(offs))
 
-        if len(self.gops) > 1:
+        if self.gops:
             for oper in self.iterright():
                 oper.pindex = offs
                 offs += 1
@@ -4056,16 +4070,22 @@ class Edit(Oper):
         async for node, path in genr:
             if not node.form.isrunt:
                 async with runt.snap.getNodeEditor(node) as pnode:
-                    path.node = pnode
+                    path.setNode(pnode)
+
+                    await self.runEdit(runt, pnode, path)
+
                     for gopr in self.gops:
-                        pnode, path = await gopr.runEdit(runt, pnode, path)
+                        await gopr.runEdit(runt, pnode, path)
                         await asyncio.sleep(0)
 
-                path.node = node
+                path.setNode(node)
 
                 yield node, path
                 await asyncio.sleep(0)
+
             else:
+                await self.runEdit(runt, node, path)
+
                 for gopr in self.gops:
                     node, path = await gopr.runEdit(runt, node, path)
                     await asyncio.sleep(0)
@@ -4074,6 +4094,14 @@ class Edit(Oper):
                 await asyncio.sleep(0)
 
 class EditParens(Edit):
+
+    def optimize(self):
+        if not self.optimized:
+            self.optimized = True
+            [k.optimize() for k in self.kids]
+
+    def isSafeEdit(self):
+        return False
 
     async def run(self, runt, genr):
 
@@ -4089,7 +4117,7 @@ class EditParens(Edit):
         runt.layerConfirm(('node', 'add', formname))
 
         # create an isolated generator for the add vs edit
-        if nodeadd.isRuntSafe(runt):
+        if all(k.isRuntSafe(runt) for k in nodeadd.kids):
 
             # Luke, let the (node,path) tuples flow through you
             async for item in genr:
@@ -4114,8 +4142,22 @@ class EditParens(Edit):
                 yield node, path
 
                 async def editgenr():
-                    async for item in nodeadd.addFromPath(form, runt, path):
-                        yield item
+                    if nodeadd.gops:
+                        async with runt.snap.getEditor() as editor:
+                            async for pnode, ppath in nodeadd.addFromPath(form, runt, path, editor):
+                                for gopr in nodeadd.gops:
+                                    await gopr.runEdit(runt, pnode, ppath)
+                                    await asyncio.sleep(0)
+
+                                await editor.saveProtoNodes()
+                                pnode = await runt.snap.getNodeByBuid(pnode.buid)
+                                ppath.setNode(pnode)
+
+                                yield pnode, ppath
+
+                    else:
+                        async for item in nodeadd.addFromPath(form, runt, path, runt.snap):
+                            yield item
 
                 fullgenr = editgenr()
                 for oper in self.kids[1:]:
@@ -4126,6 +4168,9 @@ class EditParens(Edit):
 
 class EditNodeAdd(Edit):
 
+    def isSafeEdit(self):
+        return False
+
     def prepare(self):
 
         assert isinstance(self.kids[0], FormName)
@@ -4134,7 +4179,7 @@ class EditNodeAdd(Edit):
         self.oper = self.kids[1].value()
         self.excignore = (s_exc.BadTypeValu, ) if self.oper == '?=' else ()
 
-    async def addFromPath(self, form, runt, path):
+    async def addFromPath(self, form, runt, path, editor):
         '''
         Add a node using the context from path.
 
@@ -4148,7 +4193,7 @@ class EditNodeAdd(Edit):
 
             for valu in form.type.getTypeVals(vals):
                 try:
-                    newn = await runt.snap.addNode(form.name, valu)
+                    newn = await editor.addNode(form.name, valu)
                 except self.excignore:
                     pass
                 else:
@@ -4176,13 +4221,12 @@ class EditNodeAdd(Edit):
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
-        runtsafe = self.isRuntSafe(runt)
+        runtsafe = all(k.isRuntSafe(runt) for k in self.kids)
 
-        async def feedfunc():
+        async def feedfunc(editor):
 
             if not runtsafe:
 
-                first = True
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
@@ -4198,7 +4242,7 @@ class EditNodeAdd(Edit):
                         raise self.kids[0].addExcInfo(exc)
 
                     # must use/resolve all variables from path before yield
-                    async for item in self.addFromPath(form, runt, path):
+                    async for item in self.addFromPath(form, runt, path, editor):
                         yield item
 
                     yield node, path
@@ -4223,7 +4267,7 @@ class EditNodeAdd(Edit):
                 try:
                     for valu in form.type.getTypeVals(valu):
                         try:
-                            node = await runt.snap.addNode(formname, valu)
+                            node = await editor.addNode(formname, valu)
                         except self.excignore:
                             continue
 
@@ -4232,13 +4276,44 @@ class EditNodeAdd(Edit):
                 except self.excignore:
                     await asyncio.sleep(0)
 
-        if runtsafe:
-            async for node, path in genr:
-                yield node, path
+        if self.gops:
+            async with runt.snap.getEditor() as editor:
+                if runtsafe:
+                    async for node, path in genr:
+                        pnode = editor.loadNode(node)
+                        path.setNode(pnode)
 
-        async with contextlib.aclosing(s_base.schedGenr(feedfunc())) as agen:
-            async for item in agen:
-                yield item
+                        for gopr in self.gops:
+                            await gopr.runEdit(runt, pnode, path)
+                            await asyncio.sleep(0)
+
+                        path.setNode(node)
+                        yield node, path
+
+                async with contextlib.aclosing(s_base.schedGenr(feedfunc(editor))) as agen:
+                    async for node, path in agen:
+                        if isinstance(node, s_node.Node):
+                            node = editor.loadNode(node)
+                            path.setNode(node)
+
+                        for gopr in self.gops:
+                            await gopr.runEdit(runt, node, path)
+                            await asyncio.sleep(0)
+
+                        await editor.saveProtoNodes()
+                        node = await runt.snap.getNodeByBuid(node.buid)
+                        path.setNode(node)
+
+                        yield node, path
+
+        else:
+            if runtsafe:
+                async for node, path in genr:
+                    yield node, path
+
+            async with contextlib.aclosing(s_base.schedGenr(feedfunc(runt.snap))) as agen:
+                async for item in agen:
+                    yield item
 
 class EditPropSet(Edit):
 
@@ -4324,8 +4399,6 @@ class EditPropSet(Edit):
         except self.excignore:
             pass
 
-        return node, path
-
 class EditPropDel(Edit):
 
     async def runEdit(self, runt, node, path):
@@ -4344,8 +4417,6 @@ class EditPropDel(Edit):
         runt.confirmPropDel(prop)
 
         await node.pop(name)
-
-        return node, path
 
 class EditUnivDel(Edit):
 
@@ -4381,8 +4452,6 @@ class EditUnivDel(Edit):
                 self.validname = True
 
         await node.pop(name)
-
-        return node, path
 
 class N1Walk(Oper):
 
@@ -4540,8 +4609,6 @@ class EditEdgeAdd(Edit):
                             await runt.snap.saveNodeEdits([nodeedits])
                         node.edges.clear()
 
-        return node, path
-
 class EditEdgeDel(Edit):
 
     def __init__(self, astinfo, kids=(), n2=False):
@@ -4592,8 +4659,6 @@ class EditEdgeDel(Edit):
                             await runt.snap.saveNodeEdits([nodeedits])
                         node.edgedels.clear()
 
-        return node, path
-
 class EditTagAdd(Edit):
 
     def prepare(self):
@@ -4614,7 +4679,7 @@ class EditTagAdd(Edit):
         try:
             names = await self.kids[self.oper_offset].computeTagArray(runt, path, excignore=self.excignore)
         except self.excignore:
-            return node, path
+            return
 
         for name in names:
 
@@ -4630,8 +4695,6 @@ class EditTagAdd(Edit):
             except self.excignore:
                 pass
 
-        return node, path
-
 class EditTagDel(Edit):
 
     async def runEdit(self, runt, node, path):
@@ -4645,8 +4708,6 @@ class EditTagDel(Edit):
             runt.layerConfirm(('node', 'tag', 'del', *parts))
 
             await node.delTag(name)
-
-        return node, path
 
 class EditTagPropSet(Edit):
     '''
@@ -4666,7 +4727,7 @@ class EditTagPropSet(Edit):
 
         normtupl = await runt.snap.getTagNorm(tag)
         if normtupl is None:
-            return node, path
+            return
 
         tag, info = normtupl
         tagparts = tag.split('.')
@@ -4681,8 +4742,6 @@ class EditTagPropSet(Edit):
         except self.excignore:
             pass
 
-        return node, path
-
 class EditTagPropDel(Edit):
     '''
     [ -#foo.bar:baz ]
@@ -4693,7 +4752,7 @@ class EditTagPropDel(Edit):
 
         normtupl = await runt.snap.getTagNorm(tag)
         if normtupl is None:
-            return node, path
+            return
 
         tag, info = normtupl
 
@@ -4703,8 +4762,6 @@ class EditTagPropDel(Edit):
         runt.layerConfirm(('node', 'tag', 'del', *tagparts))
 
         await node.delTagProp(tag, prop)
-
-        return node, path
 
 class BreakOper(AstNode):
 

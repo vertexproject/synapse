@@ -900,14 +900,11 @@ class Path:
         self.frames = []
         self.ctors = {}
 
-        # "builtins" which are *not* vars
-        # ( this allows copying variable context )
-        self.builtins = {
-            'path': self,
-            'node': self.node,
-        }
-
         self.metadata = {}
+
+    def setNode(self, node):
+        self.node = node
+        self.nodes[-1] = node
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -917,9 +914,10 @@ class Path:
             return valu
 
         # check if it's in builtins
-        valu = self.builtins.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
+        if name == 'path':
+            return self
+        elif name == 'node':
+            return self.node
 
         ctor = self.ctors.get(name)
         if ctor is not None:

@@ -23,7 +23,7 @@ import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
-class ProtoNode:
+class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a SnapEditor.
 
@@ -260,8 +260,10 @@ class ProtoNode:
 
     def getTagNames(self):
         alltags = set(self.tags.keys())
-        alltags.update(set(self.node.getTagNames()))
-        return alltags - self.tagdels
+        if self.node is not None:
+            alltags.update(set(self.node.getTagNames()))
+
+        return list(sorted(alltags - self.tagdels))
 
     def _getTagTree(self):
 
@@ -575,6 +577,14 @@ class SnapEditor:
             if nodeedit is not None:
                 nodeedits.append(nodeedit)
         return nodeedits
+
+    async def saveProtoNodes(self, clear=True):
+        nodeedits = self.getNodeEdits()
+        if nodeedits:
+            await self.snap.saveNodeEdits(nodeedits)
+
+        if clear:
+            self.protonodes.clear()
 
     async def _addNode(self, form, valu, props=None, norminfo=None):
 
@@ -1154,9 +1164,7 @@ class Snap(s_base.Base):
         finally:
             self.livenodes[node.nid] = node
             if not (errs and transaction):
-                nodeedits = editor.getNodeEdits()
-                if nodeedits:
-                    await self.saveNodeEdits(nodeedits)
+                await editor.saveProtoNodes()
 
     @contextlib.asynccontextmanager
     async def getEditor(self, transaction=False):
@@ -1171,9 +1179,7 @@ class Snap(s_base.Base):
             raise
         finally:
             if not (errs and transaction):
-                nodeedits = editor.getNodeEdits()
-                if nodeedits:
-                    await self.saveNodeEdits(nodeedits)
+                await editor.saveProtoNodes()
 
     async def saveNodeEdits(self, edits, meta=None):
         '''
