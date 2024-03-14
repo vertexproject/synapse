@@ -114,7 +114,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The Personal Identification Number on the card.'}),
 
                     ('account', ('econ:bank:account', {}), {
-                        'doc': 'A back account associated with the payment card.'}),
+                        'doc': 'A bank account associated with the payment card.'}),
 
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact information associated with the payment card.'}),
