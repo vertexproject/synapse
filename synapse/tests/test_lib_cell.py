@@ -25,6 +25,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -2088,15 +2089,23 @@ class CellTest(s_t_utils.SynTest):
             return _ntuple_diskusage(100, 96, 4)
 
         revt = asyncio.Event()
-        orig = s_cortex.Cortex._setReadOnly
-        async def wrapReadOnly(self, valu, reason=None):
-            await orig(self, valu, reason=reason)
+        addWriteHold = s_nexus.NexsRoot.addWriteHold
+        delWriteHold = s_nexus.NexsRoot.delWriteHold
+        async def wrapAddWriteHold(root, reason):
+            retn = await addWriteHold(root, reason)
             revt.set()
+            return retn
+
+        async def wrapDelWriteHold(root, reason):
+            retn = await delWriteHold(root, reason)
+            revt.set()
+            return retn
 
         errmsg = 'Insufficient free space on disk.'
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
-             mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
+             mock.patch.object(s_nexus.NexsRoot, 'addWriteHold', wrapAddWriteHold), \
+             mock.patch.object(s_nexus.NexsRoot, 'delWriteHold', wrapDelWriteHold):
 
             async with self.getTestCore() as core:
 
@@ -2108,8 +2117,7 @@ class CellTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
                     self.stormIsInErr(errmsg, msgs)
 
-                    revt.clear()
-
+                revt.clear()
                 self.true(await asyncio.wait_for(revt.wait(), 1))
 
                 self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
@@ -2150,6 +2158,7 @@ class CellTest(s_t_utils.SynTest):
                             self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
                             revt.clear()
 
+                        revt.clear()
                         self.true(await asyncio.wait_for(revt.wait(), 1))
                         await core01.sync()
 
@@ -2194,10 +2203,17 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.nexsroot.setReadOnly(True)
+            await core.nexsroot.addWriteHold('LOLWRITE TESTING')
 
             msgs = await core.stormlist('[inet:fqdn=newp.fail]')
-            self.stormIsInErr('Unable to issue Nexus events when readonly is set.', msgs)
+
+            self.stormIsInErr('LOLWRITE TESTING', msgs)
+
+            await core.nexsroot.delWriteHold('LOLWRITE TESTING')
+
+            core.nexsroot.readonly = True
+            with self.raises(s_exc.IsReadOnly):
+                core.nexsroot.reqNotReadOnly()
 
     async def test_cell_onboot_optimize(self):
 

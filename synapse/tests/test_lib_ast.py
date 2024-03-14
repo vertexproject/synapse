@@ -713,6 +713,8 @@ class AstTest(s_test.SynTest):
             self.len(3, await core.nodes('$form=(inet:dns:a, inet:dns:mx) inet:fqdn=vertex.link -+> $form'))
 
             self.len(2, await core.nodes('inet:fqdn=vertex.link :zone -> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))
+            self.len(2, await core.nodes('$prop=fqdn $targ=inet:fqdn inet:dns:a* :$prop -> $targ'))
+
             self.len(1, await core.nodes('$form=inet:dns:a:fqdn inet:fqdn=vertex.link :zone -> $form'))
 
             self.len(3, await core.nodes('inet:fqdn=vertex.link :zone -+> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))

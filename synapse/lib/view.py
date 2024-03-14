@@ -1373,87 +1373,57 @@ class View(s_nexus.Pusher):  # type: ignore
                 self._confirm(user, perm)
                 await asyncio.sleep(0)
 
-    async def runTagAdd(self, node, tag, valu, view=None):
+    async def runTagAdd(self, node, tag, valu):
 
-        # Run the non-glob callbacks, then the glob callbacks
-        funcs = itertools.chain(self.core.ontagadds.get(tag, ()), (x[1] for x in self.core.ontagaddglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception:
-                logger.exception('onTagAdd Error')
-
-        if view is None:
-            view = self.iden
+        if self.core.migration:
+            return
 
         # Run any trigger handlers
-        await self.triggers.runTagAdd(node, tag, view=view)
+        await self.triggers.runTagAdd(node, tag)
 
-    async def runTagDel(self, node, tag, valu, view=None):
+    async def runTagDel(self, node, tag, valu):
 
-        funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception:
-                logger.exception('onTagDel Error')
-
-        if view is None:
-            view = self.iden
-
-        await self.triggers.runTagDel(node, tag, view=view)
-
-    async def runNodeAdd(self, node, view=None):
-        if not self.core.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runTagDel(node, tag)
 
-        await self.triggers.runNodeAdd(node, view=view)
+    async def runNodeAdd(self, node):
 
-    async def runNodeDel(self, node, view=None):
-        if not self.core.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runNodeAdd(node)
 
-        await self.triggers.runNodeDel(node, view=view)
+    async def runNodeDel(self, node):
 
-    async def runPropSet(self, node, prop, oldv, view=None):
+        if self.core.migration:
+            return
+
+        await self.triggers.runNodeDel(node)
+
+    async def runPropSet(self, node, prop, oldv):
         '''
         Handle when a prop set trigger event fired
         '''
-        if not self.core.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runPropSet(node, prop, oldv)
 
-        await self.triggers.runPropSet(node, prop, oldv, view=view)
+    async def runEdgeAdd(self, n1, edge, n2):
 
-    async def runEdgeAdd(self, n1, edge, n2, view=None):
-        if not self.core.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runEdgeAdd(n1, edge, n2)
 
-        await self.triggers.runEdgeAdd(n1, edge, n2, view=view)
+    async def runEdgeDel(self, n1, edge, n2):
 
-    async def runEdgeDel(self, n1, edge, n2, view=None):
-        if not self.core.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
-
-        await self.triggers.runEdgeDel(n1, edge, n2, view=view)
+        await self.triggers.runEdgeDel(n1, edge, n2)
 
     async def addTrigger(self, tdef):
         '''

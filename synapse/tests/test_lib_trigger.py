@@ -353,6 +353,24 @@ class TrigTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('newp'))
             await self.asyncraises(s_exc.NoSuchIden, view.setTriggerInfo('newp', 'enabled', True))
 
+            # mop up some coverage
+            msgs = await core.stormlist('trigger.add tag:del --form inet:ipv4 --tag zoinks --query { [+#bar] }')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('trigger.add tag:del --tag zoinks.* --query { [+#faz] }')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#zoinks.foo -#zoinks ]')
+
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('bar'))
+            self.nn(nodes[0].getTag('faz'))
+
+            # coverage for migration mode
+            await core.nodes('[inet:fqdn=vertex.link +#foo]') # for additional migration mode trigger tests below
+            with core.enterMigrationMode():
+                await core.nodes('inet:fqdn=vertex.link [ +#bar -#foo ]')
+
     async def test_trigger_delete(self):
 
         async with self.getTestCore() as core:
@@ -728,7 +746,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('trigger.add edge:add --verb r* --n2form test:int --query { [ +#n2 ] }')
             await core.nodes('trigger.add edge:add --verb no** --form test:int --n2form test:str --query { [ +#both ] }')
 
-            async with core.enterMigrationMode():
+            with core.enterMigrationMode():
                 nodes = await core.nodes('[test:int=123 +(foo:beep:boop)> { [test:str=neato] }]')
                 self.len(1, nodes)
                 self.none(nodes[0].getTag('foo'))
@@ -788,7 +806,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('trigger.add edge:del --verb r* --n2form test:int --query { [ +#del.two ] }')
             await core.nodes('trigger.add edge:del --verb no** --form test:int --n2form test:str --query { [ +#del.all ] }')
 
-            async with core.enterMigrationMode():
+            with core.enterMigrationMode():
                 nodes = await core.nodes('test:int=123 | [ -(foo:beep:boop)> { test:str=neato } ]')
                 self.len(1, nodes)
                 self.none(nodes[0].getTag('del.none'))
