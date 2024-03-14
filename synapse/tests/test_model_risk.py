@@ -527,8 +527,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
             self.len(1, await core.nodes('risk:mitigation -> it:mitre:attack:mitigation'))
-            self.len(1, await core.nodes('risk:mitname=FooBar -> risk:mitigation'))
-            self.len(1, await core.nodes('risk:mitname=abc -> risk:mitigation'))
 
     async def test_model_risk_tool_software(self):
 

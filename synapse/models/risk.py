@@ -81,8 +81,6 @@ class RiskModule(s_module.CoreModule):
                 ('risk:mitigation', ('guid', {}), {
                     'doc': 'A mitigation for a specific risk:vuln.',
                 }),
-                ('risk:mitname', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A mitigation name.'}),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of attack types.',
                     'interfaces': ('meta:taxonomy',),
@@ -297,16 +295,16 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
 
                 )),
-                ('risk:mitname', {}, ()),
                 ('risk:mitigation', {}, (
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
 
-                    ('name', ('risk:mitname', {}), {  # todo: requires migration
+                    ('name', ('str', {'lower': True, 'onespace': True}), {  # todo: requires migration
                         'doc': 'A brief name for this risk mitigation.'}),
 
-                    ('names', ('array', {'type': 'risk:mitname', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
                         'doc': 'An array of alternate names for the mitigation.'}),
 
                     ('desc', ('str', {}), {

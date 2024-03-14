@@ -164,8 +164,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:technique', ('guid', {}), {
                     'doc': 'A specific technique used to achieve a goal.',
                 }),
-                ('ou:techname', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A technique name.'}),
                 ('ou:technique:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
@@ -544,11 +542,11 @@ class OuModule(s_module.CoreModule):
                     ('personnel:jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'Title or designation for the contributed personnel.'}),
                 )),
-                ('ou:techname', {}, ()),
                 ('ou:technique', {}, (
-                    ('name', ('ou:techname', {}), {  # todo: requires migration
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The normalized name of the technique.'}),
-                    ('names', ('array', {'type': 'ou:techname', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
                         'doc': 'An array of alternate names for the technique.'}),
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),

@@ -41,8 +41,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
             self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
-            self.len(1, await core.nodes('ou:techname=woot -> ou:technique'))
-            self.len(1, await core.nodes('ou:techname=wham -> ou:technique'))
 
             props = {
                 'name': 'MyGoal',
