@@ -23,7 +23,7 @@ class ScienceModule(s_module.CoreModule):
 
             'edges': (
                 (('sci:experiment', 'uses', None), {
-                    'doc': 'The experiement used the target nodes when it was run.'}),
+                    'doc': 'The experiment used the target nodes when it was run.'}),
                 (('sci:observation', 'has', None), {
                     'doc': 'The observations are summarized from the target nodes.'}),
                 (('sci:evidence', 'has', None), {
@@ -39,7 +39,7 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'The name of the hypothesis.'}),
 
                     ('type', ('sci:hypothesis:type:taxonomy', {}), {
-                        'doc': 'A taxonomy of hypothesis types.'}),
+                        'doc': 'The type of hypothesis as a user defined taxonomy.'}),
 
                     ('summary': ('str', {}), {
                         'doc': 'A summary of the hypothesis.'}),
@@ -55,7 +55,7 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'A summary of the experiment.'}),
 
                     ('type', ('sci:experiment:type:taxonomy', {}), {
-                        'doc': 'A taxonomy of experiment types.'}),
+                        'doc': 'The type of experiment as a user defined taxonomy.'}),
 
                     ('window', ('ival', {}), {
                         'doc': 'The time window where the experiment was run.'}),
