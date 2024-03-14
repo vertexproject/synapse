@@ -256,8 +256,8 @@ class EconTest(s_utils.SynTest):
             self.eq('bank of visi', nodes[0].get('issuer:name'))
             self.len(1, await core.nodes('econ:bank:account -> ou:org'))
             self.len(1, await core.nodes('econ:bank:account -> ou:name'))
-            self.len(1, await core.nodes('econ:bank:account -> ps:contact'))
             self.len(1, await core.nodes('econ:bank:account -> econ:bank:aba:rtn'))
+            self.len(1, await core.nodes('econ:bank:account -> ps:contact +:name=visi'))
 
             nodes = await core.nodes('[ econ:bank:swift:bic=DEUTDEFFXXX ]')
             self.len(1, nodes)
