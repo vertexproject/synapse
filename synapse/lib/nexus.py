@@ -345,14 +345,7 @@ class NexsRoot(s_base.Base):
 
     async def getIssueProxy(self):
 
-        assert self.started, 'Attempt to issue before nexsroot is started'
-
-        if self.readonly:
-            mesg = self.readonlyreason
-            if mesg is None:
-                mesg = 'Unable to issue Nexus events when readonly is set.'
-
-            raise s_exc.IsReadOnly(mesg=mesg)
+        self.reqNotReadOnly()
 
         if (client := self.client) is None:
             return
