@@ -3359,6 +3359,7 @@ class VarValue(Value):
     def prepare(self):
         assert isinstance(self.kids[0], Const)
         self.name = self.kids[0].value()
+        self.isconst = False
 
     def isRuntSafe(self, runt):
         return runt.isRuntVar(self.name)
