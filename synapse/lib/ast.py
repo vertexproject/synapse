@@ -1866,7 +1866,7 @@ class LiftProp(LiftOper):
 
                     prop = runt.model.prop(fullname)
                     if prop is None:
-                        continue
+                        return
 
                     cmpr = hint[1].get('cmpr')
                     valu = hint[1].get('valu')
@@ -3385,6 +3385,11 @@ class PropValue(Value):
     def isRuntSafe(self, runt):
         return False
 
+    def isSafeEdit(self):
+        if not self.isconst:
+            return False
+        return self.kids[0].value() != '.created'
+
     def isRuntSafeAtom(self, runt):
         return False
 
@@ -3392,7 +3397,8 @@ class PropValue(Value):
         if not path:
             return None, None
 
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         subtype = None
         if len(self.kids) > 1:
@@ -3403,9 +3409,11 @@ class PropValue(Value):
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                    name=name, form=path.node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
             if subtype is not None:
@@ -3431,9 +3439,11 @@ class PropValue(Value):
 
             prop = node.form.props.get(name)
             if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                name=name, form=node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
                 if subtype is not None:
@@ -3543,6 +3553,7 @@ class VarValue(Value):
     def prepare(self):
         assert isinstance(self.kids[0], Const)
         self.name = self.kids[0].value()
+        self.isconst = False
 
     def isRuntSafe(self, runt):
         return runt.isRuntVar(self.name)
@@ -4013,36 +4024,50 @@ class RelProp(PropName):
 
 class UnivProp(RelProp):
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
+        valu = await tostr(await self.kids[0].compute(runt, path))
         if self.isconst:
             return valu
         return '.' + valu
 
 class Edit(Oper):
 
+    def __init__(self, astinfo, kids=()):
+        AstNode.__init__(self, astinfo, kids=kids)
+        self.gops = []
+
+    def isRuntSafe(self, runt):
+        if not all(k.isRuntSafe(runt) for k in self.kids):
+            return False
+
+        return all(k.isRuntSafe(runt) for k in self.gops)
+
+    def isRuntSafeAtom(self, runt):
+        return all(k.isRuntSafe(runt) for k in self.gops)
+
     def optimize(self):
 
-        if self.optimized:
+        if self.optimized:  # pragma: no cover
             return
 
-        self.gops = [self]
         self.optimized = True
         [k.optimize() for k in self.kids]
-
-        if isinstance(self, (EditNodeAdd, EditParens)) or not self.isSafeEdit():
-            return
 
         offs = self.pindex + 1
         while offs < len(self.parent.kids):
             kid = self.parent.kids[offs]
-            if not isinstance(kid, Edit) or isinstance(kid, (EditNodeAdd, EditParens)) or not kid.isSafeEdit():
+            if not isinstance(kid, Edit) or not kid.isSafeEdit():
                 break
             self.gops.append(self.parent.kids.pop(offs))
 
-        if len(self.gops) > 1:
+        if self.gops:
             for oper in self.iterright():
                 oper.pindex = offs
                 offs += 1
+
+    async def runEditGroup(self, runt, node, path):
+        for gopr in self.gops:
+            await gopr.runEdit(runt, node, path)
+            await asyncio.sleep(0)
 
     async def run(self, runt, genr):
 
@@ -4053,24 +4078,32 @@ class Edit(Oper):
         async for node, path in genr:
             if not node.form.isrunt:
                 async with runt.snap.getNodeEditor(node) as pnode:
-                    path.node = pnode
-                    for gopr in self.gops:
-                        pnode, path = await gopr.runEdit(runt, pnode, path)
-                        await asyncio.sleep(0)
+                    path.setNode(pnode)
 
-                path.node = node
+                    await self.runEdit(runt, pnode, path)
+                    await self.runEditGroup(runt, pnode, path)
+
+                path.setNode(node)
 
                 yield node, path
                 await asyncio.sleep(0)
+
             else:
-                for gopr in self.gops:
-                    node, path = await gopr.runEdit(runt, node, path)
-                    await asyncio.sleep(0)
+                await self.runEdit(runt, node, path)
+                await self.runEditGroup(runt, node, path)
 
                 yield node, path
                 await asyncio.sleep(0)
 
 class EditParens(Edit):
+
+    def optimize(self):
+        if not self.optimized:
+            self.optimized = True
+            [k.optimize() for k in self.kids]
+
+    def isSafeEdit(self):
+        return False
 
     async def run(self, runt, genr):
 
@@ -4086,7 +4119,7 @@ class EditParens(Edit):
         runt.layerConfirm(('node', 'add', formname))
 
         # create an isolated generator for the add vs edit
-        if nodeadd.isRuntSafe(runt):
+        if all(k.isRuntSafe(runt) for k in nodeadd.kids):
 
             # Luke, let the (node,path) tuples flow through you
             async for item in genr:
@@ -4111,8 +4144,20 @@ class EditParens(Edit):
                 yield node, path
 
                 async def editgenr():
-                    async for item in nodeadd.addFromPath(form, runt, path):
-                        yield item
+                    if nodeadd.gops:
+                        async with runt.snap.getEditor() as editor:
+                            async for pnode, ppath in nodeadd.addFromPath(form, runt, path, editor):
+                                await nodeadd.runEditGroup(runt, pnode, path)
+
+                                await editor.saveProtoNodes()
+                                pnode = await runt.snap.getNodeByBuid(pnode.buid)
+                                ppath.setNode(pnode)
+
+                                yield pnode, ppath
+
+                    else:
+                        async for item in nodeadd.addFromPath(form, runt, path, runt.snap):
+                            yield item
 
                 fullgenr = editgenr()
                 for oper in self.kids[1:]:
@@ -4123,6 +4168,9 @@ class EditParens(Edit):
 
 class EditNodeAdd(Edit):
 
+    def isSafeEdit(self):
+        return False
+
     def prepare(self):
 
         assert isinstance(self.kids[0], FormName)
@@ -4131,7 +4179,7 @@ class EditNodeAdd(Edit):
         self.oper = self.kids[1].value()
         self.excignore = (s_exc.BadTypeValu, ) if self.oper == '?=' else ()
 
-    async def addFromPath(self, form, runt, path):
+    async def addFromPath(self, form, runt, path, editor):
         '''
         Add a node using the context from path.
 
@@ -4145,7 +4193,7 @@ class EditNodeAdd(Edit):
 
             for valu in form.type.getTypeVals(vals):
                 try:
-                    newn = await runt.snap.addNode(form.name, valu)
+                    newn = await editor.addNode(form.name, valu)
                 except self.excignore:
                     pass
                 else:
@@ -4173,25 +4221,28 @@ class EditNodeAdd(Edit):
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
-        runtsafe = self.isRuntSafe(runt)
+        runtsafe = all(k.isRuntSafe(runt) for k in self.kids)
 
-        async def feedfunc():
+        async def feedfunc(editor):
 
             if not runtsafe:
 
-                first = True
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
-                    formname = await self.kids[0].compute(runt, path)
+                    name = await self.kids[0].compute(runt, path)
+                    formname = await tostr(name)
                     runt.layerConfirm(('node', 'add', formname))
 
                     form = runt.model.form(formname)
                     if form is None:
-                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                        if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                            exc = s_exc.NoSuchForm.init(formname)
+
+                        raise self.kids[0].addExcInfo(exc)
 
                     # must use/resolve all variables from path before yield
-                    async for item in self.addFromPath(form, runt, path):
+                    async for item in self.addFromPath(form, runt, path, editor):
                         yield item
 
                     yield node, path
@@ -4199,12 +4250,16 @@ class EditNodeAdd(Edit):
 
             else:
 
-                formname = await self.kids[0].compute(runt, None)
+                name = await self.kids[0].compute(runt, None)
+                formname = await tostr(name)
                 runt.layerConfirm(('node', 'add', formname))
 
                 form = runt.model.form(formname)
                 if form is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                    if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                        exc = s_exc.NoSuchForm.init(formname)
+
+                    raise self.kids[0].addExcInfo(exc)
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.tostor(valu)
@@ -4212,7 +4267,7 @@ class EditNodeAdd(Edit):
                 try:
                     for valu in form.type.getTypeVals(valu):
                         try:
-                            node = await runt.snap.addNode(formname, valu)
+                            node = await editor.addNode(formname, valu)
                         except self.excignore:
                             continue
 
@@ -4221,13 +4276,40 @@ class EditNodeAdd(Edit):
                 except self.excignore:
                     await asyncio.sleep(0)
 
-        if runtsafe:
-            async for node, path in genr:
-                yield node, path
+        if self.gops:
+            async with runt.snap.getEditor() as editor:
+                if runtsafe:
+                    async for node, path in genr:
+                        pnode = editor.loadNode(node)
+                        path.setNode(pnode)
 
-        async with contextlib.aclosing(s_base.schedGenr(feedfunc())) as agen:
-            async for item in agen:
-                yield item
+                        await self.runEditGroup(runt, pnode, path)
+
+                        path.setNode(node)
+                        yield node, path
+
+                async with contextlib.aclosing(s_base.schedGenr(feedfunc(editor))) as agen:
+                    async for node, path in agen:
+                        if isinstance(node, s_node.Node):
+                            node = editor.loadNode(node)
+                            path.setNode(node)
+
+                        await self.runEditGroup(runt, node, path)
+
+                        await editor.saveProtoNodes()
+                        node = await runt.snap.getNodeByBuid(node.buid)
+                        path.setNode(node)
+
+                        yield node, path
+
+        else:
+            if runtsafe:
+                async for node, path in genr:
+                    yield node, path
+
+            async with contextlib.aclosing(s_base.schedGenr(feedfunc(runt.snap))) as agen:
+                async for item in agen:
+                    yield item
 
 class EditPropSet(Edit):
 
@@ -4242,12 +4324,15 @@ class EditPropSet(Edit):
     async def runEdit(self, runt, node, path):
 
         expand = True
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         prop = node.form.props.get(name)
         if prop is None:
-            mesg = f'No property named {name} on form {node.form.name}.'
-            exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+            if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                mesg = f'No property named {name} on form {node.form.name}.'
+                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
             raise self.kids[0].addExcInfo(exc)
 
         if not node.form.isrunt:
@@ -4310,27 +4395,27 @@ class EditPropSet(Edit):
         except self.excignore:
             pass
 
-        return node, path
-
 class EditPropDel(Edit):
 
     async def runEdit(self, runt, node, path):
 
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         prop = node.form.props.get(name)
         if prop is None:
-            mesg = f'No property named {name}.'
-            exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+            if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                mesg = f'No property named {name}.'
+                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
             raise self.kids[0].addExcInfo(exc)
 
         runt.confirmPropDel(prop)
 
         await node.pop(name)
 
-        return node, path
-
-class EditUnivDel(Edit):
+        self.univprop = self.kids[0]
+        assert isinstance(self.univprop, UnivProp)
 
     def prepare(self):
 
@@ -4364,8 +4449,6 @@ class EditUnivDel(Edit):
                 self.validname = True
 
         await node.pop(name)
-
-        return node, path
 
 class N1Walk(Oper):
 
@@ -4545,8 +4628,6 @@ class EditEdgeAdd(Edit):
                             await runt.snap.saveNodeEdits([nodeedits])
                         node.edges.clear()
 
-        return node, path
-
 class EditEdgeDel(Edit):
 
     def __init__(self, astinfo, kids=(), n2=False):
@@ -4596,9 +4677,6 @@ class EditEdgeDel(Edit):
                         if nodeedits:
                             await runt.snap.saveNodeEdits([nodeedits])
                         node.edgedels.clear()
-                        node.edgetombs.clear()
-
-        return node, path
 
 class EditTagAdd(Edit):
 
@@ -4620,7 +4698,7 @@ class EditTagAdd(Edit):
         try:
             names = await self.kids[self.oper_offset].computeTagArray(runt, path, excignore=self.excignore)
         except self.excignore:
-            return node, path
+            return
 
         for name in names:
 
@@ -4636,8 +4714,6 @@ class EditTagAdd(Edit):
             except self.excignore:
                 pass
 
-        return node, path
-
 class EditTagDel(Edit):
 
     async def runEdit(self, runt, node, path):
@@ -4651,8 +4727,6 @@ class EditTagDel(Edit):
             runt.layerConfirm(('node', 'tag', 'del', *parts))
 
             await node.delTag(name)
-
-        return node, path
 
 class EditTagPropSet(Edit):
     '''
@@ -4670,11 +4744,7 @@ class EditTagPropSet(Edit):
         valu = await self.kids[2].compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
 
-        normtupl = await runt.snap.getTagNorm(tag)
-        if normtupl is None:
-            return node, path
-
-        tag, info = normtupl
+        tag, info = await runt.snap.getTagNorm(tag)
         tagparts = tag.split('.')
 
         # for now, use the tag add perms
@@ -4682,12 +4752,8 @@ class EditTagPropSet(Edit):
 
         try:
             await node.setTagProp(tag, prop, valu)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
         except self.excignore:
             pass
-
-        return node, path
 
 class EditTagPropDel(Edit):
     '''
@@ -4697,20 +4763,13 @@ class EditTagPropDel(Edit):
 
         tag, prop = await self.kids[0].compute(runt, path)
 
-        normtupl = await runt.snap.getTagNorm(tag)
-        if normtupl is None:
-            return node, path
-
-        tag, info = normtupl
-
+        tag, info = await runt.snap.getTagNorm(tag)
         tagparts = tag.split('.')
 
         # for now, use the tag add perms
         runt.layerConfirm(('node', 'tag', 'del', *tagparts))
 
         await node.delTagProp(tag, prop)
-
-        return node, path
 
 class BreakOper(AstNode):
 

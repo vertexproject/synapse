@@ -599,7 +599,6 @@ stormcmds = (
     {
         'name': 'feed.list',
         'descr': 'List the feed functions available in the Cortex',
-        'cmdrargs': (),
         'storm': '''
             $lib.print('Storm feed list:')
             for $flinfo in $lib.feed.list() {
@@ -797,7 +796,6 @@ stormcmds = (
     {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
-        'cmdrargs': (),
         'storm': '''
             $pkgs = $lib.pkg.list()
 

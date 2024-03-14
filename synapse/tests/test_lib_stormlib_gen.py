@@ -113,6 +113,9 @@ class StormLibGenTest(s_test.SynTest):
             nodes02 = await core.nodes('gen.ou.campaign d-day otherorg')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.ne(nodes01[0].ndef, nodes02[0].ndef)
+            self.nn(nodes00[0].get('reporter'))
+            self.nn(nodes01[0].get('reporter'))
+            self.nn(nodes02[0].get('reporter'))
 
             q = 'gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn --time 2022'
             nodes00 = await core.nodes(q)

@@ -416,7 +416,7 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, count['init'])
             self.eq(1, count['fini'])
             self.eq(1, count['node'])
-            self.eq(2, count['node:edits'])
+            self.eq(1, count['node:edits'])
             self.eq(0, count['node:add'])
 
             mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'count'})
@@ -424,11 +424,11 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, count['init'])
             self.eq(1, count['node'])
             self.eq(1, count['fini'])
-            self.eq(2, count['node:edits:count'])
+            self.eq(1, count['node:edits:count'])
             self.eq(0, count['node:edits'])
             self.eq(0, count['node:add'])
             cmsgs = [m[1] for m in mesgs if m[0] == 'node:edits:count']
-            self.eq([{'count': 2}, {'count': 1}], cmsgs)
+            self.eq([{'count': 3}], cmsgs)
 
             mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'none'})
             count = collections.Counter(m[0] for m in mesgs)
@@ -708,7 +708,7 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.prop.set.test:str:.created', cm.exception.errinfo['perm'])
+            self.eq('node.prop.set.test:str:.seen', cm.exception.errinfo['perm'])
 
             await core.addUserRule(useriden, (True, ('node', 'prop', 'set')), gateiden=baselayr)
 

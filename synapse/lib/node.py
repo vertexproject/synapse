@@ -97,6 +97,31 @@ class NodeBase:
 
         return dict(reps)
 
+    def getTagNames(self):
+        return ()
+
+    def _getTagTree(self):
+
+        root = (None, {})
+        for tag in self.getTagNames():
+            node = root
+
+            for part in tag.split('.'):
+
+                kidn = node[1].get(part)
+
+                if kidn is None:
+
+                    full = part
+                    if node[0] is not None:
+                        full = f'{node[0]}.{full}'
+
+                    kidn = node[1][part] = (full, {})
+
+                node = kidn
+
+        return root
+
 
 class Node(NodeBase):
     '''
@@ -973,9 +998,6 @@ class RuntNode(NodeBase):
         mesg = f'You can not delete a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
-    def getTagNames(self):
-        return ()
-
 class Path:
     '''
     A path context tracked through the storm runtime.
@@ -992,14 +1014,11 @@ class Path:
         self.frames = []
         self.ctors = {}
 
-        # "builtins" which are *not* vars
-        # ( this allows copying variable context )
-        self.builtins = {
-            'path': self,
-            'node': self.node,
-        }
-
         self.metadata = {}
+
+    def setNode(self, node):
+        self.node = node
+        self.nodes[-1] = node
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -1009,9 +1028,10 @@ class Path:
             return valu
 
         # check if it's in builtins
-        valu = self.builtins.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
+        if name == 'path':
+            return self
+        elif name == 'node':
+            return self.node
 
         ctor = self.ctors.get(name)
         if ctor is not None:

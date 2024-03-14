@@ -359,8 +359,30 @@ class AstTest(s_test.SynTest):
             # Sad paths
             q = '[test:str=newp -.newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
             q = '$newp=newp [test:str=newp -.$newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp] $lib.print(:$newp)'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp :$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp -:$newp]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp .$newp=foo]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [test:str=newp -.$newp]'
+            await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
+
+            q = '$newp=(foo, bar) [*$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_ast_editparens(self):
 
@@ -691,6 +713,8 @@ class AstTest(s_test.SynTest):
             self.len(3, await core.nodes('$form=(inet:dns:a, inet:dns:mx) inet:fqdn=vertex.link -+> $form'))
 
             self.len(2, await core.nodes('inet:fqdn=vertex.link :zone -> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))
+            self.len(2, await core.nodes('$prop=fqdn $targ=inet:fqdn inet:dns:a* :$prop -> $targ'))
+
             self.len(1, await core.nodes('$form=inet:dns:a:fqdn inet:fqdn=vertex.link :zone -> $form'))
 
             self.len(3, await core.nodes('inet:fqdn=vertex.link :zone -+> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))
@@ -824,6 +848,12 @@ class AstTest(s_test.SynTest):
 
             self.len(2, await core.nodes('test:interface:names*[=foo]'))
             self.len(3, await core.nodes('test:interface:names*[^=foo]'))
+
+            await core.nodes('[ test:hasiface=foo :sandbox:file=* ]')
+            self.len(1, await core.nodes('test:hasiface:sandbox:file'))
+            self.len(1, await core.nodes('test:interface:sandbox:file'))
+            self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
+            self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
     async def test_ast_edge_walknjoin(self):
 
@@ -2337,6 +2367,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('if (false) { [inet:ipv4=1.2.3.4] }')
             self.len(0, nodes)
 
+            nodes = await core.nodes('if (null) { [inet:ipv4=1.2.3.4] }')
+            self.len(0, nodes)
+
+            self.none(await core.callStorm('return((null))'))
+            self.eq({'foo': None}, await core.callStorm('return(({"foo": null}))'))
+
             nodes = await core.nodes('[ test:int=(18 + 2) ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 20))
@@ -2721,6 +2757,14 @@ class AstTest(s_test.SynTest):
                     self.len(0, [m for m in msgs if m[0] == 'node'])
                     self.eq(calls, [('prop', 'inet:ipv4')])
 
+                    calls = []
+
+                    # Skip lifting forms when there is a prop filter for
+                    # prop they don't have
+                    msgs = await core.stormlist('inet:ipv4 +:name')
+                    self.stormHasNoWarnErr(msgs)
+                    self.len(0, calls)
+
     async def test_ast_cmdoper(self):
 
         async with self.getTestCore() as core:
@@ -2887,7 +2931,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes(q)
             self.false(err.exception.errinfo.get('runtsafe'))
 
-    async def test_ast_oversize_query(self):
+    async def test_ast_edit_aggregation(self):
 
         async with self.getTestCore() as core:
 
@@ -2909,10 +2953,59 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('inet:ipv4')
             self.len(20, nodes[0].getTags())
             self.len(10, nodes[1].getTags())
-            self.eq(8, await core.getNexsIndx())
+            self.eq(5, await core.getNexsIndx())
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            nodes = await core.nodes('[ it:dev:str=foo +#foo:score=5 -#foo ]')
+            self.eq({}, nodes[0]._getTagPropsDict())
+
+            with self.raises(s_exc.NoSuchTagProp) as err:
+                nodes = await core.nodes('[ it:dev:str=foo -#foo:newp ]')
+
+            await core.nodes('[ inet:ipv4=8.8.8.8 :asn=5 ]')
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ -:asn  +#foo:score?=:asn ]')
+            self.eq({}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ +#foo:score=5 +#bar:score=#foo:score ]')
+            self.eq({'bar': {'score': 5}, 'foo': {'score': 5}}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ -#foo:score  +#baz:score?=#foo:score]')
+            self.eq({'bar': {'score': 5}}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('''
+            [ inet:asn=5 ]
+            $valu=($node.value() + 1)
+            [(inet:asn=$valu) :name=foo :name=bar ]
+            ''')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('bar', node.get('name'))
+
+            nodes = await core.nodes('''
+            inet:asn=5
+            $valu=($node.value() + 1)
+            [inet:asn=$valu :name=foo :name=baz ]
+            ''')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('baz', node.get('name'))
+
+            nodes = await core.nodes('''
+            inet:asn=5
+            $valu=($node.value() + 1)
+            [(inet:asn=$valu :name=$lib.max($valu, 10))]
+            ''')
+            self.len(2, nodes)
+            self.eq('baz', nodes[0].get('name'))
+            self.eq('10', nodes[1].get('name'))
 
             nodes = await core.nodes('[ou:org=(testorg,) :desc=test :subs={ou:org:desc=test}]')
             self.eq(nodes[0].get('subs'), [nodes[0].ndef[1]])
+
+            nodes = await core.nodes('test:runt [ :lulz=foo.sys :lulz=bar.sys ]')
+            for node in nodes:
+                self.eq('bar.sys', node.get('lulz'))
 
     async def test_ast_maxdepth(self):
 

@@ -578,12 +578,12 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delStormDmon(iden)
 
     @s_cell.adminapi(log=True)
-    async def enableMigrationMode(self):
-        await self.cell._enableMigrationMode()
+    async def enableMigrationMode(self): # pragma: no cover
+        s_common.deprdate('CoreApi.enableMigrationMode', '2024-05-05')
 
     @s_cell.adminapi(log=True)
-    async def disableMigrationMode(self):
-        await self.cell._disableMigrationMode()
+    async def disableMigrationMode(self): # pragma: no cover
+        s_common.deprdate('CoreApi.disableMigrationMode', '2024-05-05')
 
     @s_cell.adminapi()
     async def cloneLayer(self, iden, ldef=None):
@@ -768,12 +768,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'cron:enable': {
             'default': True,
-            'description': 'Enable cron jobs running.',
+            'description': 'Deprecated. This option no longer controls cron execution and will be removed in Synapse 3.0.',
             'type': 'boolean'
         },
         'trigger:enable': {
             'default': True,
-            'description': 'Enable triggers running.',
+            'description': 'Deprecated. This option no longer controls trigger execution and will be removed in Synapse 3.0.',
             'type': 'boolean'
         },
         'layer:lmdb:map_async': {
@@ -836,20 +836,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
-        'storm:pool': {
-            'description': 'EXPERIMENTAL: Telepath URL for a Cortex mirror or AHA pool to offload Storm queries to.',
-            'type': 'string',
-        },
-        'storm:pool:timeout:sync': {
-            'description': 'The maximum time (in seconds) to wait for the mirror to be in sync with the leader.',
-            'type': 'integer',
-            'default': 1
-        },
-        'storm:pool:timeout:connection': {
-            'description': 'The maximum time (in seconds) to wait for a mirror connection.',
-            'type': 'integer',
-            'default': 1
-        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -909,23 +895,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
 
-        self.ontagadds = collections.defaultdict(list)
-        self.ontagdels = collections.defaultdict(list)
-        self.ontagaddglobs = s_cache.TagGlobs()
-        self.ontagdelglobs = s_cache.TagGlobs()
-
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.stormpool = None
-        self.stormpoolurl = self.conf.get('storm:pool')
-        if self.stormpoolurl is not None:
-            self.stormpoolopts = {
-                'nexstimeout': self.conf.get('storm:pool:timeout:sync'),
-                'conntimeout': self.conf.get('storm:pool:timeout:connection')
-            }
+        self.stormpoolurl = None
+        self.stormpoolopts = None
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -996,10 +973,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.agenda)
 
         await self._initStormGraphs()
-
-        self.trigson = self.conf.get('trigger:enable')
-
-        await self._initRuntFuncs()
 
         taghive = await self.hive.open(('cortex', 'tagmeta'))
         cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
@@ -1456,6 +1429,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
+        self.addActiveCoro(self.agenda.runloop)
+
         await self._initStormDmons()
         await self._initStormSvcs()
 
@@ -1464,33 +1439,72 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.dmon.share('cortex', self)
 
     async def initServiceActive(self):
-        if self.conf.get('cron:enable'):
-            await self.agenda.start()
+
         await self.stormdmons.start()
 
         for view in self.views.values():
             await view.initTrigTask()
             await view.initMergeTask()
 
-        await self.initQueryMirror()
+        await self.initStormPool()
 
     async def initServicePassive(self):
 
-        await self.agenda.stop()
         await self.stormdmons.stop()
 
         for view in self.views.values():
             await view.finiTrigTask()
             await view.finiMergeTask()
 
+        await self.finiStormPool()
+
+    async def initStormPool(self):
+
+        byts = self.slab.get(b'storm:pool', db='cell:conf')
+        if byts is None:
+            return
+
+        url, opts = s_msgpack.un(byts)
+
+        self.stormpoolurl = url
+        self.stormpoolopts = opts
+
+        self.stormpool = await s_telepath.open(url)
+
+        # make this one a fini weakref vs the fini() handler
+        self.onfini(self.stormpool)
+
+    async def finiStormPool(self):
+
         if self.stormpool is not None:
             await self.stormpool.fini()
             self.stormpool = None
 
-    async def initQueryMirror(self):
-        if self.stormpoolurl is not None:
-            self.stormpool = await s_telepath.open(self.stormpoolurl)
-            self.onfini(self.stormpool.fini)
+    async def getStormPool(self):
+        byts = self.slab.get(b'storm:pool', db='cell:conf')
+        if byts is None:
+            return None
+        return s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPushAuto('storm:pool:set')
+    async def setStormPool(self, url, opts):
+
+        s_schemas.reqValidStormPoolOpts(opts)
+
+        info = (url, opts)
+        self.slab.put(b'storm:pool', s_msgpack.en(info), db='cell:conf')
+
+        if self.isactive:
+            await self.finiStormPool()
+            await self.initStormPool()
+
+    @s_nexus.Pusher.onPushAuto('storm:pool:del')
+    async def delStormPool(self):
+
+        self.slab.pop(b'storm:pool', db='cell:conf')
+
+        if self.isactive:
+            await self.finiStormPool()
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -1955,44 +1969,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await asyncio.gather(*[view.fini() for view in self.views.values()])
         await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
 
-    async def _initRuntFuncs(self):
-
-        async def onSetTrigDoc(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            trig = node.snap.view.triggers.get(iden)
-            node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
-            await trig.set('doc', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        async def onSetTrigName(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            trig = node.snap.view.triggers.get(iden)
-            node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
-            await trig.set('name', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        async def onSetCronDoc(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await self.editCronJob(iden, 'doc', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        async def onSetCronName(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await self.editCronJob(iden, 'name', valu)
-            node.pode[1]['props'][prop.name] = valu
-
-        self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
-        self.addRuntPropSet('syn:cron:name', onSetCronName)
-
-        self.addRuntPropSet('syn:trigger:doc', onSetTrigDoc)
-        self.addRuntPropSet('syn:trigger:name', onSetTrigName)
-
     async def _initStormDmons(self):
 
         for iden, ddef in self.stormdmonhive.items():
@@ -2043,7 +2019,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.onfini(self.v3stor.fini)
 
-        self.verbabrv = self.v3stor.getNameAbrv('verbabrv')
         self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
 
         self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
@@ -2110,19 +2085,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def getAbrvIndx(self, abrv):
         byts = self.indxabrv.abrvToByts(abrv)
         return s_msgpack.un(byts[2:])
-
-    @s_cache.memoizemethod()
-    def getVerbAbrv(self, verb):
-        return self.verbabrv.bytsToAbrv(verb.encode())
-
-    @s_cache.memoizemethod()
-    def setVerbAbrv(self, verb):
-        return self.verbabrv.setBytsToAbrv(verb.encode())
-
-    @s_cache.memoizemethod()
-    def getAbrvVerb(self, abrv):
-        byts = self.verbabrv.abrvToByts(abrv)
-        return byts.decode()
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -2283,7 +2245,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.BadPkgDef(mesg=mesg)
 
             try:
-                cert = self.certdir.loadCertByts(certbyts)
+                cert = self.certdir.loadCertByts(certbyts.encode('utf-8'))
             except s_exc.BadCertBytes as e:
                 raise s_exc.BadPkgDef(mesg='Storm package has malformed certificate!') from None
 
@@ -2297,7 +2259,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     mesg = 'Storm package has invalid certificate!'
                 raise s_exc.BadPkgDef(mesg=mesg) from None
 
-            pubk = s_rsa.PubKey(cert.get_pubkey().to_cryptography_key())
+            pubk = s_rsa.PubKey(cert.public_key())
             if not pubk.verifyitem(pkgcopy, s_common.uhex(signbyts)):
                 mesg = 'Storm package signature does not match!'
                 raise s_exc.BadPkgDef(mesg=mesg)
@@ -3774,6 +3736,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
+        self.addStormCmd(s_stormlib_cortex.StormPoolDelCmd)
+        self.addStormCmd(s_stormlib_cortex.StormPoolGetCmd)
+        self.addStormCmd(s_stormlib_cortex.StormPoolSetCmd)
 
         for cdef in s_stormsvc.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
@@ -4076,77 +4041,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 counts[name] += valu
         return dict(counts)
 
-    def onTagAdd(self, name, func):
-        '''
-        Register a callback for tag addition.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        # TODO allow name wild cards
-        if '*' in name:
-            self.ontagaddglobs.add(name, func)
-        else:
-            self.ontagadds[name].append(func)
-
-    def offTagAdd(self, name, func):
-        '''
-        Unregister a callback for tag addition.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        if '*' in name:
-            self.ontagaddglobs.rem(name, func)
-            return
-
-        cblist = self.ontagadds.get(name)
-        if cblist is None:
-            return
-        try:
-            cblist.remove(func)
-        except ValueError:
-            pass
-
-    def onTagDel(self, name, func):
-        '''
-        Register a callback for tag deletion.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        if '*' in name:
-            self.ontagdelglobs.add(name, func)
-        else:
-            self.ontagdels[name].append(func)
-
-    def offTagDel(self, name, func):
-        '''
-        Unregister a callback for tag deletion.
-
-        Args:
-            name (str): The name of the tag or tag glob.
-            func (function): The callback func(node, tagname, tagval).
-
-        '''
-        if '*' in name:
-            self.ontagdelglobs.rem(name, func)
-            return
-
-        cblist = self.ontagdels.get(name)
-        if cblist is None:
-            return
-        try:
-            cblist.remove(func)
-        except ValueError:
-            pass
-
     def addRuntLift(self, formname, func):
         '''
         Register a runt lift helper for a given form.
@@ -4190,8 +4084,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await s_coro.ornot(func, node, prop)
 
     async def _checkLayerModels(self):
-        mrev = s_modelrev.ModelRev(self)
-        await mrev.revCoreLayers()
+        with self.enterMigrationMode():
+            mrev = s_modelrev.ModelRev(self)
+            await mrev.revCoreLayers()
 
     async def _loadView(self, node):
 
@@ -5183,7 +5078,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mirropts = s_msgpack.deepcopy(opts)
         mirropts['mirror'] = False
         mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
-        mirropts['nexstimeout'] = self.stormpoolopts.get('nexstimeout')
+        mirropts['nexstimeout'] = self.stormpoolopts.get('timeout:sync')
         return mirropts
 
     async def _getMirrorProxy(self):
@@ -5194,8 +5089,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         proxy = None
         try:
-            timeout = self.stormpoolopts.get('conntimeout')
+            timeout = self.stormpoolopts.get('timeout:connection')
             proxy = await self.stormpool.proxy(timeout=timeout)
+            proxyname = proxy._ahainfo.get('name')
+            if proxyname is not None and proxyname == self.ahasvcname:
+                # we are part of the pool and were selected. Convert to local use.
+                return None
         except (TimeoutError, s_exc.IsFini):
             mesg = 'Unable to get proxy for query mirror, running locally instead.'
             logger.warning(mesg)
@@ -5953,30 +5852,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
         await appt.edits(edits)
 
-    @contextlib.asynccontextmanager
-    async def enterMigrationMode(self):
-        await self._enableMigrationMode()
-        yield
-        await self._disableMigrationMode()
-
-    async def _enableMigrationMode(self):
-        '''
-        Prevents cron jobs and triggers from running
-        '''
+    @contextlib.contextmanager
+    def enterMigrationMode(self):
         self.migration = True
-        self.agenda.enabled = False
-        self.trigson = False
-
-    async def _disableMigrationMode(self):
-        '''
-        Allows cron jobs and triggers to run
-        '''
+        yield
         self.migration = False
-        if self.conf.get('cron:enable'):
-            self.agenda.enabled = True
-
-        if self.conf.get('trigger:enable'):
-            self.trigson = True
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

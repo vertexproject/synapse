@@ -8,7 +8,7 @@ import threading
 
 from unittest import mock
 
-logger = logging.getLogger(__name__)
+import cryptography.hazmat.primitives.hashes as c_hashes
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -21,11 +21,11 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
-import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
+
+logger = logging.getLogger(__name__)
 
 class Boom:
     pass
@@ -248,7 +248,7 @@ class TeleTest(s_t_utils.SynTest):
             # check an async generator return channel
             genr = prox.corogenr(3)
             self.true(isinstance(genr, s_telepath.GenrIter))
-            self.eq((0, 1, 2), await alist(genr))
+            self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
             # check async generator explodes channel
             genr = prox.agenrboom()
@@ -264,20 +264,6 @@ class TeleTest(s_t_utils.SynTest):
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
-
-    async def test_telepath_sync_genr(self):
-
-        foo = Foo()
-
-        def sync():
-            return [x for x in prox.genr()]
-
-        async with self.getTestDmon() as dmon:
-
-            dmon.share('foo', foo)
-
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
-                self.eq((10, 20, 30), await s_coro.executor(sync))
 
     def test_telepath_sync_genr_break(self):
 
@@ -343,11 +329,11 @@ class TeleTest(s_t_utils.SynTest):
 
                 # check a generator return channel
                 genr = await prox.genr()
-                self.eq((10, 20, 30), await alist(genr))
+                self.eq((10, 20, 30), await s_t_utils.alist(genr))
 
                 # check an async generator return channel
                 genr = prox.corogenr(3)
-                self.eq((0, 1, 2), await alist(genr))
+                self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
 
@@ -398,7 +384,7 @@ class TeleTest(s_t_utils.SynTest):
                 hostkey, hostcert = certdir.genHostCert(hostname, signas='loopy')
                 self.none(certdir.getHostCertHash('newp.newp.newp'))
 
-                certhash = hostcert.digest('sha256').decode().lower().replace(':', '')
+                certhash = s_common.ehex(hostcert.fingerprint(c_hashes.SHA256()))
 
                 host, port = await dmon.listen(f'ssl://{hostname}:0')
                 dmon.share('foo', foo)
@@ -662,7 +648,7 @@ class TeleTest(s_t_utils.SynTest):
                          key: 'synapse.tests.test_telepath.CustomShare'})
 
                 # and we can still use the first obj we made
-                ret = await alist(obj.custgenr(3))
+                ret = await s_t_utils.alist(obj.custgenr(3))
                 self.eq(ret, [0, 1, 2])
 
             # check that a dynamic share works
