@@ -300,7 +300,7 @@ class RiskModule(s_module.CoreModule):
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
 
-                    ('name', ('str', {'lower': True, 'onespace': True}), {  # todo: requires migration
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
 
                     ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
