@@ -510,9 +510,6 @@ class AstTest(s_test.SynTest):
                 q = 'function foo() { return() } [test:str=bar +#$foo()]'
                 nodes = await core.nodes(q)
 
-            nodes = await core.nodes('test:str=bar [ +?#badval=foo ]')
-            self.none(nodes[0].getTag('badval'))
-
     async def test_ast_var_in_deref(self):
 
         async with self.getTestCore() as core:

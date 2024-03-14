@@ -4724,8 +4724,6 @@ class EditTagPropSet(Edit):
 
         try:
             await node.setTagProp(tag, prop, valu)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
         except self.excignore:
             pass
 

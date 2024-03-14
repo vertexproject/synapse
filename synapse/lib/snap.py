@@ -266,8 +266,8 @@ class ProtoNode(s_node.NodeBase):
         return list(sorted(alltags - self.tagdels))
 
     def _delTag(self, name):
-        self.tagdels.add(name)
-        self.tags.pop(name, None)
+        if self.tags.pop(name, None) is None:
+            self.tagdels.add(name)
 
         for prop in self.getTagProps(name):
             if self.tagprops.pop((name, prop), None) is None:
@@ -377,8 +377,8 @@ class ProtoNode(s_node.NodeBase):
         if curv is None:
             return False
 
-        self.tagpropdels.add((tag, name))
-        self.tagprops.pop((tag, name), None)
+        if self.tagprops.pop((tag, name), None) is None:
+            self.tagpropdels.add((tag, name))
 
         return True
 
@@ -492,8 +492,8 @@ class ProtoNode(s_node.NodeBase):
             await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
             return False  # pragma: no cover
 
-        self.propdels.add(name)
-        self.props.pop(name, None)
+        if self.props.pop(name, None) is None:
+            self.propdels.add(name)
 
         return True
 
@@ -598,7 +598,12 @@ class SnapEditor:
 
         valu, norminfo = retn
 
-        protonode = await self._initProtoNode(form, valu, norminfo)
+        try:
+            protonode = await self._initProtoNode(form, valu, norminfo)
+        except Exception:
+            self.protonodes.pop((form.name, valu), None)
+            raise
+
         if props is not None:
             [await protonode.set(p, v) for (p, v) in props.items()]
 
@@ -1120,13 +1125,12 @@ class Snap(s_base.Base):
                 yield node
 
     @contextlib.asynccontextmanager
-    async def getNodeEditor(self, node, transaction=False):
+    async def getNodeEditor(self, node):
 
         if node.form.isrunt:  # pragma: no cover
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
             raise s_exc.IsRuntForm(mesg=mesg)
 
-        errs = False
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
@@ -1134,13 +1138,9 @@ class Snap(s_base.Base):
 
         try:
             yield protonode
-        except Exception:
-            errs = True
-            raise
         finally:
             self.livenodes[node.nid] = node
-            if not (errs and transaction):
-                await editor.saveProtoNodes()
+            await editor.saveProtoNodes()
 
     @contextlib.asynccontextmanager
     async def getEditor(self, transaction=False):
