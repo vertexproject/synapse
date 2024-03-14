@@ -81,6 +81,8 @@ class RiskModule(s_module.CoreModule):
                 ('risk:mitigation', ('guid', {}), {
                     'doc': 'A mitigation for a specific risk:vuln.',
                 }),
+                ('risk:mitname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A mitigation name.'}),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of attack types.',
                     'interfaces': ('meta:taxonomy',),
@@ -239,6 +241,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('merged:isnow', ('risk:threat', {}), {
                         'doc': 'The threat cluster that the reporting organization merged this cluster into.'}),
+
+                    ('mitre:attack:group', ('it:mitre:attack:group', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -288,14 +293,21 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
+                    ('mitre:attack:software', ('it:mitre:attack:software', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
+
                 )),
+                ('risk:mitname', {}, ()),
                 ('risk:mitigation', {}, (
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
 
-                    ('name', ('str', {}), {
+                    ('name', ('risk:mitname', {}), {  # todo: requires migration
                         'doc': 'A brief name for this risk mitigation.'}),
+
+                    ('names', ('array', {'type': 'risk:mitname', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate names for the mitigation.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
