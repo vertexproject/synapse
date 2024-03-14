@@ -510,6 +510,9 @@ class AstTest(s_test.SynTest):
                 q = 'function foo() { return() } [test:str=bar +#$foo()]'
                 nodes = await core.nodes(q)
 
+            nodes = await core.nodes('test:str=bar [ +?#badval=foo ]')
+            self.none(nodes[0].getTag('badval'))
+
     async def test_ast_var_in_deref(self):
 
         async with self.getTestCore() as core:
@@ -2952,6 +2955,24 @@ class AstTest(s_test.SynTest):
             self.len(20, nodes[0].getTags())
             self.len(10, nodes[1].getTags())
             self.eq(5, await core.getNexsIndx())
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            nodes = await core.nodes('[ it:dev:str=foo +#foo:score=5 -#foo ]')
+            self.eq({}, nodes[0]._getTagPropsDict())
+
+            with self.raises(s_exc.NoSuchTagProp) as err:
+                nodes = await core.nodes('[ it:dev:str=foo -#foo:newp ]')
+
+            await core.nodes('[ inet:ipv4=8.8.8.8 :asn=5 ]')
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ -:asn  +#foo:score?=:asn ]')
+            self.eq({}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ +#foo:score=5 +#bar:score=#foo:score ]')
+            self.eq({'bar': {'score': 5}, 'foo': {'score': 5}}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ -#foo:score  +#baz:score?=#foo:score]')
+            self.eq({'bar': {'score': 5}}, nodes[0]._getTagPropsDict())
 
             nodes = await core.nodes('''
             [ inet:asn=5 ]

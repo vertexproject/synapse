@@ -3965,6 +3965,7 @@ class Bool(Const):
     pass
 
 class EmbedQuery(Const):
+
     runtopaque = True
 
     def validate(self, runt):
@@ -4058,6 +4059,11 @@ class Edit(Oper):
                 oper.pindex = offs
                 offs += 1
 
+    async def runEditGroup(self, runt, node, path):
+        for gopr in self.gops:
+            await gopr.runEdit(runt, node, path)
+            await asyncio.sleep(0)
+
     async def run(self, runt, genr):
 
         if runt.readonly:
@@ -4070,10 +4076,7 @@ class Edit(Oper):
                     path.setNode(pnode)
 
                     await self.runEdit(runt, pnode, path)
-
-                    for gopr in self.gops:
-                        await gopr.runEdit(runt, pnode, path)
-                        await asyncio.sleep(0)
+                    await self.runEditGroup(runt, pnode, path)
 
                 path.setNode(node)
 
@@ -4082,10 +4085,7 @@ class Edit(Oper):
 
             else:
                 await self.runEdit(runt, node, path)
-
-                for gopr in self.gops:
-                    await gopr.runEdit(runt, node, path)
-                    await asyncio.sleep(0)
+                await self.runEditGroup(runt, node, path)
 
                 yield node, path
                 await asyncio.sleep(0)
@@ -4142,9 +4142,7 @@ class EditParens(Edit):
                     if nodeadd.gops:
                         async with runt.snap.getEditor() as editor:
                             async for pnode, ppath in nodeadd.addFromPath(form, runt, path, editor):
-                                for gopr in nodeadd.gops:
-                                    await gopr.runEdit(runt, pnode, ppath)
-                                    await asyncio.sleep(0)
+                                await nodeadd.runEditGroup(runt, pnode, path)
 
                                 await editor.saveProtoNodes()
                                 pnode = await runt.snap.getNodeByBuid(pnode.buid)
@@ -4280,9 +4278,7 @@ class EditNodeAdd(Edit):
                         pnode = editor.loadNode(node)
                         path.setNode(pnode)
 
-                        for gopr in self.gops:
-                            await gopr.runEdit(runt, pnode, path)
-                            await asyncio.sleep(0)
+                        await self.runEditGroup(runt, pnode, path)
 
                         path.setNode(node)
                         yield node, path
@@ -4293,9 +4289,7 @@ class EditNodeAdd(Edit):
                             node = editor.loadNode(node)
                             path.setNode(node)
 
-                        for gopr in self.gops:
-                            await gopr.runEdit(runt, node, path)
-                            await asyncio.sleep(0)
+                        await self.runEditGroup(runt, node, path)
 
                         await editor.saveProtoNodes()
                         node = await runt.snap.getNodeByBuid(node.buid)

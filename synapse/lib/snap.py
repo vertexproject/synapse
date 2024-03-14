@@ -270,8 +270,8 @@ class ProtoNode(s_node.NodeBase):
         self.tags.pop(name, None)
 
         for prop in self.getTagProps(name):
-            self.tagpropdels.add((name, prop))
-            self.tagprops.pop((name, prop), None)
+            if self.tagprops.pop((name, prop), None) is None:
+                self.tagpropdels.add((name, prop))
 
     async def delTag(self, tag):
 
@@ -319,7 +319,7 @@ class ProtoNode(s_node.NodeBase):
         props = set()
         for (tagn, prop) in self.tagprops:
             if tagn == tag:
-                props.add(tagn)
+                props.add(prop)
 
         if self.node is not None:
             for prop in self.node.getTagProps(tag):
@@ -482,7 +482,7 @@ class ProtoNode(s_node.NodeBase):
         if prop is None:
             mesg = f'No property named {name}.'
             await self.ctx.snap._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name, form=self.form.name)
-            return False
+            return False  # pragma: no cover
 
         if self.get(name) is None:
             return False
@@ -490,7 +490,7 @@ class ProtoNode(s_node.NodeBase):
         if prop.info.get('ro'):
             mesg = f'Property is read only: {prop.full}.'
             await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
-            return False
+            return False  # pragma: no cover
 
         self.propdels.add(name)
         self.props.pop(name, None)
@@ -555,13 +555,12 @@ class SnapEditor:
                 nodeedits.append(nodeedit)
         return nodeedits
 
-    async def saveProtoNodes(self, clear=True):
+    async def saveProtoNodes(self):
         nodeedits = self.getNodeEdits()
         if nodeedits:
             await self.snap.saveNodeEdits(nodeedits)
 
-        if clear:
-            self.protonodes.clear()
+        self.protonodes.clear()
 
     async def _addNode(self, form, valu, props=None, norminfo=None):
 
@@ -1123,7 +1122,7 @@ class Snap(s_base.Base):
     @contextlib.asynccontextmanager
     async def getNodeEditor(self, node, transaction=False):
 
-        if node.form.isrunt:
+        if node.form.isrunt:  # pragma: no cover
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
             raise s_exc.IsRuntForm(mesg=mesg)
 
