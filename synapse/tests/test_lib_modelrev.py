@@ -436,21 +436,27 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_24(self):
         async with self.getRegrCore('model-0.2.24') as core:
 
-            self.len(1, await core.nodes('transport:sea:telem:speed'))
-            self.len(1, await core.nodes('transport:sea:telem:_multispeed'))
-            self.len(1, await core.nodes('transport:sea:telem:_multispeed*[=5]'))
+            self.len(2, await core.nodes('transport:sea:telem:speed'))
 
             self.len(1, await core.nodes('transport:air:telem:speed'))
             self.len(1, await core.nodes('transport:air:telem:airspeed'))
             self.len(1, await core.nodes('transport:air:telem:verticalspeed'))
 
-            nodes = await core.nodes('transport:sea:telem')
-            node = nodes[0]
-            self.eq(4, node.get('speed'))
-            self.eq((5, 6), node.get('_multispeed'))
+            self.len(2, await core.nodes('mat:item:_multispeed'))
+            nodes = await core.nodes('mat:item:_multispeed*[=5]')
+            self.len(1, nodes)
+            self.eq((5, 6), nodes[0].get('_multispeed'))
+
+            nodes = await core.nodes('transport:sea:telem:speed=4')
+            self.len(1, nodes)
+            self.eq(4, nodes[0].get('speed'))
 
             nodes = await core.nodes('transport:air:telem')
             node = nodes[0]
             self.eq(1, node.get('speed'))
             self.eq(2, node.get('airspeed'))
             self.eq(3, node.get('verticalspeed'))
+
+            q = 'transport:sea:telem=(badvalu,) $node.data.load(_migrated:transport:sea:telem:speed)'
+            nodes = await core.nodes(q)
+            self.eq(-1.0, await nodes[0].getData('_migrated:transport:sea:telem:speed'))
