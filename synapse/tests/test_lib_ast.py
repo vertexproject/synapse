@@ -2929,6 +2929,82 @@ class AstTest(s_test.SynTest):
                 await core.nodes(q)
             self.false(err.exception.errinfo.get('runtsafe'))
 
+    async def test_ast_edit_aggregation(self):
+
+        async with self.getTestCore() as core:
+
+            q = '[ inet:ipv4=1.2.3.4 '
+
+            for x in range(10):
+                q += f'+#tag{x} '
+
+            q += 'inet:ipv4=2.3.4.5 '
+
+            for x in range(10):
+                q += f'+#tag{10+x} '
+
+            q += ']'
+
+            msgs = await core.stormlist(q)
+            self.stormHasNoErr(msgs)
+
+            nodes = await core.nodes('inet:ipv4')
+            self.len(20, nodes[0].getTags())
+            self.len(10, nodes[1].getTags())
+            self.eq(5, await core.getNexsIndx())
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            nodes = await core.nodes('[ it:dev:str=foo +#foo:score=5 -#foo ]')
+            self.eq({}, nodes[0]._getTagPropsDict())
+
+            with self.raises(s_exc.NoSuchTagProp) as err:
+                nodes = await core.nodes('[ it:dev:str=foo -#foo:newp ]')
+
+            await core.nodes('[ inet:ipv4=8.8.8.8 :asn=5 ]')
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ -:asn  +#foo:score?=:asn ]')
+            self.eq({}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ +#foo:score=5 +#bar:score=#foo:score ]')
+            self.eq({'bar': {'score': 5}, 'foo': {'score': 5}}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('inet:ipv4=8.8.8.8 [ -#foo:score  +#baz:score?=#foo:score]')
+            self.eq({'bar': {'score': 5}}, nodes[0]._getTagPropsDict())
+
+            nodes = await core.nodes('''
+            [ inet:asn=5 ]
+            $valu=($node.value() + 1)
+            [(inet:asn=$valu) :name=foo :name=bar ]
+            ''')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('bar', node.get('name'))
+
+            nodes = await core.nodes('''
+            inet:asn=5
+            $valu=($node.value() + 1)
+            [inet:asn=$valu :name=foo :name=baz ]
+            ''')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('baz', node.get('name'))
+
+            nodes = await core.nodes('''
+            inet:asn=5
+            $valu=($node.value() + 1)
+            [(inet:asn=$valu :name=$lib.max($valu, 10))]
+            ''')
+            self.len(2, nodes)
+            self.eq('baz', nodes[0].get('name'))
+            self.eq('10', nodes[1].get('name'))
+
+            nodes = await core.nodes('[ou:org=(testorg,) :desc=test :subs={ou:org:desc=test}]')
+            self.eq(nodes[0].get('subs'), [nodes[0].ndef[1]])
+
+            nodes = await core.nodes('test:runt [ :lulz=foo.sys :lulz=bar.sys ]')
+            for node in nodes:
+                self.eq('bar.sys', node.get('lulz'))
+
     async def test_ast_maxdepth(self):
 
         async with self.getTestCore() as core:
