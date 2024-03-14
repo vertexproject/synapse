@@ -62,7 +62,7 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A sample of the price of a security at a single moment in time'}),
 
                 ('econ:bank:account', ('guid', {}), {
-                    'doc': 'A bank account.'})
+                    'doc': 'A bank account.'}),
 
                 ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
                     'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
@@ -70,6 +70,7 @@ class EconModule(s_module.CoreModule):
                 ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
                     'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
 
+                # TODO econ:bank:swift:iban
                 # econ:acct:bill
             ),
 
@@ -318,7 +319,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The account number.'}),
 
                     ('aba:rtn', ('econ:bank:aba:rtn', {}), {
-                        'doc': 'The ABA routing transit number for the bank which issued the account.'})
+                        'doc': 'The ABA routing transit number for the bank which issued the account.'}),
 
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact information associated with the account.'}),
@@ -328,5 +329,6 @@ class EconModule(s_module.CoreModule):
 
                     ('issuer:name', ('ou:name', {}), {
                         'doc': 'The name of the bank which issued the account number.'}),
+                )),
             ),
         }),)

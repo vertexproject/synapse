@@ -239,3 +239,25 @@ class EconTest(s_utils.SynTest):
             self.eq(nodes[0].get('price'), '100')
             self.len(1, await core.nodes('econ:receipt:item -> econ:purchase'))
             self.len(1, await core.nodes('econ:receipt:item -> biz:product +:name=bananna'))
+
+            nodes = await core.nodes('''
+                [ econ:bank:account=*
+                    :number=1234
+                    :aba:rtn=123456789
+                    :issuer={ gen.ou.org "bank of visi" }
+                    :issuer:name="bank of visi"
+                    :contact={[ ps:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('issuer'))
+            self.nn(nodes[0].get('contact'))
+            self.eq('1234', nodes[0].get('number'))
+            self.eq('bank of visi', nodes[0].get('issuer:name'))
+            self.len(1, await core.nodes('econ:bank:account -> ou:org'))
+            self.len(1, await core.nodes('econ:bank:account -> ou:name'))
+            self.len(1, await core.nodes('econ:bank:account -> ps:contact'))
+            self.len(1, await core.nodes('econ:bank:account -> econ:bank:aba:rtn'))
+
+            nodes = await core.nodes('[ econ:bank:swift:bic=DEUTDEFFXXX ]')
+            self.len(1, nodes)
