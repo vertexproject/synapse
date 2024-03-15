@@ -129,7 +129,7 @@ class ProtoNode(s_node.NodeBase):
 
         edits = []
 
-        if not self.node:
+        if not self.node or self.node.istomb():
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype)))
 
         for name, valu in self.props.items():
@@ -152,17 +152,17 @@ class ProtoNode(s_node.NodeBase):
         for name in self.tagtombs:
             edits.append((s_layer.EDIT_TAG_TOMB, (name,)))
 
-        for verb, n2iden in self.edges:
-            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden)))
+        for verb, n2nid in self.edges:
+            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2nid)))
 
-        for verb, n2iden in self.edgedels:
-            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden)))
+        for verb, n2nid in self.edgedels:
+            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
 
-        for verb, n2iden in self.edgetombs:
-            edits.append((s_layer.EDIT_EDGE_TOMB, (verb, n2iden)))
+        for verb, n2nid in self.edgetombs:
+            edits.append((s_layer.EDIT_EDGE_TOMB, (verb, n2nid)))
 
-        for verb, n2iden in self.edgetombdels:
-            edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2iden)))
+        for verb, n2nid in self.edgetombdels:
+            edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
@@ -547,6 +547,8 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.getTagProp(tag, name, defval=defv)
 
+        return defv
+
     def getTagPropWithLayer(self, tag, name, defv=None):
 
         if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
@@ -558,6 +560,8 @@ class ProtoNode(s_node.NodeBase):
 
         if self.node is not None:
             return self.node.getTagPropWithLayer(tag, name, defval=defv)
+
+        return defv, None
 
     async def setTagProp(self, tag, name, valu):
 
@@ -624,6 +628,8 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             return self.node.get(name, defv=defv)
 
+        return defv
+
     def getWithLayer(self, name, defv=None):
 
         # get the current value including the pending prop sets
@@ -636,6 +642,8 @@ class ProtoNode(s_node.NodeBase):
 
         if self.node is not None:
             return self.node.getWithLayer(name, defv=defv)
+
+        return defv, None
 
     async def _set(self, prop, valu, norminfo=None):
 
@@ -932,7 +940,7 @@ class SnapEditor:
             return protonode
 
         buid = s_common.buid(ndef)
-        node = await self.snap.getNodeByBuid(buid)
+        node = await self.snap.getNodeByBuid(buid, tombs=True)
 
         protonode = ProtoNode(self, buid, form, norm, node)
 
@@ -1649,8 +1657,8 @@ class Snap(s_base.Base):
             edit = [((s_layer.EDIT_NODEDATA_TOMB_DEL), (name,))]
 
         elif tombtype == s_layer.INDX_EDGE_VERB:
-            (verb, n2iden) = tombinfo
-            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, n2iden))]
+            (verb, n2nid) = tombinfo
+            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, n2nid))]
 
         if edit is not None:
             await self.saveNodeEdits([(nid, ndef[0], edit)])

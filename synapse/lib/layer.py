@@ -4423,7 +4423,7 @@ class Layer(s_nexus.Pusher):
                 n1nid = lkey[10:18]
 
                 for _, n2nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
-                    yield (n1nid, tombtype, (tombinfo, n2nid))
+                    yield (n1nid, tombtype, (tombinfo[0], n2nid))
 
             else:
 
