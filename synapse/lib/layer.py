@@ -2039,7 +2039,7 @@ class Layer(s_nexus.Pusher):
 
             edits = []
             async for abrv, n2nid, tomb in self.iterNodeEdgesN1(nid):
-                verb = self.core.getAbrvVerb(abrv)
+                verb = self.core.getAbrvIndx(abrv)[0]
                 if tomb:
                     edits.append((EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
                 else:
@@ -3140,7 +3140,7 @@ class Layer(s_nexus.Pusher):
         verb, n2nid = edit[1]
 
         try:
-            vabrv = self.core.getVerbAbrv(verb)
+            vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
             return
 
@@ -3156,7 +3156,7 @@ class Layer(s_nexus.Pusher):
         verb, n2nid = edit[1]
 
         try:
-            vabrv = self.core.getVerbAbrv(verb)
+            vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
             return
 
@@ -3289,7 +3289,7 @@ class Layer(s_nexus.Pusher):
         self.dirty[nid] = sode
 
         await self._wipeNodeData(nid, sode)
-        await self._delNodeEdges(nid, sode)
+        await self._delNodeEdges(nid, abrv, sode)
 
         return ((INDX_TOMB + abrv, nid),)
 
@@ -3958,11 +3958,11 @@ class Layer(s_nexus.Pusher):
         sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) + 1
         n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) + 1
 
-        if self.layrslab.delete(INDX_TOMB + self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb):
+        if self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
+            self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
             self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb)
             self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid, db=self.indxdb)
             self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
-            self.layrslab.delete(self.edgeverbabrv + vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
 
         self.dirty[nid] = sode
         self.dirty[n2nid] = n2sode
@@ -4038,9 +4038,9 @@ class Layer(s_nexus.Pusher):
 
         verb, n2nid = edit[1]
 
-        vabrv = self.core.setVerbAbrv(verb)
+        vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
-        if not self.layrslab.put(INDX_TOMB + self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
+        if not self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
             return ()
 
         n2sode = self._genStorNode(n2nid)
@@ -4052,10 +4052,10 @@ class Layer(s_nexus.Pusher):
         self.dirty[n2nid] = n2sode
 
         kvpairs = [
+            (vabrv + nid + FLAG_TOMB, n2nid),
             (self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid),
             (self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid),
-            (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv),
-            (self.edgeverbabrv + vabrv + nid + FLAG_TOMB, n2nid)
+            (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv)
         ]
 
         return kvpairs
@@ -4064,15 +4064,15 @@ class Layer(s_nexus.Pusher):
 
         verb, n2nid = edit[1]
 
-        vabrv = self.core.setVerbAbrv(verb)
+        vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
-        if not self.layrslab.delete(INDX_TOMB + self.edgeverbabrv + vabrv + nid, n2nid, db=self.indxdb):
+        if not self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
             return ()
 
+        self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
         self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb)
         self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid, db=self.indxdb)
         self.layrslab.delete(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb)
-        self.layrslab.delete(self.edgeverbabrv + vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)
 
         n2sode = self._genStorNode(n2nid)
 
@@ -4106,7 +4106,7 @@ class Layer(s_nexus.Pusher):
 
         if verb is None:
             for lkey, lval in self.layrslab.scanByPref(self.edgen1abrv, db=self.indxdb):
-                yield (lkey[-17:-9], lkey[-9:-1], lval, lkey[-1:] == FLAG_TOMB
+                yield lkey[-17:-9], lkey[-9:-1], lval, lkey[-1:] == FLAG_TOMB
             return
 
         try:
@@ -4128,7 +4128,7 @@ class Layer(s_nexus.Pusher):
 
             tomb = lkey[-1:]
             vabrv = lkey[-9:-1]
-                       
+
             self.layrslab.delete(vabrv + nid + tomb, n2nid, db=self.indxdb)
             self.layrslab.delete(self.edgen1abrv + nid + vabrv + tomb, n2nid, db=self.indxdb)
             self.layrslab.delete(self.edgen2abrv + n2nid + vabrv + tomb, nid, db=self.indxdb)
@@ -4185,12 +4185,13 @@ class Layer(s_nexus.Pusher):
         pref = self.edgen1abrv + nid
         if verb is not None:
             try:
-                pref += self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+                vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+                pref += vabrv
             except s_exc.NoSuchAbrv:
                 return
 
             for lkey, n2nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-                yield abrv, n2nid, lkey[-1:] == FLAG_TOMB
+                yield vabrv, n2nid, lkey[-1:] == FLAG_TOMB
             return
 
         for lkey, n2nid in self.layrslab.scanByPref(pref, db=self.indxdb):
@@ -4201,12 +4202,13 @@ class Layer(s_nexus.Pusher):
         pref = self.edgen2abrv + nid
         if verb is not None:
             try:
-                pref += self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+                vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+                pref += vabrv
             except s_exc.NoSuchAbrv:
                 return
 
             for lkey, n1nid in self.layrslab.scanByPref(pref, db=self.indxdb):
-                yield abrv, n1nid, lkey[-1:] == FLAG_TOMB
+                yield vabrv, n1nid, lkey[-1:] == FLAG_TOMB
             return
 
         for lkey, n1nid in self.layrslab.scanByPref(pref, db=self.indxdb):
@@ -4415,16 +4417,15 @@ class Layer(s_nexus.Pusher):
         for lkey in self.layrslab.scanKeysByPref(INDX_TOMB, db=self.indxdb):
             byts = self.core.indxabrv.abrvToByts(lkey[2:10])
             tombtype = byts[:2]
+            tombinfo = s_msgpack.un(byts[2:])
 
             if tombtype == INDX_EDGE_VERB:
-                verb = self.core.getAbrvVerb(lkey[10:18])
-                n1nid = lkey[18:26]
+                n1nid = lkey[10:18]
 
                 for _, n2nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
-                    yield (n1nid, tombtype, (verb, n2nid))
+                    yield (n1nid, tombtype, (tombinfo, n2nid))
 
             else:
-                tombinfo = s_msgpack.un(byts[2:])
 
                 for _, nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
                     yield (nid, tombtype, tombinfo)
@@ -4482,7 +4483,7 @@ class Layer(s_nexus.Pusher):
                     edits.append((EDIT_NODEDATA_SET, (prop, valu, None)))
 
             async for abrv, n2nid, tomb in self.iterNodeEdgesN1(nid):
-                verb = self.core.getAbrvVerb(abrv)
+                verb = self.core.getAbrvIndx(abrv)[0]
                 n2iden = s_common.ehex(self.core.getBuidByNid(n2nid))
                 if tomb:
                     edits.append((EDIT_EDGE_TOMB, (verb, n2nid)))

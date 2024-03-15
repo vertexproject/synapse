@@ -300,7 +300,7 @@ class ProtoNode(s_node.NodeBase):
         nid = self.nid
 
         async for abrv, n1nid, tomb in self.ctx.snap.layers[0].iterNodeEdgesN2(self.nid):
-            verb = self.ctx.snap.core.getAbrvVerb(abrv)
+            verb = self.ctx.snap.core.getAbrvIndx(abrv)[0]
             n1ndef = self.ctx.snap.core.getNidNdef(n1nid)
 
             if tomb:
@@ -735,8 +735,8 @@ class ProtoNode(s_node.NodeBase):
             mesg = f'Property is read only: {prop.full}.'
             await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
             return False
-          
-        self.props.pop(name)
+
+        self.props.pop(name, None)
 
         if layr == 0:
             self.propdels.add(name)
@@ -1945,7 +1945,7 @@ class Snap(s_base.Base):
                 continue
 
             if verb is None:
-                yield self.core.getAbrvVerb(edge[0]), edge[1]
+                yield self.core.getAbrvIndx(edge[0])[0], edge[1]
             else:
                 yield verb, edge[1]
 
@@ -1978,13 +1978,13 @@ class Snap(s_base.Base):
                         break
                 else:
                     if verb is None:
-                        yield self.core.getAbrvVerb(abrv), n1nid
+                        yield self.core.getAbrvIndx(abrv)[0], n1nid
                     else:
                         yield verb, n1nid
 
             else:
                 if verb is None:
-                    yield self.core.getAbrvVerb(abrv), n1nid
+                    yield self.core.getAbrvIndx(abrv)[0], n1nid
                 else:
                     yield verb, n1nid
 
@@ -2008,7 +2008,7 @@ class Snap(s_base.Base):
             if tomb:
                 continue
 
-            yield self.core.getAbrvVerb(abrv)
+            yield self.core.getAbrvIndx(abrv)[0]
 
     async def hasNodeData(self, nid, name, strt=0, stop=None):
         '''

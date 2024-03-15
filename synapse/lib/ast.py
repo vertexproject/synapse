@@ -4414,8 +4414,7 @@ class EditPropDel(Edit):
 
         await node.pop(name)
 
-        self.univprop = self.kids[0]
-        assert isinstance(self.univprop, UnivProp)
+class EditUnivDel(Edit):
 
     def prepare(self):
 

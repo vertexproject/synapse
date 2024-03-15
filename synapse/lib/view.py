@@ -886,11 +886,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        for byts, abrv in self.core.verbabrv.items():
-            verb = byts.decode()
-            async for _ in self.getEdges(verb=verb):
-                yield verb
-                break
+        for byts, abrv in self.core.indxabrv.iterByPref(s_layer.INDX_EDGE_VERB):
+            for layr in self.layers:
+                if layr.indxcounts.get(abrv) > 0:
+                    yield s_msgpack.un(byts[2:])[0]
+                    break
 
     async def getEdges(self, verb=None):
 

@@ -3835,7 +3835,7 @@ class MergeCmd(Cmd):
                 runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
         async for abrv, n2nid, tomb in runt.snap.view.layers[0].iterNodeEdgesN1(node.nid):
-            verb = core.getAbrvVerb(abrv)
+            verb = core.getAbrvIndx(abrv)[0]
 
             if tomb:
                 runt.confirm(('node', 'edge', 'del', verb), gateiden=layr1)
@@ -4090,7 +4090,7 @@ class MergeCmd(Cmd):
                                     await sync()
 
                     async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(node.nid):
-                        verb = core.getAbrvVerb(abrv)
+                        verb = core.getAbrvIndx(abrv)[0]
                         if tomb:
                             if not self.opts.apply:
                                 dest = s_common.ehex(core.getBuidByNid(n2nid))
@@ -4506,7 +4506,7 @@ class MoveNodesCmd(Cmd):
         for iden, layr in self.lyrs.items():
             if not iden == self.destlayr:
                 async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(node.nid):
-                    verb = layr.core.getAbrvVerb(abrv)
+                    verb = layr.core.getAbrvIndx(abrv)[0]
 
                     if tomb:
                         if not self.opts.apply:

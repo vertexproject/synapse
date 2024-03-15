@@ -7026,7 +7026,7 @@ class Layer(Prim):
                 continue
 
             n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
-            verb = self.runt.snap.core.getAbrvVerb(abrv)
+            verb = self.runt.snap.core.getAbrvIndx(abrv)[0]
             n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
             yield (n1buid, verb, n2buid)
 
@@ -7043,7 +7043,7 @@ class Layer(Prim):
             if tomb:
                 continue
 
-            verb = self.runt.snap.core.getAbrvVerb(abrv)
+            verb = self.runt.snap.core.getAbrvIndx(abrv)[0]
             yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid)))
 
     @stormfunc(readonly=True)
@@ -7059,7 +7059,7 @@ class Layer(Prim):
             if tomb:
                 continue
 
-            verb = self.runt.snap.core.getAbrvVerb(abrv)
+            verb = self.runt.snap.core.getAbrvIndx(abrv)[0]
             yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid)))
 
     async def delTombstone(self, nid, tombtype, tombinfo):
@@ -7642,7 +7642,7 @@ class View(Prim):
 
         async for n1nid, vabrv, n2nid in view.getEdges(verb=verb):
             n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
-            verb = self.runt.snap.core.getAbrvVerb(vabrv)
+            verb = self.runt.snap.core.getAbrvIndx(vabrv)[0]
             n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
             yield (n1buid, verb, n2buid)
 
