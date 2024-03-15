@@ -210,12 +210,12 @@ class SnapTest(s_t_utils.SynTest):
 
                     origGetNodeByBuid = snap.getNodeByBuid
 
-                    async def slowGetNodeByBuid(buid):
+                    async def slowGetNodeByBuid(buid, tombs=False):
                         nonlocal call_count
                         call_count += 1
                         if call_count > 0:
                             await ab_middle_event.wait()
-                        return await origGetNodeByBuid(buid)
+                        return await origGetNodeByBuid(buid, tombs=tombs)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
@@ -230,9 +230,9 @@ class SnapTest(s_t_utils.SynTest):
 
                     origGetNodeByBuid = snap.getNodeByBuid
 
-                    async def slowGetNodeByBuid(buid):
+                    async def slowGetNodeByBuid(buid, tombs=False):
                         ab_middle_event.set()
-                        return await origGetNodeByBuid(buid)
+                        return await origGetNodeByBuid(buid, tombs=tombs)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
