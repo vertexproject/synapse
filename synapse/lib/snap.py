@@ -11,7 +11,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -22,7 +21,7 @@ import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
-class ProtoNode(s_node.NodeBase):
+class ProtoNode:
     '''
     A prototype node used for staging node adds using a SnapEditor.
 
@@ -35,7 +34,6 @@ class ProtoNode(s_node.NodeBase):
         self.valu = valu
         self.buid = buid
         self.node = node
-        self.ndef = (form, valu)
 
         self.tags = {}
         self.props = {}
@@ -388,7 +386,7 @@ class ProtoNode(s_node.NodeBase):
             return curv
 
         if self.node is not None:
-            return self.node.getTag(tag, defval=defval)
+            return self.node.getTag(tag)
 
     async def addTag(self, tag, valu=(None, None), tagnode=None):
 
@@ -537,9 +535,6 @@ class ProtoNode(s_node.NodeBase):
         if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
             return defv
 
-        if (tag, name) in self.tagpropdels:
-            return None
-
         curv = self.tagprops.get((tag, name))
         if curv is not None:
             return curv
@@ -586,7 +581,6 @@ class ProtoNode(s_node.NodeBase):
         if curv == norm:
             return False
 
-        self.tagpropdels.discard((tagnode.valu, name))
         self.tagprops[(tagnode.valu, name)] = norm
         self.tagpropdels.discard((tagnode.valu, name))
         self.tagproptombs.discard((tagnode.valu, name))
@@ -827,13 +821,6 @@ class SnapEditor:
                 nodeedits.append(nodeedit)
         return nodeedits
 
-    async def saveProtoNodes(self):
-        nodeedits = self.getNodeEdits()
-        if nodeedits:
-            await self.snap.saveNodeEdits(nodeedits)
-
-        self.protonodes.clear()
-
     async def _addNode(self, form, valu, props=None, norminfo=None):
 
         self.snap.core._checkMaxNodes()
@@ -870,12 +857,7 @@ class SnapEditor:
 
         valu, norminfo = retn
 
-        try:
-            protonode = await self._initProtoNode(form, valu, norminfo)
-        except Exception:
-            self.protonodes.pop((form.name, valu), None)
-            raise
-
+        protonode = await self._initProtoNode(form, valu, norminfo)
         if props is not None:
             [await protonode.set(p, v) for (p, v) in props.items()]
 
@@ -1410,35 +1392,29 @@ class Snap(s_base.Base):
     @contextlib.asynccontextmanager
     async def getNodeEditor(self, node):
 
-        if node.form.isrunt:  # pragma: no cover
+        if node.form.isrunt:
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
             raise s_exc.IsRuntForm(mesg=mesg)
 
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
-        self.livenodes[node.nid] = protonode
+        yield protonode
 
-        try:
-            yield protonode
-        finally:
-            self.livenodes[node.nid] = node
-            await editor.saveProtoNodes()
+        nodeedits = editor.getNodeEdits()
+        if nodeedits:
+            await self.saveNodeEdits(nodeedits)
 
     @contextlib.asynccontextmanager
-    async def getEditor(self, transaction=False):
+    async def getEditor(self):
 
-        errs = False
         editor = SnapEditor(self)
 
-        try:
-            yield editor
-        except Exception:
-            errs = True
-            raise
-        finally:
-            if not (errs and transaction):
-                await editor.saveProtoNodes()
+        yield editor
+
+        nodeedits = editor.getNodeEdits()
+        if nodeedits:
+            await self.saveNodeEdits(nodeedits)
 
     async def saveNodeEdits(self, edits, meta=None):
         '''
@@ -1682,7 +1658,7 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        async with self.getEditor(transaction=True) as editor:
+        async with self.getEditor() as editor:
             protonode = await editor.addNode(name, valu, props=props, norminfo=norminfo)
             if protonode is None:
                 return None

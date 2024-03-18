@@ -210,3 +210,23 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, await core.nodes('ou:org:name=forkorg'))
             self.len(1, await core.nodes('ou:org:name=anotherforkorg'))
+
+            nodes = await core.nodes('geo:place')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('gen.geo.place Zimbabwe')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'zimbabwe')
+            self.none(nodes[0].get('names'))
+
+            iden = nodes[0].iden()
+
+            msgs = await core.stormlist('geo:place:name=zimbabwe [ :names+=Rhodesia ]')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('gen.geo.place Rhodesia')
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), iden)
+            names = nodes[0].get('names')
+            self.len(1, names)
+            self.isin('rhodesia', names)

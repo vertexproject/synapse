@@ -360,8 +360,7 @@ class TrigTest(s_t_utils.SynTest):
             msgs = await core.stormlist('trigger.add tag:del --tag zoinks.* --query { [+#faz] }')
             self.stormHasNoWarnErr(msgs)
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#zoinks.foo ]')
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#zoinks ]')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#zoinks.foo -#zoinks ]')
 
             self.len(1, nodes)
             self.nn(nodes[0].getTag('bar'))

@@ -769,7 +769,7 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
 
-                    self.len(4, await alist(layrprox.syncNodeEdits2(0, wait=False)))
+                    self.len(6, await alist(layrprox.syncNodeEdits2(0, wait=False)))
 
                 layr = core1.view.layers[0]  # type: s_layer.Layer
 
