@@ -39,11 +39,15 @@ class FilePath(s_types.Str):
         if len(valu) == 0:
             return '', {}
 
+        valu = valu.strip().lower().replace('\\', '/')
+        if not valu:
+            return '', {}
+
         lead = ''
         if valu[0] == '/':
             lead = '/'
 
-        valu = valu.strip().lower().replace('\\', '/').strip('/')
+        valu = valu.strip('/')
         if not valu:
             return '', {}
 
