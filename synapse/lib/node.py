@@ -7,7 +7,6 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
-import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -484,12 +483,8 @@ class Node(NodeBase):
         '''
         Remove a property from a node and return the value
         '''
-        edits = await self._getPropDelEdits(name, init=init)
-        if not edits:
-            return False
-
-        await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
-        return True
+        async with self.snap.getNodeEditor(self) as protonode:
+            return await protonode.pop(name)
 
     def hasTag(self, name):
         name = s_chop.tag(name)
@@ -849,20 +844,8 @@ class Node(NodeBase):
             await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
-
-        prop = self.snap.core.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(name=name)
-
-        curv = self.getTagProp(tag, name, defval=s_common.novalu)
-        if curv is s_common.novalu:
-            return False
-
-        edits = (
-            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
-        )
-
-        await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
+        async with self.snap.getNodeEditor(self) as editor:
+            await editor.delTagProp(tag, name)
 
     async def delete(self, force=False):
         '''
