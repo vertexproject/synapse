@@ -128,6 +128,12 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An it:av:scan:result node.'}}},
+        {'name': 'geoPlaceByName', 'desc': 'Returns a geo:place node by name, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the place.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'A geo:place node with the given name.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -394,6 +400,16 @@ class LibGen(s_stormtypes.Lib):
 
             return($node)
         }
+
+        function geoPlaceByName(name) {
+            $geoname = $lib.cast(geo:name, $name)
+
+            geo:name=$geoname -> geo:place
+            return($node)
+
+            [ geo:place=(gen, name, $geoname) :name=$geoname ]
+            return($node)
+        }
     '''
 
 stormcmds = (
@@ -594,5 +610,15 @@ stormcmds = (
             yield $lib.gen.itAvScanResultByTarget($cmdopts.form, $cmdopts.value, $cmdopts.signame,
                                                   scanner=$cmdopts.scanner_name, time=$cmdopts.time, try=$cmdopts.try)
         ''',
-    }
+    },
+    {
+        'name': 'gen.geo.place',
+        'descr': '''
+            Lift (or create) a geo:place node based on the name.
+        ''',
+        'cmdargs': (
+            ('name', {'help': 'The name of the place.'}),
+        ),
+        'storm': 'yield $lib.gen.geoPlaceByName($cmdopts.name)',
+    },
 )

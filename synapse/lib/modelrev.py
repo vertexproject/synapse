@@ -175,6 +175,72 @@ class ModelRev:
             if nodeedits:
                 await save()
 
+    async def _normVelocityProps(self, layers, form, props):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for buid, formvalu in layr.iterFormRows(form):
+                sode = layr._getStorNode(buid)
+                if (nodeprops := sode.get('props')) is None:
+                    continue
+
+                for prop in props:
+                    if (curv := nodeprops.get(prop.name)) is None:
+                        continue
+
+                    propvalu = curv[0]
+                    if prop.type.isarray:
+                        hasfloat = False
+                        strvalu = []
+                        for valu in propvalu:
+                            if isinstance(valu, float):
+                                strvalu.append(str(valu))
+                                hasfloat = True
+
+                        if not hasfloat:
+                            continue
+                    else:
+                        if not isinstance(propvalu, float):
+                            continue
+                        strvalu = str(propvalu)
+
+                    nodeprops.pop(prop.name)
+
+                    try:
+                        norm, info = prop.type.norm(strvalu)
+                    except s_exc.BadTypeValu as e:
+                        nodeedits.append(
+                            (buid, form, (
+                                (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
+                                (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                            )),
+                        )
+
+                        oldm = e.errinfo.get('mesg')
+                        iden = s_common.ehex(buid)
+                        logger.warning(f'error re-norming {prop.full}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                       extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                        continue
+
+                    nodeedits.append(
+                        (buid, form, (
+                            (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
+
+            if nodeedits:
+                await save()
+
     async def _updatePropStortype(self, layers, propfull):
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}

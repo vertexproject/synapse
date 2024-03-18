@@ -2009,7 +2009,7 @@ class Velocity(IntBase):
 
         unit = valu[offs:].strip()
         if not unit:
-            return base, {}
+            return int(base), {}
 
         if unit.find('/') != -1:
             dist, dura = unit.split('/', 1)
