@@ -11,7 +11,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -23,7 +22,7 @@ import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
-class ProtoNode(s_node.NodeBase):
+class ProtoNode:
     '''
     A prototype node used for staging node adds using a SnapEditor.
 
@@ -36,7 +35,6 @@ class ProtoNode(s_node.NodeBase):
         self.valu = valu
         self.buid = buid
         self.node = node
-        self.ndef = (form, valu)
 
         self.tags = {}
         self.props = {}
@@ -44,9 +42,6 @@ class ProtoNode(s_node.NodeBase):
         self.tagprops = {}
         self.nodedata = {}
 
-        self.tagdels = set()
-        self.propdels = set()
-        self.tagpropdels = set()
         self.edgedels = set()
 
         if node is not None:
@@ -68,15 +63,8 @@ class ProtoNode(s_node.NodeBase):
             prop = self.form.props.get(name)
             edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype)))
 
-        for name in self.propdels:
-            prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
-
         for name, valu in self.tags.items():
             edits.append((s_layer.EDIT_TAG_SET, (name, valu, None)))
-
-        for name in sorted(self.tagdels, key=lambda t: len(t), reverse=True):
-            edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
 
         for verb, n2iden in self.edges:
             edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden)))
@@ -87,10 +75,6 @@ class ProtoNode(s_node.NodeBase):
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype)))
-
-        for (tag, name) in self.tagpropdels:
-            prop = self.ctx.snap.core.model.getTagProp(name)
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
 
         for name, valu in self.nodedata.items():
             edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None)))
@@ -208,17 +192,14 @@ class ProtoNode(s_node.NodeBase):
 
         return await self.ctx.addNode('syn:tag', norm, norminfo=info)
 
-    def getTag(self, tag, defval=None):
-
-        if tag in self.tagdels:
-            return None
+    def getTag(self, tag):
 
         curv = self.tags.get(tag)
         if curv is not None:
             return curv
 
         if self.node is not None:
-            return self.node.getTag(tag, defval=defval)
+            return self.node.getTag(tag)
 
     async def addTag(self, tag, valu=(None, None), tagnode=None):
 
@@ -254,84 +235,10 @@ class ProtoNode(s_node.NodeBase):
 
         valu = s_time.ival(*valu, *curv)
         self.tags[tagnode.valu] = valu
-        self.tagdels.discard(tagnode.valu)
 
         return tagnode
 
-    def getTagNames(self):
-        alltags = set(self.tags.keys())
-        if self.node is not None:
-            alltags.update(set(self.node.getTagNames()))
-
-        return list(sorted(alltags - self.tagdels))
-
-    def _delTag(self, name):
-        if self.tags.pop(name, None) is None:
-            self.tagdels.add(name)
-
-        for prop in self.getTagProps(name):
-            if self.tagprops.pop((name, prop), None) is None:
-                self.tagpropdels.add((name, prop))
-
-    async def delTag(self, tag):
-
-        path = s_chop.tagpath(tag)
-
-        name = '.'.join(path)
-
-        if len(path) > 1:
-
-            parent = '.'.join(path[:-1])
-
-            # retrieve a list of prunable tags
-            prune = await self.ctx.snap.core.getTagPrune(parent)
-            if prune:
-
-                tree = self._getTagTree()
-
-                for prunetag in reversed(prune):
-
-                    node = tree
-                    for step in prunetag.split('.'):
-
-                        node = node[1].get(step)
-                        if node is None:
-                            break
-
-                    if node is not None and len(node[1]) == 1:
-                        self._delTag(node[0])
-                        continue
-
-                    break
-
-        pref = name + '.'
-
-        for tname in self.getTagNames():
-            if tname.startswith(pref):
-                self._delTag(tname)
-
-        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
-            self._delTag(name)
-
-        return True
-
-    def getTagProps(self, tag):
-        props = set()
-        for (tagn, prop) in self.tagprops:
-            if tagn == tag:
-                props.add(prop)
-
-        if self.node is not None:
-            for prop in self.node.getTagProps(tag):
-                if (tag, prop) not in self.tagpropdels:
-                    props.add(prop)
-
-        return(props)
-
     def getTagProp(self, tag, name):
-
-        if (tag, name) in self.tagpropdels:
-            return None
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
@@ -363,31 +270,11 @@ class ProtoNode(s_node.NodeBase):
         if curv == norm:
             return
 
-        self.tagpropdels.discard((tagnode.valu, name))
         self.tagprops[(tagnode.valu, name)] = norm
-
-    async def delTagProp(self, tag, name):
-
-        prop = self.ctx.snap.core.model.getTagProp(name)
-        if prop is None:
-            mesg = f'Tagprop {name} does not exist in this Cortex.'
-            return await self.ctx.snap._raiseOnStrict(s_exc.NoSuchTagProp, mesg, name=name)
-
-        curv = self.getTagProp(tag, name)
-        if curv is None:
-            return False
-
-        if self.tagprops.pop((tag, name), None) is None:
-            self.tagpropdels.add((tag, name))
-
-        return True
 
     def get(self, name):
 
         # get the current value including the pending prop sets
-        if name in self.propdels:
-            return None
-
         curv = self.props.get(name)
         if curv is not None:
             return curv
@@ -442,7 +329,6 @@ class ProtoNode(s_node.NodeBase):
             await self.ctx.snap.core._callPropSetHook(self.node, prop, valu)
 
         self.props[prop.name] = valu
-        self.propdels.discard(prop.name)
 
         return valu, norminfo
 
@@ -473,27 +359,6 @@ class ProtoNode(s_node.NodeBase):
         if propadds is not None:
             for addname, addvalu, addinfo in propadds:
                 await self.ctx.addNode(addname, addvalu, norminfo=addinfo)
-
-        return True
-
-    async def pop(self, name):
-
-        prop = self.form.prop(name)
-        if prop is None:
-            mesg = f'No property named {name}.'
-            await self.ctx.snap._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name, form=self.form.name)
-            return False  # pragma: no cover
-
-        if self.get(name) is None:
-            return False
-
-        if prop.info.get('ro'):
-            mesg = f'Property is read only: {prop.full}.'
-            await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
-            return False  # pragma: no cover
-
-        if self.props.pop(name, None) is None:
-            self.propdels.add(name)
 
         return True
 
@@ -555,13 +420,6 @@ class SnapEditor:
                 nodeedits.append(nodeedit)
         return nodeedits
 
-    async def saveProtoNodes(self):
-        nodeedits = self.getNodeEdits()
-        if nodeedits:
-            await self.snap.saveNodeEdits(nodeedits)
-
-        self.protonodes.clear()
-
     async def _addNode(self, form, valu, props=None, norminfo=None):
 
         self.snap.core._checkMaxNodes()
@@ -598,12 +456,7 @@ class SnapEditor:
 
         valu, norminfo = retn
 
-        try:
-            protonode = await self._initProtoNode(form, valu, norminfo)
-        except Exception:
-            self.protonodes.pop((form.name, valu), None)
-            raise
-
+        protonode = await self._initProtoNode(form, valu, norminfo)
         if props is not None:
             [await protonode.set(p, v) for (p, v) in props.items()]
 
@@ -1127,35 +980,29 @@ class Snap(s_base.Base):
     @contextlib.asynccontextmanager
     async def getNodeEditor(self, node):
 
-        if node.form.isrunt:  # pragma: no cover
+        if node.form.isrunt:
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
             raise s_exc.IsRuntForm(mesg=mesg)
 
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
-        self.livenodes[node.nid] = protonode
+        yield protonode
 
-        try:
-            yield protonode
-        finally:
-            self.livenodes[node.nid] = node
-            await editor.saveProtoNodes()
+        nodeedits = editor.getNodeEdits()
+        if nodeedits:
+            await self.saveNodeEdits(nodeedits)
 
     @contextlib.asynccontextmanager
-    async def getEditor(self, transaction=False):
+    async def getEditor(self):
 
-        errs = False
         editor = SnapEditor(self)
 
-        try:
-            yield editor
-        except Exception:
-            errs = True
-            raise
-        finally:
-            if not (errs and transaction):
-                await editor.saveProtoNodes()
+        yield editor
+
+        nodeedits = editor.getNodeEdits()
+        if nodeedits:
+            await self.saveNodeEdits(nodeedits)
 
     async def saveNodeEdits(self, edits, meta=None):
         '''
@@ -1298,7 +1145,7 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        async with self.getEditor(transaction=True) as editor:
+        async with self.getEditor() as editor:
             protonode = await editor.addNode(name, valu, props=props, norminfo=norminfo)
             if protonode is None:
                 return None

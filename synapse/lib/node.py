@@ -97,31 +97,6 @@ class NodeBase:
 
         return dict(reps)
 
-    def getTagNames(self):
-        return ()
-
-    def _getTagTree(self):
-
-        root = (None, {})
-        for tag in self.getTagNames():
-            node = root
-
-            for part in tag.split('.'):
-
-                kidn = node[1].get(part)
-
-                if kidn is None:
-
-                    full = part
-                    if node[0] is not None:
-                        full = f'{node[0]}.{full}'
-
-                    kidn = node[1][part] = (full, {})
-
-                node = kidn
-
-        return root
-
 
 class Node(NodeBase):
     '''
@@ -439,8 +414,12 @@ class Node(NodeBase):
         '''
         Remove a property from a node and return the value
         '''
-        async with self.snap.getNodeEditor(self) as editor:
-            return await editor.pop(name)
+        edits = await self._getPropDelEdits(name, init=init)
+        if not edits:
+            return False
+
+        await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
+        return True
 
     def hasTag(self, name):
         name = s_chop.tag(name)
@@ -575,6 +554,29 @@ class Node(NodeBase):
         async with self.snap.getNodeEditor(self) as protonode:
             await protonode.addTag(tag, valu=valu)
 
+    def _getTagTree(self):
+
+        root = (None, {})
+        tags = self._getTagsDict()
+        for tag in tags.keys():
+            node = root
+
+            for part in tag.split('.'):
+
+                kidn = node[1].get(part)
+
+                if kidn is None:
+
+                    full = part
+                    if node[0] is not None:
+                        full = f'{node[0]}.{full}'
+
+                    kidn = node[1][part] = (full, {})
+
+                node = kidn
+
+        return root
+
     async def _getTagDelEdits(self, tag, init=False):
 
         path = s_chop.tagpath(tag)
@@ -583,8 +585,8 @@ class Node(NodeBase):
 
         pref = name + '.'
 
-        tags = self.getTagNames()
-        todel = [(len(t), t) for t in tags if t.startswith(pref)]
+        tags = self._getTagsDict()
+        todel = [(len(t), t) for t in tags.keys() if t.startswith(pref)]
 
         if len(path) > 1:
 
@@ -631,8 +633,10 @@ class Node(NodeBase):
         '''
         Delete a tag from the node.
         '''
-        async with self.snap.getNodeEditor(self) as editor:
-            await editor.delTag(tag)
+        edits = await self._getTagDelEdits(tag, init=init)
+        if edits:
+            nodeedit = (self.nid, self.form.name, edits)
+            await self.snap.saveNodeEdits((nodeedit,))
 
     def _getTagPropDel(self, tag):
 
@@ -715,8 +719,20 @@ class Node(NodeBase):
             await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
-        async with self.snap.getNodeEditor(self) as editor:
-            await editor.delTagProp(tag, name)
+
+        prop = self.snap.core.model.getTagProp(name)
+        if prop is None:
+            raise s_exc.NoSuchTagProp(name=name)
+
+        curv = self.getTagProp(tag, name, defval=s_common.novalu)
+        if curv is s_common.novalu:
+            return False
+
+        edits = (
+            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)),
+        )
+
+        await self.snap.saveNodeEdits(((self.nid, self.form.name, edits),))
 
     async def delete(self, force=False):
         '''
@@ -883,6 +899,9 @@ class RuntNode(NodeBase):
         mesg = f'You can not delete a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
+    def getTagNames(self):
+        return ()
+
 class Path:
     '''
     A path context tracked through the storm runtime.
@@ -899,11 +918,14 @@ class Path:
         self.frames = []
         self.ctors = {}
 
-        self.metadata = {}
+        # "builtins" which are *not* vars
+        # ( this allows copying variable context )
+        self.builtins = {
+            'path': self,
+            'node': self.node,
+        }
 
-    def setNode(self, node):
-        self.node = node
-        self.nodes[-1] = node
+        self.metadata = {}
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -913,10 +935,9 @@ class Path:
             return valu
 
         # check if it's in builtins
-        if name == 'path':
-            return self
-        elif name == 'node':
-            return self.node
+        valu = self.builtins.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
 
         ctor = self.ctors.get(name)
         if ctor is not None:

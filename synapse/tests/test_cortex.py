@@ -1629,9 +1629,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].getTagNames()), {'foo', 'bar'})
 
-            nodes = await core.nodes('[ test:str=bar +?#badval=foo ]')
-            self.none(nodes[0].getTag('badval'))
-
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
