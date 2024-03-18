@@ -4013,6 +4013,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'network': self.conf.get('aha:network'),
                 }
             },
+            'cells': {
+            },
             'features': {
                 'tellready': True,
                 'dynmirror': True,
