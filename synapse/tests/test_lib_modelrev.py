@@ -460,3 +460,8 @@ class ModelRevTest(s_tests.SynTest):
             q = 'transport:sea:telem=(badvalu,) $node.data.load(_migrated:transport:sea:telem:speed)'
             nodes = await core.nodes(q)
             self.eq(-1.0, await nodes[0].getData('_migrated:transport:sea:telem:speed'))
+
+            nodes = await core.nodes('risk:mitigation=(foo,)')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].get('name'))
+            self.len(1, await core.nodes('risk:mitigation:name="  Foo Bar  "'))

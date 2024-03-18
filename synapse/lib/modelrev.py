@@ -735,6 +735,7 @@ class ModelRev:
         await self._normFormSubs(layers, 'inet:ipv6')
 
     async def revModel_0_2_24(self, layers):
+        await self._normPropValu(layers, 'risk:mitigation:name')
 
         formprops = {}
         for prop in self.core.model.getPropsByType('velocity'):
