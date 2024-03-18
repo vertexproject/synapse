@@ -2188,15 +2188,29 @@ class Runtime(s_base.Base):
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def allowedReason(self, perms, gateiden=None, default=None):
+        '''
+        Get the allowed value and the reason a permission is allowed or not.
+
+        Notes:
+            The allowed value returned by this function may be a ternary value.
+            If there is no rule that matches the request, the default value is returned.
+
+        Returns:
+            tuple: Bool|None + Information Dict
+        '''
         if self.asroot:
             return True, {'isadmin': True}
 
         if default is None:
-            default = False
 
             permdef = self.snap.core.getPermDef(perms)
             if permdef:
-                default = permdef.get('default', False)
+                # XXX Discuss - a permdef without a defined default value should probably
+                # return the default in this ternary logic case instead of default to False.
+                # That allows a caller to know that they indeed did not have a rule match
+                # at all, and still have a boolean false value in the event of needing a
+                # simple check.
+                default = permdef.get('default', None)
 
         return self.user.getAllowedReason(perms, gateiden=gateiden, default=default)
 
@@ -2205,20 +2219,52 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+        # TODO - This entire construct simplifies in 3.0.0+ when we remove the old style prop set permission.
+        # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
+        assert len(prop.setperms) == 2, f'Invalid number of property perms for {prop.full}'
+
+        allowed0, reason0 = self.allowedReason(prop.setperms[0], gateiden=self.snap.wlyr.iden)
+
+        # Admin / locked - succeed or fail
+        if reason0.get('isadmin'):
             return
 
-        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+        if reason0.get('islocked'):
+            raise s_exc.AuthDeny(mesg=f'User ({self.user.name}) is locked.', user=self.user.iden,
+                                 username=self.user.name)
+
+        allowed1, reason1 = self.allowedReason(prop.setperms[1], gateiden=self.snap.wlyr.iden)
+
+        if allowed0 or (allowed0, allowed1) == (None, True):
+            return
+
+        self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+        # TODO - This entire construct simplifies in 3.0.0+ when we remove the old style prop set permission.
+        # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
+        assert len(prop.delperms) == 2, f'Invalid number of property perms for {prop.full}'
+
+        allowed0, reason0 = self.allowedReason(prop.delperms[0], gateiden=self.snap.wlyr.iden)
+
+        # Admin / locked - succeed or fail
+        if reason0.get('isadmin'):
             return
 
-        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+        if reason0.get('islocked'):
+            raise s_exc.AuthDeny(mesg=f'User ({self.user.name}) is locked.', user=self.user.iden,
+                                 username=self.user.name)
+
+        allowed1, reason1 = self.allowedReason(prop.delperms[1], gateiden=self.snap.wlyr.iden)
+
+        if allowed0 or (allowed0, allowed1) == (None, True):
+            return
+
+        self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
