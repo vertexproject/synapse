@@ -239,6 +239,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('merged:isnow', ('risk:threat', {}), {
                         'doc': 'The threat cluster that the reporting organization merged this cluster into.'}),
+
+                    ('mitre:attack:group', ('it:mitre:attack:group', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -288,14 +291,21 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
+                    ('mitre:attack:software', ('it:mitre:attack:software', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
+
                 )),
                 ('risk:mitigation', {}, (
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
 
-                    ('name', ('str', {}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
+
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the mitigation.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -312,6 +322,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the mitigation.'}),
+
+                    ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK mitigation if applicable.'}),
 
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
