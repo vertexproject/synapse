@@ -1055,7 +1055,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'readonly', 'type': 'boolean',
                        'desc': 'Run the Extended HTTP Storm methods in readonly mode.', 'default': False},
                   ),
-                  'returns': {'type': 'http:api', 'desc': 'A new http:api object.'}}},
+                  'returns': {'type': 'http:api', 'desc': 'A new HTTP API object.'}}},
         {'name': 'del', 'desc': 'Delete an Extended HTTP API endpoint.',
          'type': {'type': 'function', '_funcname': 'delHttpApi',
                   'args': (
@@ -1067,12 +1067,12 @@ class CortexHttpApi(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'getHttpApi',
                   'args': (
                       {'name': 'iden', 'type': 'string',
-                       'desc': 'The iden of the API to retreive.'},
+                       'desc': 'The iden of the API to retrieve.'},
                   ),
-                  'returns': {'type': 'http:api', 'desc': 'The http:api object.'}}},
-        {'name': 'list', 'desc': 'Get all the Extneded HTTP APIs on the Cortex',
+                  'returns': {'type': 'http:api', 'desc': 'The HTTP API object.'}}},
+        {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
-                  'returns': {'type': 'list', 'desc': 'A list of http:api objects'}}},
+                  'returns': {'type': 'list', 'desc': 'A list of HTTP API objects'}}},
         {'name': 'index', 'desc': 'Set the index for a given Extended HTTP API.',
          'type': {'type': 'function', '_funcname': 'setHttpApiIndx',
                   'args': (
