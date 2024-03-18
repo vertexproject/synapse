@@ -22,7 +22,7 @@ import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
-class ProtoNode:
+class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a SnapEditor.
 
