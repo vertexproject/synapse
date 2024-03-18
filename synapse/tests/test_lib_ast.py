@@ -3661,7 +3661,7 @@ class AstTest(s_test.SynTest):
 
             unfo = await core.addUser('lowuser')
 
-            await core.callStorm('auth.user.addrule lowuser "!!node.prop.set.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
             await core.callStorm('auth.user.addrule lowuser "node.prop.set.media:news.published"')
 
             await core.callStorm('auth.user.addrule lowuser node')
