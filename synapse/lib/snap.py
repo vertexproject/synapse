@@ -1978,6 +1978,32 @@ class Snap(s_base.Base):
             if (retn := await layr.hasNodeEdge(n1nid, verb, n2nid)) is not None:
                 return retn
 
+    def getEdgeCount(self, nid, verb=None, n2=False):
+
+        if n2:
+            key = 'n2verbs'
+        else:
+            key = 'n1verbs'
+
+        ecnt = 0
+
+        for layr in self.layers:
+            if (sode := layr._getStorNode(nid)) is None:
+                continue
+
+            if sode.get('antivalu') is not None:
+                return ecnt
+
+            if (verbs := sode.get(key)) is None:
+                continue
+
+            if verb is not None:
+                ecnt += verbs.get(verb, 0)
+            else:
+                ecnt += sum(verbs.values())
+
+        return ecnt
+
     async def iterEdgeVerbs(self, n1nid, n2nid, strt=0, stop=None):
 
         last = None

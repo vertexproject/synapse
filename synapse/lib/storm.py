@@ -3573,8 +3573,7 @@ class CopyToCmd(Cmd):
 
         iden = await s_stormtypes.tostr(self.opts.view)
 
-        core = runt.snap.core
-        view = core.getView(iden)
+        view = runt.snap.core.getView(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 

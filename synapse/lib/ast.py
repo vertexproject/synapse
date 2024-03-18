@@ -498,8 +498,6 @@ class SubGraph:
             n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             n2delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
-            # TODO: optimize this for tombstones
-
             # load the existing graph as already done
             for iden in existing:
                 nid = runt.snap.core.getNidByBuid(s_common.uhex(iden))
@@ -509,14 +507,11 @@ class SubGraph:
                 await results.add(nid)
                 await resultsidens.set(nid, iden)
 
-            if doedges:
-                for iden in existing:
-                    nid = runt.snap.core.getNidByBuid(s_common.uhex(iden))
-                    if nid is None:
+                if doedges:
+                    if runt.snap.getEdgeCount(nid) > edgelimit:
+                        # We've hit a potential death star and need to deal with it specially
+                        await n1delayed.add(nid)
                         continue
-
-                    ecnt = 0
-                    cache = collections.defaultdict(list)
 
                     async for verb, n2nid in runt.snap.iterNodeEdgesN1(nid):
                         await asyncio.sleep(0)
@@ -524,37 +519,21 @@ class SubGraph:
                         if n2nid in results:
                             continue
 
-                        ecnt += 1
-                        if ecnt > edgelimit:
-                            break
-
-                        cache[n2nid].append(verb)
-
-                    if ecnt > edgelimit:
-                        # don't let it into the cache.
-                        # We've hit a potential death star and need to deal with it specially
-                        await n1delayed.add(nid)
-                        continue
-
-                    for n2nid, verbs in cache.items():
-                        await asyncio.sleep(0)
                         if n2delayed.has(n2nid):
                             continue
 
-                        if not revedge.has(n2nid):
-                            await revedge.set(n2nid, {})
-
-                        re = revedge.get(n2nid)
-                        if nid not in re:
+                        if (re := revedge.get(n2nid)) is None:
+                            re = {nid: []}
+                        elif nid not in re:
                             re[nid] = []
 
-                        count = edgecounts.get(n2nid, defv=0) + len(verbs)
+                        count = edgecounts.get(n2nid, defv=0) + 1
                         if count > edgelimit:
                             await n2delayed.add(n2nid)
                             revedge.pop(n2nid)
                         else:
                             await edgecounts.set(n2nid, count)
-                            re[nid] += verbs
+                            re[nid].append(verb)
                             await revedge.set(n2nid, re)
 
                             if not resultsidens.get(n2nid):
@@ -592,8 +571,8 @@ class SubGraph:
                 if dist > 0 or filterinput:
                     omitted = await self.omit(runt, node)
 
-                if omitted and not yieldfiltered:
-                    continue
+                    if omitted and not yieldfiltered:
+                        continue
 
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
@@ -633,53 +612,46 @@ class SubGraph:
                         await intodo.add(pivn.nid)
 
                 if doedges:
-                    ecnt = 0
-                    cache = collections.defaultdict(list)
                     await results.add(nid)
                     await resultsidens.set(nid, nodeiden)
-                    # Try to lift and cache the potential edges for a node so that if we end up
-                    # seeing n2 later, we won't have to go back and check for it
-                    async for verb, n2nid in runt.snap.iterNodeEdgesN1(nid):
-                        await asyncio.sleep(0)
 
-                        if ecnt > edgelimit:
-                            break
-
-                        ecnt += 1
-                        cache[n2nid].append(verb)
-
-                    if ecnt > edgelimit:
+                    if runt.snap.getEdgeCount(nid) > edgelimit:
                         # The current node in the pipeline has too many edges from it, so it's
                         # less prohibitive to just check against the graph
                         await n1delayed.add(nid)
                         async for e in self._edgefallback(runt, results, resultsidens, node):
                             edges.append(e)
+
                     else:
-                        for n2nid, verbs in cache.items():
+                        # Try to lift and cache the potential edges for a node so that if we end up
+                        # seeing n2 later, we won't have to go back and check for it
+                        async for verb, n2nid in runt.snap.iterNodeEdgesN1(nid):
                             await asyncio.sleep(0)
 
                             if n2delayed.has(n2nid):
                                 continue
 
-                            if not revedge.has(n2nid):
-                                await revedge.set(n2nid, {})
-
-                            re = revedge.get(n2nid)
-                            if nid not in re:
+                            if (re := revedge.get(n2nid)) is None:
+                                re = {nid: []}
+                            elif nid not in re:
                                 re[nid] = []
 
-                            count = edgecounts.get(n2nid, defv=0) + len(verbs)
+                            count = edgecounts.get(n2nid, defv=0) + 1
                             if count > edgelimit:
                                 await n2delayed.add(n2nid)
                                 revedge.pop(n2nid)
                             else:
                                 await edgecounts.set(n2nid, count)
-                                re[nid] += verbs
+                                re[nid].append(verb)
                                 await revedge.set(n2nid, re)
 
                                 if not resultsidens.get(n2nid):
                                     n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
                                     await resultsidens.set(n2nid, n2iden)
+
+                            if n2nid in results:
+                                n2iden = resultsidens.get(n2nid)
+                                edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 
                         if revedge.has(nid):
                             for n2nid, verbs in revedge.get(nid).items():
@@ -696,14 +668,6 @@ class SubGraph:
                                 async for verb in runt.snap.iterEdgeVerbs(n1nid, nid):
                                     await asyncio.sleep(0)
                                     edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
-                        for n2nid, verbs in cache.items():
-                            if n2nid not in results:
-                                continue
-
-                            n2iden = resultsidens.get(n2nid)
-                            for v in verbs:
-                                await asyncio.sleep(0)
-                                edges.append((n2iden, {'type': 'edge', 'verb': v}))
 
                         async for n1nid in n1delayed:
                             n1iden = resultsidens.get(n1nid)
@@ -3951,9 +3915,6 @@ class Bool(Const):
 
 class EmbedQuery(Const):
     runtopaque = True
-
-    def isSafeEdit(self):
-        return False
 
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
