@@ -139,8 +139,6 @@ class Node(NodeBase):
 
             iden = self.snap.view.layers[indx].iden
 
-            iden = self.snap.view.layers[indx].iden
-
             if sode.get('valu') is not None:
                 retn.setdefault('ndef', iden)
 
@@ -772,7 +770,7 @@ class Node(NodeBase):
                 return True
 
         return False
-      
+
     def hasTagPropInLayers(self, tag, prop, strt=0, stop=None):
         '''
         Check if a #foo.bar:baz tag property exists in specific layers on the node.
