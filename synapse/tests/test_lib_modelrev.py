@@ -432,3 +432,12 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_23(self):
         async with self.getRegrCore('model-0.2.23') as core:
             self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
+
+    async def test_modelrev_0_2_24(self):
+
+        async with self.getRegrCore('model-0.2.24') as core:
+
+            nodes = await core.nodes('risk:mitigation=(foo,)')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].get('name'))
+            self.len(1, await core.nodes('risk:mitigation:name="  Foo Bar  "'))
