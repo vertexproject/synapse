@@ -1183,7 +1183,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:mitre:attack:technique', {}, (
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The primary name for the ATT&CK technique.',
                     }),
                     ('matrix', ('it:mitre:attack:matrix', {}), {
@@ -1251,7 +1251,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:mitre:attack:mitigation', {}, (
                     # TODO map to an eventual risk:mitigation
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The primary name for the ATT&CK mitigation.',
                     }),
                     ('matrix', ('it:mitre:attack:matrix', {}), {
