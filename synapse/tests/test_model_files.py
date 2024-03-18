@@ -293,6 +293,16 @@ class FileTest(s_t_utils.SynTest):
             self.none(node.get('base:ext'))
             self.none(node.get('dir'))
 
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' /foo/bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '\\foo\\bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)
             node = nodes[0]
