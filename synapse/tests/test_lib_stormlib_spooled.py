@@ -77,6 +77,15 @@ class StormlibCompressionTest(s_test.SynTest):
             self.isin('3', valu)
             self.isin('4', valu)
 
+            # force a fallback
+            q = '''
+                $set = $lib.spooled.set()
+                $set.adds($lib.range(1500))
+                return($set.size())
+            '''
+            valu = await core.callStorm(q)
+            self.eq(1500, valu)
+
             # sad paths
             # too complex
             q = '''
@@ -85,7 +94,7 @@ class StormlibCompressionTest(s_test.SynTest):
                 return($set)
             '''
             stormnode = s_stormtypes.Node(nodes[0])
-            await self.asyncraises(await core.callStorm(q, {'vars': {'stormnode': stormnode}}))
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
 
             # mutable failure
             q = '''
