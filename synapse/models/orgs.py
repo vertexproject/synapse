@@ -724,7 +724,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The name of the industry.'}),
 
                     ('type', ('ou:industry:type:taxonomy', {}), {
-                        'doc': 'An taxonomy entry for the industry.'}),
+                        'doc': 'A taxonomy entry for the industry.'}),
 
                     ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),
