@@ -41,6 +41,12 @@ class EconModule(s_module.CoreModule):
                 ('econ:acct:balance', ('guid', {}), {
                     'doc': 'A snapshot of the balance of an account at a point in time.'}),
 
+                ('econ:acct:receipt', ('guid', {}), {
+                    'doc': 'A receipt issued as proof of payment.'}),
+
+                ('econ:acct:invoice', ('guid', {}), {
+                    'doc': 'An invoice issued requesting payment.'}),
+
                 ('econ:price', ('hugenum', {'norm': False}), {
                     'doc': 'The amount of money expected, required, or given in payment for something',
                     'ex': '2.20'}),
@@ -61,14 +67,29 @@ class EconModule(s_module.CoreModule):
                 ('econ:fin:tick', ('guid', {}), {
                     'doc': 'A sample of the price of a security at a single moment in time'}),
 
+                ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A bank account type taxonomy.'}),
+
                 ('econ:bank:account', ('guid', {}), {
                     'doc': 'A bank account.'}),
+
+                ('econ:bank:balance', ('guid', {}), {
+                    'doc': 'A balance contained by a bank account at point in time.'}),
+
+                ('econ:bank:statement', ('guid', {}), {
+                    'doc': 'A statement of bank account payment activity over a period of time'}),
 
                 ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
                     'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
 
+                ('econ:bank:iban', ('str', {'regex': '[A-Z]{2}[0-9]{2}[a-zA-Z0-9]{1,30}'}), {
+                    'doc': 'An International Bank Account Number.'}),
+
                 ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
                     'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
+
+                ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
+                    'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
 
                 # TODO econ:bank:swift:iban
                 # econ:acct:bill
@@ -223,6 +244,12 @@ class EconModule(s_module.CoreModule):
                     ('crypto:transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'A crypto currency transaction that initiated the payment.'}),
 
+                    ('invoice', ('econ:acct:invoice', {}), {
+                        'doc': 'The invoice that the payment applies to.'}),
+
+                    ('receipt', ('econ:acct:receipt', {}), {
+                        'doc': 'The receipt that was issued for the payment.'}),
+
                 )),
 
                 ('econ:acct:balance', {}, (
@@ -310,25 +337,124 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The high price of the security'}),
                 )),
 
-                ('econ:bank:aba:rtn', {}, ()),
-                ('econ:bank:swift:bic', {}, ()),
+                ('econ:acct:invoice', {}, (
 
+                    ('issued', ('time', {}), {
+                        'doc': 'The time that the invoice was issued to the recipient.'}),
+
+                    ('issuer', ('ps:contact', {}), {
+                        'doc': 'The contact information for the entity who issued the invoice.'}),
+
+                    ('recipient', ('ps:contact', {}), {
+                        'doc': 'The contact information for the intended recipient of the invoice.'}),
+
+                    ('paid', ('bool', {}), {
+                        'doc': 'Set to true if the invoice has been paid in full.'}),
+
+                    ('balance', ('econ:price', {}), {
+                        'doc': 'The balance due.'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency that the invoice specifies for payment.'}),
+                )),
+
+                ('econ:acct:receipt', {}, (
+
+                    ('issued', ('time', {}), {
+                        'doc': 'The time the receipt was issued.'}),
+
+                    ('purchase', ('econ:purchase', {}), {
+                        'doc': 'The purchase that the receipt confirms payment for.'}),
+
+                    ('issuer', ('ps:contact', {}), {
+                        'doc': 'The contact information for the entity who issued the receipt.'}),
+
+                    ('recipient', ('ps:contact', {}), {
+                        'doc': 'The contact information for the entity who received the receipt.'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency that the receipt uses to specify the price.'}),
+
+                    ('ammount', ('econ:price', {}), {
+                        'doc': 'The price that the receipt confirms was paid.'}),
+                )),
+
+                ('econ:bank:aba:rtn', {}, (
+
+                    ('bank', ('ou:org', {}}), {
+                        'doc': 'The bank which was issued the ABA RTN.'}),
+
+                    ('bank:name', ('ou:name', {}), {
+                        'doc': 'The name which is registered for this ABA RTN.'}),
+
+                )),
+
+                ('econ:bank:iban', {}, ()),
+
+                ('econ:bank:swift:bic', {}, (
+
+                    ('business', ('ou:org', {}), {
+                        'doc': 'The buisness which is the registered owner of the SWIFT BIC.'}),
+
+                    ('office', ('ps:contact', {}), {
+                        'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
+                )),
+
+                ('econ:bank:account:type:taxonomy', {}, ()),
                 ('econ:bank:account', {}, (
 
-                    ('number', ('str', {'regex': '[0-9]+'}), {
-                        'doc': 'The account number.'}),
+                    ('type', ('econ:bank:account:type:taxonomy', {}), {
+                        'doc': 'The type of bank account.'}),
 
                     ('aba:rtn', ('econ:bank:aba:rtn', {}), {
                         'doc': 'The ABA routing transit number for the bank which issued the account.'}),
 
-                    ('contact', ('ps:contact', {}), {
+                    ('number', ('str', {'regex': '[0-9]+'}), {
+                        'doc': 'The account number.'}),
+
+                    ('iban', ('econ:bank:iban', {}), {
+                        'doc': 'The IBAN for the account.'}),
+
+                    ('owner', ('ps:contact', {}), {
                         'doc': 'The contact information associated with the account.'}),
 
                     ('issuer', ('ou:org', {}), {
-                        'doc': 'The bank which issued the account number.'}),
+                        'doc': 'The bank which issued the account.'}),
 
                     ('issuer:name', ('ou:name', {}), {
-                        'doc': 'The name of the bank which issued the account number.'}),
+                        'doc': 'The name of the bank which issued the account.'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency of the account balance.'}),
+
+                    ('balance', ('econ:bank:balance', {}), {
+                        'doc': 'The most recently known bank balance information.'}),
+                )),
+
+                ('econ:bank:balance', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the acount balance was observed.'}),
+
+                    ('ammount', ('econ:price', {}), {
+                        'doc': 'The ammount of currency available at the time.'}),
+
+                    ('account', ('econ:bank:account', {}), {
+                        'doc': 'The bank account which contained the balance ammount.'}),
+                )),
+                ('econ:bank:statement', {}, (
+
+                    ('account', ('econ:bank:account', {}), {
+                        'doc': 'The bank account used to compute the statement.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period that the statement includes.'}),
+
+                    ('balance', ('econ:price', {}), {
+                        'doc': 'The account balance at the end of the statement period.'}),
+
+                    ('payments', ('array', {'type': 'econ:acct:payment', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Payments made to or from the bank account during the statement period.'}),
                 )),
             ),
         }),)
