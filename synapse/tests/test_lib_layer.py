@@ -1418,6 +1418,17 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('ou:goal=(foo,) [ -:names ]', opts=viewopts2)
             self.len(0, await core.nodes('ou:goal:names*[=foo]', opts=viewopts2))
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.layer.get().delTombstone(newp, newp, newp)')
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'nid': b'\x00'}}
+                await core.nodes('$lib.layer.get().delTombstone($nid, newp, newp)', opts=opts)
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'nid': b'\x01' * 8}}
+                await core.nodes('$lib.layer.get().delTombstone($nid, newp, newp)', opts=opts)
+
     # async def test_layer_form_by_buid(self):
 
     #     async with self.getTestCore() as core:

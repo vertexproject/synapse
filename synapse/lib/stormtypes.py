@@ -7066,6 +7066,15 @@ class Layer(Prim):
         nid = await toprim(nid)
         tombtype = await toprim(tombtype)
         tombinfo = await toprim(tombinfo)
+
+        if not isinstance(nid, bytes):
+            mesg = f'delTombstone() got an invalid type for nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
+
+        if len(nid) != 8:
+            mesg = f'delTombstone() got an invalid nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
+
         return await self.runt.snap.delTombstone(nid, tombtype, tombinfo)
 
     @stormfunc(readonly=True)

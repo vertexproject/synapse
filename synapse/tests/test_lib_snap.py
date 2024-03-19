@@ -610,6 +610,15 @@ class SnapTest(s_t_utils.SynTest):
                     nodeedits = editor.getNodeEdits()
                     self.len(0, nodeedits)
 
+                    with self.raises(s_exc.NoSuchProp):
+                        await news.pop('newp')
+
+                    with self.raises(s_exc.ReadOnlyProp):
+                        await news.pop('.created')
+
+                    with self.raises(s_exc.NoSuchTagProp):
+                        await news.delTagProp('newp', 'newp')
+
                     snap.strict = False
                     self.false(await news.addEdge(1, fqdn.nid))
                     self.false(await news.addEdge('pwns', 1))
@@ -622,6 +631,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     tstr = await editor.addNode('test:str', 'foo')
                     self.false(await tstr.delEdge('pwns', news.nid))
+                    self.eq((None, None), tstr.getWithLayer('.seen'))
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 
@@ -667,6 +677,7 @@ class SnapTest(s_t_utils.SynTest):
                     self.true(await node.delTag('bar.tag'))
                     self.true(await node.delTag('baz.tag'))
 
+                    self.none(node.getTag('bar.tag'))
                     self.none(node.getTagProp('bar.tag', 'score'))
                     self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
 
@@ -680,6 +691,8 @@ class SnapTest(s_t_utils.SynTest):
                     manynode = await editor.addNode('it:dev:str', 'manyedges')
                     for x in range(1001):
                         await manynode.addEdge(str(x), node.nid)
+
+                    self.eq((None, None), manynode.getTagPropWithLayer('bar.tag', 'score'))
 
                 self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
 
