@@ -378,7 +378,7 @@ class EconModule(s_module.CoreModule):
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency that the receipt uses to specify the price.'}),
 
-                    ('ammount', ('econ:price', {}), {
+                    ('amount', ('econ:price', {}), {
                         'doc': 'The price that the receipt confirms was paid.'}),
                 )),
 
