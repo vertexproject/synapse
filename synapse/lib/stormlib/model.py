@@ -598,10 +598,12 @@ class LibModelEdge(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     def _methValidKeys(self):
+        s_common.deprecated('model.edge.validkeys', curv='2.165.0')
         return self.validedgekeys
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeGet(self, verb):
+        s_common.deprecated('model.edge.get', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -609,6 +611,7 @@ class LibModelEdge(s_stormtypes.Lib):
         return await self.runt.snap.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
+        s_common.deprecated('model.edge.set', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -624,6 +627,7 @@ class LibModelEdge(s_stormtypes.Lib):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
+        s_common.deprecated('model.edge.del', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -642,6 +646,7 @@ class LibModelEdge(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeList(self):
+        s_common.deprecated('model.edge.list', curv='2.165.0')
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')

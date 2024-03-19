@@ -223,6 +223,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The contribution includes the specific node.'}),
                 ((None, 'meets', 'ou:requirement'), {
                     'doc': 'The requirement is met by the source node.'}),
+                (('ou:org', 'has', None), {
+                    'doc': 'The organization is or was in possession of the target node.'}),
+                (('ou:org', 'owns', None), {
+                    'doc': 'The organization owns or owned the target node.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -508,7 +512,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
 
                     ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
-                        'doc': 'A mapping to a Mitre ATT&CK campaign if applicable.'}),
+                        'doc': 'A mapping to a MITRE ATT&CK campaign if applicable.'}),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {
@@ -545,6 +549,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:technique', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The normalized name of the technique.'}),
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the technique.'}),
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
                     ('sophistication', ('meta:sophistication', {}), {
@@ -555,7 +562,7 @@ class OuModule(s_module.CoreModule):
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes where the technique was employed.'}),
                     ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
-                        'doc': 'A mapping to a Mitre ATT&CK technique if applicable.'}),
+                        'doc': 'A mapping to a MITRE ATT&CK technique if applicable.'}),
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the technique.'}),
                     ('reporter:name', ('ou:name', {}), {
