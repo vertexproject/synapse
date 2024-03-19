@@ -202,6 +202,9 @@ class EconModule(s_module.CoreModule):
                     ('fee', ('econ:price', {}), {
                         'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
 
+                    ('from:account', ('econ:bank:account', {}), {
+                        'doc': 'The bank account which made the payment.'}),
+
                     ('from:pay:card', ('econ:pay:card', {}), {
                         'doc': 'The payment card making the payment.'}),
 
@@ -213,6 +216,9 @@ class EconModule(s_module.CoreModule):
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the entity making the payment.'}),
+
+                    ('to:account', ('econ:bank:account', {}), {
+                        'doc': 'The bank account which received the payment.'}),
 
                     ('to:coinaddr', ('crypto:currency:address', {}), {
                         'doc': 'The crypto currency address receiving the payment.'}),
