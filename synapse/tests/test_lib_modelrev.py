@@ -465,3 +465,11 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq('foo bar', nodes[0].get('name'))
             self.len(1, await core.nodes('risk:mitigation:name="  Foo Bar  "'))
+
+            nodes = await core.nodes('it:mitre:attack:mitigation=M0100')
+            self.len(1, nodes)
+            self.eq('patchstuff', nodes[0].get('name'))
+
+            nodes = await core.nodes('it:mitre:attack:technique=T0100')
+            self.len(1, nodes)
+            self.eq('lockpicking', nodes[0].get('name'))
