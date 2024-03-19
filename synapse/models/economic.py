@@ -351,6 +351,9 @@ class EconModule(s_module.CoreModule):
                     ('issuer', ('ps:contact', {}), {
                         'doc': 'The contact information for the entity who issued the invoice.'}),
 
+                    ('purchase', ('econ:purchase', {}), {
+                        'doc': 'The purchase that the invoice is requesting payment for.'}),
+
                     ('recipient', ('ps:contact', {}), {
                         'doc': 'The contact information for the intended recipient of the invoice.'}),
 
@@ -360,7 +363,7 @@ class EconModule(s_module.CoreModule):
                     ('paid', ('bool', {}), {
                         'doc': 'Set to true if the invoice has been paid in full.'}),
 
-                    ('balance', ('econ:price', {}), {
+                    ('amount', ('econ:price', {}), {
                         'doc': 'The balance due.'}),
 
                     ('currency', ('econ:currency', {}), {
@@ -445,7 +448,7 @@ class EconModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The time that the account balance was observed.'}),
 
-                    ('ammount', ('econ:price', {}), {
+                    ('amount', ('econ:price', {}), {
                         'doc': 'The amount of currency available at the time.'}),
 
                     ('account', ('econ:bank:account', {}), {
