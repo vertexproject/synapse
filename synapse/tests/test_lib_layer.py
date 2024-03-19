@@ -1106,6 +1106,7 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +($x)> { it:dev:str=n1 }]}')
             await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ -($x)> { it:dev:str=n1 }]}', opts=viewopts2)
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +($x)> { it:dev:str=n2 }]}', opts=viewopts2)
 
             await core.nodes('merge --diff --apply', opts=viewopts2)
 

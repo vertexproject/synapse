@@ -284,6 +284,8 @@ class SynModelTest(s_t_utils.SynTest):
             q = core.nodes('test:str [ +(newp)> { syn:form } ]')
             await self.asyncraises(s_exc.IsRuntForm, q)
 
+            self.eq((), await core.callStorm('syn:form=inet:fqdn return($node.tags())'))
+
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
 
