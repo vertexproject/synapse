@@ -38,42 +38,6 @@ def textFromRule(rule):
         text = '!' + text
     return text
 
-def formatAllowedReason(resp):
-    '''Format a string response for the HiveUser.getAllowedReason API response.'''
-    (allow, meta) = resp
-
-    if meta.get('islocked'):
-        return 'The user is locked.'
-    if meta.get('default'):
-        return 'No matching rule found.'
-
-    isgate = meta.get('isgate')
-    isadmin = meta.get('isadmin')
-    isrole = meta.get('isrole')
-    rname = meta.get('rolename')
-    gateiden = meta.get('gateiden')
-    rule = meta.get('rule')
-
-    if isadmin:
-        if isgate:
-            return f'The user is an admin of auth gate {gateiden}.'
-        return 'The user is a global admin.'
-
-    if rule:
-        if isgate:
-            if isrole:
-                m = f'Matched role rule ({textFromRule((allow, rule))}) for role {rname} on gate {gateiden}.'
-            else:
-                m = f'Matched user rule ({textFromRule((allow, rule))}) on gate {gateiden}.'
-        else:
-            if isrole:
-                m = f'Matched role rule ({textFromRule((allow, rule))}) for role {rname}.'
-            else:
-                m = f'Matched user rule ({textFromRule((allow, rule))}).'
-        return m
-
-    return 'No matching rule found.'
-
 class Auth(s_nexus.Pusher):
     '''
     Auth is a user authentication and authorization stored in a Hive.  Users
@@ -894,7 +858,6 @@ class HiveUser(HiveRuler):
         self.vars = await varz.dict(nexs=True)
 
         self.permcache = s_cache.FixedCache(self._allowed)
-        self.allowedcache = s_cache.FixedCache(self._getAllowedReason)
 
     def pack(self, packroles=False):
 
@@ -940,9 +903,6 @@ class HiveUser(HiveRuler):
         return self.permcache.get((perm, default, gateiden))
 
     def _allowed(self, pkey):
-        '''
-        NOTE: This must remain in sync with any changes to _getAllowedReason()!
-        '''
 
         perm, default, gateiden = pkey
 
@@ -991,23 +951,18 @@ class HiveUser(HiveRuler):
 
         return default
 
-    def getAllowedReason(self, perm, default=None, gateiden=None):
+    def getAllowedReason(self, perm, gateiden=None, default=False):
         '''
-        A routine which will return a tuple of (allowed, info).
-        '''
-        perm = tuple(perm)
-        return self.allowedcache.get((perm, default, gateiden))
+        A non-optimized diagnostic routine which will return a tuple
+        of (allowed, reason). This is implemented separately for perf.
 
-    def _getAllowedReason(self, pkey):
-        '''
         NOTE: This must remain in sync with any changes to _allowed()!
         '''
-        perm, default, gateiden = pkey
         if self.info.get('locked'):
-            return (False, {'islocked': True})
+            return (False, 'The user is locked.')
 
         if self.info.get('admin'):
-            return (True, {'isadmin': True})
+            return (True, 'The user is a global admin.')
 
         # 1. check authgate user rules
         if gateiden is not None:
@@ -1016,16 +971,16 @@ class HiveUser(HiveRuler):
             if info is not None:
 
                 if info.get('admin'):
-                    return (True, {'isadmin': True, 'isgate': True, 'gateiden': gateiden})
+                    return (True, f'The user is an admin of auth gate {gateiden}.')
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, {'rule': path, 'isgate': True, 'gateiden': gateiden})
+                        return (allow, f'Matched user rule ({textFromRule((allow, path))}) on gate {gateiden}.')
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
             if perm[:len(path)] == path:
-                return (allow, {'rule': path})
+                return (allow, f'Matched user rule ({textFromRule((allow, path))}).')
 
         # 3. check authgate role rules
         if gateiden is not None:
@@ -1038,20 +993,18 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, {'rule': path, 'isgate': True, 'isrole': True, 'rolename': role.name,
-                                        'gateiden': gateiden})
+                        return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name} on gate {gateiden}.')
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    return (allow, {'rule': path, 'isrole': True, 'rolename': role.name})
+                    return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name}.')
 
-        return (default, {'default': True})
+        return (default, 'No matching rule found.')
 
     def clearAuthCache(self):
         self.permcache.clear()
-        self.allowedcache.clear()
 
     async def genGateInfo(self, gateiden):
         info = self.authgates.get(gateiden)
