@@ -443,7 +443,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The ammount of currency available at the time.'}),
 
                     ('account', ('econ:bank:account', {}), {
-                        'doc': 'The bank account which contained the balance ammount.'}),
+                        'doc': 'The bank account which contained the balance amount.'}),
                 )),
                 ('econ:bank:statement', {}, (
 
