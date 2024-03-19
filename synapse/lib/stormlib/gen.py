@@ -46,12 +46,14 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An it:prod:soft node with the given name.'}}},
-        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE, adding the node if it does not exist.',
+        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and reporter, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                      {'name': 'reporter', 'type': 'str', 'default': None,
+                       'desc': 'The name of the organization which reported the vulnerability.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A risk:vuln node with the given CVE.'}}},
 
@@ -228,14 +230,27 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function vulnByCve(cve, try=$lib.false) {
+        function vulnByCve(cve, try=$lib.false, reporter=$lib.null) {
             ($ok, $cve) = $__maybeCast($try, it:sec:cve, $cve)
             if (not $ok) { return() }
 
             risk:vuln:cve=$cve
+            if $reporter {
+                +:reporter:name=$reporter
+                { -:reporter [ :reporter=$orgByName($reporter) ] }
+            }
             return($node)
 
-            [ risk:vuln=(gen, cve, $cve) :cve=$cve ]
+            $guid = (gen, cve, $cve)
+            if $reporter {
+                $reporter = $lib.cast(ou:name, $reporter)
+                $guid.append($reporter)
+            }
+
+            [ risk:vuln=$guid :cve=$cve ]
+            if $reporter {
+                [ :reporter:name=$reporter :reporter=$orgByName($reporter) ]
+            }
             return($node)
         }
 
@@ -499,14 +514,20 @@ stormcmds = (
     {
         'name': 'gen.risk.vuln',
         'descr': '''
-            Lift (or create) a risk:vuln node based on the CVE.
+            Lift (or create) a risk:vuln node based on the CVE and reporter name.
+
+            Examples:
+
+                // Yield a risk:vuln node for CVE-2012-0157 reported by Mandiant.
+                gen.risk.vuln CVE-2012-0157 Mandiant
         ''',
         'cmdargs': (
             ('cve', {'help': 'The CVE identifier.'}),
+            ('reporter', {'help': 'The name of the reporting organization.', 'nargs': '?'}),
             ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
                        'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try, reporter=$cmdopts.reporter)',
     },
     {
         'name': 'gen.ou.industry',
