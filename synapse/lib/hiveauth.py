@@ -996,7 +996,7 @@ class HiveUser(HiveRuler):
         A routine which will return a tuple of (allowed, info).
         '''
         perm = tuple(perm)
-        return self.allowedcache.get((perm, default, gateiden))
+        return self.allowedcache.get(perm)
 
     def _getAllowedReason(self, pkey):
         '''
