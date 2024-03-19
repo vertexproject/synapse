@@ -17,6 +17,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ ou:technique=*
                     :name=Woot
+                    :names=(Wham, Cool, Wham)
                     :type=lol.woot
                     :desc=Hehe
                     :tag=woot.woot
@@ -29,6 +30,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn('reporter')
             self.eq('woot', nodes[0].get('name'))
+            self.eq(('cool', 'wham'), nodes[0].get('names'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))

@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 23)
+maxvers = (0, 2, 24)
 
 class ModelRev:
 
@@ -37,6 +37,7 @@ class ModelRev:
             ((0, 2, 21), self.revModel_0_2_21),
             ((0, 2, 22), self.revModel_0_2_22),
             ((0, 2, 23), self.revModel_0_2_23),
+            ((0, 2, 24), self.revModel_0_2_24),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -733,6 +734,29 @@ class ModelRev:
     async def revModel_0_2_23(self, layers):
         await self._normFormSubs(layers, 'inet:ipv6')
 
+    async def revModel_0_2_24(self, layers):
+        await self._normPropValu(layers, 'risk:mitigation:name')
+        await self._normPropValu(layers, 'it:mitre:attack:technique:name')
+        await self._normPropValu(layers, 'it:mitre:attack:mitigation:name')
+
+        formprops = {}
+        for prop in self.core.model.getPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for prop in self.core.model.getArrayPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for form, props in formprops.items():
+            await self._normVelocityProps(layers, form, props)
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -844,6 +868,72 @@ class ModelRev:
 
                 if len(nodeedits) >= 1000:  # pragma: no cover
                     await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normVelocityProps(self, layers, form, props):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for buid, formvalu in layr.iterFormRows(form):
+                sode = layr._getStorNode(buid)
+                if (nodeprops := sode.get('props')) is None:
+                    continue
+
+                for prop in props:
+                    if (curv := nodeprops.get(prop.name)) is None:
+                        continue
+
+                    propvalu = curv[0]
+                    if prop.type.isarray:
+                        hasfloat = False
+                        strvalu = []
+                        for valu in propvalu:
+                            if isinstance(valu, float):
+                                strvalu.append(str(valu))
+                                hasfloat = True
+
+                        if not hasfloat:
+                            continue
+                    else:
+                        if not isinstance(propvalu, float):
+                            continue
+                        strvalu = str(propvalu)
+
+                    nodeprops.pop(prop.name)
+
+                    try:
+                        norm, info = prop.type.norm(strvalu)
+                    except s_exc.BadTypeValu as e:
+                        nodeedits.append(
+                            (buid, form, (
+                                (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
+                                (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                            )),
+                        )
+
+                        oldm = e.errinfo.get('mesg')
+                        iden = s_common.ehex(buid)
+                        logger.warning(f'error re-norming {prop.full}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                       extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                        continue
+
+                    nodeedits.append(
+                        (buid, form, (
+                            (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
 
             if nodeedits:
                 await save()
