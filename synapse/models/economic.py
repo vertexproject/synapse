@@ -90,9 +90,6 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
                     'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
-
-                # TODO econ:bank:swift:iban
-                # econ:acct:bill
             ),
 
             'edges': (
