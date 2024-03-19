@@ -3605,7 +3605,7 @@ class AstTest(s_test.SynTest):
         # True  True    Allow
         # True  False   Allow with precedence
         # False None    Deny
-        # False True    Deny with precdence
+        # False True    Deny with precedence
         # False False   Deny
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
