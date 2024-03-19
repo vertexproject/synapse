@@ -437,7 +437,7 @@ class EconModule(s_module.CoreModule):
                 ('econ:bank:balance', {}, (
 
                     ('time', ('time', {}), {
-                        'doc': 'The time that the acount balance was observed.'}),
+                        'doc': 'The time that the account balance was observed.'}),
 
                     ('ammount', ('econ:price', {}), {
                         'doc': 'The ammount of currency available at the time.'}),
