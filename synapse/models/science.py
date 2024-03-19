@@ -47,6 +47,7 @@ class ScienceModule(s_module.CoreModule):
                 )),
 
                 # TODO eventually link to a procedure form
+                ('sci:experiment:type:taxonomy', {}, {}),
                 ('sci:experiment', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -83,7 +84,7 @@ class ScienceModule(s_module.CoreModule):
                 ('sci:evidence', {}, (
 
                     ('hypothesis', ('sci:experiment', {}), {
-                        'doc': 'The hypothesis which which the evidence supports or refutes.'}),
+                        'doc': 'The hypothesis which the evidence supports or refutes.'}),
 
                     ('observation', ('sci:observation', {}), {
                         'doc': 'The observation which supports or refutes the hypothesis.'}),
