@@ -5,14 +5,14 @@ class ScienceModule(s_module.CoreModule):
     def getModelDefs(self):
         return (('sci', {
             'types': (
-                ('sci:hypothesis:type:taxonomy', {}, {}),
+                ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {}),
                 ('sci:hypothesis', ('guid', {}), {
                     'doc': 'A hypothesis or theory.'}),
 
                 # TODO link experiment to eventual procedure node
-                ('sci:experiment:type:taxonomy', {}, {}),
+                ('sci:experiment:type:taxonomy', ('taxonomy', {}), {}),
                 ('sci:experiment', ('guid', {}), {
-                    'doc': 'An instance of running an experiment to test a hypothesis.'}),
+                    'doc': 'An instance of running an experiment.'}),
 
                 ('sci:observation', ('guid', {}), {
                     'doc': 'An observation which may have resulted from an experiment.'}),
@@ -35,13 +35,14 @@ class ScienceModule(s_module.CoreModule):
                 ('sci:hypothesis:type:taxonomy', {}, {}),
                 ('sci:hypothesis', {}, (
 
-                    ('name': ('str', {'lower': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the hypothesis.'}),
 
                     ('type', ('sci:hypothesis:type:taxonomy', {}), {
                         'doc': 'The type of hypothesis as a user defined taxonomy.'}),
 
-                    ('summary': ('str', {}), {
+                    ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A summary of the hypothesis.'}),
                 )),
 
@@ -52,7 +53,11 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'The name of the experiment.'}),
 
                     ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A summary of the experiment.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time when the experiment was initiated.'}),
 
                     ('type', ('sci:experiment:type:taxonomy', {}), {
                         'doc': 'The type of experiment as a user defined taxonomy.'}),
@@ -68,6 +73,7 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'The experiment which produced the observation.'}),
 
                     ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A summary of the observation.'}),
 
                     ('time', ('time', {}), {
@@ -83,6 +89,7 @@ class ScienceModule(s_module.CoreModule):
                         'doc': 'The observation which supports or refutes the hypothesis.'}),
 
                     ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A summary of how the observation supports or refutes the hypothesis.'}),
 
                     ('refutes', ('bool', {}), {
