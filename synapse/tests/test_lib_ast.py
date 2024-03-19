@@ -3608,6 +3608,9 @@ class AstTest(s_test.SynTest):
         # False True    Deny with precedence
         # False False   Deny
 
+        # These tests assume that only positive permissions are present to grant node.add / node.prop.set
+        # and then denies on node.prop.set.
+
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             q = '[media:news=* :published=2020]'
 
@@ -3620,8 +3623,6 @@ class AstTest(s_test.SynTest):
             aslow = {'user': unfo.get('iden')}
 
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
             # test 1
@@ -3633,8 +3634,6 @@ class AstTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormHasNoErr(msgs)
 
             # test 2
@@ -3646,8 +3645,6 @@ class AstTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
             # test 3
@@ -3659,8 +3656,6 @@ class AstTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormHasNoWarnErr(msgs)
 
             # test 4
@@ -3673,8 +3668,6 @@ class AstTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormHasNoWarnErr(msgs)
 
             # test 5
@@ -3687,8 +3680,6 @@ class AstTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormHasNoWarnErr(msgs)
 
             # test 6
@@ -3700,8 +3691,6 @@ class AstTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
             # test 7
@@ -3714,8 +3703,6 @@ class AstTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
             # test 8
@@ -3724,15 +3711,16 @@ class AstTest(s_test.SynTest):
             unfo = await core.addUser(name)
             opts = {'vars': {'name': name}}
             await core.callStorm('auth.user.addrule $name "!node.prop.set.media:news.published"', opts=opts)
-            await core.callStorm('auth.user.addrule $name "node.prop.set.media:news:published"', opts=opts)
+            await core.callStorm('auth.user.addrule $name "!node.prop.set.media:news:published"', opts=opts)
             await core.callStorm('auth.user.addrule $name node.add', opts=opts)
             aslow = {'user': unfo.get('iden')}
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
         # Negative permission tests
+        # These tests confirm the behavior when a deny rule is used to deny the permission
+        # but may still have a underlying allow rule present.
+
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
 
@@ -3761,7 +3749,7 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
 
-            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news.published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
             await core.callStorm('auth.user.addrule lowuser node')
             aslow = {'user': unfo.get('iden')}
             q = '[media:news=(m0,) .seen=2022 :published=2022]'
