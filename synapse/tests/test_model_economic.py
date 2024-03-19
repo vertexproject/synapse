@@ -246,12 +246,12 @@ class EconTest(s_utils.SynTest):
                     :aba:rtn=123456789
                     :issuer={ gen.ou.org "bank of visi" }
                     :issuer:name="bank of visi"
-                    :contact={[ ps:contact=* :name=visi ]}
+                    :owner={[ ps:contact=* :name=visi ]}
                 ]
             ''')
             self.len(1, nodes)
+            self.nn(nodes[0].get('owner'))
             self.nn(nodes[0].get('issuer'))
-            self.nn(nodes[0].get('contact'))
             self.eq('1234', nodes[0].get('number'))
             self.eq('bank of visi', nodes[0].get('issuer:name'))
             self.len(1, await core.nodes('econ:bank:account -> ou:org'))

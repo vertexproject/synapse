@@ -390,7 +390,7 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:bank:aba:rtn', {}, (
 
-                    ('bank', ('ou:org', {}}), {
+                    ('bank', ('ou:org', {}), {
                         'doc': 'The bank which was issued the ABA RTN.'}),
 
                     ('bank:name', ('ou:name', {}), {
