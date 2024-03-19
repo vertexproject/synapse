@@ -11,7 +11,7 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A Card Verification Value (CVV).'}),
 
                 ('econ:pay:pin', ('str', {'regex': '^[0-9]{3,6}$'}), {
-                    'doc': 'A Personal Identification Number.'}),
+                    'doc': 'A Personal Identification Number (PIN).'}),
 
                 ('econ:pay:mii', ('int', {'min': 0, 'max': 9}), {
                     'doc': 'A Major Industry Identifier (MII).'}),
@@ -95,6 +95,9 @@ class EconModule(s_module.CoreModule):
             'edges': (
                 (('econ:purchase', 'acquired', None), {
                     'doc': 'The purchase was used to acquire the target node.'}),
+
+                (('econ:bank:statement', 'has', 'econ:acct:payment'), {
+                    'doc': 'The bank statement includes the payment.'}),
             ),
 
             'forms': (
@@ -351,6 +354,9 @@ class EconModule(s_module.CoreModule):
                     ('recipient', ('ps:contact', {}), {
                         'doc': 'The contact information for the intended recipient of the invoice.'}),
 
+                    ('due', ('time', {}), {
+                        'doc': 'The time by which the payment is due.'}),
+
                     ('paid', ('bool', {}), {
                         'doc': 'Set to true if the invoice has been paid in full.'}),
 
@@ -453,11 +459,11 @@ class EconModule(s_module.CoreModule):
                     ('period', ('ival', {}), {
                         'doc': 'The period that the statement includes.'}),
 
-                    ('balance', ('econ:price', {}), {
-                        'doc': 'The account balance at the end of the statement period.'}),
+                    ('starting:balance', ('econ:price', {}), {
+                        'doc': 'The account balance at the beginning of the statement period.'}),
 
-                    ('payments', ('array', {'type': 'econ:acct:payment', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Payments made to or from the bank account during the statement period.'}),
+                    ('ending:balance', ('econ:price', {}), {
+                        'doc': 'The account balance at the end of the statement period.'}),
                 )),
             ),
         }),)
