@@ -74,7 +74,7 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A bank account.'}),
 
                 ('econ:bank:balance', ('guid', {}), {
-                    'doc': 'A balance contained by a bank account at point in time.'}),
+                    'doc': 'A balance contained by a bank account at a point in time.'}),
 
                 ('econ:bank:statement', ('guid', {}), {
                     'doc': 'A statement of bank account payment activity over a period of time'}),
