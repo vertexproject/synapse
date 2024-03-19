@@ -2187,22 +2187,6 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
-    def allowedRaw(self, perms, gateiden=None, default=None):
-        '''
-        Similar to allowed, but always prefer the default value specified by the caller.
-        Default values are still pulled from permdefs if there is a match there; but still prefer caller default.
-        This results in a ternary response that can be used to know if a rule had a positive/negative or no match.
-        '''
-        if self.asroot:
-            return True
-
-        if default is None:
-            permdef = self.snap.core.getPermDef(perms)
-            if permdef:
-                default = permdef.get('default', default)
-
-        return self.user.allowed(perms, gateiden=gateiden, default=default)
-
     def allowedReason(self, perms, gateiden=None, default=None):
         '''
         Similar to allowed, but always prefer the default value specified by the caller.
