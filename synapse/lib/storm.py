@@ -2203,6 +2203,23 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def allowedReason(self, perms, gateiden=None, default=None):
+        '''
+        Similar to allowed, but always prefer the default value specified by the caller.
+        Default values are still pulled from permdefs if there is a match there; but still prefer caller default.
+        This results in a ternary response that can be used to know if a rule had a positive/negative or no match.
+        The matching reason metadata is also returned.
+        '''
+        if self.asroot:
+            return True, {'isadmin': True}
+
+        if default is None:
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', default)
+
+        return self.user.getAllowedReason(perms, gateiden=gateiden, default=default)
+
     def confirmPropSet(self, prop, layriden=None):
 
         if layriden is None:
@@ -2212,31 +2229,64 @@ class Runtime(s_base.Base):
         # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
         assert len(prop.setperms) == 2, f'Invalid number of property perms for {prop.full}'
 
-        allowed0 = self.allowedRaw(prop.setperms[0], gateiden=self.snap.wlyr.iden)
-        if allowed0:
+        allowed0, meta0 = self.allowedReason(prop.setperms[0], gateiden=self.snap.wlyr.iden)
+
+        if meta0.get('isadmin'):
             return
 
-        allowed1 = self.allowedRaw(prop.setperms[1], gateiden=self.snap.wlyr.iden)
+        allowed1, meta1 = self.allowedReason(prop.setperms[1], gateiden=self.snap.wlyr.iden)
+
+        if allowed0 and allowed1:
+            return
+
+        if not allowed0 and not allowed1:
+            self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
+
         if (allowed0, allowed1) == (None, True):
+            return
+
+        if (allowed0, allowed1) == (True, False):
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.get('rule')) > len(meta0.get('rule')):
+                # R1 deny was more specific than R0 allow
+                self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
+            return
+
+        if allowed0:
             return
 
         self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
 
-        if layriden is None:
-            layriden = self.snap.wlyr.iden
-
         # TODO - This entire construct simplifies in 3.0.0+ when we remove the old style prop set permission.
         # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
-        assert len(prop.delperms) == 2, f'Invalid number of property perms for {prop.full}'
+        assert len(prop.setperms) == 2, f'Invalid number of property perms for {prop.full}'
 
-        allowed0 = self.allowedRaw(prop.delperms[0], gateiden=self.snap.wlyr.iden)
-        if allowed0:
+        allowed0, meta0 = self.allowedReason(prop.delperms[0], gateiden=self.snap.wlyr.iden)
+
+        if meta0.get('isadmin'):
             return
 
-        allowed1 = self.allowedRaw(prop.delperms[1], gateiden=self.snap.wlyr.iden)
+        allowed1, meta1 = self.allowedReason(prop.delperms[1], gateiden=self.snap.wlyr.iden)
+
+        if allowed0 and allowed1:
+            return
+
+        if not allowed0 and not allowed1:
+            self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
+
         if (allowed0, allowed1) == (None, True):
+            return
+
+        if (allowed0, allowed1) == (True, False):
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.get('rule')) > len(meta0.get('rule')):
+                # R1 deny was more specific than R0 allow
+                self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
+            return
+
+        if allowed0:
             return
 
         self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)

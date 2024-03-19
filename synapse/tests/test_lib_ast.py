@@ -3730,8 +3730,6 @@ class AstTest(s_test.SynTest):
             aslow = {'user': unfo.get('iden')}
             q = '[media:news=(m0,) .seen=2020 :published=2020]'
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
@@ -3742,8 +3740,6 @@ class AstTest(s_test.SynTest):
             aslow = {'user': unfo.get('iden')}
             q = '[media:news=(m0,) .seen=2021 :published=2021]'
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
@@ -3754,9 +3750,40 @@ class AstTest(s_test.SynTest):
             aslow = {'user': unfo.get('iden')}
             q = '[media:news=(m0,) .seen=2022 :published=2022]'
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
+
+        # This is a horribly legal mix :(
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser node.prop.set')
+            await core.callStorm('auth.user.addrule lowuser node.add')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) .seen=2022 :published=2022]'
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
+
+        # "Don't do this in production" example. Since the r1 DENY permission is not more precise
+        # than the R0 allow permission, we allow the action.
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+            await core.callStorm('auth.user.addrule lowuser "node.prop.set.media:news"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser node')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) .seen=2022 :published=2022]'
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoWarnErr(msgs)
+
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+            await core.callStorm('auth.user.addrule lowuser "node.prop.set.media:news.published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser node')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) .seen=2022 :published=2022]'
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoWarnErr(msgs)
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
@@ -3765,8 +3792,6 @@ class AstTest(s_test.SynTest):
             aslow = {'user': unfo.get('iden')}
             q = '[media:news=(m0,) .seen=2023 :published=2023]'
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormHasNoErr(msgs)
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
@@ -3778,8 +3803,6 @@ class AstTest(s_test.SynTest):
 
             q = '[media:news=(m1,) :published=2020]'
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormHasNoErr(msgs)
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
@@ -3793,8 +3816,6 @@ class AstTest(s_test.SynTest):
             aslow = {'user': unfo.get('iden')}
 
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
@@ -3808,6 +3829,4 @@ class AstTest(s_test.SynTest):
             aslow = {'user': unfo.get('iden')}
 
             msgs = await core.stormlist(q, opts=aslow)
-            for m in msgs:
-                print(m)
             self.stormHasNoErr(msgs)
