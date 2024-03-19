@@ -60,8 +60,12 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
 
                 ('risk:hasvuln', ('guid', {}), {
-                    'doc': 'An instance of a vulnerability present in a target.',
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use risk:vulnerable.'}),
+
+                ('risk:vulnerable', ('guid', {}), {
+                    'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
+
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
                 }),
@@ -593,32 +597,32 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:hasvuln', {}, (
                     ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The vulnerability present in the target.'
-                    }),
+                        'doc': 'The vulnerability present in the target.'}),
                     ('person', ('ps:person', {}), {
-                        'doc': 'The vulnerable person.',
-                    }),
+                        'doc': 'The vulnerable person.'}),
                     ('org', ('ou:org', {}), {
-                        'doc': 'The vulnerable org.',
-                    }),
+                        'doc': 'The vulnerable org.'}),
                     ('place', ('geo:place', {}), {
-                        'doc': 'The vulnerable place.',
-                    }),
+                        'doc': 'The vulnerable place.'}),
                     ('software', ('it:prod:softver', {}), {
-                        'doc': 'The vulnerable software.',
-                    }),
+                        'doc': 'The vulnerable software.'}),
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The vulnerable hardware.',
-                    }),
+                        'doc': 'The vulnerable hardware.'}),
                     ('spec', ('mat:spec', {}), {
-                        'doc': 'The vulnerable material specification.',
-                    }),
+                        'doc': 'The vulnerable material specification.'}),
                     ('item', ('mat:item', {}), {
-                        'doc': 'The vulnerable material item.',
-                    }),
+                        'doc': 'The vulnerable material item.'}),
                     ('host', ('it:host', {}), {
-                        'doc': 'The vulnerable host.'
-                    })
+                        'doc': 'The vulnerable host.'})
+                )),
+
+                ('risk:vulnerable', {}, (
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability that the node is susceptible to.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time window where the node was vulnerable.'}),
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node which is vulnerable.'}),
                 )),
 
                 ('risk:alert:taxonomy', {}, {}),

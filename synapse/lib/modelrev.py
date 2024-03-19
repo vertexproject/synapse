@@ -736,6 +736,8 @@ class ModelRev:
 
     async def revModel_0_2_24(self, layers):
         await self._normPropValu(layers, 'risk:mitigation:name')
+        await self._normPropValu(layers, 'it:mitre:attack:technique:name')
+        await self._normPropValu(layers, 'it:mitre:attack:mitigation:name')
 
         formprops = {}
         for prop in self.core.model.getPropsByType('velocity'):
