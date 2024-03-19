@@ -253,15 +253,15 @@ class EconTest(s_utils.SynTest):
                     :iban=VV09WootWoot
                     :issuer={ gen.ou.org "bank of visi" }
                     :issuer:name="bank of visi"
-                    :owner={[ ps:contact=* :name=visi ]}
+                    :contact={[ ps:contact=* :name=visi ]}
                     :currency=usd
                     :balance=*
                 ]
             ''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('owner'))
             self.nn(nodes[0].get('issuer'))
             self.nn(nodes[0].get('balance'))
+            self.nn(nodes[0].get('contact'))
             self.eq('1234', nodes[0].get('number'))
             self.eq('usd', nodes[0].get('currency'))
             self.eq('checking.', nodes[0].get('type'))

@@ -427,8 +427,8 @@ class EconModule(s_module.CoreModule):
                     ('iban', ('econ:bank:iban', {}), {
                         'doc': 'The IBAN for the account.'}),
 
-                    ('owner', ('ps:contact', {}), {
-                        'doc': 'The contact information associated with the account.'}),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact information associated with the bank account.'}),
 
                     ('issuer', ('ou:org', {}), {
                         'doc': 'The bank which issued the account.'}),
