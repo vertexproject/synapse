@@ -622,6 +622,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ test:float=42.0 :open=0.001]'))
             self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
 
+            self.eq(5, await core.callStorm('return($lib.cast(int, (5.5)))'))
+
     async def test_ival(self):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
