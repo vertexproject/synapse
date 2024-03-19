@@ -70,6 +70,23 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
+            self.len(1, await core.nodes('risk:vuln:cve=cve-2022-00001 [ :reporter:name=foo ]'))
+            nodes02 = await core.nodes('gen.risk.vuln CVE-2022-00001')
+            self.eq(nodes00[0].ndef, nodes02[0].ndef)
+
+            nodes03 = await core.nodes('gen.risk.vuln CVE-2022-00001 foo')
+            self.eq(nodes00[0].ndef, nodes03[0].ndef)
+            self.nn(nodes03[0].get('reporter'))
+
+            nodes04 = await core.nodes('gen.risk.vuln CVE-2022-00001 bar')
+            nodes05 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001, reporter=bar)')
+            self.eq(nodes04[0].ndef, nodes05[0].ndef)
+            self.ne(nodes00[0].ndef, nodes05[0].ndef)
+            self.eq('bar', nodes05[0].get('reporter:name'))
+            self.nn(nodes05[0].get('reporter'))
+
+            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
+
             nodes00 = await core.nodes('yield $lib.gen.orgIdType(barcode)')
             nodes01 = await core.nodes('gen.ou.id.type barcode')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
@@ -79,8 +96,6 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.ou.id.number barcode 12345')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].get('type'), barcode)
-
-            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
 
             nodes00 = await core.nodes('yield $lib.gen.polCountryByIso2(UA)')
             nodes01 = await core.nodes('gen.pol.country ua')
