@@ -397,7 +397,7 @@ class EconModule(s_module.CoreModule):
                 ('econ:bank:swift:bic', {}, (
 
                     ('business', ('ou:org', {}), {
-                        'doc': 'The buisness which is the registered owner of the SWIFT BIC.'}),
+                        'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
 
                     ('office', ('ps:contact', {}), {
                         'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
