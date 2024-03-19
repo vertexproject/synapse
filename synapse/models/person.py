@@ -70,7 +70,7 @@ class PsModule(s_module.CoreModule):
             ),
             'edges': (
                 (('ps:contact', 'has', None), {
-                    'doc': 'The contact is or was in posession of target node.'}),
+                    'doc': 'The contact is or was in possession of the target node.'}),
                 (('ps:person', 'has', None), {
                     'doc': 'The person is or was in posession of target node.'}),
                 (('ps:contact', 'owns', None), {
