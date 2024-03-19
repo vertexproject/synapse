@@ -224,7 +224,7 @@ class OuModule(s_module.CoreModule):
                 ((None, 'meets', 'ou:requirement'), {
                     'doc': 'The requirement is met by the source node.'}),
                 (('ou:org', 'has', None), {
-                    'doc': 'The organization is or was in posession of target node.'}),
+                    'doc': 'The organization is or was in possession of the target node.'}),
                 (('ou:org', 'owns', None), {
                     'doc': 'The organization owns or owned the target node.'}),
             ),
