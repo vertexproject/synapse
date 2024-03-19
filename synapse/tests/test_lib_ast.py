@@ -3749,7 +3749,7 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
 
-            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news.published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
             await core.callStorm('auth.user.addrule lowuser node')
             aslow = {'user': unfo.get('iden')}
             q = '[media:news=(m0,) .seen=2022 :published=2022]'
