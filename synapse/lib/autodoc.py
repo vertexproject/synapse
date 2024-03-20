@@ -22,6 +22,8 @@ stormtype_doc_schema = {
             'type': ['string', 'array', 'object'],
             'items': {'type': 'string'},
             'properties': {
+                '_funcname': {'type': 'string',
+                              'description': 'The name of the python function implementing the method.'},
                 'name': {'type': 'string',
                          'description': 'For a function argument, the name of the argument.'},
                 'desc': {'type': 'string',
@@ -87,13 +89,14 @@ class RstHelp:
     def __init__(self):
         self.lines = []
 
-    def addHead(self, name, lvl=0, link=None):
+    def addHead(self, name, lvl=0, link=None, addprefixline=True, addsuffixline=True):
         char, info = rstlvls[lvl]
         under = char * len(name)
 
         lines = []
 
-        lines.append('')
+        if addprefixline:
+            lines.append('')
 
         if link:
             lines.append('')
@@ -105,7 +108,8 @@ class RstHelp:
 
         lines.append(name)
         lines.append(under)
-        lines.append('')
+        if addsuffixline:
+            lines.append('')
 
         self.addLines(*lines)
 
@@ -169,7 +173,7 @@ def getArgLines(rtype):
             for obj in atyp:
                 assert isinstance(obj, str)
             tdata = ', '.join([f'``{obj}``' for obj in atyp])
-            rline = f'The input type may one one of the following: {tdata}.'
+            rline = f'The input type may be one of the following: {tdata}.'
             line = f'    {name}: {desc} {rline}'
         elif isinstance(atyp, dict):
             logger.warning('Fully declarative input types are not yet supported.')
@@ -179,6 +183,43 @@ def getArgLines(rtype):
             raise AssertionError(f'unknown argtype: {atyp}')
 
         lines.extend((line, '\n'))
+
+    return lines
+
+def runtimeGetArgLines(rtype):
+    lines = []
+    args = rtype.get('args', ())
+    assert args is not None
+
+    if args == ():
+        # Zero args
+        return lines
+
+    lines.append('Args:')
+    for arg in args:
+        name = arg.get('name')
+        desc = arg.get('desc')
+        atyp = arg.get('type')
+        assert name is not None
+        assert desc is not None
+        assert atyp is not None
+        if isinstance(atyp, str):
+            line = f'    {name} ({atyp}): {desc}'
+        elif isinstance(atyp, (list, tuple)):
+            assert len(atyp) > 1
+            for obj in atyp:
+                assert isinstance(obj, str)
+            tdata = ', '.join(atyp)
+            rline = f'The input type may one one of the following: {tdata}.'
+            line = f'    {name}: {desc} {rline}'
+        elif isinstance(atyp, dict):
+            logger.warning('Fully declarative input types are not yet supported.')
+            rline = f"The input type is derived from the declarative type ``{atyp}``."
+            line = f'    {name}: {desc} {rline}'
+        else:
+            raise AssertionError(f'unknown argtype: {atyp}')
+
+        lines.append(line)
 
     return lines
 
@@ -246,7 +287,7 @@ def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None, isst
     elif isinstance(rtype, dict):
         returns = rtype.get('returns')
         assert returns is not None, f'Invalid returns for {rtype}'
-        name = returns.get('name', 'Returns')
+        name = returns.get('name', 'Returns').title()
 
         desc = returns.get('desc')
         rettype = returns.get('type')
@@ -278,11 +319,58 @@ def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None, isst
         lines.append(line)
     return lines
 
+def runtimeGetReturnLines(rtype, isstor=False):
+    # Allow someone to plumb in name=Yields as a return type.
+    lines = ['']
+    whitespace = '   '
+    if isinstance(rtype, str):
+        lines.append('Returns:')
+        lines.append(f'    The type is {rtype}.')
+    elif isinstance(rtype, (list, tuple)):
+        assert len(rtype) > 1
+        tdata = ', '.join(rtype)
+        lines.append('Returns:')
+        lines.append(f'    The type may be one of the following: {tdata}.')
+    elif isinstance(rtype, dict):
+        returns = rtype.get('returns')
+        assert returns is not None, f'Invalid returns for {rtype}'
+        name = returns.get('name', 'Returns')
+
+        desc = returns.get('desc')
+        rettype = returns.get('type')
+
+        lines.append(f'{name}:')
+        # Now switch on the type.
+
+        parts = [whitespace]
+        if desc:
+            parts.append(desc)
+
+        if isinstance(rettype, str):
+            parts.append(f"The return type is {rettype}.")
+        elif isinstance(rettype, (list, tuple)):
+            assert len(rettype) > 1
+            tdata = ', '.join(rettype)
+            rline = f'The return type may be one of the following: {tdata}.'
+            parts.append(rline)
+        elif isinstance(rettype, dict):
+            logger.warning('Fully declarative return types are not yet supported.')
+            rline = f"The return type is derived from the declarative type ``{rettype}``."
+            parts.append(rline)
+        else:
+            raise AssertionError(f'unknown return type: {rettype}')
+        line = ' '.join(parts)
+        lines.append(line)
+    if isstor:
+        line = f'{whitespace} When this is used to set the value, it does not have a return type.'
+        lines.append(line)
+    return lines
+
 def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
                   known_types=None, types_prefix=None, types_suffix=None,
                   ):
     '''
-    Process a list of StormTypes doc information to add them to a a RstHelp object.
+    Process a list of StormTypes doc information to add them to an RstHelp object.
 
     Notes
         This will create internal hyperlink link targets for each header item. The
@@ -385,3 +473,148 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
 
             page.addHead(header, lvl=lvl + 1, link=link)
             page.addLines(*lines)
+
+def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
+                         oneline=False,
+                         addheader=True,
+                         preamble=None,
+                         ):
+    '''
+    Process a list of StormTypes doc information to add them to a RstHelp object.
+
+    Used for Storm runtime help generation.
+
+    Args:
+        page (RstHelp): The RST page to add .
+        docinfo (dict): A Stormtypes Doc.
+        linkprefix (str): The RST link prefix string to use.
+        islib (bool): Treat the data as a library. This will preface the header and
+            attribute values with ``$`` and use full paths for attributes.
+        lvl (int): The base header level to use when adding headers to the page.
+        oneline (bool): Only display the first line of description. Omits local headers.
+        preamble (list): Lines added after the header; and before locls.
+
+    Returns:
+        None
+    '''
+    if preamble is None:
+        preamble = []
+
+    for info in docinfo:
+        reqValidStormTypeDoc(info)
+
+        path = info.get('path')
+
+        sname = '.'.join(path)
+
+        if addheader:
+
+            if islib:
+                page.addHead(f"${sname}", lvl=lvl, addprefixline=False, addsuffixline=False)
+            else:
+                page.addHead(sname, lvl=lvl, addprefixline=False, addsuffixline=False)
+
+            typedoc = info.get('desc')
+            lines = prepareRstLines(typedoc)
+
+            page.addLines(*lines)
+
+        page.addLines(*preamble)
+
+        locls = info.get('locals', ())
+        locls = sorted(locls, key=lambda x: x.get('name'))
+
+        funcs = []
+        nofuncs = []
+
+        for locl in locls:
+            name = locl.get('name')
+            loclname = '.'.join((sname, name))
+            rtype = locl.get('type')
+
+            if isinstance(rtype, dict):
+                rname = rtype.get('type')
+
+                if isinstance(rname, dict):
+                    raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
+
+                isstor = False
+                isfunc = False
+                isgtor = False
+                isctor = False
+
+                if rname == 'ctor' or 'ctor' in rname:
+                    isctor = True
+                if rname == 'function' or 'function' in rname:
+                    isfunc = True
+                if rname == 'gtor' or 'gtor' in rname:
+                    isgtor = True
+                if rname == 'stor' or 'stor' in rname:
+                    isstor = True
+
+                if isfunc:
+                    funcs.append((locl, isstor, isfunc, isgtor, isctor))
+                else:
+                    nofuncs.append((locl, isstor, isfunc, isgtor, isctor))
+                continue
+
+            nofuncs.append((locl, False, False, False, False))
+
+        def renderer(locl, isstor, isfunc, isgtor, isctor):
+            name = locl.get('name')
+            loclname = '.'.join((sname, name))
+            desc = locl.get('desc')
+            rtype = locl.get('type')
+            assert desc is not None
+            assert rtype is not None
+
+            if isinstance(rtype, dict):
+                rname = rtype.get('type')
+
+                if isinstance(rname, dict):
+                    raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
+
+                lines = prepareRstLines(desc)
+                arglines = runtimeGetArgLines(rtype)
+                lines.extend(arglines)
+
+                retlines = runtimeGetReturnLines(rtype, isstor=isstor)
+                lines.extend(retlines)
+
+                callsig = ''
+                if isfunc:
+                    callsig = genCallsig(rtype)
+                header = f'{name}{callsig}'
+
+            else:
+                header = name
+                lines = prepareRstLines(desc)
+
+                retlines = runtimeGetReturnLines(rtype)
+                lines.extend(retlines)
+
+            if islib:
+                header = '.'.join((sname, header))
+                header = f'${header}'
+
+            if oneline:
+                page.addLines(header, lines[0], '')
+            else:
+                page.addHead(header, lvl=lvl + 1, addsuffixline=False)
+                page.addLines(*lines)
+
+        more_than_one_item = (len(funcs) + len(nofuncs)) > 1
+
+        if funcs:
+            if more_than_one_item:
+                page.addLines('The following functions are available:', '')
+            for locl, isstor, isfunc, isgtor, isctor in funcs:
+                renderer(locl, isstor, isfunc, isgtor, isctor)
+
+        if nofuncs:
+            if more_than_one_item:
+                page.addLines('', 'The following references are available:', '')
+            for locl, isstor, isfunc, isgtor, isctor in nofuncs:
+                renderer(locl, isstor, isfunc, isgtor, isctor)
+
+        return

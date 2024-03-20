@@ -1,9 +1,11 @@
+import os
 import asyncio
 
-import synapse.common as s_common
+import synapse.exc as s_exc
 import synapse.cryotank as s_cryotank
 
 import synapse.lib.const as s_const
+import synapse.lib.slaboffs as s_slaboffs
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -26,9 +28,10 @@ class CryoTest(s_t_utils.SynTest):
 
                 self.eq((), await prox.list())
 
-                self.true(await prox.init('foo'))
+                footankiden = await prox.init('foo')
+                self.nn(footankiden)
 
-                self.eq('foo', (await prox.list())[0][0])
+                self.eq([('foo', footankiden)], [(info[0], info[1]['iden']) for info in await prox.list()])
 
                 self.none(await prox.last('foo'))
 
@@ -52,17 +55,6 @@ class CryoTest(s_t_utils.SynTest):
                 self.eq(3, (await prox.last('foo'))[0])
                 self.eq('baz', (await prox.last('foo'))[1][0])
 
-                iden = s_common.guid()
-                self.eq(0, await prox.offset('foo', iden))
-
-                items = await alist(prox.slice('foo', 0, size=1000, iden=iden))
-                self.eq(0, await prox.offset('foo', iden))
-                self.len(4, items)
-
-                items = await alist(prox.slice('foo', 4, size=1000, iden=iden))
-                self.eq(4, await prox.offset('foo', iden))
-                self.len(0, items)
-
                 # waiters
 
                 self.true(await prox.init('dowait'))
@@ -70,7 +62,7 @@ class CryoTest(s_t_utils.SynTest):
                 self.true(await prox.puts('dowait', cryodata))
                 await self.agenlen(2, prox.slice('dowait', 0, size=1000))
 
-                genr = prox.slice('dowait', 1, size=1000, wait=True, iden=iden).__aiter__()
+                genr = prox.slice('dowait', 1, size=1000, wait=True).__aiter__()
 
                 res = await asyncio.wait_for(genr.__anext__(), timeout=2)
                 self.eq(1, res[0])
@@ -81,7 +73,7 @@ class CryoTest(s_t_utils.SynTest):
 
                 await self.asyncraises(TimeoutError, asyncio.wait_for(genr.__anext__(), timeout=1))
 
-                genr = prox.slice('dowait', 4, size=1000, wait=True, timeout=1, iden=iden)
+                genr = prox.slice('dowait', 4, size=1000, wait=True, timeout=1)
                 res = await asyncio.wait_for(alist(genr), timeout=2)
                 self.eq([], res)
 
@@ -99,12 +91,6 @@ class CryoTest(s_t_utils.SynTest):
                     await lprox.puts(cryodata)
 
                     self.len(6, await alist(lprox.slice(0, 9999)))
-
-                    # test offset storage and updating
-                    iden = s_common.guid()
-                    self.eq(0, await lprox.offset(iden))
-                    self.eq(2, await lprox.puts(cryodata, seqn=(iden, 0)))
-                    self.eq(2, await lprox.offset(iden))
 
                 # test the new open share
                 async with cryo.getLocalProxy(share='cryotank/lulz') as lprox:
@@ -142,3 +128,163 @@ class CryoTest(s_t_utils.SynTest):
                 self.eq(tank.slab.mapsize, s_const.mebibyte * 64)
                 _, conf = await cryo.hive.get(('cryo', 'names', 'conftest'))
                 self.eq(conf, {'map_size': s_const.mebibyte * 64})
+
+    async def test_cryo_perms(self):
+
+        async with self.getTestCryo() as cryo:
+
+            uadmin = (await cryo.addUser('admin'))['iden']
+            await cryo.setUserAdmin(uadmin, True)
+
+            ulower = (await cryo.addUser('lower'))['iden']
+
+            utank0 = (await cryo.addUser('tank0'))['iden']
+            await cryo.addUserRule(utank0, (True, ('cryo', 'tank', 'add')), gateiden='cryo')
+
+            await cryo.init('tank1')
+
+            async with cryo.getLocalProxy(user='tank0') as prox:
+
+                # check perm defs
+
+                perms = await prox.getPermDefs()
+                self.eq([
+                    ('cryo', 'tank', 'add'),
+                    ('cryo', 'tank', 'put'),
+                    ('cryo', 'tank', 'read'),
+                ], [p['perm'] for p in perms])
+
+                perm = await prox.getPermDef(('cryo', 'tank', 'add'))
+                self.eq(('cryo', 'tank', 'add'), perm['perm'])
+
+                # creator is admin
+
+                tankiden0 = await prox.init('tank0')
+
+                self.eq(1, await prox.puts('tank0', ('foo',)))
+                self.nn(await prox.last('tank0'))
+                self.len(1, await alist(prox.slice('tank0', 0, wait=False)))
+                self.len(1, await alist(prox.rows('tank0', 0, 10)))
+                self.len(1, await alist(prox.metrics('tank0', 0)))
+
+                async with cryo.getLocalProxy(user='tank0', share='cryotank/tank0b') as share:
+                    tankiden0b = await share.iden()
+                    self.eq(1, await share.puts(('foo',)))
+                    self.len(1, await alist(share.slice(0, wait=False)))
+                    self.len(1, await alist(share.metrics(0)))
+
+                # ..but only admin on that tank
+
+                await self.asyncraises(s_exc.AuthDeny, prox.puts('tank1', ('bar',)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.rows('tank1', 0, 10)))
+
+                async with cryo.getLocalProxy(user='tank0', share='cryotank/tank1') as share:
+                    await self.asyncraises(s_exc.AuthDeny, share.puts(('bar',)))
+                    await self.asyncraises(s_exc.AuthDeny, alist(share.slice(0, wait=False)))
+
+                # only sees tanks in list() they have read access to
+
+                self.len(2, await prox.list())
+                self.len(3, await cryo.list())
+
+                # only global admin can delete
+
+                await self.asyncraises(s_exc.AuthDeny, prox.delete('tank0'))
+
+            async with cryo.getLocalProxy(user='lower') as prox:
+
+                # default user has no access
+
+                self.len(0, await prox.list())
+
+                await self.asyncraises(s_exc.AuthDeny, prox.init('tank2'))
+                await self.asyncraises(s_exc.AuthDeny, prox.puts('tank0', ('bar',)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.slice('tank0', 0, wait=False)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.rows('tank0', 0, 10)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.metrics('tank0', 0)))
+
+                with self.raises(s_exc.AuthDeny):
+                    async with cryo.getLocalProxy(user='lower', share='cryotank/tank2'):
+                        pass
+
+                async with cryo.getLocalProxy(user='lower', share='cryotank/tank0b') as share:
+                    self.eq(tankiden0b, await share.iden())
+                    await self.asyncraises(s_exc.AuthDeny, share.puts(('bar',)))
+                    await self.asyncraises(s_exc.AuthDeny, alist(share.slice(0, wait=False)))
+                    await self.asyncraises(s_exc.AuthDeny, alist(share.metrics(0)))
+
+                # add read access
+
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'read')), gateiden=tankiden0)
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'read')), gateiden=tankiden0b)
+
+                self.len(2, await prox.list())
+
+                await self.asyncraises(s_exc.AuthDeny, prox.puts('tank0', ('bar',)))
+                self.len(1, await alist(prox.slice('tank0', 0, wait=False)))
+                self.len(1, await alist(prox.rows('tank0', 0, 10)))
+                self.len(1, await alist(prox.metrics('tank0', 0)))
+
+                async with cryo.getLocalProxy(user='lower', share='cryotank/tank0b') as share:
+                    await self.asyncraises(s_exc.AuthDeny, share.puts(('bar',)))
+                    self.len(1, await alist(share.slice(0, wait=False)))
+                    self.len(1, await alist(share.metrics(0)))
+
+                # add write access
+
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'put')), gateiden=tankiden0)
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'put')), gateiden=tankiden0b)
+
+                self.eq(1, await prox.puts('tank0', ('bar',)))
+
+                async with cryo.getLocalProxy(user='lower', share='cryotank/tank0b') as share:
+                    self.eq(1, await share.puts(('bar',)))
+
+    async def test_cryo_migrate_v2(self):
+
+        with self.withNexusReplay():
+
+            with self.getRegrDir('cells', 'cryotank-2.147.0') as dirn:
+
+                async with self.getTestCryoAndProxy(dirn=dirn) as (cryo, prox):
+
+                    tank00iden = 'a4f502db5ebb7740eb8423639144ecf4'
+                    tank01iden = '1cfca0e6d5c4b9daff65f75e29db25dd'
+
+                    seqniden = 'acf2a29b8f2a88c29e6d6ff359c86667'
+
+                    self.eq(
+                        [(0, 'foo'), (1, 'bar')],
+                        await alist(prox.slice('tank00', 0, wait=False))
+                    )
+
+                    self.eq(
+                        [(0, 'cat'), (1, 'dog'), (2, 'emu')],
+                        await alist(prox.slice('tank01', 0, wait=False))
+                    )
+
+                    tank00 = await cryo.init('tank00')
+                    self.true(tank00iden == cryo.names.get('tank00').valu[0] == tank00.iden())
+                    self.false(os.path.exists(os.path.join(tank00.dirn, 'guid')))
+                    self.false(os.path.exists(os.path.join(tank00.dirn, 'cell.guid')))
+                    self.false(os.path.exists(os.path.join(tank00.dirn, 'slabs', 'cell.lmdb')))
+                    self.eq(0, s_slaboffs.SlabOffs(tank00.slab, 'offsets').get(seqniden))
+
+                    tank01 = await cryo.init('tank01')
+                    self.true(tank01iden == cryo.names.get('tank01').valu[0] == tank01.iden())
+                    self.false(os.path.exists(os.path.join(tank01.dirn, 'guid')))
+                    self.false(os.path.exists(os.path.join(tank01.dirn, 'cell.guid')))
+                    self.false(os.path.exists(os.path.join(tank01.dirn, 'slabs', 'cell.lmdb')))
+                    self.eq(0, s_slaboffs.SlabOffs(tank01.slab, 'offsets').get(seqniden))
+
+                    await prox.puts('tank00', ('bam',))
+                    self.eq(
+                        [(1, 'bar'), (2, 'bam')],
+                        await alist(prox.slice('tank00', 1, wait=False))
+                    )
+
+                    await prox.puts('tank01', ('eek',))
+                    self.eq(
+                        [(2, 'emu'), (3, 'eek')],
+                        await alist(prox.slice('tank01', 2, wait=False))
+                    )

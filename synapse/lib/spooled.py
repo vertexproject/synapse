@@ -143,6 +143,15 @@ class Dict(Spooled):
             self.len = len(self.realdict)
             self.realdict.clear()
 
+    def pop(self, key, defv=None):
+        if self.fallback:
+            ret = self.slab.pop(s_msgpack.en(key))
+            if ret is None:
+                return defv
+            self.len -= 1
+            return s_msgpack.un(ret)
+        return self.realdict.pop(key, defv)
+
     def has(self, key):
         if self.fallback:
             return self.slab.has(s_msgpack.en(key))

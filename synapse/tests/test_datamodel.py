@@ -124,6 +124,15 @@ class DataModelTest(s_t_utils.SynTest):
         modl.delFormProp('foo:foo', 'bar')
         modl.delForm('foo:foo')
 
+        modl.addIface('depr:iface', {'deprecated': True})
+
+        with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+            modl.addType('foo:bar', 'int', {}, {'interfaces': ('depr:iface',)})
+            modl.addForm('foo:bar', {}, ())
+
+        dstream.seek(0)
+        self.isin('Form foo:bar depends on deprecated interface depr:iface', dstream.read())
+
     async def test_datamodel_del_prop(self):
 
         modl = s_datamodel.Model()
@@ -174,6 +183,8 @@ class DataModelTest(s_t_utils.SynTest):
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
+
+            self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
 
     async def test_model_deprecation(self):
         # Note: Inverting these currently causes model loading to fail (20200831)

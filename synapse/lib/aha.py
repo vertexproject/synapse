@@ -3,6 +3,9 @@ import copy
 import random
 import asyncio
 import logging
+import collections
+
+import cryptography.x509 as c_x509
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -12,9 +15,11 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -54,6 +59,7 @@ _provSvcSchema = {
     'required': ['name'],
 }
 provSvcSchema = s_config.getJsValidator(_provSvcSchema)
+
 
 class AhaProvisionServiceV1(s_httpapi.Handler):
 
@@ -141,7 +147,8 @@ class AhaApi(s_cell.CellApi):
         # suggest that the user of the remote service is the same
         username = self.user.name.split('@')[0]
 
-        svcinfo['svcinfo']['urlinfo']['user'] = username
+        if svcinfo.get('svcinfo'):
+            svcinfo['svcinfo']['urlinfo']['user'] = username
 
         return svcinfo
 
@@ -187,7 +194,7 @@ class AhaApi(s_cell.CellApi):
                 logger.warning(mesg, await self.cell.getLogExtra(name=svcname, netw=svcnetw))
                 return
 
-            logger.debug(f'AhaCellApi fini, tearing down [{name}]',
+            logger.info(f'AhaCellApi fini, setting service offline [{name}]',
                          extra=await self.cell.getLogExtra(name=svcname, netw=svcnetw))
             coro = self.cell.setAhaSvcDown(name, sess, network=network)
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
@@ -258,6 +265,41 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.signUserCsr(csrtext, signas=signas)
 
     @s_cell.adminapi()
+    async def addAhaPool(self, name, info):
+        return await self.cell.addAhaPool(name, info)
+
+    @s_cell.adminapi()
+    async def delAhaPool(self, name):
+        return await self.cell.delAhaPool(name)
+
+    @s_cell.adminapi()
+    async def addAhaPoolSvc(self, poolname, svcname, info):
+        return await self.cell.addAhaPoolSvc(poolname, svcname, info)
+
+    @s_cell.adminapi()
+    async def delAhaPoolSvc(self, poolname, svcname):
+        return await self.cell.delAhaPoolSvc(poolname, svcname)
+
+    async def iterPoolTopo(self, name):
+
+        username = self.user.name.split('@')[0]
+
+        async for item in self.cell.iterPoolTopo(name):
+
+            # default to using the same username as we do for aha
+            if item[0] == 'svc:add':
+                item[1]['svcinfo']['urlinfo']['user'] = username
+
+            yield item
+
+    async def getAhaPool(self, name):
+        return await self.cell.getAhaPool(name)
+
+    async def getAhaPools(self):
+        async for item in self.cell.getAhaPools():
+            yield item
+
+    @s_cell.adminapi()
     async def addAhaSvcProv(self, name, provinfo=None):
         '''
         Provision the given relative service name within the configured network name.
@@ -284,6 +326,20 @@ class AhaApi(s_cell.CellApi):
         Remove a previously added enrollment entry by iden.
         '''
         return await self.cell.delAhaUserEnroll(iden)
+
+    @s_cell.adminapi()
+    async def clearAhaSvcProvs(self):
+        '''
+        Remove all unused service provisioning values.
+        '''
+        return await self.cell.clearAhaSvcProvs()
+
+    @s_cell.adminapi()
+    async def clearAhaUserEnrolls(self):
+        '''
+        Remove all unused user enrollment provisioning values.
+        '''
+        return await self.cell.clearAhaUserEnrolls()
 
 class ProvDmon(s_daemon.Daemon):
 
@@ -339,9 +395,13 @@ class EnrollApi:
         username = f'{ahauser}@{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != username:
-            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != username:
+            mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
+
+        logger.info(f'Signing user CSR for [{username}], signas={ahanetw}',
+                   extra=await self.aha.getLogExtra(name=username, signas=ahanetw))
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -367,9 +427,13 @@ class ProvApi:
         hostname = f'{ahaname}.{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != hostname:
-            mesg = f'Invalid host CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != hostname:
+            mesg = f'Invalid host CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
+
+        logger.info(f'Signing host CSR for [{hostname}], signas={ahanetw}',
+                    extra=await self.aha.getLogExtra(name=hostname, signas=ahanetw))
 
         pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -382,9 +446,13 @@ class ProvApi:
         username = f'{ahauser}@{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != username:
-            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != username:
+            mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
+
+        logger.info(f'Signing user CSR for [{username}], signas={ahanetw}',
+                    extra=await self.aha.getLogExtra(name=username, signas=ahanetw))
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -430,6 +498,38 @@ class AhaCell(s_cell.Cell):
 
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
+
+        self.slab.initdb('aha:pools')
+        self.poolwindows = collections.defaultdict(list)
+
+    async def iterPoolTopo(self, name):
+
+        name = self._getAhaName(name)
+
+        async with await s_queue.Window.anit(maxsize=1000) as wind:
+
+            poolinfo = self._reqPoolInfo(name)
+
+            # pre-load the current state
+            for svcname in poolinfo.get('services'):
+
+                svcitem = await self.jsonstor.getPathObj(('aha', 'svcfull', svcname))
+                if not svcitem:
+                    logger.warning(f'Pool ({name}) includes service ({svcname}) which does not exist.')
+                    continue
+
+                await wind.put(('svc:add', svcitem))
+
+            # subscribe to changes
+            self.poolwindows[name].append(wind)
+            async def onfini():
+                self.poolwindows[name].remove(wind)
+
+            wind.onfini(onfini)
+
+            # iterate events...
+            async for mesg in wind:
+                yield mesg
 
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
@@ -483,7 +583,7 @@ class AhaCell(s_cell.Cell):
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                logger.debug(f'AhaCell activecoro tearing down [{svcname}.{network}]',
+                logger.info(f'AhaCell activecoro setting service offline [{svcname}.{network}]',
                              extra=await self.getLogExtra(name=svcname, netw=network))
                 await self.setAhaSvcDown(svcname, linkiden, network=network)
 
@@ -539,7 +639,7 @@ class AhaCell(s_cell.Cell):
         path = ('aha', 'services', svcnetw, svcname)
 
         unfo = info.get('urlinfo')
-        logger.debug(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
+        logger.info(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
                      extra=await self.getLogExtra(name=svcname, netw=svcnetw))
 
         svcinfo = {
@@ -554,6 +654,128 @@ class AhaCell(s_cell.Cell):
 
         # mostly for testing...
         await self.fire('aha:svcadd', svcinfo=svcinfo)
+
+    def _getAhaName(self, name):
+        # the modern version of names is absolute or ...
+        if name.endswith('...'):
+            netw = self.conf.get('aha:network')
+            if netw is None: # pragma: no cover
+                mesg = 'AHA Server requires aha:network configuration.'
+                raise s_exc.NeedConfValu(mesg=mesg)
+            name = name[:-2] + netw
+        return name
+
+    async def getAhaPool(self, name):
+        name = self._getAhaName(name)
+        byts = self.slab.get(name.encode(), db='aha:pools')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    def _savePoolInfo(self, poolinfo):
+        s_schemas.reqValidAhaPoolDef(poolinfo)
+        name = poolinfo.get('name')
+        self.slab.put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
+
+    def _loadPoolInfo(self, name):
+        byts = self.slab.get(name.encode(), db='aha:pools')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    def _reqPoolInfo(self, name):
+
+        poolinfo = self._loadPoolInfo(name)
+        if poolinfo is not None:
+            return poolinfo
+
+        mesg = f'There is no AHA service pool named {name}.'
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+    async def addAhaPool(self, name, info):
+
+        name = self._getAhaName(name)
+
+        if await self._getAhaSvc(name) is not None:
+            mesg = f'An AHA service or pool is already using the name "{name}".'
+            raise s_exc.DupName(mesg=mesg, name=name)
+
+        info['name'] = name
+        info['created'] = s_common.now()
+        info['services'] = {}
+
+        info.setdefault('creator', self.getDmonUser())
+
+        return await self._push('aha:pool:add', info)
+
+    async def getAhaPools(self):
+        for lkey, byts in self.slab.scanByFull(db='aha:pools'):
+            yield s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPush('aha:pool:add')
+    async def _addAhaPool(self, info):
+        self._savePoolInfo(info)
+        return info
+
+    async def addAhaPoolSvc(self, poolname, svcname, info):
+        info['created'] = s_common.now()
+        info.setdefault('creator', self.getDmonUser())
+        return await self._push('aha:pool:svc:add', poolname, svcname, info)
+
+    @s_nexus.Pusher.onPush('aha:pool:svc:add')
+    async def _addAhaPoolSvc(self, poolname, svcname, info):
+
+        svcname = self._getAhaName(svcname)
+        poolname = self._getAhaName(poolname)
+
+        svcitem = await self._reqAhaSvc(svcname)
+
+        poolinfo = self._loadPoolInfo(poolname)
+        poolinfo['services'][svcname] = info
+
+        self._savePoolInfo(poolinfo)
+
+        for wind in self.poolwindows.get(poolname, ()):
+            await wind.put(('svc:add', svcitem))
+
+        return poolinfo
+
+    @s_nexus.Pusher.onPushAuto('aha:pool:del')
+    async def delAhaPool(self, name):
+        name = self._getAhaName(name)
+        byts = self.slab.pop(name.encode(), db='aha:pools')
+
+        for wind in self.poolwindows.get(name, ()):
+            await wind.fini()
+
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPushAuto('aha:pool:svc:del')
+    async def delAhaPoolSvc(self, poolname, svcname):
+
+        svcname = self._getAhaName(svcname)
+        poolname = self._getAhaName(poolname)
+
+        poolinfo = self._reqPoolInfo(poolname)
+        poolinfo['services'].pop(svcname, None)
+
+        self._savePoolInfo(poolinfo)
+
+        for wind in self.poolwindows.get(poolname, ()):
+            await wind.put(('svc:del', {'name': svcname}))
+
+        return poolinfo
+
+    async def _getAhaSvc(self, svcname):
+        # no fancy auto-resolve, just get actual service
+        svcpath = ('aha', 'svcfull', svcname)
+        return await self.jsonstor.getPathObj(svcpath)
+
+    async def _reqAhaSvc(self, svcname):
+        svcpath = ('aha', 'svcfull', svcname)
+        svcitem = await self.jsonstor.getPathObj(svcpath)
+        if svcitem is None:
+            raise s_exc.NoSuchName(mesg=f'No AHA service is currently named "{svcname}".', name=svcname)
+        return svcitem
 
     @s_nexus.Pusher.onPushAuto('aha:svc:del')
     async def delAhaSvc(self, name, network=None):
@@ -594,38 +816,50 @@ class AhaCell(s_cell.Cell):
 
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
-        logger.debug(f'Set [{svcfull}] offline.',
-                     extra=await self.getLogExtra(name=svcname, netw=svcnetw))
+        logger.info(f'Set [{svcfull}] offline.',
+                        extra=await self.getLogExtra(name=svcname, netw=svcnetw))
 
     async def getAhaSvc(self, name, filters=None):
 
-        if name.endswith('...'):
-            ahanetw = self.conf.get('aha:network')
-            if ahanetw is None:
-                mesg = f'Relative service name ({name}) can not be resolved without aha:network set.'
-                raise s_exc.BadArg(mesg=mesg)
-
-            name = f'{name[:-2]}{ahanetw}'
+        name = self._getAhaName(name)
 
         path = ('aha', 'svcfull', name)
         svcentry = await self.jsonstor.getPathObj(path)
-        if svcentry is None:
-            return None
 
-        # if they requested a mirror, try to locate one
-        if filters is not None and filters.get('mirror'):
-            ahanetw = svcentry.get('ahanetw')
-            svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None: # pragma: no cover
-                return svcentry
+        if svcentry is not None:
+            # if they requested a mirror, try to locate one
+            if filters is not None and filters.get('mirror'):
+                ahanetw = svcentry.get('ahanetw')
+                svcinfo = svcentry.get('svcinfo')
+                if svcinfo is None: # pragma: no cover
+                    return svcentry
 
-            celliden = svcinfo.get('iden')
-            mirrors = await self.getAhaSvcMirrors(celliden, network=ahanetw)
+                celliden = svcinfo.get('iden')
+                mirrors = await self.getAhaSvcMirrors(celliden, network=ahanetw)
 
-            if mirrors:
-                return random.choice(mirrors)
+                if mirrors:
+                    return random.choice(mirrors)
 
-        return svcentry
+            return svcentry
+
+        pooldef = await self.getAhaPool(name)
+        if pooldef is not None:
+
+            # in case the caller is not pool aware, merge a service entry and the pool def
+            svcnames = list(pooldef.get('services').keys())
+
+            # if there are not services added to the pool it does not exist yet
+            if not svcnames:
+                mesg = f'No services configured for pool: {name}'
+                raise s_exc.BadArg(mesg=mesg)
+
+            svcentry = await self.jsonstor.getPathObj(('aha', 'svcfull', random.choice(svcnames)))
+            svcentry = s_msgpack.deepcopy(svcentry)
+            svcentry.update(pooldef)
+
+            return svcentry
+
+        return None
 
     async def getAhaSvcMirrors(self, iden, network=None):
 
@@ -732,7 +966,7 @@ class AhaCell(s_cell.Cell):
     async def signHostCsr(self, csrtext, signas=None, sans=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
-        hostname = xcsr.get_subject().CN
+        hostname = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         hostpath = s_common.genpath(self.dirn, 'certs', 'hosts', f'{hostname}.crt')
         if os.path.isfile(hostpath):
@@ -751,7 +985,7 @@ class AhaCell(s_cell.Cell):
     async def signUserCsr(self, csrtext, signas=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
-        username = xcsr.get_subject().CN
+        username = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         userpath = s_common.genpath(self.dirn, 'certs', 'users', f'{username}.crt')
         if os.path.isfile(userpath):
@@ -799,6 +1033,9 @@ class AhaCell(s_cell.Cell):
             mesg = 'The AHA server does not have a provision:listen URL!'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if not name:
+            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+
         if provinfo is None:
             provinfo = {}
 
@@ -827,6 +1064,10 @@ class AhaCell(s_cell.Cell):
             raise s_exc.BadConfValu(mesg=mesg, name='aha:network', expected=mynetw, got=netw)
 
         hostname = f'{name}.{netw}'
+
+        if len(hostname) > 64:
+            mesg = f'Hostname value must not exceed 64 characters in length. {hostname=}, len={len(hostname)}'
+            raise s_exc.BadArg(mesg=mesg)
 
         conf.setdefault('aha:name', name)
         dmon_port = provinfo.get('dmon:port', 0)
@@ -913,6 +1154,20 @@ class AhaCell(s_cell.Cell):
         self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
         return iden
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:prov:clear')
+    async def clearAhaSvcProvs(self):
+        for iden, byts in self.slab.scanByFull(db='aha:provs'):
+            self.slab.delete(iden, db='aha:provs')
+            provinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted service provisioning service={provinfo.get("conf").get("aha:name")}, iden={iden.decode()}')
+
+    @s_nexus.Pusher.onPushAuto('aha:enroll:clear')
+    async def clearAhaUserEnrolls(self):
+        for iden, byts in self.slab.scanByFull(db='aha:enrolls'):
+            self.slab.delete(iden, db='aha:enrolls')
+            userinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
+
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):
         self.slab.delete(iden.encode(), db='aha:provs')
@@ -929,7 +1184,14 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server requires aha:network configuration.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if not name:
+            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+
         username = f'{name}@{ahanetw}'
+
+        if len(username) > 64:
+            mesg = f'Username value must not exceed 64 characters in length. username={username}, len={len(username)}'
+            raise s_exc.BadArg(mesg=mesg)
 
         user = await self.auth.getUserByName(username)
 

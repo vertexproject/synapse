@@ -123,6 +123,7 @@ class SlabSeqn:
 
         size = 0
         tick = s_common.now()
+        abstick = s_common.mononow()
 
         for item in items:
 
@@ -136,7 +137,7 @@ class SlabSeqn:
             rows.append((lkey, byts))
 
         retn = self.slab.putmulti(rows, append=True, db=self.db)
-        took = s_common.now() - tick
+        took = s_common.mononow() - abstick
 
         assert retn, "Not adding the largest indices"
 

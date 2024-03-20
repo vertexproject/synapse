@@ -181,7 +181,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The crypto currency address making the payment.'}),
 
                     ('from:contact', ('ps:contact', {}), {
-                        'doc': 'Contact information for the person/org being paid.'}),
+                        'doc': 'Contact information for the entity making the payment.'}),
 
                     ('to:coinaddr', ('crypto:currency:address', {}), {
                         'doc': 'The crypto currency address receiving the payment.'}),

@@ -18,24 +18,24 @@ if $lib.debug {
     }
 }
 
-$queries = ( ${ inet:dns:request:query:name:fqdn $valu=:query:name:fqdn [inet:fqdn=$valu] },
-${ inet:dns:request:query:name:ipv4 $valu=:query:name:ipv4 [inet:ipv4=$valu] },
-${ inet:dns:request:query:name:ipv6 $valu=:query:name:ipv6 [inet:ipv6=$valu] },
-${ inet:dns:query:name:fqdn $valu=:name:fqdn [inet:fqdn=$valu] },
-${ inet:dns:query:name:ipv4 $valu=:name:ipv4 [inet:ipv4=$valu] },
-${ inet:dns:query:name:ipv6 $valu=:name:ipv6 [inet:ipv6=$valu] },
-${ inet:asnet4:net4:min $valu=:net4:min [inet:ipv4=$valu] },
-${ inet:asnet4:net4:max $valu=:net4:max [inet:ipv4=$valu] },
-${ inet:asnet6:net6:min $valu=:net6:min [inet:ipv6=$valu] },
-${ inet:asnet6:net6:max $valu=:net6:max [inet:ipv6=$valu] },
-${ inet:whois:iprec:net4:min $valu=:net4:min [inet:ipv4=$valu] },
-${ inet:whois:iprec:net4:max $valu=:net4:max [inet:ipv4=$valu] },
-${ inet:whois:iprec:net6:min $valu=:net6:min [inet:ipv6=$valu] },
-${ inet:whois:iprec:net6:max $valu=:net6:max [inet:ipv6=$valu] },
-${ it:app:snort:hit:src:ipv4 $valu=:src:ipv4 [inet:ipv4=$valu] },
-${ it:app:snort:hit:src:ipv6 $valu=:src:ipv6 [inet:ipv6=$valu] },
-${ it:app:snort:hit:dst:ipv4 $valu=:dst:ipv4 [inet:ipv4=$valu] },
-${ it:app:snort:hit:dst:ipv6 $valu=:dst:ipv6 [inet:ipv6=$valu] },)
+$queries = ( ${ inet:dns:request:query:name:fqdn [inet:fqdn=:query:name:fqdn] },
+${ inet:dns:request:query:name:ipv4 [inet:ipv4=:query:name:ipv4] },
+${ inet:dns:request:query:name:ipv6 [inet:ipv6=:query:name:ipv6] },
+${ inet:dns:query:name:fqdn [inet:fqdn=:name:fqdn] },
+${ inet:dns:query:name:ipv4 [inet:ipv4=:name:ipv4] },
+${ inet:dns:query:name:ipv6 [inet:ipv6=:name:ipv6] },
+${ inet:asnet4:net4:min [inet:ipv4=:net4:min] },
+${ inet:asnet4:net4:max [inet:ipv4=:net4:max] },
+${ inet:asnet6:net6:min [inet:ipv6=:net6:min] },
+${ inet:asnet6:net6:max [inet:ipv6=:net6:max] },
+${ inet:whois:iprec:net4:min [inet:ipv4=:net4:min] },
+${ inet:whois:iprec:net4:max [inet:ipv4=:net4:max] },
+${ inet:whois:iprec:net6:min [inet:ipv6=:net6:min] },
+${ inet:whois:iprec:net6:max [inet:ipv6=:net6:max] },
+${ it:app:snort:hit:src:ipv4 [inet:ipv4=:src:ipv4] },
+${ it:app:snort:hit:src:ipv6 [inet:ipv6=:src:ipv6] },
+${ it:app:snort:hit:dst:ipv4 [inet:ipv4=:dst:ipv4] },
+${ it:app:snort:hit:dst:ipv6 [inet:ipv6=:dst:ipv6] },)
 
 for $view in $absoluteOrder {
     if $lib.debug { $lib.print('Fixing autoadd data in view {v}', v=$view) }
@@ -192,6 +192,7 @@ class CellLib(s_stormtypes.Lib):
 
         return curv
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _hotFixesCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
@@ -210,30 +211,35 @@ class CellLib(s_stormtypes.Lib):
 
         return dowork
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getCellInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getCellInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getCellInfo()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getSystemInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getSystemInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getSystemInfo()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getBackupInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getBackupInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getBackupInfo()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getHealthCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getHealthCheck()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getMirrorUrls(self, name=None):
 
         if not self.runt.isAdmin():
@@ -265,6 +271,7 @@ class CellLib(s_stormtypes.Lib):
 
         return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _uptime(self, name=None):
 
         name = await s_stormtypes.tostr(name, noneok=True)

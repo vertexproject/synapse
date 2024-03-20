@@ -61,26 +61,33 @@ novalu = NoValu()
 
 logger = logging.getLogger(__name__)
 
-if Loader != yaml.CSafeLoader:  # pragma: no cover
-    logger.warning('PyYAML is using the pure python fallback implementation. This will impact performance negatively.')
+if Loader == yaml.SafeLoader:  # pragma: no cover
+    logger.warning('*****************************************************************************************************')
+    logger.warning('* PyYAML is using the pure python fallback implementation. This will impact performance negatively. *')
+    logger.warning('* See PyYAML docs (https://pyyaml.org/wiki/PyYAMLDocumentation) for tips on resolving this issue.   *')
+    logger.warning('*****************************************************************************************************')
 
 def now():
     '''
     Get the current epoch time in milliseconds.
 
-    This relies on time.time(), which is system-dependent in terms of resolution.
-
-    Examples:
-        Get the current time and make a row for a Cortex::
-
-            tick = now()
-            row = (someiden, 'foo:prop', 1, tick)
-            core.addRows([row])
+    This relies on time.time_ns(), which is system-dependent in terms of resolution.
 
     Returns:
         int: Epoch time in milliseconds.
     '''
     return time.time_ns() // 1000000
+
+def mononow():
+    '''
+    Get the current monotonic clock time in milliseconds.
+
+    This relies on time.monotonic_ns(), which is a relative time.
+
+    Returns:
+        int: Monotonic clock time in milliseconds.
+    '''
+    return time.monotonic_ns() // 1000000
 
 def guid(valu=None):
     '''
@@ -652,7 +659,7 @@ def iterfd(fd, size=10000000):
     Notes:
         If the first read call on the file descriptor is a empty bytestring,
         that zero length bytestring will be yielded and the generator will
-        then be exhuasted. This behavior is intended to allow the yielding of
+        then be exhausted. This behavior is intended to allow the yielding of
         contents of a zero byte file.
 
     Yields:
@@ -755,14 +762,15 @@ def makedirs(path, mode=0o777):
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def _getLogConfFromEnv(defval=None, structlog=None):
+def _getLogConfFromEnv(defval=None, structlog=None, datefmt=None):
     if structlog:
         structlog = 'true'
     else:
         structlog = 'false'
     defval = os.getenv('SYN_LOG_LEVEL', defval)
+    datefmt = os.getenv('SYN_LOG_DATEFORMAT', datefmt)
     structlog = envbool('SYN_LOG_STRUCT', structlog)
-    ret = {'defval': defval, 'structlog': structlog}
+    ret = {'defval': defval, 'structlog': structlog, 'datefmt': datefmt}
     return ret
 
 def normLogLevel(valu):
@@ -793,7 +801,7 @@ def normLogLevel(valu):
             return normLogLevel(valu)
     raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
 
-def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
+def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=None):
     '''
     Configure synapse logging.
 
@@ -801,6 +809,7 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
         mlogger (logging.Logger): Reference to a logging.Logger()
         defval (str): Default log level. May be an integer.
         structlog (bool): Enabled structured (jsonl) logging output.
+        datefmt (str): Optional strftime format string.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
@@ -808,8 +817,9 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
     Returns:
         None
     '''
-    ret = _getLogConfFromEnv(defval, structlog)
+    ret = _getLogConfFromEnv(defval, structlog, datefmt)
 
+    datefmt = ret.get('datefmt')
     log_level = ret.get('defval')
     log_struct = ret.get('structlog')
 
@@ -819,11 +829,11 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
 
         if log_struct:
             handler = logging.StreamHandler()
-            formatter = s_structlog.JsonFormatter()
+            formatter = s_structlog.JsonFormatter(datefmt=datefmt)
             handler.setFormatter(formatter)
             logging.basicConfig(level=log_level, handlers=(handler,))
         else:
-            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT, datefmt=datefmt)
         if log_setup:
             mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 
@@ -924,9 +934,9 @@ def config(conf, confdefs):
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
+    return mesg
 
-_splicedepr = '2023-10-01'
-def deprdate(name, date):
+def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
 
@@ -1148,32 +1158,6 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
         except Exception:  # pragma: no cover
             logger.exception(f'Error loading {certpath}')
     return sslctx
-
-class aclosing(contextlib.AbstractAsyncContextManager):  # pragma: no cover
-    """Async context manager for safely finalizing an asynchronously cleaned-up
-    resource such as an async generator, calling its ``aclose()`` method.
-
-    Code like this::
-
-        async with aclosing(<module>.fetch(<arguments>)) as agen:
-            <block>
-
-    is equivalent to this::
-
-        agen = <module>.fetch(<arguments>)
-        try:
-            <block>
-        finally:
-            await agen.aclose()
-
-    """
-    def __init__(self, thing):
-        deprecated('synapse.common.aclosing()', curv='2.145.0', eolv='v2.150.0')
-        self.thing = thing
-    async def __aenter__(self):
-        return self.thing
-    async def __aexit__(self, exc, cls, tb):
-        await self.thing.aclose()
 
 def httpcodereason(code):
     '''

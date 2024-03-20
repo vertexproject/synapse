@@ -2,6 +2,7 @@ import sys
 import asyncio
 import argparse
 
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
@@ -15,11 +16,16 @@ async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='modrole', description=descr)
     pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--add', default=False, action='store_true', help='Add the role if they do not already exist.')
+    pars.add_argument('--del', dest='delete', default=False, action='store_true', help='Delete the role if it exists.')
     pars.add_argument('--allow', default=[], action='append', help='A permission string to allow for the role.')
     pars.add_argument('--deny', default=[], action='append', help='A permission string to deny for the role.')
     pars.add_argument('rolename', help='The rolename to add/edit.')
 
     opts = pars.parse_args(argv)
+
+    if opts.add and opts.delete:
+        outp.printf('ERROR: Cannot specify --add and --del together.')
+        return 1
 
     async with s_telepath.withTeleEnv():
 
@@ -38,6 +44,11 @@ async def main(argv, outp=s_output.stdout):
                 role = await cell.addRole(opts.rolename)
 
             roleiden = role.get('iden')
+
+            if opts.delete:
+                outp.printf(f'...deleting role: {opts.rolename}')
+                await cell.delRole(roleiden)
+                return 0
 
             for allow in opts.allow:
                 perm = allow.lower().split('.')

@@ -7,11 +7,13 @@ import aiohttp.client_exceptions as a_exc
 import synapse.common as s_common
 import synapse.tools.backup as s_backup
 
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_tests
+import synapse.tests.test_axon as s_t_axon
 
 class HttpApiTest(s_tests.SynTest):
 
@@ -380,16 +382,60 @@ class HttpApiTest(s_tests.SynTest):
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'hehe'}
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                    item = await resp.json()
-                    self.eq('AuthDeny', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await  stream.wait(timeout=6))
+
+            async with self.getHttpSess() as sess:
+                info = {'user': 'visi', 'passwd': 'secret'}
+                await core.setUserLocked(visiiden, True)
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await  stream.wait(timeout=6))
+                await core.setUserLocked(visiiden, False)
 
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'visi', 'passwd': 'borked'}
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await stream.wait(timeout=6))
+
+            async with self.getHttpSess() as sess:
+                info = {'user': 'visi', 'passwd': 'secret'}
                 async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
                     item = await resp.json()
-                    self.eq('AuthDeny', item.get('code'))
+                    self.eq('ok', item.get('status'))
+
+                # make sure session works
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+                # log out of said session
+                async with sess.get(f'https://localhost:{port}/api/v1/logout') as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+                    newcookie = resp.headers.get('Set-Cookie')
+                    self.isin('sess=""', newcookie)
+
+                # session no longer works
+                data = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
 
             async with self.getHttpSess() as sess:
 
@@ -397,6 +443,7 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('NotAuthenticated', item.get('code'))
 
+                heheauth = aiohttp.BasicAuth('hehe', 'haha')
                 visiauth = aiohttp.BasicAuth('visi', 'secret')
                 newpauth = aiohttp.BasicAuth('visi', 'newp')
 
@@ -404,15 +451,25 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
 
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=heheauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(await stream.wait(timeout=12))
+
                 await core.setUserLocked(visiiden, True)
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
-                    item = await resp.json()
-                    self.eq('NotAuthenticated', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(await stream.wait(timeout=12))
                 await core.setUserLocked(visiiden, False)
 
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
-                    item = await resp.json()
-                    self.eq('NotAuthenticated', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(await stream.wait(timeout=12))
 
                 headers = {'Authorization': 'yermom'}
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
@@ -739,52 +796,6 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
-
-    async def test_http_watch(self):
-
-        async with self.getTestCore() as core:
-
-            visi = await core.auth.addUser('visi')
-
-            await visi.setPasswd('secret')
-
-            host, port = await core.addHttpsPort(0, host='127.0.0.1')
-
-            # with no session user...
-            async with self.getHttpSess() as sess:
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-                    self.eq('errx', mesg['type'])
-                    self.eq('AuthDeny', mesg['data']['code'])
-
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
-                    retn = await resp.json()
-                    self.eq('ok', retn.get('status'))
-                    self.eq('visi', retn['result']['name'])
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-                    self.eq('errx', mesg['type'])
-                    self.eq('AuthDeny', mesg['data']['code'])
-
-                await visi.addRule((True, ('watch',)))
-
-                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/watch') as sock:
-
-                    await sock.send_json({'tags': ['test.visi']})
-                    mesg = await sock.receive_json()
-
-                    self.eq('init', mesg['type'])
-
-                    await core.nodes('[ test:str=woot +#test.visi ]')
-
-                    mesg = await sock.receive_json()
-
-                    self.eq('tag:add', mesg['type'])
-                    self.eq('test.visi', mesg['data']['tag'])
 
     async def test_http_beholder(self):
         self.skipIfNexusReplay()
@@ -1672,7 +1683,9 @@ class HttpApiTest(s_tests.SynTest):
                 async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
 
                     iden = s_common.guid()
+                    self.false(await core00.hasHttpSess(iden))
                     sess00 = await core00.genHttpSess(iden)
+                    self.true(await core00.hasHttpSess(iden))
                     await sess00.set('foo', 'bar')
                     self.eq('bar', sess00.info.get('foo'))
 
@@ -1690,6 +1703,7 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.none(await core00.getHttpSessDict(iden))
                     self.none(await core01.getHttpSessDict(iden))
+                    self.false(await core00.hasHttpSess(iden))
 
                     self.none(core00.sessions.get(iden))
                     self.none(core01.sessions.get(iden))
@@ -1829,3 +1843,121 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(mesg.get('remoteip'), '8.8.8.8')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+
+    async def test_core_local_axon_http(self):
+        async with self.getTestCore() as core:
+            await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=core.axon)
+
+    async def test_core_remote_axon_http(self):
+        timeout = aiohttp.ClientTimeout(total=1)
+
+        async with self.getTestAxon() as axon:
+            conf = {
+                'axon': axon.getLocalUrl(),
+            }
+
+            async with self.getTestCore(conf=conf) as core:
+                self.true(await s_coro.event_wait(core.axready, timeout=1))
+
+                # await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=core.axon)
+
+                # additional test for axon down
+
+                host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+                async with self.getHttpSess() as sess:
+                    await axon.fini()
+
+                    with self.raises(TimeoutError):
+                        sha256 = s_common.ehex(s_t_axon.asdfhash)
+                        url = f'https://localhost:{port}/api/v1/axon/files/has/sha256/{sha256}'
+                        async with sess.get(url, timeout=timeout) as resp:
+                            pass
+
+    async def test_http_login_broken(self):
+        async with self.getTestCore() as core:
+
+            lowuser = await core.addUser('lowuser', passwd='secret')
+            ninjas = await core.addRole('ninjas')
+            await core.addUserRole(lowuser.get('iden'), ninjas.get('iden'))
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess() as sess:
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'lowuser', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    roles = set([r.get('name') for r in retn.get('result', {}).get('roles')])
+                    self.eq(roles, {'all', 'ninjas'})
+
+            # Remove the role from the Auth subsystem.
+            core.auth.rolesbyiden.pop(ninjas.get('iden'))
+
+            async with self.getHttpSess() as sess:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'lowuser', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    roles = set([r.get('name') for r in retn.get('result', {}).get('roles')])
+                    self.eq(roles, {'all'})
+
+    async def test_http_sess_setvals(self):
+
+        class ValsHandler(s_httpapi.StreamHandler):
+
+            async def get(self):
+
+                iden = await self.useriden()
+                if iden is None or self._web_sess is None:  # pragma: no cover
+                    self.sendRestErr('NoSuchUser', 'User must login with a valid sess')
+                    return
+
+                throw = bool(int(self.request.headers.get('throw', 0)))
+
+                if throw:
+                    vals = {'hehe': 'haha', 'omg': {'hehe', 'haha'}}
+                else:
+                    vals = {'now': s_common.now(), 'lastip': self.request.connection.context.remote_ip}
+
+                await self._web_sess.update(vals)
+
+                self.sendRestRetn({'iden': s_common.ehex(self._web_sess.iden), 'info': self._web_sess.info})
+                return
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/vals', ValsHandler, {'cell': core})
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('secret')
+
+            url = f'https://localhost:{port}/api/v1/vals'
+
+            async with self.getHttpSess() as sess:
+                info = {'user': 'root', 'passwd': 'secret'}
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+                async with sess.get(url) as resp:
+                    self.eq(resp.status, 200)
+                    data = await resp.json()
+                    result = data.get('result')
+                    iden = s_common.uhex(result.get('iden'))
+                    info = result.get('info')
+                    self.isin('now', info)
+                    self.isin('lastip', info)
+                    self.isin('user', info)
+                    self.isin('username', info)
+
+                cell_sess = core.sessions.get(iden)
+                self.eq(cell_sess.info, result.get('info'))
+
+                async with sess.get(url, headers={'throw': '1'}) as resp:
+                    self.eq(resp.status, 500)
+
+                # No change with the bad data
+                self.eq(cell_sess.info, result.get('info'))

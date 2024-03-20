@@ -68,8 +68,8 @@ groups of analysts or other users with varying access to Synapse's data. For exa
 
 .. TIP::
   
-  A view contains the layer(s) users can see. Visibility into a layer's data is all or nothing; it is not possible
-  to let users see "only certain nodes" or "only nodes with this tag" within a given layer.
+  A view contains the layer(s) users can see. Visibility into a view's data is all or nothing; it is not possible
+  to let users see "only certain nodes" or "only nodes with this tag" within a given view.
 
 The Storm :ref:`storm-view` commands are used to work with views, along with the :ref:`stormprims-view-f527` type and
 its methods and the :ref:`stormlibs-lib-view` libraries. The `Optic UI`_ provides additional GUI-based tools for
@@ -79,6 +79,8 @@ working with views.
 
 Fork and Merge
 ==============
+
+.. _ug_fork_view:
 
 Fork a View
 -----------
@@ -119,6 +121,8 @@ to work with (and fork) views, including the `View Selector`_ and `View Task Bar
   users (or a role or roles). See the :ref:`adminguide` for details on assigning permissions, or the Optic
   `User Guide`_ for information on granting permissions in the Optic UI.
 
+.. _ug_merge_view:
+
 Merge a View
 ------------
 
@@ -131,12 +135,16 @@ forked view can be deleted, discarding all unmerged changes. This gives you the 
 - completely delete and discard views (and data) used for testing or that contain errors (such as if you accidentally
   tag 100,000 nodes or retrieve passive DNS data for IPv4 127.0.0.1).
 
+.. _ug_merge_review_changes:
+
 Reviewing Changes
 ~~~~~~~~~~~~~~~~~
 
 The Storm :ref:`storm-diff` command can be used in both the Synapse CLI and the Optic `Storm Query Bar`_ and provides
 a flexible way to review some or all changes using the command's options. The **diff icon** in the Optic
 `View Task Bar`_ provides an alternative way to view changes.
+
+.. _ug_merge_merge_changes:
 
 Merging Changes
 ~~~~~~~~~~~~~~~
@@ -152,6 +160,8 @@ The Storm :ref:`storm-merge` command provides greater flexibility to view and me
   command).
 
 The :ref:`storm-merge` command does not delete the forked view.
+
+.. _ug_delete_fork:
 
 Deleting a Forked View
 ~~~~~~~~~~~~~~~~~~~~~~

@@ -1,7 +1,7 @@
 import math
 
 '''
-Synapse module with helpers for earth based geo-spacial calculations.
+Synapse module with helpers for earth based geospatial calculations.
 '''
 
 # base earth geo distances will be in mm
@@ -66,7 +66,7 @@ def haversine(px, py, r=r_mm):
 
 def bbox(lat, lon, dist):
     '''
-    Calculate a min/max bounding box for the circle defined by lalo/dist.
+    Calculate a min/max bounding box for the circle defined by lat/lon/dist.
 
     Args:
         lat (float): The latitude in degrees

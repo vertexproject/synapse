@@ -19,6 +19,12 @@ class ProjModelTest(s_test.SynTest):
             self.nn(proj)
             self.len(1, await core.nodes('proj:project:desc=bar'))
 
+            nodes = await core.nodes('proj:project [ :type=foo.bar ]')
+            self.len(1, nodes)
+            self.eq('foo.bar.', nodes[0].get('type'))
+
+            self.len(1, await core.nodes('proj:project -> proj:project:type:taxonomy'))
+
             opts = {'user': visi.iden, 'vars': {'proj': proj}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.projects.get($proj).epics.add(bar))', opts=opts)
@@ -236,13 +242,14 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(proj, nodes[0].get('project'))
 
-            nodes = await core.nodes('proj:ticket [ :ext:creator={[ps:contact=* :name=visi ]} ]')
+            nodes = await core.nodes('proj:ticket [ :ext:creator={[ps:contact=* :name=visi ]} :ext:assignee={[ps:contact=* :name=bob ]} ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('creator'))
             self.nn(nodes[0].get('created'))
             self.nn(nodes[0].get('updated'))
             self.nn(nodes[0].get('assignee'))
             self.nn(nodes[0].get('ext:creator'))
+            self.nn(nodes[0].get('ext:assignee'))
             self.eq(70, nodes[0].get('status'))
             self.eq(50, nodes[0].get('priority'))
             self.eq('done', nodes[0].repr('status'))

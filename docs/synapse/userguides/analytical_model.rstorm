@@ -286,7 +286,7 @@ Wombat threat group as a C2 location for Redtree malware. It might be tempting t
 By combining three assessments (who used the IPv4, the malware associated with the IPv4, and how the IPv4 was used)
 you have made it much more difficult to update the context on the IP if any one of those three assessments changes.
 What if you realize the IPv4 was used by Sparkling Unicorn instead? Or that the IPv4 was used for data exfiltration
-and not C2? Using three separate tags makes it much easier to revise your assesments if necessary:
+and not C2? Using three separate tags makes it much easier to revise your assessments if necessary:
 
 - ``cno.threat.vicious_wombat.use``
 - ``cno.mal.redtree``

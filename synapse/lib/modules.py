@@ -27,4 +27,5 @@ coremods = (
     'synapse.models.proj.ProjectModule',
     'synapse.models.biz.BizModule',
     'synapse.models.belief.BeliefModule',
+    'synapse.models.science.ScienceModule',
 )

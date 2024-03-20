@@ -17,6 +17,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ ou:technique=*
                     :name=Woot
+                    :names=(Wham, Cool, Wham)
                     :type=lol.woot
                     :desc=Hehe
                     :tag=woot.woot
@@ -29,6 +30,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn('reporter')
             self.eq('woot', nodes[0].get('name'))
+            self.eq(('cool', 'wham'), nodes[0].get('names'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
@@ -40,66 +42,85 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
             self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
 
-            async with await core.snap() as snap:
+            props = {
+                'name': 'MyGoal',
+                'names': ['Foo Goal', 'Bar Goal', 'Bar Goal'],
+                'type': 'foo.bar',
+                'desc': 'MyDesc',
+                'prev': goal,
+            }
+            q = '[(ou:goal=$valu :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :prev=$p.prev)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': goal, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('ou:goal', goal))
+            self.eq(node.get('name'), 'mygoal')
+            self.eq(node.get('names'), ('bar goal', 'foo goal'))
+            self.eq(node.get('type'), 'foo.bar.')
+            self.eq(node.get('desc'), 'MyDesc')
+            self.eq(node.get('prev'), goal)
 
-                props = {
-                    'name': 'MyGoal',
-                    'names': ['Foo Goal', 'Bar Goal', 'Bar Goal'],
-                    'type': 'foo.bar',
-                    'desc': 'MyDesc',
-                    'prev': goal,
-                }
-                node = await snap.addNode('ou:goal', goal, props=props)
-                self.eq(node.get('name'), 'mygoal')
-                self.eq(node.get('names'), ('bar goal', 'foo goal'))
-                self.eq(node.get('type'), 'foo.bar.')
-                self.eq(node.get('desc'), 'MyDesc')
-                self.eq(node.get('prev'), goal)
+            nodes = await core.nodes('[(ou:hasgoal=$valu :stated=$lib.true :window="2019,2020")]',
+                                     opts={'vars': {'valu': (org0, goal)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('org'), org0)
+            self.eq(node.get('goal'), goal)
+            self.eq(node.get('stated'), True)
+            self.eq(node.get('window'), (1546300800000, 1577836800000))
 
-                props = {
-                    'stated': True,
-                    'window': '2019,2020',
-                }
-                node = await snap.addNode('ou:hasgoal', (org0, goal), props=props)
-                self.eq(node.get('org'), org0)
-                self.eq(node.get('goal'), goal)
-                self.eq(node.get('stated'), True)
-                self.eq(node.get('window'), (1546300800000, 1577836800000))
+            timeline = s_common.guid()
 
-                props = {
-                    'org': org0,
-                    'goal': goal,
-                    'goals': (goal,),
-                    'actors': (acto,),
-                    'camptype': 'get.pizza',
-                    'name': 'MyName',
-                    'names': ('foo', 'bar', 'Bar'),
-                    'type': 'MyType',
-                    'desc': 'MyDesc',
-                    'success': 1,
-                    'techniques': teqs,
-                    'sophistication': 'high',
-                    'tag': 'cno.camp.31337',
-                    'reporter': '*',
-                    'reporter:name': 'vertex',
-                }
-                node = await snap.addNode('ou:campaign', camp, props=props)
-                self.eq(node.get('tag'), 'cno.camp.31337')
-                self.eq(node.get('org'), org0)
-                self.eq(node.get('goal'), goal)
-                self.eq(node.get('goals'), (goal,))
-                self.eq(node.get('actors'), (acto,))
-                self.eq(node.get('name'), 'myname')
-                self.eq(node.get('names'), ('bar', 'foo'))
-                self.eq(node.get('type'), 'MyType')
-                self.eq(node.get('desc'), 'MyDesc')
-                self.eq(node.get('success'), 1)
-                self.eq(node.get('sophistication'), 40)
-                self.eq(node.get('camptype'), 'get.pizza.')
-                self.eq(node.get('techniques'), tuple(sorted(teqs)))
+            props = {
+                'org': org0,
+                'goal': goal,
+                'goals': (goal,),
+                'actors': (acto,),
+                'camptype': 'get.pizza',
+                'name': 'MyName',
+                'names': ('foo', 'bar', 'Bar'),
+                'type': 'MyType',
+                'desc': 'MyDesc',
+                'success': 1,
+                'techniques': teqs,
+                'sophistication': 'high',
+                'tag': 'cno.camp.31337',
+                'reporter': '*',
+                'reporter:name': 'vertex',
+                'timeline': timeline,
+                'mitre:attack:campaign': 'C0011',
+            }
+            q = '''[(ou:campaign=$valu :org=$p.org :goal=$p.goal :goals=$p.goals :actors=$p.actors
+            :camptype=$p.camptype :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :success=$p.success
+            :techniques=$p.techniques :sophistication=$p.sophistication :tag=$p.tag
+            :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
+            :mitre:attack:campaign=$p."mitre:attack:campaign"
+            )]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': camp, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('tag'), 'cno.camp.31337')
+            self.eq(node.get('org'), org0)
+            self.eq(node.get('goal'), goal)
+            self.eq(node.get('goals'), (goal,))
+            self.eq(node.get('actors'), (acto,))
+            self.eq(node.get('name'), 'myname')
+            self.eq(node.get('names'), ('bar', 'foo'))
+            self.eq(node.get('type'), 'MyType')
+            self.eq(node.get('desc'), 'MyDesc')
+            self.eq(node.get('success'), 1)
+            self.eq(node.get('sophistication'), 40)
+            self.eq(node.get('camptype'), 'get.pizza.')
+            self.eq(node.get('techniques'), tuple(sorted(teqs)))
+            self.eq(node.get('timeline'), timeline)
+            self.nn(node.get('reporter'))
+            self.eq(node.get('reporter:name'), 'vertex')
+            self.eq(node.get('mitre:attack:campaign'), 'C0011')
 
-                self.nn(node.get('reporter'))
-                self.eq(node.get('reporter:name'), 'vertex')
+            nodes = await core.nodes(f'ou:campaign={camp} -> it:mitre:attack:campaign')
+            self.len(1, nodes)
+            nodes = nodes[0]
+            self.eq(nodes.ndef, ('it:mitre:attack:campaign', 'C0011'))
 
             # type norming first
             # ou:name
@@ -189,241 +210,253 @@ class OuModelTest(s_t_utils.SynTest):
             ''', opts=opts)
             self.eq(('ou:org', suborg), nodes[0].ndef)
 
-            async with await core.snap() as snap:
-                guid0 = s_common.guid()
-                name = '\u21f1\u21f2 Inc.'
-                normname = '\u21f1\u21f2 inc.'
-                altnames = ('altarrowname', 'otheraltarrow', )
-                oprops = {
-                    'loc': 'US.CA',
-                    'name': name,
-                    'type': 'corp',
-                    'orgtype': 'Corp.Lolz',
-                    'names': altnames,
-                    'logo': '*',
-                    'alias': 'arrow',
-                    'phone': '+15555555555',
-                    'sic': '0119',
-                    'naics': 541715,
-                    'url': 'http://www.arrowinc.link',
-                    'us:cage': '7qe71',
-                    'founded': '2015',
-                    'dissolved': '2019',
-                    'techniques': teqs,
-                    'goals': (goal,),
-                }
-                node = await snap.addNode('ou:org', guid0, oprops)
-                self.eq(node.ndef[1], guid0),
-                self.eq(node.get('loc'), 'us.ca')
-                self.eq(node.get('type'), 'corp')
-                self.eq(node.get('orgtype'), 'corp.lolz.')
-                self.eq(node.get('name'), normname)
-                self.eq(node.get('names'), altnames)
-                self.eq(node.get('alias'), 'arrow')
-                self.eq(node.get('phone'), '15555555555')
-                self.eq(node.get('sic'), '0119')
-                self.eq(node.get('naics'), '541715')
-                self.eq(node.get('url'), 'http://www.arrowinc.link')
-                self.eq(node.get('us:cage'), '7qe71')
-                self.eq(node.get('founded'), 1420070400000)
-                self.eq(node.get('dissolved'), 1546300800000)
-                self.eq(node.get('techniques'), tuple(sorted(teqs)))
-                self.eq(node.get('goals'), (goal,))
+            guid0 = s_common.guid()
+            name = '\u21f1\u21f2 Inc.'
+            normname = '\u21f1\u21f2 inc.'
+            altnames = ('altarrowname', 'otheraltarrow',)
+            props = {
+                'loc': 'US.CA',
+                'name': name,
+                'type': 'corp',
+                'orgtype': 'Corp.Lolz',
+                'names': altnames,
+                'logo': '*',
+                'alias': 'arrow',
+                'phone': '+15555555555',
+                'sic': '0119',
+                'naics': 541715,
+                'url': 'http://www.arrowinc.link',
+                'us:cage': '7qe71',
+                'founded': '2015',
+                'dissolved': '2019',
+                'techniques': teqs,
+                'goals': (goal,),
+            }
+            q = '''[(ou:org=$valu :loc=$p.loc :name=$p.name :type=$p.type :orgtype=$p.orgtype :names=$p.names
+                :logo=$p.logo :alias=$p.alias :phone=$p.phone :sic=$p.sic :naics=$p.naics :url=$p.url
+                :us:cage=$p."us:cage" :founded=$p.founded :dissolved=$p.dissolved
+                :techniques=$p.techniques :goals=$p.goals
+            )]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': guid0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('ou:org', guid0))
+            self.eq(node.get('loc'), 'us.ca')
+            self.eq(node.get('type'), 'corp')
+            self.eq(node.get('orgtype'), 'corp.lolz.')
+            self.eq(node.get('name'), normname)
+            self.eq(node.get('names'), altnames)
+            self.eq(node.get('alias'), 'arrow')
+            self.eq(node.get('phone'), '15555555555')
+            self.eq(node.get('sic'), '0119')
+            self.eq(node.get('naics'), '541715')
+            self.eq(node.get('url'), 'http://www.arrowinc.link')
+            self.eq(node.get('us:cage'), '7qe71')
+            self.eq(node.get('founded'), 1420070400000)
+            self.eq(node.get('dissolved'), 1546300800000)
+            self.eq(node.get('techniques'), tuple(sorted(teqs)))
+            self.eq(node.get('goals'), (goal,))
+            self.nn(node.get('logo'))
 
-                self.nn(node.get('logo'))
+            await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
+            self.len(1, await core.nodes('ou:org:country:code=ua'))
+            self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
+            self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
-                await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
-                self.len(1, await core.nodes('ou:org:country:code=ua'))
-                self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
-                self.len(1, await core.nodes('ou:org -> ou:orgtype'))
+            nodes = await core.nodes('ou:name')
+            self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)
 
-                nodes = await snap.nodes('ou:name')
-                self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)
+            nodes = await core.nodes('ou:org:names*[=otheraltarrow]')
+            self.len(1, nodes)
 
-                nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
-                self.len(1, nodes)
+            opts = {'vars': {'name': name}}
+            nodes = await core.nodes('ou:org:names*[=$name]', opts=opts)
+            self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
 
-                opts = {'vars': {'name': name}}
-                nodes = await snap.nodes('ou:org:names*[=$name]', opts=opts)
-                self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
+            person0 = s_common.guid()
+            nodes = await core.nodes('[(ou:member=$valu :title="Dancing Clown" :start=2001 :end=2010)]',
+                                     opts={'vars': {'valu': (guid0, person0)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('ou:member', (guid0, person0)))
+            self.eq(node.get('title'), 'dancing clown')
+            self.eq(node.get('start'), 978307200000)
+            self.eq(node.get('end'), 1262304000000)
 
-                person0 = s_common.guid()
-                mprops = {
-                    'title': 'Dancing Clown',
-                    'start': '2001',
-                    'end': '2010',
-                }
-                node = await snap.addNode('ou:member', (guid0, person0), mprops)
-                self.eq(node.ndef[1], (guid0, person0))
-                self.eq(node.get('title'), 'dancing clown')
-                self.eq(node.get('start'), 978307200000)
-                self.eq(node.get('end'), 1262304000000)
+            guid1 = s_common.guid()
+            nodes = await core.nodes('[(ou:suborg=$valu :perc=50 :current=$lib.true)]',
+                                     opts={'vars': {'valu': (guid0, guid1)}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (guid0, guid1))
+            self.eq(node.get('perc'), 50)
+            self.eq(node.get('current'), 1)
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:suborg=$valu [:perc="-1"]', opts={'vars': {'valu': (guid0, guid1)}})
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:suborg=$valu [:perc=101]', opts={'vars': {'valu': (guid0, guid1)}})
 
-                # ou:suborg
-                guid1 = s_common.guid()
-                subprops = {
-                    'perc': 50,
-                    'current': True,
-                }
-                node = await snap.addNode('ou:suborg', (guid0, guid1), subprops)
-                self.eq(node.ndef[1], (guid0, guid1))
-                self.eq(node.get('perc'), 50)
-                self.eq(node.get('current'), 1)
+            nodes = await core.nodes('[ou:user=$valu]', opts={'vars': {'valu': (guid0, 'arrowman')}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (guid0, 'arrowman'))
+            self.eq(node.get('org'), guid0)
+            self.eq(node.get('user'), 'arrowman')
 
-                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', -1))
-                await self.asyncraises(s_exc.BadTypeValu, node.set('perc', 101))
+            nodes = await core.nodes('[ou:hasalias=$valu]', opts={'vars': {'valu': (guid0, 'EVILCORP')}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (guid0, 'evilcorp'))
+            self.eq(node.get('alias'), 'evilcorp')
+            self.eq(node.get('org'), guid0)
 
-                # ou:user
-                node = await snap.addNode('ou:user', (guid0, 'arrowman'))
-                self.eq(node.ndef[1], (guid0, 'arrowman'))
-                self.eq(node.get('org'), guid0)
-                self.eq(node.get('user'), 'arrowman')
+            nodes = await core.nodes('[ou:orgnet4=$valu]',
+                                     opts={'vars': {'valu': (guid0, ('192.168.1.1', '192.168.1.127'))}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (guid0, (3232235777, 3232235903)))
+            self.eq(node.get('net'), (3232235777, 3232235903))
+            self.eq(node.get('org'), guid0)
 
-                # ou:hasalias
-                node = await snap.addNode('ou:hasalias', (guid0, 'EVILCORP'))
-                self.eq(node.ndef[1], (guid0, 'evilcorp'))
-                self.eq(node.get('alias'), 'evilcorp')
-                self.eq(node.get('org'), guid0)
+            nodes = await core.nodes('[ou:orgnet6=$valu]',
+                                     opts={'vars': {'valu': (guid0, ('fd00::1', 'fd00::127'))}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (guid0, ('fd00::1', 'fd00::127')))
+            self.eq(node.get('net'), ('fd00::1', 'fd00::127'))
+            self.eq(node.get('org'), guid0)
 
-                # ou:orgnet4
-                node = await snap.addNode('ou:orgnet4', (guid0, ('192.168.1.1', '192.168.1.127')))
-                self.eq(node.ndef[1], (guid0, (3232235777, 3232235903)))
-                self.eq(node.get('net'), (3232235777, 3232235903))
-                self.eq(node.get('org'), guid0)
+            nodes = await core.nodes('[ou:org:has=$valu]',
+                                     opts={'vars': {'valu': (guid0, ('test:str', 'pretty floral bonnet'))}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (guid0, ('test:str', 'pretty floral bonnet')))
+            self.eq(node.get('org'), guid0)
+            self.eq(node.get('node'), ('test:str', 'pretty floral bonnet'))
+            self.eq(node.get('node:form'), 'test:str')
 
-                # ou:orgnet6
-                node = await snap.addNode('ou:orgnet6', (guid0, ('fd00::1', 'fd00::127')))
-                self.eq(node.ndef[1], (guid0, ('fd00::1', 'fd00::127')))
-                self.eq(node.get('net'), ('fd00::1', 'fd00::127'))
-                self.eq(node.get('org'), guid0)
+            # ou:meet
+            place0 = s_common.guid()
+            m0 = s_common.guid()
+            props = {
+                'name': 'Working Lunch',
+                'start': '201604011200',
+                'end': '201604011300',
+                'place': place0,
+            }
+            q = '[(ou:meet=$valu :name=$p.name :start=$p.start :end=$p.end :place=$p.place)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': m0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], m0)
+            self.eq(node.get('name'), 'working lunch')
+            self.eq(node.get('start'), 1459512000000)
+            self.eq(node.get('end'), 1459515600000)
+            self.eq(node.get('place'), place0)
 
-                # ou:org:has
-                node = await snap.addNode('ou:org:has', (guid0, ('test:str', 'pretty floral bonnet')))
-                self.eq(node.ndef[1], (guid0, ('test:str', 'pretty floral bonnet')))
-                self.eq(node.get('org'), guid0)
-                self.eq(node.get('node'), ('test:str', 'pretty floral bonnet'))
-                self.eq(node.get('node:form'), 'test:str')
+            props = {
+                'arrived': '201604011201',
+                'departed': '201604011259',
+            }
+            q = '[(ou:meet:attendee=$valu :arrived=$p.arrived :departed=$p.departed)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': (m0, person0), 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (m0, person0))
+            self.eq(node.get('arrived'), 1459512060000)
+            self.eq(node.get('departed'), 1459515540000)
 
-                # ou:meet
-                place0 = s_common.guid()
-                m0 = s_common.guid()
-                mprops = {
-                    'name': 'Working Lunch',
-                    'start': '201604011200',
-                    'end': '201604011300',
-                    'place': place0,
-                }
-                node = await snap.addNode('ou:meet', m0, mprops)
-                self.eq(node.ndef[1], m0)
-                self.eq(node.get('name'), 'working lunch')
-                self.eq(node.get('start'), 1459512000000)
-                self.eq(node.get('end'), 1459515600000)
-                self.eq(node.get('place'), place0)
+            # ou:conference
+            c0 = s_common.guid()
+            props = {
+                'org': guid0,
+                'name': 'arrowcon 2018',
+                'base': 'arrowcon',
+                'start': '20180301',
+                'end': '20180303',
+                'place': place0,
+                'url': 'http://arrowcon.org/2018',
+            }
+            q = '''[(ou:conference=$valu :org=$p.org :name=$p.name :base=$p.base
+                :start=$p.start :end=$p.end :place=$p.place :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], c0)
+            self.eq(node.get('name'), 'arrowcon 2018')
+            self.eq(node.get('base'), 'arrowcon')
+            self.eq(node.get('org'), guid0)
+            self.eq(node.get('start'), 1519862400000)
+            self.eq(node.get('end'), 1520035200000)
+            self.eq(node.get('place'), place0)
+            self.eq(node.get('url'), 'http://arrowcon.org/2018')
 
-                mprops = {
-                    'arrived': '201604011201',
-                    'departed': '201604011259',
-                }
-                node = await snap.addNode('ou:meet:attendee', (m0, person0), mprops)
-                self.eq(node.ndef[1], (m0, person0))
-                self.eq(node.get('arrived'), 1459512060000)
-                self.eq(node.get('departed'), 1459515540000)
+            props = {
+                'arrived': '201803010800',
+                'departed': '201803021500',
+                'role:staff': False,
+                'role:speaker': True,
+                'roles': ['usher', 'coatcheck'],
+            }
+            q = '''[(ou:conference:attendee=$valu :arrived=$p.arrived :departed=$p.departed
+                :role:staff=$p."role:staff" :role:speaker=$p."role:speaker" :roles=$p.roles)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': (c0, person0), 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (c0, person0))
+            self.eq(node.get('arrived'), 1519891200000)
+            self.eq(node.get('departed'), 1520002800000)
+            self.eq(node.get('role:staff'), 0)
+            self.eq(node.get('role:speaker'), 1)
+            self.eq(node.get('roles'), ('coatcheck', 'usher'))
+            # ou:conference:event
+            confguid = c0
+            con0 = s_common.guid()
+            c0 = s_common.guid()
+            props = {
+                'conference': confguid,
+                'name': 'arrowcon 2018 dinner',
+                'desc': 'arrowcon dinner',
+                'start': '201803011900',
+                'end': '201803012200',
+                'contact': con0,
+                'place': place0,
+                'url': 'http://arrowcon.org/2018/dinner',
+            }
+            q = '''[(ou:conference:event=$valu :name=$p.name :desc=$p.desc :start=$p.start :end=$p.end
+                    :conference=$p.conference :contact=$p.contact :place=$p.place :url=$p.url)]'''
+            nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], c0)
+            self.eq(node.get('name'), 'arrowcon 2018 dinner')
+            self.eq(node.get('desc'), 'arrowcon dinner')
+            self.eq(node.get('conference'), confguid)
+            self.eq(node.get('start'), 1519930800000)
+            self.eq(node.get('end'), 1519941600000)
+            self.eq(node.get('contact'), con0)
+            self.eq(node.get('place'), place0)
+            self.eq(node.get('url'), 'http://arrowcon.org/2018/dinner')
 
-                # ou:conference
-                c0 = s_common.guid()
-                cprops = {
-                    'org': guid0,
-                    'name': 'arrowcon 2018',
-                    'base': 'arrowcon',
-                    'start': '20180301',
-                    'end': '20180303',
-                    'place': place0,
-                    'url': 'http://arrowcon.org/2018',
-                }
-                node = await snap.addNode('ou:conference', c0, cprops)
-                self.eq(node.ndef[1], c0)
-                self.eq(node.get('name'), 'arrowcon 2018')
-                self.eq(node.get('base'), 'arrowcon')
-                self.eq(node.get('org'), guid0)
-                self.eq(node.get('start'), 1519862400000)
-                self.eq(node.get('end'), 1520035200000)
-                self.eq(node.get('place'), place0)
-                self.eq(node.get('url'), 'http://arrowcon.org/2018')
+            props = {
+                'arrived': '201803011923',
+                'departed': '201803012300',
+                'roles': ['staff', 'speaker'],
+            }
+            q = '[(ou:conference:event:attendee=$valu :arrived=$p.arrived :departed=$p.departed :roles=$p.roles)]'
+            nodes = await core.nodes(q, opts={'vars': {'valu': (c0, person0), 'p': props}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], (c0, person0))
+            self.eq(node.get('arrived'), 1519932180000)
+            self.eq(node.get('departed'), 1519945200000)
+            self.eq(node.get('roles'), ('speaker', 'staff'))
 
-                cprops = {
-                    'arrived': '201803010800',
-                    'departed': '201803021500',
-                    'role:staff': False,
-                    'role:speaker': True,
-                    'roles': ['usher', 'coatcheck'],
-                }
-                node = await snap.addNode('ou:conference:attendee', (c0, person0), cprops)
-                self.eq(node.ndef[1], (c0, person0))
-                self.eq(node.get('arrived'), 1519891200000)
-                self.eq(node.get('departed'), 1520002800000)
-                self.eq(node.get('role:staff'), 0)
-                self.eq(node.get('role:speaker'), 1)
-                self.eq(node.get('roles'), ('coatcheck', 'usher'))
-
-                # ou:conference:event
-                confguid = c0
-
-                con0 = s_common.guid()
-                cprops = {
-                    'org': guid0,
-                    'name': 'Steve Rogers',
-                    'title': 'The First Avenger',
-                    'orgname': 'Avengers',
-                    'user': 'cap',
-                    'web:acct': ('twitter.com', 'captainamerica'),
-                    'dob': '1918-07-04',
-                    'url': 'https://captainamerica.com/',
-                    'email': 'steve.rogers@gmail.com',
-                    'email:work': 'cap@avengers.com',
-                    'phone': '12345678910',
-                    'phone:fax': '12345678910',
-                    'phone:work': '12345678910',
-                    'address': '222 Avenger Row, Washington, DCSan Francisco, CA, 22222, USA',
-                }
-                pscon = await snap.addNode('ps:contact', con0, cprops)
-
-                c0 = s_common.guid()
-                cprops = {
-                    'conference': confguid,
-                    'name': 'arrowcon 2018 dinner',
-                    'desc': 'arrowcon dinner',
-                    'start': '201803011900',
-                    'end': '201803012200',
-                    'contact': con0,
-                    'place': place0,
-                    'url': 'http://arrowcon.org/2018/dinner',
-                }
-                node = await snap.addNode('ou:conference:event', c0, cprops)
-                self.eq(node.ndef[1], c0)
-                self.eq(node.get('name'), 'arrowcon 2018 dinner')
-                self.eq(node.get('desc'), 'arrowcon dinner')
-                self.eq(node.get('conference'), confguid)
-                self.eq(node.get('start'), 1519930800000)
-                self.eq(node.get('end'), 1519941600000)
-                self.eq(node.get('contact'), con0)
-                self.eq(node.get('place'), place0)
-                self.eq(node.get('url'), 'http://arrowcon.org/2018/dinner')
-
-                cprops = {
-                    'arrived': '201803011923',
-                    'departed': '201803012300',
-                    'roles': ['staff', 'speaker'],
-                }
-                node = await snap.addNode('ou:conference:event:attendee', (c0, person0), cprops)
-                self.eq(node.ndef[1], (c0, person0))
-                self.eq(node.get('arrived'), 1519932180000)
-                self.eq(node.get('departed'), 1519945200000)
-                self.eq(node.get('roles'), ('speaker', 'staff'))
-
-            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar ]')
+            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :url="http://foobar.com/ids"]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
             self.eq('foobar', nodes[0].get('name'))
+            self.eq('http://foobar.com/ids', nodes[0].get('url'))
 
             iden = await core.callStorm('ou:id:type return($node.value())')
 
@@ -582,6 +615,34 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(1, nodes[0].get('industries'))
 
+            nodes = await core.nodes('''[ ou:requirement=50b757fafe4a839ec499023ebcffe7c0
+                :name="acquire pizza toppings"
+                :text="The team must acquire ANSI standard pizza toppings."
+                :goal={[ ou:goal=* :name=pizza ]}
+                :issuer={[ ps:contact=* :name=visi ]}
+                :assignee={ gen.ou.org.hq ledos }
+                :optional=(true)
+                :priority=highest
+                :issued=20120202
+                :period=(2023, ?)
+                :active=(true)
+                :deps=(*, *)
+                :deps:min=1
+            ]''')
+            self.len(1, nodes)
+            self.eq('acquire pizza toppings', nodes[0].get('name'))
+            self.eq('The team must acquire ANSI standard pizza toppings.', nodes[0].get('text'))
+            self.eq(1, nodes[0].get('deps:min'))
+            self.eq(50, nodes[0].get('priority'))
+            self.eq(True, nodes[0].get('optional'))
+            self.eq(1328140800000, nodes[0].get('issued'))
+            self.eq((1672531200000, 9223372036854775807), nodes[0].get('period'))
+
+            self.len(2, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:requirement'))
+            self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:goal +:name=pizza'))
+            self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :issuer -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :assignee -> ps:contact +:orgname=ledos'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
@@ -598,27 +659,16 @@ class OuModelTest(s_t_utils.SynTest):
                     'sic': '0134'}
         }
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                for g, props in omap.items():
-                    await snap.addNode('ou:org', g, props)
-
-                nodes = await snap.nodes('ou:org:sic^=01')
-                self.len(3, nodes)
-
-                nodes = await snap.nodes('ou:org:sic^=011')
-                self.len(2, nodes)
-
-                nodes = await snap.nodes('ou:org:naics^=22')
-                self.len(4, nodes)
-
-                nodes = await snap.nodes('ou:org:naics^=221')
-                self.len(4, nodes)
-
-                nodes = await snap.nodes('ou:org:naics^=2211')
-                self.len(3, nodes)
-
-                nodes = await snap.nodes('ou:org:naics^=22112')
-                self.len(2, nodes)
+            for g, props in omap.items():
+                nodes = await core.nodes('[ou:org=$valu :naics=$p.naics :sic=$p.sic]',
+                                         opts={'vars': {'valu': g, 'p': props}})
+                self.len(1, nodes)
+            self.len(3, await core.nodes('ou:org:sic^=01'))
+            self.len(2, await core.nodes('ou:org:sic^=011'))
+            self.len(4, await core.nodes('ou:org:naics^=22'))
+            self.len(4, await core.nodes('ou:org:naics^=221'))
+            self.len(3, await core.nodes('ou:org:naics^=2211'))
+            self.len(2, await core.nodes('ou:org:naics^=22112'))
 
     async def test_ou_contract(self):
 

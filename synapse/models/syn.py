@@ -127,9 +127,6 @@ class SynModule(s_module.CoreModule):
                 ('syn:cmd', ('str', {'strip': True}), {
                     'doc': 'A Synapse storm command.'
                 }),
-                ('syn:splice', ('guid', {'strip': True}), {
-                    'doc': 'A splice from a layer.'
-                }),
                 ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
                     'doc': 'A nodedata key and the form it may be present on.',
                 }),
@@ -236,6 +233,12 @@ class SynModule(s_module.CoreModule):
                     ('form', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Form the trigger is watching for.'
                     }),
+                    ('verb', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Edge verb the trigger is watching for.'
+                    }),
+                    ('n2form', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'N2 form the trigger is watching for.'
+                    }),
                     ('prop', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Property the trigger is watching for.'
                     }),
@@ -275,41 +278,6 @@ class SynModule(s_module.CoreModule):
                         'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('nodedata', ('array', {'type': 'syn:nodedata'}), {
                         'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
-                )),
-                ('syn:splice', {'runt': True}, (
-                    ('type', ('str', {'strip': True}), {
-                        'doc': 'Type of splice.', 'ro': True
-                    }),
-                    ('iden', ('str', {}), {
-                        'doc': 'The iden of the node involved in the splice.', 'ro': True,
-                    }),
-                    ('form', ('syn:form', {'strip': True}), {
-                        'doc': 'The form involved in the splice.', 'ro': True
-                    }),
-                    ('prop', ('syn:prop', {'strip': True}), {
-                        'doc': 'Property modified in the splice.', 'ro': True
-                    }),
-                    ('tag', ('syn:tag', {'strip': True}), {
-                        'doc': 'Tag modified in the splice.', 'ro': True
-                    }),
-                    ('valu', ('data', {}), {
-                        'doc': 'The value being set in the splice.', 'ro': True
-                    }),
-                    ('oldv', ('data', {}), {
-                        'doc': 'The value before the splice.', 'ro': True
-                    }),
-                    ('user', ('guid', {}), {
-                        'doc': 'The user who caused the splice.', 'ro': True,
-                    }),
-                    ('prov', ('guid', {}), {
-                        'doc': 'The provenance stack of the splice.', 'ro': True,
-                    }),
-                    ('time', ('time', {}), {
-                        'doc': 'The time the splice occurred.', 'ro': True,
-                    }),
-                    ('splice', ('data', {}), {
-                        'doc': 'The splice.', 'ro': True
-                    }),
                 )),
             ),
         }),)

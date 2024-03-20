@@ -59,6 +59,10 @@ class ImapLib(s_stormtypes.Lib):
         },
     )
     _storm_lib_path = ('inet', 'imap', )
+    _storm_lib_perms = (
+        {'perm': ('storm', 'inet', 'imap', 'connect'), 'gate': 'cortex',
+         'desc': 'Controls connecting to external servers via imap.'},
+    )
 
     def getObjLocals(self):
         return {

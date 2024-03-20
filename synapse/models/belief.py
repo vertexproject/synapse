@@ -10,7 +10,7 @@ class BeliefModule(s_module.CoreModule):
                     'doc': 'A belief system such as an ideology, philosophy, or religion.'}),
 
                 ('belief:system:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of belief system types.'}),
 
                 ('belief:tenet', ('guid', {}), {

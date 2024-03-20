@@ -2,9 +2,12 @@ import math
 import decimal
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.coro as s_coro
+import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lookup.cvss as s_cvss
@@ -410,6 +413,102 @@ def roundup(x):
     return (math.ceil(x * 10) / 10.0)
 
 @s_stormtypes.registry.registerLib
+class MitreAttackFlowLib(s_stormtypes.Lib):
+    '''
+    A Storm library which implements modeling MITRE ATT&CK Flow diagrams.
+    '''
+    _storm_lib_path = ('infosec', 'mitre', 'attack', 'flow')
+    _storm_locals = (
+        {'name': 'norm', 'desc': 'Normalize a MITRE ATT&CK Flow diagram in JSON format.',
+         'type': {'type': 'function', '_funcname': '_norm',
+                  'args': (
+                      {'name': 'flow', 'type': 'data',
+                       'desc': 'The MITRE ATT&CK Flow diagram in JSON format to normalize (flatten and sort).'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The normalized MITRE ATT&CK Flow diagram.', }
+        }},
+        {'name': 'ingest', 'desc': 'Ingest a MITRE ATT&CK Flow diagram in JSON format.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to ingest.'},
+                  ),
+                  'returns': {'type': ['node', 'null'], 'desc': 'The it:mitre:attack:flow node representing the ingested attack flow diagram.'}}},
+
+    )
+    _storm_query = '''
+        function ingest(flow) {
+            // norm (validate, flatten, and sort)
+            $flow = $lib.infosec.mitre.attack.flow.norm($flow)
+
+            // Use the normed flow to generate the guid
+            $guid = $lib.guid($flow)
+
+            $objs_byid = ({})
+            $objs_bytype = ({})
+
+            for $obj in $flow.objects {
+                $id = $obj.id
+                $objs_byid.$id = $obj
+
+                $type = $obj.type
+                if (not $objs_bytype.$type) {
+                    $objs_bytype.$type = ([])
+                }
+                $objs_bytype.$type.append($obj)
+            }
+
+            $attack_flow = $objs_bytype."attack-flow".0
+            $created_by = $objs_byid.($attack_flow.created_by_ref)
+
+            ($ok, $name) = $lib.trycast(ps:name, $created_by.name)
+            if (not $ok) {
+                $lib.warn(`Error casting contact name to ou:name: {$created_by.name}`)
+                return()
+            }
+
+            ($ok, $contact_information) = $lib.trycast(inet:email, $created_by.contact_information)
+            if (not $ok) {
+                $lib.warn(`Error casting contact information to inet:email: {$created_by.contact_information}`)
+                return()
+            }
+
+            [ it:mitre:attack:flow = $guid
+                :name ?= $attack_flow.name
+                :data = $flow
+                :created ?= $attack_flow.created
+                :updated ?= $attack_flow.modified
+                :author:user ?= $lib.user.iden
+                :author:contact = {[ ps:contact = (attack-flow, $name, $contact_information)
+                                        :name = $name
+                                        :email = $contact_information
+                                    ]}
+            ]
+
+            return($node)
+        }
+    '''
+    _validator = None
+
+    def getObjLocals(self):
+        return {
+            'norm': self._norm,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _norm(self, flow):
+        flow = await s_stormtypes.toprim(flow)
+
+        if self.__class__._validator is None:
+            schema = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
+            self.__class__._validator = s_config.getJsValidator(schema)
+
+        flow = await s_coro.executor(self.__class__._validator, flow)
+        flow = s_common.flatten(flow)
+        flow['objects'] = sorted(flow.get('objects'), key=lambda x: x.get('id'))
+
+        return flow
+
+@s_stormtypes.registry.registerLib
 class CvssLib(s_stormtypes.Lib):
     '''
     A Storm library which implements CVSS score calculations.
@@ -496,7 +595,7 @@ class CvssLib(s_stormtypes.Lib):
                                 environmental score, overall score, and normalized vector string.
                                 The normalized vector string will have metrics ordered in
                                 specification order and metrics with undefined values will be
-                                removed. Example:
+                                removed. Example::
 
                                     {
                                         'version': '3.1',
@@ -506,6 +605,7 @@ class CvssLib(s_stormtypes.Lib):
                                         'environmental': 4.3,
                                         'normalized': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
                                     }
+
                               '''}
         }},
     )
@@ -520,6 +620,7 @@ class CvssLib(s_stormtypes.Lib):
             'calculateFromProps': self.calculateFromProps,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def vectToProps(self, text):
         s_common.deprecated('$lib.infosec.cvss.vectToProps()', '2.137.0', '3.0.0')
         await self.runt.snap.warnonce('$lib.infosec.cvss.vectToProps() is deprecated.')
@@ -591,6 +692,7 @@ class CvssLib(s_stormtypes.Lib):
 
         return rval
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def calculateFromProps(self, props, vers='3.1'):
 
         vers = await s_stormtypes.tostr(vers)
@@ -716,6 +818,7 @@ class CvssLib(s_stormtypes.Lib):
 
         return rval
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def vectToScore(self, vect, vers=None):
         vers = await s_stormtypes.tostr(vers, noneok=True)
 

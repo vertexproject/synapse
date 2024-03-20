@@ -185,6 +185,11 @@
         }
       },
       "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
+      "resolves_to_refs": [
+        "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+        "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+        "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c"
+      ],
       "spec_version": "2.1",
       "type": "domain-name",
       "value": "vertex.link"

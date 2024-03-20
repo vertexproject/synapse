@@ -8,7 +8,7 @@ import threading
 
 from unittest import mock
 
-logger = logging.getLogger(__name__)
+import cryptography.hazmat.primitives.hashes as c_hashes
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -21,11 +21,11 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
-import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
+
+logger = logging.getLogger(__name__)
 
 class Boom:
     pass
@@ -248,7 +248,7 @@ class TeleTest(s_t_utils.SynTest):
             # check an async generator return channel
             genr = prox.corogenr(3)
             self.true(isinstance(genr, s_telepath.GenrIter))
-            self.eq((0, 1, 2), await alist(genr))
+            self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
             # check async generator explodes channel
             genr = prox.agenrboom()
@@ -343,11 +343,11 @@ class TeleTest(s_t_utils.SynTest):
 
                 # check a generator return channel
                 genr = await prox.genr()
-                self.eq((10, 20, 30), await alist(genr))
+                self.eq((10, 20, 30), await s_t_utils.alist(genr))
 
                 # check an async generator return channel
                 genr = prox.corogenr(3)
-                self.eq((0, 1, 2), await alist(genr))
+                self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
 
@@ -398,7 +398,7 @@ class TeleTest(s_t_utils.SynTest):
                 hostkey, hostcert = certdir.genHostCert(hostname, signas='loopy')
                 self.none(certdir.getHostCertHash('newp.newp.newp'))
 
-                certhash = hostcert.digest('sha256').decode().lower().replace(':', '')
+                certhash = s_common.ehex(hostcert.fingerprint(c_hashes.SHA256()))
 
                 host, port = await dmon.listen(f'ssl://{hostname}:0')
                 dmon.share('foo', foo)
@@ -662,7 +662,7 @@ class TeleTest(s_t_utils.SynTest):
                          key: 'synapse.tests.test_telepath.CustomShare'})
 
                 # and we can still use the first obj we made
-                ret = await alist(obj.custgenr(3))
+                ret = await s_t_utils.alist(obj.custgenr(3))
                 self.eq(ret, [0, 1, 2])
 
             # check that a dynamic share works
@@ -800,79 +800,6 @@ class TeleTest(s_t_utils.SynTest):
                 # check a standard return value
                 self.eq(30, await prox.bar(10, 20))
 
-    async def test_telepath_client_redir(self):
-
-        class TestRedir(s_telepath.Aware):
-
-            def __init__(self, valu, redir=None):
-                self.valu = valu
-                self.redir = redir
-
-            def getTeleApi(self, link, mesg, path):
-                if self.redir is not None:
-                    raise s_exc.TeleRedir(url=self.redir)
-                return self
-
-            async def dostuff(self, x):
-
-                if self.redir:
-                    raise s_exc.TeleRedir(url=self.redir)
-
-                return x + self.valu
-
-        dmon0 = await s_daemon.Daemon.anit()
-        dmon1 = await s_daemon.Daemon.anit()
-
-        addr0 = await dmon0.listen('tcp://127.0.0.1:0/')
-        addr1 = await dmon1.listen('tcp://127.0.0.1:0/')
-
-        url0 = f'tcp://127.0.0.1:{addr0[1]}/foo'
-        url1 = f'tcp://127.0.0.1:{addr1[1]}/foo'
-
-        rdir0 = TestRedir(10)
-        rdir1 = TestRedir(20, redir=url0)
-
-        dmon0.share('foo', rdir0)
-        dmon1.share('foo', rdir1)
-
-        async with await s_telepath.Client.anit(url0) as targ:
-
-            with self.raises(s_exc.NotReady):
-                targ.dostuff(100)
-
-            await targ.waitready()
-            proxy = await targ.proxy()
-            self.eq(proxy._getSynVers(), s_version.version)
-
-            # Client implements some base helpers the proxy does
-            self.eq(targ._getSynVers(), s_version.version)
-            self.eq(targ._getSynCommit(), s_version.commit)
-            self.eq(targ._getClasses(),
-                    ('synapse.tests.test_telepath.TestRedir',
-                     'synapse.telepath.Aware'))
-            # client works as a passthrough to the proxy
-            self.eq(110, await targ.dostuff(100))
-
-        # this should get redirected to url0...
-        async with await s_telepath.Client.anit(url1) as targ:
-            await targ.waitready()
-            self.eq(110, await targ.dostuff(100))
-
-        # fake out the redirect to connect, then redirect on call...
-        rdir1.redir = None
-        async with await s_telepath.Client.anit(url1) as targ:
-            await targ.waitready()
-            self.eq(120, await targ.dostuff(100))
-            rdir1.redir = url0
-            self.eq(110, await targ.dostuff(100))
-
-        # client is now fini and methods on longer work
-        with self.raises(s_exc.IsFini):
-            await targ.dostuff(100)
-
-        await dmon0.fini()
-        await dmon1.fini()
-
     async def test_telepath_client_failover(self):
 
         class TestFail:
@@ -900,7 +827,7 @@ class TeleTest(s_t_utils.SynTest):
 
         urls = (url0, url1)
 
-        async with await s_telepath.Client.anit(urls) as targ:
+        async with await s_telepath.open(urls) as targ:
 
             await targ.waitready()
 
@@ -916,7 +843,7 @@ class TeleTest(s_t_utils.SynTest):
             self.eq(1, fail0.count)
             self.eq(1, fail1.count)
 
-        async with await s_telepath.Client.anit(urls) as targ:
+        async with await s_telepath.open(urls) as targ:
 
             with self.getAsyncLoggerStream('synapse.telepath', 'Connect call failed') as stream:
 
@@ -932,6 +859,10 @@ class TeleTest(s_t_utils.SynTest):
 
             self.eq(1, fail0.count)
             self.eq(2, fail1.count)
+
+        async with await s_telepath.open(url1) as targ:
+            await targ.waitready()
+            self.eq(110, await targ.dostuff(100))
 
         await dmon1.fini()
 

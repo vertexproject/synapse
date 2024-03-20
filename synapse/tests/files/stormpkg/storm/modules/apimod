@@ -1,0 +1,10 @@
+
+function search(text, mintime="-30days") {
+    for $t in $text {
+        [ it:devstr=$t ]
+    }
+}
+
+function status() {
+    return(({"ok": true}))
+}

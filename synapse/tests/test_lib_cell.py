@@ -2,6 +2,7 @@ import os
 import ssl
 import sys
 import time
+import base64
 import signal
 import socket
 import asyncio
@@ -10,6 +11,8 @@ import collections
 import multiprocessing
 
 from unittest import mock
+
+import cryptography.x509 as c_x509
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
@@ -22,7 +25,9 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -31,9 +36,6 @@ import synapse.lib.crypto.passwd as s_passwd
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
-
-from OpenSSL import crypto
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -343,6 +345,11 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.delUserRule(visi.iden, rule)
                     self.notin(rule, visi.info.get('rules'))
 
+                self.eq(echo.getDmonUser(), echo.auth.rootuser.iden)
+
+                with self.raises(s_exc.NeedConfValu):
+                    await echo.reqAhaProxy()
+
     async def test_cell_unix_sock(self):
 
         async with self.getTestCore() as core:
@@ -552,6 +559,9 @@ class CellTest(s_t_utils.SynTest):
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
+                # Defaults aha data is
+                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
+
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)
                 self.eq(snfo.get('verstring'), s_version.verstring),
@@ -736,7 +746,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await prox.cullNexsLog(offs))
 
                     # last entry in nexus log is cull
-                    retn = await alist(cell.nexsroot.nexslog.iter(0))
+                    retn = await s_t_utils.alist(cell.nexsroot.nexslog.iter(0))
                     self.len(1, retn)
                     self.eq(ind, retn[0][0])
                     self.eq('nexslog:cull', retn[0][1][1])
@@ -873,7 +883,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'celluptime', 'cellrealdisk',
@@ -884,7 +894,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(conf=conf, dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
@@ -2079,13 +2089,23 @@ class CellTest(s_t_utils.SynTest):
             return _ntuple_diskusage(100, 96, 4)
 
         revt = asyncio.Event()
-        orig = s_cortex.Cortex._setReadOnly
-        async def wrapReadOnly(self, valu):
-            await orig(self, valu)
+        addWriteHold = s_nexus.NexsRoot.addWriteHold
+        delWriteHold = s_nexus.NexsRoot.delWriteHold
+        async def wrapAddWriteHold(root, reason):
+            retn = await addWriteHold(root, reason)
             revt.set()
+            return retn
+
+        async def wrapDelWriteHold(root, reason):
+            retn = await delWriteHold(root, reason)
+            revt.set()
+            return retn
+
+        errmsg = 'Insufficient free space on disk.'
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
-             mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
+             mock.patch.object(s_nexus.NexsRoot, 'addWriteHold', wrapAddWriteHold), \
+             mock.patch.object(s_nexus.NexsRoot, 'delWriteHold', wrapDelWriteHold):
 
             async with self.getTestCore() as core:
 
@@ -2095,10 +2115,9 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await asyncio.wait_for(revt.wait(), 1))
 
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
-                    self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                    self.stormIsInErr(errmsg, msgs)
 
-                    revt.clear()
-
+                revt.clear()
                 self.true(await asyncio.wait_for(revt.wait(), 1))
 
                 self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
@@ -2127,9 +2146,9 @@ class CellTest(s_t_utils.SynTest):
                             self.true(await asyncio.wait_for(revt.wait(), 1))
 
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
-                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            self.stormIsInErr(errmsg, msgs)
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
-                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            self.stormIsInErr(errmsg, msgs)
                             self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
 
                             offs = await core00.getNexsIndx()
@@ -2139,6 +2158,7 @@ class CellTest(s_t_utils.SynTest):
                             self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
                             revt.clear()
 
+                        revt.clear()
                         self.true(await asyncio.wait_for(revt.wait(), 1))
                         await core01.sync()
 
@@ -2158,7 +2178,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch('shutil.disk_usage', full_disk):
                         opts = {'view': viewiden}
                         msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
-                        self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                        self.stormIsInErr(errmsg, msgs)
                         nodes = await core.nodes('inet:ipv4', opts=opts)
                         self.gt(len(nodes), 0)
                         self.lt(len(nodes), 20000)
@@ -2180,6 +2200,20 @@ class CellTest(s_t_utils.SynTest):
                                               'Error during slab resize callback - foo') as stream:
                         nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
                         self.true(stream.wait(1))
+
+        async with self.getTestCore() as core:
+
+            await core.nexsroot.addWriteHold('LOLWRITE TESTING')
+
+            msgs = await core.stormlist('[inet:fqdn=newp.fail]')
+
+            self.stormIsInErr('LOLWRITE TESTING', msgs)
+
+            await core.nexsroot.delWriteHold('LOLWRITE TESTING')
+
+            core.nexsroot.readonly = True
+            with self.raises(s_exc.IsReadOnly):
+                core.nexsroot.reqNotReadOnly()
 
     async def test_cell_onboot_optimize(self):
 
@@ -2210,6 +2244,28 @@ class CellTest(s_t_utils.SynTest):
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
+
+            _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
+            realstat = os.stat
+            def diffdev(path):
+                real = realstat(path)
+                if path.endswith('mdb'):
+                    return _ntuple_stat(1, real.st_mode, real.st_blocks, real.st_size)
+                elif path.endswith('tmp'):
+                    return _ntuple_stat(2, real.st_mode, real.st_blocks, real.st_size)
+                return real
+
+            with mock.patch('os.stat', diffdev):
+                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    conf = {'onboot:optimize': True}
+                    async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                        pass
+
+                    stream.seek(0)
+                    buf = stream.read()
+                    self.notin('onboot optimization complete!', buf)
+                    self.isin('not on the same volume', buf)
 
     async def test_cell_gc(self):
         async with self.getTestCore() as core:
@@ -2315,8 +2371,9 @@ class CellTest(s_t_utils.SynTest):
                     return ssl.DER_cert_to_PEM_cert(der_cert)
 
                 original_cert = await s_coro.executor(get_pem_cert)
-                ocert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
-                self.eq(ocert.get_subject().CN, 'reloadcell')
+                ocert = c_x509.load_pem_x509_certificate(original_cert.encode())
+                cname = ocert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                self.eq(cname, 'reloadcell')
 
                 # Start a beholder session that runs over TLS
 
@@ -2361,8 +2418,9 @@ class CellTest(s_t_utils.SynTest):
                         await cell.reload()
 
                         reloaded_cert = await s_coro.executor(get_pem_cert)
-                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)
-                        self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
+                        rcert = c_x509.load_pem_x509_certificate(reloaded_cert.encode())
+                        rname = rcert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                        self.eq(rname, 'SomeTestCertificate')
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                             resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
@@ -2376,3 +2434,207 @@ class CellTest(s_t_utils.SynTest):
 
                         users = {m.get('info', {}).get('name') for m in bitems}
                         self.eq(users, {'alice', 'bob'})
+
+    async def test_cell_user_api_key(self):
+        async with self.getTestCell(s_cell.Cell) as cell:
+
+            await cell.auth.rootuser.setPasswd('root')
+            root = cell.auth.rootuser.iden
+
+            lowuser = await cell.addUser('lowuser')
+            lowuser = lowuser.get('iden')
+
+            hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+            rtk0, rtdf0 = await cell.addUserApiKey(root, name='Test Token')
+            bkk0, bkdf0 = await cell.addUserApiKey(root, name='Backup Token')
+
+            self.notin('exipres', rtdf0)
+
+            async with cell.getLocalProxy() as prox:
+                isok, valu = await prox.checkUserApiKey(rtk0)
+            self.true(isok)
+            self.eq(valu.get('kdef'), rtdf0)
+            udef = valu.get('udef')
+            self.eq(udef.get('iden'), root)
+            self.eq(udef.get('name'), 'root')
+
+            isok, valu = await cell.checkUserApiKey(rtk0 + 'newp')
+            self.false(isok)
+            self.eq(valu, {'mesg': 'API key is malformed.'})
+
+            badkey = base64.b64encode(s_common.uhex(rtdf0.get('iden')) + b'X' * 16, altchars=b'-_').decode('utf-8')
+            isok, valu = await cell.checkUserApiKey(badkey)
+            self.false(isok)
+            self.eq(valu, {'mesg': f'API key shadow mismatch: {rtdf0.get("iden")}',
+                           'user': root, 'name': 'root'})
+
+            allkeys = []
+            async for kdef in cell.getApiKeys():
+                allkeys.append(kdef)
+            self.len(2, allkeys)
+            _kdefs = [rtdf0, bkdf0]
+            for kdef in allkeys:
+                self.eq(kdef.get('user'), root)
+                self.isin(kdef, _kdefs)
+                _kdefs.remove(kdef)
+            self.len(0, _kdefs)
+
+            rootkeys = await cell.listUserApiKeys(root)
+            self.eq(allkeys, rootkeys)
+
+            lowkeys = await cell.listUserApiKeys(lowuser)
+            self.len(0, lowkeys)
+
+            async with self.getHttpSess(port=hport) as sess:
+
+                headers0 = {'X-API-KEY': rtk0}
+
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers0,
+                                       json={'user': lowuser})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+                resp = await sess.get(f'https://localhost:{hport}/api/v1/auth/roles', headers=headers0)
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+            # Change the token name
+            rtdf0_new = await cell.modUserApiKey(rtdf0.get('iden'), 'name', 'Haha Key')
+            self.eq(rtdf0_new.get('name'), 'Haha Key')
+
+            # Verify duration arg for expiration is applied
+            with self.raises(s_exc.BadArg):
+                await cell.addUserApiKey(root, 'newp', duration=0)
+            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200)
+            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200)
+
+            isok, info = await cell.checkUserApiKey(rtk1)
+            self.true(isok)
+
+            await asyncio.sleep(0.4)
+
+            isok, info = await cell.checkUserApiKey(rtk1)
+            self.false(isok)
+            self.isin('API key is expired', info.get('mesg'))
+
+            # Expired tokens fail...
+            async with self.getHttpSess(port=hport) as sess:
+
+                # Expired token fails
+                headers2 = {'X-API-KEY': rtk1}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                                       json={'user': lowuser})
+                self.eq(401, resp.status)
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+
+            await cell.delUserApiKey(rtdf1.get('iden'))
+
+            rtk3, rtdf3 = await cell.addUserApiKey(root, name='Test Token 3')
+
+            async with self.getHttpSess(port=hport) as sess:
+
+                # New token works
+                headers2 = {'X-API-KEY': rtk3}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                                       json={'user': lowuser})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+                # Delete the token - it no longer works
+                await cell.delUserApiKey(rtdf3.get('iden'))
+
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                                       json={'user': lowuser})
+                self.eq(401, resp.status)
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+
+                # Backup token works
+                headers2 = {'X-API-KEY': bkk0}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
+                                       json={'user': lowuser})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+            # Generate an API key for lowuser and delete the user. The token should be deleted as well.
+            ltk0, ltdf0 = await cell.addUserApiKey(lowuser, name='Visi Token')
+            self.eq(lowuser, ltdf0.get('user'))
+
+            async with self.getHttpSess(port=hport) as sess:
+
+                # New token works
+                headers2 = {'X-API-KEY': ltk0}
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                                       json={'passwd': 'secret'})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+
+                # Make some additional keys that will be deleted
+                ktup0 = await cell.addUserApiKey(lowuser, name='1', duration=1)
+                ktup1 = await cell.addUserApiKey(lowuser, name='2', duration=1)
+                ktup2 = await cell.addUserApiKey(lowuser, name='3', duration=1)
+                ktup3 = await cell.addUserApiKey(lowuser, name='4', duration=1)
+
+                # We have bunch of API keys we can list
+                allkeys = []
+                async for kdef in cell.getApiKeys():
+                    allkeys.append(kdef)
+                self.len(5 + 2, allkeys)  # Root has two, lowuser has 5
+
+                # Lock users cannot use their API keys
+                await cell.setUserLocked(lowuser, True)
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                                       json={'passwd': 'secret'})
+                self.eq(401, resp.status)
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+
+                await cell.delUser(lowuser)
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
+                                       json={'passwd': 'secret'})
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+
+            with self.raises(s_exc.NoSuchUser):  # user was deleted...
+                await cell.listUserApiKeys(lowuser)
+            rootkeys = await cell.listUserApiKeys(root)
+            self.len(2, rootkeys)  # Root has two
+
+            # Ensure User meta was cleaned up from the user deletion, as well as
+            # the api key db. Only two root keys should be left
+            vals = set()
+            # for key, vals in cell.slab.scanByPref(lowuse)
+            i = 0
+            for lkey, val in cell.slab.scanByFull(cell.usermetadb):
+                i = i + 1
+                suffix = lkey[16:]
+                if suffix.startswith(b'apikey'):
+                    kdef = s_msgpack.un(val)
+                    vals.add(kdef.get('iden'))
+            self.eq(i, 2)
+            self.eq(vals, {bkdf0.get('iden'), rtdf0.get('iden')})
+
+            i = 0
+            users = set()
+            for lkey, val in cell.slab.scanByFull(cell.apikeydb):
+                i = i + 1
+                users.add(s_common.ehex(val))
+            self.eq(i, 2)
+            self.eq(users, {root, })
+
+            # Sad path coverage
+            with self.raises(s_exc.BadArg):
+                await cell.modUserApiKey(bkdf0.get('iden'), 'shadow', {'hehe': 'haha'})
+
+            newp = s_common.guid()
+
+            with self.raises(s_exc.NoSuchUser):
+                await cell.addUserApiKey(newp, 'newp')
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.modUserApiKey(newp, 'name', 'newp')
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.delUserApiKey(newp)

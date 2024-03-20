@@ -52,6 +52,13 @@ class AhaToolsTest(s_t_utils.SynTest):
                     outp.expect('cell0                demo.net')
                     self.false(outp.expect('cell1                example.net', throw=False))
 
+        async with self.getTestCore() as core:
+            curl = core.getLocalUrl()
+            argv = [curl]
+            retn, outp = await self.execToolMain(s_a_list._main, argv)
+            self.eq(1, retn)
+            outp.expect(f'Service at {curl} is not an Aha server')
+
     async def test_aha_easycert(self):
 
         ephemeral_address = 'tcp://0.0.0.0:0/'

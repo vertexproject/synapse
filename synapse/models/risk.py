@@ -23,6 +23,15 @@ class CvssV3(s_types.Str):
             mesg = exc.get('mesg')
             raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
 
+alertstatus = (
+    (0, 'new'),
+    (10, 'enrichment'),
+    (20, 'todo'),
+    (30, 'analysis'),
+    (40, 'remediation'),
+    (50, 'done'),
+)
+
 class RiskModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -44,15 +53,19 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A vulnerability name such as log4j or rowhammer.'}),
 
                 ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of vulnerability types.'}),
 
                 ('risk:vuln:soft:range', ('guid', {}), {
                     'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
 
                 ('risk:hasvuln', ('guid', {}), {
-                    'doc': 'An instance of a vulnerability present in a target.',
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use risk:vulnerable.'}),
+
+                ('risk:vulnerable', ('guid', {}), {
+                    'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
+
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
                 }),
@@ -60,7 +73,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an actor attacking a target.',
                 }),
                 ('risk:alert:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of alert types.'
+                    'doc': 'A taxonomy of alert types.',
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
@@ -73,19 +87,19 @@ class RiskModule(s_module.CoreModule):
                 }),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of attack types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:compromisetype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of compromise types.',
                     'ex': 'cno.breach',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:tool:software:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of software / tool types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:availability', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of availability status values.',
                 }),
                 ('risk:tool:software', ('guid', {}), {
@@ -93,10 +107,29 @@ class RiskModule(s_module.CoreModule):
                 }),
 
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of verdicts for the origin and validity of the alert.'}),
+                    'doc': 'A taxonomy of verdicts for the origin and validity of the alert.',
+                    'interfaces': ('meta:taxonomy',),
+                }),
 
                 ('risk:threat:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of threat types.'}),
+
+                ('risk:leak', ('guid', {}), {
+                    'doc': 'An event where information was disclosed without permission.'}),
+
+                ('risk:leak:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of leak event types.'}),
+
+                ('risk:extortion', ('guid', {}), {
+                    'doc': 'An event where an attacker attempted to extort a victim.'}),
+
+                ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of extortion event types.'}),
+                ('risk:technique:masquerade', ('guid', {}), {
+                    'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
             ),
             'edges': (
                 # some explicit examples...
@@ -121,7 +154,6 @@ class RiskModule(s_module.CoreModule):
                 (('risk:threat', 'targets', 'ou:industry'), {
                     'doc': 'The threat cluster targets the industry.'}),
 
-
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target node.'}),
                 (('risk:threat', 'uses', None), {
@@ -136,6 +168,12 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
                 (('risk:mitigation', 'addresses', 'ou:technique'), {
                     'doc': 'The mitigation addresses the technique.'}),
+
+                (('risk:leak', 'leaked', None), {
+                    'doc': 'The leak included the disclosure of the target node.'}),
+
+                (('risk:extortion', 'leveraged', None), {
+                    'doc': 'The extortion event was based on attacker access to the target node.'}),
             ),
             'forms': (
 
@@ -205,6 +243,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('merged:isnow', ('risk:threat', {}), {
                         'doc': 'The threat cluster that the reporting organization merged this cluster into.'}),
+
+                    ('mitre:attack:group', ('it:mitre:attack:group', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -254,19 +295,43 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
+                    ('mitre:attack:software', ('it:mitre:attack:software', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
+
                 )),
                 ('risk:mitigation', {}, (
+
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
-                    ('name', ('str', {}), {
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
+
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the mitigation.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
+
                     ('software', ('it:prod:softver', {}), {
                         'doc': 'A software version which implements a fix for the vulnerability.'}),
+
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the mitigation.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the mitigation.'}),
+
+                    ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK mitigation if applicable.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
                 )),
                 ('risk:vulnname', {}, ()),
                 ('risk:vuln:type:taxonomy', {}, ()),
@@ -285,6 +350,12 @@ class RiskModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the vulnerability.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'The severity of the vulnerability.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of the vulnerability.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the vulnerability.'}),
@@ -312,6 +383,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('timeline:exploited', ('time', {"ismin": True}), {
                         'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the vulnerability.'}),
 
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
@@ -523,32 +597,32 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:hasvuln', {}, (
                     ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The vulnerability present in the target.'
-                    }),
+                        'doc': 'The vulnerability present in the target.'}),
                     ('person', ('ps:person', {}), {
-                        'doc': 'The vulnerable person.',
-                    }),
+                        'doc': 'The vulnerable person.'}),
                     ('org', ('ou:org', {}), {
-                        'doc': 'The vulnerable org.',
-                    }),
+                        'doc': 'The vulnerable org.'}),
                     ('place', ('geo:place', {}), {
-                        'doc': 'The vulnerable place.',
-                    }),
+                        'doc': 'The vulnerable place.'}),
                     ('software', ('it:prod:softver', {}), {
-                        'doc': 'The vulnerable software.',
-                    }),
+                        'doc': 'The vulnerable software.'}),
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The vulnerable hardware.',
-                    }),
+                        'doc': 'The vulnerable hardware.'}),
                     ('spec', ('mat:spec', {}), {
-                        'doc': 'The vulnerable material specification.',
-                    }),
+                        'doc': 'The vulnerable material specification.'}),
                     ('item', ('mat:item', {}), {
-                        'doc': 'The vulnerable material item.',
-                    }),
+                        'doc': 'The vulnerable material item.'}),
                     ('host', ('it:host', {}), {
-                        'doc': 'The vulnerable host.'
-                    })
+                        'doc': 'The vulnerable host.'})
+                )),
+
+                ('risk:vulnerable', {}, (
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability that the node is susceptible to.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time window where the node was vulnerable.'}),
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node which is vulnerable.'}),
                 )),
 
                 ('risk:alert:taxonomy', {}, {}),
@@ -564,15 +638,27 @@ class RiskModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A free-form description / overview of the alert.'}),
 
+                    ('status', ('int', {'enums': alertstatus}), {
+                        'doc': 'The status of the alert.'}),
+
                     ('benign', ('bool', {}), {
                         'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
-                    ('priority', ('int', {}), {
-                        'doc': 'A numeric value used to rank alerts by priority.'}),
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'A priority rank for the alert.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the alert.'}),
 
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
                         'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
+
+                    ('assignee', ('syn:user', {}), {
+                        'doc': 'The Synapse user who is assigned to investigate the alert.'}),
+
+                    ('ext:assignee', ('ps:contact', {}), {
+                        'doc': 'The alert assignee contact information from an external system.'}),
 
                     ('engine', ('it:prod:softver', {}), {
                         'doc': 'The software that generated the alert.'}),
@@ -591,6 +677,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the alert.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host which generated the alert.'}),
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
@@ -606,6 +695,12 @@ class RiskModule(s_module.CoreModule):
 
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the compromise.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external unique ID for the compromise.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the compromise.'}),
 
                     ('type', ('risk:compromisetype', {}), {
                         'ex': 'cno.breach',
@@ -662,8 +757,8 @@ class RiskModule(s_module.CoreModule):
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency type for the econ:price fields.'}),
 
-                    ('severity', ('int', {}), {
-                        'doc': 'An integer based relative severity score for the compromise.'}),
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the compromise.'}),
 
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the attacker for the compromise.'}),
@@ -715,8 +810,8 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.'}),
 
-                    ('severity', ('int', {}), {
-                        'doc': 'An integer based relative severity score for the attack.'}),
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the attack.'}),
 
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the attack.'}),
@@ -809,6 +904,112 @@ class RiskModule(s_module.CoreModule):
                     ('ext:id', ('str', {}), {
                         'doc': 'An external unique ID for the attack.'}),
 
+                )),
+
+                ('risk:leak:type:taxonomy', {}, ()),
+                ('risk:leak', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A simple name for the leak event.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the leak event.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the leak event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the leak event.'}),
+
+                    ('disclosed', ('time', {}), {
+                        'doc': 'The time the leaked information was disclosed.'}),
+
+                    ('owner', ('ps:contact', {}), {
+                        'doc': 'The owner of the leaked information.'}),
+
+                    ('leaker', ('ps:contact', {}), {
+                        'doc': 'The identity which leaked the information.'}),
+
+                    ('type', ('risk:leak:type:taxonomy', {}), {
+                        'doc': 'A type taxonomy for the leak.'}),
+
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The goal of the leaker in disclosing the information.'}),
+
+                    ('compromise', ('risk:compromise', {}), {
+                        'doc': 'The compromise which allowed the leaker access to the information.'}),
+
+                    ('public', ('bool', {}), {
+                        'doc': 'Set to true if the leaked information was made publicly available.'}),
+
+                    ('public:url', ('inet:url', {}), {
+                        'doc': 'The URL where the leaked information was made publicly available.'}),
+
+                )),
+
+                ('risk:extortion:type:taxonomy', {}, ()),
+                ('risk:extortion', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A name for the extortion event.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the extortion event.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the extortion event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the extortion event.'}),
+
+                    ('demanded', ('time', {}), {
+                        'doc': 'The time that the attacker made their demands.'}),
+
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The goal of the attacker in extorting the victim.'}),
+
+                    ('type', ('risk:extortion:type:taxonomy', {}), {
+                        'doc': 'A type taxonomy for the extortion event.'}),
+
+                    ('attacker', ('ps:contact', {}), {
+                        'doc': 'The extortion attacker identity.'}),
+
+                    ('target', ('ps:contact', {}), {
+                        'doc': 'The extortion target identity.'}),
+
+                    ('success', ('bool', {}), {
+                        'doc': 'Set to true if the victim met the attackers demands.'}),
+
+                    ('enacted', ('bool', {}), {
+                        'doc': 'Set to true if attacker carried out the threat.'}),
+
+                    ('public', ('bool', {}), {
+                        'doc': 'Set to true if the attacker publicly announced the extortion.'}),
+
+                    ('public:url', ('inet:url', {}), {
+                        'doc': 'The URL where the attacker publicly announced the extortion.'}),
+
+                    ('compromise', ('risk:compromise', {}), {
+                        'doc': 'The compromise which allowed the attacker to extort the target.'}),
+
+                    ('demanded:payment:price', ('econ:price', {}), {
+                        'doc': 'The payment price which was demanded.'}),
+
+                    ('demanded:payment:currency', ('econ:currency', {}), {
+                        'doc': 'The currency in which payment was demanded.'}),
+
+                )),
+                ('risk:technique:masquerade', {}, (
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node masquerading as another.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period when the masquerading was active.'}),
+                    ('target', ('ndef', {}), {
+                        'doc': 'The being masqueraded as.'}),
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The specific technique which describes the type of masquerading.'}),
                 )),
             ),
         }

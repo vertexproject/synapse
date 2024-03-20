@@ -3,6 +3,8 @@ import synapse.common as s_common
 import synapse.tests.files as s_t_files
 import synapse.tests.utils as s_t_utils
 
+import synapse.lib.autodoc as s_l_autodoc
+
 import synapse.tools.autodoc as s_autodoc
 
 class TestAutoDoc(s_t_utils.SynTest):
@@ -49,6 +51,23 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('.created', s)
             self.notin('..created\n', s)
             self.isin('An example of ``inet:dns:a``\\:', s)
+
+            # Ipv4 property
+            self.isin('''* - ``:asn``
+        - :ref:`dm-type-inet-asn`
+        - The ASN to which the IPv4 address is currently assigned.''', s)
+
+            # Readonly inet:form:password:md5 value
+            self.isin('''* - ``:md5``
+        - :ref:`dm-type-hash-md5`
+        - The MD5 hash of the password.
+        - Read Only: ``True``''', s)
+
+            # Refs edges def
+            self.isin('''      * - ``*``
+        - ``-(refs)>``
+        - ``*``
+        - The source node contains a reference to the target node.''', s)
 
             async with self.getTestCore() as core:
                 lurl = core.getLocalUrl()
@@ -109,6 +128,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('StormvarServiceCell Storm Service', s)
             self.isin('This documentation is generated for version 0.0.1 of the service.', s)
             self.isin('Storm Package\\: stormvar', s)
+
             self.isin('.. _stormcmd-stormvar-magic:\n', s)
             self.isin('magic\n-----', s)
             self.isin('Test stormvar support', s)
@@ -118,6 +138,10 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('``test:comp``', s)
             self.isin('nodedata with the following keys', s)
             self.isin('``foo`` on ``inet:ipv4``', s)
+
+            self.isin('.. _stormmod-stormvar-apimod', s)
+            self.isin('status()', s)
+            self.notin('testmod', s)
 
     async def test_tools_autodoc_stormpkg(self):
 
@@ -136,6 +160,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             self.isin('Storm Package\\: testpkg', s)
             self.isin('This documentation is generated for version 0.0.1 of the package.', s)
+
             self.isin('This package implements the following Storm Commands.', s)
             self.isin('.. _stormcmd-testpkg-testpkgcmd', s)
 
@@ -153,6 +178,23 @@ class TestAutoDoc(s_t_utils.SynTest):
             # Tuplelized output
             self.isin('testpkg.baz', s)
             self.isin("Help on baz opt (default: ('-7days', 'now'))", s)
+
+            self.isin('This package implements the following Storm Modules.', s)
+            self.isin('.. _stormmod-testpkg-apimod', s)
+
+            self.notin('testmod', s)
+
+            self.isin('search(text, mintime=-30days)', s)
+            self.isin('text (str): The text.', s)
+            self.isin('Yields:', s)
+            self.isin('The return type is ``node``.', s)
+
+            self.isin('status()', s)
+
+            # coverage for no apidefs
+            rst = s_l_autodoc.RstHelp()
+            await s_autodoc.processStormModules(rst, 'foo', [])
+            self.eq('\nStorm Modules\n=============\n\nThis package does not export any Storm APIs.\n', rst.getRstText())
 
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:

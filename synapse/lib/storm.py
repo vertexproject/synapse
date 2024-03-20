@@ -21,7 +21,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
-import synapse.lib.scrape as s_scrape
+import synapse.lib.autodoc as s_autodoc
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
@@ -45,6 +45,8 @@ Notes:
         * node:add
         * node:del
         * prop:set
+        * edge:add
+        * edge:del
 
 When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
@@ -56,6 +58,10 @@ Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
 supported.
 
+When the condition is edge:add or edge:del, you may optionally provide a
+form name or a destination form name to only fire on edges added or deleted
+from nodes of those forms.
+
 Examples:
     # Adds a tag to every inet:ipv4 added
     trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
@@ -65,6 +71,13 @@ Examples:
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
     trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every refs edge add
+    trigger.add edge:add --verb refs --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every seen edge delete, provided that
+    # both nodes are of form file:bytes
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -168,7 +181,7 @@ wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet
 Examples:
 
     # Specify custom headers and parameters
-    inet:url=https://vertex.link/foo.bar.txt | wget --headers $lib.dict("User-Agent"="Foo/Bar") --params $lib.dict("clientid"="42")
+    inet:url=https://vertex.link/foo.bar.txt | wget --headers ({"User-Agent": "Foo/Bar"}) --params ({"clientid": "42"})
 
     # Download multiple URL targets without inbound nodes
     wget https://vertex.link https://vtx.lk
@@ -307,6 +320,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'apidefs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/apidef'},
+                },
                 'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
                     'items': {'type': 'array',
@@ -315,6 +332,67 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'apidef': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'type': 'object',
+                    'properties': {
+                        'type': {
+                            'type': 'string',
+                            'enum': ['function']
+                        },
+                        'args': {
+                            'type': 'array',
+                            'items': {'$ref': '#/definitions/apiarg'},
+                        },
+                        'returns': {
+                            'type': 'object',
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                    'enum': ['yields'],
+                                },
+                                'desc': {'type': 'string'},
+                                'type': {
+                                    'oneOf': [
+                                        {'$ref': '#/definitions/apitype'},
+                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                                    ],
+                                },
+                            },
+                            'additionalProperties': False,
+                            'required': ['type', 'desc']
+                        },
+                    },
+                    'additionalProperties': False,
+                    'required': ['type', 'returns'],
+                },
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apiarg': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'oneOf': [
+                        {'$ref': '#/definitions/apitype'},
+                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                    ],
+                },
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apitype': {
+            'type': 'string',
         },
         'command': {
             'type': 'object',
@@ -896,10 +974,11 @@ stormcmds = (
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
             ('--name', {'default': None, 'help': 'The name of the new view.'}),
+            ('--worldreadable', {'type': 'bool', 'default': False, 'help': 'Grant read access to the `all` role.'}),
             ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
         ),
         'storm': '''
-            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name)
+            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name, worldreadable=$cmdopts.worldreadable)
             $lib.print($view.repr())
             $lib.print("View added.")
         ''',
@@ -998,6 +1077,8 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
+            ('--verb', {'help': 'Edge verb to fire on.'}),
+            ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
@@ -1005,6 +1086,7 @@ stormcmds = (
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--view', {'help': 'The view to add the trigger to.'})
         ),
         'storm': '''
             $opts = $lib.copy($cmdopts)
@@ -1042,17 +1124,20 @@ stormcmds = (
     {
         'name': 'trigger.list',
         'descr': "List existing triggers in the cortex.",
-        'cmdargs': (),
+        'cmdargs': (
+            ('--all', {'help': 'List every trigger in every readable view, rather than just the current view.', 'action': 'store_true'}),
+        ),
         'storm': '''
-            $triggers = $lib.trigger.list()
+            $triggers = $lib.trigger.list($cmdopts.all)
 
             if $triggers {
 
-                $lib.print("user       iden                             en?    async? cond      object                    storm query")
+                $lib.print("user       iden                             view                             en?    async? cond      object                    storm query")
 
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
                     $iden = $trigger.iden.ljust(12)
+                    $view = $trigger.view.ljust(12)
                     ($ok, $async) = $lib.trycast(bool, $trigger.async)
                     if $ok {
                         $async = $lib.model.type(bool).repr($async).ljust(6)
@@ -1087,9 +1172,7 @@ stormcmds = (
                         $obj2 = '          '
                     }
 
-                    $lib.print("{user} {iden} {enabled} {async} {cond} {obj} {obj2} {query}",
-                              user=$user, iden=$iden, enabled=$enabled, async=$async, cond=$cond,
-                              obj=$obj, obj2=$obj2, query=$trigger.storm)
+                    $lib.print(`{$user} {$iden} {$view} {$enabled} {$async} {$cond} {$obj} {$obj2} {$trigger.storm}`)
                 }
             } else {
                 $lib.print("No triggers found")
@@ -1483,21 +1566,28 @@ stormcmds = (
         'name': 'note.add',
         'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
         'cmdargs': (
-            ('--type', {'type': 'str', 'help': 'The note type.'}),
             ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
+            ('--type', {'type': 'str', 'help': 'The note type.'}),
+            ('--yield', {'default': False, 'action': 'store_true',
+                'help': 'Yield the newly created meta:note node.'}),
         ),
         'storm': '''
-            function addNoteNode(text, type) {
-                if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
-                if $type {[ :type=$type ]}
-                return($node)
-            }
             init {
-                $type = $lib.null
+                function addNoteNode(text, type) {
+                    if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
+                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=.created :updated=.created ]
+                    if $type {[ :type=$type ]}
+                    return($node)
+                }
+
+                $yield = $cmdopts.yield
                 $note = $addNoteNode($cmdopts.text, $cmdopts.type)
             }
+
             [ <(about)+ { yield $note } ]
+
+            if $yield { spin }
+            if $yield { yield $note }
         ''',
     },
     {
@@ -1652,6 +1742,7 @@ class StormDmon(s_base.Base):
 
         logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
 
+        s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
@@ -1784,6 +1875,7 @@ class Runtime(s_base.Base):
         # inherit runtsafe vars from our root
         if self.root is not None:
             self.runtvars.update(root.runtvars)
+            self.runtvars.update({k: True for k in self.root.getScopeVars().keys()})
 
         # all vars/ctors are de-facto runtsafe
         self.runtvars.update({k: True for k in self.vars.keys()})
@@ -2048,9 +2140,27 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
+    def reqAdmin(self, gateiden=None, mesg=None):
+        if not self.asroot:
+            self.user.reqAdmin(gateiden=gateiden, mesg=mesg)
+
     def confirm(self, perms, gateiden=None, default=None):
         '''
-        Raise AuthDeny if user doesn't have global permissions and write layer permissions
+        Raise AuthDeny if the user doesn't have the permission.
+
+        Notes:
+            An elevated runtime with asroot=True will always return True.
+
+        Args:
+            perms (tuple): The permission tuple.
+            gateiden (str): The gateiden.
+            default (bool): The default value.
+
+        Returns:
+            True: If the permission is allowed.
+
+        Raises:
+            AuthDeny: If the user does not have the permission.
         '''
         if self.asroot:
             return
@@ -2077,6 +2187,35 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def confirmPropSet(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+            return
+
+        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+
+    def confirmPropDel(self, prop, layriden=None):
+
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+            return
+
+        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+
+    def confirmEasyPerm(self, item, perm, mesg=None):
+        if not self.asroot:
+            self.snap.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
+
+    def allowedEasyPerm(self, item, perm):
+        if self.asroot:
+            return True
+        return self.snap.core._hasEasyPerm(item, self.user, perm)
+
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
@@ -2101,25 +2240,25 @@ class Runtime(s_base.Base):
         try:
             with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
 
-                nodegenr = self.query.iterNodePaths(self, genr=genr)
-                nodegenr, empty = await s_ast.pullone(nodegenr)
+                async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
+                    nodegenr, empty = await s_ast.pullone(nodegenr)
 
-                if empty:
-                    return
+                    if empty:
+                        return
 
-                rules = self.opts.get('graph')
-                if rules not in (False, None):
-                    if rules is True:
-                        rules = {'degrees': None, 'refs': True}
-                    elif isinstance(rules, str):
-                        rules = await self.snap.core.getStormGraph(rules)
+                    rules = self.opts.get('graph')
+                    if rules not in (False, None):
+                        if rules is True:
+                            rules = {'degrees': None, 'refs': True}
+                        elif isinstance(rules, str):
+                            rules = await self.snap.core.getStormGraph(rules)
 
-                    subgraph = s_ast.SubGraph(rules)
-                    nodegenr = subgraph.run(self, nodegenr)
+                        subgraph = s_ast.SubGraph(rules)
+                        nodegenr = subgraph.run(self, nodegenr)
 
-                async for item in nodegenr:
-                    self.tick()
-                    yield item
+                    async for item in nodegenr:
+                        self.tick()
+                        yield item
 
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
@@ -2136,7 +2275,7 @@ class Runtime(s_base.Base):
 
                 view = snap.core.views.get(viewiden)
                 if view is None:
-                    raise s_exc.NoSuchView(iden=viewiden)
+                    raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
@@ -2427,8 +2566,7 @@ class Parser:
 
         if nargs == '?':
 
-            # ? will have an implicit default value of None
-            opts.setdefault(dest, None)
+            opts.setdefault(dest, argdef.get('default'))
 
             if todo and not self._is_opt(todo[0]):
 
@@ -2995,42 +3133,123 @@ class BatchCmd(Cmd):
 
 class HelpCmd(Cmd):
     '''
-    List available commands and a brief description for each.
+    List available information about Storm and brief descriptions of different items.
+
+    Notes:
+
+        If an item is provided, this can be a string or a function.
 
     Examples:
 
-        // Get all available commands and their brief descriptions.
+        // Get all available commands, libraries, types, and their brief descriptions.
 
         help
 
         // Only get commands which have "model" in the name.
 
         help model
+
+        // Get help about the base Storm library
+
+        help $lib
+
+        // Get detailed help about a specific library or library function
+
+        help --verbose $lib.print
+
+        // Get detailed help about a named Storm type
+
+        help --verbose str
+
+        // Get help about a method from a $node object
+
+        <inbound $node> help $node.tags
+
     '''
     name = 'help'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('command', nargs='?',
-                          help='Only list commands and their brief description whose name contains the argument.')
+        pars.add_argument('-v', '--verbose', default=False, action='store_true',
+                          help='Display detailed help when available.')
+        pars.add_argument('item', nargs='?',
+                          help='List information about a subset of commands or a specific item.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runtsafe:
-            mesg = 'help does not support per-node invocation'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+        node = None
+        async for node, path in genr:
+            await self._runHelp(runt)
+            yield node, path
 
-        async for item in genr:
-            yield item
+        if node is None and self.runtsafe:
+            await self._runHelp(runt)
+
+    async def _runHelp(self, runt: Runtime):
+
+        item = self.opts.item
+
+        if item is not None and \
+                not isinstance(item, (str, s_node.Node, s_node.Path, s_stormtypes.StormType)) and \
+                not callable(item):
+            mesg = f'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got' \
+                   f' {await s_stormtypes.totype(item, basetypes=True)}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if isinstance(item, s_stormtypes.Lib):
+            await self._handleLibHelp(item, runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_stormtypes.StormType):
+            if item._storm_typename in s_stormtypes.registry.known_types:
+                await self._handleTypeHelp(item._storm_typename, runt, verbose=self.opts.verbose)
+                return
+            raise s_exc.BadArg(mesg=f'Unknown storm type encountered: {s_stormtypes.totype(item, basetypes=True)}')
+
+        if isinstance(item, s_node.Node):
+            await self._handleTypeHelp('node', runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_node.Path):
+            await self._handleTypeHelp('node:path', runt, verbose=self.opts.verbose)
+            return
+
+        # Handle $lib.inet.http.get / $str.split / $lib.gen.orgByName
+        if callable(item):
+
+            if hasattr(item, '__func__'):
+                # https://docs.python.org/3/reference/datamodel.html#instance-methods
+                await self._handleBoundMethod(item, runt, verbose=self.opts.verbose)
+                return
+
+            if hasattr(item, '_storm_runtime_lib_func'):
+                await self._handleStormLibMethod(item, runt, verbose=self.opts.verbose)
+                return
+
+            styp = await s_stormtypes.totype(item, basetypes=True)
+            if styp in ('telepath:proxy:method', 'telepath:proxy:genrmethod'):
+                raise s_exc.BadArg(mesg='help does not support Telepath proxy methods.')
+
+            raise s_exc.BadArg(mesg='help does not currently support runtime defined functions.')
+
+        foundtype = False
+        if item in s_stormtypes.registry.known_types:
+            foundtype = True
+            await self._handleTypeHelp(item, runt, verbose=self.opts.verbose)
+
+        return await self._handleGenericCommandHelp(item, runt, foundtype=foundtype)
+
+    async def _handleGenericCommandHelp(self, item, runt, foundtype=False):
 
         stormcmds = sorted(runt.snap.core.getStormCmds())
 
-        if self.opts.command:
-            stormcmds = [c for c in stormcmds if self.opts.command in c[0]]
+        if item:
+            stormcmds = [c for c in stormcmds if item in c[0]]
             if not stormcmds:
-                await runt.printf(f'No commands found matching "{self.opts.command}"')
-                return
+                if not foundtype:
+                    await runt.printf(f'No commands found matching "{item}"')
+                    return
 
         stormpkgs = await runt.snap.core.getStormPkgs()
 
@@ -3050,6 +3269,14 @@ class HelpCmd(Cmd):
                 pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
 
         if stormcmds:
+
+            if foundtype:
+                await runt.printf('')
+                await runt.printf('*' * 80)
+                await runt.printf('')
+
+            await runt.printf('The following Storm commands are available:')
+
             maxlen = max(len(x[0]) for x in stormcmds)
 
             for name, ctor in stormcmds:
@@ -3080,6 +3307,158 @@ class HelpCmd(Cmd):
                 await runt.printf('')
 
             await runt.printf('For detailed help on any command, use <cmd> --help')
+
+    async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime, verbose: bool =False):
+
+        try:
+            preamble = self._getChildLibs(lib)
+        except s_exc.NoSuchName as e:
+            raise s_exc.BadArg(mesg='Help does not currently support imported Storm modules.') from None
+
+        page = s_autodoc.RstHelp()
+
+        if hasattr(lib, '_storm_lib_path'):
+            libsinfo = s_stormtypes.registry.getLibDocs(lib)
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           oneline=not verbose,
+                                           preamble=preamble,
+                                           )
+        else:
+            page.addLines(*preamble)
+
+        for line in page.lines:
+            await runt.printf(line)
+
+    def _getChildLibs(self, lib: s_stormtypes.Lib):
+        corelibs = self.runt.snap.core.getStormLib(lib.name)
+        if corelibs is None:
+            raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
+
+        data = []
+        lines = []
+
+        libbase = ('lib',) + lib.name
+        q = collections.deque()
+        for child, lnfo in corelibs[1].items():
+            q.append(((child,), lnfo))
+        while q:
+            child, lnfo = q.popleft()
+            path = libbase + child
+            _, subs, cnfo = lnfo
+            ctor = cnfo.get('ctor')
+            if ctor:
+                data.append((path, ctor))
+            for sub, lnfo in subs.items():
+                _sub = child + (sub,)
+                q.append((_sub, lnfo))
+        if not data:
+            return lines
+
+        data = sorted(data, key=lambda x: x[0])
+
+        lines.append('The following libraries are available:')
+        lines.append('')
+        for path, ctor in data:
+            name = f'${".".join(path)}'
+            desc = ctor.__doc__.strip().split('\n')[0]
+            lines.append(f'{name.ljust(30)}: {desc}')
+        lines.append('')
+
+        return lines
+
+    async def _handleTypeHelp(self, styp: str, runt: Runtime, verbose: bool =False):
+        typeinfo = s_stormtypes.registry.getTypeDocs(styp)
+        page = s_autodoc.RstHelp()
+
+        s_autodoc.runtimeDocStormTypes(page, typeinfo,
+                                       islib=False,
+                                       oneline=not verbose,
+                                       )
+        for line in page.lines:
+            await runt.printf(line)
+
+    async def _handleBoundMethod(self, func, runt: Runtime, verbose: bool =False):
+        # Bound methods must be bound to a Lib or Prim object.
+        # Determine what they are, get those docs exactly, and then render them.
+
+        cls = func.__self__
+        fname = func.__name__
+
+        if isinstance(cls, s_stormtypes.Lib):
+            libsinfo = s_stormtypes.registry.getLibDocs(cls)
+            for lifo in libsinfo:
+                nlocs = []
+                for locl in lifo['locals']:
+                    ltyp = locl.get('type')
+                    if not isinstance(ltyp, dict):
+                        continue
+                    if ltyp.get('_funcname', '') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           addheader=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        elif isinstance(cls, s_stormtypes.Prim):
+            typeinfo = s_stormtypes.registry.getTypeDocs(cls._storm_typename)
+            for lifo in typeinfo:
+                lifo['locals'] = [loc for loc in lifo['locals'] if loc.get('type', {}).get('_funcname', '') == fname]
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, typeinfo,
+                                           islib=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        else:  # pragma: no cover
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
+
+    async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
+        # Storm library methods must be derived from a library definition.
+        # Determine the parent lib and get those docs exactly, and then render them.
+
+        cls = getattr(func, '_storm_runtime_lib', None)
+        fname = getattr(func, '_storm_runtime_lib_func', None)
+
+        if isinstance(cls, s_stormtypes.Lib):
+            libsinfo = s_stormtypes.registry.getLibDocs(cls)
+            for lifo in libsinfo:
+                nlocs = []
+                for locl in lifo['locals']:
+                    if locl.get('name') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           addheader=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        else:  # pragma: no cover
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown runtime lib method {func} {cls} {fname}')
 
 class DiffCmd(Cmd):
     '''
@@ -3198,7 +3577,7 @@ class CopyToCmd(Cmd):
 
         view = runt.snap.core.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view: {iden}')
+            raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
         runt.confirm(('view', 'read'), gateiden=view.iden)
 
@@ -3210,7 +3589,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.props.keys():
-                    runt.confirm(node.form.props[name].setperm, gateiden=layriden)
+                    runt.confirmPropSet(node.form.props[name])
 
                 for tag in node.tags.keys():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
@@ -3404,11 +3783,27 @@ class MergeCmd(Cmd):
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
-            full = node.form.prop(name).full
-            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+            prop = node.form.prop(name)
+            runt.confirmPropDel(prop, layriden=layr0)
+            runt.confirmPropSet(prop, layriden=layr1)
 
+        tags = []
+        tagadds = []
         for tag, valu in sode.get('tags', {}).items():
+            if valu != (None, None):
+                tagadds.append(tag)
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            else:
+                tags.append((len(tag), tag))
+
+        for _, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            tagadds.append(tag)
             tagperm = tuple(tag.split('.'))
             runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
             runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
@@ -3917,13 +4312,13 @@ class MoveNodesCmd(Cmd):
                 for prop, (valu, stortype) in tagdict.items():
                     if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                         or (tag, prop) not in movekeys) and not layr == self.destlayr:
-                            if not self.opts.apply:
-                                valurepr = repr(valu)
-                                mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
-                                await self.runt.printf(mesg)
-                            else:
-                                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                                ecnt += 1
+                        if not self.opts.apply:
+                            valurepr = repr(valu)
+                            mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                            await self.runt.printf(mesg)
+                        else:
+                            self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                            ecnt += 1
 
                     movekeys.add((tag, prop))
 
@@ -4208,12 +4603,15 @@ class DelNodeCmd(Cmd):
         pars.add_argument('--delbytes', default=False, action='store_true',
                           help='For file:bytes nodes, remove the bytes associated with the '
                                'sha256 property from the axon as well if present.')
+        pars.add_argument('--deledges', default=False, action='store_true',
+                          help='Delete N2 light edges before deleting the node.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
         force = await s_stormtypes.tobool(self.opts.force)
         delbytes = await s_stormtypes.tobool(self.opts.delbytes)
+        deledges = await s_stormtypes.tobool(self.opts.deledges)
 
         if force:
             if runt.user is not None and not runt.isAdmin():
@@ -4232,6 +4630,24 @@ class DelNodeCmd(Cmd):
                 runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
+
+            if deledges:
+                async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
+                    seenverbs = set()
+
+                    async for (verb, n2iden) in node.iterEdgesN2():
+                        if verb not in seenverbs:
+                            runt.layerConfirm(('node', 'edge', 'del', verb))
+                            seenverbs.add(verb)
+                        await edges.add((verb, n2iden))
+
+                    async with self.runt.snap.getEditor() as editor:
+                        async for (verb, n2iden) in edges:
+                            n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
+                            if n2 is not None:
+                                if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
+                                    await self.runt.snap.applyNodeEdits(editor.getNodeEdits())
+                                    editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
                 sha256 = node.props.get('sha256')
@@ -4266,22 +4682,6 @@ class ReIndexCmd(Cmd):
         # Make this a generator
         if False:
             yield
-
-class SudoCmd(Cmd):
-    '''
-    Deprecated sudo command.
-
-    Left in for 2.x.x so that Storm command with it are still valid to execute.
-    '''
-    name = 'sudo'
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: sudo', s_common._splicedepr)
-
-        await runt.snap.warn(f'sudo command is deprecated and will be removed on {s_common._splicedepr}')
-        async for node, path in genr:
-            yield node, path
 
 class MoveTagCmd(Cmd):
     '''
@@ -4550,7 +4950,7 @@ class GraphCmd(Cmd):
             inet:fqdn | graph
                         --degrees 2
                         --filter { -#nope }
-                        --pivot { <- meta:seen <- meta:source }
+                        --pivot { -> meta:seen }
                         --form-pivot inet:fqdn {<- * | limit 20}
                         --form-pivot inet:fqdn {-> * | limit 20}
                         --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
@@ -4643,7 +5043,10 @@ class ViewExecCmd(Cmd):
     '''
     Execute a storm query in a different view.
 
-    NOTE: Variables are passed through but nodes are not
+    NOTE: Variables are passed through but nodes are not. The behavior of this command may be
+    non-intuitive in relation to the way storm normally operates. For further information on
+    behavior and limitations when using `view.exec`, reference the `view.exec` section of the
+    Synapse User Guide: https://v.vtx.lk/view-exec.
 
     Examples:
 
@@ -5129,327 +5532,6 @@ class ScrapeCmd(Cmd):
                     if self.opts.doyield:
                         yield addnode, runt.initPath(addnode)
 
-class SpliceListCmd(Cmd):
-    '''
-    Deprecated command to retrieve a list of splices backwards from the end of the splicelog.
-
-    Examples:
-
-        # Show the last 10 splices.
-        splice.list | limit 10
-
-        # Show splices after a specific time.
-        splice.list --mintime "2020/01/06 15:38:10.991"
-
-        # Show splices from a specific timeframe.
-        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367
-
-    Notes:
-
-        If both a time string and timestamp value are provided for a min or max,
-        the timestamp will take precedence over the time string value.
-    '''
-
-    name = 'splice.list'
-    readonly = True
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-
-        pars.add_argument('--maxtimestamp', type='int', default=None,
-                          help='Only yield splices which occurred on or before this timestamp.')
-        pars.add_argument('--mintimestamp', type='int', default=None,
-                          help='Only yield splices which occurred on or after this timestamp.')
-        pars.add_argument('--maxtime', type='str', default=None,
-                          help='Only yield splices which occurred on or before this time.')
-        pars.add_argument('--mintime', type='str', default=None,
-                          help='Only yield splices which occurred on or after this time.')
-
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: splice.list', s_common._splicedepr)
-
-        mesg = f'splice.list is deprecated and will be removed on {s_common._splicedepr}'
-        await runt.snap.warn(mesg)
-
-        maxtime = None
-        if self.opts.maxtimestamp:
-            maxtime = self.opts.maxtimestamp
-        elif self.opts.maxtime:
-            try:
-                maxtime = s_time.parse(self.opts.maxtime, chop=True)
-            except s_exc.BadTypeValu as e:
-                mesg = f'Error during maxtime parsing - {str(e)}'
-
-                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.maxtime) from None
-
-        mintime = None
-        if self.opts.mintimestamp:
-            mintime = self.opts.mintimestamp
-        elif self.opts.mintime:
-            try:
-                mintime = s_time.parse(self.opts.mintime, chop=True)
-            except s_exc.BadTypeValu as e:
-                mesg = f'Error during mintime parsing - {str(e)}'
-
-                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.mintime) from None
-
-        i = 0
-
-        async for splice in runt.snap.core.spliceHistory(runt.user):
-
-            splicetime = splice[1].get('time')
-            if splicetime is None:
-                splicetime = 0
-
-            if maxtime and maxtime < splicetime:
-                continue
-
-            if mintime and mintime > splicetime:
-                return
-
-            guid = s_common.guid(splice)
-
-            buid = s_common.buid(splice[1]['ndef'])
-            iden = s_common.ehex(buid)
-
-            props = {'.created': s_common.now(),
-                     'splice': splice,
-                     'type': splice[0],
-                     'iden': iden,
-                     'form': splice[1]['ndef'][0],
-                     'time': splicetime,
-                     'user': splice[1].get('user'),
-                     'prov': splice[1].get('prov'),
-                     }
-
-            prop = splice[1].get('prop')
-            if prop:
-                props['prop'] = prop
-
-            tag = splice[1].get('tag')
-            if tag:
-                props['tag'] = tag
-
-            if 'valu' in splice[1]:
-                props['valu'] = splice[1]['valu']
-            elif splice[0] == 'node:del':
-                props['valu'] = splice[1]['ndef'][1]
-
-            if 'oldv' in splice[1]:
-                props['oldv'] = splice[1]['oldv']
-
-            fullnode = (buid, {
-                'ndef': ('syn:splice', guid),
-                'tags': {},
-                'props': props,
-                'tagprops': {},
-            })
-
-            node = s_node.Node(runt.snap, fullnode)
-
-            yield (node, runt.initPath(node))
-
-            i += 1
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
-
-class SpliceUndoCmd(Cmd):
-    '''
-    Deprecated command to reverse the actions of syn:splice runt nodes.
-
-    Examples:
-
-        # Undo the last 5 splices.
-        splice.list | limit 5 | splice.undo
-
-        # Undo splices after a specific time.
-        splice.list --mintime "2020/01/06 15:38:10.991" | splice.undo
-
-        # Undo splices from a specific timeframe.
-        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367 | splice.undo
-    '''
-
-    name = 'splice.undo'
-
-    def __init__(self, runt, runtsafe):
-        self.undo = {
-            'prop:set': self.undoPropSet,
-            'prop:del': self.undoPropDel,
-            'node:add': self.undoNodeAdd,
-            'node:del': self.undoNodeDel,
-            'tag:add': self.undoTagAdd,
-            'tag:del': self.undoTagDel,
-            'tag:prop:set': self.undoTagPropSet,
-            'tag:prop:del': self.undoTagPropDel,
-        }
-        Cmd.__init__(self, runt, runtsafe)
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-        forcehelp = 'Force delete nodes even if it causes broken references (requires admin).'
-        pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
-        return pars
-
-    async def undoPropSet(self, runt, splice, node):
-
-        name = splice.props.get('prop')
-        if name == '.created':
-            return
-
-        if node:
-            prop = node.form.props.get(name)
-            if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
-
-            oldv = splice.props.get('oldv')
-            if oldv is not None:
-                runt.layerConfirm(('node', 'prop', 'set', prop.full))
-                await node.set(name, oldv)
-            else:
-                runt.layerConfirm(('node', 'prop', 'del', prop.full))
-                await node.pop(name)
-
-    async def undoPropDel(self, runt, splice, node):
-
-        name = splice.props.get('prop')
-        if name == '.created':
-            return
-
-        if node:
-            prop = node.form.props.get(name)
-            if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
-
-            valu = splice.props.get('valu')
-
-            runt.layerConfirm(('node', 'prop', 'set', prop.full))
-            await node.set(name, valu)
-
-    async def undoNodeAdd(self, runt, splice, node):
-
-        if node:
-            for tag in node.tags.keys():
-                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
-
-            runt.layerConfirm(('node', 'del', node.form.name))
-            await node.delete(force=self.opts.force)
-
-    async def undoNodeDel(self, runt, splice, node):
-
-        if node is None:
-            form = splice.props.get('form')
-            valu = splice.props.get('valu')
-
-            if form and (valu is not None):
-                runt.layerConfirm(('node', 'add', form))
-                await runt.snap.addNode(form, valu)
-
-    async def undoTagAdd(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'del', *parts))
-
-            await node.delTag(tag)
-
-            oldv = splice.props.get('oldv')
-            if oldv is not None:
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
-                await node.addTag(tag, valu=oldv)
-
-    async def undoTagDel(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-            valu = splice.props.get('valu')
-            if valu is not None:
-                await node.addTag(tag, valu=valu)
-
-    async def undoTagPropSet(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-
-            prop = splice.props.get('prop')
-
-            oldv = splice.props.get('oldv')
-            if oldv is not None:
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
-                await node.setTagProp(tag, prop, oldv)
-            else:
-                runt.layerConfirm(('node', 'tag', 'del', *parts))
-                await node.delTagProp(tag, prop)
-
-    async def undoTagPropDel(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-            prop = splice.props.get('prop')
-
-            valu = splice.props.get('valu')
-            if valu is not None:
-                await node.setTagProp(tag, prop, valu)
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: splice.undo', s_common._splicedepr)
-
-        mesg = f'splice.undo is deprecated and will be removed on {s_common._splicedepr}'
-        await runt.snap.warn(mesg)
-
-        if self.opts.force:
-            if not runt.user.isAdmin():
-                mesg = '--force requires admin privs.'
-                raise s_exc.AuthDeny(mesg=mesg)
-
-        i = 0
-
-        async for node, path in genr:
-
-            if not node.form.name == 'syn:splice':
-                mesg = 'splice.undo only accepts syn:splice nodes'
-                raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
-
-            if False:  # make this method an async generator function
-                yield None
-
-            splicetype = node.props.get('type')
-
-            if splicetype in self.undo:
-
-                iden = node.props.get('iden')
-                if iden is None:
-                    continue
-
-                buid = s_common.uhex(iden)
-                if len(buid) != 32:
-                    raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
-
-                splicednode = await runt.snap.getNodeByBuid(buid)
-
-                await self.undo[splicetype](runt, node, splicednode)
-            else:
-                raise s_exc.StormRuntimeError(mesg='Unknown splice type.', splicetype=splicetype)
-
-            i += 1
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
-
 class LiftByVerb(Cmd):
     '''
     Lift nodes from the current view by an light edge verb.
@@ -5551,7 +5633,9 @@ class EdgesDelCmd(Cmd):
             n2iden = node.iden()
             async for (v, n1iden) in node.iterEdgesN2(verb):
                 n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
-                await n1.delEdge(v, n2iden)
+                if n1 is not None:
+                    await n1.delEdge(v, n2iden)
+
         else:
             async for (v, n2iden) in node.iterEdgesN1(verb):
                 await node.delEdge(v, n2iden)

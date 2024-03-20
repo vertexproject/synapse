@@ -438,7 +438,7 @@ the nodes.
   for example, establishing internal processes where users "check first" before creating certain
   nodes. Note that while this may limit duplication, it is unlikely to eliminate it entirely.
   
-- Bulk data that is ingested using arbitraty guids cannot be reingested, at least not in the same way.
+- Bulk data that is ingested using arbitrary guids cannot be reingested, at least not in the same way.
   Reingesting the same data will create a second set of nodes for the same data but with different
   arbitrary guids.
 
@@ -533,7 +533,7 @@ before manually creating one.
   commands simplify secondary property deconfliction and node creation for several common
   guid nodes.
   
-  For example, the :ref:`storm-gen-org` command takes an organization name as input (e.g,
+  For example, the :ref:`storm-gen-ou-org` command takes an organization name as input (e.g,
   "vertex"), checks for any ``ou:org`` nodes with that name (i.e., in the ``:name`` or
   ``:names`` properties) and either lifts the existing node, or creates a new one.
   
@@ -611,7 +611,7 @@ specific values or variables:
   any secondary property values based on data provided to the ``guid`` generator. Any property values
   must be set as part of the node creation process.
 
-A full discussion of writing ingest code (particulary for Storm packages, services, or Power-Ups) is beyond
+A full discussion of writing ingest code (particularly for Storm packages, services, or Power-Ups) is beyond
 the scope of this User Guide. For more information, see the :ref:`devguide`.
 
 Operations
@@ -1178,7 +1178,7 @@ Lift all organizations with locations in Turkey:
 .. storm-cli:: ou:org:loc^=tr
 
 
-Lift all IP addresses geolocated in the the province of Ontario, Canada:
+Lift all IP addresses geolocated in the province of Ontario, Canada:
 
 
 .. storm-pre:: [ ( inet:ipv4=149.248.52.240 :loc=ca.on ) ( inet:ipv4=49.51.12.195 :loc=ca.on.barrie ) ( inet:ipv4=199.201.123.200 :loc=ca.on.keswick ) ]

@@ -24,6 +24,7 @@ class EthereumLib(s_stormtypes.Lib):
             'eip55': self.eip55,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def eip55(self, addr):
         addr = await s_stormtypes.tostr(addr)
         addr = addr.lower()

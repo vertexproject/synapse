@@ -39,21 +39,21 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 
                 ('meta:note:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'An analyst note type taxonomy.'}),
 
                 ('meta:timeline', ('guid', {}), {
                     'doc': 'A curated timeline of analytically relevant events.'}),
 
                 ('meta:timeline:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of timeline types for meta:timeline nodes.'}),
 
                 ('meta:event', ('guid', {}), {
                     'doc': 'An analytically relevant event in a curated timeline.'}),
 
                 ('meta:event:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of event types for meta:event nodes.'}),
 
                 ('meta:ruleset', ('guid', {}), {
@@ -87,14 +87,47 @@ class BaseModule(s_module.CoreModule):
                 ('graph:timeedge', ('timeedge', {}), {
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
-                ('meta:priority', ('int', {'enums': prioenums}), {
+                ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic priority enumeration.'}),
 
-                ('meta:severity', ('int', {'enums': prioenums}), {
+                ('meta:severity', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic severity enumeration.'}),
 
                 ('meta:sophistication', ('int', {'enums': sophenums}), {
                     'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
+            ),
+            'interfaces': (
+                ('meta:taxonomy', {
+                    'doc': 'Properties common to taxonomies.',
+                    'props': (
+                        ('title', ('str', {}), {
+                            'doc': 'A brief title of the definition.'}),
+
+                        ('summary', ('str', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use title/desc.',
+                            'disp': {'hint': 'text'}}),
+
+                        ('desc', ('str', {}), {
+                            'doc': 'A definition of the taxonomy entry.',
+                            'disp': {'hint': 'text'}}),
+
+                        ('sort', ('int', {}), {
+                            'doc': 'A display sort order for siblings.'}),
+
+                        ('base', ('taxon', {}), {
+                            'ro': True,
+                            'doc': 'The base taxon.'}),
+
+                        ('depth', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The depth indexed from 0.'}),
+
+                        ('parent', ('$self', {}), {
+                            'ro': True,
+                            'doc': 'The taxonomy parent.'}),
+                    ),
+                }),
             ),
             'edges': (
                 ((None, 'refs', None), {
@@ -114,10 +147,16 @@ class BaseModule(s_module.CoreModule):
             'forms': (
 
                 ('meta:source', {}, (
+
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the source.'}),
+
+                    # TODO - 3.0 move to taxonomy type
                     ('type', ('str', {'lower': True}), {
                         'doc': 'An optional type field used to group sources.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the meta source.'}),
                 )),
 
                 ('meta:seen', {}, (
@@ -137,7 +176,7 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'The note type.'}),
 
                     ('text', ('str', {}), {
-                        'disp': {'hint': 'text'},
+                        'disp': {'hint': 'text', 'syntax': 'markdown'},
                         'doc': 'The analyst authored note text.'}),
 
                     ('author', ('ps:contact', {}), {

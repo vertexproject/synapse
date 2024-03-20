@@ -13,7 +13,7 @@ from synapse.tests.utils import alist
 
 class MultiSlabSeqn(s_t_utils.SynTest):
 
-    async def test_multislabseqn(self):
+    async def test_multislabseqn_base(self):
 
         with self.getTestDir() as dirn:
 
@@ -166,10 +166,6 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 exp = [(11, 'foo11b'), (12, 'foo12'), (13, 'foo13b'), (14, 'foo14'), (15, 'done')]
                 self.eq(exp, retn)
 
-                # Give a chance for the non-iterated async generators to get cleaned up
-                await asyncio.sleep(0)
-                await asyncio.sleep(0)
-
                 # Make sure we're not holding onto more than 2 slabs
 
                 # rotate
@@ -180,6 +176,10 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(3, fns)
+
+                # Slab @ 13 will get fini out
+                _slab = msqn._openslabs[13][0]
+                self.true(await _slab.waitfini(6))
 
                 self.len(2, msqn._openslabs)
 

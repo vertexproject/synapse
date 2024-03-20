@@ -175,7 +175,6 @@ class AgendaTest(s_t_utils.SynTest):
                 await visi.setAdmin(True)
 
                 agenda = core.agenda
-                await agenda.start()  # make sure it doesn't blow up
 
                 self.eq([], agenda.list())
 
@@ -346,21 +345,19 @@ class AgendaTest(s_t_utils.SynTest):
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
+                strt = await core.nexsroot.index()
                 # bypass the API because it would actually syntax check
                 unixtime += 60
                 self.eq((11, 'boom'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                await core.nexsroot.waitOffs(strt + 5)
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, False)
                 self.eq(appt.lastresult, "raised exception StormRaise: errname='OmgWtfBbq' mesg='boom'")
 
                 # Test setting the global enable/disable flag
-                # reset
                 await agenda.delete(guid)
                 self.len(0, agenda.apptheap)
-
-                agenda._schedtask.cancel()
-                agenda._schedtask = agenda.schedCoro(agenda._scheduleLoop())
 
                 # schedule a query to run every Wednesday and Friday at 10:15am
                 cdef = {'creator': visi.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
@@ -372,9 +369,6 @@ class AgendaTest(s_t_utils.SynTest):
 
                 self.len(1, agenda.apptheap)
 
-                # disable crons and advance time
-                agenda.enabled = False
-
                 unixtime = datetime.datetime(year=2019, month=2, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 nexttime = datetime.datetime(year=2019, month=2, day=8, hour=10, minute=15, tzinfo=tz.utc).timestamp()
 
@@ -384,9 +378,6 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(nexttime, appt.nexttime)
                 self.true(appt.enabled)
                 self.eq(0, appt.startcount)
-
-                # enable crons and advance time
-                agenda.enabled = True
 
                 unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
@@ -399,6 +390,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.add(cdef)
 
                 # Lock user and advance time
+                strt = await core.nexsroot.index()
+
                 await visi.setLocked(True)
 
                 with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
@@ -408,154 +401,71 @@ class AgendaTest(s_t_utils.SynTest):
                     while not stream.wait(0.1):
                         await asyncio.sleep(0)
 
+                    await core.nexsroot.waitOffs(strt + 4)
+
                     self.eq(2, appt.startcount)
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
-        with self.getTestDir() as fdir:
 
-            core = mock.AsyncMock()
+        with self.getTestDir() as dirn:
 
-            async def raiseOnBadStorm(q):
-                ''' Just enough storm parsing for this test '''
-                if (q[0] == '[') != (q[-1] == ']'):
-                    raise s_exc.BadSyntax(mesg='mismatched braces')
-                return 'all good'
+            async with self.getTestCore(dirn=dirn) as core:
 
-            core.getStormQuery = raiseOnBadStorm
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'storm': '[test:str=bar]',
+                        'reqs': {'hour': 10, 'minute': 15},
+                        'incunit': 'dayofweek',
+                        'incvals': (2, 4)}
+                adef = await core.addCronJob(cdef)
+                guid1 = adef.get('iden')
 
-            async with await s_lmdbslab.Slab.anit(fdir, map_size=100000) as slab:
-                db = slab.initdb('hive')
-                hive = await s_hive.SlabHive.anit(slab, db=db)
-                core.hive = hive
-
-                async with await s_agenda.Agenda.anit(core) as agenda:
-                    await agenda.start()
-                    # Schedule a query to run every Wednesday and Friday at 10:15am
-                    cdef = {'creator': 'visi', 'iden': 'IDEN1', 'storm': '[test:str=bar]',
-                            'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
-                            'incunit': s_agenda.TimeUnit.DAYOFWEEK,
-                            'incvals': (2, 4)}
-                    adef = await agenda.add(cdef)
-                    guid1 = adef.get('iden')
-
-                    # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                    cdef = {'creator': 'visi', 'iden': 'IDEN2', 'storm': '[test:str=baz]',
-                            'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
-                            'incunit': s_agenda.TimeUnit.MONTH,
-                            'incvals': 1}
-                    adef = await agenda.add(cdef)
-
-                    guid2 = adef.get('iden')
-                    appt = agenda.appts[guid2]
-                    appt.lasterrs.append('error happened')
-                    await agenda._storeAppt(appt)
-
-                    # Add an appt with an invalid query
-                    cdef = {'creator': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
-                            'reqs': {s_tu.HOUR: (7, 8)},
-                            'incunit': s_agenda.TimeUnit.MONTH,
-                            'incvals': 1}
-                    await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
-
-                    # Add an appt with a bad version in storage
-                    cdef = {'creator': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
-                            'reqs': {s_tu.HOUR: (7, 8)},
-                            'incunit': s_agenda.TimeUnit.MONTH,
-                            'incvals': 1}
-                    adef = await agenda.add(cdef)
-                    badguid2 = adef.get('iden')
-
-                    adef['ver'] = 1337
-                    full = agenda._hivenode.full + (badguid2,)
-                    await agenda.core.hive.set(full, adef)
-
-                    xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
-                    lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
-
-                    await agenda.delete(guid1)
-
-                    # And one-shots for Christmas and last day of Hanukkah of 2018
-                    cdef = {'creator': 'visi', 'iden': 'IDEN3', 'storm': '#happyholidays',
-                            'reqs': (xmas, lasthanu)}
-
-                    adef = await agenda.add(cdef)
-                    guid3 = adef.get('iden')
-
-                    await agenda.mod(guid3, '#bahhumbug')
-
-                async with await s_agenda.Agenda.anit(core) as agenda:
-                    await agenda.start()
-                    agenda.enabled = True
-
-                    appts = agenda.list()
-                    self.len(2, appts)
-
-                    last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
-                    self.eq(last_appt.query, '#bahhumbug')
-
-                    self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
-
-    async def test_cron_perms(self):
-
-        async with self.getTestCore() as core:
-
-            visi = await core.auth.addUser('visi')
-            newb = await core.auth.addUser('newb')
-            async with core.getLocalProxy(user='visi') as proxy:
-
-                cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.addCronJob(cdef)
-
-                await visi.addRule((True, ('cron', 'add')))
-                cron0 = await proxy.addCronJob(cdef)
-                cron0_iden = cron0.get('iden')
-
-                cdef = {'storm': 'inet:ipv6', 'reqs': {'hour': 2}}
-                cron1 = await proxy.addCronJob(cdef)
-                cron1_iden = cron1.get('iden')
-
-                await proxy.delCronJob(cron0_iden)
-
-                cdef = {'storm': '[test:str=foo]', 'reqs': {'now': True},
+                # every 6th of the month at 7am and 8am (the 6th is a Thursday)
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'storm': '[test:str=baz]',
+                        'reqs': {'hour': (7, 8), 'minute': 0, 'dayofmonth': 6},
                         'incunit': 'month',
                         'incvals': 1}
-                await self.asyncraises(s_exc.BadConfValu, proxy.addCronJob(cdef))
+                adef = await core.addCronJob(cdef)
 
-            async with core.getLocalProxy(user='newb') as proxy:
+                guid2 = adef.get('iden')
+                appt = core.agenda.appts[guid2]
+                appt.lasterrs.append('error happened')
+                await appt.save()
 
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.delCronJob(cron1_iden)
+                # Add an appt with an invalid query
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'storm': '[test:str=',
+                        'reqs': {'hour': (7, 8)},
+                        'incunit': 'month',
+                        'incvals': 1}
 
-                self.eq(await proxy.listCronJobs(), ())
-                await newb.addRule((True, ('cron', 'get')))
-                self.len(1, await proxy.listCronJobs())
+                with self.raises(s_exc.BadSyntax):
+                    await core.addCronJob(cdef)
 
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.disableCronJob(cron1_iden)
+                xmas = {'dayofmonth': 25, 'month': 12, 'year': 2099}
+                lasthanu = {'dayofmonth': 10, 'month': 12, 'year': 2099}
 
-                await newb.addRule((True, ('cron', 'set')))
-                self.none(await proxy.disableCronJob(cron1_iden))
+                await core.delCronJob(guid1)
 
-                await newb.addRule((True, ('cron', 'del')))
-                await proxy.delCronJob(cron1_iden)
+                # And one-shots for Christmas and last day of Hanukkah of 2018
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'storm': '#happyholidays',
+                        'reqs': (xmas, lasthanu)}
 
-    async def test_agenda_stop(self):
+                adef = await core.addCronJob(cdef)
+                guid3 = adef.get('iden')
 
-        async with self.getTestCore() as core:
-            await core.callStorm('$lib.queue.add(foo)')
-            await core.callStorm('cron.add --minute +1 { $lib.queue.get(foo).put((99)) $lib.time.sleep(10) }')
-            appts = core.agenda.list()
-            await core.agenda._execute(appts[0][1])
-            self.eq((0, 99), await core.callStorm('return($lib.queue.get(foo).get())'))
+                await core.updateCronJob(guid3, '#bahhumbug')
 
-            appts[0][1].creator = 'fakeuser'
-            await core.agenda._execute(appts[0][1])
-            self.eq(appts[0][1].lastresult, 'Failed due to unknown user')
+            async with self.getTestCore(dirn=dirn) as core:
 
-            await core.agenda.stop()
-            self.false(core.agenda.enabled)
+                appts = await core.listCronJobs()
+
+                self.len(2, appts)
+
+                last_appt = [appt for appt in appts if appt.get('iden') == guid3][0]
+                self.eq(last_appt.get('query'), '#bahhumbug')
 
     async def test_agenda_custom_view(self):
 
@@ -624,6 +534,7 @@ class AgendaTest(s_t_utils.SynTest):
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
             self.eq(defview.iden, jobs[0]['view'])
+            self.nn(jobs[0].get('created'))
 
             core.agenda._addTickOff(60)
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
@@ -727,7 +638,8 @@ class AgendaTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            derp = await core.auth.addUser('derp')
+            lowuser = await core.addUser('lowuser')
+            lowuser = lowuser.get('iden')
 
             msgs = await core.stormlist('cron.add --hourly 32 { $lib.print(woot) }')
             self.stormHasNoWarnErr(msgs)
@@ -735,14 +647,57 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
             self.eq(cdef['creator'], core.auth.rootuser.iden)
 
-            opts = {'vars': {'derp': derp.iden}}
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $derp)) }', opts=opts)
+            opts = {'vars': {'lowuser': lowuser}}
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $lowuser)) }',
+                                        opts=opts)
+            self.eq(cdef['creator'], lowuser)
 
-            self.eq(cdef['creator'], derp.iden)
+            opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
+            q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
+            msgs = await core.stormlist(q, opts=opts)
+            # XXX FIXME - This is an odd message since the new creator does not implicitly have
+            # access to the cronjob that is running as them.
+            self.stormIsInErr('Provided iden does not match any valid authorized cron job.', msgs)
 
-            async with core.getLocalProxy(user='derp') as proxy:
-                with self.raises(s_exc.AuthDeny):
-                    await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)
+            await core.addUserRule(lowuser, (True, ('cron', 'get')))
+            opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
+            q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInErr('must have permission cron.set.creator', msgs)
+
+    async def test_agenda_fatal_run(self):
+
+        # Create a scenario where an agenda appointment is "correct"
+        # but encounters a fatal error when attempting to be created.
+        # This error is then logged, and corrected.
+
+        async with self.getTestCore() as core:
+
+            udef = await core.addUser('user')
+            user = udef.get('iden')
+
+            fork = await core.callStorm('$fork = $lib.view.get().fork().iden return ( $fork )')
+
+            q = '$lib.log.info(`I am a cron job run by {$lib.user.name()} in {$lib.view.get().iden}`)'
+            msgs = await core.stormlist('cron.add --minute +1 $q', opts={'vars': {'q': q}, 'view': fork})
+            self.stormHasNoWarnErr(msgs)
+
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $user)) }',
+                                        opts={'vars': {'user': user}})
+            self.eq(cdef['creator'], user)
+
+            # Force the cron to run.
+
+            with self.getAsyncLoggerStream('synapse.lib.agenda', 'Agenda error running appointment ') as stream:
+                core.agenda._addTickOff(55)
+                self.true(await stream.wait(timeout=12))
+
+            await core.addUserRule(user, (True, ('storm',)))
+            await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'I am a cron job') as stream:
+                core.agenda._addTickOff(60)
+                self.true(await stream.wait(timeout=12))
 
     async def test_agenda_mirror_realtime(self):
         with self.getTestDir() as dirn:
@@ -774,13 +729,12 @@ class AgendaTest(s_t_utils.SynTest):
                         if len(mesgs) == 2:
                             break
 
+                    await core01.sync()
+
                     cron00 = await core00.callStorm('return($lib.cron.list())')
                     cron01 = await core01.callStorm('return($lib.cron.list())')
-                    # both should have the job, but only one should have run
-                    self.len(1, cron00)
-                    self.eq(cron00[0]['lastresult'], 'finished successfully with 0 nodes')
-                    self.len(1, cron01)
-                    self.none(cron01[0]['lastresult'])
+
+                    self.eq(cron00, cron01)
 
                     start = mesgs[0]
                     stop = mesgs[1]
@@ -790,3 +744,36 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(start['info']['iden'], cron00[0]['iden'])
                     self.eq(stop['info']['iden'], cron00[0]['iden'])
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+                    nodes = await core00.nodes('syn:cron')
+                    self.len(1, nodes)
+
+                    msgs = await core00.stormlist('syn:cron [ :name=foo :doc=bar ]')
+                    self.stormHasNoWarnErr(msgs)
+                    await core01.sync()
+
+                    nodes = await core01.nodes('syn:cron')
+                    self.len(1, nodes)
+                    self.nn(nodes[0].props.get('.created'))
+                    self.eq(nodes[0].props.get('name'), 'foo')
+                    self.eq(nodes[0].props.get('doc'), 'bar')
+
+                    appt = await core01.agenda.get(nodes[0].ndef[1])
+                    self.eq(appt.name, 'foo')
+                    self.eq(appt.doc, 'bar')
+
+            with self.getLoggerStream('synapse.lib.agenda') as stream:
+                async with self.getTestCore(dirn=path00) as core00:
+                    appts = core00.agenda.list()
+                    self.len(1, appts)
+                    appt = appts[0][1]
+
+                    edits = {
+                        'invalid': 'newp',
+                    }
+                    await core00.addCronEdits(appt.iden, edits)
+
+                stream.seek(0)
+                data = stream.read()
+                self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)

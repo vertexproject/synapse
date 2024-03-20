@@ -407,7 +407,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
                 buf = b''
                 async for bytz in axon.get(sha256):
-                    buf =+ bytz
+                    buf += bytz
 
                 await dostuff(buf)
 
@@ -593,7 +593,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.dels(sha256s)
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None, proxy=None):
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
         '''
         Stream a file download directly into the Axon.
 
@@ -606,10 +607,19 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
+            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
-            The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
+            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
+
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
 
             The dictionary returned by this may contain the following values::
 
@@ -640,18 +650,20 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             dict: An information dictionary containing the results of the request.
         '''
         await self._reqUserAllowed(('axon', 'wget'))
-        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl,
-                                    timeout=timeout, proxy=proxy)
+        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method,
+                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None, proxy=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
+                        ssl=True, timeout=None, proxy=None, ssl_opts=None):
         await self._reqUserAllowed(('axon', 'wput'))
-        return await self.cell.postfiles(fields, url, params=params, headers=headers,
-                                         method=method, ssl=ssl, timeout=timeout, proxy=proxy)
+        return await self.cell.postfiles(fields, url, params=params, headers=headers, method=method,
+                                         ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, proxy=None):
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT',
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
         await self._reqUserAllowed(('axon', 'wput'))
-        return await self.cell.wput(sha256, url, params=params, headers=headers, method=method, ssl=ssl,
-                                    timeout=timeout, proxy=proxy)
+        return await self.cell.wput(sha256, url, params=params, headers=headers, method=method,
+                                    ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
 
     async def metrics(self):
         '''
@@ -677,27 +689,29 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
-    async def readlines(self, sha256):
+    async def readlines(self, sha256, errors='ignore'):
         '''
         Yield lines from a multi-line text file in the axon.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
+            errors (str): Specify how encoding errors should handled.
 
         Yields:
             str: Lines of text
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.readlines(sha256):
+        async for item in self.cell.readlines(sha256, errors=errors):
             yield item
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
         '''
         Yield CSV rows from a CSV file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
             dialect (str): The CSV dialect to use.
+            errors (str): Specify how encoding errors should handled.
             **fmtparams: The CSV dialect format parameters.
 
         Notes:
@@ -719,21 +733,22 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             list: Decoded CSV rows.
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.csvrows(sha256, dialect, **fmtparams):
+        async for item in self.cell.csvrows(sha256, dialect, errors=errors, **fmtparams):
             yield item
 
-    async def jsonlines(self, sha256):
+    async def jsonlines(self, sha256, errors='ignore'):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
+            errors (str): Specify how encoding errors should handled.
 
         Yields:
             object: Decoded JSON objects.
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.jsonlines(sha256):
+        async for item in self.cell.jsonlines(sha256, errors=errors):
             yield item
 
 
@@ -1350,7 +1365,7 @@ class Axon(s_cell.Cell):
         finally:
             link.txfini()
 
-    async def readlines(self, sha256):
+    async def readlines(self, sha256, errors='ignore'):
 
         sha256 = s_common.uhex(sha256)
         await self._reqHas(sha256)
@@ -1360,7 +1375,7 @@ class Axon(s_cell.Cell):
         feedtask = None
 
         try:
-            todo = s_common.todo(_spawn_readlines, sock00)
+            todo = s_common.todo(_spawn_readlines, sock00, errors=errors)
             async with await s_base.Base.anit() as scope:
 
                 scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
@@ -1384,7 +1399,7 @@ class Axon(s_cell.Cell):
             if feedtask is not None:
                 await feedtask
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
         await self._reqHas(sha256)
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
@@ -1394,7 +1409,7 @@ class Axon(s_cell.Cell):
         feedtask = None
 
         try:
-            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
+            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams, errors=errors)
             async with await s_base.Base.anit() as scope:
 
                 scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
@@ -1418,8 +1433,8 @@ class Axon(s_cell.Cell):
             if feedtask is not None:
                 await feedtask
 
-    async def jsonlines(self, sha256):
-        async for line in self.readlines(sha256):
+    async def jsonlines(self, sha256, errors='ignore'):
+        async for line in self.readlines(sha256, errors=errors):
             line = line.strip()
             if not line:
                 continue
@@ -1431,7 +1446,8 @@ class Axon(s_cell.Cell):
                 raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
                                         sha256=sha256) from None
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None, proxy=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
+                        ssl=True, timeout=None, proxy=None, ssl_opts=None):
         '''
         Send files from the axon as fields in a multipart/form-data HTTP request.
 
@@ -1444,6 +1460,7 @@ class Axon(s_cell.Cell):
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
             proxy (bool|str|null): Use a specific proxy or disable proxy use.
+            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
             The dictionaries in the fields list may contain the following values::
@@ -1455,6 +1472,14 @@ class Axon(s_cell.Cell):
                     'filename': <str> - Optional filename for the field.
                     'content_type': <str> - Optional content type for the field.
                     'content_transfer_encoding': <str> - Optional content-transfer-encoding header for the field.
+                }
+
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
             The dictionary returned by this may contain the following values::
@@ -1475,19 +1500,11 @@ class Axon(s_cell.Cell):
         if proxy is None:
             proxy = self.conf.get('http:proxy')
 
-        cadir = self.conf.get('tls:ca:dir')
+        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
         connector = None
         if proxy:
             connector = aiohttp_socks.ProxyConnector.from_url(proxy)
-
-        if ssl is False:
-            pass
-        elif cadir:
-            ssl = s_common.getSslCtx(cadir)
-        else:
-            # default aiohttp behavior
-            ssl = None
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -1553,26 +1570,18 @@ class Axon(s_cell.Cell):
                 }
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
-                   filename=None, filemime=None, proxy=None):
+                   filename=None, filemime=None, proxy=None, ssl_opts=None):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''
         if proxy is None:
-            prox = self.conf.get('http:proxy')
+            proxy = self.conf.get('http:proxy')
 
-        cadir = self.conf.get('tls:ca:dir')
+        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
         connector = None
         if proxy:
             connector = aiohttp_socks.ProxyConnector.from_url(proxy)
-
-        if ssl is False:
-            pass
-        elif cadir:
-            ssl = s_common.getSslCtx(cadir)
-        else:
-            # default aiohttp behavior
-            ssl = None
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -1635,7 +1644,8 @@ class Axon(s_cell.Cell):
 
         return info
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None, proxy=None):
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
         '''
         Stream a file download directly into the Axon.
 
@@ -1649,10 +1659,19 @@ class Axon(s_cell.Cell):
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
             proxy (bool|str|null): Use a specific proxy or disable proxy use.
+            ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
-            The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
+            The response body will be stored, regardless of the response code. The ``ok`` value in the response does not
             reflect that a status code, such as a 404, was encountered when retrieving the URL.
+
+            The ssl_opts dictionary may contain the following values::
+
+                {
+                    'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+                    'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+                    'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+                }
 
             The dictionary returned by this may contain the following values::
 
@@ -1687,21 +1706,13 @@ class Axon(s_cell.Cell):
         if proxy is None:
             proxy = self.conf.get('http:proxy')
 
-        cadir = self.conf.get('tls:ca:dir')
+        ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
         connector = None
         if proxy:
             connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
-
-        if ssl is False:
-            pass
-        elif cadir:
-            ssl = s_common.getSslCtx(cadir)
-        else:
-            # default aiohttp behavior
-            ssl = None
 
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
@@ -1745,9 +1756,9 @@ class Axon(s_cell.Cell):
                     'err': err,
                 }
 
-def _spawn_readlines(sock): # pragma: no cover
+def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
     try:
-        with sock.makefile('r') as fd:
+        with sock.makefile('r', errors=errors) as fd:
 
             try:
 
@@ -1763,11 +1774,11 @@ def _spawn_readlines(sock): # pragma: no cover
         mesg = s_common.retnexc(e)
         sock.sendall(s_msgpack.en(mesg))
 
-def _spawn_readrows(sock, dialect, fmtparams): # pragma: no cover
+def _spawn_readrows(sock, dialect, fmtparams, errors='ignore'): # pragma: no cover
     try:
 
         # Assume utf8 encoding and ignore errors.
-        with sock.makefile('r', errors='ignore') as fd:
+        with sock.makefile('r', errors=errors) as fd:
 
             try:
 

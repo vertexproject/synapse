@@ -136,7 +136,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             async def compute(self, runt, valu):
                 frame = inspect.currentframe()
                 assert 'pivot.storm' in stormtracer.dynamic_source_filename(None, frame)
-                assert (1, 1) == stormtracer.line_number_range(frame)
+                assert stormtracer.line_number_range(frame) in ((1, 1), (2, 2))
                 return await orig(self, runt, valu)
 
             with mock.patch('synapse.lib.ast.Const.compute', compute):

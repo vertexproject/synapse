@@ -1,10 +1,13 @@
 import copy
+import json
 import regex
+import pathlib
 import argparse
 
 import yaml
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
@@ -375,3 +378,40 @@ class ConfTest(s_test.SynTest):
         item = validator({'key:number': 123})
         self.eq(item['key:number'], 123)
         self.notin('key:string', item)
+
+    async def test_config_ref_handler(self):
+
+        filename = pathlib.Path(s_data.path(
+            'jsonschemas',
+            'raw.githubusercontent.com',
+            'oasis-open',
+            'cti-stix2-json-schemas',
+            'stix2.1',
+            'schemas',
+            'common',
+            'core.json'
+        ))
+
+        self.true(filename.exists())
+
+        with filename.open() as fp:
+            schema = json.load(fp)
+
+        self.eq(schema, s_config.localSchemaRefHandler(
+            "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json"
+        ))
+
+        # test the handler
+        with self.raises(s_exc.NoSuchFile):
+            s_config.localSchemaRefHandler(
+                f'https://loop.vertex.link/foo/bar/baz/newp.json'
+            )
+
+        with self.raises(s_exc.BadUrl):
+            s_config.localSchemaRefHandler('http://[/newp')
+
+        with self.raises(s_exc.NoSuchFile):
+            s_config.localSchemaRefHandler('http://foo.com/newp.json')
+
+        with self.raises(s_exc.BadArg):
+            s_config.localSchemaRefHandler('http://raw.githubusercontent.com/../../attack-flow/attack-flow-schema-2.0.0.json')

@@ -147,8 +147,8 @@ class ViewTest(s_t_utils.SynTest):
             # Add a node back
             await self.agenlen(1, view2.eval('[ test:int=12 ]'))
 
-            # Add a bunch of nodes to require chunking of splices when merging
-            for i in range(1000):
+            # Add a bunch of test nodes to the view.
+            for i in range(20):
                 await self.agenlen(1, view2.eval('[test:int=$val]', opts={'vars': {'val': i + 1000}}))
 
             # Add prop that will only exist in the child
@@ -182,8 +182,7 @@ class ViewTest(s_t_utils.SynTest):
             tmpiden = tmplayr['iden']
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmpiden))
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmpiden))
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmpiden]))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmpiden]))
+            await self.asyncraises(s_exc.BadArg, view2.setLayers([tmpiden]))
 
             # You can't merge a non-forked view
             await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
@@ -218,7 +217,7 @@ class ViewTest(s_t_utils.SynTest):
             await view2.wipeLayer()
 
             # The parent counts includes all the nodes that were merged
-            self.eq(1005, (await core.view.getFormCounts()).get('test:int'))
+            self.eq(25, (await core.view.getFormCounts()).get('test:int'))
 
             # A node added to the child is now present in the parent
             nodes = await core.nodes('test:int=12')
@@ -248,12 +247,14 @@ class ViewTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:int -(refs)> *'))
 
             # The child count includes all the nodes in the view
-            self.eq(1005, (await view2.getFormCounts()).get('test:int'))
+            self.eq(25, (await view2.getFormCounts()).get('test:int'))
 
             # The child can see nodes that got merged
             nodes = await view2.nodes('test:int=12')
             self.len(1, nodes)
             nodes = await view2.nodes('test:int=1000')
+            self.len(1, nodes)
+            nodes = await view2.nodes('test:int=1019')
             self.len(1, nodes)
 
             await core.delView(view2.iden)
@@ -411,15 +412,6 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(1, count['node'])
             self.eq(2, count['node:edits'])
             self.eq(0, count['node:add'])
-
-            mesgs = await core.stormlist('[test:str=foo2 :hehe=bar]', opts={'editformat': 'splices'})
-            count = collections.Counter(m[0] for m in mesgs)
-            self.eq(1, count['init'])
-            self.eq(1, count['node:add'])
-            self.eq(2, count['prop:set'])  # .created and .hehe
-            self.eq(0, count['node:edits'])
-            self.eq(1, count['node'])
-            self.eq(1, count['fini'])
 
             mesgs = await core.stormlist('[test:str=foo3 :hehe=bar]', opts={'editformat': 'count'})
             count = collections.Counter(m[0] for m in mesgs)
@@ -678,7 +670,7 @@ class ViewTest(s_t_utils.SynTest):
 
                 mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
                 mirror_view, mirror_layr = await core2.callStorm('''
-                    $ldef = $lib.dict(mirror=$lib.str.concat($baseurl, "/", $baseiden))
+                    $ldef = ({'mirror':$lib.str.concat($baseurl, "/", $baseiden)})
                     $lyr = $lib.layer.add(ldef=$ldef)
                     $view = $lib.view.add(($lyr.iden,))
                     return(($view.iden, $lyr.iden))
@@ -767,3 +759,25 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(nodes[0].tagprops.get('seen'))
             self.nn(nodes[0].tagprops['seen'].get('score'))
             self.nn(nodes[0].nodedata.get('foo'))
+
+            await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
+
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'add', 'rep', 'foo')), gateiden=baselayr)
+
+            await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
+
+            await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+
+            await core.nodes('test:str=foo | merge --apply', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+            await core.nodes('test:str=foo [ +#rep=now ]', opts=viewopts)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)

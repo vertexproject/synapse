@@ -23,7 +23,7 @@ if [ "$*" = '' ]; then
     COVFAIL="--cov-fail-under=$COVREQ"
 fi
 
-pytest -v -s --durations 6 -n auto --maxfail 6 -rs $COVFAIL --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $*
+python -m pytest -v -s --durations 6 -n auto --maxfail 6 -rs $COVFAIL --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $*
 
 if [ $? -eq 0 ]; then
     if [ -e $INDEX ]; then

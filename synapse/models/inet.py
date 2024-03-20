@@ -1,4 +1,5 @@
 import socket
+import asyncio
 import hashlib
 import logging
 import ipaddress
@@ -7,6 +8,7 @@ import urllib.parse
 
 import idna
 import regex
+import collections
 import unicodedata
 
 import synapse.exc as s_exc
@@ -28,6 +30,8 @@ udots = regex.compile(r'[\u3002\uff0e\uff61]')
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 ipv4max = 2 ** 32 - 1
 
+rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -45,7 +49,39 @@ def getAddrType(ip):
     if ip.is_reserved:
         return 'reserved'
 
+    if ip in rfc6598:
+        return 'shared'
+
     return 'unicast'
+
+# https://en.wikipedia.org/wiki/IPv6_address#Address_scopes
+ipv6_multicast_scopes = {
+    'ff00:': 'reserved',
+    'ff01:': 'interface-local',
+    'ff02:': 'link-local',
+    'ff03:': 'realm-local',
+    'ff04:': 'admin-local',
+    'ff05:': 'site-local',
+    'ff08:': 'organization-local',
+    'ff0e:': 'global',
+    'ff0f:': 'reserved',
+}
+
+scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
+
+def getAddrScope(ipv6):
+
+    if ipv6.is_loopback:
+        return 'link-local'
+
+    if ipv6.is_link_local:
+        return 'link-local'
+
+    if ipv6.is_multicast:
+        pref = ipv6.compressed[:5]
+        return ipv6_multicast_scopes.get(pref, 'unassigned')
+
+    return 'global'
 
 class Addr(s_types.Str):
 
@@ -474,10 +510,20 @@ class IPv4(s_types.Type):
         return minv, maxv
 
     def getCidrRange(self, text):
-        addr, mask = text.split('/', 1)
+        addr, mask_str = text.split('/', 1)
         norm, info = self.norm(addr)
 
-        mask = cidrmasks[int(mask)]
+        try:
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Invalid CIDR Mask "{text}"')
+
+        if mask_int > 32 or mask_int < 0:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Invalid CIDR Mask "{text}"')
+
+        mask = cidrmasks[mask_int]
 
         minv = norm & mask[0]
         return minv, minv + mask[1]
@@ -562,7 +608,10 @@ class IPv6(s_types.Type):
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
 
-            subs = {'type': getAddrType(v6)}
+            subs = {
+                'type': getAddrType(v6),
+                'scope': getAddrScope(v6),
+            }
 
             if v4 is not None:
                 v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
@@ -570,7 +619,7 @@ class IPv6(s_types.Type):
                 subs['ipv4'] = v4_int
                 return f'::ffff:{v4_str}', {'subs': subs}
 
-            return ipaddress.IPv6Address(valu).compressed, {'subs': subs}
+            return v6.compressed, {'subs': subs}
 
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
@@ -800,6 +849,10 @@ class Url(s_types.Str):
         local = False
         isUNC = False
 
+        if valu.startswith('\\\\'):
+            orig = s_chop.uncnorm(valu)
+            # Fall through to original norm logic
+
         # Protocol
         for splitter in ('://///', ':////'):
             try:
@@ -920,6 +973,11 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
+            # allow MSFT specific wild card syntax
+            # https://learn.microsoft.com/en-us/windows/win32/http/urlprefix-strings
+            if host is None and part == '+':
+                host = '+'
+
         if host and local:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Host specified on local-only file URI') from None
@@ -946,10 +1004,12 @@ class Url(s_types.Str):
             if port is not None:
                 hostparts = f'{hostparts}:{port}'
 
-        if proto != 'file':
-            if (not subs.get('fqdn')) and (subs.get('ipv4') is None) and (subs.get('ipv6') is None):
-                raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                        mesg='Missing address/url') from None
+        if proto != 'file' and host is None:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
+
+        if not hostparts and not pathpart:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Missing address/url') from None
 
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base
@@ -992,39 +1052,50 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
-        if domain is None:
-            await node.set('iszone', False)
-            await node.set('issuffix', True)
-            return
+        async with node.snap.getEditor() as editor:
+            protonode = editor.loadNode(node)
+            if domain is None:
+                await protonode.set('iszone', False)
+                await protonode.set('issuffix', True)
+                return
 
-        if node.get('issuffix') is None:
-            await node.set('issuffix', False)
+            if protonode.get('issuffix') is None:
+                await protonode.set('issuffix', False)
 
-        # almost certainly in the cache anyway....
-        parent = await node.snap.addNode('inet:fqdn', domain)
+            parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+            if parent is None:
+                parent = await editor.addNode('inet:fqdn', domain)
 
-        if parent.get('issuffix'):
-            await node.set('iszone', True)
-            await node.set('zone', fqdn)
-            return
+            if parent.get('issuffix'):
+                await protonode.set('iszone', True)
+                await protonode.set('zone', fqdn)
+                return
 
-        await node.set('iszone', False)
+            await protonode.set('iszone', False)
 
-        if parent.get('iszone'):
-            await node.set('zone', domain)
-            return
+            if parent.get('iszone'):
+                await protonode.set('zone', domain)
+                return
 
-        zone = parent.get('zone')
-        if zone is not None:
-            await node.set('zone', zone)
+            zone = parent.get('zone')
+            if zone is not None:
+                await protonode.set('zone', zone)
 
     async def _onSetFqdnIsSuffix(self, node, oldv):
 
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
-            await child.set('iszone', issuffix)
+
+        async with node.snap.getEditor() as editor:
+            async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                await asyncio.sleep(0)
+
+                if child.get('iszone') == issuffix:
+                    continue
+
+                protonode = editor.loadNode(child)
+                await protonode.set('iszone', issuffix)
 
     async def _onSetFqdnIsZone(self, node, oldv):
 
@@ -1053,17 +1124,24 @@ class InetModule(s_module.CoreModule):
 
     async def _onSetFqdnZone(self, node, oldv):
 
-        fqdn = node.ndef[1]
+        todo = collections.deque([node.ndef[1]])
         zone = node.get('zone')
 
-        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+        async with node.snap.getEditor() as editor:
+            while todo:
+                fqdn = todo.pop()
+                async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                    await asyncio.sleep(0)
 
-            # if they are their own zone level, skip
-            if child.get('iszone'):
-                continue
+                    # if they are their own zone level, skip
+                    if child.get('iszone') or child.get('zone') == zone:
+                        continue
 
-            # the have the same zone we do
-            await child.set('zone', zone)
+                    # the have the same zone we do
+                    protonode = editor.loadNode(child)
+                    await protonode.set('zone', zone)
+
+                    todo.append(child.ndef[1])
 
     def getModelDefs(self):
         return (
@@ -1168,7 +1246,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An individual network connection between a given source and destination.'}),
 
                     ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('taxonomy',),
+                        'interfaces': ('meta:taxonomy',),
                         'doc': 'A taxonomy of network tunnel types.'}),
 
                     ('inet:tunnel', ('guid', {}), {
@@ -1390,28 +1468,27 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:email:message', ('guid', {}), {
-                        'doc': 'A unique email message.',
-                    }),
+                        'doc': 'An individual email message delivered to an inbox.'}),
 
                     ('inet:email:header:name', ('str', {'lower': True}), {
-                        'doc': 'An email header name.',
                         'ex': 'subject',
-                    }),
+                        'doc': 'An email header name.'}),
+
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
-                        'doc': 'A unique email message header.',
-                    }),
+                        'doc': 'A unique email message header.'}),
+
                     ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
-                        'doc': 'A file which was attached to an email message.',
-                    }),
+                        'doc': 'A file which was attached to an email message.'}),
+
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
-                        'doc': 'A url/link embedded in an email message.',
-                    }),
+                        'doc': 'A url/link embedded in an email message.'}),
+
                     ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
-                        'doc': 'A TLS JARM fingerprint hash.',
-                    }),
+                        'doc': 'A TLS JARM fingerprint hash.'}),
+
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
-                        'doc': 'A JARM hash sample taken from a server.',
-                    }),
+                        'doc': 'A JARM hash sample taken from a server.'}),
+
                 ),
 
                 'interfaces': (
@@ -1456,30 +1533,45 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:message', {}, (
 
                         ('to', ('inet:email', {}), {
-                            'doc': 'The email address of the recipient.'
-                        }),
+                            'doc': 'The email address of the recipient.'}),
+
                         ('from', ('inet:email', {}), {
-                            'doc': 'The email address of the sender.'
-                        }),
+                            'doc': 'The email address of the sender.'}),
+
                         ('replyto', ('inet:email', {}), {
-                            'doc': 'The email address from the reply-to header.'
-                        }),
+                            'doc': 'The email address parsed from the "reply-to" header.'}),
+
+                        ('cc', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Email addresses parsed from the "cc" header.'}),
+
                         ('subject', ('str', {}), {
-                            'doc': 'The email message subject line.'
-                        }),
+                            'doc': 'The email message subject parsed from the "subject" header.'}),
+
                         ('body', ('str', {}), {
-                            'doc': 'The body of the email message.',
                             'disp': {'hint': 'text'},
-                        }),
+                            'doc': 'The body of the email message.'}),
+
                         ('date', ('time', {}), {
-                            'doc': 'The time the email message was received.'
-                        }),
+                            'doc': 'The time the email message was delivered.'}),
+
                         ('bytes', ('file:bytes', {}), {
-                            'doc': 'The file bytes which contain the email message.'
-                        }),
+                            'doc': 'The file bytes which contain the email message.'}),
+
                         ('headers', ('array', {'type': 'inet:email:header'}), {
-                            'doc': 'An array of email headers from the message.'
-                        }),
+                            'doc': 'An array of email headers from the message.'}),
+
+                        ('received:from:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The sending SMTP server IPv4, potentially from the Received: header.'}),
+
+                        ('received:from:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The sending SMTP server IPv6, potentially from the Received: header.'}),
+
+                        ('received:from:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The sending server FQDN, potentially from the Received: header.'}),
+
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The inet:flow which delivered the message.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
@@ -2009,6 +2101,13 @@ class InetModule(s_module.CoreModule):
 
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the IPv6.'}),
+
+                        ('type', ('str', {}), {
+                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
+
+                        ('scope', ('str', {'enums': scopes_enum}), {
+                            'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
+
                     )),
 
                     ('inet:mac', {}, (
@@ -2299,6 +2398,7 @@ class InetModule(s_module.CoreModule):
                         ('name:en', ('inet:user', {}), {
                             'doc': 'The English version of the name associated with the (may be different from '
                                    'the account identifier, e.g., a display name).',
+                            'deprecated': True,
                         }),
                         ('aliases', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of alternate names for the user.',
@@ -2316,7 +2416,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The localized version of the real name of the account owner / registrant.'
                         }),
                         ('realname:en', ('ps:name', {}), {
-                            'doc': 'The English version of the real name of the account owner / registrant.'
+                            'doc': 'The English version of the real name of the account owner / registrant.',
+                            'deprecated': True,
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the account was registered.'
@@ -2534,7 +2635,8 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('name:en', ('inet:group', {}), {
                             'doc': 'The English version of the name associated with the group (may be different '
-                                   'from the localized name).'
+                                   'from the localized name).',
+                            'deprecated': True,
                         }),
                         ('url', ('inet:url', {}), {
                             'doc': 'The service provider URL where the group is hosted.'

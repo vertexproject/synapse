@@ -12,184 +12,122 @@ from synapse.tests.utils import alist
 class NodeTest(s_t_utils.SynTest):
 
     async def test_pack(self):
-        form = 'test:str'
-        valu = 'cool'
-        props = {'tick': 12345}
 
         async with self.getTestCore() as core:
 
             await core.addTagProp('score', ('int', {}), {})
             await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})
+            q = '[test:str=cool :tick=(12345) +#foo:score=10 +#foo:note=" This is a really cool tag! "]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            node = nodes[0]
 
-            async with await core.snap() as snap:
+            iden, info = node.pack()
+            self.eq(iden, ('test:str', 'cool'))
+            self.eq(info.get('tags'), {'foo': (None, None)})
+            self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
+            props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
+            self.eq(props, {'tick': 12345})
 
-                node = await snap.addNode(form, valu, props=props)
-                await node.setTagProp('foo', 'score', 10)
-                await node.setTagProp('foo', 'note', " This is a really cool tag! ")
+            iden, info = node.pack(dorepr=True)
+            self.eq(iden, ('test:str', 'cool'))
+            self.eq(info.get('tags'), {'foo': (None, None)})
+            props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
+            self.eq(props, {'tick': 12345})
+            self.eq(info.get('repr'), None)
+            reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
+            self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
+            tagpropreprs = info.get('tagpropreprs')
+            self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
-                iden, info = node.pack()
-                self.eq(iden, ('test:str', 'cool'))
-                self.eq(info.get('tags'), {'foo': (None, None)})
-                self.eq(info.get('tagprops'), {'foo': {'score': 10, 'note': 'this is a really cool tag!'}})
-                props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
-                self.eq(props, {'tick': 12345})
+            # Set a property on the node which is extra model and pack it.
+            # This situation can be encountered in a multi-layer situation
+            # where one Cortex can have model knowledge and set props
+            # that another Cortex (sitting on top of the first one) lifts
+            # a node which has props the second cortex doens't know about.
+            node.props['.newp'] = 1
+            node.props['newp'] = (2, 3)
+            node.tagprops['foo']['valu'] = 10
+            iden, info = node.pack(dorepr=True)
+            props, reprs = info.get('props'), info.get('reprs')
+            tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
+            self.eq(props.get('.newp'), 1)
+            self.eq(props.get('newp'), (2, 3))
+            self.eq(tagprops, {'foo': {'score': 10, 'note': 'this is a really cool tag!', 'valu': 10}})
 
-                iden, info = node.pack(dorepr=True)
-                self.eq(iden, ('test:str', 'cool'))
-                self.eq(info.get('tags'), {'foo': (None, None)})
-                props = {k: v for (k, v) in info.get('props', {}).items() if not k.startswith('.')}
-                self.eq(props, {'tick': 12345})
-                self.eq(info.get('repr'), None)
-                reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
-                self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
-                tagpropreprs = info.get('tagpropreprs')
-                self.eq(tagpropreprs, {'foo': {'score': '10'}})
+            # without model knowledge it is impossible to repr a value so it should
+            # *not* be in the repr dict
+            self.none(reprs.get('newp'))
+            self.none(reprs.get('.newp'))
+            self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
-                # Set a property on the node which is extra model and pack it.
-                # This situation can be encountered in a multi-layer situation
-                # where one Cortex can have model knowledge and set props
-                # that another Cortex (sitting on top of the first one) lifts
-                # a node which has props the second cortex doens't know about.
-                node.props['.newp'] = 1
-                node.props['newp'] = (2, 3)
-                node.tagprops['foo']['valu'] = 10
-                iden, info = node.pack(dorepr=True)
-                props, reprs = info.get('props'), info.get('reprs')
-                tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
-                self.eq(props.get('.newp'), 1)
-                self.eq(props.get('newp'), (2, 3))
-                self.eq(tagprops, {'foo': {'score': 10, 'note': 'this is a really cool tag!', 'valu': 10}})
-
-                # without model knowledge it is impossible to repr a value so it should
-                # *not* be in the repr dict
-                self.none(reprs.get('newp'))
-                self.none(reprs.get('.newp'))
-                self.eq(tagpropreprs, {'foo': {'score': '10'}})
-
-    async def test_set(self):
-        form = 'test:str'
-        valu = 'cool'
-        props = {'tick': 12345}
+    async def test_get_has_pop_repr_set(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                self.true(snap.strict)  # Following assertions based on snap.strict being true
-                node = await snap.addNode(form, valu, props=props)
+            nodes = await core.nodes('[test:str=cool :tick=(12345) +#cool=((1), (2))]')
+            self.len(1, nodes)
+            node = nodes[0]
 
-                self.false(await node.set('tick', 12345))
-                self.true(await node.set('tick', 123456))
-                await self.asyncraises(s_exc.NoSuchProp, node.set('notreal', 12345))
+            self.true(node.has('tick'))
+            self.true(node.has('.created'))
+            self.false(node.has('nope'))
+            self.false(node.has('.nope'))
 
-                ronode = await snap.addNode('test:comp', (1, 's'))
-                await self.asyncraises(s_exc.ReadOnlyProp, ronode.set('hehe', 2))
-                snap.strict = False
-                self.false(await ronode.set('hehe', 3))
-                snap.strict = True
+            self.eq(node.get('tick'), 12345)
+            self.none(node.get('nope'))
+            self.eq(node.get('#cool'), (1, 2))
+            self.none(node.get('#newp'))
 
-    async def test_has(self):
-        form = 'test:str'
-        valu = 'cool'
-        props = {'tick': 12345}
+            self.eq('cool', node.repr())
+            self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
 
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(form, valu, props=props)
+            self.false(await node.set('tick', 12345))
+            self.true(await node.set('tick', 123456))
+            with self.raises(s_exc.NoSuchProp):
+                await node.set('notreal', 12345)
+            with self.raises(s_exc.ReadOnlyProp):
+                await node.set('.created', 12345)
 
-                self.true(node.has('tick'))
-                self.true(node.has('.created'))
-                self.false(node.has('nope'))
-                self.false(node.has('.nope'))
+            # Pop tests - these are destructive to the node
+            with self.raises(s_exc.NoSuchProp):
+                await node.pop('nope')
+            with self.raises(s_exc.ReadOnlyProp):
+                await node.pop('.created')
+            self.true(await node.pop('tick'))
+            self.false(await node.pop('tick'))
 
-    async def test_get(self):
-        form = 'test:str'
-        valu = 'cool'
-        props = {'tick': 12345}
-
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(form, valu, props=props)
-                await node.addTag('cool', valu=(1, 2))
-
-                self.eq(node.get('tick'), 12345)
-                self.none(node.get('nope'))
-
-                self.eq(node.get('#cool'), (1, 2))
-                self.none(node.get('#newp'))
-
-    async def test_pop(self):
-        form = 'test:str'
-        valu = 'cool'
-        props = {'tick': 12345}
-
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode(form, valu, props=props)
-                await node.addTag('cool', valu=(1, 2))
-
-                await self.asyncraises(s_exc.NoSuchProp, node.pop('nope'))
-                snap.strict = False
-                self.false(await node.pop('nope'))
-                snap.strict = True
-
-                ronode = await snap.addNode('test:comp', (1, 's'))
-                await self.asyncraises(s_exc.ReadOnlyProp, ronode.pop('hehe'))
-                snap.strict = False
-                self.false(await ronode.pop('hehe'))
-                snap.strict = True
-
-    async def test_repr(self):
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-
-                form = 'test:str'
-                valu = 'cool'
-                props = {'tick': 12345}
-                node = await snap.addNode(form, valu, props=props)
-                self.eq('cool', node.repr())
-                self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
-
-                form = 'test:threetype'
-                valu = 'cool'
-                node = await snap.addNode(form, valu)
-                self.eq(node.repr(), '3')
-                reprs = {k: v for (k, v) in node.reprs().items() if not k.startswith('.')}
-                self.eq(reprs.get('three'), '3')
+            nodes = await core.nodes('[test:threetype=cool]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.repr(), '3')
+            reprs = {k: v for (k, v) in node.reprs().items() if not k.startswith('.')}
+            self.eq(reprs.get('three'), '3')
 
     async def test_tags(self):
-        form = 'test:str'
-        valu = 'cool'
-        props = {'tick': 12345}
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                self.true(snap.strict)
+            nodes = await core.nodes('[test:str=cool :tick=(12345)]')
+            self.len(1, nodes)
+            node = nodes[0]
 
-                node = await snap.addNode(form, valu, props=props)
+            await node.addTag('cool', valu=(1, 2))
+            self.eq(node.getTag('cool'), (1, 2))
+            await node.addTag('cool', valu=(1, 2))  # Add again
+            self.eq(node.getTag('cool'), (1, 2))
+            await node.addTag('cool', valu=(1, 3))  # Add again with different valu
+            self.eq(node.getTag('cool'), (1, 3))
+            await node.addTag('cool', valu=(-5, 0))  # Add again with different valu
+            self.eq(node.getTag('cool'), (-5, 3))  # merges...
 
-                # Add a tag
-                await node.addTag('cool', valu=(1, 2))
-                self.eq(node.getTag('cool'), (1, 2))
-                await node.addTag('cool', valu=(1, 2))  # Add again
-                self.eq(node.getTag('cool'), (1, 2))
-                await node.addTag('cool', valu=(1, 3))  # Add again with different valu
-                self.eq(node.getTag('cool'), (1, 3))
-                await node.addTag('cool', valu=(-5, 0))  # Add again with different valu
-                self.eq(node.getTag('cool'), (-5, 3))  # merges...
+            self.true(node.hasTag('cool'))
+            self.true(node.hasTag('#cool'))
+            self.false(node.hasTag('notcool'))
+            self.false(node.hasTag('#notcool'))
 
-                self.true(node.hasTag('cool'))
-                self.true(node.hasTag('#cool'))
-                self.false(node.hasTag('notcool'))
-                self.false(node.hasTag('#notcool'))
-
-                # Demonstrate that valu is only applied at the level that addTag is called
-                await node.addTag('cool.beans.abc', valu=(1, 8))
-                self.eq(node.getTag('cool.beans.abc'), (1, 8))
-                self.eq(node.getTag('cool.beans'), (None, None))
-
-                await self.asyncraises(s_exc.NoSuchProp, node.pop('nope'))
-                snap.strict = False
-                self.false(await node.pop('nope'))
-                snap.strict = True
+            # Demonstrate that valu is only applied at the level that addTag is called
+            await node.addTag('cool.beans.abc', valu=(1, 8))
+            self.eq(node.getTag('cool.beans.abc'), (1, 8))
+            self.eq(node.getTag('cool.beans'), (None, None))
 
     async def test_node_helpers(self):
 
@@ -246,19 +184,17 @@ class NodeTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})
             await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})
-            async with await core.snap() as snap:
-                node = await snap.addNode(form, valu, props=props)
-                await node.addTag('test.foo.bar.duck', tval)
-                await node.addTag('test.foo.baz', tval)
-                await node.addTag('test.foo.time', ('2016', '2019'))
-                await node.addTag('test.foo', ('2015', '2017'))
-                await node.setTagProp('test', 'score', 0)
-                await node.setTagProp('test', 'note', 'Words')
+            q = '''[test:str=cool :tick=(12345) :hehe=hehe +#test.foo.bar.duck +#test.foo.baz
+            +#test.foo.time=(2016, 2019) +#test.foo=(2015, 2017) +#test:score=0 +#test:note=Words]'''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            node = nodes[0]
+            pode = node.pack(dorepr=True)
 
-                pode = node.pack(dorepr=True)
-
-                node2 = await snap.addNode('test:int', '1234')
-                pode2 = node2.pack(dorepr=True)
+            nodes = await core.nodes('[test:int=1234]')
+            self.len(1, nodes)
+            node2 = nodes[0]
+            pode2 = node2.pack(dorepr=True)
 
             _test_pode(strpode=pode, intpode=pode2)
 
@@ -517,3 +453,111 @@ class NodeTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist(edgeq)
             self.len(1, [m for m in msgs if m[0] == 'print'])
+
+            q = '''
+            [test:str=delfoo test:str=delbar]
+            { test:str=delfoo [ +(bar)> { test:str=delbar } ] }
+            { test:str=delbar [ +(foo)> { test:str=delfoo } ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            foo, bar = nodes
+            fooedges = [edge async for edge in foo.iterEdgesN1()]
+            baredges = [edge async for edge in bar.iterEdgesN1()]
+
+            self.len(2, fooedges)
+            self.len(2, baredges)
+
+            msgs = await core.stormlist('test:str=delfoo | delnode')
+            self.stormIsInErr('Other nodes still have light edges to this node.', msgs)
+
+            nodes = await core.nodes('test:str=delfoo')
+            self.len(1, nodes)
+
+            msgs = await core.stormlist('test:str=delfoo | delnode --deledges')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=delfoo')
+            self.len(0, nodes)
+
+            msgs = await core.stormlist('test:str=delbar | delnode')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('[test:str=delfoo]')
+            self.len(1, nodes)
+            foo = nodes[0]
+
+            q = '''
+            for $ii in $lib.range(1200) {
+                $valu = `bar{$ii}`
+                [ test:str=$valu +(foo)> { test:str=delfoo } ]
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            fooedges = [edge async for edge in foo.iterEdgesN2()]
+
+            self.len(1200, fooedges)
+
+            msgs = await core.stormlist('test:str=delfoo | delnode --deledges')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:str=delfoo')
+            self.len(0, nodes)
+
+    async def test_node_remove_missing_basetag(self):
+
+        async with self.getTestCore() as core:
+
+            base = await core.callStorm('return($lib.view.get().iden)')
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            await core.nodes('[test:str=neato +#foo.one]', opts={'view': base})
+            await core.nodes('test:str=neato | [ +#foo.two ]', opts={'view': fork})
+
+            await core.nodes('test:str=neato | [ -#foo ]', opts={'view': base})
+
+            othr = await core.nodes('test:str=neato', opts={'view': fork})
+            self.len(1, othr)
+            self.isin('foo.two', othr[0].tags)
+            self.notin('foo', othr[0].tags)
+
+            msgs = await core.stormlist('test:str=neato | [ -#foo ]', opts={'view': fork})
+            edits = [m[1] for m in msgs if m[0] == 'node:edits']
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, edits)
+            self.len(1, edits[0]['edits'][0][2])
+
+            self.len(1, nodes)
+            self.len(0, nodes[0][1]['tags'])
+
+            await core.nodes('[test:int=12 +#ping.pong.neato.burrito]', opts={'view': base})
+            await core.nodes('test:int=12 | [ +#ping.pong.awesome.possum ]', opts={'view': fork})
+
+            await core.nodes('test:int=12 | [ -#ping.pong]', opts={'view': base})
+
+            othr = await core.nodes('test:int=12', opts={'view': fork})
+            self.len(1, othr)
+            self.isin('ping', othr[0].tags)
+            self.isin('ping.pong.awesome', othr[0].tags)
+            self.isin('ping.pong.awesome.possum', othr[0].tags)
+
+            self.notin('ping.pong', othr[0].tags)
+
+            msgs = await core.stormlist('test:int=12 | [ -#ping.pong ]', opts={'view': fork})
+            edits = [m[1] for m in msgs if m[0] == 'node:edits']
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+
+            self.len(1, edits)
+            self.len(2, edits[0]['edits'][0][2])
+
+            self.len(1, nodes)
+            self.len(1, nodes[0][1]['tags'])
+            self.isin('ping', nodes[0][1]['tags'])
+
+            nodes = await core.nodes('test:int=12 | [ -#p ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].tags)
+            self.isin('ping', nodes[0].tags)

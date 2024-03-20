@@ -1,10 +1,10 @@
 import socket
 import asyncio
 import logging
-
-from OpenSSL import crypto
-
 import collections
+
+import cryptography.x509 as c_x509
+import cryptography.hazmat.primitives.hashes as c_hashes
 
 logger = logging.getLogger(__name__)
 
@@ -156,8 +156,8 @@ class Link(s_base.Base):
         if self.certhash is not None:
 
             byts = info.get('ssl').telessl.getpeercert(True)
-            cert = crypto.load_certificate(crypto.FILETYPE_ASN1, byts)
-            thishash = cert.digest('SHA256').decode().lower().replace(':', '')
+            cert = c_x509.load_der_x509_certificate(byts)
+            thishash = s_common.ehex(cert.fingerprint(c_hashes.SHA256()))
             if thishash != self.certhash:
                 mesg = f'Server cert does not match pinned certhash={self.certhash}.'
                 raise s_exc.LinkBadCert(mesg=mesg)

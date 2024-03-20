@@ -31,18 +31,19 @@ class BizModule(s_module.CoreModule):
                 }),
                 ('biz:service:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of service offering types.',
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('biz:dealstatus', ('taxonomy', {}), {
                     'doc': 'A deal/rfp status taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('biz:dealtype', ('taxonomy', {}), {
                     'doc': 'A deal type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('biz:prodtype', ('taxonomy', {}), {
                     'doc': 'A product type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
             ),
             'forms': (

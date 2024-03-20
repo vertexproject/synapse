@@ -301,11 +301,7 @@ class ProtoNode:
         if self.node is not None:
             return self.node.get(name)
 
-    async def set(self, name, valu, norminfo=None):
-
-        prop = self.form.props.get(name)
-        if prop is None:
-            return False
+    async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
@@ -339,7 +335,7 @@ class ProtoNode:
                 await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
                 return False
 
-        curv = self.get(name)
+        curv = self.get(prop.name)
         if curv == valu:
             return False
 
@@ -351,7 +347,20 @@ class ProtoNode:
         if self.node is not None:
             await self.ctx.snap.core._callPropSetHook(self.node, prop, valu)
 
-        self.props[name] = valu
+        self.props[prop.name] = valu
+
+        return valu, norminfo
+
+    async def set(self, name, valu, norminfo=None):
+        prop = self.form.props.get(name)
+        if prop is None:
+            return False
+
+        retn = await self._set(prop, valu, norminfo=norminfo)
+        if retn is False:
+            return False
+
+        (valu, norminfo) = retn
 
         propform = self.ctx.snap.core.model.form(prop.type.name)
         if propform is not None:
@@ -371,6 +380,37 @@ class ProtoNode:
                 await self.ctx.addNode(addname, addvalu, norminfo=addinfo)
 
         return True
+
+    async def getSetOps(self, name, valu, norminfo=None):
+        prop = self.form.props.get(name)
+        if prop is None:
+            return ()
+
+        retn = await self._set(prop, valu, norminfo=norminfo)
+        if retn is False:
+            return ()
+
+        (valu, norminfo) = retn
+        ops = []
+
+        propform = self.ctx.snap.core.model.form(prop.type.name)
+        if propform is not None:
+            ops.append(self.ctx.getAddNodeOps(propform.name, valu, norminfo=norminfo))
+
+        # TODO can we mandate any subs are returned pre-normalized?
+        propsubs = norminfo.get('subs')
+        if propsubs is not None:
+            for subname, subvalu in propsubs.items():
+                full = f'{prop.name}:{subname}'
+                if self.form.props.get(full) is not None:
+                    ops.append(self.getSetOps(full, subvalu))
+
+        propadds = norminfo.get('adds')
+        if propadds is not None:
+            for addname, addvalu, addinfo in propadds:
+                ops.append(self.ctx.getAddNodeOps(addname, addvalu, norminfo=addinfo))
+
+        return ops
 
 class SnapEditor:
     '''
@@ -394,17 +434,12 @@ class SnapEditor:
                 nodeedits.append(nodeedit)
         return nodeedits
 
-    async def addNode(self, formname, valu, props=None, norminfo=None):
+    async def _addNode(self, form, valu, props=None, norminfo=None):
 
         self.snap.core._checkMaxNodes()
 
-        form = self.snap.core.model.form(formname)
-        if form is None:
-            mesg = f'No form named {formname} for valu={valu}.'
-            return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
-
         if form.isrunt:
-            mesg = f'Cannot make runt nodes: {formname}.'
+            mesg = f'Cannot make runt nodes: {form.name}.'
             return await self.snap._raiseOnStrict(s_exc.IsRuntForm, mesg)
 
         if form.locked:
@@ -417,14 +452,72 @@ class SnapEditor:
             except s_exc.BadTypeValu as e:
                 e.errinfo['form'] = form.name
                 if self.snap.strict: raise e
-                await self.snap.warn(f'addNode() BadTypeValu {formname}={valu} {e}')
+                await self.snap.warn(f'addNode() BadTypeValu {form.name}={valu} {e}')
                 return None
+
+        return valu, norminfo
+
+    async def addNode(self, formname, valu, props=None, norminfo=None):
+
+        form = self.snap.core.model.form(formname)
+        if form is None:
+            mesg = f'No form named {formname} for valu={valu}.'
+            return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
+
+        retn = await self._addNode(form, valu, props=props, norminfo=norminfo)
+        if retn is None:
+            return None
+
+        valu, norminfo = retn
 
         protonode = await self._initProtoNode(form, valu, norminfo)
         if props is not None:
             [await protonode.set(p, v) for (p, v) in props.items()]
 
         return protonode
+
+    async def getAddNodeOps(self, formname, valu, props=None, norminfo=None):
+
+        form = self.snap.core.model.form(formname)
+        if form is None:
+            mesg = f'No form named {formname} for valu={valu}.'
+            await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
+            return()
+
+        retn = await self._addNode(form, valu, props=props, norminfo=norminfo)
+        if retn is None:
+            return ()
+
+        norm, norminfo = retn
+
+        ndef = (form.name, norm)
+
+        protonode = self.protonodes.get(ndef)
+        if protonode is not None:
+            return ()
+
+        buid = s_common.buid(ndef)
+        node = await self.snap.getNodeByBuid(buid)
+        if node is not None:
+            return ()
+
+        protonode = ProtoNode(self, buid, form, norm, node)
+
+        self.protonodes[ndef] = protonode
+
+        ops = []
+
+        subs = norminfo.get('subs')
+        if subs is not None:
+            for prop, valu in subs.items():
+                ops.append(protonode.getSetOps(prop, valu))
+
+        adds = norminfo.get('adds')
+        if adds is not None:
+            for addname, addvalu, addinfo in adds:
+                ops.append(self.getAddNodeOps(addname, addvalu, norminfo=addinfo))
+
+        return ops
 
     def loadNode(self, node):
         protonode = self.protonodes.get(node.ndef)
@@ -448,14 +541,25 @@ class SnapEditor:
 
         self.protonodes[ndef] = protonode
 
+        ops = collections.deque()
+
         subs = norminfo.get('subs')
         if subs is not None:
-            [await protonode.set(p, v) for (p, v) in subs.items()]
+            for prop, valu in subs.items():
+                ops.append(protonode.getSetOps(prop, valu))
+
+            while ops:
+                oset = ops.popleft()
+                ops.extend(await oset)
 
         adds = norminfo.get('adds')
         if adds is not None:
             for addname, addvalu, addinfo in adds:
-                await self.addNode(addname, addvalu, norminfo=addinfo)
+                ops.append(self.getAddNodeOps(addname, addvalu, norminfo=addinfo))
+
+            while ops:
+                oset = ops.popleft()
+                ops.extend(await oset)
 
         return protonode
 
@@ -469,8 +573,6 @@ class Snap(s_base.Base):
 
     Transactions produce the following EventBus events:
 
-    (...any splice...)
-    ('log', {'level': 'mesg': })
     ('print', {}),
     '''
     tagcachesize = 1000
@@ -483,8 +585,6 @@ class Snap(s_base.Base):
             layers (List[Layer]): the list of layers to access, write layer last
         '''
         await s_base.Base.__anit__(self)
-
-        self.stack = contextlib.ExitStack()
 
         assert user is not None
 
@@ -517,13 +617,8 @@ class Snap(s_base.Base):
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
         self._warnonce_keys = set()
 
-        self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
-        self.trigson = self.core.trigson
-
-    def disableTriggers(self):
-        self.trigson = False
 
     async def getSnapMeta(self):
         '''
@@ -572,6 +667,8 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
+        show_storage = False
+
         self.core._logStormQuery(text, user, info={'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
 
         # { form: ( embedprop, ... ) }
@@ -585,11 +682,15 @@ class Snap(s_base.Base):
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
+            show_storage = opts.get('show:storage', False)
 
         async for node, path in self.storm(text, opts=opts, user=user):
 
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
+
+            if show_storage:
+                pode[1]['storage'] = await node.getStorNodes()
 
             if scrubber is not None:
                 pode = scrubber.scrub(pode)
@@ -601,7 +702,6 @@ class Snap(s_base.Base):
 
             yield pode
 
-    @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
@@ -619,7 +719,6 @@ class Snap(s_base.Base):
             async for x in runt.execute():
                 yield x
 
-    @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):
         '''
         Run a storm query and yield Node() objects.
@@ -789,8 +888,10 @@ class Snap(s_base.Base):
                     for tagprop, (valu, stype) in propdict.items():
                         if tag not in tagprops:
                             tagprops[tag] = {}
+                            bylayer['tagprops'][tag] = {}
+
                         tagprops[tag][tagprop] = valu
-                        bylayer['tagprops'][tagprop] = layr
+                        bylayer['tagprops'][tag][tagprop] = layr
 
             stordata = sode.get('nodedata')
             if stordata is not None:
@@ -891,12 +992,9 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-
-            found = 0
             async for (buid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers, reverse=reverse):
                 node = await self._joinSodes(buid, sodes)
                 if node is not None:
-                    found += 1
                     yield node
 
             return
@@ -983,7 +1081,8 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
@@ -994,18 +1093,20 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
-    async def applyNodeEdit(self, edit):
-        nodes = await self.applyNodeEdits((edit,))
-        return nodes[0]
+    async def applyNodeEdit(self, edit, nodecache=None):
+        nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
+        if nodes:
+            return nodes[0]
 
-    async def applyNodeEdits(self, edits):
+    async def applyNodeEdits(self, edits, nodecache=None):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
         meta = await self.getSnapMeta()
-        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
+        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta, nodecache=nodecache)
         return nodes
 
     async def saveNodeEdits(self, edits, meta):
@@ -1022,7 +1123,7 @@ class Snap(s_base.Base):
 
         return saveoff, changes
 
-    async def _applyNodeEdits(self, edits, meta):
+    async def _applyNodeEdits(self, edits, meta, nodecache=None):
 
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
@@ -1043,11 +1144,17 @@ class Snap(s_base.Base):
 
             cache = {wlyr.iden: sode}
 
-            node = await self._joinStorNode(buid, cache)
+            node = None
+            if nodecache is not None:
+                node = nodecache.get(buid)
 
             if node is None:
-                # We got part of a node but no ndef
-                continue
+                node = await self._joinStorNode(buid, cache)
+                if node is None:
+                    # We got part of a node but no ndef
+                    continue
+            else:
+                await asyncio.sleep(0)
 
             nodes.append(node)
 
@@ -1127,17 +1234,19 @@ class Snap(s_base.Base):
                     (tag, prop, valu, oldv, stype) = parms
                     if tag not in node.tagprops:
                         node.tagprops[tag] = {}
+                        node.bylayer['tagprops'][tag] = {}
                     node.tagprops[tag][prop] = valu
-                    node.bylayer['tags'][(tag, prop)] = wlyr.iden
+                    node.bylayer['tagprops'][tag][prop] = wlyr.iden
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:
                     (tag, prop, oldv, stype) = parms
                     if tag in node.tagprops:
                         node.tagprops[tag].pop(prop, None)
+                        node.bylayer['tagprops'][tag].pop(prop, None)
                         if not node.tagprops[tag]:
                             node.tagprops.pop(tag, None)
-                    node.bylayer['tags'].pop((tag, prop), None)
+                            node.bylayer['tagprops'].pop(tag, None)
                     continue
 
                 if etyp == s_layer.EDIT_NODEDATA_SET:
@@ -1149,6 +1258,16 @@ class Snap(s_base.Base):
                     name, oldv = parms
                     node.nodedata.pop(name, None)
                     continue
+
+                if etyp == s_layer.EDIT_EDGE_ADD:
+                    verb, n2iden = parms
+                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
+
+                if etyp == s_layer.EDIT_EDGE_DEL:
+                    verb, n2iden = parms
+                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    callbacks.append((self.view.runEdgeDel, (node, verb, n2), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 

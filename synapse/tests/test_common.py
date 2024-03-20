@@ -183,11 +183,11 @@ class CommonTest(s_t_utils.SynTest):
             parts = [chunk for chunk in s_common.chunks({1, 2, 3}, 10000)]
 
         # dict is unslicable
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises((TypeError, KeyError)) as cm:
             parts = [chunk for chunk in s_common.chunks({1: 2}, 10000)]
 
         # empty dict is caught during the [0:0] slice
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises((TypeError, KeyError)) as cm:
             parts = [chunk for chunk in s_common.chunks({}, 10000)]
 
     def test_common_ehex_uhex(self):

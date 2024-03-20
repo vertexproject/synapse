@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 
 import synapse.common as s_common
 
@@ -221,6 +222,24 @@ tlplevels = (
     (50, 'red'),
 )
 
+suslevels = (
+    (10, 'benign'),
+    (20, 'unknown'),
+    (30, 'suspicious'),
+    (40, 'malicious'),
+)
+
+# The published Attack Flow json schema at the below URL is horribly
+# broken. It depends on some custom python scripting to validate each
+# object individually against the schema for each object's type instead
+# of validating the document as a whole. Instead, the
+# attack-flow-schema-2.0.0 file that is published in the synapse data
+# directory is a heavily modified version of the official schema that
+# actually works as a json schema should.
+# https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
+
+attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -310,6 +329,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of log event types.',
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -361,7 +381,7 @@ class ItModule(s_module.CoreModule):
                     'doc': "A vulnerability scan result for an asset."}),
 
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
-                    'doc': 'A Mitre ATT&CK element status.',
+                    'doc': 'A MITRE ATT&CK element status.',
                     'ex': 'current',
                 }),
                 ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
@@ -369,27 +389,34 @@ class ItModule(s_module.CoreModule):
                     'ex': 'enterprise',
                 }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Group ID.',
+                    'doc': 'A MITRE ATT&CK Group ID.',
                     'ex': 'G0100',
                 }),
                 ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Tactic ID.',
+                    'doc': 'A MITRE ATT&CK Tactic ID.',
                     'ex': 'TA0040',
                 }),
                 ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
-                    'doc': 'A Mitre ATT&CK Technique ID.',
+                    'doc': 'A MITRE ATT&CK Technique ID.',
                     'ex': 'T1548',
                 }),
                 ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Mitigation ID.',
+                    'doc': 'A MITRE ATT&CK Mitigation ID.',
                     'ex': 'M1036',
                 }),
                 ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Software ID.',
+                    'doc': 'A MITRE ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
+                ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
+                    'doc': 'A MITRE ATT&CK Campaign ID.',
+                    'ex': 'C0028',
+                }),
+                ('it:mitre:attack:flow', ('guid', {}), {
+                    'doc': 'A MITRE ATT&CK Flow diagram.',
+                }),
                 ('it:dev:str', ('str', {}), {
-                    'doc': 'A developer-selected string.'
+                    'doc': 'A developer selected string.'
                 }),
                 ('it:dev:pipe', ('str', {}), {
                     'doc': 'A string representing a named pipe.',
@@ -409,7 +436,10 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A version control system type taxonomy.',
-                    'interfaces': ('taxonomy',)
+                    'interfaces': ('meta:taxonomy',)
+                }),
+                ('it:dev:repo:label', ('guid', {}), {
+                    'doc': 'A developer selected label.',
                 }),
                 ('it:dev:repo', ('guid', {}), {
                     'doc': 'A version control system instance.',
@@ -425,6 +455,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
+                }),
+                ('it:dev:repo:issue:label', ('guid', {}), {
+                    'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'doc': 'An issue raised in a repository.',
@@ -443,6 +476,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
                     'doc': 'A software type taxonomy.',
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:prod:softid', ('guid', {}), {
                     'doc': 'An identifier issued to a given host by a specific software application.'}),
@@ -455,12 +489,13 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:prod:hardwaretype', ('taxonomy', {}), {
                     'doc': 'An IT hardware type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
 
-                ('it:os:windows:sid', ('str', {'regex': r'^S-1-[0-59]-\d{2}-\d{8,10}-\d{8,10}-\d{8,10}-[1-9]\d{3}$'}), {
+                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
+                ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
                     'doc': 'A Microsoft Windows Security Identifier.',
                     'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
                 }),
@@ -519,31 +554,42 @@ class ItModule(s_module.CoreModule):
                 ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
+
                 ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
-                   'doc': 'A signature name within the namespace of an antivirus engine name.'
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'
                 }),
                 ('it:av:signame', ('str', {'lower': True}), {
-                    'doc': 'An antivirus signature name.',
-                }),
+                    'doc': 'An antivirus signature name.'}),
+
+                ('it:av:scan:result', ('guid', {}), {
+                    'doc': 'The result of running an antivirus scanner.'}),
+
                 ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
-                    'doc': 'A file that triggered an alert on a specific antivirus signature.',
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
+
                 ('it:av:prochit', ('guid', {}), {
-                    'doc': 'An instance of a process triggering an alert on a specific antivirus signature.'
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
+
                 ('it:auth:passwdhash', ('guid', {}), {
                     'doc': 'An instance of a password hash.',
                 }),
                 ('it:exec:proc', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
                 }),
                 ('it:exec:thread', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A thread executing in a process.',
                 }),
                 ('it:exec:loadlib', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A library load event in a process.',
                 }),
                 ('it:exec:mmap', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A memory mapped segment located in a process.',
                 }),
                 ('it:cmd', ('str', {'strip': True}), {
@@ -558,39 +604,50 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of an executed query.',
                 }),
                 ('it:exec:mutex', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A mutex created by a process at runtime.',
                 }),
                 ('it:exec:pipe', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'A named pipe created by a process at runtime.',
                 }),
                 ('it:exec:url', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host requesting a URL.',
                 }),
                 ('it:exec:bind', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host binding a listening port.',
                 }),
                 ('it:fs:file', ('guid', {}), {
                     'doc': 'A file on a host.'
                 }),
                 ('it:exec:file:add', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host adding a file to a filesystem.',
                 }),
                 ('it:exec:file:del', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host deleting a file from a filesystem.',
                 }),
                 ('it:exec:file:read', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host reading a file from a filesystem.',
                 }),
                 ('it:exec:file:write', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host writing a file to a filesystem.',
                 }),
                 ('it:exec:reg:get', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host getting a registry key.',
                 }),
                 ('it:exec:reg:set', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host creating or setting a registry key.',
                 }),
                 ('it:exec:reg:del', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host deleting a registry key.',
                 }),
                 ('it:app:yara:rule', ('guid', {}), {
@@ -632,6 +689,7 @@ class ItModule(s_module.CoreModule):
             ),
             'interfaces': (
                 ('it:host:activity', {
+                    'doc': 'Properties common to instances of activity on a host.',
                     'props': (
                         ('exe', ('file:bytes', {}), {
                             'doc': 'The executable file which caused the activity.'}),
@@ -1085,10 +1143,11 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK group.',
                     }),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK group ID.',
-                        'ex': 'cno.mitre.g0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use a risk:threat:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK group.',
                     }),
@@ -1113,18 +1172,18 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK tactic.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK tactic.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK tactic.',
-                        'ex': 'cno.mitre.ta0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
                     }),
                 )),
                 ('it:mitre:attack:technique', {}, (
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The primary name for the ATT&CK technique.',
                     }),
                     ('matrix', ('it:mitre:attack:matrix', {}), {
@@ -1141,12 +1200,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK technique.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK technique.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK technique.',
-                        'ex': 'cno.mitre.t0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:technique:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK technique.',
                     }),
@@ -1176,12 +1235,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'If deprecated, this field may contain the current value for the software.',
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK software.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK software.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK software.',
-                        'ex': 'cno.mitre.s0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:tool:software:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK software.',
                     }),
@@ -1192,7 +1251,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:mitre:attack:mitigation', {}, (
                     # TODO map to an eventual risk:mitigation
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The primary name for the ATT&CK mitigation.',
                     }),
                     ('matrix', ('it:mitre:attack:matrix', {}), {
@@ -1203,12 +1262,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK mitigation.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK mitigation.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK mitigation.',
-                        'ex': 'cno.mitre.m0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK mitigation.',
                     }),
@@ -1216,6 +1275,65 @@ class ItModule(s_module.CoreModule):
                                              'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
+                )),
+                ('it:mitre:attack:campaign', {}, (
+                    ('name', ('ou:campname', {}), {
+                        'doc': 'The primary name for the ATT&CK campaign.',
+                    }),
+                    ('names', ('array', {'type': 'ou:campname', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate names for the ATT&CK campaign.',
+                    }),
+                    ('desc', ('str', {'strip': True}), {
+                        'doc': 'A description of the ATT&CK campaign.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK campaign.',
+                    }),
+                    ('groups', ('array', {'type': 'it:mitre:attack:group',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK group IDs attributed to the campaign.',
+                    }),
+                    ('software', ('array', {'type': 'it:mitre:attack:software',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK software IDs used in the campaign.',
+                    }),
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK technique IDs used in the campaign.',
+                    }),
+                    ('matrices', ('array', {'type': 'it:mitre:attack:matrix',
+                                            'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'The ATT&CK matrices which define the campaign.',
+                    }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK campaign.',
+                    }),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time interval when the campaign was active.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the campaign was created by MITRE.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the campaign was last updated by MITRE.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:campaign:tag.'}),
+
+                )),
+                ('it:mitre:attack:flow', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the attack-flow diagram.'}),
+                    ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
+                        'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the diagram was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the diagram was last updated.'}),
+                    ('author:user', ('syn:user', {}), {
+                        'doc': 'The Synapse user that created the node.'}),
+                    ('author:contact', ('ps:contact', {}), {
+                        'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
                 )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),
@@ -1363,6 +1481,34 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the issue in the repository system.',
+                    }),
+                )),
+
+                ('it:dev:repo:label', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the label.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The human friendly name of the label.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the label.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue:label', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue the label was applied to.',
+                    }),
+                    ('label', ('it:dev:repo:label', {}), {
+                        'doc': 'The label that was applied to the issue.',
+                    }),
+                    ('applied', ('time', {}), {
+                        'doc': 'The time the label was applied.',
+                    }),
+                    ('removed', ('time', {}), {
+                        'doc': 'The time the label was removed.',
                     }),
                 )),
 
@@ -1677,6 +1823,63 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:av:signame', {}, ()),
 
+                ('it:av:scan:result', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the scan was run.'}),
+
+                    ('verdict', ('int', {'enums': suslevels}), {
+                        'doc': 'The scanner provided verdict for the scan.'}),
+
+                    ('scanner', ('it:prod:softver', {}), {
+                        'doc': 'The scanner software used to produce the result.'}),
+
+                    ('scanner:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('signame', ('it:av:signame', {}), {
+                        'doc': 'The name of the signature returned by the scanner.'}),
+
+                    ('target:file', ('file:bytes', {}), {
+                        'doc': 'The file that was scanned to produce the result.'}),
+
+                    ('target:proc', ('it:exec:proc', {}), {
+                        'doc': 'The process that was scanned to produce the result.'}),
+
+                    ('target:host', ('it:host', {}), {
+                        'doc': 'The host that was scanned to produce the result.'}),
+
+                    ('target:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN that was scanned to produce the result.'}),
+
+                    ('target:url', ('inet:url', {}), {
+                        'doc': 'The URL that was scanned to produce the result.'}),
+
+                    ('target:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The IPv4 address that was scanned to produce the result.'}),
+
+                    ('target:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The IPv6 address that was scanned to produce the result.'}),
+
+                    ('multi:scan', ('it:av:scan:result', {}), {
+                        'doc': 'Set if this result was part of running multiple scanners.'}),
+
+                    ('multi:count', ('int', {'min': 0}), {
+                        'doc': 'The total number of scanners which were run by a multi-scanner'}),
+
+                    ('multi:count:benign', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a benign verdict.'}),
+
+                    ('multi:count:unknown', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a unknown/unsupported verdict.'}),
+
+                    ('multi:count:suspicious', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a suspicious verdict.'}),
+
+                    ('multi:count:malicious', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a malicious verdict.'}),
+                )),
+
                 ('it:av:filehit', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
@@ -1797,6 +2000,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL of the API endpoint the query was sent to.'}),
                     ('language', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the language that the query is expressed in.'}),
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset of the last record consumed from the query.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -2320,7 +2525,7 @@ class ItModule(s_module.CoreModule):
                 ('it:app:yara:rule', {}, (
 
                     ('text', ('str', {}), {
-                        'disp': {'hint': 'text'},
+                        'disp': {'hint': 'text', 'syntax': 'yara'},
                         'doc': 'The YARA rule text.'}),
 
                     ('ext:id', ('str', {}), {

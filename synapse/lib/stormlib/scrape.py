@@ -5,6 +5,7 @@ import regex
 
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormtypes as s_stormtypes
@@ -112,7 +113,7 @@ class LibScrape(s_stormtypes.Lib):
 
         core = self.runt.snap.core
         async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as items:  # type: s_spooled.Set
-            for item in s_scrape.scrape(text, ptype=form, refang=refang, first=False):
+            async for item in s_scrape.scrapeAsync(text, ptype=form, refang=refang, first=False):
                 if unique:
                     if item in items:
                         continue
@@ -154,9 +155,12 @@ class LibScrape(s_stormtypes.Lib):
         if fangs:
             _fangs = {src: dst for (src, dst) in fangs}
             _fangre = s_scrape.genFangRegex(_fangs)
-            scrape_text, offsets = s_scrape.refang_text2(text, re=_fangre, fangs=_fangs)
+            if len(text) < s_scrape.SCRAPE_SPAWN_LENGTH:
+                scrape_text, offsets = s_scrape.refang_text2(text, re=_fangre, fangs=_fangs)
+            else:
+                scrape_text, offsets = await s_coro.semafork(s_scrape.refang_text2, text, re=_fangre, fangs=_fangs)
 
-        for info in s_scrape.genMatches(scrape_text, regx, opts=opts):
+        async for info in s_scrape.genMatchesAsync(scrape_text, regx, opts=opts):
             valu = info.pop('valu')
 
             if _fangs and offsets:

@@ -82,7 +82,9 @@ class MediaModule(s_module.CoreModule):
                 'doc': 'A GUID for a news article or report.'}),
 
             ('media:news:taxonomy', ('taxonomy', {}), {
-                'doc': 'A taxonomy of types or sources of news.'}),
+                'doc': 'A taxonomy of types or sources of news.',
+                'interfaces': ('meta:taxonomy',),
+            }),
 
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A topic string.'}),

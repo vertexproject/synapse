@@ -1,13 +1,53 @@
 import ssl
+import sys
 import socket
 import asyncio
+import multiprocessing
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 
 import synapse.tests.utils as s_test
+
+
+# Helpers related to spawn link coverage
+async def _spawnTarget(n, info):
+    link = await s_link.fromspawn(info)
+    async with link:
+        await link.send(b'V' * n)
+
+def spawnTarget(n, info):
+    asyncio.run(_spawnTarget(n, info))
+
+async def _spawnHost(n, pipe):
+    link0, sock0 = await s_link.linksock()
+    info = await link0.getSpawnInfo()
+    pipe.send(info)
+    buf = b''
+    j = n
+    while True:
+        data = sock0.recv(j)
+        buf = buf + data
+        if len(buf) == n:
+            break
+        j = n - len(data)
+
+    sock0.close()
+    await link0.fini()
+
+    if buf == b'V' * n:
+        return
+
+    return 137
+
+def spawnHost(n, pipe: multiprocessing.Pipe):
+    ret = asyncio.run(_spawnHost(n, pipe))
+    if ret is None:
+        return
+    sys.exit(ret)
 
 class LinkTest(s_test.SynTest):
 
@@ -154,20 +194,70 @@ class LinkTest(s_test.SynTest):
         await link1.fini()
         sock1.close()
 
-    async def test_link_fromspawn(self):
+    async def test_link_fromspawns(self):
+
+        n = 100000
+        ctx = multiprocessing.get_context('spawn')
+
+        # Remote use test - this is normally how linksock is used.
 
         link0, sock0 = await s_link.linksock()
 
         info = await link0.getSpawnInfo()
-        link1 = await s_link.fromspawn(info)
 
-        await link1.send(b'V')
-        self.eq(sock0.recv(1), b'V')
+        def getproc():
+            proc = ctx.Process(target=spawnTarget, args=(n, info))
+            proc.start()
+            return proc
+
+        proc = await s_coro.executor(getproc)
+
+        buf = b''
+        j = n
+        while True:
+            data = sock0.recv(j)
+            buf = buf + data
+            if len(buf) == n:
+                break
+            j = n - len(data)
+
+        self.eq(buf, b'V' * n)
+
+        await s_coro.executor(proc.join)
 
         sock0.close()
-
         await link0.fini()
-        await link1.fini()
+
+        # Coverage test
+        mypipe, child_pipe = ctx.Pipe()
+
+        def getproc():
+            proc = ctx.Process(target=spawnHost, args=(n, child_pipe))
+            proc.start()
+            return proc
+
+        proc = await s_coro.executor(getproc)  # type: multiprocessing.Process
+
+        def waitforinfo():
+            nonlocal proc
+            hasdata = mypipe.poll(timeout=30)
+            if not hasdata:
+                raise s_exc.SynErr(mesg='failed to get link info')
+            info = mypipe.recv()
+            return info
+
+        info = await s_coro.executor(waitforinfo)
+
+        link = await s_link.fromspawn(info)
+        await link.send(b'V' * n)
+
+        def waitforjoin():
+            proc.join()
+            return proc.exitcode
+
+        code = await asyncio.wait_for(s_coro.executor(waitforjoin), timeout=30)
+        self.eq(code, 0)
+        await link.fini()
 
     async def test_tls_ciphers(self):
         self.thisHostMustNot(platform='darwin')

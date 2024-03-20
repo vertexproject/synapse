@@ -2,7 +2,7 @@ import base64
 import json
 import unittest.mock as mock
 
-from OpenSSL import crypto
+import cryptography.hazmat.primitives.serialization as c_serialization
 
 import synapse.lib.certdir as s_certdir
 import synapse.tests.utils as s_t_utils
@@ -42,7 +42,7 @@ class TestDockerValidate(s_t_utils.SynTest):
             certdir.genCodeCert('signer', signas='cosignTest')
 
             sign_cert = certdir.getCodeCert('signer')
-            der_byts = crypto.dump_certificate(crypto.FILETYPE_ASN1, sign_cert)
+            der_byts = sign_cert.public_bytes(c_serialization.Encoding.DER)
             test_resp = {'Cert': {'Raw': base64.b64encode(der_byts).decode()}}
 
             # getCosignSignature

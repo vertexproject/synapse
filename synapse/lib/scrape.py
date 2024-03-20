@@ -1,4 +1,7 @@
+import string
+import asyncio
 import logging
+import pathlib
 import functools
 import collections
 
@@ -9,13 +12,19 @@ import unicodedata
 
 import synapse.exc as s_exc
 import synapse.data as s_data
+import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.coro as s_coro
+import synapse.lib.link as s_link
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.crypto.coin as s_coin
 
 
 logger = logging.getLogger(__name__)
+
+SCRAPE_SPAWN_LENGTH = 5000
 
 tldlist = list(s_data.get('iana.tlds'))
 tldlist.extend([
@@ -112,6 +121,84 @@ def cve_check(match: regex.Match):
     valu = s_chop.replaceUnicodeDashes(valu)
     return valu, cbfo
 
+# Reference NIST 7695
+# Common Platform Enumeration: Naming Specification Version 2.3
+# Figure 6-3. ABNF for Formatted String Binding
+_cpe23_regex = r'''(?P<valu>cpe:2\.3:[aho\*-]
+(?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){5}
+:([*-]|(([a-z]{2,3}){1}(-([0-9]{3}|[a-z]{2}))?))
+(?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){4})
+'''
+
+linux_path_regex = r'''
+(?<![\w\d]+)
+(?P<valu>
+    (?:/[^\x00\n]+)+
+)
+'''
+
+linux_path_rootdirs = (
+    'bin', 'boot', 'cdrom', 'dev', 'etc', 'home',
+    'lib', 'lib64', 'lib32', 'libx32', 'media', 'mnt',
+    'opt', 'proc', 'root', 'run', 'sbin', 'srv',
+    'sys', 'tmp', 'usr', 'var'
+)
+
+def linux_path_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    path = pathlib.PurePosixPath(valu)
+    parts = path.parts
+
+    if parts[0] != '/':
+        return None, {}
+
+    if len(parts) < 2:
+        return None, {}
+
+    if parts[1] not in linux_path_rootdirs:
+        return None, {}
+
+    return valu, {}
+
+windows_path_regex = r'''
+(?P<valu>
+    [a-zA-Z]+:\\
+    (?:[^<>:"/|\?\*\n\x00]+)+
+)
+'''
+
+windows_path_reserved = (
+    'CON', 'PRN', 'AUX', 'NUL',
+    'COM0', 'COM1', 'COM2', 'COM3', 'COM4',
+    'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+    'LPT0', 'LPT1', 'LPT2', 'LPT3', 'LPT4',
+    'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+)
+
+windows_drive_paths = [f'{letter}:\\' for letter in string.ascii_lowercase]
+
+# https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+def windows_path_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    path = pathlib.PureWindowsPath(valu)
+    parts = path.parts
+
+    if parts[0].lower() not in windows_drive_paths:
+        return None, {}
+
+    for part in parts:
+        if part in windows_path_reserved:
+            return None, {}
+
+        if part.endswith('.'):
+            return None, {}
+
+    return valu, {}
+
 ipv4_match = r'(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)'
 ipv4_regex = fr'''
 (?P<valu>
@@ -147,10 +234,25 @@ ipv6_regex = fr'''
 )
 '''
 
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/62e862f4-2a51-452e-8eeb-dc4ff5ee33cc
+def unc_path_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    try:
+        valu = s_chop.uncnorm(valu)
+    except s_exc.BadTypeValu:
+        return None, {}
+
+    return valu, {}
+
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
+    ('file:path', linux_path_regex, {'callback': linux_path_check, 'flags': regex.VERBOSE}),
+    ('file:path', windows_path_regex, {'callback': windows_path_check, 'flags': regex.VERBOSE}),
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
      {'callback': fqdn_prefix_check}),
+    ('inet:url', r'(["\'])?(?P<valu>\\[^\n]+?)(?(1)\1|\s)', {'callback': unc_path_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', fr'(?P<valu>(?:(?<!\d|\d\.|[0-9a-f:]:)((?P<addr>{ipv4_match})|\[(?P<v6addr>{ipv6_match})\]):(?P<port>\d{{1,5}})(?!\d|\.\d)))',
      {'callback': inet_server_check, 'flags': regex.VERBOSE}),
@@ -162,6 +264,7 @@ scrape_types = [  # type: ignore
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
     ('it:sec:cve', fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)', {'callback': cve_check}),
     ('it:sec:cwe', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>CWE-[0-9]{1,8})(?:[^A-Za-z0-9]|$))', {}),
+    ('it:sec:cpe', _cpe23_regex, {'flags': regex.VERBOSE}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
@@ -342,6 +445,33 @@ def _rewriteRawValu(text: str, offsets: dict, info: dict):
     info['match'] = match
     info['offset'] = baseoff + offset
 
+def _genMatches(text: str, regx: regex.Regex, opts: dict):
+
+    cb = opts.get('callback')
+
+    for valu in regx.finditer(text):  # type: regex.Match
+        raw_span = valu.span('valu')
+        raw_valu = valu.group('valu')
+
+        info = {
+            'match': raw_valu,
+            'offset': raw_span[0]
+        }
+
+        if cb:
+            # CB is expected to return a tufo of <new valu, info>
+            valu, cbfo = cb(valu)
+            if valu is None:
+                continue
+            # Smash cbfo into our info dict
+            info.update(**cbfo)
+        else:
+            valu = raw_valu
+
+        info['valu'] = valu
+
+        yield info
+
 def genMatches(text: str, regx: regex.Regex, opts: dict):
     '''
     Generate regular expression matches for a blob of text.
@@ -371,30 +501,126 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
     Yields:
         dict: A dictionary of match results.
     '''
-    cb = opts.get('callback')
+    for match in _genMatches(text, regx, opts):
+        yield match
 
-    for valu in regx.finditer(text):  # type: regex.Match
-        raw_span = valu.span('valu')
-        raw_valu = valu.group('valu')
+def _spawn_genmatches(sock, text, regx, opts): # pragma: no cover
+    '''
+    Multiprocessing target for generating matches.
+    '''
+    try:
+        for info in _genMatches(text, regx, opts):
+            sock.sendall(s_msgpack.en((True, info)))
 
-        info = {
-            'match': raw_valu,
-            'offset': raw_span[0]
-        }
+        sock.sendall(s_msgpack.en((True, None)))
 
-        if cb:
-            # CB is expected to return a tufo of <new valu, info>
-            valu, cbfo = cb(valu)
-            if valu is None:
-                continue
-            # Smash cbfo into our info dict
-            info.update(**cbfo)
-        else:
-            valu = raw_valu
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
 
-        info['valu'] = valu
+async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
+    '''
+    Generate regular expression matches for a blob of text, potentially in a spawned process.
 
-        yield info
+    Args:
+        text (str): The text to generate matches for.
+        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for ``valu``.
+        opts (dict): An options dictionary.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            raw_valu
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value - this may be altered by callbacks.
+
+        The options dictionary can contain a ``callback`` key. This function is expected to take a single argument,
+        a regex.Match object, and return a tuple of the new valu and info dictionary. The new valu is used as the
+        ``valu`` key in the returned dictionary, and any other information in the info dictionary is pushed into
+        the return dictionary as well.
+
+    Yields:
+        dict: A dictionary of match results.
+    '''
+    if len(text) < SCRAPE_SPAWN_LENGTH:
+        for match in _genMatches(text, regx, opts):
+            yield match
+        return
+
+    link00, sock00 = await s_link.linksock()
+
+    try:
+        async with link00:
+
+            todo = s_common.todo(_spawn_genmatches, sock00, text, regx, opts)
+            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
+
+            while (mesg := await link00.rx()) is not None:
+
+                info = s_common.result(mesg)
+                if info is None:
+                    return
+
+                yield info
+
+    finally:
+        sock00.close()
+
+
+def _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+        for (regx, opts) in _regexes[ruletype]:
+
+            for info in genMatches(scrape_text, regx, opts):
+
+                info['form'] = ruletype
+
+                if refang and offsets:
+                    _rewriteRawValu(text, offsets, info)
+
+                yield info
+
+def _contextScrape(text, form=None, refang=True, first=False):
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+        if form and form != ruletype:
+            continue
+
+        for info in _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+            yield info
+
+            if first:
+                return
+
+async def _contextScrapeAsync(text, form=None, refang=True, first=False):
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+
+        await asyncio.sleep(0)
+
+        if form and form != ruletype:
+            continue
+
+        for info in _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+            yield info
+
+            if first:
+                return
 
 def contextScrape(text, form=None, refang=True, first=False):
     '''
@@ -424,28 +650,8 @@ def contextScrape(text, form=None, refang=True, first=False):
     Returns:
         (dict): Yield info dicts of results.
     '''
-    scrape_text = text
-    offsets = {}
-    if refang:
-        scrape_text, offsets = refang_text2(text)
-
-    for ruletype, blobs in _regexes.items():
-        if form and form != ruletype:
-            continue
-
-        for (regx, opts) in blobs:
-
-            for info in genMatches(scrape_text, regx, opts):
-
-                info['form'] = ruletype
-
-                if refang and offsets:
-                    _rewriteRawValu(text, offsets, info)
-
-                yield info
-
-                if first:
-                    return
+    for info in _contextScrape(text, form=form, refang=refang, first=first):
+        yield info
 
 def scrape(text, ptype=None, refang=True, first=False):
     '''
@@ -462,4 +668,87 @@ def scrape(text, ptype=None, refang=True, first=False):
     '''
 
     for info in contextScrape(text, form=ptype, refang=refang, first=first):
+        yield info.get('form'), info.get('valu')
+
+def _spawn_scrape(sock, text, form=None, refang=True, first=False): # pragma: no cover
+    '''
+    Multiprocessing target for scraping text.
+    '''
+    try:
+        for info in _contextScrape(text, form=form, refang=refang, first=first):
+            sock.sendall(s_msgpack.en((True, info)))
+
+        sock.sendall(s_msgpack.en((True, None)))
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
+
+async def contextScrapeAsync(text, form=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and yield info dictionaries, potentially in a spawned process.
+
+    Args:
+        text (str): Text to scrape.
+        form (str): Optional form to scrape. If present, only scrape items which match the provided form.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            match
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value.
+
+            form
+                The corresponding form for the valu.
+
+    Returns:
+        (dict): Yield info dicts of results.
+    '''
+    if len(text) < SCRAPE_SPAWN_LENGTH:
+        async for info in _contextScrapeAsync(text, form=form, refang=refang, first=first):
+            yield info
+        return
+
+    link00, sock00 = await s_link.linksock()
+
+    try:
+        async with link00:
+
+            todo = s_common.todo(_spawn_scrape, sock00, text, form=form, refang=refang, first=first)
+            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
+
+            while (mesg := await link00.rx()) is not None:
+
+                info = s_common.result(mesg)
+                if info is None:
+                    return
+
+                yield info
+
+    finally:
+        sock00.close()
+
+async def scrapeAsync(text, ptype=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and return node tuples, potentially in a spawned process.
+
+    Args:
+        text (str): Text to scrape.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Returns:
+        (str, object): Yield tuples of node ndef values.
+    '''
+
+    async for info in contextScrapeAsync(text, form=ptype, refang=refang, first=first):
         yield info.get('form'), info.get('valu')

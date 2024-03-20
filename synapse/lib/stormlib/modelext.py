@@ -156,6 +156,7 @@ class LibModelExt(s_stormtypes.Lib):
         s_stormtypes.confirm(('model', 'tagprop', 'del'))
         await self.runt.snap.core.delTagProp(propname)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def getExtModel(self):
         return await self.runt.snap.core.getExtModel()
 
