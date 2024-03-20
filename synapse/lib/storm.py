@@ -2213,12 +2213,12 @@ class Runtime(s_base.Base):
         # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
         assert len(prop.setperms) == 2, f'Invalid number of property perms for {prop.full}'
 
-        allowed0, meta0 = self.allowedReason(prop.setperms[0], gateiden=self.snap.wlyr.iden)
+        allowed0, meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
 
         if meta0.get('isadmin'):
             return
 
-        allowed1, meta1 = self.allowedReason(prop.setperms[1], gateiden=self.snap.wlyr.iden)
+        allowed1, meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
 
         if allowed0 and allowed1:
             return
@@ -2246,12 +2246,15 @@ class Runtime(s_base.Base):
         # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
         assert len(prop.setperms) == 2, f'Invalid number of property perms for {prop.full}'
 
-        allowed0, meta0 = self.allowedReason(prop.delperms[0], gateiden=self.snap.wlyr.iden)
+        if layriden is None:
+            layriden = self.snap.wlyr.iden
+
+        allowed0, meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
 
         if meta0.get('isadmin'):
             return
 
-        allowed1, meta1 = self.allowedReason(prop.delperms[1], gateiden=self.snap.wlyr.iden)
+        allowed1, meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
 
         if allowed0 and allowed1:
             return
