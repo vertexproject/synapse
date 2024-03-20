@@ -2092,7 +2092,7 @@ class Layer(s_nexus.Pusher):
         self.indxcounts = await self.layrslab.getLruHotCount('indxcounts')
 
         self.nodedata = self.dataslab.initdb('nodedata')
-        self.dataname = self.dataslab.initdb('dataname', dupsort=True)
+        self.dataname = self.dataslab.initdb('dataname', integerkey=True, dupsort=True, dupfixed=True, integerdup=True)
 
         self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
 

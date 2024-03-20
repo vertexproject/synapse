@@ -176,13 +176,13 @@ class SlabAbrv:
 
         self.slab = slab
         self.name2abrv = slab.initdb(f'{name}:byts2abrv', dupsort=True, dupfixed=True, integerdup=True)
-        self.abrv2name = slab.initdb(f'{name}:abrv2byts')
+        self.abrv2name = slab.initdb(f'{name}:abrv2byts', integerkey=True)
 
         self.offs = 0
 
         item = self.slab.last(db=self.abrv2name)
         if item is not None:
-            self.offs = s_common.int64un(item[0]) + 1
+            self.offs = s_common.int64un_native(item[0]) + 1
 
     @s_cache.memoizemethod()
     def abrvToByts(self, abrv):
@@ -217,7 +217,7 @@ class SlabAbrv:
         if len(byts) > 255:
             byts = byts[:248] + xxhash.xxh64_digest(byts)
 
-        abrv = s_common.int64en(self.offs)
+        abrv = s_common.int64en_native(self.offs)
 
         self.offs += 1
 
