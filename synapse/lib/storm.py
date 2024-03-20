@@ -2220,14 +2220,20 @@ class Runtime(s_base.Base):
             if allowed1:
                 return
             elif allowed1 is False:
+                # This is a allow-with-precedence case.
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
                 if len(meta0.get('rule')) >= len(meta1.get('rule')):
                     return
                 self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
             return
 
-        if allowed0 is None and allowed1 is True:
-            return
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed0 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.get('rule')) > len(meta0.get('rule')):
+                return
 
         self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
@@ -2247,14 +2253,20 @@ class Runtime(s_base.Base):
             if allowed1:
                 return
             elif allowed1 is False:
+                # This is a allow-with-precedence case.
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
                 if len(meta0.get('rule')) >= len(meta1.get('rule')):
                     return
                 self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
             return
 
-        if allowed0 is None and allowed1 is True:
-            return
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed1 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.get('rule')) > len(meta0.get('rule')):
+                return
 
         self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
 
