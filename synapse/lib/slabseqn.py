@@ -17,7 +17,7 @@ class SlabSeqn:
     def __init__(self, slab, name: str) -> None:
 
         self.slab = slab
-        self.db = self.slab.initdb(name)
+        self.db = self.slab.initdb(name, integerkey=True)
 
         self.indx = self.nextindx()
         self.addevents = []
@@ -41,7 +41,7 @@ class SlabSeqn:
         '''
         Pop a single entry at the given offset.
         '''
-        byts = self.slab.pop(s_common.int64en(offs), db=self.db)
+        byts = self.slab.pop(s_common.int64en_native(offs), db=self.db)
         if byts is not None:
             self.size -= 1
             return (offs, s_msgpack.un(byts))
@@ -55,7 +55,7 @@ class SlabSeqn:
             if itemoffs > offs:
                 return
 
-            if self.slab.delete(s_common.int64en(itemoffs), db=self.db):
+            if self.slab.delete(s_common.int64en_native(itemoffs), db=self.db):
                 self.size -= 1
             await asyncio.sleep(0)
 
@@ -65,19 +65,19 @@ class SlabSeqn:
         '''
         if indx is not None:
             if indx >= self.indx:
-                self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+                self.slab.put(s_common.int64en_native(indx), s_msgpack.en(item), append=True, db=self.db)
                 self.indx = indx + 1
                 self.size += 1
                 self._wake_waiters()
                 return indx
 
-            oldv = self.slab.replace(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+            oldv = self.slab.replace(s_common.int64en_native(indx), s_msgpack.en(item), db=self.db)
             if oldv is None:
                 self.size += 1
             return indx
 
         indx = self.indx
-        retn = self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+        retn = self.slab.put(s_common.int64en_native(indx), s_msgpack.en(item), append=True, db=self.db)
         assert retn, "Not adding the largest index"
 
         self.indx += 1
@@ -90,7 +90,7 @@ class SlabSeqn:
     def first(self):
 
         for lkey, lval in self.slab.scanByFull(db=self.db):
-            return s_common.int64un(lkey), s_msgpack.un(lval)
+            return s_common.int64un_native(lkey), s_msgpack.un(lval)
 
         return None
 
@@ -102,7 +102,7 @@ class SlabSeqn:
 
         lkey, lval = last
 
-        indx = s_common.int64un(lkey)
+        indx = s_common.int64un_native(lkey)
         return indx, s_msgpack.un(lval)
 
     def stat(self):
@@ -131,7 +131,7 @@ class SlabSeqn:
 
             size += len(byts)
 
-            lkey = s_common.int64en(indx)
+            lkey = s_common.int64en_native(indx)
             indx += 1
 
             rows.append((lkey, byts))
@@ -167,7 +167,7 @@ class SlabSeqn:
         if byts is None:
             return 0
 
-        return s_common.int64un(byts) + 1
+        return s_common.int64un_native(byts) + 1
 
     def iter(self, offs):
         '''
@@ -179,9 +179,9 @@ class SlabSeqn:
         Yields:
             (indx, valu): The index and valu of the item.
         '''
-        startkey = s_common.int64en(offs)
+        startkey = s_common.int64en_native(offs)
         for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
-            offs = s_common.int64un(lkey)
+            offs = s_common.int64un_native(lkey)
             valu = s_msgpack.un(lval)
             yield offs, valu
 
@@ -197,10 +197,10 @@ class SlabSeqn:
         Yields:
             (indx, valu): The index and valu of the item.
         '''
-        startkey = s_common.int64en(offs)
+        startkey = s_common.int64en_native(offs)
         scanoffs = None
         for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
-            scanoffs = s_common.int64un(lkey)
+            scanoffs = s_common.int64un_native(lkey)
             valu = s_msgpack.un(lval)
             yield scanoffs, valu
 
@@ -220,9 +220,9 @@ class SlabSeqn:
                     if not await evnt.timewait(timeout=timeout):
                         return
 
-                    startkey = s_common.int64en(offs + 1)
+                    startkey = s_common.int64en_native(offs + 1)
                     for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
-                        offs = s_common.int64un(lkey)
+                        offs = s_common.int64un_native(lkey)
                         valu = s_msgpack.un(lval)
                         yield offs, valu
             finally:
@@ -257,7 +257,7 @@ class SlabSeqn:
         '''
         retn = False
 
-        startkey = s_common.int64en(offs)
+        startkey = s_common.int64en_native(offs)
         for lkey, _ in self.slab.scanByRange(startkey, db=self.db):
             retn = True
             if self.slab.delete(lkey, db=self.db):
@@ -278,10 +278,10 @@ class SlabSeqn:
         Yields:
             (indx, valu): The index and valu of the item.
         '''
-        startkey = s_common.int64en(offs)
+        startkey = s_common.int64en_native(offs)
 
         for lkey, lval in self.slab.scanByRangeBack(startkey, db=self.db):
-            indx = s_common.int64un(lkey)
+            indx = s_common.int64un_native(lkey)
             valu = s_msgpack.un(lval)
             yield indx, valu
 
@@ -289,16 +289,16 @@ class SlabSeqn:
         '''
         Iterate over raw indx, bytes tuples from a given offset.
         '''
-        lkey = s_common.int64en(offs)
+        lkey = s_common.int64en_native(offs)
         for lkey, byts in self.slab.scanByRange(lkey, db=self.db):
-            indx = s_common.int64un(lkey)
+            indx = s_common.int64un_native(lkey)
             yield indx, byts
 
     def get(self, offs):
         '''
         Retrieve a single row by offset
         '''
-        lkey = s_common.int64en(offs)
+        lkey = s_common.int64en_native(offs)
         valu = self.slab.get(lkey, db=self.db)
         if valu is not None:
             return s_msgpack.un(valu)

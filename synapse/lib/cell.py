@@ -1889,6 +1889,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if self.isactive:
             self.activebase = await s_base.Base.anit()
+            self.onfini(self.activebase)
             self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()

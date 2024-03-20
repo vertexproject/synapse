@@ -2028,7 +2028,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.nextnid = 0
         byts = self.v3stor.lastkey(db=self.nid2buid)
         if byts is not None:
-            self.nextnid = int.from_bytes(byts) + 1
+            self.nextnid = s_common.int64un_native(byts) + 1
 
     def getNidNdef(self, nid):
         byts = self.v3stor.get(nid, db=self.nid2ndef)
@@ -2041,7 +2041,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.v3stor.put(buid, nid, db=self.buid2nid)
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
-        if (nid := int.from_bytes(nid)) >= self.nextnid:
+        if (nid := s_common.int64un_native(nid)) >= self.nextnid:
             self.nextnid = nid + 1
 
     def getBuidByNid(self, nid):
@@ -2064,7 +2064,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if nid is not None:
             return nid
 
-        nid = self.nextnid.to_bytes(8)
+        nid = s_common.int64en_native(self.nextnid)
         self.nextnid += 1
 
         self.v3stor.put(nid, buid, db=self.nid2buid)

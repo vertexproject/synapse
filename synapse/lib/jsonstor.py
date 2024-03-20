@@ -534,7 +534,7 @@ class JsonStorCell(s_cell.Cell):
     async def _addUserNotif(self, mesg, nexsitem):
 
         indx = self.notifseqn.add(mesg, indx=nexsitem[0])
-        indxbyts = s_common.int64en(indx)
+        indxbyts = s_common.int64en_native(indx)
 
         useriden, mesgtime, mesgtype, mesgdata = mesg
 
@@ -556,7 +556,7 @@ class JsonStorCell(s_cell.Cell):
         mesg = envl[1]
         useriden, mesgtime, mesgtype, mesgdata = mesg
 
-        indxbyts = s_common.int64en(indx)
+        indxbyts = s_common.int64en_native(indx)
         userbyts = s_common.uhex(useriden)
         timebyts = s_common.int64en(mesgtime)
         typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
@@ -569,7 +569,7 @@ class JsonStorCell(s_cell.Cell):
         userbyts = s_common.uhex(useriden)
         count = 0
         for _, indxbyts in self.slab.scanByPrefBack(userbyts, db=self.notif_indx_usertype):
-            indx = s_common.int64un(indxbyts)
+            indx = s_common.int64un_native(indxbyts)
             mesg = self.notifseqn.getraw(indxbyts)
             yield (indx, mesg)
             count += 1
