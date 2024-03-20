@@ -712,6 +712,8 @@ class AstTest(s_test.SynTest):
             self.len(3, await core.nodes('$form=(inet:dns:a, inet:dns:mx) inet:fqdn=vertex.link -+> $form'))
 
             self.len(2, await core.nodes('inet:fqdn=vertex.link :zone -> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))
+            self.len(2, await core.nodes('$prop=fqdn $targ=inet:fqdn inet:dns:a* :$prop -> $targ'))
+
             self.len(1, await core.nodes('$form=inet:dns:a:fqdn inet:fqdn=vertex.link :zone -> $form'))
 
             self.len(3, await core.nodes('inet:fqdn=vertex.link :zone -+> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))
@@ -2359,6 +2361,12 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('if (false) { [inet:ipv4=1.2.3.4] }')
             self.len(0, nodes)
+
+            nodes = await core.nodes('if (null) { [inet:ipv4=1.2.3.4] }')
+            self.len(0, nodes)
+
+            self.none(await core.callStorm('return((null))'))
+            self.eq({'foo': None}, await core.callStorm('return(({"foo": null}))'))
 
             nodes = await core.nodes('[ test:int=(18 + 2) ]')
             self.len(1, nodes)

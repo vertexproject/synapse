@@ -17,6 +17,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ ou:technique=*
                     :name=Woot
+                    :names=(Wham, Cool, Wham)
                     :type=lol.woot
                     :desc=Hehe
                     :tag=woot.woot
@@ -29,6 +30,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn('reporter')
             self.eq('woot', nodes[0].get('name'))
+            self.eq(('cool', 'wham'), nodes[0].get('names'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
@@ -459,14 +461,23 @@ class OuModelTest(s_t_utils.SynTest):
             iden = await core.callStorm('ou:id:type return($node.value())')
 
             opts = {'vars': {'type': iden}}
-            nodes = await core.nodes('[ ou:id:number=($type, visi) :status=woot :issued=202002 :expires=2021 ]', opts=opts)
+            nodes = await core.nodes('''
+                [ ou:id:number=($type, visi)
+                    :status=woot
+                    :issued=202002
+                    :expires=2021
+                    :issuer={[ ps:contact=* :name=visi ]}
+                ]
+            ''', opts=opts)
             self.len(1, nodes)
+            self.nn(nodes[0].get('issuer'))
             self.eq(('ou:id:number', (iden, 'visi')), nodes[0].ndef)
             self.eq(iden, nodes[0].get('type'))
             self.eq('visi', nodes[0].get('value'))
             self.eq('woot', nodes[0].get('status'))
             self.eq(1580515200000, nodes[0].get('issued'))
             self.eq(1609459200000, nodes[0].get('expires'))
+            self.len(1, await core.nodes('ou:id:number -> ps:contact +:name=visi'))
 
             opts = {'vars': {'type': iden}}
             nodes = await core.nodes('[ ou:id:update=* :number=($type, visi) :status=revoked :time=202003]', opts=opts)

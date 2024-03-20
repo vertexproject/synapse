@@ -619,10 +619,6 @@ class Snap(s_base.Base):
 
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
-        self.trigson = self.core.trigson
-
-    def disableTriggers(self):
-        self.trigson = False
 
     async def getSnapMeta(self):
         '''

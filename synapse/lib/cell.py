@@ -79,6 +79,8 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
+diskspace = "Insufficient free space on disk."
+
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -121,7 +123,8 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
+        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -341,7 +344,7 @@ class CellApi(s_base.Base):
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
 
-    @adminapi()
+    @adminapi(log=True)
     async def handoff(self, turl, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
 
@@ -1057,6 +1060,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellparent = parent
         self.sessions = {}
         self.isactive = False
+        self.activebase = None
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
@@ -1154,6 +1158,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        # for runtime cell configuration values
+        self.slab.initdb('cell:conf')
 
         self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
@@ -1385,31 +1392,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if (disk.free / disk.total) <= self.minfree:
 
-                reason = "Insufficient free space on disk."
-
-                await self._setReadOnly(True, reason=reason)
-                nexsroot.setReadOnly(True, reason=reason)
+                await nexsroot.addWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             elif nexsroot.readonly:
 
-                await self._setReadOnly(False)
-                nexsroot.setReadOnly(False)
-
-                await self.nexsroot.startup()
+                await nexsroot.delWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
-
-    async def _setReadOnly(self, valu, reason=None):
-        # implement any behavior necessary to change the cell read-only status
-        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1675,9 +1672,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        ahaname = self.conf.get('aha:name')
+        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful} ahaname={ahaname}')
+
         if graceful:
 
-            ahaname = self.conf.get('aha:name')
             if ahaname is None: # pragma: no cover
                 mesg = 'Cannot gracefully promote without aha:name configured.'
                 raise s_exc.BadArg(mesg=mesg)
@@ -1688,20 +1687,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.BadArg(mesg=mesg)
 
             myurl = f'aha://{ahaname}.{ahanetw}'
+            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff to ahaname={ahaname}')
             async with await s_telepath.openurl(mirurl) as lead:
+                logger.debug(f'PROMOTION: Requesting leadership handoff to ahaname={ahaname}')
                 await lead.handoff(myurl)
+                logger.warning(f'PROMOTION: Completed leadership handoff to ahaname={ahaname}')
                 return
 
+        logger.debug(f'PROMOTION: Clearing mirror configuration for ahaname={ahaname}')
         self.modCellConf({'mirror': None})
 
+        logger.debug(f'PROMOTION: Promoting the nexus root for ahaname={ahaname}')
         await self.nexsroot.promote()
+
+        logger.debug(f'PROMOTION: Setting the cell as active ahaname={ahaname}')
         await self.setCellActive(True)
+
+        logger.warning(f'PROMOTION: Finished leadership promotion ahaname={ahaname}')
 
     async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
+        ahaname = self.conf.get("aha:name")
+        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
         async with await s_telepath.openurl(turl) as cell:
+
+            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
 
             if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
@@ -1711,19 +1723,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
+            logger.debug(f'HANDOFF: Obtaining nexus applylock ahaname={ahaname}')
+
             async with self.nexsroot.applylock:
 
+                logger.debug(f'HANDOFF: Obtained nexus applylock ahaname={ahaname}')
                 indx = await self.getNexsIndx()
+
+                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}, ahaname={ahaname}')
                 if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)
 
+                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion ahaname={ahaname}')
                 await cell.promote()
+
+                logger.debug(f'HANDOFF: Setting the service as inactive ahaname={ahaname}')
                 await self.setCellActive(False)
 
+                logger.debug(f'HANDOFF: Configuring service to use the new leader as its mirror ahaname={ahaname}')
                 self.modCellConf({'mirror': turl})
+
+                logger.debug(f'HANDOFF: Restarting the nexus ahaname={ahaname}')
                 await self.nexsroot.startup()
+
+            logger.debug(f'HANDOFF: Released nexus applylock ahaname={ahaname}')
+        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)} ahaname={self.conf.get("aha:name")}')
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
@@ -1855,17 +1881,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.isactive
 
     async def setCellActive(self, active):
+
+        if active == self.isactive:
+            return
+
         self.isactive = active
 
         if self.isactive:
+            self.activebase = await s_base.Base.anit()
+            self.onfini(self.activebase)
             self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
+            await self.activebase.fini()
+            self.activebase = None
             await self.initServicePassive()
 
         await self._setAhaActive()
+
+    def runActiveTask(self, coro):
+        # an API for active coroutines to use when running an
+        # ephemeral task which should be automatically torn down
+        # if the cell becomes inactive
+        return self.activebase.schedCoro(coro)
 
     async def initServiceActive(self):  # pragma: no cover
         pass

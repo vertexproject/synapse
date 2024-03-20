@@ -329,6 +329,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methType(self, name):
+        name = await s_stormtypes.tostr(name)
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
@@ -336,6 +337,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methProp(self, name):
+        name = await s_stormtypes.tostr(name)
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
@@ -343,6 +345,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methForm(self, name):
+        name = await s_stormtypes.tostr(name)
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
@@ -350,6 +353,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoize(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methTagProp(self, name):
+        name = await s_stormtypes.tostr(name)
         tagprop = self.model.getTagProp(name)
         if tagprop is not None:
             return ModelTagProp(tagprop)
@@ -394,7 +398,8 @@ class ModelForm(s_stormtypes.Prim):
         return ModelType(self.valu.type, path=path)
 
     @s_stormtypes.stormfunc(readonly=True)
-    def _getFormProp(self, name):
+    async def _getFormProp(self, name):
+        name = await s_stormtypes.tostr(name)
         prop = self.valu.prop(name)
         if prop is not None:
             return ModelProp(prop)
@@ -593,10 +598,12 @@ class LibModelEdge(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     def _methValidKeys(self):
+        s_common.deprecated('model.edge.validkeys', curv='2.165.0')
         return self.validedgekeys
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeGet(self, verb):
+        s_common.deprecated('model.edge.get', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -604,6 +611,7 @@ class LibModelEdge(s_stormtypes.Lib):
         return await self.runt.snap.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
+        s_common.deprecated('model.edge.set', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -619,6 +627,7 @@ class LibModelEdge(s_stormtypes.Lib):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
+        s_common.deprecated('model.edge.del', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -637,6 +646,7 @@ class LibModelEdge(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeList(self):
+        s_common.deprecated('model.edge.list', curv='2.165.0')
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')

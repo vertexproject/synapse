@@ -60,8 +60,12 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
 
                 ('risk:hasvuln', ('guid', {}), {
-                    'doc': 'An instance of a vulnerability present in a target.',
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use risk:vulnerable.'}),
+
+                ('risk:vulnerable', ('guid', {}), {
+                    'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
+
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
                 }),
@@ -239,6 +243,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('merged:isnow', ('risk:threat', {}), {
                         'doc': 'The threat cluster that the reporting organization merged this cluster into.'}),
+
+                    ('mitre:attack:group', ('it:mitre:attack:group', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -288,14 +295,21 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
+                    ('mitre:attack:software', ('it:mitre:attack:software', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
+
                 )),
                 ('risk:mitigation', {}, (
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
 
-                    ('name', ('str', {}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
+
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
+                                         'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'An array of alternate names for the mitigation.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -312,6 +326,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the mitigation.'}),
+
+                    ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
+                        'doc': 'A mapping to a MITRE ATT&CK mitigation if applicable.'}),
 
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
@@ -580,32 +597,32 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:hasvuln', {}, (
                     ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The vulnerability present in the target.'
-                    }),
+                        'doc': 'The vulnerability present in the target.'}),
                     ('person', ('ps:person', {}), {
-                        'doc': 'The vulnerable person.',
-                    }),
+                        'doc': 'The vulnerable person.'}),
                     ('org', ('ou:org', {}), {
-                        'doc': 'The vulnerable org.',
-                    }),
+                        'doc': 'The vulnerable org.'}),
                     ('place', ('geo:place', {}), {
-                        'doc': 'The vulnerable place.',
-                    }),
+                        'doc': 'The vulnerable place.'}),
                     ('software', ('it:prod:softver', {}), {
-                        'doc': 'The vulnerable software.',
-                    }),
+                        'doc': 'The vulnerable software.'}),
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The vulnerable hardware.',
-                    }),
+                        'doc': 'The vulnerable hardware.'}),
                     ('spec', ('mat:spec', {}), {
-                        'doc': 'The vulnerable material specification.',
-                    }),
+                        'doc': 'The vulnerable material specification.'}),
                     ('item', ('mat:item', {}), {
-                        'doc': 'The vulnerable material item.',
-                    }),
+                        'doc': 'The vulnerable material item.'}),
                     ('host', ('it:host', {}), {
-                        'doc': 'The vulnerable host.'
-                    })
+                        'doc': 'The vulnerable host.'})
+                )),
+
+                ('risk:vulnerable', {}, (
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability that the node is susceptible to.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time window where the node was vulnerable.'}),
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node which is vulnerable.'}),
                 )),
 
                 ('risk:alert:taxonomy', {}, {}),

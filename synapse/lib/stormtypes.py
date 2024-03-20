@@ -3192,6 +3192,26 @@ class LibRegx(Lib):
                        'default': 0, },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string with matches replaced.', }}},
+        {'name': 'escape', 'desc': '''
+            Escape arbitrary strings for use in a regular expression pattern.
+
+            Example:
+
+                Escape node values for use in a regex pattern::
+
+                    for $match in $lib.regex.findall($lib.regex.escape($node.repr()), $mydocument) {
+                        // do something with $match
+                    }
+
+                Escape node values for use in regular expression filters::
+
+                    it:dev:str~=$lib.regex.escape($node.repr())
+                    ''',
+         'type': {'type': 'function', '_funcname': 'escape',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to escape.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'Input string with special characters escaped.', }}},
         {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
          'type': 'int', },
         {'name': 'flags.m', 'desc': 'Regex flag to indicate that multiline matches are allowed.', 'type': 'int', },
@@ -3208,6 +3228,7 @@ class LibRegx(Lib):
             'matches': self.matches,
             'findall': self.findall,
             'replace': self.replace,
+            'escape': self.escape,
             'flags': {'i': regex.IGNORECASE,
                       'm': regex.MULTILINE,
                       },
@@ -3257,6 +3278,11 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         regx = await self._getRegx(pattern, flags)
         return regx.findall(text)
+
+    @stormfunc(readonly=True)
+    async def escape(self, text):
+        text = await tostr(text)
+        return regex.escape(text)
 
 @registry.registerLib
 class LibCsv(Lib):
@@ -6047,6 +6073,8 @@ class Node(Prim):
                        'desc': 'An optional prefix to match tags under.', },
                       {'name': 'apply', 'type': 'boolean', 'desc': 'If true, apply the diff.',
                        'default': False, },
+                      {'name': 'norm', 'type': 'boolean', 'default': False,
+                       'desc': 'Optionally norm the list of tags. If a prefix is provided, it will not be normed.'},
                   ),
                   'returns':
                       {'type': 'dict',
@@ -6198,8 +6226,23 @@ class Node(Prim):
                     ret.append(groups)
         return ret
 
-    async def _methNodeDiffTags(self, tags, prefix=None, apply=False):
-        tags = set(await toprim(tags))
+    async def _methNodeDiffTags(self, tags, prefix=None, apply=False, norm=False):
+        norm = await tobool(norm)
+        apply = await tobool(apply)
+
+        if norm:
+            normtags = set()
+            tagpart = self.valu.snap.core.model.type('syn:tag:part')
+
+            async for part in toiter(tags):
+                try:
+                    normtags.add(tagpart.norm(part)[0])
+                except s_exc.BadTypeValu:
+                    pass
+
+            tags = normtags
+        else:
+            tags = set(await toprim(tags))
 
         if prefix:
             prefix = tuple((await tostr(prefix)).split('.'))
@@ -7537,6 +7580,14 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
+        {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
+                  'returns': {'type': 'dict', 'desc': 'The fully updated vote record.'}}},
+        {'name': 'setMergeComment', 'desc': 'Set the main comment/description of a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeComment',
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}, ),
+                  'returns': {'type': 'dict', 'desc': 'The updated merge request.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7577,10 +7628,12 @@ class View(Prim):
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
             'setMergeVote': self.setMergeVote,
+            'setMergeVoteComment': self.setMergeVoteComment,
             'getMergeRequest': self.getMergeRequest,
             'getMergeRequestSummary': self.getMergeRequestSummary,
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
+            'setMergeComment': self.setMergeComment,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7888,6 +7941,16 @@ class View(Prim):
 
         return await view.setMergeRequest(mreq)
 
+    async def setMergeComment(self, comment):
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Editing a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        return await view.setMergeComment((await tostr(comment)))
+
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
         quorum = view.reqParentQuorum()
@@ -7907,6 +7970,11 @@ class View(Prim):
             vote['comment'] = await tostr(comment)
 
         return await view.setMergeVote(vote)
+
+    async def setMergeVoteComment(self, comment):
+        view = self._reqView()
+
+        return await view.setMergeVoteComment(self.runt.user.iden, (await tostr(comment)))
 
     async def delMergeVote(self, useriden=None):
         view = self._reqView()
