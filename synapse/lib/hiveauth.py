@@ -1,4 +1,5 @@
 import logging
+import dataclasses
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -38,41 +39,48 @@ def textFromRule(rule):
         text = '!' + text
     return text
 
-def formatAllowedReason(resp):
-    '''Format a string response for the HiveUser.getAllowedReason API response.'''
-    (allow, meta) = resp
 
-    if meta.get('islocked'):
-        return 'The user is locked.'
-    if meta.get('default'):
+from typing import Union
+
+@dataclasses.dataclass(slots=True)
+class _allowedReason:
+    value: Union[bool | None]
+    default: bool = False
+    isgate: bool = False
+    isrole: bool = False
+    isadmin: bool = False
+    islocked: bool = False
+    rolename: str = None
+    gateiden: str = None
+    rule: tuple = ()
+
+    @property
+    def mesg(self):
+        if self.islocked:
+            return 'The user is locked.'
+        if self.default:
+            return 'No matching rule found.'
+
+        if self.isadmin:
+            if self.isgate:
+                return f'The user is an admin of auth gate {self.gateiden}.'
+            return 'The user is a global admin.'
+
+        if self.rule:
+            rt = textFromRule((self.value, self.rule))
+            if self.isgate:
+                if self.isrole:
+                    m = f'Matched role rule ({rt}) for role {self.rolename} on gate {self.gateiden}.'
+                else:
+                    m = f'Matched user rule ({rt}) on gate {self.gateiden}.'
+            else:
+                if self.isrole:
+                    m = f'Matched role rule ({rt}) for role {self.rolename}.'
+                else:
+                    m = f'Matched user rule ({rt}).'
+            return m
+
         return 'No matching rule found.'
-
-    isgate = meta.get('isgate')
-    isadmin = meta.get('isadmin')
-    isrole = meta.get('isrole')
-    rname = meta.get('rolename')
-    gateiden = meta.get('gateiden')
-    rule = meta.get('rule')
-
-    if isadmin:
-        if isgate:
-            return f'The user is an admin of auth gate {gateiden}.'
-        return 'The user is a global admin.'
-
-    if rule:
-        if isgate:
-            if isrole:
-                m = f'Matched role rule ({textFromRule((allow, rule))}) for role {rname} on gate {gateiden}.'
-            else:
-                m = f'Matched user rule ({textFromRule((allow, rule))}) on gate {gateiden}.'
-        else:
-            if isrole:
-                m = f'Matched role rule ({textFromRule((allow, rule))}) for role {rname}.'
-            else:
-                m = f'Matched user rule ({textFromRule((allow, rule))}).'
-        return m
-
-    return 'No matching rule found.'
 
 class Auth(s_nexus.Pusher):
     '''
@@ -1004,10 +1012,10 @@ class HiveUser(HiveRuler):
         '''
         perm, default, gateiden = pkey
         if self.info.get('locked'):
-            return (False, {'islocked': True})
+            return _allowedReason(False, islocked=True)
 
         if self.info.get('admin'):
-            return (True, {'isadmin': True})
+            return _allowedReason(True, isadmin=True)
 
         # 1. check authgate user rules
         if gateiden is not None:
@@ -1016,16 +1024,16 @@ class HiveUser(HiveRuler):
             if info is not None:
 
                 if info.get('admin'):
-                    return (True, {'isadmin': True, 'isgate': True, 'gateiden': gateiden})
+                    return _allowedReason(True, isadmin=True, isgate=True, gateiden=gateiden)
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, {'rule': path, 'isgate': True, 'gateiden': gateiden})
+                        return _allowedReason(allow, isgate=True, gateiden=gateiden, rule=path)
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
             if perm[:len(path)] == path:
-                return (allow, {'rule': path})
+                return _allowedReason(allow, rule=path)
 
         # 3. check authgate role rules
         if gateiden is not None:
@@ -1038,16 +1046,16 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, {'rule': path, 'isgate': True, 'isrole': True, 'rolename': role.name,
-                                        'gateiden': gateiden})
+                        return _allowedReason(allow, isgate=True, gateiden=gateiden, isrole=True,
+                                                      rolename=role.name, rule=path)
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    return (allow, {'rule': path, 'isrole': True, 'rolename': role.name})
+                    return _allowedReason(allow, isrole=True, rolename=role.name, rule=path)
 
-        return (default, {'default': True})
+        return _allowedReason(default, default=True)
 
     def clearAuthCache(self):
         self.permcache.clear()

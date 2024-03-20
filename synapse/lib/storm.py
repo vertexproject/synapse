@@ -2209,19 +2209,21 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        allowed0, meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
+        meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
+        allowed0 = meta0.value
 
-        if meta0.get('isadmin'):
+        if meta0.isadmin:
             return
 
-        allowed1, meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
+        meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
+        allowed1 = meta1.value
 
         if allowed0:
             if allowed1:
                 return
             elif allowed1 is False:
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
-                if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                if len(meta0.rule) >= len(meta1.rule):
                     return
                 self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
             return
@@ -2236,19 +2238,21 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        allowed0, meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
+        meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
+        allowed0 = meta0.value
 
-        if meta0.get('isadmin'):
+        if meta0.isadmin:
             return
 
-        allowed1, meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
+        meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
+        allowed1 = meta1.value
 
         if allowed0:
             if allowed1:
                 return
             elif allowed1 is False:
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
-                if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                if len(meta0.rule) >= len(meta1.rule):
                     return
                 self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
             return
