@@ -2230,11 +2230,10 @@ class Runtime(s_base.Base):
             return
 
         if (allowed0, allowed1) == (True, False):
-            # Inspect meta to determine if the rule a1 is more specific than rule a0
-            if len(meta1.get('rule')) > len(meta0.get('rule')):
-                # R1 deny was more specific than R0 allow
-                self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
-            return
+            # Inspect meta to determine if the rule a0 is more specific than rule a1
+            if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                return
+            self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
         if allowed0:
             return
@@ -2264,11 +2263,10 @@ class Runtime(s_base.Base):
             return
 
         if (allowed0, allowed1) == (True, False):
-            # Inspect meta to determine if the rule a1 is more specific than rule a0
-            if len(meta1.get('rule')) > len(meta0.get('rule')):
-                # R1 deny was more specific than R0 allow
-                self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
-            return
+            # Inspect meta to determine if the rule a0 is more specific than rule a1
+            if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                return
+            self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
 
         if allowed0:
             return
