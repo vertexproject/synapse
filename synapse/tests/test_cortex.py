@@ -6769,11 +6769,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             visi.confirm(('layer', 'read'), gateiden=layr)
 
-        async with self.getRegrCore('2.0-layerv2tov3') as core:
-            layr = core.getView().layers[0].iden
-            visi = await core.auth.addUser('visi')
-            visi.confirm(('layer', 'read'), gateiden=layr)
-
     async def test_cortex_export(self):
 
         async with self.getTestCore() as core:
@@ -7689,19 +7684,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
+            self.eq(b'\x07\x00\x00\x00\x00\x00\x00\x00',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
             # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
+            self.eq(b'\x07\x00\x00\x00\x00\x00\x00\x00',
                     core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+            self.eq(b'\x08\x00\x00\x00\x00\x00\x00\x00',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
             self.eq(('visi', 'foo'),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x07'))
+                    core.getAbrvIndx(b'\x07\x00\x00\x00\x00\x00\x00\x00'))
             self.eq(('whip', None),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
+                    core.getAbrvIndx(b'\x08\x00\x00\x00\x00\x00\x00\x00'))
             self.raises(s_exc.NoSuchAbrv,
-                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x09')
+                        core.getAbrvIndx, b'\x09\x00\x00\x00\x00\x00\x00\x00')
 
     async def test_cortex_query_offload(self):
         async with self.getTestAhaProv() as aha:
