@@ -44,8 +44,6 @@ def formatAllowedReason(resp):
 
     if meta.get('islocked'):
         return 'The user is locked.'
-    if meta.get('default'):
-        return 'No matching rule found.'
 
     isgate = meta.get('isgate')
     isadmin = meta.get('isadmin')
