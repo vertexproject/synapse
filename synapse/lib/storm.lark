@@ -56,8 +56,8 @@ edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS 
 edittagpropdel: EXPRMINUS tagprop
 EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
-TRYSETPLUS: "?+="
-TRYSETMINUS: "?-="
+TRYSETPLUS.1: "?+="
+TRYSETMINUS.1: "?-="
 TRYSET.1: "?="
 SETTAGOPER: "?"
 
