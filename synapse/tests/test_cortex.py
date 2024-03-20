@@ -6769,11 +6769,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             visi.confirm(('layer', 'read'), gateiden=layr)
 
-        async with self.getRegrCore('2.0-layerv2tov3') as core:
-            layr = core.getView().layers[0].iden
-            visi = await core.auth.addUser('visi')
-            visi.confirm(('layer', 'read'), gateiden=layr)
-
     async def test_cortex_export(self):
 
         async with self.getTestCore() as core:
