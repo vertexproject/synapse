@@ -2697,7 +2697,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # `synapse_version` field.
             # TODO: Remove this whole else block after Synapse 3.0.0.
             minversion = pkgdef.get('synapse_minversion')
-            if minversion is not None and tuple(minversion) > s_version.version:
+            if minversion is None:
+                mesg = f'Storm package {pkgname} must specify synapse_version requirements in the package definition.'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
+            elif tuple(minversion) > s_version.version:
                 mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
                        f'Cortex is running {s_version.version}'
                 raise s_exc.BadVersion(mesg=mesg)

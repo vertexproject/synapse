@@ -6509,6 +6509,31 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "Storm package boom has unknown config var type newp.")
 
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                # Check no synapse_minversion and no synapse_version
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('synapse_version')
+
+                pkgname = pkg.get('name')
+
+                with self.raises(s_exc.BadPkgDef) as cm:
+                    await core.addStormPkg(pkg)
+                mesg = f'Storm package {pkgname} must specify synapse_version requirements in the package definition.'
+                self.eq(cm.exception.errinfo.get('mesg'), mesg)
+
+                # Check old synapse_minversion
+                minver = list(s_version.version)
+                minver[1] += 1
+                minver = tuple(minver)
+
+                pkg['synapse_minversion'] = minver
+
+                with self.raises(s_exc.BadVersion) as cm:
+                    await core.addStormPkg(pkg)
+                mesg = f'Storm package {pkgname} requires Synapse {minver} but Cortex is running {s_version.version}'
+                self.eq(cm.exception.errinfo.get('mesg'), mesg)
+
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
