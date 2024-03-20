@@ -87,9 +87,6 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
                     'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
-
-                ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
-                    'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),
             ),
 
             'edges': (
