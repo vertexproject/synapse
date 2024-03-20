@@ -6,6 +6,7 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.snap as s_snap
@@ -3557,7 +3558,17 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_prop_perms(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+
+            # TODO: This goes away in 3.0.0 when we remove old style permissions.
+            for key, prop in core.model.props.items():
+                if not isinstance(prop, s_datamodel.Prop):
+                    continue
+                if prop.isuniv:
+                    continue
+                self.len(2, prop.delperms)
+                self.len(2, prop.setperms)
+
             visi = (await core.addUser('visi'))['iden']
 
             self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 ]'))

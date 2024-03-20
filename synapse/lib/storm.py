@@ -2209,10 +2209,6 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        # TODO - This entire construct simplifies in 3.0.0+ when we remove the old style prop set permission.
-        # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
-        assert len(prop.setperms) == 2, f'Invalid number of property perms for {prop.full}'
-
         allowed0, meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
 
         if meta0.get('isadmin'):
@@ -2220,31 +2216,22 @@ class Runtime(s_base.Base):
 
         allowed1, meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
 
-        if allowed0 and allowed1:
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                    return
+                self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
             return
-
-        if not allowed0 and not allowed1:
-            self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
         if (allowed0, allowed1) == (None, True):
-            return
-
-        if (allowed0, allowed1) == (True, False):
-            # Inspect meta to determine if the rule a0 is more specific than rule a1
-            if len(meta0.get('rule')) >= len(meta1.get('rule')):
-                return
-            self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
-
-        if allowed0:
             return
 
         self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
-
-        # TODO - This entire construct simplifies in 3.0.0+ when we remove the old style prop set permission.
-        # XXX FIXME Make this a strong assertion in the datamodel unit tests for <3.0.0
-        assert len(prop.setperms) == 2, f'Invalid number of property perms for {prop.full}'
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
@@ -2256,22 +2243,17 @@ class Runtime(s_base.Base):
 
         allowed1, meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
 
-        if allowed0 and allowed1:
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                    return
+                self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
             return
-
-        if not allowed0 and not allowed1:
-            self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
 
         if (allowed0, allowed1) == (None, True):
-            return
-
-        if (allowed0, allowed1) == (True, False):
-            # Inspect meta to determine if the rule a0 is more specific than rule a1
-            if len(meta0.get('rule')) >= len(meta1.get('rule')):
-                return
-            self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
-
-        if allowed0:
             return
 
         self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
