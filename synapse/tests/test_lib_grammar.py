@@ -720,6 +720,8 @@ Queries = [
     'media:news -(*)+> *',
     '$foo=(null)',
     '$foo=({"bar": null})',
+    '$p="names" ps:contact:name=foo [ :$p?+=bar ]',
+    '$p="names" ps:contact:name=foo [ :$p?-=bar ]',
 ]
 
 # Generated with print_parse_list below
@@ -1344,6 +1346,8 @@ _ParseResults = [
     'Query: [LiftProp: [Const: media:news], N1Walk: [Const: *, Const: *], isjoin=True]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [Const: None]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: bar, Const: None]]]]',
+    'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: ps:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?+=, Const: bar]]',
+    'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: ps:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?-=, Const: bar]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
