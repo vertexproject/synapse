@@ -2226,7 +2226,7 @@ class Runtime(s_base.Base):
                 self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
             return
 
-        if (allowed0, allowed1) == (None, True):
+        if allowed0 is None and allowed1 is True:
             return
 
         self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
@@ -2253,7 +2253,7 @@ class Runtime(s_base.Base):
                 self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
             return
 
-        if (allowed0, allowed1) == (None, True):
+        if allowed0 is None and allowed1 is True:
             return
 
         self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
