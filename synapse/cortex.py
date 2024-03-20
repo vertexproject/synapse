@@ -2692,19 +2692,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                    f'Cortex is running {s_version.version}'
             s_version.reqVersion(s_version.version, reqversion, mesg=mesg)
 
-        else:
+        elif (minversion := pkgdef.get('synapse_minversion')) is not None:
             # This is for older packages that might not have the
             # `synapse_version` field.
             # TODO: Remove this whole else block after Synapse 3.0.0.
-            minversion = pkgdef.get('synapse_minversion')
-            if minversion is None:
-                mesg = f'Storm package {pkgname} must specify synapse_version requirements in the package definition.'
-                raise s_exc.BadPkgDef(mesg=mesg)
-
-            elif tuple(minversion) > s_version.version:
+            if tuple(minversion) > s_version.version:
                 mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
                        f'Cortex is running {s_version.version}'
                 raise s_exc.BadVersion(mesg=mesg)
+
+        else:
+            # No synapse_version and no synapse_minversion
+            pass
 
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
