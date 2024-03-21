@@ -812,6 +812,10 @@ class Slab(s_base.Base):
             if isinstance(_opts, dict):
                 opts.update(_opts)
 
+        if (ienc := opts.pop('int_encoding', None)) is not None:
+            if ienc != s_common.int64en_native(1):
+                raise s_exc.BadState('Slab was created on an arch with different byte order!')
+
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
@@ -971,7 +975,8 @@ class Slab(s_base.Base):
         if self.readonly:
             return
 
-        opts = {}
+        opts = {'int_encoding': s_common.int64en_native(1)}
+
         if self.growsize is not None:
             opts['growsize'] = self.growsize
         if self.maxsize is not None:
