@@ -40,7 +40,7 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 mass.norm('newps')
 
-    def test_velocity(self):
+    async def test_velocity(self):
         model = s_datamodel.Model()
         velo = model.type('velocity')
 
@@ -78,6 +78,12 @@ class TypesTest(s_t_utils.SynTest):
 
         relv = velo.clone({'relative': True})
         self.eq(-2777, relv.norm('-10k/h')[0])
+
+        self.eq(1, velo.norm('1.23')[0])
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[transport:sea:telem=(foo,) :speed=(1.1 * 2) ]')
+            self.eq(2, nodes[0].get('speed'))
 
     def test_hugenum(self):
 
@@ -615,6 +621,8 @@ class TypesTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :open=360.0]'))
             self.len(1, await core.nodes('[ test:float=42.0 :open=0.001]'))
             self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
+
+            self.eq(5, await core.callStorm('return($lib.cast(int, (5.5)))'))
 
     async def test_ival(self):
         model = s_datamodel.Model()

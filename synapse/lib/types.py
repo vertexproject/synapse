@@ -1005,6 +1005,7 @@ class Int(IntBase):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyBool)
+        self.setNormFunc(float, self._normPyFloat)
 
     def merge(self, oldv, newv):
 
@@ -1048,6 +1049,9 @@ class Int(IntBase):
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         return valu, {}
+
+    def _normPyFloat(self, valu):
+        return self._normPyInt(int(valu))
 
     def repr(self, norm):
 
@@ -1924,7 +1928,7 @@ class Velocity(IntBase):
 
         unit = valu[offs:].strip()
         if not unit:
-            return base, {}
+            return int(base), {}
 
         if unit.find('/') != -1:
             dist, dura = unit.split('/', 1)
