@@ -45,6 +45,9 @@ class AhaPoolLib(s_stormtypes.Lib):
 
 @s_stormtypes.registry.registerType
 class AhaPool(s_stormtypes.StormType):
+    '''
+    Implements the Storm API for an AHA pool.
+    '''
     _storm_typename = 'aha:pool'
 
     def __init__(self, runt, poolinfo):
