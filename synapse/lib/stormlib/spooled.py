@@ -48,6 +48,8 @@ class LibSpooled(s_stormtypes.Lib):
                 mesg = f'{await s_stormtypes.torepr(item)} is not safe to be used in a SpooledSet.'
                 raise s_exc.StormRuntimeError(mesg=mesg)
 
+            await spool.add(item)
+
         return SpooledSet(spool)
 
 @s_stormtypes.registry.registerType

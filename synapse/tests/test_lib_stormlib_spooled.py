@@ -66,18 +66,18 @@ class StormlibSpooledTest(s_test.SynTest):
             self.eq({'foo', 'boop', 'biz'}, valu)
 
             q = '''
-                $set = $lib.spooled.set()
-                $set.add(1, 2, 3, 4)
+                $set = $lib.spooled.set(1, 2, 3, 4 ,5)
                 $set.add(1, 2, 3, 4)
                 return($set.list())
             '''
             valu = await core.callStorm(q)
             self.isinstance(valu, tuple)
-            self.len(4, valu)
+            self.len(5, valu)
             self.isin('1', valu)
             self.isin('2', valu)
             self.isin('3', valu)
             self.isin('4', valu)
+            self.isin('5', valu)
 
             q = '''
                 $set = $lib.spooled.set()
@@ -102,6 +102,28 @@ class StormlibSpooledTest(s_test.SynTest):
             self.isin(('biz', 'baz'), valu)
             self.isin(('foo', 'bar'), valu)
 
+            q = '''
+                $set = $lib.spooled.set()
+                $set.adds($items)
+                for $x in $set {
+                    $lib.print(`{$x} exists in the set`)
+                }
+                return()
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'items': [True, 'neato', False, 9001]}})
+            self.len(7, msgs)
+            self.stormIsInPrint('false exists in the set', msgs)
+            self.stormIsInPrint('true exists in the set', msgs)
+            self.stormIsInPrint('neato exists in the set', msgs)
+            self.stormIsInPrint('9001 exists in the set', msgs)
+
+            q = '''
+                $set = $lib.spooled.set(neato, neato, neato, neato)
+                $lib.print(`The set is {$set}`)
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'items': [True, 'neato', False, 9001]}})
+            self.stormIsInPrint("The set is {'neato'}", msgs)
+
             # force a fallback
             q = '''
                 $set = $lib.spooled.set()
@@ -121,10 +143,33 @@ class StormlibSpooledTest(s_test.SynTest):
             stormnode = s_stormtypes.Node(nodes[0])
             await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
 
-            # mutable failure
+            # mutable failures
             q = '''
                 $set = $lib.spooled.set()
                 $set.add(({'neato': 'burrito'}))
+                return($set)
+            '''
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
+
+            q = '''
+                $set = $lib.spooled.set()
+                $dict = ({'neato': 'burrito'})
+                $set.adds(($dict, $dict))
+                return($set)
+            '''
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
+
+            q = '''
+                $set = $lib.spooled.set()
+                $form = $lib.model.form('inet:ipv4')
+                $set.adds(($form, $form))
+                return($set)
+            '''
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
+
+            q = '''
+                $dict = ({'foo': 'bar'})
+                $set = $lib.spooled.set($dict)
                 return($set)
             '''
             await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
@@ -133,6 +178,12 @@ class StormlibSpooledTest(s_test.SynTest):
             q = '''
                 $set = $lib.spooled.set()
                 $set.add($lib.model.form("inet:ipv4"))
+                return($set)
+            '''
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
+
+            q = '''
+                $set = $lib.spooled.set($lib.model.form("inet:ipv4"))
                 return($set)
             '''
             await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
