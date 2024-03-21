@@ -3,7 +3,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
-class StormlibCompressionTest(s_test.SynTest):
+class StormlibSpooledTest(s_test.SynTest):
     async def test_lib_spooled_set(self):
         async with self.getTestCore() as core:
             await core.nodes('[inet:ipv4=1.2.3.4 :asn=20]')
@@ -68,14 +68,39 @@ class StormlibCompressionTest(s_test.SynTest):
             q = '''
                 $set = $lib.spooled.set()
                 $set.add(1, 2, 3, 4)
+                $set.add(1, 2, 3, 4)
                 return($set.list())
             '''
             valu = await core.callStorm(q)
             self.isinstance(valu, tuple)
+            self.len(4, valu)
             self.isin('1', valu)
             self.isin('2', valu)
             self.isin('3', valu)
             self.isin('4', valu)
+
+            q = '''
+                $set = $lib.spooled.set()
+                $set.add($lib.true)
+                $set.add($lib.false)
+                $set.add($lib.true)
+                $set.add($lib.false)
+                $set.add('more stuff')
+
+                $dict = ({
+                    "foo": "bar",
+                    "biz": "baz",
+                })
+                $set.adds($dict)
+                return($set)
+            '''
+            valu = await core.callStorm(q)
+            self.len(5, valu)
+            self.isin(False, valu)
+            self.isin(True, valu)
+            self.isin('more stuff', valu)
+            self.isin(('biz', 'baz'), valu)
+            self.isin(('foo', 'bar'), valu)
 
             # force a fallback
             q = '''
