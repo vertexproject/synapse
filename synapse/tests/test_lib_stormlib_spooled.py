@@ -162,10 +162,11 @@ class StormlibSpooledTest(s_test.SynTest):
             q = '''
                 $set = $lib.spooled.set()
                 $form = $lib.model.form('inet:ipv4')
-                $set.adds(($form, $form))
+                $set.adds(($stormnode, $form, $form))
                 return($set)
             '''
-            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
+            # it'll blow up on the first
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
 
             q = '''
                 $dict = ({'foo': 'bar'})
@@ -183,7 +184,7 @@ class StormlibSpooledTest(s_test.SynTest):
             await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
 
             q = '''
-                $set = $lib.spooled.set($lib.model.form("inet:ipv4"))
+                $set = $lib.spooled.set($stormnode)
                 return($set)
             '''
-            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q, {'vars': {'stormnode': stormnode}}))
