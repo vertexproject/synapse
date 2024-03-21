@@ -59,7 +59,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m coverage run --branch ${COVERAGE_ARGS} -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1"
 
   check_runner_has_work:
     description: Check that this runner has work to do
@@ -433,7 +433,7 @@ jobs:
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          COVERAGE_ARGS: --source=synapse
 
     working_directory: ~/repo
 
@@ -449,7 +449,7 @@ jobs:
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          COVERAGE_ARGS: --source=synapse
           SYNDEV_NEXUS_REPLAY: 1
 
     working_directory: ~/repo
