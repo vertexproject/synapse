@@ -2233,7 +2233,7 @@ class Runtime(s_base.Base):
         if allowed1:
             if allowed0 is None:
                 return
-            # allowed1 here is False. This is a deny-with-precedence case.
+            # allowed0 here is False. This is a deny-with-precedence case.
             # Inspect meta to determine if the rule a1 is more specific than rule a0
             if len(meta1.rule) > len(meta0.rule):
                 return
@@ -2268,7 +2268,7 @@ class Runtime(s_base.Base):
         if allowed1:
             if allowed0 is None:
                 return
-            # allowed1 here is False. This is a deny-with-precedence case.
+            # allowed0 here is False. This is a deny-with-precedence case.
             # Inspect meta to determine if the rule a1 is more specific than rule a0
             if len(meta1.rule) > len(meta0.rule):
                 return

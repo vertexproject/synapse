@@ -48,6 +48,7 @@ class _allowedReason:
     isadmin: bool = False
     islocked: bool = False
     gateiden: Union[str | None] = None
+    roleiden: Union[str | None] = None
     rolename: Union[str | None] = None
     rule: tuple = ()
 
@@ -66,12 +67,12 @@ class _allowedReason:
         if self.rule:
             rt = textFromRule((self.value, self.rule))
             if self.gateiden:
-                if self.rolename:
+                if self.roleiden:
                     m = f'Matched role rule ({rt}) for role {self.rolename} on gate {self.gateiden}.'
                 else:
                     m = f'Matched user rule ({rt}) on gate {self.gateiden}.'
             else:
-                if self.rolename:
+                if self.roleiden:
                     m = f'Matched role rule ({rt}) for role {self.rolename}.'
                 else:
                     m = f'Matched user rule ({rt}).'
@@ -1043,13 +1044,14 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return _allowedReason(allow, gateiden=gateiden, rolename=role.name, rule=path)
+                        return _allowedReason(allow, gateiden=gateiden, roleiden=role.iden, rolename=role.name,
+                                              rule=path)
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    return _allowedReason(allow, rolename=role.name, rule=path)
+                    return _allowedReason(allow, roleiden=role.iden, rolename=role.name, rule=path)
 
         return _allowedReason(default, default=True)
 
