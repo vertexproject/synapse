@@ -27,6 +27,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -1824,6 +1825,8 @@ class Runtime(s_base.Base):
     opaque object which is called through, but not dereferenced.
 
     '''
+
+    _admin_reason = s_hiveauth._allowedReason(True, isadmin=True)
     async def __anit__(self, query, snap, opts=None, user=None, root=None):
 
         await s_base.Base.__anit__(self)
@@ -2195,7 +2198,7 @@ class Runtime(s_base.Base):
         The matching reason metadata is also returned.
         '''
         if self.asroot:
-            return True, {'isadmin': True}
+            return self._admin_reason
 
         if default is None:
             permdef = self.snap.core.getPermDef(perms)
@@ -2209,12 +2212,15 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        allowed0, meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
+        meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
 
-        if meta0.get('isadmin'):
+        if meta0.isadmin:
             return
 
-        allowed1, meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
+        allowed0 = meta0.value
+
+        meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
+        allowed1 = meta1.value
 
         if allowed0:
             if allowed1:
@@ -2222,7 +2228,7 @@ class Runtime(s_base.Base):
             elif allowed1 is False:
                 # This is a allow-with-precedence case.
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
-                if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                if len(meta0.rule) >= len(meta1.rule):
                     return
                 self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
             return
@@ -2232,7 +2238,7 @@ class Runtime(s_base.Base):
                 return
             # allowed0 here is False. This is a deny-with-precedence case.
             # Inspect meta to determine if the rule a1 is more specific than rule a0
-            if len(meta1.get('rule')) > len(meta0.get('rule')):
+            if len(meta1.rule) > len(meta0.rule):
                 return
 
         self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
@@ -2242,12 +2248,14 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        allowed0, meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
+        meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
 
-        if meta0.get('isadmin'):
+        if meta0.isadmin:
             return
 
-        allowed1, meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
+        allowed0 = meta0.value
+        meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
+        allowed1 = meta1.value
 
         if allowed0:
             if allowed1:
@@ -2255,7 +2263,7 @@ class Runtime(s_base.Base):
             elif allowed1 is False:
                 # This is a allow-with-precedence case.
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
-                if len(meta0.get('rule')) >= len(meta1.get('rule')):
+                if len(meta0.rule) >= len(meta1.rule):
                     return
                 self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
             return
@@ -2263,9 +2271,9 @@ class Runtime(s_base.Base):
         if allowed1:
             if allowed0 is None:
                 return
-            # allowed1 here is False. This is a deny-with-precedence case.
+            # allowed0 here is False. This is a deny-with-precedence case.
             # Inspect meta to determine if the rule a1 is more specific than rule a0
-            if len(meta1.get('rule')) > len(meta0.get('rule')):
+            if len(meta1.rule) > len(meta0.rule):
                 return
 
         self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)

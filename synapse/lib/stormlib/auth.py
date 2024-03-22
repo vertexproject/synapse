@@ -4,7 +4,6 @@ import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
-import synapse.lib.hiveauth as s_hiveauth
 
 stormcmds = (
     {
@@ -1194,8 +1193,7 @@ class User(s_stormtypes.Prim):
         perm = tuple(permname.split('.'))
         user = await self.runt.snap.core.auth.reqUser(self.valu)
         reason = user.getAllowedReason(perm, gateiden=gateiden, default=default)
-        mesg = s_hiveauth.formatAllowedReason(reason)
-        return reason[0], mesg
+        return reason.value, reason.mesg
 
     async def _methUserGrant(self, iden, indx=None):
         self.runt.confirm(('auth', 'user', 'grant'))
