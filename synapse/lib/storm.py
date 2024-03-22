@@ -1825,6 +1825,8 @@ class Runtime(s_base.Base):
     opaque object which is called through, but not dereferenced.
 
     '''
+
+    _admin_reason = s_hiveauth._allowedReason(True, isadmin=True)
     async def __anit__(self, query, snap, opts=None, user=None, root=None):
 
         await s_base.Base.__anit__(self)
@@ -2196,7 +2198,7 @@ class Runtime(s_base.Base):
         The matching reason metadata is also returned.
         '''
         if self.asroot:
-            return s_hiveauth._allowedReason(True, isadmin=True)
+            return self._admin_reason
 
         if default is None:
             permdef = self.snap.core.getPermDef(perms)
@@ -2211,10 +2213,11 @@ class Runtime(s_base.Base):
             layriden = self.snap.wlyr.iden
 
         meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
-        allowed0 = meta0.value
 
         if meta0.isadmin:
             return
+
+        allowed0 = meta0.value
 
         meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
         allowed1 = meta1.value
