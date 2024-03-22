@@ -832,7 +832,7 @@ class Proxy(s_base.Base):
 
                         mesg = await link.rx()
                         if mesg is None:
-                            raise s_exc.LinkShutDown(mesg=mesg)
+                            raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
 
                         if mesg[0] != 't2:yield':  # pragma: no cover
                             info = 'Telepath protocol violation:  unexpected message received'
