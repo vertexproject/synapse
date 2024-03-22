@@ -137,12 +137,6 @@ Model Changes
       ``issuer``
         The contact information of the office which issued the ID number.
 
-  ``ou:technique``
-    The form had the following property added to it:
-
-      ``names``
-        An array of alternate names for the technique.
-
   ``risk:threat``
     The form had the following property added to it:
 
