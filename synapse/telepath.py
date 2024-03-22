@@ -869,7 +869,7 @@ class Proxy(s_base.Base):
         if self.sess is not None:
             return await self.taskv2(todo, name=name)
 
-        s_common.deprecated('Telepath task with no session', curv=2.166.0)
+        s_common.deprecated('Telepath task with no session', curv='2.166.0')
 
         task = Task()
 
