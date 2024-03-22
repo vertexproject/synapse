@@ -29,6 +29,7 @@ Model Changes
   (`#3604 <https://github.com/vertexproject/synapse/pull/3604>`_)
   (`#3606 <https://github.com/vertexproject/synapse/pull/3606>`_)
   (`#3622 <https://github.com/vertexproject/synapse/pull/3622>`_)
+  (`#3635 <https://github.com/vertexproject/synapse/pull/3635>`_)
 
   **New Forms**
 
@@ -48,7 +49,7 @@ Model Changes
     A balance contained by a bank account at a point in time.
 
   ``econ:bank:statement``
-    TODO FIXME
+    A statement of bank account payment activity over a period of time.
 
   ``econ:bank:aba:rtn``
     An American Bank Association (ABA) routing transit number (RTN).
@@ -64,13 +65,13 @@ Model Changes
     Indicates that a node is susceptible to a vulnerability.
 
   ``sci:hypothesis:type:taxonomy``
-    FIXME MISSING DOCSTRING
+    A taxonomy of hypothesis types.
 
   ``sci:hypothesis``
     A hypothesis or theory.
 
   ``sci:experiment:type:taxonomy``
-    FIXME MISSING DOCSTRING
+    A taxonomy of experiment types.
 
   ``sci:experiment``
     An instance of running an experiment.
@@ -211,6 +212,7 @@ Features and Enhancements
 - When a Cell is mirroring, gracefully go into read-only mode if the leader is
   a greater version than the mirror.
   (`#3581 <https://github.com/vertexproject/synapse/pull/3581>`_)
+  (`#3631 <https://github.com/vertexproject/synapse/pull/3631>`_)
 - Add ``null`` as a constant that can be used in Storm expression syntax.
   (`#3600 <https://github.com/vertexproject/synapse/pull/3600>`_)
 - Add ``cortex.storm.pool.get``, ``cortex.storm.pool.set``, and
