@@ -1,6 +1,8 @@
 import logging
 import dataclasses
 
+from typing import Union
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -38,9 +40,6 @@ def textFromRule(rule):
     if not rule[0]:
         text = '!' + text
     return text
-
-
-from typing import Union
 
 @dataclasses.dataclass(slots=True)
 class _allowedReason:
