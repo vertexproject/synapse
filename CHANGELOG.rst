@@ -12,7 +12,7 @@ v2.165.0 - TBD
 Automatic Migrations
 --------------------
 - Re-normalize ``risk:mitigation:name``, ``it:mitre:attack:technique:name``,
- and ``it:mitre:attack:mitigation:name`` secondary properties.
+  and ``it:mitre:attack:mitigation:name`` secondary properties.
   (`#3585 <https://github.com/vertexproject/synapse/pull/3585>`_)
 - Re-normalize ``velocity`` properties which are float values.
   (`#3616 <https://github.com/vertexproject/synapse/pull/3616>`_)
@@ -20,7 +20,7 @@ Automatic Migrations
 
 Model Changes
 -------------
-- Add a new model, ``sci``, for modeling scientific experiments. Updates to
+- Add a new model, ``sci``, for modeling elements of the scientific method. Updates to
   the ``econ``, ``file``, ``infotech``, ``inet``, ``ou``, ``ps``, and ``risk``
   models.
   (`#3559 <https://github.com/vertexproject/synapse/pull/3559>`_)
@@ -213,7 +213,7 @@ Features and Enhancements
   (`#3581 <https://github.com/vertexproject/synapse/pull/3581>`_)
 - Add ``null`` as a constant that can be used in Storm expression syntax.
   (`#3600 <https://github.com/vertexproject/synapse/pull/3600>`_)
-- Add ``cortex.storm.pool.get``, ``cortex.storm.pool.set`` and
+- Add ``cortex.storm.pool.get``, ``cortex.storm.pool.set``, and
   ``cortex.storm.pool.del`` commands to manage the Storm query pool which may
   be used by the Cortex. This replaces the experimental support added in
   ``v2.160.0`` for Storm query pool configuration. The experimental Cortex
@@ -253,14 +253,14 @@ Bugfixes
   names greater than 64 characters in length. Prevent AHA provisioning from
   creating provisioning requests which would exceed that length.
   (`#3609 <https://github.com/vertexproject/synapse/pull/3609>`_)
-- Fix an issue with the ``velocity`` base type not returning a float instead
+- Fix an issue with the ``velocity`` base type returning a float instead
   of an integer when handling a string value without a unit.
   (`#3616 <https://github.com/vertexproject/synapse/pull/3616>`_)
 - Fix an issue that could occur when pivoting from a secondary property to
   a form when using variables for the source and target values.
   (`#3618 <https://github.com/vertexproject/synapse/pull/3618>`_)
-- Fix a syntax parsing issue when using the try-set operator to set a node
-  property using a variable for the property name.
+- Fix a syntax parsing issue when using the try-set-plus or try-set-minus operator
+  to update an array property on a node using a variable for the property name.
   (`#3630 <https://github.com/vertexproject/synapse/pull/3630>`_)
 
 Improved Documentation
@@ -286,7 +286,7 @@ Deprecations
   Telepath methods have been marked as deprecated and will be removed after
   2024-05-05.
   (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
-- The Cortex configuration optoins ``cron:enable`` and ``trigger:enable`` have
+- The Cortex configuration options ``cron:enable`` and ``trigger:enable`` have
   been marked as deprecated and will be removed in ``v3.0.0``. These
   configuration options no longer control cron or trigger behavior.
   (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
