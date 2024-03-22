@@ -17,7 +17,7 @@ class LibSpooled(s_stormtypes.Lib):
             is that all items in the set can be serialized to a file if the set grows too large,
             so all items added must be a serializable Storm primitive. Second is that when an
             item is added to the Set, because it could be immediately written disk,
-            do not hold any references to it outside of the Set itself,as the two objects could
+            do not hold any references to it outside of the Set itself, as the two objects could
             differ.
             ''',
          'type': {'type': 'function', '_funcname': '_methSet',
