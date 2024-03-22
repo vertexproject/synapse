@@ -27,6 +27,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -2195,7 +2196,7 @@ class Runtime(s_base.Base):
         The matching reason metadata is also returned.
         '''
         if self.asroot:
-            return True, {'isadmin': True}
+            return s_hiveauth._allowedReason(True, isadmin=True)
 
         if default is None:
             permdef = self.snap.core.getPermDef(perms)
