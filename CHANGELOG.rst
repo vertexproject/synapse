@@ -243,6 +243,12 @@ Bugfixes
 - Fix a bug where Cortex Cron jobs could start prior to data migrations
   having completed running.
   (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
+- Fix an issue where ``node.prop.set`` and ``node.prop.del`` permissions were
+  not being properly checked.
+  (`#3627 <https://github.com/vertexproject/synapse/pull/3627>`_)
+- Fix a bug in the Storm ``merge`` command where the destination layer was
+  not being properly checked for property set and deletion.
+  (`#3627 <https://github.com/vertexproject/synapse/pull/3627>`_)
 - Fix an error when granting a role admin permissions on a vault.
   (`#3603 <https://github.com/vertexproject/synapse/pull/3603>`_)
 - Prevent the ``synapse.tools.easycert`` tool from making certificates with
