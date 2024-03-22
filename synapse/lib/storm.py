@@ -2249,11 +2249,11 @@ class Runtime(s_base.Base):
             layriden = self.snap.wlyr.iden
 
         meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
-        allowed0 = meta0.value
 
         if meta0.isadmin:
             return
 
+        allowed0 = meta0.value
         meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
         allowed1 = meta1.value
 
