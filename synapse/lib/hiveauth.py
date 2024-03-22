@@ -45,26 +45,25 @@ def formatAllowedReason(resp):
     if meta.get('islocked'):
         return 'The user is locked.'
 
-    isgate = meta.get('isgate')
     isadmin = meta.get('isadmin')
-    isrole = meta.get('isrole')
+    roleiden = meta.get('roleiden')
     rname = meta.get('rolename')
     gateiden = meta.get('gateiden')
     rule = meta.get('rule')
 
     if isadmin:
-        if isgate:
+        if gateiden:
             return f'The user is an admin of auth gate {gateiden}.'
         return 'The user is a global admin.'
 
     if rule:
-        if isgate:
-            if isrole:
+        if gateiden:
+            if roleiden:
                 m = f'Matched role rule ({textFromRule((allow, rule))}) for role {rname} on gate {gateiden}.'
             else:
                 m = f'Matched user rule ({textFromRule((allow, rule))}) on gate {gateiden}.'
         else:
-            if isrole:
+            if roleiden:
                 m = f'Matched role rule ({textFromRule((allow, rule))}) for role {rname}.'
             else:
                 m = f'Matched user rule ({textFromRule((allow, rule))}).'
@@ -1014,11 +1013,11 @@ class HiveUser(HiveRuler):
             if info is not None:
 
                 if info.get('admin'):
-                    return (True, {'isadmin': True, 'isgate': True, 'gateiden': gateiden})
+                    return (True, {'isadmin': True, 'gateiden': gateiden})
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, {'rule': path, 'isgate': True, 'gateiden': gateiden})
+                        return (allow, {'rule': path, 'gateiden': gateiden})
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
@@ -1036,14 +1035,14 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, {'rule': path, 'isgate': True, 'isrole': True, 'rolename': role.name,
+                        return (allow, {'rule': path, 'roleiden': role.iden, 'rolename': role.name,
                                         'gateiden': gateiden})
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    return (allow, {'rule': path, 'isrole': True, 'rolename': role.name})
+                    return (allow, {'rule': path, 'roleiden': role.iden, 'rolename': role.name})
 
         return (default, {'default': True})
 
