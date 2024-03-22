@@ -355,21 +355,24 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:id:number', {}, (
+
                     ('type', ('ou:id:type', {}), {
-                        'doc': 'The type of org id', 'ro': True,
-                    }),
+                        'doc': 'The type of org id', 'ro': True}),
+
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The value of org id', 'ro': True,
-                    }),
+                        'doc': 'The value of org id', 'ro': True}),
+
                     ('status', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A freeform status such as valid, suspended, expired.',
-                    }),
+                        'doc': 'A freeform status such as valid, suspended, expired.'}),
+
                     ('issued', ('time', {}), {
-                        'doc': 'The time at which the org issued the ID number.',
-                    }),
+                        'doc': 'The time at which the org issued the ID number.'}),
+
                     ('expires', ('time', {}), {
-                        'doc': 'The time at which the ID number expires.',
-                    }),
+                        'doc': 'The time at which the ID number expires.'}),
+
+                    ('issuer', ('ps:contact', {}), {
+                        'doc': 'The contact information of the office which issued the ID number.'}),
                 )),
                 ('ou:id:update', {}, (
                     ('number', ('ou:id:number', {}), {

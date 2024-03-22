@@ -2222,6 +2222,7 @@ class Runtime(s_base.Base):
             if allowed1:
                 return
             elif allowed1 is False:
+                # This is a allow-with-precedence case.
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
                 if len(meta0.rule) >= len(meta1.rule):
                     return
@@ -2256,6 +2257,7 @@ class Runtime(s_base.Base):
             if allowed1:
                 return
             elif allowed1 is False:
+                # This is a allow-with-precedence case.
                 # Inspect meta to determine if the rule a0 is more specific than rule a1
                 if len(meta0.rule) >= len(meta1.rule):
                     return
