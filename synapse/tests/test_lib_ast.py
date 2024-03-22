@@ -3728,9 +3728,125 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
+        # Exhaustive test for node.prop.del behaviors
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            q = 'inet:asn=$valu [ -:name ]'
+
+            # test 0
+            # None  None    Deny
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            varz = {'valu': 0}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.del.inet:asn.name', msgs)
+
+            # test 1
+            # None  True    Allow
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name node.prop.del.inet:asn:name', opts=opts)
+
+            varz = {'valu': 1}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoErr(msgs)
+
+            # test 2
+            # None  False   Deny
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name "!node.prop.del:inet:asn:name"', opts=opts)
+            varz = {'valu': 2}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.del.inet:asn.name', msgs)
+
+            # test 3
+            # True  None    Allow
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name "node.prop.del.inet:asn.name"', opts=opts)
+
+            varz = {'valu': 3}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoWarnErr(msgs)
+
+            # test 4
+            # True  True    Allow
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name "node.prop.del.inet:asn.name"', opts=opts)
+            await core.callStorm('auth.user.addrule $name "node.prop.del.inet:asn:name"', opts=opts)
+            varz = {'valu': 4}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoWarnErr(msgs)
+
+            # test 5
+            # True  False   Allow with precedence
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name "node.prop.del.inet:asn.name"', opts=opts)
+            await core.callStorm('auth.user.addrule $name "!node.prop.del.inet:asn:name"', opts=opts)
+            varz = {'valu': 5}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoWarnErr(msgs)
+
+            # test 6
+            # False None    Deny
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name "!node.prop.del.inet:asn.name"', opts=opts)
+            varz = {'valu': 6}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.del.inet:asn.name', msgs)
+
+            # test 7
+            # False True    Deny with precedence
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name "!node.prop.del.inet:asn.name"', opts=opts)
+            await core.callStorm('auth.user.addrule $name "node.prop.del.inet:asn:name"', opts=opts)
+            varz = {'valu': 7}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.del.inet:asn.name', msgs)
+
+            # test 8
+            # False False   Deny
+            name = s_common.guid()
+            unfo = await core.addUser(name)
+            opts = {'vars': {'name': name}}
+            await core.callStorm('auth.user.addrule $name "!node.prop.del.inet:asn.name"', opts=opts)
+            await core.callStorm('auth.user.addrule $name "!node.prop.del.inet:asn:name"', opts=opts)
+            varz = {'valu': 8}
+            aslow = {'user': unfo.get('iden'), 'vars': varz}
+            self.len(1, await core.nodes('[inet:asn=$valu :name=name]', opts={'vars': varz}))
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.del.inet:asn.name', msgs)
+
         # Negative permission tests
         # These tests confirm the behavior when a deny rule is used to deny the permission
-        # but may still have a underlying allow rule present.
+        # but may still have an underlying allow rule present.
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
@@ -3743,6 +3859,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
+        # New style permission being deny, blanket node allowed
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
 
@@ -3753,6 +3870,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
+        # Old style permission being deny, blanket node allowed
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
 
@@ -3763,7 +3881,29 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
-        # This is a horribly legal mix :(
+        # Now with del - new style perm
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.del.media:news.published"')
+            await core.callStorm('auth.user.addrule lowuser "node"')
+            self.len(1, await core.nodes('[media:news=(m0,) :published=2022]'))
+            aslow = {'user': unfo.get('iden')}
+            q = 'media:news=(m0,) [-:published]'
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.del.media:news.published', msgs)
+
+        # Now with del - old style perm
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.del.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser "node"')
+            self.len(1, await core.nodes('[media:news=(m0,) :published=2022]'))
+            aslow = {'user': unfo.get('iden')}
+            q = 'media:news=(m0,) [-:published]'
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormIsInErr('must have permission node.prop.del.media:news.published', msgs)
+
+        # This is a legal mix which has a logical equivalence to test case #7
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
             await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
@@ -3786,58 +3926,59 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=aslow)
             self.stormHasNoWarnErr(msgs)
 
+        # A valid construction - the user is granted one a new style prop set perm but denied others.
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
             await core.callStorm('auth.user.addrule lowuser "node.prop.set.media:news.published"')
-            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
-            await core.callStorm('auth.user.addrule lowuser node')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set"')
+            await core.callStorm('auth.user.addrule lowuser node.add')
             aslow = {'user': unfo.get('iden')}
-            q = '[media:news=(m0,) .seen=2022 :published=2022]'
+            q = '[media:news=(m0,) :published=2022]'
             msgs = await core.stormlist(q, opts=aslow)
             self.stormHasNoWarnErr(msgs)
 
+        # A valid construction - the user is granted one a old style prop set perm but denied others.
+        # This is a deny with precedence.
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             unfo = await core.addUser('lowuser')
-
-            await core.callStorm('auth.user.addrule lowuser node')
-            aslow = {'user': unfo.get('iden')}
-            q = '[media:news=(m0,) .seen=2023 :published=2023]'
-            msgs = await core.stormlist(q, opts=aslow)
-            self.stormHasNoErr(msgs)
-
-        async with self.getTestCore() as core:  # type: s_cortex.Cortex
-            unfo = await core.addUser('lowuser')
-
-            await core.callStorm('auth.user.addrule lowuser node.add')
-            await core.callStorm('auth.user.addrule lowuser node.prop.set.media:news:published')
-            aslow = {'user': unfo.get('iden')}
-
-            q = '[media:news=(m1,) :published=2020]'
-            msgs = await core.stormlist(q, opts=aslow)
-            self.stormHasNoErr(msgs)
-
-        async with self.getTestCore() as core:  # type: s_cortex.Cortex
-
-            unfo = await core.addUser('lowuser')
-
             await core.callStorm('auth.user.addrule lowuser "node.prop.set.media:news:published"')
-            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news.published"')
-
-            await core.callStorm('auth.user.addrule lowuser node')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set"')
+            await core.callStorm('auth.user.addrule lowuser node.add')
             aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) :published=2022]'
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoWarnErr(msgs)
 
+        # Same but with deletion
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+            await core.callStorm('auth.user.addrule lowuser "node.prop.del.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.del"')
+            self.len(1, await core.nodes('[media:news=(m0,) :published=2022]'))
+            aslow = {'user': unfo.get('iden')}
+            q = 'media:news=(m0,) [-:published]'
+            msgs = await core.stormlist(q, opts=aslow)
+            self.stormHasNoWarnErr(msgs)
+
+        # "Don't do this in production" example. Since the r1 ALLOW permission is not more precise
+        # than the R0 allow permission, we deny the action.
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            unfo = await core.addUser('lowuser')
+            await core.callStorm('auth.user.addrule lowuser "node.prop.set.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news"')
+            await core.callStorm('auth.user.addrule lowuser node.add')
+            aslow = {'user': unfo.get('iden')}
+            q = '[media:news=(m0,) :published=2022]'
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.set.media:news.published', msgs)
 
+        # Same but with deletion
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
-
             unfo = await core.addUser('lowuser')
-
-            await core.callStorm('auth.user.addrule lowuser "!node.prop.set.media:news:published"')
-            await core.callStorm('auth.user.addrule lowuser "node.prop.set.media:news.published"')
-
-            await core.callStorm('auth.user.addrule lowuser node')
+            await core.callStorm('auth.user.addrule lowuser "node.prop.del.media:news:published"')
+            await core.callStorm('auth.user.addrule lowuser "!node.prop.del.media:news"')
+            self.len(1, await core.nodes('[media:news=(m0,) :published=2022]'))
             aslow = {'user': unfo.get('iden')}
-
+            q = 'media:news=(m0,) [-:published]'
             msgs = await core.stormlist(q, opts=aslow)
-            self.stormHasNoErr(msgs)
+            self.stormIsInErr('must have permission node.prop.del.media:news.published', msgs)

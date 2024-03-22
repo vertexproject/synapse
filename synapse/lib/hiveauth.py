@@ -46,12 +46,11 @@ from typing import Union
 class _allowedReason:
     value: Union[bool | None]
     default: bool = False
-    isgate: bool = False
-    isrole: bool = False
     isadmin: bool = False
     islocked: bool = False
-    rolename: str = None
-    gateiden: str = None
+    gateiden: Union[str | None] = None
+    roleiden: Union[str | None] = None
+    rolename: Union[str | None] = None
     rule: tuple = ()
 
     @property
@@ -62,19 +61,19 @@ class _allowedReason:
             return 'No matching rule found.'
 
         if self.isadmin:
-            if self.isgate:
+            if self.gateiden:
                 return f'The user is an admin of auth gate {self.gateiden}.'
             return 'The user is a global admin.'
 
         if self.rule:
             rt = textFromRule((self.value, self.rule))
-            if self.isgate:
-                if self.isrole:
+            if self.gateiden:
+                if self.roleiden:
                     m = f'Matched role rule ({rt}) for role {self.rolename} on gate {self.gateiden}.'
                 else:
                     m = f'Matched user rule ({rt}) on gate {self.gateiden}.'
             else:
-                if self.isrole:
+                if self.roleiden:
                     m = f'Matched role rule ({rt}) for role {self.rolename}.'
                 else:
                     m = f'Matched user rule ({rt}).'
@@ -1024,11 +1023,11 @@ class HiveUser(HiveRuler):
             if info is not None:
 
                 if info.get('admin'):
-                    return _allowedReason(True, isadmin=True, isgate=True, gateiden=gateiden)
+                    return _allowedReason(True, isadmin=True, gateiden=gateiden)
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return _allowedReason(allow, isgate=True, gateiden=gateiden, rule=path)
+                        return _allowedReason(allow, gateiden=gateiden, rule=path)
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
@@ -1046,14 +1045,14 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return _allowedReason(allow, isgate=True, gateiden=gateiden, isrole=True,
-                                                      rolename=role.name, rule=path)
+                        return _allowedReason(allow, gateiden=gateiden, roleiden=role.iden, rolename=role.name,
+                                              rule=path)
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    return _allowedReason(allow, isrole=True, rolename=role.name, rule=path)
+                    return _allowedReason(allow, roleiden=role.iden, rolename=role.name, rule=path)
 
         return _allowedReason(default, default=True)
 
