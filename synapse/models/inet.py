@@ -1489,6 +1489,16 @@ class InetModule(s_module.CoreModule):
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
                         'doc': 'A JARM hash sample taken from a server.'}),
 
+                    # TODO: Form Inheritance to hash:md5
+                    ('inet:ssl:ja3hash', ('guid', {}), {
+                        'doc': 'A JA3 fingerprint hash.'}),
+
+                    ('inet:ssl:ja3client', ('guid', {}), {
+                        'doc': 'A JA3 sample take from a client'}),
+
+                    ('inet:ssl:ja3server', ('guid', {}), {
+                        'doc': 'A JA3S sample taken from a server'}),
+
                 ),
 
                 'interfaces': (
@@ -3234,6 +3244,38 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The server that was sampled to compute the JARM hash.'}),
                     )),
 
+                    ('inet:ssl:ja3hash', {}, (
+                        ('version', ('int', {}), {
+                            'doc': 'The SSL/TLS version from the Hello Packet.'}),
+                        ('ciphers', ('array', {'type': 'int', 'split': '-'}), {
+                            'doc': 'The array of acceptable ciphers from the Hello Packet.'}),
+                        ('extensions', ('array', {'type': 'int', 'split': '-'}), {
+                            'doc': 'The array of extension IDs in the Hello Packet'}),
+                        ('curves', ('array', {'type': 'int', 'split': '-'}), {
+                            'doc': 'The array of supported groups (formerly TLS elliptic curves) in the Hello Packet.'}),
+                        ('pointfmts', ('array', {'type': 'int', 'split': '-'}), {
+                            'doc': 'The array of elliptic curve point formats in the Hello Packet.'}),
+                    )),
+
+                    ('inet:ssl:ja3client', {}, (
+                        ('hash', ('inet:ssl:ja3hash', {}), {
+                            'doc': 'The JA3 fingerprint for a client.'}),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client the fingerprint was collected from.'}),
+                        ('proc', ('it:exec:proc', {}), {
+                            'doc': 'The client process the fingerprint was collected from.'}),
+                    )),
+
+                    ('inet:ssl:ja3server', {}, (
+                        ('hash', ('inet:ssl:ja3hash', {}), {
+                            'doc': "The JA3S fingerprint of the server's response."}),
+                        ('server', ('inet:server', {}), {
+                            'doc': 'The server the fingerprint was collected from.'}),
+                        ('proc', ('it:exec:proc', {}), {
+                            'doc': 'The server proces the fingerprint was collected from.'}),
+                        ('client', ('inet:ssl:ja3server', {}), {
+                            'doc': 'The client that this fingerprint is in response to.'}),
+                    )),
                 ),
             }),
         )

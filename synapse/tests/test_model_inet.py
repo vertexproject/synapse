@@ -1,5 +1,6 @@
 import copy
 import logging
+import hashlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -2767,3 +2768,66 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
+
+    async def test_model_inet_ja3(self):
+
+        async with self.getTestCore() as core:
+            cfullstr = '771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49161-49171-49172-156-157-47-53,0-23-65281-10-11-16-5-34-51-42-43-13-45-28-65037-41,29-23-24-25-256-257,0'
+            ja3 = 'a696a018266f1e7e33d73ecf3b64f8fd'
+
+            sfullstr = '771,4865,41-51-43'
+            ja3s = '2b0648ab686ee45e0e7c35fcfb0eea7e'
+
+            hashes = await core.nodes('''
+                $cparts = $client.split(',')
+                $sparts = $server.split(',')
+                [ (inet:ssl:ja3hash=$lib.crypto.hashes.md5($client.encode())
+                      :version=$cparts.0
+                      :ciphers=$cparts.1
+                      :extensions=$cparts.2
+                      :curves=$cparts.3
+                      :pointfmts=$cparts.4)
+
+                  (inet:ssl:ja3hash=$lib.crypto.hashes.md5($server.encode())
+                      :version=$sparts.0
+                      :ciphers=$sparts.1
+                      :extensions=$sparts.2) ]
+            ''', opts={'vars': {'client': cfullstr, 'server': sfullstr}})
+            self.len(2, hashes)
+            self.eq(hashes[0].ndef, ('inet:ssl:ja3hash', ja3))
+            self.eq(hashes[1].ndef, ('inet:ssl:ja3hash', ja3s))
+
+            client = await core.nodes('[inet:client=tcp://127.0.0.1:2345]')
+            server = await core.nodes('[inet:server="tcp://1.2.3.4:9876"]')
+
+            clntexe = hashlib.sha256(b'stuff').hexdigest()
+            clntproc = await core.nodes('[it:exec:proc=* :exe=$sha]', opts={'vars': {'sha': clntexe}})
+
+            srvexe = hashlib.sha256(b'more stuff').hexdigest()
+            srvproc = await core.nodes('[it:exec:proc=* :exe=$sha]', opts={'vars': {'sha': srvexe}})
+
+            jclient = await core.nodes('''
+                [ inet:ssl:ja3client=*
+                      :hash=$hash
+                      :proc=$proc
+                      :client=$client ]
+            ''', opts={'vars': {'hash': hashes[0].ndef[1], 'client': client[0], 'proc': clntproc[0]}})
+            self.len(1, jclient)
+            node = jclient[0]
+            self.eq(node.props['hash'], ja3)
+            self.eq(node.props['client'], client[0].ndef[1])
+            self.eq(node.props['proc'], clntproc[0].ndef[1])
+
+            jserver = await core.nodes('''
+                [ inet:ssl:ja3server=*
+                      :hash=$hash
+                      :proc=$srvproc
+                      :client=$client
+                      :server=$server ]
+            ''', opts={'vars': {'hash': hashes[1].ndef[1], 'server': server[0], 'srvproc': srvproc[0], 'client': jclient[0] }})
+
+            node = jserver[0]
+            self.eq(node.props['hash'], ja3s)
+            self.eq(node.props['proc'], srvproc[0].ndef[1])
+            self.eq(node.props['client'], jclient[0].ndef[1])
+            self.eq(node.props['server'], server[0].ndef[1])
