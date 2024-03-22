@@ -552,9 +552,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:technique', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The normalized name of the technique.'}),
-                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
-                                         'typeopts': {'lower': True, 'onespace': True}}), {
-                        'doc': 'An array of alternate names for the technique.'}),
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
                     ('sophistication', ('meta:sophistication', {}), {

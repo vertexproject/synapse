@@ -5,12 +5,14 @@ class ScienceModule(s_module.CoreModule):
     def getModelDefs(self):
         return (('sci', {
             'types': (
-                ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {}),
+                ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of hypothesis types.'}),
                 ('sci:hypothesis', ('guid', {}), {
                     'doc': 'A hypothesis or theory.'}),
 
                 # TODO link experiment to eventual procedure node
-                ('sci:experiment:type:taxonomy', ('taxonomy', {}), {}),
+                ('sci:experiment:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of experiment types.'}),
                 ('sci:experiment', ('guid', {}), {
                     'doc': 'An instance of running an experiment.'}),
 
