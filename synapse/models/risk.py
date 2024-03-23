@@ -307,10 +307,6 @@ class RiskModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
 
-                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
-                                         'typeopts': {'lower': True, 'onespace': True}}), {
-                        'doc': 'An array of alternate names for the mitigation.'}),
-
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
