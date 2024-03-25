@@ -2824,7 +2824,7 @@ class InetModelTest(s_t_utils.SynTest):
                       :proc=$srvproc
                       :client=$client
                       :server=$server ]
-            ''', opts={'vars': {'hash': hashes[1].ndef[1], 'server': server[0], 'srvproc': srvproc[0], 'client': jclient[0] }})
+            ''', opts={'vars': {'hash': hashes[1].ndef[1], 'server': server[0], 'srvproc': srvproc[0], 'client': jclient[0]}})
 
             node = jserver[0]
             self.eq(node.props['hash'], ja3s)
