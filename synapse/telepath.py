@@ -1021,8 +1021,8 @@ class Pool(s_base.Base):
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        ahaurl = f'aha://{svcname}'
-        self.clients[svcname] = await Client.anit(ahaurl, onlink=self._onPoolLink)
+        urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
+        self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
     async def _onPoolSvcDel(self, mesg):
