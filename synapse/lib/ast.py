@@ -1649,12 +1649,13 @@ class LiftFormTagProp(LiftOper):
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             for form in forms:
-                genrs.append(runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
+                genrs.append(runt.snap.nodesByTagPropValu(form.name, tag, prop, cmpr, valu, reverse=self.reverse))
 
         else:
 
             for form in forms:
-                genrs.append(runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse))
+                # TODO plumb form/prop objects into the snap API
+                genrs.append(runt.snap.nodesByTagProp(form.name, tag, prop, reverse=self.reverse))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -1719,13 +1720,14 @@ class LiftFormTag(LiftOper):
             valu = await toprim(await self.kids[3].compute(runt, path))
 
             for form in forms:
-                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
+                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form.name, reverse=self.reverse):
                     yield node
 
             return
 
         for form in forms:
-            async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
+            # TODO we should plumb heavy form/prop objects deeper into the API
+            async for node in runt.snap.nodesByTag(tag, form=form.name, reverse=self.reverse):
                 yield node
 
 class LiftProp(LiftOper):
@@ -1736,19 +1738,9 @@ class LiftProp(LiftOper):
 
         name = await tostr(await self.kids[0].compute(runt, path))
 
-        prop = runt.model.props.get(name)
-        if prop is not None:
-            async for node in self.proplift(prop, runt, path):
-                yield node
-            return
+        props = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
 
-        proplist = runt.model.reqPropsByLook(name, self.kids[0].addExcInfo)
-
-        props = []
-        for propname in proplist:
-            props.append(runt.model.props.get(propname))
-
-        if len(props) == 1 or props[0].isform:
+        if len(props) == 1:
             for prop in props:
                 async for node in self.proplift(prop, runt, path):
                     yield node
@@ -1836,17 +1828,7 @@ class LiftPropBy(LiftOper):
         if not isinstance(valu, s_node.Node):
             valu = await s_stormtypes.tostor(valu)
 
-        prop = runt.model.props.get(name)
-        if prop is not None:
-            props = (prop,)
-        else:
-            proplist = runt.model.ifaceprops.get(name)
-            if proplist is None:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
-
-            props = []
-            for propname in proplist:
-                props.append(runt.model.props.get(propname))
+        props = runt.model.reqPropsByLook(name)
 
         try:
             if len(props) == 1:
@@ -2082,15 +2064,20 @@ class PivotIn(PivotOper):
 
             return
 
-        name, valu = node.ndef
+        valu = node.ndef[1]
 
-        for prop in runt.model.getPropsByType(name):
-            async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
-                yield pivo, path.fork(pivo)
+        form = node.form
+        while form is not None:
 
-        for prop in runt.model.getArrayPropsByType(name):
-            async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
-                yield pivo, path.fork(pivo)
+            for prop in runt.model.getPropsByType(form.full):
+                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                    yield pivo, path.fork(pivo)
+
+            for prop in runt.model.getArrayPropsByType(form.full):
+                async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
+                    yield pivo, path.fork(pivo)
+
+            form = runt.model.form(form.type.subof)
 
 class N2WalkNPivo(PivotIn):
 
@@ -2235,19 +2222,30 @@ class FormPivot(PivotOper):
                 refs = node.form.getRefsOut()
                 for refsname, refsform in refs.get('prop'):
 
-                    if refsform != destform.name:
+                    refsvalu = node.get(refsname)
+                    if refsvalu is None:
                         continue
 
-                    found = True
+                    hits = False
+                    for form in runt.model.reqFormsByLook(refsform):
 
-                    refsvalu = node.get(refsname)
-                    if refsvalu is not None:
-                        async for pivo in runt.snap.nodesByPropValu(refsform, '=', refsvalu):
+                        if not form.isHeirOf(destform.name):
+                            continue
+
+                        found = True
+
+                        # TODO plumb form/prop types into snap API
+                        async for pivo in runt.snap.nodesByPropValu(form.name, '=', refsvalu):
+                            hits = True
                             yield pivo
+
+                        if hits:
+                            break
 
                 for refsname, refsform in refs.get('array'):
 
-                    if refsform != destform.name:
+                    form = runt.model.form(refsform)
+                    if not form.isHeirOf(destform.name):
                         continue
 
                     found = True
@@ -2275,19 +2273,27 @@ class FormPivot(PivotOper):
                 # "reverse" property references...
                 for refsname, refsform in refs.get('prop'):
 
-                    if refsform != node.form.name:
-                        continue
-
-                    found = True
-
                     refsprop = destform.props.get(refsname)
-                    async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef[1]):
-                        yield pivo
+
+                    hits = False
+                    for form in runt.model.reqFormsByLook(refsform):
+
+                        if not form.isHeirOf(node.form.name):
+                            continue
+
+                        found = True
+                        async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef[1]):
+                            hits = True
+                            yield pivo
+
+                        if hits:
+                            break
 
                 # "reverse" array references...
                 for refsname, refsform in refs.get('array'):
 
-                    if refsform != node.form.name:
+                    form = runt.model.form(refsform)
+                    if not form.isHeirOf(destform.name):
                         continue
 
                     found = True
@@ -2311,49 +2317,47 @@ class FormPivot(PivotOper):
 
         return pgenr
 
-    def buildgenr(self, runt, name):
+    def buildgenr(self, runt, names):
 
-        if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
+        props = []
+        for name in names:
+            prop = runt.model.prop(name)
+            if prop is None:
+                exc = s_exc.NoSuchProp.init(name)
+                raise self.kids[0].addExcInfo(exc)
 
-            proplist = None
-            if isinstance(name, list):
-                proplist = name
-            else:
-                proplist = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+            props.append(prop)
 
-            pgenrs = []
-            for propname in proplist:
-                prop = runt.model.props.get(propname)
-                if prop is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
+        genrctors = []
+        for prop in props:
+            genrctors.append(self.pivogenr(runt, prop))
 
-                pgenrs.append(self.pivogenr(runt, prop))
+        async def onegenr(node):
+            for genrctor in genrctors:
+                async for pivo in genrctor(node, strict=False):
+                    yield pivo
 
-            async def listpivot(node):
-                for pgenr in pgenrs:
-                    async for pivo in pgenr(node, strict=False):
-                        yield pivo
-
-            return listpivot
-
-        return self.pivogenr(runt, prop)
+        return onegenr
 
     async def run(self, runt, genr):
 
-        pgenr = None
         warned = False
+        genrfunc = None
 
         async for node, path in genr:
 
-            if pgenr is None or not self.kids[0].isconst:
-                name = await self.kids[0].compute(runt, None)
-                pgenr = self.buildgenr(runt, name)
+            if genrfunc is None or not self.kids[0].isconst:
+                names = await self.kids[0].compute(runt, None)
+                if not isinstance(names, list):
+                    names = (names,)
+
+                genrfunc = self.buildgenr(runt, names)
 
             if self.isjoin:
                 yield node, path
 
             try:
-                async for pivo in pgenr(node):
+                async for pivo in genrfunc(node):
                     yield pivo, path.fork(pivo)
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 if not warned:
@@ -2461,46 +2465,37 @@ class PropPivot(PivotOper):
 
         return pgenr
 
-    def buildgenr(self, runt, name):
+    def buildgenr(self, runt, names):
 
-        if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
+        props = set()
+        for name in names:
+            props.update(runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo))
 
-            proplist = None
-            if isinstance(name, list):
-                proplist = name
-            else:
-                proplist = runt.model.ifaceprops.get(name)
+        genrfuncs = []
+        for prop in props:
+            genrfuncs.append(self.pivogenr(runt, prop))
 
-            if proplist is None:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        async def onegenr(node, srcprop, valu):
+            for genrfunc in genrfuncs:
+                async for pivo in genrfunc(node, srcprop, valu, strict=False):
+                    yield pivo
 
-            pgenrs = []
-            for propname in proplist:
-                prop = runt.model.props.get(propname)
-                if prop is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
-
-                pgenrs.append(self.pivogenr(runt, prop))
-
-            async def listpivot(node, srcprop, valu):
-                for pgenr in pgenrs:
-                    async for pivo in pgenr(node, srcprop, valu, strict=False):
-                        yield pivo
-
-            return(listpivot)
-
-        return self.pivogenr(runt, prop)
+        return onegenr
 
     async def run(self, runt, genr):
 
-        pgenr = None
         warned = False
+        genrctor = None
 
         async for node, path in genr:
 
-            if pgenr is None or not self.kids[1].isconst:
-                name = await self.kids[1].compute(runt, None)
-                pgenr = self.buildgenr(runt, name)
+            if genrctor is None or not self.kids[1].isconst:
+
+                names = await self.kids[1].compute(runt, None)
+                if not isinstance(names, list):
+                    names = (names,)
+
+                genrctor = self.buildgenr(runt, names)
 
             if self.isjoin:
                 yield node, path
@@ -2512,7 +2507,7 @@ class PropPivot(PivotOper):
                 continue
 
             try:
-                async for pivo in pgenr(node, srcprop, valu):
+                async for pivo in genrctor(node, srcprop, valu):
                     yield pivo, path.fork(pivo)
 
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
@@ -4183,11 +4178,8 @@ class N1Walk(Oper):
 
         for destform in destforms:
             prop = runt.model.prop(destform)
-            if prop is not None:
-                if prop.isform:
-                    forms.add(destform)
-                else:
-                    formprops[prop.form.name][prop.name] = prop
+            if prop is not None and not prop.isform:
+                formprops[prop.form.name][prop.name] = prop
                 continue
 
             formlist = runt.model.reqFormsByLook(destform, extra=self.kids[0].addExcInfo)
@@ -4195,13 +4187,13 @@ class N1Walk(Oper):
 
         if cmpr is None:
             async def destfilt(node, path, cmprvalu):
-                if node.form.full in forms:
+                if node.form in forms:
                     return True
 
                 props = formprops.get(node.form.full)
                 if props is not None:
                     for prop in props:
-                        if node.get(prop) is not None:
+                        if node.get(prop.name) is not None:
                             return True
 
                 return False
@@ -4210,7 +4202,7 @@ class N1Walk(Oper):
 
         async def destfilt(node, path, cmprvalu):
 
-            if node.form.full in forms:
+            if node.form in forms:
                 return node.form.type.cmpr(node.ndef[1], cmpr, cmprvalu)
 
             props = formprops.get(node.form.full)

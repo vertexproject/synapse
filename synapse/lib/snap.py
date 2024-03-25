@@ -496,10 +496,13 @@ class SnapEditor:
         if protonode is not None:
             return ()
 
-        buid = s_common.buid(ndef)
-        node = await self.snap.getNodeByBuid(buid)
-        if node is not None:
-            return ()
+        node = await self.snap.getNodeByNdef(ndef)
+        if node:
+            buid = node.buid
+            ndef = node.ndef
+            form = node.form
+        else:
+            buid = s_common.buid(ndef)
 
         protonode = ProtoNode(self, buid, form, norm, node)
 
@@ -530,12 +533,14 @@ class SnapEditor:
 
         ndef = (form.name, norm)
 
-        protonode = self.protonodes.get(ndef)
-        if protonode is not None:
-            return protonode
-
-        buid = s_common.buid(ndef)
-        node = await self.snap.getNodeByBuid(buid)
+        # this can get redirected to another form
+        node = await self.snap.getNodeByNdef(ndef)
+        if node is not None:
+            buid = node.buid
+            ndef = node.ndef
+            form = node.form
+        else:
+            buid = s_common.buid(ndef)
 
         protonode = ProtoNode(self, buid, form, norm, node)
 
@@ -792,7 +797,19 @@ class Snap(s_base.Base):
             (synapse.lib.node.Node): The Node or None.
         '''
         buid = s_common.buid(ndef)
-        return await self.getNodeByBuid(buid)
+        node = await self.getNodeByBuid(buid)
+        if node is not None:
+            return node
+
+        # if node is None, we may have been asked for an heir node
+        name, valu = ndef
+        form = self.core.model.form(name)
+
+        for name in form.allnames:
+            buid = s_common.buid((name, valu))
+            node = await self.getNodeByBuid(buid)
+            if node is not None:
+                return node
 
     async def nodesByTagProp(self, form, tag, name, reverse=False):
         prop = self.core.model.getTagProp(name)

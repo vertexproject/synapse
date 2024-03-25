@@ -17,7 +17,7 @@ class TransportModule(s_module.CoreModule):
                 ('transport:land:license', ('guid', {}), {
                     'doc': 'A license to operate a land vehicle issued to a contact.'}),
 
-                ('transport:air:craft', ('guid', {}), {
+                ('transport:air:craft', ('mat:item', {}), {
                     'doc': 'An individual aircraft.'}),
 
                 ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
