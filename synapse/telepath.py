@@ -1021,8 +1021,7 @@ class Pool(s_base.Base):
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        # one-off default user to root
-        ahaurl = f'aha://root@{svcname}'
+        ahaurl = f'aha://{svcname}'
         self.clients[svcname] = await Client.anit(ahaurl, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
