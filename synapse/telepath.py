@@ -1037,6 +1037,8 @@ class Pool(s_base.Base):
 
         async def onfini():
             self.proxies.remove(proxy)
+            if proxy in self.deque:
+                self.deque.remove(proxy)
             if not len(self.proxies):
                 self.ready.clear()
 
