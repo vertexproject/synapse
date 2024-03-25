@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.165.0 - TBD
+v2.165.0 - 2024-03-25
 =====================
 
 Automatic Migrations
@@ -247,8 +247,11 @@ Bugfixes
   not being properly checked.
   (`#3627 <https://github.com/vertexproject/synapse/pull/3627>`_)
 - Fix a bug in the Storm ``merge`` command where the destination layer was
-  not being properly checked for property set and deletion.
+  not being properly checked for property set and deletion permissions.
   (`#3627 <https://github.com/vertexproject/synapse/pull/3627>`_)
+- Fix a bug in the Storm ``copyyto`` command where the destination layer was
+  not being properly checked for property set operations.
+  (`#3641 <https://github.com/vertexproject/synapse/pull/3641>`_)
 - Fix an error when granting a role admin permissions on a vault.
   (`#3603 <https://github.com/vertexproject/synapse/pull/3603>`_)
 - Prevent the ``synapse.tools.easycert`` tool from making certificates with
@@ -261,9 +264,16 @@ Bugfixes
 - Fix an issue that could occur when pivoting from a secondary property to
   a form when using variables for the source and target values.
   (`#3618 <https://github.com/vertexproject/synapse/pull/3618>`_)
-- Fix a syntax parsing issue when using the try-set-plus or try-set-minus operator
-  to update an array property on a node using a variable for the property name.
+- Fix a syntax parsing issue when using the try-set-plus or try-set-minus
+  operator to update an array property on a node using a variable for the
+  property name.
   (`#3630 <https://github.com/vertexproject/synapse/pull/3630>`_)
+- Fix an issue with Aha service pools where their Telepath Clients were
+  not configured for use as ``aha://`` clients.
+  (`#3643 <https://github.com/vertexproject/synapse/pull/3643>`_)
+- Fix an isseue with Aha service pools where a fini'd Proxy was not properly
+  cleaned up.
+  (`#3645 <https://github.com/vertexproject/synapse/pull/3645>`_)
 
 Improved Documentation
 ----------------------
@@ -292,6 +302,11 @@ Deprecations
   been marked as deprecated and will be removed in ``v3.0.0``. These
   configuration options no longer control cron or trigger behavior.
   (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
+- The Storm Package  ``synapse_minversion`` key has been deprecated and will
+  be removed in ``v3.0.0``. Package authors should use the ``synapse_version``
+  key to specify a version range for packages they support. An example is
+  the string ``>=2.165.0,<3.0.0``.
+  (`#3593 <https://github.com/vertexproject/synapse/pull/3593>`_)
 
 v2.164.0 - 2024-03-01
 =====================
