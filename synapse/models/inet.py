@@ -32,6 +32,8 @@ ipv4max = 2 ** 32 - 1
 
 rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
+urlfangs = regex.compile('^(hxxp|hxxps)$')
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -884,6 +886,8 @@ class Url(s_types.Str):
         if not proto or not valu:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol') from None
+
+        proto = urlfangs.sub(lambda match: 'http' + match.group(0)[4:], proto)
 
         subs['proto'] = proto
         # Query params first
