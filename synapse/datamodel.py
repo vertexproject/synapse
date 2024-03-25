@@ -104,6 +104,9 @@ class Prop:
             self.setperms.append(('node', 'prop', 'set', form.name, self.name))
             self.delperms.append(('node', 'prop', 'del', form.name, self.name))
 
+        self.setperms.reverse()  # Make them in precedence order
+        self.delperms.reverse()  # Make them in precedence order
+
         self.form = form
         self.type = None
         self.typedef = typedef

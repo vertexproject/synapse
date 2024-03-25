@@ -27,6 +27,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -1820,6 +1821,8 @@ class Runtime(s_base.Base):
     opaque object which is called through, but not dereferenced.
 
     '''
+
+    _admin_reason = s_hiveauth._allowedReason(True, isadmin=True)
     async def __anit__(self, query, snap, opts=None, user=None, root=None):
 
         await s_base.Base.__anit__(self)
@@ -2183,25 +2186,93 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def allowedReason(self, perms, gateiden=None, default=None):
+        '''
+        Similar to allowed, but always prefer the default value specified by the caller.
+        Default values are still pulled from permdefs if there is a match there; but still prefer caller default.
+        This results in a ternary response that can be used to know if a rule had a positive/negative or no match.
+        The matching reason metadata is also returned.
+        '''
+        if self.asroot:
+            return self._admin_reason
+
+        if default is None:
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', default)
+
+        return self.user.getAllowedReason(perms, gateiden=gateiden, default=default)
+
     def confirmPropSet(self, prop, layriden=None):
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+        meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
+
+        if meta0.isadmin:
             return
 
-        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+        allowed0 = meta0.value
+
+        meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
+        allowed1 = meta1.value
+
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # This is a allow-with-precedence case.
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.rule) >= len(meta1.rule):
+                    return
+                self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
+            return
+
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed0 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.rule) > len(meta0.rule):
+                return
+
+        self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+        meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
+
+        if meta0.isadmin:
             return
 
-        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+        allowed0 = meta0.value
+        meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
+        allowed1 = meta1.value
+
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # This is a allow-with-precedence case.
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.rule) >= len(meta1.rule):
+                    return
+                self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
+            return
+
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed0 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.rule) > len(meta0.rule):
+                return
+
+        self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
