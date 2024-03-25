@@ -698,9 +698,16 @@ class Snap(s_base.Base):
             if embeds is not None:
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
-                    pode[1]['embeds'] = await node.getEmbeds(embdef)
-                    if show_storage:
+                    pode[1]['embeds'] = embeds = await node.getEmbeds(embdef)
+                    if show_storage and embeds:
                         breakpoint()
+                        for idx, (nodePath, relProp) in enumerate(embeds.items()):
+                            iden = relProp.get('*')
+                            if not iden:
+                                continue
+
+                            wat = await self.view.getStorNodes(s_common.uhex(iden))
+                            print('wat')
 
             yield pode
 
