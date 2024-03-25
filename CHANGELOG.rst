@@ -107,53 +107,53 @@ Model Changes
   ``econ:acct:payment``
     The form had the following properties added to it:
 
-      ``from:account``
-        The bank account which made the payment.
+    ``from:account``
+      The bank account which made the payment.
 
-      ``to:account``
-        The bank account which received the payment.
+    ``to:account``
+      The bank account which received the payment.
 
-      ``invoice``
-        The invoice that the payment applies to.
+    ``invoice``
+      The invoice that the payment applies to.
 
-      ``receipt``
-        The receipt that was issued for the payment.
+    ``receipt``
+      The receipt that was issued for the payment.
 
   ``file:mime:image``
     The interface had the following property added to it:
 
-      ``text``
-        The text contained within the image.
+    ``text``
+      The text contained within the image.
 
   ``inet:email:message``
     The form had the following property added to it:
 
-      ``flow``
-        The inet:flow which delivered the message.
+    ``flow``
+      The inet:flow which delivered the message.
 
   ``ou:id:number``
     The form had the following property added to it:
 
-      ``issuer``
-        The contact information of the office which issued the ID number.
+    ``issuer``
+      The contact information of the office which issued the ID number.
 
   ``risk:threat``
     The form had the following property added to it:
 
-      ``mitre:attack:group``
-        A mapping to a MITRE ATT&CK group if applicable.
+    ``mitre:attack:group``
+      A mapping to a MITRE ATT&CK group if applicable.
 
   ``risk:tool:software``
     The form had the following property added to it:
 
-      ``mitre:attack:software``
-        A mapping to a MITRE ATT&CK software if applicable.
+    ``mitre:attack:software``
+      A mapping to a MITRE ATT&CK software if applicable.
 
   ``risk:mitigation``
     The form had the following property added to it:
 
-      ``mitre:attack:mitigation``
-        A mapping to a MITRE ATT&CK mitigation if applicable.
+    ``mitre:attack:mitigation``
+      A mapping to a MITRE ATT&CK mitigation if applicable.
 
   **Deprecated Forms**
 
@@ -166,10 +166,10 @@ Model Changes
 
   ``has``
 
-    When used with a ``econ:bank:statement`` and a ``econ:acct:payment``, the
+    When used with an ``econ:bank:statement`` and an ``econ:acct:payment``, the
     edge indicates the bank statement includes the payment.
 
-    When used with a ``ou:org`` node, the edge indicates the organization is
+    When used with an ``ou:org`` node, the edge indicates the organization is
     or was in possession of the target node.
 
     When used with a ``ps:contact`` node, the edge indicates the contact is or
@@ -185,7 +185,7 @@ Model Changes
     includes observations from the target nodes.
 
   ``owns``
-    When used with a ``ou:org`` node, the edge indicates the organization owns
+    When used with an ``ou:org`` node, the edge indicates the organization owns
     or owned the target node.
 
     When used with a ``ps:contact`` node, the edge indicates the contact owns
@@ -249,8 +249,8 @@ Bugfixes
 - Fix a bug in the Storm ``merge`` command where the destination layer was
   not being properly checked for property set and deletion permissions.
   (`#3627 <https://github.com/vertexproject/synapse/pull/3627>`_)
-- Fix a bug in the Storm ``copyyto`` command where the destination layer was
-  not being properly checked for property set operations.
+- Fix a bug in the Storm ``copyto`` command where the destination layer was
+  not being properly checked for property set permissions.
   (`#3641 <https://github.com/vertexproject/synapse/pull/3641>`_)
 - Fix an error when granting a role admin permissions on a vault.
   (`#3603 <https://github.com/vertexproject/synapse/pull/3603>`_)
@@ -268,10 +268,10 @@ Bugfixes
   operator to update an array property on a node using a variable for the
   property name.
   (`#3630 <https://github.com/vertexproject/synapse/pull/3630>`_)
-- Fix an issue with Aha service pools where their Telepath Clients were
+- Fix an issue with AHA service pools where their Telepath Clients were
   not configured for use as ``aha://`` clients.
   (`#3643 <https://github.com/vertexproject/synapse/pull/3643>`_)
-- Fix an isseue with Aha service pools where a fini'd Proxy was not properly
+- Fix an issue with AHA service pools where a fini'd Proxy was not properly
   cleaned up.
   (`#3645 <https://github.com/vertexproject/synapse/pull/3645>`_)
 
@@ -304,7 +304,7 @@ Deprecations
   (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
 - The Storm Package  ``synapse_minversion`` key has been deprecated and will
   be removed in ``v3.0.0``. Package authors should use the ``synapse_version``
-  key to specify a version range for packages they support. An example is
+  key to specify a version range for Synapse they support. An example is
   the string ``>=2.165.0,<3.0.0``.
   (`#3593 <https://github.com/vertexproject/synapse/pull/3593>`_)
 
