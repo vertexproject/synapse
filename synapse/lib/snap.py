@@ -699,17 +699,14 @@ class Snap(s_base.Base):
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
                     pode[1]['embeds'] = embeds = await node.getEmbeds(embdef)
-                    # TODO: Should we cache the embed nodes?
-                    '''
+                    # TODO: Should we cache the embed stor nodes?
                     if show_storage and embeds:
-                        breakpoint()
                         for nodePath, relProps in embeds.items():
                             iden = relProps.get('*')
                             if not iden:
                                 continue
                             stor = await self.view.getStorNodes(s_common.uhex(iden))
 
-                            # only populate what we need
                             for relProp in relProps.keys():
                                 if relProp == '*':
                                     continue
@@ -723,13 +720,11 @@ class Snap(s_base.Base):
                                     if not valu:
                                         continue
 
-                                    breakpoint()
-                                    # TODO: Is this right?
                                     embpath = f'{nodePath}::{relProp}'
-                                    embeds[embpath] = valu
-                            breakpoint()
-                            print('wat')
-                            '''
+                                    if 'embeds' not in pode[1]['storage'][idx]:
+                                        pode[1]['storage'][idx]['embeds'] = {}
+
+                                    pode[1]['storage'][idx]['embeds'][embpath] = valu
 
             yield pode
 

@@ -1784,8 +1784,37 @@ class StormTest(s_t_utils.SynTest):
             opts['vars'] = {'md5': '12345a5758eea935f817dd1490a322a5'}
             opts['view'] = fork
             opts['show:storage'] = True
+            opts['embeds']['ou:org']['lol::nope'] = ('md5',)
             opts['embeds']['ou:org']['country::flag'] = ('md5',)
-            nodes = await core.stormlist('ou:org { -> pol:country [ :flag={ [ file:bytes=* :md5=$md5 ] } ] }', opts=opts)
+            opts['embeds']['ou:org']['country::tld'] = ('domain',)
+            msgs = await core.stormlist('ou:org { -> pol:country [ :flag={ [ file:bytes=* :md5=$md5 ] } :tld=co.uk ] }', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            node = nodes[0]
+            # top layer
+            self.nn(node[1]['storage'][0]['embeds'].get('country::flag::md5'))
+            self.eq(node[1]['storage'][0]['embeds']['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+            self.nn(node[1]['storage'][0]['embeds'].get('country::tld::domain'))
+            self.nn(node[1]['storage'][0]['embeds']['country::tld::domain'], 'uk')
+
+            # base layer
+            self.nn(node[1]['storage'][1]['embeds'].get('hq::email::user'))
+            self.nn(node[1]['storage'][1]['embeds']['hq::email::user'], 'visi')
+
+            empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
+            opts['view'] = empty
+
+            msgs = await core.stormlist('ou:org', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            node = nodes[0]
+            self.len(0, node[1]['storage'][0])
+
+            self.nn(node[1]['storage'][1]['embeds'].get('country::flag::md5'))
+            self.eq(node[1]['storage'][1]['embeds']['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+            self.nn(node[1]['storage'][1]['embeds'].get('country::tld::domain'))
+            self.nn(node[1]['storage'][1]['embeds']['country::tld::domain'], 'uk')
+
+            self.nn(node[1]['storage'][2]['embeds'].get('hq::email::user'))
+            self.nn(node[1]['storage'][2]['embeds']['hq::email::user'], 'visi')
 
     async def test_storm_wget(self):
 
