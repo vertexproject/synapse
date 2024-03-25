@@ -1786,8 +1786,6 @@ class StormTest(s_t_utils.SynTest):
             opts['show:storage'] = True
             opts['embeds']['ou:org']['country::flag'] = ('md5',)
             nodes = await core.stormlist('ou:org { -> pol:country [ :flag={ [ file:bytes=* :md5=$md5 ] } ] }', opts=opts)
-            breakpoint()
-            print('wat')
 
     async def test_storm_wget(self):
 
