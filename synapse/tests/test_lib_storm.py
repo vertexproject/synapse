@@ -3324,7 +3324,6 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=2.8.0,<3.0.0',
                 'commands': ({
                                  'name': 'testcmd',
