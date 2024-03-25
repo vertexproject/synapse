@@ -1808,10 +1808,10 @@ class StormTest(s_t_utils.SynTest):
             self.eq(top['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
 
             self.nn(top.get('country::tld::domain'))
-            self.nn(top['country::tld::domain'], 'uk')
+            self.eq(top['country::tld::domain'][0], 'uk')
 
             self.nn(bot.get('hq::email::user'))
-            self.nn(bot['hq::email::user'], 'visi')
+            self.eq(bot['hq::email::user'][0], 'visi')
 
             empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
             opts['view'] = empty
@@ -1836,10 +1836,10 @@ class StormTest(s_t_utils.SynTest):
             self.eq(mid['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
 
             self.nn(mid.get('country::tld::domain'))
-            self.nn(mid['country::tld::domain'], 'uk')
+            self.eq(mid['country::tld::domain'][0], 'uk')
 
             self.nn(bot.get('hq::email::user'))
-            self.nn(bot['hq::email::user'], 'visi')
+            self.eq(bot['hq::email::user'][0], 'visi')
 
     async def test_storm_wget(self):
 
