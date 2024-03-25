@@ -165,7 +165,6 @@ Model Changes
   **Light Edges**
 
   ``has``
-
     When used with an ``econ:bank:statement`` and an ``econ:acct:payment``, the
     edge indicates the bank statement includes the payment.
 
