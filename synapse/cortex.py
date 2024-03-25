@@ -2701,10 +2701,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                        f'Cortex is running {s_version.version}'
                 raise s_exc.BadVersion(mesg=mesg)
 
-        else:
-            # No synapse_version and no synapse_minversion
-            pass
-
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
