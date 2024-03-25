@@ -11,7 +11,6 @@ class TestService(s_stormsvc.StormSvc):
         {
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {

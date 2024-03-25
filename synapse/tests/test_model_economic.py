@@ -111,9 +111,11 @@ class EconTest(s_utils.SynTest):
             text = f'''[
                 econ:acct:payment="*"
 
+                    :to:account=*
                     :to:contact={bycont}
                     :to:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
 
+                    :from:account=*
                     :from:contact={fromcont}
                     :from:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
 
@@ -131,6 +133,9 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:acct:payment -> econ:purchase'))
             self.len(1, await core.nodes('econ:acct:payment -> econ:pay:card'))
             self.len(2, await core.nodes('econ:acct:payment -> ps:contact | uniq'))
+
+            self.len(1, await core.nodes('econ:acct:payment :to:account -> econ:bank:account'))
+            self.len(1, await core.nodes('econ:acct:payment :from:account -> econ:bank:account'))
 
             nodes = await core.nodes('''
                 [ econ:fin:exchange=(us,nasdaq) :name=nasdaq :currency=usd :org=* ]
@@ -239,3 +244,112 @@ class EconTest(s_utils.SynTest):
             self.eq(nodes[0].get('price'), '100')
             self.len(1, await core.nodes('econ:receipt:item -> econ:purchase'))
             self.len(1, await core.nodes('econ:receipt:item -> biz:product +:name=bananna'))
+
+            nodes = await core.nodes('''
+                [ econ:bank:account=*
+                    :number=1234
+                    :type=checking
+                    :aba:rtn=123456789
+                    :iban=VV09WootWoot
+                    :issuer={ gen.ou.org "bank of visi" }
+                    :issuer:name="bank of visi"
+                    :contact={[ ps:contact=* :name=visi ]}
+                    :currency=usd
+                    :balance=*
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('issuer'))
+            self.nn(nodes[0].get('balance'))
+            self.nn(nodes[0].get('contact'))
+            self.eq('1234', nodes[0].get('number'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq('checking.', nodes[0].get('type'))
+            self.eq('VV09WootWoot', nodes[0].get('iban'))
+            self.eq('bank of visi', nodes[0].get('issuer:name'))
+            self.len(1, await core.nodes('econ:bank:account -> ou:org'))
+            self.len(1, await core.nodes('econ:bank:account -> ou:name'))
+            self.len(1, await core.nodes('econ:bank:account -> econ:bank:aba:rtn'))
+            self.len(1, await core.nodes('econ:bank:account -> econ:bank:balance'))
+            self.len(1, await core.nodes('econ:bank:account -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('econ:bank:account -> econ:bank:account:type:taxonomy'))
+
+            nodes = await core.nodes('''[
+                econ:bank:swift:bic=DEUTDEFFXXX
+                    :business={ gen.ou.org "Deutsche Bank" }
+                    :office=*
+            ]''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('econ:bank:swift:bic -> ou:org +:name="deutsche bank"'))
+            self.len(1, await core.nodes('econ:bank:swift:bic -> ps:contact'))
+
+            nodes = await core.nodes('''[
+                econ:bank:balance=*
+                    :account={econ:bank:account | limit 1}
+                    :time=2024-03-19
+                    :amount=99
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('account'))
+            self.eq(1710806400000, nodes[0].get('time'))
+            self.eq('99', nodes[0].get('amount'))
+
+            nodes = await core.nodes('''[
+                econ:bank:statement=*
+                    :account={econ:bank:account | limit 1}
+                    :period=202403*
+                    :starting:balance=99
+                    :ending:balance=999
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('account'))
+            self.eq('99', nodes[0].get('starting:balance'))
+            self.eq('999', nodes[0].get('ending:balance'))
+            self.eq((1709251200000, 1709251200001), nodes[0].get('period'))
+
+            nodes = await core.nodes('''[
+                econ:bank:aba:rtn=123456789
+                    :bank={ gen.ou.org "deutsche bank" }
+                    :bank:name="deutsche bank"
+            ]''')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:name'))
+            self.len(1, await core.nodes('econ:bank:aba:rtn=123456789 -> ou:org +:name="deutsche bank"'))
+
+            nodes = await core.nodes('''[
+                econ:acct:receipt=*
+                    :amount=99
+                    :currency=usd
+                    :purchase=*
+                    :issued=2024-03-19
+                    :issuer={ ps:contact:name=visi }
+                    :recipient={ ps:contact:name=visi }
+            ]''')
+            self.len(1, nodes)
+            self.eq('99', nodes[0].get('amount'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq(1710806400000, nodes[0].get('issued'))
+            self.len(1, await core.nodes('econ:acct:receipt -> econ:purchase'))
+            self.len(1, await core.nodes('econ:acct:receipt :issuer -> ps:contact'))
+            self.len(1, await core.nodes('econ:acct:receipt :recipient -> ps:contact'))
+
+            nodes = await core.nodes('''[
+                econ:acct:invoice=*
+                    :paid=(false)
+                    :amount=99
+                    :currency=usd
+                    :purchase=*
+                    :due=2024-03-19
+                    :issued=2024-03-19
+                    :issuer={ ps:contact:name=visi }
+                    :recipient={ ps:contact:name=visi }
+            ]''')
+            self.len(1, nodes)
+            self.eq('99', nodes[0].get('amount'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq(0, nodes[0].get('paid'))
+            self.eq(1710806400000, nodes[0].get('due'))
+            self.eq(1710806400000, nodes[0].get('issued'))
+            self.len(1, await core.nodes('econ:acct:invoice -> econ:purchase'))
+            self.len(1, await core.nodes('econ:acct:invoice :issuer -> ps:contact'))
+            self.len(1, await core.nodes('econ:acct:invoice :recipient -> ps:contact'))
