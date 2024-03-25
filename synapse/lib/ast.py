@@ -2162,8 +2162,6 @@ class PivotInFrom(PivotOper):
 
             yield pivo, path.fork(pivo)
 
-        # TODO: should we handle getNdefRefs here somewhere?
-
 class FormPivot(PivotOper):
     '''
     -> foo:bar
