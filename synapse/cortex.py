@@ -996,8 +996,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'multiqueue': self.multiqueue,
         })
 
-        await self.auth.addAuthGate('cortex', 'cortex')
-
         self._initVaults()
 
         await self._bumpCellVers('cortex:storage', (
