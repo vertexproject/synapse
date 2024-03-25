@@ -1824,6 +1824,12 @@ class LiftProp(LiftOper):
                     yield hint
                 continue
 
+            if isinstance(oper, RelPropHinter):
+                for hint in await oper.getLiftHints(runt, path):
+                    print(f'HINT {hint}')
+                    yield hint
+                continue
+
             return
 
 class LiftPropBy(LiftOper):
@@ -2364,10 +2370,24 @@ class FormPivot(PivotOper):
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
                 await runt.snap.warn(mesg, **items)
 
-class PropPivotOut(PivotOper):
+class RelPropHinter:
+
+    async def getLiftHints(self, runt, path):
+
+        relprop = self.kids[0]
+        relname = await relprop.compute(runt, path)
+
+        hint = {'name': relname.split('::')[0]}
+        if isinstance(relprop, UnivProp):
+            hint['univ'] = True
+
+        return (('relprop', hint),)
+
+class PropPivotOut(PivotOper, RelPropHinter):
     '''
     :prop -> *
     '''
+
     async def run(self, runt, genr):
 
         warned = False
@@ -2431,7 +2451,7 @@ class PropPivotOut(PivotOper):
                 yield pivo, path.fork(pivo)
 
 
-class PropPivot(PivotOper):
+class PropPivot(PivotOper, RelPropHinter):
     '''
     :foo -> bar:foo
     '''
@@ -2801,7 +2821,7 @@ class TagCond(Cond):
 
         return cond
 
-class HasRelPropCond(Cond):
+class HasRelPropCond(Cond, RelPropHinter):
 
     async def getCondEval(self, runt):
 
@@ -2858,26 +2878,6 @@ class HasRelPropCond(Cond):
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
                 return False
-
-    async def getLiftHints(self, runt, path):
-
-        relprop = self.kids[0]
-
-        name = await relprop.compute(runt, path)
-        ispiv = name.find('::') != -1
-        if ispiv:
-            return (
-                ('relprop', {'name': name.split('::')[0]}),
-            )
-
-        hint = {
-            'name': name,
-            'univ': isinstance(relprop, UnivProp),
-        }
-
-        return (
-            ('relprop', hint),
-        )
 
 class HasTagPropCond(Cond):
 
