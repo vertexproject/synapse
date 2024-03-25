@@ -6,6 +6,307 @@
 Synapse Changelog
 *****************
 
+v2.165.0 - 2024-03-25
+=====================
+
+Automatic Migrations
+--------------------
+- Re-normalize ``risk:mitigation:name``, ``it:mitre:attack:technique:name``,
+  and ``it:mitre:attack:mitigation:name`` secondary properties.
+  (`#3585 <https://github.com/vertexproject/synapse/pull/3585>`_)
+- Re-normalize ``velocity`` properties which are float values.
+  (`#3616 <https://github.com/vertexproject/synapse/pull/3616>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Add a new model, ``sci``, for modeling elements of the scientific method. Updates to
+  the ``econ``, ``file``, ``infotech``, ``inet``, ``ou``, ``ps``, and ``risk``
+  models.
+  (`#3559 <https://github.com/vertexproject/synapse/pull/3559>`_)
+  (`#3585 <https://github.com/vertexproject/synapse/pull/3585>`_)
+  (`#3595 <https://github.com/vertexproject/synapse/pull/3595>`_)
+  (`#3604 <https://github.com/vertexproject/synapse/pull/3604>`_)
+  (`#3606 <https://github.com/vertexproject/synapse/pull/3606>`_)
+  (`#3622 <https://github.com/vertexproject/synapse/pull/3622>`_)
+  (`#3635 <https://github.com/vertexproject/synapse/pull/3635>`_)
+
+  **New Forms**
+
+  ``econ:acct:receipt``
+    A receipt issued as proof of payment.
+
+  ``econ:acct:invoice``
+    An invoice issued requesting payment.
+
+  ``econ:bank:account:type:taxonomy``
+    A bank account type taxonomy.
+
+  ``econ:bank:account``
+    A bank account.
+
+  ``econ:bank:balance``
+    A balance contained by a bank account at a point in time.
+
+  ``econ:bank:statement``
+    A statement of bank account payment activity over a period of time.
+
+  ``econ:bank:aba:rtn``
+    An American Bank Association (ABA) routing transit number (RTN).
+
+  ``econ:bank:iban``
+    An International Bank Account Number.
+
+  ``econ:bank:swift:bic``
+    A Society for Worldwide Interbank Financial Telecommunication (SWIFT)
+    Business Identifier Code (BIC).
+
+  ``risk:vulnerable``
+    Indicates that a node is susceptible to a vulnerability.
+
+  ``sci:hypothesis:type:taxonomy``
+    A taxonomy of hypothesis types.
+
+  ``sci:hypothesis``
+    A hypothesis or theory.
+
+  ``sci:experiment:type:taxonomy``
+    A taxonomy of experiment types.
+
+  ``sci:experiment``
+    An instance of running an experiment.
+
+  ``sci:observation``
+    An observation which may have resulted from an experiment.
+
+  ``sci:evidence``
+    An assessment of how an observation supports or refutes a hypothesis.
+
+  **Updated Properties**
+
+  ``risk:mitigation``
+    The form had the following properties updated on it:
+
+    ``name``
+      This property is now lower-cased and single spaced.
+
+  ``it:mitre:attack:technique``
+    The form had the following properties updated on it:
+
+    ``name``
+      This property is now lower-cased and single spaced.
+
+  ``it:mitre:attack:mitigation``
+    The form had the following properties updated on it:
+
+    ``name``
+      This property is now lower-cased and single spaced.
+
+  **New Properties**
+
+  ``econ:acct:payment``
+    The form had the following properties added to it:
+
+    ``from:account``
+      The bank account which made the payment.
+
+    ``to:account``
+      The bank account which received the payment.
+
+    ``invoice``
+      The invoice that the payment applies to.
+
+    ``receipt``
+      The receipt that was issued for the payment.
+
+  ``file:mime:image``
+    The interface had the following property added to it:
+
+    ``text``
+      The text contained within the image.
+
+  ``inet:email:message``
+    The form had the following property added to it:
+
+    ``flow``
+      The inet:flow which delivered the message.
+
+  ``ou:id:number``
+    The form had the following property added to it:
+
+    ``issuer``
+      The contact information of the office which issued the ID number.
+
+  ``risk:threat``
+    The form had the following property added to it:
+
+    ``mitre:attack:group``
+      A mapping to a MITRE ATT&CK group if applicable.
+
+  ``risk:tool:software``
+    The form had the following property added to it:
+
+    ``mitre:attack:software``
+      A mapping to a MITRE ATT&CK software if applicable.
+
+  ``risk:mitigation``
+    The form had the following property added to it:
+
+    ``mitre:attack:mitigation``
+      A mapping to a MITRE ATT&CK mitigation if applicable.
+
+  **Deprecated Forms**
+
+  The following forms have been marked as deprecated:
+
+  ``risk:hasvuln``
+    Please use ``risk:vulnerable``.
+
+  **Light Edges**
+
+  ``has``
+    When used with an ``econ:bank:statement`` and an ``econ:acct:payment``, the
+    edge indicates the bank statement includes the payment.
+
+    When used with an ``ou:org`` node, the edge indicates the organization is
+    or was in possession of the target node.
+
+    When used with a ``ps:contact`` node, the edge indicates the contact is or
+    was in possession of the target node.
+
+    When used with a ``ps:person`` node, the edge indicates the person is or
+    was in possession of the target node.
+
+    When used with a ``sci:observation`` node, the edge indicates the
+    observations are summarized from the target nodes.
+
+    When used with an ``sci:evidence`` node, the edge indicates the evidence
+    includes observations from the target nodes.
+
+  ``owns``
+    When used with an ``ou:org`` node, the edge indicates the organization owns
+    or owned the target node.
+
+    When used with a ``ps:contact`` node, the edge indicates the contact owns
+    or owned the target node.
+
+    When used with a ``ps:person`` node, the edge indicates the person owns or
+    owned the target node.
+
+  ``uses``
+    When used with a ``sci:experiment`` node, the edge indicates the
+    experiment used the target nodes when it was run.
+
+Features and Enhancements
+-------------------------
+- Change the compression mode used when streaming Cell backups to speed up
+  the backup process.
+  (`#3608 <https://github.com/vertexproject/synapse/pull/3608>`_)
+- When a Cell is mirroring, gracefully go into read-only mode if the leader is
+  a greater version than the mirror.
+  (`#3581 <https://github.com/vertexproject/synapse/pull/3581>`_)
+  (`#3631 <https://github.com/vertexproject/synapse/pull/3631>`_)
+- Add ``null`` as a constant that can be used in Storm expression syntax.
+  (`#3600 <https://github.com/vertexproject/synapse/pull/3600>`_)
+- Add ``cortex.storm.pool.get``, ``cortex.storm.pool.set``, and
+  ``cortex.storm.pool.del`` commands to manage the Storm query pool which may
+  be used by the Cortex. This replaces the experimental support added in
+  ``v2.160.0`` for Storm query pool configuration. The experimental Cortex
+  configurations options ``storm:pool``, ``storm:pool:timeout:sync``, and
+  ``storm:pool:timeout:connection`` have been removed.
+  (`#3602 <https://github.com/vertexproject/synapse/pull/3602>`_)
+- Add ``$lib.regex.escape()`` API for escaping strings which may be used as
+  regular expression patterns.
+  (`#3605 <https://github.com/vertexproject/synapse/pull/3605>`_)
+- Add ``View.setMergeComment()`` and ``View.setMergeVoteComment()`` Storm APIs
+  for setting comments on merge requests and merge votes.
+  (`#3597 <https://github.com/vertexproject/synapse/pull/3597>`_)
+- Add handlers to the ``float``, ``int``, and ``str`` types to handle norming
+  Storm ``Number`` objects.
+  (`#3601 <https://github.com/vertexproject/synapse/pull/3601>`_)
+- Add a new Storm command, ``gen.geo.place``, to generate a ``geo:place`` node
+  by name.
+  (`#3620 <https://github.com/vertexproject/synapse/pull/3620>`_)
+- Add an optional reporter name argument to the Storm command
+  ``gen.risk.vuln``.
+  (`#3628 <https://github.com/vertexproject/synapse/pull/3628>`_)
+- Add a ``norm`` option to the ``$node.difftags()`` command.
+  (`#3612 <https://github.com/vertexproject/synapse/pull/3612>`_)
+- Add logging around the leader promotion and handoff actions.
+  (`#3615 <https://github.com/vertexproject/synapse/pull/3615>`_)
+- Add Telepath APIs to AHA for clearing unused provisioning information.
+  (`#3607 <https://github.com/vertexproject/synapse/pull/3607>`_)
+
+Bugfixes
+--------
+- Fix a bug where Cortex Cron jobs could start prior to data migrations
+  having completed running.
+  (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
+- Fix an issue where ``node.prop.set`` and ``node.prop.del`` permissions were
+  not being properly checked.
+  (`#3627 <https://github.com/vertexproject/synapse/pull/3627>`_)
+- Fix a bug in the Storm ``merge`` command where the destination layer was
+  not being properly checked for property set and deletion permissions.
+  (`#3627 <https://github.com/vertexproject/synapse/pull/3627>`_)
+- Fix a bug in the Storm ``copyto`` command where the destination layer was
+  not being properly checked for property set permissions.
+  (`#3641 <https://github.com/vertexproject/synapse/pull/3641>`_)
+- Fix an error when granting a role admin permissions on a vault.
+  (`#3603 <https://github.com/vertexproject/synapse/pull/3603>`_)
+- Prevent the ``synapse.tools.easycert`` tool from making certificates with
+  names greater than 64 characters in length. Prevent AHA provisioning from
+  creating provisioning requests which would exceed that length.
+  (`#3609 <https://github.com/vertexproject/synapse/pull/3609>`_)
+- Fix an issue with the ``velocity`` base type returning a float instead
+  of an integer when handling a string value without a unit.
+  (`#3616 <https://github.com/vertexproject/synapse/pull/3616>`_)
+- Fix an issue that could occur when pivoting from a secondary property to
+  a form when using variables for the source and target values.
+  (`#3618 <https://github.com/vertexproject/synapse/pull/3618>`_)
+- Fix a syntax parsing issue when using the try-set-plus or try-set-minus
+  operator to update an array property on a node using a variable for the
+  property name.
+  (`#3630 <https://github.com/vertexproject/synapse/pull/3630>`_)
+- Fix an issue with AHA service pools where their Telepath Clients were
+  not configured for use as ``aha://`` clients.
+  (`#3643 <https://github.com/vertexproject/synapse/pull/3643>`_)
+- Fix an issue with AHA service pools where a fini'd Proxy was not properly
+  cleaned up.
+  (`#3645 <https://github.com/vertexproject/synapse/pull/3645>`_)
+
+Improved Documentation
+----------------------
+- Update Storm pivot documentation to add additional examples.
+  (`#3599 <https://github.com/vertexproject/synapse/pull/3599>`_)
+- Update the Cortex deployment guide to include a step to configure a
+  Storm query pool.
+  (`#3602 <https://github.com/vertexproject/synapse/pull/3602>`_)
+
+Deprecations
+------------
+- The tool ``synapse.tools.cellauth`` has been marked as deprecated and will
+  be removed in ``v3.0.0``.
+  (`#3587 <https://github.com/vertexproject/synapse/pull/3587>`_)
+- The tool ``synapse.tools.cmdr`` has been marked as deprecated and will
+  be removed in ``v3.0.0``.
+  (`#3589 <https://github.com/vertexproject/synapse/pull/3589>`_)
+- The Storm ``$lib.model.edge`` APIs have been marked as deprecated and will
+  be removed in ``v3.0.0``.
+  (`#3623 <https://github.com/vertexproject/synapse/pull/3623>`_)
+- The ``CoreAPI.enableMigrationMode()`` and ``CoreAPI.disableMigrationMode()``
+  Telepath methods have been marked as deprecated and will be removed after
+  2024-05-05.
+  (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
+- The Cortex configuration options ``cron:enable`` and ``trigger:enable`` have
+  been marked as deprecated and will be removed in ``v3.0.0``. These
+  configuration options no longer control cron or trigger behavior.
+  (`#3610 <https://github.com/vertexproject/synapse/pull/3610>`_)
+- The Storm Package  ``synapse_minversion`` key has been deprecated and will
+  be removed in ``v3.0.0``. Package authors should use the ``synapse_version``
+  key to specify a version range for Synapse they support. An example is
+  the string ``>=2.165.0,<3.0.0``.
+  (`#3593 <https://github.com/vertexproject/synapse/pull/3593>`_)
+
 v2.164.0 - 2024-03-01
 =====================
 

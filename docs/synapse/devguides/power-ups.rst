@@ -37,7 +37,6 @@ that gets processed and loaded into your Cortex.
     name: acme-hello
     version: 0.0.1
 
-    synapse_minversion: [2, 144, 0]
     synapse_version: '>=2.144.0,<3.0.0'
 
     genopts:
