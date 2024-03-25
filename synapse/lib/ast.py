@@ -2092,6 +2092,9 @@ class PivotIn(PivotOper):
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
+        async for pivo in runt.snap.getNdefRefs(node.buid):
+            yield pivo, path.fork(pivo)
+
 class N2WalkNPivo(PivotIn):
 
     async def run(self, runt, genr):
@@ -2111,7 +2114,7 @@ class N2WalkNPivo(PivotIn):
 
 class PivotInFrom(PivotOper):
     '''
-    <- foo:edge
+    <- foo:bar
     '''
 
     async def run(self, runt, genr):
