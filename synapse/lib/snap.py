@@ -657,6 +657,33 @@ class Snap(s_base.Base):
         self.onfini(runt)
         return runt
 
+    async def _joinEmbedStor(self, storage, embeds, nlyrs):
+        for nodePath, relProps in embeds.items():
+            await asyncio.sleep(0)
+            iden = relProps.get('*')
+            if not iden:
+                continue
+
+            stor = await self.view.getStorNodes(s_common.uhex(iden))
+            for relProp in relProps.keys():
+                await asyncio.sleep(0)
+                if relProp == '*':
+                    continue
+
+                for idx, layrstor in enumerate(stor):
+                    await asyncio.sleep(0)
+                    props = layrstor.get('props')
+                    if not props:
+                        continue
+
+                    if relProp not in props:
+                        continue
+
+                    if 'embeds' not in storage[idx]:
+                        storage[idx]['embeds'] = {}
+
+                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+
     async def iterStormPodes(self, text, opts, user=None):
         '''
         Yield packed node tuples for the given storm query text.
@@ -698,33 +725,9 @@ class Snap(s_base.Base):
             if embeds is not None:
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
-                    pode[1]['embeds'] = embeds = await node.getEmbeds(embdef)
-                    # TODO: Should we cache the embed stor nodes?
-                    if show_storage and embeds:
-                        for nodePath, relProps in embeds.items():
-                            iden = relProps.get('*')
-                            if not iden:
-                                continue
-                            stor = await self.view.getStorNodes(s_common.uhex(iden))
-
-                            for relProp in relProps.keys():
-                                if relProp == '*':
-                                    continue
-
-                                for idx, layrstor in enumerate(stor):
-                                    props = layrstor.get('props')
-                                    if not props:
-                                        continue
-
-                                    valu = props.get(relProp)
-                                    if not valu:
-                                        continue
-
-                                    embpath = f'{nodePath}::{relProp}'
-                                    if 'embeds' not in pode[1]['storage'][idx]:
-                                        pode[1]['storage'][idx]['embeds'] = {}
-
-                                    pode[1]['storage'][idx]['embeds'][embpath] = valu
+                    pode[1]['embeds'] = await node.getEmbeds(embdef)
+                    if show_storage:
+                        await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'], len(pode[1]['storage']))
 
             yield pode
 

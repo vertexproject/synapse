@@ -1774,31 +1774,44 @@ class StormTest(s_t_utils.SynTest):
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
             msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
-
             node = nodes[0]
+
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
             self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            opts['vars'] = {'md5': '12345a5758eea935f817dd1490a322a5'}
+            opts['vars'] = {
+                'md5': '12345a5758eea935f817dd1490a322a5',
+                'sha1': '40b8e76cff472e593bd0ba148c09fec66ae72362'
+            }
             opts['view'] = fork
             opts['show:storage'] = True
-            opts['embeds']['ou:org']['lol::nope'] = ('md5',)
-            opts['embeds']['ou:org']['country::flag'] = ('md5',)
+            opts['embeds']['ou:org']['lol::nope'] = ('notreal',)
+            opts['embeds']['ou:org']['country::flag'] = ('md5', 'sha1')
             opts['embeds']['ou:org']['country::tld'] = ('domain',)
-            msgs = await core.stormlist('ou:org { -> pol:country [ :flag={ [ file:bytes=* :md5=$md5 ] } :tld=co.uk ] }', opts=opts)
+            msgs = await core.stormlist('ou:org { -> pol:country [ :flag={ [ file:bytes=* :md5=$md5 :sha1=$sha1 ] } :tld=co.uk ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
-            # top layer
-            self.nn(node[1]['storage'][0]['embeds'].get('country::flag::md5'))
-            self.eq(node[1]['storage'][0]['embeds']['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
-            self.nn(node[1]['storage'][0]['embeds'].get('country::tld::domain'))
-            self.nn(node[1]['storage'][0]['embeds']['country::tld::domain'], 'uk')
 
-            # base layer
-            self.nn(node[1]['storage'][1]['embeds'].get('hq::email::user'))
-            self.nn(node[1]['storage'][1]['embeds']['hq::email::user'], 'visi')
+            storage = node[1]['storage']
+            self.len(2, storage)
+            top = storage[0].get('embeds')
+            bot = storage[1].get('embeds')
+            self.nn(top)
+            self.nn(bot)
+
+            self.nn(top.get('country::flag::md5'))
+            self.eq(top['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+
+            self.nn(top.get('country::flag::sha1'))
+            self.eq(top['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+
+            self.nn(top.get('country::tld::domain'))
+            self.nn(top['country::tld::domain'], 'uk')
+
+            self.nn(bot.get('hq::email::user'))
+            self.nn(bot['hq::email::user'], 'visi')
 
             empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
             opts['view'] = empty
@@ -1806,15 +1819,27 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('ou:org', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
-            self.len(0, node[1]['storage'][0])
+            storage = node[1]['storage']
+            self.len(3, storage)
+            top = storage[0].get('embeds')
+            mid = storage[1].get('embeds')
+            bot = storage[2].get('embeds')
+            self.none(top)
 
-            self.nn(node[1]['storage'][1]['embeds'].get('country::flag::md5'))
-            self.eq(node[1]['storage'][1]['embeds']['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
-            self.nn(node[1]['storage'][1]['embeds'].get('country::tld::domain'))
-            self.nn(node[1]['storage'][1]['embeds']['country::tld::domain'], 'uk')
+            self.nn(mid)
+            self.nn(bot)
 
-            self.nn(node[1]['storage'][2]['embeds'].get('hq::email::user'))
-            self.nn(node[1]['storage'][2]['embeds']['hq::email::user'], 'visi')
+            self.nn(mid.get('country::flag::md5'))
+            self.eq(mid['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+
+            self.nn(mid.get('country::flag::sha1'))
+            self.eq(mid['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+
+            self.nn(mid.get('country::tld::domain'))
+            self.nn(mid['country::tld::domain'], 'uk')
+
+            self.nn(bot.get('hq::email::user'))
+            self.nn(bot['hq::email::user'], 'visi')
 
     async def test_storm_wget(self):
 
