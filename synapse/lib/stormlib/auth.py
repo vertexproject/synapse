@@ -1192,7 +1192,8 @@ class User(s_stormtypes.Prim):
 
         perm = tuple(permname.split('.'))
         user = await self.runt.snap.core.auth.reqUser(self.valu)
-        return user.getAllowedReason(perm, gateiden=gateiden, default=default)
+        reason = user.getAllowedReason(perm, gateiden=gateiden, default=default)
+        return reason.value, reason.mesg
 
     async def _methUserGrant(self, iden, indx=None):
         self.runt.confirm(('auth', 'user', 'grant'))
