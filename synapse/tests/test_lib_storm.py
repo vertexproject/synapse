@@ -1271,6 +1271,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('inet:fqdn=vertex.link [ +#foo ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.len(1, nodes)
+            breakpoint()
             self.nn(nodes[0][1]['storage'][1]['props']['.created'])
             self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
 
@@ -1778,6 +1779,9 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
             self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+
+            breakpoint()
+            opts['show:storage'] = True
 
     async def test_storm_wget(self):
 

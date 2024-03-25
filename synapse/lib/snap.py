@@ -699,6 +699,8 @@ class Snap(s_base.Base):
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
                     pode[1]['embeds'] = await node.getEmbeds(embdef)
+                    if show_storage:
+                        breakpoint()
 
             yield pode
 
