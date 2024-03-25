@@ -3646,7 +3646,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.getPropNames():
-                    runt.confirm(node.form.props[name].setperms, gateiden=layriden)
+                    runt.confirmPropSet(node.form.props[name], layriden=layriden)
 
                 for tag in node.getTagNames():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
