@@ -226,6 +226,7 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'required': ['cert', 'sign'],
         },
+        # TODO: Remove me after Synapse 3.0.0.
         'synapse_minversion': {
             'type': ['array', 'null'],
             'items': {'type': 'number'}
@@ -3660,7 +3661,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.props.keys():
-                    runt.confirmPropSet(node.form.props[name])
+                    runt.confirmPropSet(node.form.props[name], layriden=layriden)
 
                 for tag in node.tags.keys():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)

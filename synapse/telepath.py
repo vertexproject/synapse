@@ -1017,13 +1017,11 @@ class Pool(s_base.Base):
 
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
-        svcinfo = mesg[1].get('svcinfo')
-        urlinfo = mergeAhaInfo(self.urlinfo, svcinfo.get('urlinfo', {}))
 
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        # one-off default user to root
+        urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
         self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
@@ -1039,6 +1037,8 @@ class Pool(s_base.Base):
 
         async def onfini():
             self.proxies.remove(proxy)
+            if proxy in self.deque:
+                self.deque.remove(proxy)
             if not len(self.proxies):
                 self.ready.clear()
 
