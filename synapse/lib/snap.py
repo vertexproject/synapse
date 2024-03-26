@@ -222,7 +222,7 @@ class ProtoNode:
             if tokvalu == toktag:
                 continue
 
-            realnow = tokvalu + norm[len(tokvalu):]
+            realnow = tokvalu + norm[len(toktag):]
             tagnode = await self.ctx.snap.getTagNode(realnow)
             if tagnode is not s_common.novalu:
                 return self.ctx.loadNode(tagnode)
