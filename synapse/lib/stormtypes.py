@@ -907,6 +907,20 @@ class LibService(Lib):
                   'returns': {'type': 'boolean', 'desc': 'Returns true if the service is available, false on a '
                                                          'timeout waiting for the service to be ready.', }}},
     )
+    _storm_lib_perms = (
+        {'perm': ('service', 'add'), 'gate': 'cortex',
+            'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
+        {'perm': ('service', 'del'), 'gate': 'cortex',
+            'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
+        {'perm': ('service', 'get'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the service object for any Storm service.'},
+        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the service object for a Storm service by iden.'},
+        {'perm': ('service', 'get', '<name>'), 'gate': 'cortex',
+         'desc': 'Controls the ability to get the service object for a Storm service by name.'},
+        {'perm': ('service', 'list'), 'gate': 'cortex',
+         'desc': 'Controls the ability to list all available Storm services and their service definitions.'},
+    )
     _storm_lib_path = ('service',)
 
     def getObjLocals(self):
