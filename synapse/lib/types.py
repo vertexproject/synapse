@@ -1850,7 +1850,7 @@ class Tag(Str):
             mesg = f'Tag does not match tagre: [{s_grammar.tagre.pattern}]'
             raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
-        return norm, {'subs': subs}
+        return norm, {'subs': subs, 'toks': toks}
 
     def _normPyStr(self, text):
         toks = text.strip('#').split('.')
