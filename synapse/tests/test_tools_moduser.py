@@ -195,7 +195,6 @@ class ModUserTest(s_test.SynTest):
             self.eq(0, await s_t_moduser.main(argv, outp=outp))
             self.isin(userlist, str(outp))
 
-            svcurl = core.getLocalUrl()
             argv = (
                 '--svcurl', svcurl,
                 '--list',
@@ -205,7 +204,6 @@ class ModUserTest(s_test.SynTest):
             self.eq(0, await s_t_moduser.main(argv, outp=outp))
             self.isin(userinfo, s_test.deguidify(str(outp)))
 
-            svcurl = core.getLocalUrl()
             argv = (
                 '--svcurl', svcurl,
                 '--list',

@@ -98,6 +98,15 @@ class ModRoleTest(s_test.SynTest):
 
             argv = (
                 '--svcurl', svcurl,
+                '--list',
+                'newprole',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_modrole.main(argv, outp=outp))
+            self.isin('ERROR: Role not found: newprole', str(outp))
+
+            argv = (
+                '--svcurl', svcurl,
                 'visi',
                 '--gate', 'newp',
             )
