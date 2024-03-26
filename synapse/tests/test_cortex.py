@@ -3084,7 +3084,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 144, 0),
                 'synapse_version': '>=2.8.0,<3.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
@@ -3138,17 +3137,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': (1337, 0, 0),
-                'commands': ()
-            }
-
-            with self.raises(s_exc.BadVersion):
-                await core.addStormPkg(oldverpkg)
-
-            oldverpkg = {
-                'name': 'versionfail',
-                'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=1337.0.0,<2000.0.0',
                 'commands': ()
             }
@@ -3159,7 +3147,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
                 'synapse_version': '>=0.0.1,<2.0.0',
                 'commands': ()
             }
@@ -3173,7 +3170,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'commands': ()
             }
 
-            # Package with no synapse_minversion shouldn't raise
             await core.addStormPkg(noverpkg)
 
             badcmdpkg = {
@@ -6333,7 +6329,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         {  # type: ignore
                             'name': 'foo',
                             'version': (0, 0, 1),
-                            'synapse_minversion': [2, 144, 0],
                             'synapse_version': '>=2.100.0,<3.0.0',
                             'modules': [],
                             'commands': []
@@ -6441,7 +6436,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -6513,6 +6508,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "Storm package boom has unknown config var type newp.")
+
+                # Check no synapse_version and synapse_minversion > cortex version
+                minver = list(s_version.version)
+                minver[1] += 1
+                minver = tuple(minver)
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('synapse_version')
+                pkg['synapse_minversion'] = minver
+                pkgname = pkg.get('name')
+
+                with self.raises(s_exc.BadVersion) as cm:
+                    await core.addStormPkg(pkg)
+                mesg = f'Storm package {pkgname} requires Synapse {minver} but Cortex is running {s_version.version}'
+                self.eq(cm.exception.errinfo.get('mesg'), mesg)
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
