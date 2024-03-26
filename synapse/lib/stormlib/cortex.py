@@ -1069,7 +1069,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'string',
                        'desc': 'The iden of the API to retrieve.'},
                   ),
-                  'returns': {'type': 'http:api', 'desc': 'The HTTP API object.'}}},
+                  'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
         {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
                  'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
