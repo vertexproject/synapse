@@ -916,8 +916,6 @@ class LibService(Lib):
             'desc': 'Controls the ability to get the service object for any Storm service.'},
         {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
             'desc': 'Controls the ability to get the service object for a Storm service by iden.'},
-        {'perm': ('service', 'get', '<name>'), 'gate': 'cortex',
-         'desc': 'Controls the ability to get the service object for a Storm service by name.'},
         {'perm': ('service', 'list'), 'gate': 'cortex',
          'desc': 'Controls the ability to list all available Storm services and their service definitions.'},
     )
@@ -945,6 +943,7 @@ class LibService(Lib):
             except s_exc.AuthDeny:
                 raise e from None
             else:
+                # TODO: Remove support for this permission in 3.0.0
                 mesg = 'Use of service.get.<servicename> permissions are deprecated.'
                 await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
 
