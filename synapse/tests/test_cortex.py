@@ -7913,33 +7913,3 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
                     self.len(1, [m for m in msgs if m[0] == 'node'])
-
-    async def test_cortex_authgate(self):
-        # TODO - Remove this in 3.0.0
-        with self.getTestDir() as dirn:
-
-            async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
-
-                unfo = await core.addUser('lowuser')
-                lowuser = unfo.get('iden')
-
-                msgs = await core.stormlist('auth.user.addrule lowuser --gate cortex node')
-                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
-                msgs = await core.stormlist('auth.role.addrule all --gate cortex hehe')
-                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
-
-                aslow = {'user': lowuser}
-
-                # The cortex authgate does nothing
-                with self.raises(s_exc.AuthDeny) as cm:
-                    await core.nodes('[test:str=hello]', opts=aslow)
-
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
-                async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
-                    # The cortex authgate still does nothing
-                    with self.raises(s_exc.AuthDeny) as cm:
-                        await core.nodes('[test:str=hello]', opts=aslow)
-            stream.seek(0)
-            buf = stream.read()
-            self.isin('(lowuser) has a rule on the "cortex" authgate', buf)
-            self.isin('(all) has a rule on the "cortex" authgate', buf)
