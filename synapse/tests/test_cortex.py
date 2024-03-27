@@ -4564,7 +4564,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            # This tag does match regex
             data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
             await core1.addFeedData('syn.nodes', data)
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
