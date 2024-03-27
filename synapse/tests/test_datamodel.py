@@ -41,6 +41,28 @@ class DeprecatedModel(s_module.CoreModule):
 
 class DataModelTest(s_t_utils.SynTest):
 
+    async def test_datamodel_basics(self):
+        async with self.getTestCore() as core:
+            core.model.addType('woot:one', 'guid', {}, {
+                'display': {
+                    'columns': (
+                        {'type': 'newp', 'opts': {}},
+                    ),
+                },
+            })
+            with self.raises(s_exc.BadFormDef):
+                core.model.addForm('woot:one', {}, ())
+
+            core.model.addType('woot:two', 'guid', {}, {
+                'display': {
+                    'columns': (
+                        {'type': 'prop', 'opts': {'name': 'hehe'}},
+                    ),
+                },
+            })
+            with self.raises(s_exc.BadFormDef):
+                core.model.addForm('woot:two', {}, ())
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
