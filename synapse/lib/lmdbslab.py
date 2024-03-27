@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import asyncio
 import threading
@@ -812,6 +813,10 @@ class Slab(s_base.Base):
             if isinstance(_opts, dict):
                 opts.update(_opts)
 
+        if (endi := opts.pop('arch_endian', None)) is not None:
+            if endi != sys.byteorder:
+                raise s_exc.BadState('Slab was created on an arch with different byte order!')
+
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
@@ -971,7 +976,8 @@ class Slab(s_base.Base):
         if self.readonly:
             return
 
-        opts = {}
+        opts = {'arch_endian': sys.byteorder}
+
         if self.growsize is not None:
             opts['growsize'] = self.growsize
         if self.maxsize is not None:

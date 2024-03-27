@@ -1418,6 +1418,26 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
 
+    async def test_lmdbslab_diffarch(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                foo = slab.initdb('foo')
+                slab.put(b'\x00\x01', b'hehe', db=foo)
+
+                optspath = slab.optspath
+
+            opts = s_common.yamlload(optspath)
+            opts['arch_endian'] = 'other'
+
+            s_common.yamlmod(opts, optspath)
+
+            with self.raises(s_exc.BadState):
+                await s_lmdbslab.Slab.anit(path)
+
     async def test_lmdbslab_statinfo(self):
 
         with self.getTestDir() as dirn:
