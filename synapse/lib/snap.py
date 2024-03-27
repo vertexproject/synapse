@@ -209,7 +209,7 @@ class ProtoNode:
         if tagnode is not s_common.novalu:
             return self.ctx.loadNode(tagnode)
 
-        # check for an :isnow tag redirection in our hierarcy...
+        # check for an :isnow tag redirection in our hierarchy...
         toks = info.get('toks')
         for i in range(len(toks)):
 
