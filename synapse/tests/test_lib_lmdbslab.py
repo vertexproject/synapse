@@ -1431,13 +1431,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 optspath = slab.optspath
 
             opts = s_common.yamlload(optspath)
-
-            valu = 1
-            ienc = opts['int_encoding']
-            if ienc == valu.to_bytes(8):
-                opts['int_encoding'] = valu.to_bytes(8, byteorder='little')
-            else:
-                opts['int_encoding'] = valu.to_bytes(8)
+            opts['arch_endian'] = 'other'
 
             s_common.yamlmod(opts, optspath)
 
