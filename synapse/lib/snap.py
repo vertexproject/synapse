@@ -227,7 +227,7 @@ class ProtoNode:
             if tagnode is not s_common.novalu:
                 return self.ctx.loadNode(tagnode)
 
-            norm, norminfo = await self.ctx.snap.getTagNorm(realnow)
+            norm, info = await self.ctx.snap.getTagNorm(realnow)
             break
 
         return await self.ctx.addNode('syn:tag', norm, norminfo=info)
