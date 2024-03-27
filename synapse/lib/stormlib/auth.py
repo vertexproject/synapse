@@ -1558,10 +1558,7 @@ class LibAuth(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def textFromRule(self, rule):
         rule = await s_stormtypes.toprim(rule)
-        text = '.'.join(rule[1])
-        if not rule[0]:
-            text = '!' + text
-        return text
+        return s_common.reprauthrule(rule)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getPermDefs(self):
