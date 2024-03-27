@@ -8664,7 +8664,7 @@ class LibCron(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects..', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects.', }}},
         {'name': 'enable', 'desc': 'Enable a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronEnable',
                   'args': (
