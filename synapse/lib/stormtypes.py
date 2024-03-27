@@ -913,11 +913,11 @@ class LibService(Lib):
         {'perm': ('service', 'del'), 'gate': 'cortex',
             'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
         {'perm': ('service', 'get'), 'gate': 'cortex',
-            'desc': 'Controls the ability to get the service object for any Storm service.'},
+            'desc': 'Controls the ability to get the Service object for any Storm Service.'},
         {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
-            'desc': 'Controls the ability to get the service object for a Storm service by iden.'},
+            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
         {'perm': ('service', 'list'), 'gate': 'cortex',
-         'desc': 'Controls the ability to list all available Storm services and their service definitions.'},
+         'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
     )
     _storm_lib_path = ('service',)
 
