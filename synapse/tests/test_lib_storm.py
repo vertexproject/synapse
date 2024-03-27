@@ -1258,6 +1258,12 @@ class StormTest(s_t_utils.SynTest):
             self.false(await core.callStorm('return(("Foo" ~= "(?-i:foo)"))'))
             self.true(await core.callStorm('return(("Foo" ~= "(?-i:Foo)"))'))
 
+            async with await core.view.snap(user=visi) as snap:
+                query = await core.getStormQuery('')
+                async with snap.getStormRuntime(query) as runt:
+                    with self.raises(s_exc.AuthDeny):
+                        runt.reqAdmin(gateiden=layr)
+
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 

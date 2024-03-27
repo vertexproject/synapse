@@ -68,6 +68,14 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'org:name'}},
+                            {'type': 'prop', 'opts': {'name': 'org:names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    },
                 }),
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.',
@@ -81,9 +89,22 @@ class RiskModule(s_module.CoreModule):
                 }),
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        ),
+                    },
                 }),
                 ('risk:mitigation', ('guid', {}), {
                     'doc': 'A mitigation for a specific risk:vuln.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    },
                 }),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of attack types.',
@@ -104,6 +125,14 @@ class RiskModule(s_module.CoreModule):
                 }),
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity, as reported by a specific organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'soft:name'}},
+                            {'type': 'prop', 'opts': {'name': 'soft:names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    },
                 }),
 
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
@@ -128,6 +157,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
+
                 ('risk:technique:masquerade', ('guid', {}), {
                     'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
             ),

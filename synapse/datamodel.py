@@ -850,9 +850,41 @@ class Model:
         for ifname in form.type.info.get('interfaces', ()):
             self._addFormIface(form, ifname)
 
+        self._checkFormDisplay(form)
+
         self.formprefixcache.clear()
 
         return form
+
+    def _checkFormDisplay(self, form):
+
+        formtype = self.types.get(form.full)
+
+        display = formtype.info.get('display')
+        if display is None:
+            return
+
+        for column in display.get('columns', ()):
+            coltype = column.get('type')
+            colopts = column.get('opts')
+
+            if coltype == 'prop':
+                curf = form
+                propname = colopts.get('name')
+                parts = propname.split('::')
+
+                for partname in parts:
+                    prop = curf.prop(partname)
+                    if prop is None:
+                        mesg = (f'Form {form.name} defines prop column {propname}'
+                               f' but {curf.full} has no property named {partname}.')
+                        raise s_exc.BadFormDef(mesg=mesg)
+
+                    curf = self.form(prop.type.name)
+
+            else:
+                mesg = f'Form {form.name} defines column with invalid type ({coltype}).'
+                raise s_exc.BadFormDef(mesg=mesg)
 
     def delForm(self, formname):
 
