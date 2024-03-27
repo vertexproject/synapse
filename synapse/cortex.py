@@ -1002,7 +1002,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'multiqueue': self.multiqueue,
         })
 
-        await self.auth.addAuthGate('cortex', 'cortex')
+        # TODO - Remove this in 3.0.0
+        ag = await self.auth.addAuthGate('cortex', 'cortex')
+        for (useriden, user) in ag.gateusers.items():
+            mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
+                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
+        for (roleiden, role) in ag.gateroles.items():
+            mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
+                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
 
         self._initVaults()
 

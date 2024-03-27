@@ -973,6 +973,12 @@ def unjsonsafe_nodeedits(nodeedits):
 
     return retn
 
+def reprauthrule(rule):
+    text = '.'.join(rule[1])
+    if not rule[0]:
+        text = '!' + text
+    return text
+
 def reqJsonSafeStrict(item):
     '''
     Require the item to be safe to serialize to JSON without type coercion issues.
