@@ -1262,7 +1262,7 @@ class StormTest(s_t_utils.SynTest):
                 query = await core.getStormQuery('')
                 async with snap.getStormRuntime(query) as runt:
                     with self.raises(s_exc.AuthDeny):
-                        runt.reqAdmin(gateiden='cortex')
+                        runt.reqAdmin(gateiden=layr)
 
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
