@@ -164,13 +164,15 @@ class RiskModule(s_module.CoreModule):
             'edges': (
                 # some explicit examples...
                 (('risk:attack', 'uses', 'ou:technique'), {
-                    'doc': 'The attackers used the technique in the attack.'}),
+                    'doc': 'The attacker used the technique in the attack.'}),
                 (('risk:threat', 'uses', 'ou:technique'), {
                     'doc': 'The threat cluster uses the technique.'}),
                 (('risk:tool:software', 'uses', 'ou:technique'), {
                     'doc': 'The tool uses the technique.'}),
                 (('risk:compromise', 'uses', 'ou:technique'), {
-                    'doc': 'The attackers used the technique in the compromise.'}),
+                    'doc': 'The attacker used the technique in the compromise.'}),
+                (('risk:extortion', 'uses', 'ou:technique'), {
+                    'doc': 'The attacker used the technique to extort the victim.'}),
 
                 (('risk:attack', 'uses', 'risk:vuln'), {
                     'doc': 'The attack used the vulnerability.'}),
@@ -966,11 +968,17 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'The compromise which allowed the leaker access to the information.'}),
 
+                    ('extortion', ('risk:extortion', {}), {
+                        'doc': 'The extortion event which used the threat of the leak as leverage.'}),
+
                     ('public', ('bool', {}), {
                         'doc': 'Set to true if the leaked information was made publicly available.'}),
 
                     ('public:url', ('inet:url', {}), {
                         'doc': 'The URL where the leaked information was made publicly available.'}),
+
+                    ('size:bytes', ('int', {'min': 0}), {
+                        'doc': 'The approximate uncompressed size of the total data leaked.'}),
 
                 )),
 
@@ -993,6 +1001,9 @@ class RiskModule(s_module.CoreModule):
                     ('demanded', ('time', {}), {
                         'doc': 'The time that the attacker made their demands.'}),
 
+                    ('deadline', ('time', {}), {
+                        'doc': 'The time that the demand must be met.'}),
+
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The goal of the attacker in extorting the victim.'}),
 
@@ -1006,7 +1017,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The extortion target identity.'}),
 
                     ('success', ('bool', {}), {
-                        'doc': 'Set to true if the victim met the attackers demands.'}),
+                        'doc': "Set to true if the victim met the attacker's demands."}),
 
                     ('enacted', ('bool', {}), {
                         'doc': 'Set to true if attacker carried out the threat.'}),
