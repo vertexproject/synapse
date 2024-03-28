@@ -907,6 +907,18 @@ class LibService(Lib):
                   'returns': {'type': 'boolean', 'desc': 'Returns true if the service is available, false on a '
                                                          'timeout waiting for the service to be ready.', }}},
     )
+    _storm_lib_perms = (
+        {'perm': ('service', 'add'), 'gate': 'cortex',
+            'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
+        {'perm': ('service', 'del'), 'gate': 'cortex',
+            'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
+        {'perm': ('service', 'get'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the Service object for any Storm Service.'},
+        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
+        {'perm': ('service', 'list'), 'gate': 'cortex',
+         'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
+    )
     _storm_lib_path = ('service',)
 
     def getObjLocals(self):
@@ -931,6 +943,7 @@ class LibService(Lib):
             except s_exc.AuthDeny:
                 raise e from None
             else:
+                # TODO: Remove support for this permission in 3.0.0
                 mesg = 'Use of service.get.<servicename> permissions are deprecated.'
                 await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
 
