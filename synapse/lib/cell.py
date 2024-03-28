@@ -1894,12 +1894,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
+            logger.info('Callinkg killActiveCoros')
             await self._killActiveCoros()
+            logger.info('Fini the activeBase')
+            self.activebase._log_task_teardown = not self.isfini
             await self.activebase.fini()
             self.activebase = None
+            logger.info('Initializing service passives')
             await self.initServicePassive()
 
+        logger.info(f'Notifying aha of active status {active=}')
         await self._setAhaActive()
+        logger.info(f'Done with setCellActive {active=}')
 
     def runActiveTask(self, coro):
         # an API for active coroutines to use when running an

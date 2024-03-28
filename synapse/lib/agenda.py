@@ -698,6 +698,13 @@ class Agenda(s_base.Base):
         self.tickoff += offs
         self._wake_event.set()
 
+    async def clearRunningStatus(self):
+        '''Used for clearing the running state at startup or change of leadership.'''
+        for appt in list(self.appts.values()):
+            if appt.isrunning:
+                logger.debug(f'Clearing the isrunning flag for {appt.iden}')
+                await self.core.addCronEdits(appt.iden, {'isrunning': False})
+
     async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
@@ -838,7 +845,7 @@ class Agenda(s_base.Base):
                 result = f'finished successfully with {count} nodes'
             finally:
                 finishtime = self._getNowTick()
-                if not success:
+                if not success and self.core.isactive:
                     appt.lasterrs.append(result)
                     edits = {
                         'errcount': appt.errcount + 1,
@@ -849,7 +856,9 @@ class Agenda(s_base.Base):
 
                 took = finishtime - starttime
                 mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
-                       f'took {took:.3f}s'
+                       f'took {took:.3f}s.'
+                if not self.core.isactive:
+                    mesg = mesg + ' Results will not be saved since the Cortex is no longer.'
                 logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
                                                      'result': result, 'username': user.name, 'took': took}})
                 edits = {
@@ -857,7 +866,9 @@ class Agenda(s_base.Base):
                     'isrunning': False,
                     'lastresult': result,
                 }
-                await self.core.addCronEdits(appt.iden, edits)
+
+                if self.core.isactive:
+                    await self.core.addCronEdits(appt.iden, edits)
 
                 if not self.isfini:
                     # fire beholder event before invoking nexus change (in case readonly)

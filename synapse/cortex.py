@@ -1447,6 +1447,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
+        await self.agenda.clearRunningStatus()
 
         for view in self.views.values():
             await view.initTrigTask()
@@ -1459,16 +1460,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def initServicePassive(self):
 
+        logger.info('Stopping storm dmons')
         await self.stormdmons.stop()
 
+        logger.info('Tearing down view trigger tasks and merge tasks')
         for view in self.views.values():
             await view.finiTrigTask()
             await view.finiMergeTask()
 
+        logger.info('Setting layers to passive.')
         for layer in self.layers.values():
             await layer.initLayerPassive()
 
+        logger.info('Tearing down storm pool.')
         await self.finiStormPool()
+        logger.info('Done setting cortex into passive mode.')
 
     async def initStormPool(self):
 
