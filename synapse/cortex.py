@@ -104,7 +104,7 @@ stormlogger = logging.getLogger('synapse.storm')
 A Cortex implements the synapse hypergraph object.
 '''
 
-reqver = '>=0.2.0,<3.0.0'
+reqver = '>=3.0.0,<4.0.0'
 
 # Constants returned in results from syncLayersEvents and syncIndexEvents
 SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
@@ -767,16 +767,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
         },
-        'cron:enable': {
-            'default': True,
-            'description': 'Deprecated. This option no longer controls cron execution and will be removed in Synapse 3.0.',
-            'type': 'boolean'
-        },
-        'trigger:enable': {
-            'default': True,
-            'description': 'Deprecated. This option no longer controls trigger execution and will be removed in Synapse 3.0.',
-            'type': 'boolean'
-        },
         'layer:lmdb:map_async': {
             'default': True,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
@@ -796,12 +786,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'default': True,
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
-        },
-        'provenance:en': {  # TODO: Remove in 3.0.0
-            'default': False,
-            'description': 'This no longer does anything.',
-            'type': 'boolean',
-            'hideconf': True,
         },
         'max:nodes': {
             'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
@@ -2469,15 +2453,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                    f'Cortex is running {s_version.version}'
             s_version.reqVersion(s_version.version, reqversion, mesg=mesg)
 
-        elif (minversion := pkgdef.get('synapse_minversion')) is not None:
-            # This is for older packages that might not have the
-            # `synapse_version` field.
-            # TODO: Remove this whole else block after Synapse 3.0.0.
-            if tuple(minversion) > s_version.version:
-                mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
-                       f'Cortex is running {s_version.version}'
-                raise s_exc.BadVersion(mesg=mesg)
-
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
@@ -2842,42 +2817,34 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 self.model.addType(formname, basetype, typeopts, typeinfo)
                 form = self.model.addForm(formname, {}, ())
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'Extended form ({formname}) error: {e}')
             else:
                 if form.type.deprecated:
                     mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 3.0.0'
+                           f' be removed in 4.0.0'
                     logger.warning(mesg)
 
         for form, prop, tdef, info in self.extprops.values():
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
             else:
                 if prop.type.deprecated:
                     mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
-                           f' be removed in 3.0.0'
+                           f' be removed in 4.0.0'
                     logger.warning(mesg)
 
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'ext univ ({prop}) error: {e}')
 
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
@@ -3119,7 +3086,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         full = f'{form}:{prop}'
@@ -4295,11 +4262,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if iden is None:
             return self.view.layers[0]
 
-        # For backwards compatibility, resolve references to old layer iden == cortex.iden to the main layer
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if iden == self.iden:
-            return self.view.layers[0]
-
         return self.layers.get(iden)
 
     def listLayers(self):
@@ -4329,11 +4291,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if iden is None:
                 iden = self.view.iden
-
-        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if iden == self.iden:
-            iden = self.view.iden
 
         view = self.views.get(iden)
         if view is None:
@@ -4652,9 +4609,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = pdef.get('iden')
         user = pdef.get('user')
         gvar = f'push:{iden}'
-        # TODO Remove the defaults in 3.0.0
-        csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
-        qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
+        csize = pdef.get('chunk:size')
+        qsize = pdef.get('queue:size')
 
         async with await s_base.Base.anit() as base:
 
@@ -5012,11 +4968,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             viewiden = user.profile.get('cortex:view')
 
         if viewiden is None:
-            viewiden = self.view.iden
-
-        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if viewiden == self.iden:  # pragma: no cover
             viewiden = self.view.iden
 
         view = self.views.get(viewiden)

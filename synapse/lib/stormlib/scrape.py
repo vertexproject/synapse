@@ -102,26 +102,6 @@ class LibScrape(s_stormtypes.Lib):
             'genMatches': self._methGenMatches,
         }
 
-    async def __call__(self, text, ptype=None, refang=True, unique=True):
-        text = await s_stormtypes.tostr(text)
-        form = await s_stormtypes.tostr(ptype, noneok=True)
-        refang = await s_stormtypes.tobool(refang)
-        unique = await s_stormtypes.tobool(unique)
-        # Remove this in 3.0.0 since it is deprecated.
-        s_common.deprecated('Directly calling $lib.scrape()')
-        await self.runt.warnonce('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().')
-
-        core = self.runt.snap.core
-        async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as items:  # type: s_spooled.Set
-            async for item in s_scrape.scrapeAsync(text, ptype=form, refang=refang, first=False):
-                if unique:
-                    if item in items:
-                        continue
-                    await items.add(item)
-
-                yield item
-                await asyncio.sleep(0)
-
     @s_stormtypes.stormfunc(readonly=True)
     async def _methContext(self, text):
         text = await s_stormtypes.tostr(text)
