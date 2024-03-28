@@ -1790,7 +1790,18 @@ class StormTest(s_t_utils.SynTest):
             opts['embeds']['ou:org']['lol::nope'] = ('notreal',)
             opts['embeds']['ou:org']['country::flag'] = ('md5', 'sha1')
             opts['embeds']['ou:org']['country::tld'] = ('domain',)
-            msgs = await core.stormlist('ou:org { -> pol:country [ :flag={ [ file:bytes=* :md5=$md5 :sha1=$sha1 ] } :tld=co.uk ] }', opts=opts)
+
+            await core.stormlist('pol:country [ :flag={[ file:bytes=* :md5=fa818a259cbed7ce8bc2a22d35a464fc ]} ]')
+
+            msgs = await core.stormlist('''
+                ou:org {
+                    -> pol:country
+                    [ :tld=co.uk ]
+                    {
+                        :flag -> file:bytes [ :md5=$md5 :sha1=$sha1 ]
+                    }
+                }
+            ''', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
@@ -1812,6 +1823,9 @@ class StormTest(s_t_utils.SynTest):
 
             self.nn(bot.get('hq::email::user'))
             self.eq(bot['hq::email::user'][0], 'visi')
+
+            self.nn(bot.get('country::flag::md5'))
+            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
             empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
             opts['view'] = empty
@@ -1840,6 +1854,9 @@ class StormTest(s_t_utils.SynTest):
 
             self.nn(bot.get('hq::email::user'))
             self.eq(bot['hq::email::user'][0], 'visi')
+
+            self.nn(bot.get('country::flag::md5'))
+            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
     async def test_storm_wget(self):
 
