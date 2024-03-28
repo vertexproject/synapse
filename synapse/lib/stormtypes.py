@@ -935,17 +935,7 @@ class LibService(Lib):
         '''
         Helper to handle service.get.* permissions
         '''
-        try:
-            self.runt.confirm(('service', 'get', ssvc.iden))
-        except s_exc.AuthDeny as e:
-            try:
-                self.runt.confirm(('service', 'get', ssvc.name))
-            except s_exc.AuthDeny:
-                raise e from None
-            else:
-                # TODO: Remove support for this permission in 3.0.0
-                mesg = 'Use of service.get.<servicename> permissions are deprecated.'
-                await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
+        self.runt.confirm(('service', 'get', ssvc.iden))
 
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))

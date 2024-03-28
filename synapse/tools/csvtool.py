@@ -16,7 +16,7 @@ import synapse.lib.version as s_version
 
 import synapse.tools.storm as s_t_storm
 
-reqver = '>=0.2.0,<3.0.0'
+reqver = '>=3.0.0,<4.0.0'
 
 async def runCsvExport(opts, outp, text, stormopts):
     if not opts.cortex:

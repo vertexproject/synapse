@@ -1227,11 +1227,6 @@ class User(s_stormtypes.Prim):
         indx = await s_stormtypes.toint(indx, noneok=True)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
-        # TODO: Remove me in 3.0.0
-        if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
-            await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
@@ -1485,11 +1480,6 @@ class Role(s_stormtypes.Prim):
         indx = await s_stormtypes.toint(indx, noneok=True)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
-        # TODO: Remove me in 3.0.0
-        if gateiden == 'cortex':
-            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
-            await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
