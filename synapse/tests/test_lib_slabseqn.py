@@ -36,6 +36,9 @@ class SlabSeqn(s_t_utils.SynTest):
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
+            retn = tuple(seqn.iterBack(2))
+            self.eq(retn, ((2, 20), (1, 10), (0, 'foo')))
+
             self.eq(seqn.nextindx(), 3)
 
             await slab.fini()

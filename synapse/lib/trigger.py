@@ -508,7 +508,7 @@ class Trigger:
             return
 
         if self.tdef.get('async'):
-            triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
+            triginfo = {'nid': node.nid, 'trig': self.iden, 'vars': vars}
             await self.view.addTrigQueue(triginfo)
             return
 
@@ -573,49 +573,3 @@ class Trigger:
             tdef['username'] = triguser.name
 
         return tdef
-
-    def getStorNode(self, form):
-        ndef = (form.name, form.type.norm(self.iden)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.tdef.get('doc', ''),
-            'name': self.tdef.get('name', ''),
-            'vers': self.tdef.get('ver', 1),
-            'cond': self.tdef.get('cond'),
-            'storm': self.tdef.get('storm'),
-            'enabled': self.tdef.get('enabled'),
-            'user': self.tdef.get('user'),
-            '.created': self.tdef.get('created')
-        }
-
-        tag = self.tdef.get('tag')
-        if tag is not None:
-            props['tag'] = tag
-
-        formprop = self.tdef.get('form')
-        if formprop is not None:
-            props['form'] = formprop
-
-        prop = self.tdef.get('prop')
-        if prop is not None:
-            props['prop'] = prop
-
-        verb = self.tdef.get('verb')
-        if verb is not None:
-            props['verb'] = verb
-
-        n2form = self.tdef.get('n2form')
-        if n2form is not None:
-            props['n2form'] = n2form
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
-        })

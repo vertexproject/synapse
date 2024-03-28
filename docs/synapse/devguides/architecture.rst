@@ -13,9 +13,6 @@ such as the implementations of the Cortex, Axon, Cryotank, as well as the Telepa
 There are also a set of common helper functions (common.py_) and exceptions (exc.py_). There are several submodules
 available as well:
 
-synapse.cmds
-  Command implementations for the Cmdr CLI tool
-
 synapse.data
   Data files stored in the library.
 

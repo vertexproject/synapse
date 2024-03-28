@@ -2239,18 +2239,6 @@ class LibAxon(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('axon',)
-    _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'axon', 'del'), 'gate': 'cortex',
-            'desc': 'Controls the ability to remove a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'get'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'has'), 'gate': 'cortex',
-            'desc': 'Controls the ability to check if the Axon contains a file.'},
-        {'perm': ('storm', 'lib', 'axon', 'wget'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
-            'desc': 'Controls the ability to push a file from the Axon to a URL.'},
-    )
 
     def getObjLocals(self):
         return {
@@ -2280,8 +2268,7 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def readlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2290,8 +2277,7 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def jsonlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2300,8 +2286,7 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2317,8 +2302,7 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256 = await tostr(sha256)
 
@@ -2331,8 +2315,7 @@ class LibAxon(Lib):
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
                    ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
-        if not self.runt.allowed(('axon', 'wget')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        self.runt.confirm(('axon', 'upload'))
 
         url = await tostr(url)
         method = await tostr(method)
@@ -2374,8 +2357,7 @@ class LibAxon(Lib):
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
                    ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
-        if not self.runt.allowed(('axon', 'wput')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        self.runt.confirm(('axon', 'get'))
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
@@ -2479,8 +2461,7 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        self.runt.confirm(('axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2491,8 +2472,7 @@ class LibAxon(Lib):
     @stormfunc(readonly=True)
     async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
         await self.runt.snap.core.getAxon()
 
@@ -2506,8 +2486,7 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def metrics(self):
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        self.runt.confirm(('axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
     async def upload(self, genr):
@@ -2561,163 +2540,6 @@ class LibAxon(Lib):
 
         await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
-
-@registry.registerLib
-class LibBytes(Lib):
-    '''
-    A Storm Library for interacting with bytes storage. This Library is deprecated; use ``$lib.axon.*`` instead.
-    '''
-    _storm_locals = (
-        {'name': 'put', 'desc': '''
-            Save the given bytes variable to the Axon the Cortex is configured to use.
-
-            Examples:
-                Save a base64 encoded buffer to the Axon::
-
-                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
-                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
-
-                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
-         'type': {'type': 'function', '_funcname': '_libBytesPut',
-                  'args': (
-                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-        {'name': 'has', 'desc': '''
-            Check if the Axon the Cortex is configured to use has a given sha256 value.
-
-            Examples:
-                Check if the Axon has a given file::
-
-                    # This example assumes the Axon does have the bytes
-                    cli> storm if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
-                            $lib.print("Has bytes")
-                        } else {
-                            $lib.print("Does not have bytes")
-                        }
-
-                    Has bytes
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesHas',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the Axon has the file, false if it does not.', }}},
-        {'name': 'size', 'desc': '''
-            Return the size of the bytes stored in the Axon for the given sha256.
-
-            Examples:
-                Get the size for a file given a variable named ``$sha256``::
-
-                    $size = $lib.bytes.size($sha256)
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesSize',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': ['int', 'null'],
-                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
-        {'name': 'hashset', 'desc': '''
-            Return additional hashes of the bytes stored in the Axon for the given sha256.
-
-            Examples:
-                Get the md5 hash for a file given a variable named ``$sha256``::
-
-                    $hashset = $lib.bytes.hashset($sha256)
-                    $md5 = $hashset.md5
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesHashset',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
-        {'name': 'upload', 'desc': '''
-            Upload a stream of bytes to the Axon as a file.
-
-            Examples:
-                Upload bytes from a generator::
-
-                    ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesUpload',
-                  'args': (
-                      {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-    )
-    _storm_lib_path = ('bytes',)
-
-    def getObjLocals(self):
-        return {
-            'put': self._libBytesPut,
-            'has': self._libBytesHas,
-            'size': self._libBytesSize,
-            'upload': self._libBytesUpload,
-            'hashset': self._libBytesHashset,
-        }
-
-    async def _libBytesUpload(self, genr):
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        async with await self.runt.snap.core.axon.upload() as upload:
-            async for byts in s_coro.agen(genr):
-                await upload.write(byts)
-            size, sha256 = await upload.save()
-            return size, s_common.ehex(sha256)
-
-    @stormfunc(readonly=True)
-    async def _libBytesHas(self, sha256):
-
-        sha256 = await tostr(sha256, noneok=True)
-        if sha256 is None:
-            return None
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('has', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    @stormfunc(readonly=True)
-    async def _libBytesSize(self, sha256):
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('size', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    async def _libBytesPut(self, byts):
-
-        if not isinstance(byts, bytes):
-            mesg = '$lib.bytes.put() requires a bytes argument'
-            raise s_exc.BadArg(mesg=mesg)
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('put', byts)
-        size, sha2 = await self.dyncall('axon', todo)
-
-        return (size, s_common.ehex(sha2))
-
-    @stormfunc(readonly=True)
-    async def _libBytesHashset(self, sha256):
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('hashset', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
 
 @registry.registerLib
 class LibLift(Lib):
@@ -5846,7 +5668,7 @@ class NodeProps(Prim):
 
     async def iter(self):
         # Make copies of property values since array types are mutable
-        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.getProps().items())
         for item in items:
             yield item
 
@@ -5859,11 +5681,11 @@ class NodeProps(Prim):
 
     @stormfunc(readonly=True)
     async def list(self):
-        return list(self.valu.props.items())
+        return list(self.valu.getProps().items())
 
     @stormfunc(readonly=True)
     def value(self):
-        return dict(self.valu.props)
+        return self.valu.getProps()
 
 @registry.registerType
 class NodeData(Prim):
@@ -6166,11 +5988,13 @@ class Node(Prim):
         reverse = await tobool(reverse)
 
         if reverse:
-            async for edge in self.valu.iterEdgesN2(verb=verb):
-                yield edge
+            async for (verb, n1nid) in self.valu.iterEdgesN2(verb=verb):
+                n1iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n1nid))
+                yield (verb, n1iden)
         else:
-            async for edge in self.valu.iterEdgesN1(verb=verb):
-                yield edge
+            async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
+                n2iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n2nid))
+                yield (verb, n2iden)
 
     async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)
@@ -6179,7 +6003,12 @@ class Node(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        await self.valu.addEdge(verb, iden)
+        nid = self.valu.snap.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.valu.addEdge(verb, nid)
 
     async def _methNodeDelEdge(self, verb, iden):
         verb = await tostr(verb)
@@ -6188,7 +6017,12 @@ class Node(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        await self.valu.delEdge(verb, iden)
+        nid = self.valu.snap.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.valu.delEdge(verb, nid)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
@@ -6199,7 +6033,7 @@ class Node(Prim):
         glob = await tostr(glob, noneok=True)
         leaf = await tobool(leaf)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         if leaf:
             _tags = []
             # brute force rather than build a tree.  faster in small sets.
@@ -6222,7 +6056,7 @@ class Node(Prim):
             mesg = f'Tag globs may not be adjacent: {glob}'
             raise s_exc.BadArg(mesg=mesg)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
         for tag in tags:
@@ -6263,13 +6097,13 @@ class Node(Prim):
 
             tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
             curtags = set()
-            for tag in list(self.valu.tags.keys()):
+            for tag in self.valu.getTagNames():
                 parts = tuple(tag.split('.'))
                 if parts[:plen] == prefix:
                     curtags.add(parts)
         else:
             tags = set([tuple(tag.split('.')) for tag in tags if tag])
-            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.getTagNames()])
 
         adds = set([tag for tag in tags if tag not in curtags])
         dels = set()
@@ -6653,8 +6487,6 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
-                      {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.',
-                       'default': None, },
                       {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'A specific value of the property to look up.', },
                   ),
@@ -6897,8 +6729,8 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
-        async for _, buid, sode in layr.liftByTag(tagname, form=formname):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByTag(tagname, form=formname):
+            yield await self.runt.snap._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def liftByProp(self, propname, propvalu=None, propcmpr='='):
@@ -6928,14 +6760,14 @@ class Layer(Prim):
             liftprop = prop.name
 
         if propvalu is None:
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+            async for _, nid, _ in layr.liftByProp(liftform, liftprop):
+                yield await self.runt.snap._joinStorNode(nid)
             return
 
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-        async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield await self.runt.snap._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def getMirrorStatus(self):
@@ -7049,9 +6881,8 @@ class Layer(Prim):
         return await layr.getTagCount(tagname, formname=formname)
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, maxsize=None, valu=undef):
+    async def _methGetPropCount(self, propname, valu=undef):
         propname = await tostr(propname)
-        maxsize = await toint(maxsize, noneok=True)
 
         prop = self.runt.snap.core.model.prop(propname)
         if prop is None:
@@ -7064,12 +6895,12 @@ class Layer(Prim):
 
         if valu is undef:
             if prop.isform:
-                return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+                return await layr.getPropCount(prop.name, None)
 
             if prop.isuniv:
-                return await layr.getPropCount(None, prop.name, maxsize=maxsize)
+                return await layr.getPropCount(None, prop.name)
 
-            return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
+            return await layr.getPropCount(prop.form.name, prop.name)
 
         valu = await toprim(valu)
         norm, info = prop.type.norm(valu)
@@ -7166,41 +6997,53 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(s_common.uhex(nodeid))
+
+        nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        return layr.getStorNode(nid)
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getStorNodes():
-            yield item
+
+        async for nid, sode in layr.getStorNodes():
+            yield (s_common.ehex(self.runt.snap.core.getBuidByNid(nid)), sode)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getEdges():
-            yield item
+
+        async for n1nid, verb, n2nid in layr.getEdges():
+            n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+            n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
+            yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
     async def getEdgesByN1(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
-            yield item
+
+        n1nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for verb, n2nid in layr.iterNodeEdgesN1(n1nid):
+            yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid)))
 
     @stormfunc(readonly=True)
     async def getEdgesByN2(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
-            yield item
+
+        n2nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for (verb, n1nid) in layr.iterNodeEdgesN2(n2nid):
+            yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid)))
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
@@ -7697,8 +7540,11 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
-        todo = s_common.todo('getFormCounts')
-        return await self.viewDynCall(todo, ('view', 'read'))
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getFormCounts()
 
     @stormfunc(readonly=True)
     async def _methGetPropCount(self, propname, valu=undef):
@@ -7750,28 +7596,24 @@ class View(Prim):
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
-        todo = s_common.todo('getEdges', verb=verb)
-        async for edge in self.viewDynIter(todo, ('view', 'read')):
-            yield edge
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        async for n1nid, verb, n2nid in view.getEdges():
+            n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+            n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
+            yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
-        todo = s_common.todo('getEdgeVerbs')
-        async for verb in self.viewDynIter(todo, ('view', 'read')):
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        async for verb in view.getEdgeVerbs():
             yield verb
-
-    async def viewDynIter(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
-            yield item
-
-    async def viewDynCall(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
@@ -9290,7 +9132,7 @@ def fromprim(valu, path=None, basetypes=True):
             return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
-    if isinstance(valu, s_node.Node):
+    if isinstance(valu, s_node.NodeBase):
         return Node(valu, path=path)
 
     if isinstance(valu, s_node.Path):

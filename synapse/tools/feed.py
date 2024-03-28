@@ -10,11 +10,12 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
-import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.encoding as s_encoding
+
+import synapse.tools.storm as s_t_storm
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
         outp.printf(f'Took [{tock - tick}] seconds.')
 
     if debug:
-        await s_cmdr.runItemCmdr(core, outp, True)
+        await s_t_storm.runItemStorm(core, outp=outp)
 
 async def main(argv, outp=None):
 

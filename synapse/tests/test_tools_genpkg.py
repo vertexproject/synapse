@@ -212,7 +212,7 @@ class GenPkgTest(s_test.SynTest):
         # Missing files are still a problem
         with self.getTestDir(copyfrom=srcpath) as dirn:
             ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
-            os.unlink(os.path.join(dirn, 'storm', 'modules', 'testmod'))
+            os.unlink(os.path.join(dirn, 'storm', 'modules', 'testmod.storm'))
             self.setDirFileModes(dirn=dirn, mode=readonly_mode)
             with self.raises(s_exc.NoSuchFile) as cm:
                 s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
@@ -220,7 +220,7 @@ class GenPkgTest(s_test.SynTest):
 
         with self.getTestDir(copyfrom=srcpath) as dirn:
             ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
-            os.remove(os.path.join(dirn, 'storm', 'commands', 'testpkgcmd'))
+            os.remove(os.path.join(dirn, 'storm', 'commands', 'testpkgcmd.storm'))
             self.setDirFileModes(dirn=dirn, mode=readonly_mode)
             with self.raises(s_exc.NoSuchFile) as cm:
                 s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
@@ -236,25 +236,3 @@ class GenPkgTest(s_test.SynTest):
         self.raises(ValueError, s_files.getAssetPath, 'newp.bin')
         self.raises(ValueError, s_files.getAssetPath,
                     '../../../../../../../../../etc/passwd')
-
-    async def test_genpkg_dotstorm(self):
-
-        yamlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml')
-
-        async with self.getTestCore() as core:
-            url = core.getLocalUrl()
-            argv = ('--push', url, yamlpath)
-            await s_genpkg.main(argv)
-            msgs = await core.stormlist('$lib.import(dotstorm.foo)')
-            self.stormIsInPrint('hello foo', msgs)
-            msgs = await core.stormlist('dotstorm.bar')
-            self.stormIsInPrint('hello bar', msgs)
-
-class TestStormPkgTest(s_test.StormPkgTest):
-    assetdir = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'testassets')
-    pkgprotos = (s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml'),)
-
-    async def test_stormpkg_base(self):
-        async with self.getTestCore() as core:
-            msgs = await core.stormlist('dotstorm.bar')
-            self.stormHasNoWarnErr(msgs)

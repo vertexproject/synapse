@@ -936,8 +936,7 @@ Node, Runt
 
 Short for "runtime node". A runt node is a node that does not persist within a Cortex but is created at runtime when
 a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model
-elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``)
-or cron jobs (``syn:cron``).
+elements like forms (``syn:form``) and properties (``syn:prop``).
 
 .. _gloss-node-storage:
 
@@ -1326,15 +1325,6 @@ Sode
 ----
 
 Short for "storage node". See :ref:`gloss-node-storage`.
-
-.. _gloss-splice:
-
-Splice
-------
-
-A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag,
-or setting, modifying, or removing a property. All changes within a Cortex may be retrieved as individual splices within
-the Cortex's splice log.
 
 .. _gloss-spotlight-tool:
 

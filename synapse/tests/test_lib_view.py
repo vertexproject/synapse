@@ -278,44 +278,44 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=maxval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=maxval [ .seen=2020 ]', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=maxval', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=midval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=midval [ .seen=2012 ]', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=midval', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=minval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=minval [ .seen=2000 ]', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=minval', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=exival .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=exival [ .seen=(2000, 2021) ]', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=exival', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
 
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
 
             nodes = await core.nodes('test:str=maxval')
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=midval')
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=minval')
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=exival')
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
 
             # bad type
 
@@ -520,7 +520,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.none(await prox.storNodeEdits(edits, None))
 
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
-            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+            self.len(0, await core.nodes('test:str=foo', opts={'view': view}))
 
     async def test_lib_view_wipeLayer(self):
 
@@ -581,21 +581,10 @@ class ViewTest(s_t_utils.SynTest):
 
             self.true(await core.callStorm('return($lib.globals.get(trig))'))
 
-            self.eq({
-                'meta:source': 0,
-                'syn:tag': 0,
-                'test:arrayprop': 0,
-                'test:str': 0,
-            }, await layr.getFormCounts())
+            self.eq({}, await layr.getFormCounts())
 
-            self.eq(0, layr.layrslab.stat(db=layr.bybuidv3)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byverb)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.edgesn1)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.edgesn2)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.bytag)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byprop)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byarray)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.bytagprop)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.bynid)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.indxdb)['entries'])
 
             self.eq(0, layr.dataslab.stat(db=layr.nodedata)['entries'])
             self.eq(0, layr.dataslab.stat(db=layr.dataname)['entries'])
@@ -617,7 +606,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('view.merge $forkviden --delete', opts={'vars': {'forkviden': forkviden}})
 
-            # can wipe push/pull/mirror layers
+            # can wipe through layer push/pull
 
             self.len(1, await core.nodes('test:str=chicken'))
             baseoffs = await layr.getEditOffs()
@@ -668,23 +657,8 @@ class ViewTest(s_t_utils.SynTest):
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
                 pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
 
-                mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
-                mirror_view, mirror_layr = await core2.callStorm('''
-                    $ldef = ({'mirror':$lib.str.concat($baseurl, "/", $baseiden)})
-                    $lyr = $lib.layer.add(ldef=$ldef)
-                    $view = $lib.view.add(($lyr.iden,))
-                    return(($view.iden, $lyr.iden))
-                ''', opts=opts)
+                await core.nodes('$lib.view.get().wipeLayer()')
 
-                self.true(await core2.getLayer(iden=mirror_layr).waitEditOffs(mirror_catchup, timeout=2))
-                self.len(1, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
-
-                # wipe the mirror view which will writeback
-                # and then get pushed/pulled into the other layers
-
-                await core2.nodes('$lib.view.get().wipeLayer()', opts={'view': mirror_view})
-
-                self.len(0, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
                 self.len(0, await core.nodes('test:str=chicken'))
 
                 self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(puller_offs + 1, timeout=2))
@@ -734,12 +708,6 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
-
-            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
-
-            with self.raises(s_exc.AuthDeny) as cm:
-                await core.nodes('$lib.view.get().merge()', opts=viewopts)
             self.eq('node.tag.add.seen', cm.exception.errinfo['perm'])
 
             await core.addUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
@@ -750,14 +718,19 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addUserRule(useriden, (True, ('node', 'data', 'set')), gateiden=baselayr)
 
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
+
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
 
             nodes = await core.nodes('test:str=foo $node.data.load(foo)')
             self.len(1, nodes)
-            self.nn(nodes[0].props.get('.seen'))
-            self.nn(nodes[0].tags.get('seen'))
-            self.nn(nodes[0].tagprops.get('seen'))
-            self.nn(nodes[0].tagprops['seen'].get('score'))
+            self.nn(nodes[0].get('.seen'))
+            self.nn(nodes[0].get('#seen'))
+            self.nn(nodes[0].getTagProp('seen', 'score'))
             self.nn(nodes[0].nodedata.get('foo'))
 
             await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)

@@ -100,11 +100,11 @@ class ProjectEpics(s_stormtypes.Prim):
         nodeedits = []
         async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:epic', '=', epic.node.ndef[1]):
             nodeedits.append(
-                (tick.buid, 'proj:ticket', await tick._getPropDelEdits('epic'))
+                (tick.nid, 'proj:ticket', await tick._getPropDelEdits('epic'))
             )
             await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await epic.node.delete()
         return True
 
@@ -723,11 +723,11 @@ class ProjectSprints(s_stormtypes.Prim):
         nodeedits = []
         async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', sprintiden):
             nodeedits.append(
-                (tick.buid, 'proj:ticket', await tick._getPropDelEdits('sprint'))
+                (tick.nid, 'proj:ticket', await tick._getPropDelEdits('sprint'))
             )
             await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await sprint.node.delete()
         return True
 

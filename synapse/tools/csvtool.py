@@ -11,9 +11,10 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.base as s_base
-import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
+
+import synapse.tools.storm as s_t_storm
 
 reqver = '>=0.2.0,<3.0.0'
 
@@ -118,7 +119,7 @@ async def runCsvImport(opts, outp, text, stormopts):
                     logfd.write(byts + b'\n')
 
         if opts.cli:
-            await s_cmdr.runItemCmdr(core, outp, True)
+            await s_t_storm.runItemStorm(prox, outp=outp)
 
         return nodecount
 

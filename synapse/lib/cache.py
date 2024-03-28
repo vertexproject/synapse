@@ -172,7 +172,7 @@ def regexizeTagGlob(tag):
 
         The returned string does not contain a starting '^' or trailing '$'.
     '''
-    return ReRegex.sub(lambda m: r'([^.]+?)' if m.group(1) is None else r'(.+)', regex.escape(tag))
+    return ReRegex.sub(lambda m: r'([^.]*?)' if m.group(1) is None else r'(.*)', regex.escape(tag))
 
 @memoize()
 def getTagGlobRegx(name):

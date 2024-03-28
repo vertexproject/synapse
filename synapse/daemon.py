@@ -46,78 +46,6 @@ class Sess(s_base.Base):
                            }
         return ret
 
-class Genr(s_share.Share):
-
-    typename = 'genr'
-
-    async def _runShareLoop(self):
-
-        try:
-
-            for item in self.item:
-
-                if self.isfini:
-                    break
-
-                retn = (True, item)
-                mesg = ('share:data', {'share': self.iden, 'data': retn})
-
-                await self.link.tx(mesg)
-
-                # purposely yield for fair scheduling
-                await asyncio.sleep(0)
-
-        except Exception as e:
-
-            retn = s_common.retnexc(e)
-            mesg = ('share:data', {'share': self.iden, 'data': retn})
-            await self.link.tx(mesg)
-
-        finally:
-
-            mesg = ('share:data', {'share': self.iden, 'data': None})
-            await self.link.tx(mesg)
-            await self.fini()
-
-
-class AsyncGenr(s_share.Share):
-
-    typename = 'genr'
-
-    async def _runShareLoop(self):
-
-        try:
-
-            async for item in self.item:
-
-                if self.isfini:
-                    break
-
-                retn = (True, item)
-                mesg = ('share:data', {'share': self.iden, 'data': retn})
-
-                await self.link.tx(mesg)
-
-                # purposely yield for fair scheduling
-                await asyncio.sleep(0)
-
-        except Exception as e:
-            retn = s_common.retnexc(e)
-            mesg = ('share:data', {'share': self.iden, 'data': retn})
-            await self.link.tx(mesg)
-
-        finally:
-
-            mesg = ('share:data', {'share': self.iden, 'data': None})
-            await self.link.tx(mesg)
-            await self.fini()
-
-dmonwrap = (
-    (s_coro.GenrHelp, AsyncGenr),
-    (types.AsyncGeneratorType, AsyncGenr),
-    (types.GeneratorType, Genr),
-)
-
 async def t2call(link, meth, args, kwargs):
     '''
     Call the given ``meth(*args, **kwargs)`` and handle the response to provide
@@ -222,8 +150,6 @@ class Daemon(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        self._shareLoopTasks = set()
-
         if certdir is None:
             certdir = s_certdir.getCertDir()
 
@@ -242,7 +168,6 @@ class Daemon(s_base.Base):
 
         self.mesgfuncs = {
             'tele:syn': self._onTeleSyn,
-            'task:init': self._onTaskInit,
             'share:fini': self._onShareFini,
 
             # task version 2 API
@@ -478,29 +403,6 @@ class Daemon(s_base.Base):
 
         await link.tx(reply)
 
-    async def _runTodoMeth(self, link, meth, args, kwargs):
-
-        valu = meth(*args, **kwargs)
-
-        for wraptype, wrapctor in dmonwrap:
-            if isinstance(valu, wraptype):
-                return await wrapctor.anit(link, valu)
-
-        if s_coro.iscoro(valu):
-            valu = await valu
-
-        return valu
-
-    def _getTaskFiniMesg(self, task, valu):
-
-        if not isinstance(valu, s_share.Share):
-            retn = (True, valu)
-            return ('task:fini', {'task': task, 'retn': retn})
-
-        retn = (True, valu.iden)
-        typename = valu.typename
-        return ('task:fini', {'task': task, 'retn': retn, 'type': typename})
-
     async def _onTaskV2Init(self, link, mesg):
 
         # t2:init is used by the pool sockets on the client
@@ -543,62 +445,3 @@ class Daemon(s_base.Base):
             if not link.isfini:
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:fini', {'retn': retn}))
-
-    async def _onTaskInit(self, link, mesg):
-
-        task = mesg[1].get('task')
-        name = mesg[1].get('name')
-
-        sess = link.get('sess')
-        if sess is None:
-            raise s_exc.NoSuchObj(name=name)
-
-        item = sess.getSessItem(name)
-        if item is None:
-            raise s_exc.NoSuchObj(name=name)
-
-        try:
-
-            methname, args, kwargs = mesg[1].get('todo')
-
-            if methname[0] == '_':
-                raise s_exc.NoSuchMeth(name=methname)
-
-            meth = getattr(item, methname, None)
-            if meth is None:
-                logger.warning('%r has no method: %s', item, methname)
-                raise s_exc.NoSuchMeth(name=methname)
-
-            valu = await self._runTodoMeth(link, meth, args, kwargs)
-
-            mesg = self._getTaskFiniMesg(task, valu)
-
-            await link.tx(mesg)
-
-            # if it's a Share(), spin off the share loop
-            if isinstance(valu, s_share.Share):
-
-                if isinstance(item, s_base.Base):
-                    item.onfini(valu)
-
-                async def spinshareloop():
-                    try:
-                        await valu._runShareLoop()
-                    except asyncio.CancelledError:
-                        pass
-                    except Exception:
-                        logger.exception('Error running %r', valu)
-                    finally:
-                        await valu.fini()
-
-                self.schedCoro(spinshareloop())
-
-        except (asyncio.CancelledError, Exception) as e:
-
-            logger.exception('on task:init: %r', mesg)
-
-            retn = s_common.retnexc(e)
-
-            await link.tx(
-                ('task:fini', {'task': task, 'retn': retn})
-            )

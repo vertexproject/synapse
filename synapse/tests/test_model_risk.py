@@ -537,10 +537,11 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter = { gen.ou.org vertex }
                     :mitre:attack:mitigation=M1036
             ]''')
-            self.eq('foobar', nodes[0].props['name'])
-            self.eq('BazFaz', nodes[0].props['desc'])
+            self.eq('foobar', nodes[0].get('name'))
+            self.eq('BazFaz', nodes[0].get('desc'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.nn(nodes[0].get('reporter'))
+
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
