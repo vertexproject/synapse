@@ -210,12 +210,12 @@ class SnapTest(s_t_utils.SynTest):
 
                     origGetNodeByBuid = snap.getNodeByBuid
 
-                    async def slowGetNodeByBuid(buid):
+                    async def slowGetNodeByBuid(buid, tombs=False):
                         nonlocal call_count
                         call_count += 1
                         if call_count > 0:
                             await ab_middle_event.wait()
-                        return await origGetNodeByBuid(buid)
+                        return await origGetNodeByBuid(buid, tombs=tombs)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
@@ -230,9 +230,9 @@ class SnapTest(s_t_utils.SynTest):
 
                     origGetNodeByBuid = snap.getNodeByBuid
 
-                    async def slowGetNodeByBuid(buid):
+                    async def slowGetNodeByBuid(buid, tombs=False):
                         ab_middle_event.set()
-                        return await origGetNodeByBuid(buid)
+                        return await origGetNodeByBuid(buid, tombs=tombs)
 
                     snap.getNodeByBuid = slowGetNodeByBuid
 
@@ -610,6 +610,15 @@ class SnapTest(s_t_utils.SynTest):
                     nodeedits = editor.getNodeEdits()
                     self.len(0, nodeedits)
 
+                    with self.raises(s_exc.NoSuchProp):
+                        await news.pop('newp')
+
+                    with self.raises(s_exc.ReadOnlyProp):
+                        await news.pop('.created')
+
+                    with self.raises(s_exc.NoSuchTagProp):
+                        await news.delTagProp('newp', 'newp')
+
                     snap.strict = False
                     self.false(await news.addEdge(1, fqdn.nid))
                     self.false(await news.addEdge('pwns', 1))
@@ -622,6 +631,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     tstr = await editor.addNode('test:str', 'foo')
                     self.false(await tstr.delEdge('pwns', news.nid))
+                    self.eq((None, None), tstr.getWithLayer('.seen'))
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 
@@ -629,6 +639,83 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            addq = '''[
+            inet:ipv4=1.2.3.4
+                :asn=4
+                +#foo.tag=2024
+                +#bar.tag:score=5
+                +(foo)> {[ it:dev:str=n2 ]}
+            ]
+            $node.data.set(foodata, bar)
+            '''
+            await core.nodes(addq)
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#baz.tag:score=6 ]', opts=viewopts2)
+
+            n2node = (await core.nodes('it:dev:str=n2'))[0]
+            n2nid = n2node.nid
+
+            async with await view2.snap(user=root) as snap:
+                async with snap.getEditor() as editor:
+                    node = await editor.getNodeByBuid(nodes[0].buid)
+                    self.true(await node.delEdge('foo', n2nid))
+                    self.true(await node.addEdge('foo', n2nid))
+                    self.true(await node.delEdge('foo', n2nid))
+
+                    self.true(await node.setTagProp('cool.tag', 'score', 7))
+                    self.isin('score', node.getTagProps('cool.tag'))
+                    self.isin(('score', 0), node.getTagPropsWithLayer('cool.tag'))
+                    self.eq(7, node.getTagProp('cool.tag', 'score'))
+                    self.eq((7, 0), node.getTagPropWithLayer('cool.tag', 'score'))
+
+                    self.true(await node.delTag('bar.tag'))
+                    self.true(await node.delTag('baz.tag'))
+
+                    self.none(node.getTag('bar.tag'))
+                    self.none(node.getTagProp('bar.tag', 'score'))
+                    self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+
+                    self.true(await node.set('asn', 7))
+                    self.true(await node.pop('asn'))
+                    self.none(node.get('asn'))
+                    self.eq((None, None), node.getWithLayer('asn'))
+
+                    self.eq('bar', await node.popData('foodata'))
+
+                    manynode = await editor.addNode('it:dev:str', 'manyedges')
+                    for x in range(1001):
+                        await manynode.addEdge(str(x), node.nid)
+
+                    self.eq((None, None), manynode.getTagPropWithLayer('bar.tag', 'score'))
+
+                self.len(0, await alist(nodes[0].iterEdgeVerbs(n2node.nid)))
+
+                async with snap.getEditor() as editor:
+                    node = await editor.getNodeByBuid(nodes[0].buid)
+                    self.false(await node.delEdge('foo', n2nid))
+                    await node.delEdgesN2()
+
+                    self.true(await node.set('asn', 5))
+
+                    n2node = await editor.getNodeByNid(n2nid)
+                    await n2node.delEdgesN2()
+
+                    self.false(node.istomb())
+                    await node.delete()
+                    self.true(node.istomb())
+                    await node.delete()
+
+                    newnode = await editor.addNode('it:dev:str', 'new')
+                    self.false(newnode.istomb())
+                    self.false(await newnode.delEdge('foo', n2nid))
+
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(*)- *', opts=viewopts2))
 
     async def test_snap_subs_depth(self):
 

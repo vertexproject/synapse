@@ -97,14 +97,12 @@ class ProjectEpics(s_stormtypes.Prim):
         if epic is None:
             return False
 
-        nodeedits = []
-        async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:epic', '=', epic.node.ndef[1]):
-            nodeedits.append(
-                (tick.nid, 'proj:ticket', await tick._getPropDelEdits('epic'))
-            )
-            await asyncio.sleep(0)
+        async with self.proj.runt.snap.getEditor() as editor:
+            async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:epic', '=', epic.node.ndef[1]):
+                proto = editor.loadNode(tick)
+                await proto.pop('epic')
+                await asyncio.sleep(0)
 
-        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await epic.node.delete()
         return True
 
@@ -720,14 +718,12 @@ class ProjectSprints(s_stormtypes.Prim):
 
         sprintiden = sprint.node.ndef[1]
 
-        nodeedits = []
-        async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', sprintiden):
-            nodeedits.append(
-                (tick.nid, 'proj:ticket', await tick._getPropDelEdits('sprint'))
-            )
-            await asyncio.sleep(0)
+        async with self.proj.runt.snap.getEditor() as editor:
+            async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', sprintiden):
+                proto = editor.loadNode(tick)
+                await proto.pop('sprint')
+                await asyncio.sleep(0)
 
-        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await sprint.node.delete()
         return True
 
