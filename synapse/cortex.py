@@ -280,55 +280,6 @@ class CoreApi(s_cell.CellApi):
         wlyr = view.layers[0]
         self.user.confirm(perms, gateiden=wlyr.iden)
 
-    async def addNode(self, form, valu, props=None):
-        '''
-        Deprecated in 2.0.0.
-        '''
-        s_common.deprecated('CoreApi.addNode')
-        async with await self.cell.snap(user=self.user) as snap:
-            self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
-
-                node = await snap.addNode(form, valu, props=props)
-                return node.pack()
-
-    async def addNodes(self, nodes):
-        '''
-        Add a list of packed nodes to the cortex.
-
-        Args:
-            nodes (list): [ ( (form, valu), {'props':{}, 'tags':{}}), ... ]
-
-        Yields:
-            (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
-
-        Deprecated in 2.0.0
-        '''
-        s_common.deprecated('CoreApi.addNodes')
-
-        # First check that that user may add each form
-        done = {}
-        for node in nodes:
-
-            formname = node[0][0]
-            if done.get(formname):
-                continue
-
-            await self._reqDefLayerAllowed(('node', 'add', formname))
-            done[formname] = True
-
-        async with await self.cell.snap(user=self.user) as snap:
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
-
-                snap.strict = False
-
-                async for node in snap.addNodes(nodes):
-
-                    if node is not None:
-                        node = node.pack()
-
-                    yield node
-
     async def getFeedFuncs(self):
         '''
         Get a list of Cortex feed functions.
