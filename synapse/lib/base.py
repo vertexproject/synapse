@@ -477,8 +477,6 @@ class Base:
             asyncio.Task: An asyncio.Task object.
 
         '''
-        import synapse.lib.provenance as s_provenance  # avoid import cycle
-
         if __debug__:
             assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
@@ -490,10 +488,6 @@ class Base:
         task = self.loop.create_task(coro)
 
         s_scope.clone(task)
-
-        # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
-        if asyncio.current_task():
-            s_provenance.dupstack(task)
 
         def taskDone(task):
             self._active_tasks.remove(task)
