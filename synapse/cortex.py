@@ -4564,7 +4564,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         qsize = pdef.get('queue:size')
 
         async with await s_base.Base.anit() as base:
-
             queue = s_queue.Queue(maxsize=qsize)
 
             async def fill():

@@ -3330,7 +3330,7 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_version': '>=2.8.0,<3.0.0',
+                'synapse_version': '>=3.0.0,<4.0.0',
                 'commands': ({
                                  'name': 'testcmd',
                                  'descr': 'test command',
@@ -3864,7 +3864,12 @@ class StormTest(s_t_utils.SynTest):
                         if False: yield None
                         raise s_exc.SynErr()
 
-                fake = {'iden': s_common.guid(), 'user': s_common.guid()}
+                fake = {
+                    'iden': s_common.guid(),
+                    'user': s_common.guid(),
+                    'chunk:size': 1000,
+                    'queue:size': 1000,
+                }
                 # this should fire the reader and exit cleanly when he explodes
                 await core._pushBulkEdits(LayrBork(), LayrBork(), fake)
 
