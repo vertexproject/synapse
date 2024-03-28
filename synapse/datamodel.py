@@ -122,7 +122,7 @@ class Prop:
 
         if self.deprecated or self.type.deprecated:
             async def depfunc(node, oldv):
-                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
                 await node.snap.warnonce(mesg)
             self.onSet(depfunc)
 
@@ -265,7 +265,7 @@ class Form:
 
         if self.deprecated:
             async def depfunc(node):
-                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
+                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
                 await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
 
@@ -810,7 +810,7 @@ class Model:
 
         if newtype.deprecated and typeinfo.get('custom'):
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'will be removed in 3.0.0.'
+                   f'will be removed in 4.0.0.'
             logger.warning(mesg)
 
         self.types[typename] = newtype
@@ -941,7 +941,7 @@ class Model:
 
         if univ.type.deprecated:
             mesg = f'The universal property {univ.full} is using a deprecated type {univ.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         self.props[base] = univ
@@ -976,7 +976,7 @@ class Model:
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):
-            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
+            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
             logger.warning(mesg)
 
         for propname, typedef, propinfo in iface.get('props', ()):
@@ -1015,7 +1015,7 @@ class Model:
 
         if prop.type.deprecated:
             mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         return prop

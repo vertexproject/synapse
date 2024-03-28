@@ -62,7 +62,6 @@ class StormCliOutput(s_storm.StormCli):
         self.echoline = True
         self._print_skips.append('init')
         self._print_skips.append('fini')
-        self._print_skips.append('prov:new')  # TODO: Remove in v3.0.0
         self._print_skips.append('node:edits')
         self._print_skips.append('node:edits:count')
 
