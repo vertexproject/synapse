@@ -2,6 +2,32 @@ import synapse.lib.output as s_output
 import synapse.tests.utils as s_test
 import synapse.tools.moduser as s_t_moduser
 
+userlist = '''
+Users:
+  root
+  visi
+'''.strip()
+
+userinfo = s_test.deguidify('''
+User: visi (04dddd4ff39e4ce00b36c7d526b9eac7)
+
+  Locked: False
+  Admin: False
+  Email: visi@test.com
+  Rules:
+    [0  ] - !foo.bar.baz
+    [1  ] - foo.bar
+
+  Roles:
+    576a948f9944c58d3953f0d36bc2da81 - all
+
+  Gates:
+    c7b276154c0c799430668cb3c4cd259d
+      Admin: False
+      [0  ] - !bar.baz.faz
+      [1  ] - bar.baz
+'''.strip())
+
 class ModUserTest(s_test.SynTest):
 
     async def test_tools_moduser(self):
@@ -124,6 +150,78 @@ class ModUserTest(s_test.SynTest):
             self.true(bool(visi.allowed('foo.bar.gaz'.split('.'))))
             self.false(bool(visi.allowed('foo.bar.baz'.split('.'))))
 
+            gateiden = core.getLayer().iden
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
+                '--admin', 'true',
+                '--gate', gateiden,
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_moduser.main(argv, outp=outp))
+            self.isin(f'...setting admin: true on gate {gateiden}', str(outp))
+
+            gate = await core.getAuthGate(gateiden)
+            for user in gate['users']:
+                if user['iden'] == visi.iden:
+                    self.true(user['admin'])
+
+            gateiden = core.getLayer().iden
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
+                '--admin', 'false',
+                '--allow', 'bar.baz',
+                '--deny', 'bar.baz.faz',
+                '--gate', gateiden,
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_moduser.main(argv, outp=outp))
+            self.isin(f'...setting admin: false on gate {gateiden}', str(outp))
+            self.isin(f'...adding allow rule: bar.baz on gate {gateiden}', str(outp))
+            self.isin(f'...adding deny rule: bar.baz.faz on gate {gateiden}', str(outp))
+
+            gate = await core.getAuthGate(gateiden)
+            for user in gate['users']:
+                if user['iden'] == visi.iden:
+                    self.isin((True, ('bar', 'baz')), user['rules'])
+                    self.isin((False, ('bar', 'baz', 'faz')), user['rules'])
+
+            argv = (
+                '--svcurl', svcurl,
+                '--list',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_moduser.main(argv, outp=outp))
+            self.isin(userlist, str(outp))
+
+            argv = (
+                '--svcurl', svcurl,
+                '--list',
+                'visi',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_moduser.main(argv, outp=outp))
+            self.isin(userinfo, s_test.deguidify(str(outp)))
+
+            argv = (
+                '--svcurl', svcurl,
+                '--list',
+                'newpuser',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_moduser.main(argv, outp=outp))
+            self.isin('ERROR: User not found: newpuser', str(outp))
+
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
+                '--gate', 'newp',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_moduser.main(argv, outp=outp))
+            self.isin('ERROR: No auth gate found with iden: newp', str(outp))
+
             argv = (
                 '--svcurl', svcurl,
                 'visi',
@@ -151,3 +249,10 @@ class ModUserTest(s_test.SynTest):
             outp = s_output.OutPutStr()
             self.eq(1, await s_t_moduser.main(argv, outp=outp))
             self.isin('ERROR: User not found (need --add?): visi', str(outp))
+
+            argv = (
+                '--svcurl', svcurl,
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_moduser.main(argv, outp=outp))
+            self.isin('ERROR: A username argument is required when --list is not specified.', str(outp))

@@ -24,14 +24,27 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:isic', ('str', {'regex': r'^[A-Z]([0-9]{2}[0-9]{0,2})?$'}), {
                     'doc': 'An International Standard Industrial Classification of All Economic Activities (ISIC) code.',
-                    'ex': 'C1393',
-                }),
+                    'ex': 'C1393'}),
+
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'names'}},
+                            {'type': 'prop', 'opts': {'name': 'country:code'}},
+                        ),
+                    }}),
+
                 ('ou:team', ('guid', {}), {
                     'doc': 'A GUID for a team within an organization.',
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'org::name'}},
+                        ),
+                    }}),
+
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
@@ -49,6 +62,11 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                        ),
+                    },
                 }),
                 ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
@@ -113,6 +131,12 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'start'}},
+                        ),
+                    },
                 }),
                 ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
                     'deprecated': True,
@@ -133,6 +157,11 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                        ),
+                    },
                 }),
                 ('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A goal name.',
@@ -154,16 +183,31 @@ class OuModule(s_module.CoreModule):
 
                 ('ou:campaign', ('guid', {}), {
                     'doc': "Represents an org's activity in pursuit of a goal.",
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    }}),
+
                 ('ou:conflict', ('guid', {}), {
                     'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
                 }),
                 ('ou:contribution', ('guid', {}), {
-                    'doc': 'Represents a specific instance of contributing material support to a campaign.',
-                }),
+                    'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
+
                 ('ou:technique', ('guid', {}), {
                     'doc': 'A specific technique used to achieve a goal.',
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    }}),
+
                 ('ou:technique:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
@@ -552,9 +596,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:technique', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The normalized name of the technique.'}),
-                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True,
-                                         'typeopts': {'lower': True, 'onespace': True}}), {
-                        'doc': 'An array of alternate names for the technique.'}),
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
                     ('sophistication', ('meta:sophistication', {}), {

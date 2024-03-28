@@ -832,7 +832,7 @@ class Proxy(s_base.Base):
 
                         mesg = await link.rx()
                         if mesg is None:
-                            raise s_exc.LinkShutDown(mesg=mesg)
+                            raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
 
                         if mesg[0] != 't2:yield':  # pragma: no cover
                             info = 'Telepath protocol violation:  unexpected message received'
@@ -868,6 +868,8 @@ class Proxy(s_base.Base):
 
         if self.sess is not None:
             return await self.taskv2(todo, name=name)
+
+        s_common.deprecated('Telepath task with no session', curv='2.166.0')
 
         task = Task()
 
@@ -1017,13 +1019,11 @@ class Pool(s_base.Base):
 
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
-        svcinfo = mesg[1].get('svcinfo')
-        urlinfo = mergeAhaInfo(self.urlinfo, svcinfo.get('urlinfo', {}))
 
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        # one-off default user to root
+        urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
         self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
@@ -1039,6 +1039,8 @@ class Pool(s_base.Base):
 
         async def onfini():
             self.proxies.remove(proxy)
+            if proxy in self.deque:
+                self.deque.remove(proxy)
             if not len(self.proxies):
                 self.ready.clear()
 

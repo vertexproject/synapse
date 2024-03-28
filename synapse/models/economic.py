@@ -77,7 +77,7 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A balance contained by a bank account at a point in time.'}),
 
                 ('econ:bank:statement', ('guid', {}), {
-                    'doc': 'A statement of bank account payment activity over a period of time'}),
+                    'doc': 'A statement of bank account payment activity over a period of time.'}),
 
                 ('econ:bank:aba:rtn', ('str', {'regex': '[0-9]{9}'}), {
                     'doc': 'An American Bank Association (ABA) routing transit number (RTN).'}),

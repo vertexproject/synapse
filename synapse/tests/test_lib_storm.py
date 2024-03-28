@@ -1262,7 +1262,7 @@ class StormTest(s_t_utils.SynTest):
                 query = await core.getStormQuery('')
                 async with snap.getStormRuntime(query) as runt:
                     with self.raises(s_exc.AuthDeny):
-                        runt.reqAdmin(gateiden='cortex')
+                        runt.reqAdmin(gateiden=layr)
 
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -2438,6 +2438,18 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag this is')
 
+        async with self.getTestCore() as core:
+            await core.nodes('[ syn:tag=hehe :isnow=haha ]')
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('haha.qwer'))
+            self.none(nodes[0].getTag('hehe.qwer'))
+            self.len(1, await core.nodes('syn:tag=haha.qwer'))
+
+            # this should hit the already existing redirected tag now...
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
+
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
@@ -3410,7 +3422,6 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=2.8.0,<3.0.0',
                 'commands': ({
                                  'name': 'testcmd',
