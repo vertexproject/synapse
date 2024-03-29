@@ -20,7 +20,6 @@ import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
@@ -4512,7 +4511,6 @@ class StormTypesTest(s_test.SynTest):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
-        s_provenance.reset()
 
         def timetime():
             return unixtime

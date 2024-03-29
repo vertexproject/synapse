@@ -16,7 +16,6 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -814,72 +813,71 @@ class Agenda(s_base.Base):
         }
         await self.core.addCronEdits(appt.iden, edits)
 
-        with s_provenance.claim('cron', iden=appt.iden):
-            logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                        extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                           'username': user.name, 'view': appt.view}})
-            starttime = self._getNowTick()
-            success = False
-            try:
-                opts = {
-                    'user': user.iden,
-                    'view': appt.view,
-                    'mirror': appt.pool,
-                    'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
-                }
-                opts = self.core._initStormOpts(opts)
+        logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
+                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
+                                       'username': user.name, 'view': appt.view}})
+        starttime = self._getNowTick()
+        success = False
+        try:
+            opts = {
+                'user': user.iden,
+                'view': appt.view,
+                'mirror': appt.pool,
+                'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
+            }
+            opts = self.core._initStormOpts(opts)
 
-                await self.core.feedBeholder('cron:start', {'iden': appt.iden})
+            await self.core.feedBeholder('cron:start', {'iden': appt.iden})
 
-                async for mesg in self.core.storm(appt.query, opts=opts):
+            async for mesg in self.core.storm(appt.query, opts=opts):
 
-                    if mesg[0] == 'node':
-                        count += 1
+                if mesg[0] == 'node':
+                    count += 1
 
-                    elif mesg[0] == 'err':
-                        excname, errinfo = mesg[1]
-                        # TOOD should these even come out of the storm runtime anymore?
-                        errinfo.pop('eline', None)
-                        errinfo.pop('efile', None)
-                        excctor = getattr(s_exc, excname, s_exc.SynErr)
-                        raise excctor(**errinfo)
+                elif mesg[0] == 'err':
+                    excname, errinfo = mesg[1]
+                    # TOOD should these even come out of the storm runtime anymore?
+                    errinfo.pop('eline', None)
+                    errinfo.pop('efile', None)
+                    excctor = getattr(s_exc, excname, s_exc.SynErr)
+                    raise excctor(**errinfo)
 
-            except asyncio.CancelledError:
-                result = 'cancelled'
-                raise
+        except asyncio.CancelledError:
+            result = 'cancelled'
+            raise
 
-            except Exception as e:
-                result = f'raised exception {e}'
-                logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                                 extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
-                                 )
-            else:
-                success = True
-                result = f'finished successfully with {count} nodes'
+        except Exception as e:
+            result = f'raised exception {e}'
+            logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
+                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                             )
+        else:
+            success = True
+            result = f'finished successfully with {count} nodes'
 
-            finally:
-                finishtime = self._getNowTick()
-                if not success:
-                    appt.lasterrs.append(result)
-                    edits = {
-                        'errcount': appt.errcount + 1,
-                        # we only care about the last five errors
-                        'lasterrs': list(appt.lasterrs[-5:]),
-                    }
-                    await self.core.addCronEdits(appt.iden, edits)
-
-                took = finishtime - starttime
-                mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
-                       f'took {took:.3f}s'
-                logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                     'result': result, 'username': user.name, 'took': took}})
+        finally:
+            finishtime = self._getNowTick()
+            if not success:
+                appt.lasterrs.append(result)
                 edits = {
-                    'lastfinishtime': finishtime,
-                    'isrunning': False,
-                    'lastresult': result,
+                    'errcount': appt.errcount + 1,
+                    # we only care about the last five errors
+                    'lasterrs': list(appt.lasterrs[-5:]),
                 }
                 await self.core.addCronEdits(appt.iden, edits)
 
-                if not self.isfini:
-                    # fire beholder event before invoking nexus change (in case readonly)
-                    await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+            took = finishtime - starttime
+            mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
+                   f'took {took:.3f}s'
+            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
+                                                 'result': result, 'username': user.name, 'took': took}})
+            edits = {
+                'lastfinishtime': finishtime,
+                'isrunning': False,
+                'lastresult': result,
+            }
+            await self.core.addCronEdits(appt.iden, edits)
+
+            if not self.isfini:
+                # fire beholder event before invoking nexus change (in case readonly)
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
