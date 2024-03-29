@@ -212,7 +212,7 @@ class StormCmd(s_cli.Cmd):
                    * nodeedits (default),
                    * count (just counts of nodeedits), or
                    * none (no such messages emitted).
-        --show-prov:  Show provenance messages.
+        --show-prov:  Deprecated. This no longer does anything.
         --raw: Print the nodes in their raw format. This overrides --hide-tags and --hide-props.
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
@@ -256,7 +256,6 @@ class StormCmd(s_cli.Cmd):
             'err': self._onErr,
             'node:edits': self._onNodeEdits,
             'node:edits:count': self._onNodeEditsCount,
-            'prov:new': self._onProvNew,  # TODO remove in 3.0.0
         }
         self._indented = False
 
@@ -280,10 +279,6 @@ class StormCmd(s_cli.Cmd):
         count = mesg[1].get('count', 1)
         s_cli.Cmd.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
         self._indented = True
-
-    def _onProvNew(self, mesg, opts):
-        if opts.get('show-prov'):
-            self.printf(repr(mesg), color=PROVNEW_COLOR)
 
     def _printNodeProp(self, name, valu):
         self.printf(f'        {name} = {valu}')
