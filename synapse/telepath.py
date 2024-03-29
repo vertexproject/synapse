@@ -100,18 +100,20 @@ def zipurl(info):
     if path:
         url += f'{path}'
 
-    if info:
-        params = '&'.join([f'{k}={v}' for (k, v) in info.items()])
+    query = info.get('query')
+    if query:
+        params = '&'.join([f'{k}={v}' for (k, v) in query.items()])
         url += f'?{params}'
 
     return url
 
 def modurl(url, **info):
+
     if isinstance(url, str):
         urlinfo = chopurl(url)
-        for k, v in info.items():
-            urlinfo[k] = v
+        urlinfo['query'].update(info)
         return zipurl(urlinfo)
+
     return [modurl(u, **info) for u in url]
 
 def mergeAhaInfo(info0, info1):
@@ -137,23 +139,14 @@ def mergeAhaInfo(info0, info1):
 
 async def open(url, timeout=None):
     '''
-    Open a new telepath Client (or AHA Service Pool) based on the given URL.
+    Open a telepath ClientV2
     '''
     # backward compatible support for a list of URLs or urlinfo dicts...
     if isinstance(url, (tuple, list)): # pragma: no cover
         return await Client.anit(url)
 
     urlinfo = chopurl(url)
-
-    if urlinfo.get('scheme') == 'aha':
-
-        ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=timeout)
-
-        # check if we should return a Pool rather than a Client :)
-        if ahasvc.get('services'):
-            return await Pool.anit(ahaclient, ahasvc, urlinfo)
-
-    return await Client.anit(urlinfo)
+    return await ClientV2.anit(urlinfo)
 
 async def _getAhaSvc(urlinfo, timeout=None):
 
@@ -982,21 +975,31 @@ class Proxy(s_base.Base):
         setattr(self, name, meth)
         return meth
 
-class Pool(s_base.Base):
+class ClientV2(s_base.Base):
     '''
     A telepath client which:
         * connects to multiple services
         * distributes API calls across them
         * receives topology updates from AHA
     '''
-    async def __anit__(self, aha, ahasvc, urlinfo):
+    async def __anit__(self, urlinfo, onlink=None):
+
         await s_base.Base.__anit__(self)
+
+        self.aha = None
+
         self.clients = {}
         self.proxies = set()
 
-        self.aha = aha
-        self.ahasvc = ahasvc
+        self.poolname = None
+
+        self.onlink = onlink
         self.urlinfo = urlinfo
+        self.timeout = None
+
+        timeout = getParamFromInfo(urlinfo, 'timeout')
+        if timeout is not None:
+            self.timeout = int(timeout)
 
         self.ready = asyncio.Event()
         self.deque = collections.deque()
@@ -1005,7 +1008,6 @@ class Pool(s_base.Base):
             'svc:add': self._onPoolSvcAdd,
             'svc:del': self._onPoolSvcDel,
         }
-        self.schedCoro(self._toposync())
 
         async def fini():
             await self._shutDownPool()
@@ -1014,8 +1016,53 @@ class Pool(s_base.Base):
 
         self.onfini(fini)
 
+        self.schedCoro(self._initBootProxy())
+
+    async def _initBootProxy(self):
+
+        await self._shutDownPool()
+
+        lastlog = 0.0
+        while not self.isfini:
+
+            try:
+
+                if self.urlinfo.get('scheme') == 'aha':
+
+                    self.aha, svcinfo = await _getAhaSvc(self.urlinfo)
+
+                    # detect if we are a pool
+                    services = svcinfo.get('services')
+                    if services is not None:
+                        # we are an AHA pool!
+                        if self.poolname is None:
+                            self.poolname = svcinfo.get('name')
+                            self.schedCoro(self._toposync())
+                        return
+
+                # we have only one link in the pool...
+                proxy = await self.openinfo(self.urlinfo)
+                await self._onPoolLink(proxy)
+
+                proxy.onfini(self._initBootProxy)
+
+            except Exception as e:
+                now = time.monotonic()
+                if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
+                    url = s_urlhelp.sanitizeUrl(zipurl(self.urlinfo))
+                    logger.exception(f'telepath client v2 ({url}) encountered an error: {e}')
+                    lastlog = now
+                await self.waitfini(timeout=self.urlinfo.get('retrysleep', 0.2))
+
+    async def waitready(self, timeout=None):
+
+        if timeout is None:
+            timeout = self.timeout
+
+        await s_common.wait_for(self.ready.wait(), timeout=timeout)
+
     def size(self):
-        return len(self.clients)
+        return len(self.proxies)
 
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
@@ -1023,12 +1070,14 @@ class Pool(s_base.Base):
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
+        print(f'ON POOL SVC ADD {svcname}')
+        urlinfo = {'scheme': 'aha', 'host': svcname}
         self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
     async def _onPoolSvcDel(self, mesg):
         svcname = mesg[1].get('name')
+        print(f'ON POOL SVC DEL {svcname}')
         client = self.clients.pop(svcname, None)
         if client is not None:
             await client.fini()
@@ -1067,14 +1116,12 @@ class Pool(s_base.Base):
 
         while not self.isfini:
 
-            poolname = self.ahasvc.get('name')
-
             try:
                 ahaproxy = await self.aha.proxy()
 
                 await reset()
 
-                async for mesg in ahaproxy.iterPoolTopo(poolname):
+                async for mesg in ahaproxy.iterPoolTopo(self.poolname):
                     hand = self.mesghands.get(mesg[0])
                     if hand is None: # pragma: no cover
                         logger.warning(f'Unknown AHA pool topography message: {mesg}')
@@ -1147,6 +1194,7 @@ class Client(s_base.Base):
         self._t_conf = conf
 
         self._t_proxy = None
+
         self._t_ready = asyncio.Event()
         self._t_onlinks = []
         self._t_methinfo = None
@@ -1212,8 +1260,10 @@ class Client(s_base.Base):
         return ret
 
     async def _initTeleLink(self, urlinfo):
+
         info = urlinfo.copy()
         info.update(self._t_opts)
+
         self._t_proxy = await openinfo(info)
         self._t_methinfo = self._t_proxy.methinfo
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
@@ -1374,9 +1424,63 @@ async def openurl(url, **opts):
     info = chopurl(url, **opts)
     return await openinfo(info)
 
+def getPortFromInfo(urlinfo):
+    # check if there is a url param
+    query = urlinfo.get('query')
+    if query is not None:
+        port = query.get('port')
+        if port is not None:
+            return int(port)
+
+    return urlinfo.get('port', 27492)
+
+def getHostFromInfo(urlinfo):
+    # check if there is a url param
+    query = urlinfo.get('query')
+    if query is not None:
+        host = query.get('host')
+        if host is not None:
+            return host
+
+    return urlinfo.get('host')
+
+def getNameFromInfo(urlinfo):
+
+    # check if there is a url param
+    query = urlinfo.get('query')
+    if query is not None:
+        name = query.get('name')
+        if name is not None:
+            return name
+
+    # get the object name from the urlinfo (default: *)
+    scheme = urlinfo.get('scheme')
+    if scheme in ('cell', 'unix'):
+        path = urlinfo.get('path', '')
+        if path.find(':') != -1:
+            return path.split(':', 1)[1]
+
+    elif scheme in ('aha', 'ssl', 'tcp'):
+        path = urlinfo.get('path', '').strip('/')
+        if path:
+            return path
+
+    return None
+
+def getParamFromInfo(urlinfo, name, defv=None):
+    # check if there is a url param
+    query = urlinfo.get('query')
+    if query is not None:
+        item = query.get(name)
+        if item is not None:
+            return item
+
+    return urlinfo.get(name, defv)
+
 def chopurl(url, **opts):
 
     if isinstance(url, str):
+
         if url.find('://') == -1:
             newurl = alias(url)
             if newurl is None:
@@ -1386,11 +1490,6 @@ def chopurl(url, **opts):
 
         info = s_urlhelp.chopurl(url)
 
-        # flatten query params into info
-        query = info.pop('query', None)
-        if query is not None:
-            info.update(query)
-
     elif isinstance(url, dict):
         info = dict(url)
 
@@ -1398,7 +1497,8 @@ def chopurl(url, **opts):
         mesg = 'telepath.chopurl() requires a str or dict.'
         raise s_exc.BadArg(mesg)
 
-    info.update(opts)
+    info.setdefault('query', {})
+    info['query'].update(opts)
 
     return info
 
@@ -1409,110 +1509,92 @@ class TeleSSLObject(ssl.SSLObject):
         self.context.telessl = self
         return ssl.SSLObject.do_handshake(self)
 
-async def openinfo(info):
+def getUnixPathFromInfo(urlinfo):
+    path = urlinfo.get('path').split(':', 1)[0]
+    # if a host was parsed, the path is absolute
+    # relative: unix://bar/baz
+    # absolute: unix:///bar/baz
+    host = urlinfo.get('host')
+    if not host:
+        return path
+
+    path = path.strip('/')
+    return os.path.join(host, path)
+
+async def getLinkFromInfo(info):
 
     scheme = info.get('scheme')
 
-    if scheme == 'aha':
+    if scheme == 'cell':
+        path = getUnixPathFromInfo(info)
+        full = os.path.join(path, 'sock')
+        return await s_link.unixconnect(full)
+
+    if scheme == 'unix':
+        path = _getUnixPathFromInfo(info)
+        return await s_link.unixconnect(path)
+
+    host = getHostFromInfo(info)
+    port = getPortFromInfo(info)
+
+    linkinfo = {}
+
+    if scheme == 'ssl':
+
+        user = getParamFromInfo(info, 'user')
+        passwd = getParamFromInfo(info, 'passwd')
+
+        query = info.get('query')
+
+        certdir = getParamFromInfo(info, 'certdir')
+        certhash = getParamFromInfo(info, 'certhash')
+        certname = getParamFromInfo(info, 'certname')
+        hostname = getParamFromInfo(info, 'hostname', defv=host)
+
+        linkinfo['certhash'] = certhash
+        linkinfo['hostname'] = hostname
+
+        if certdir is None:
+            certdir = s_certdir.getCertDir()
+
+        # if a TLS connection specifies a user with no password
+        # attempt to auto-resolve a user certificate for the given
+        # host/network.
+        if certname is None and user is not None and passwd is None:
+            certname = f'{user}@{hostname}'
+
+        if certhash is None:
+            sslctx = certdir.getClientSSLContext(certname=certname)
+        else:
+            sslctx = ssl.create_default_context()
+            sslctx.check_hostname = False
+            sslctx.verify_mode = ssl.CERT_NONE
+            sslctx.sslobject_class = TeleSSLObject
+
+        # do hostname checking manually to avoid DNS lookups
+        # ( to support dynamic IP addresses on services )
+        sslctx.check_hostname = False
+
+        linkinfo['ssl'] = sslctx
+
+    return await s_link.connect(host, port, linkinfo=linkinfo)
+
+async def openinfo(info):
+
+    if info.get('scheme') == 'aha':
         return await getAhaProxy(info)
 
-    if '+' in scheme:
-        scheme, disc = scheme.split('+', 1)
-        if disc == 'consul':  # pragma: no cover
-            raise s_exc.FeatureNotSupported(mesg='Consul is no longer supported.')
-        else:
-            raise s_exc.BadUrl(mesg=f'Unknown discovery protocol [{disc}].',
-                               disc=disc)
+    name = getNameFromInfo(info)
+    link = await getLinkFromInfo(info)
 
-    host = info.get('host')
-    port = info.get('port')
+    prox = await Proxy.anit(link, name)
+    prox.onfini(link)
 
     auth = None
-
     user = info.get('user')
     if user is not None:
         passwd = info.get('passwd')
         auth = (user, {'passwd': passwd})
-
-    if scheme == 'cell':
-        # cell:///path/to/celldir:share
-        # cell://rel/path/to/celldir:share
-        path = info.get('path')
-
-        name = info.get('name', '*')
-
-        # support cell://<relpath>/<to>/<cell>
-        # by detecting host...
-        host = info.get('host')
-        if host:
-            path = path.strip('/')
-            path = os.path.join(host, path)
-
-        if ':' in path:
-            path, name = path.split(':')
-
-        full = os.path.join(path, 'sock')
-        link = await s_link.unixconnect(full)
-
-    elif scheme == 'unix':
-        # unix:///path/to/sock:share
-        name = '*'
-        path = info.get('path')
-        if ':' in path:
-            path, name = path.split(':')
-        link = await s_link.unixconnect(path)
-
-    else:
-
-        path = info.get('path')
-        name = info.get('name', path[1:])
-
-        if port is None:
-            port = 27492
-
-        hostname = None
-
-        sslctx = None
-
-        linkinfo = {}
-
-        if scheme == 'ssl':
-
-            certdir = info.get('certdir')
-            certhash = info.get('certhash')
-            certname = info.get('certname')
-            hostname = info.get('hostname', host)
-
-            linkinfo['certhash'] = certhash
-            linkinfo['hostname'] = hostname
-
-            if certdir is None:
-                certdir = s_certdir.getCertDir()
-
-            # if a TLS connection specifies a user with no password
-            # attempt to auto-resolve a user certificate for the given
-            # host/network.
-            if certname is None and user is not None and passwd is None:
-                certname = f'{user}@{hostname}'
-
-            if certhash is None:
-                sslctx = certdir.getClientSSLContext(certname=certname)
-            else:
-                sslctx = ssl.create_default_context()
-                sslctx.check_hostname = False
-                sslctx.verify_mode = ssl.CERT_NONE
-                sslctx.sslobject_class = TeleSSLObject
-
-            # do hostname checking manually to avoid DNS lookups
-            # ( to support dynamic IP addresses on services )
-            sslctx.check_hostname = False
-
-            linkinfo['ssl'] = sslctx
-
-        link = await s_link.connect(host, port, linkinfo=linkinfo)
-
-    prox = await Proxy.anit(link, name)
-    prox.onfini(link)
 
     try:
         await prox.handshake(auth=auth)

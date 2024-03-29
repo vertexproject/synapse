@@ -1169,9 +1169,6 @@ class AhaTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
 
-                    with self.raises(s_exc.BadArg):
-                        await s_telepath.open('aha://pool00...')
-
                     msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)

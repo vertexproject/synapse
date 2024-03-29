@@ -7816,6 +7816,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
 
+                    await core00.stormpool.waitready(timeout=4)
+
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])

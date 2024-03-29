@@ -909,6 +909,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormpool = None
         self.stormpoolurl = None
         self.stormpoolopts = None
+        self.stormpoolready = asyncio.Event()
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1481,20 +1482,34 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.finiStormPool()
 
     async def initStormPool(self):
+        self.stormpoolready.clear()
+        self.runActiveTask(self._initStormPool())
 
-        byts = self.slab.get(b'storm:pool', db='cell:conf')
-        if byts is None:
-            return
+    async def _initStormPool(self):
 
-        url, opts = s_msgpack.un(byts)
+        while True:
 
-        self.stormpoolurl = url
-        self.stormpoolopts = opts
+            try:
 
-        self.stormpool = await s_telepath.open(url)
+                byts = self.slab.get(b'storm:pool', db='cell:conf')
+                if byts is None:
+                    return
 
-        # make this one a fini weakref vs the fini() handler
-        self.onfini(self.stormpool)
+                url, opts = s_msgpack.un(byts)
+
+                self.stormpoolurl = url
+                self.stormpoolopts = opts
+
+                self.stormpool = await s_telepath.open(url)
+                self.stormpoolready.set()
+
+                # make this one a fini weakref vs the fini() handler
+                self.onfini(self.stormpool)
+                return
+
+            except Exception as e:
+                logger.exception(f'Error starting storm pool: {str(e)}')
+                await asyncio.sleep(2)
 
     async def finiStormPool(self):
 
@@ -5290,14 +5305,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return mirropts
 
     async def _getMirrorProxy(self):
-        if isinstance(self.stormpool, s_telepath.Pool) and self.stormpool.size() == 0:
-            mesg = 'Storm query mirror pool is empty, running locally instead.'
-            logger.warning(mesg)
+
+        if self.stormpool is None:
+            return None
+
+        if self.stormpool.size() == 0:
+            logger.warning('Storm query mirror pool is empty, running locally instead.')
             return None
 
         proxy = None
         try:
             timeout = self.stormpoolopts.get('timeout:connection')
+            print(f'TIMEOUT {timeout}')
             proxy = await self.stormpool.proxy(timeout=timeout)
             proxyname = proxy._ahainfo.get('name')
             if proxyname is not None and proxyname == self.ahasvcname:

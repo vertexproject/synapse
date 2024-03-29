@@ -269,12 +269,11 @@ class Daemon(s_base.Base):
             port (int): The TCP port to bind.
         '''
         info = s_telepath.chopurl(url, **opts)
-        info.update(opts)
 
         scheme = info.get('scheme')
 
         if scheme == 'unix':
-            path = info.get('path')
+            path = s_telepath.getUnixPathFromInfo(info)
             try:
                 server = await s_link.unixlisten(path, self._onLinkInit)
             except Exception as e:
@@ -284,17 +283,14 @@ class Daemon(s_base.Base):
 
         else:
 
-            host = info.get('host')
-            port = info.get('port')
-
-            if port is None:
-                port = 27492
+            host = s_telepath.getHostFromInfo(info)
+            port = s_telepath.getPortFromInfo(info)
 
             sslctx = None
             if scheme == 'ssl':
 
-                caname = info.get('ca')
-                hostname = info.get('hostname', host)
+                caname = s_telepath.getParamFromInfo(info, 'ca')
+                hostname = s_telepath.getParamFromInfo(info, 'hostname', defv=host)
 
                 sslctx = self.certdir.getServerSSLContext(hostname=hostname, caname=caname)
 
