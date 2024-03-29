@@ -1304,8 +1304,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                        'doc': 'An SSL certificate file served by a server.',
-                        'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:tls:servercert or inet:tls:clientcert',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -1496,7 +1496,17 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A JA3 sample taken from a server.'}),
 
                     ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'hash:md5'))}), {
-                        'doc': 'A JA3 sample taken from a client.'})
+                        'doc': 'A JA3 sample taken from a client.'}),
+
+                    ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An x509 certificate used by a server for TLS.',
+                        'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
+                    }),
+
+                    ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An x509 certificate used by a client for TLS.',
+                        'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
+                    }),
                 ),
 
                 'interfaces': (
@@ -3277,6 +3287,24 @@ class InetModule(s_module.CoreModule):
                         ('ja3', ('hash:md5', {}), {
                             'ro': True,
                             'doc': "The JA3 hash computed from the client's TLS hello packet."})
+                    )),
+
+                    ('inet:tls:servercert', {}, (
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server associated with the x509 certificate.'}),
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The x509 certificate used by the server.'})
+                    )),
+
+                    ('inet:tls:clientcert', {}, (
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client associated with the x509 certificate.'}),
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The x509 certificate used by the client.'})
                     )),
                 ),
             }),
