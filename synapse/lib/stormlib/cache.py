@@ -12,6 +12,9 @@ CACHE_SIZE_DEFAULT = 10_000
 
 @s_stormtypes.registry.registerLib
 class LibCache(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with Cache Objects.
+    '''
     _storm_locals = (
         {'name': 'fixed', 'desc': '''
             Get a new Fixed Cache object.
@@ -66,6 +69,9 @@ class LibCache(s_stormtypes.Lib):
 
 @s_stormtypes.registry.registerType
 class FixedCache(s_stormtypes.StormType):
+    '''
+    A StormLib API instance of a Storm Fixed Cache.
+    '''
     _storm_locals = (
         {'name': 'get', 'desc': 'Get an item from the cache by key.',
          'type': {'type': 'function', '_funcname': '_methGet',
