@@ -1504,7 +1504,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
-                        'doc': 'An x509 certificate used by a client for TLS.',
+                        'doc': 'An x509 certificate sent by a client for TLS.',
                         'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
                     }),
                 ),
