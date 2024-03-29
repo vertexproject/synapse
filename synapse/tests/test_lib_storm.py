@@ -2154,7 +2154,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Max recursion fail
             q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            await self.asyncraises(s_exc.RecursionLimitHit, core.nodes(q))
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
@@ -2361,6 +2361,18 @@ class StormTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag this is')
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ syn:tag=hehe :isnow=haha ]')
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('haha.qwer'))
+            self.none(nodes[0].getTag('hehe.qwer'))
+            self.len(1, await core.nodes('syn:tag=haha.qwer'))
+
+            # this should hit the already existing redirected tag now...
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
 
         # Sad path
         async with self.getTestCore() as core:

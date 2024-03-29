@@ -36,7 +36,6 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -3250,13 +3249,14 @@ class LibFeed(Lib):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
-        with s_provenance.claim('feed:data', name=name):
-            #  small work around for the feed API consistency
-            if name == 'syn.nodes':
-                async for node in self.runt.snap.addNodes(data):
-                    yield node
-                return
-            await self.runt.snap.addFeedData(name, data)
+
+        #  small work around for the feed API consistency
+        if name == 'syn.nodes':
+            async for node in self.runt.snap.addNodes(data):
+                yield node
+            return
+
+        await self.runt.snap.addFeedData(name, data)
 
     @stormfunc(readonly=True)
     async def _libList(self):
@@ -3268,11 +3268,12 @@ class LibFeed(Lib):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
-        with s_provenance.claim('feed:data', name=name):
-            strict = self.runt.snap.strict
-            self.runt.snap.strict = False
-            await self.runt.snap.addFeedData(name, data)
-            self.runt.snap.strict = strict
+
+        # TODO this should be a reentrent safe with block
+        strict = self.runt.snap.strict
+        self.runt.snap.strict = False
+        await self.runt.snap.addFeedData(name, data)
+        self.runt.snap.strict = strict
 
 @registry.registerLib
 class LibPipe(Lib):

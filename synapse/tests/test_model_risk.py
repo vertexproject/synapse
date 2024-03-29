@@ -435,6 +435,8 @@ class RiskModelTest(s_t_utils.SynTest):
                 :public:url=https://wikileaks.org/acme
                 :reporter={ gen.ou.org vertex }
                 :reporter:name=vertex
+                :size:bytes=99
+                :extortion=*
             ]''')
             self.len(1, nodes)
             self.eq('wikileaks acme leak', nodes[0].get('name'))
@@ -442,9 +444,11 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1698883200000, nodes[0].get('disclosed'))
             self.eq('public.', nodes[0].get('type'))
             self.eq(1, nodes[0].get('public'))
+            self.eq(99, nodes[0].get('size:bytes'))
             self.eq('https://wikileaks.org/acme', nodes[0].get('public:url'))
             self.eq('vertex', nodes[0].get('reporter:name'))
 
+            self.len(1, await core.nodes('risk:leak -> risk:extortion'))
             self.len(1, await core.nodes('risk:leak -> risk:leak:type:taxonomy'))
             self.len(1, await core.nodes('risk:leak :owner -> ps:contact +:orgname=acme'))
             self.len(1, await core.nodes('risk:leak :leaker -> ps:contact +:orgname=wikileaks'))
@@ -454,6 +458,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[ risk:extortion=*
                 :demanded=20231102
+                :deadline=20240329
                 :name="APT99 Extorted     ACME"
                 :desc="APT99 extorted ACME for a zillion vertex coins."
                 :type=fingain
@@ -474,6 +479,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('apt99 extorted acme', nodes[0].get('name'))
             self.eq('APT99 extorted ACME for a zillion vertex coins.', nodes[0].get('desc'))
             self.eq(1698883200000, nodes[0].get('demanded'))
+            self.eq(1711670400000, nodes[0].get('deadline'))
             self.eq('fingain.', nodes[0].get('type'))
             self.eq(1, nodes[0].get('public'))
             self.eq(1, nodes[0].get('success'))

@@ -190,6 +190,27 @@ class ProtoNode:
         if tagnode is not s_common.novalu:
             return self.ctx.loadNode(tagnode)
 
+        # check for an :isnow tag redirection in our hierarchy...
+        toks = info.get('toks')
+        for i in range(len(toks)):
+
+            toktag = '.'.join(toks[:i + 1])
+            toknode = await self.ctx.snap.getTagNode(toktag)
+            if toknode is s_common.novalu:
+                continue
+
+            tokvalu = toknode.ndef[1]
+            if tokvalu == toktag:
+                continue
+
+            realnow = tokvalu + norm[len(toktag):]
+            tagnode = await self.ctx.snap.getTagNode(realnow)
+            if tagnode is not s_common.novalu:
+                return self.ctx.loadNode(tagnode)
+
+            norm, info = await self.ctx.snap.getTagNorm(realnow)
+            break
+
         return await self.ctx.addNode('syn:tag', norm, norminfo=info)
 
     def getTag(self, tag):

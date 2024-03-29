@@ -24,7 +24,6 @@ import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmprvalu, undef
@@ -1211,33 +1210,32 @@ class CmdOper(Oper):
             mesg = f'Command ({name}) is not marked safe for readonly use.'
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
-        with s_provenance.claim('stormcmd', name=name):
-            async def genx():
+        async def genx():
 
-                async for node, path in genr:
-                    argv = await self.kids[1].compute(runt, path)
-                    if not await scmd.setArgv(argv):
-                        raise s_stormctrl.StormExit()
+            async for node, path in genr:
+                argv = await self.kids[1].compute(runt, path)
+                if not await scmd.setArgv(argv):
+                    raise s_stormctrl.StormExit()
 
-                    yield node, path
+                yield node, path
 
-            # must pull through the genr to get opts set
-            # ( many commands expect self.opts is set at run() )
-            genr, empty = await pullone(genx())
+        # must pull through the genr to get opts set
+        # ( many commands expect self.opts is set at run() )
+        genr, empty = await pullone(genx())
 
-            try:
-                if runtsafe:
-                    argv = await self.kids[1].compute(runt, None)
-                    if not await scmd.setArgv(argv):
-                        raise s_stormctrl.StormExit()
+        try:
+            if runtsafe:
+                argv = await self.kids[1].compute(runt, None)
+                if not await scmd.setArgv(argv):
+                    raise s_stormctrl.StormExit()
 
-                if runtsafe or not empty:
-                    async with contextlib.aclosing(scmd.execStormCmd(runt, genr)) as agen:
-                        async for item in agen:
-                            yield item
+            if runtsafe or not empty:
+                async with contextlib.aclosing(scmd.execStormCmd(runt, genr)) as agen:
+                    async for item in agen:
+                        yield item
 
-            finally:
-                await genr.aclose()
+        finally:
+            await genr.aclose()
 
 class SetVarOper(Oper):
 
