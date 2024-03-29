@@ -1499,7 +1499,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A JA3 sample taken from a client.'}),
 
                     ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
-                        'doc': 'An x509 certificate used by a server for TLS.',
+                        'doc': 'An x509 certificate sent by a server for TLS.',
                         'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
                     }),
 
