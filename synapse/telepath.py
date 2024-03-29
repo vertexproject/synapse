@@ -150,7 +150,7 @@ async def open(url, timeout=None):
 
 async def _getAhaSvc(urlinfo, timeout=None):
 
-    host = urlinfo.get('host')
+    host = getHostFromInfo(urlinfo)
     if host is None:
         mesg = f'AHA urlinfo has no host: {urlinfo}'
         raise s_exc.NoSuchName(mesg=mesg)
@@ -161,9 +161,10 @@ async def _getAhaSvc(urlinfo, timeout=None):
 
     errs = []
     for ahaurl, cnfo in list(aha_clients.items()):
+
         client = cnfo.get('client')
         if client is None:
-            client = await Client.anit(ahaurl)
+            client = await ClientV2.anit(ahaurl)
             client._fini_atexit = True
             cnfo['client'] = client
 
@@ -176,8 +177,9 @@ async def _getAhaSvc(urlinfo, timeout=None):
             synvers = cellinfo['synapse']['version']
 
             if synvers >= (2, 95, 0):
+                mirror = getParamFromInfo(urlinfo, 'mirror', defv='false')
                 kwargs['filters'] = {
-                    'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
+                    'mirror': bool(s_common.yamlloads(mirror)),
                 }
 
             ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
@@ -981,10 +983,20 @@ class ClientV2(s_base.Base):
         * connects to multiple services
         * distributes API calls across them
         * receives topology updates from AHA
+
+    NOTE: This must co-exist with Client until we eliminate uses that
+          attempt to call telepath APIs directly from the Client rather
+          than awaiting a proxy()
     '''
     async def __anit__(self, urlinfo, onlink=None):
 
         await s_base.Base.__anit__(self)
+
+        # some ugly stuff in order to be backward compatible...
+        if not isinstance(urlinfo, (list, tuple)):
+            urlinfo = (urlinfo,)
+
+        urlinfo = [chopurl(u) for u in urlinfo]
 
         self.aha = None
 
@@ -994,12 +1006,11 @@ class ClientV2(s_base.Base):
         self.poolname = None
 
         self.onlink = onlink
-        self.urlinfo = urlinfo
         self.timeout = None
 
-        timeout = getParamFromInfo(urlinfo, 'timeout')
-        if timeout is not None:
-            self.timeout = int(timeout)
+        self.booturls = urlinfo
+        self.bootdeque = collections.deque()
+        self.bootdeque.extend(self.booturls)
 
         self.ready = asyncio.Event()
         self.deque = collections.deque()
@@ -1018,6 +1029,11 @@ class ClientV2(s_base.Base):
 
         self.schedCoro(self._initBootProxy())
 
+    def getNextBootUrl(self):
+        if not self.bootdeque:
+            self.bootdeque.extend(self.booturls)
+        return self.bootdeque.popleft()
+
     async def _initBootProxy(self):
 
         await self._shutDownPool()
@@ -1025,11 +1041,17 @@ class ClientV2(s_base.Base):
         lastlog = 0.0
         while not self.isfini:
 
+            urlinfo = self.getNextBootUrl()
+
+            timeout = getParamFromInfo(urlinfo, 'timeout')
+            if timeout is not None:
+                self.timeout = int(timeout)
+
             try:
 
-                if self.urlinfo.get('scheme') == 'aha':
+                if urlinfo.get('scheme') == 'aha':
 
-                    self.aha, svcinfo = await _getAhaSvc(self.urlinfo)
+                    self.aha, svcinfo = await _getAhaSvc(urlinfo)
 
                     # detect if we are a pool
                     services = svcinfo.get('services')
@@ -1040,19 +1062,20 @@ class ClientV2(s_base.Base):
                             self.schedCoro(self._toposync())
                         return
 
-                # we have only one link in the pool...
-                proxy = await self.openinfo(self.urlinfo)
+                # regular telepath client behavior
+                proxy = await openinfo(urlinfo)
                 await self._onPoolLink(proxy)
 
                 proxy.onfini(self._initBootProxy)
 
             except Exception as e:
+                import traceback; traceback.print_exc()
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
-                    url = s_urlhelp.sanitizeUrl(zipurl(self.urlinfo))
+                    url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
                     logger.exception(f'telepath client v2 ({url}) encountered an error: {e}')
                     lastlog = now
-                await self.waitfini(timeout=self.urlinfo.get('retrysleep', 0.2))
+                await self.waitfini(timeout=urlinfo.get('retrysleep', 0.2))
 
     async def waitready(self, timeout=None):
 
@@ -1104,6 +1127,7 @@ class ClientV2(s_base.Base):
             await client.fini()
 
         self.deque.clear()
+        self.ready.clear()
         self.clients.clear()
         self.proxies.clear()
 

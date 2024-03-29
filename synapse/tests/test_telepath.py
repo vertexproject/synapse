@@ -802,7 +802,6 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(30, await prox.bar(10, 20))
 
     async def test_telepath_client_failover(self):
-        return
 
         class TestFail:
             def __init__(self):
@@ -833,15 +832,19 @@ class TeleTest(s_t_utils.SynTest):
 
             await targ.waitready()
 
-            self.eq(110, await targ.dostuff(100))
+            prox00 = await targ.proxy()
+
+            self.eq(110, await prox00.dostuff(100))
+
             self.eq(1, fail0.count)
             self.eq(0, fail1.count)
 
-            _prox = await targ.proxy()
             await dmon0.fini()
-            self.true(await _prox.waitfini(10))
+            self.true(await prox00.waitfini(10))
 
-            self.eq(110, await targ.dostuff(100))
+            prox01 = await targ.proxy()
+
+            self.eq(110, await prox01.dostuff(100))
             self.eq(1, fail0.count)
             self.eq(1, fail1.count)
 
@@ -864,7 +867,8 @@ class TeleTest(s_t_utils.SynTest):
 
         async with await s_telepath.open(url1) as targ:
             await targ.waitready()
-            self.eq(110, await targ.dostuff(100))
+            prox00 = await targ.proxy()
+            self.eq(110, await prox00.dostuff(100))
 
         await dmon1.fini()
 
@@ -1102,7 +1106,7 @@ class TeleTest(s_t_utils.SynTest):
                         self.ge(cnts['inits'], 5)
 
     async def test_client_method_reset(self):
-        return
+
         class Foo:
             def __init__(self):
                 self.a = 1
