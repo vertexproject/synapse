@@ -2230,7 +2230,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Max recursion fail
             q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            await self.asyncraises(s_exc.RecursionLimitHit, core.nodes(q))
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
