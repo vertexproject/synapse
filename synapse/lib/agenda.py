@@ -836,7 +836,6 @@ class Agenda(s_base.Base):
 
                 elif mesg[0] == 'err':
                     excname, errinfo = mesg[1]
-                    # TOOD should these even come out of the storm runtime anymore?
                     errinfo.pop('eline', None)
                     errinfo.pop('efile', None)
                     excctor = getattr(s_exc, excname, s_exc.SynErr)
