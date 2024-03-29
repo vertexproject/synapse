@@ -3304,7 +3304,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The client associated with the x509 certificate.'}),
                         ('cert', ('crypto:x509:cert', {}), {
                             'ro': True,
-                            'doc': 'The x509 certificate used by the client.'})
+                            'doc': 'The x509 certificate sent by the client.'})
                     )),
                 ),
             }),
