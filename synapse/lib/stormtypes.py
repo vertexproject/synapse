@@ -8869,6 +8869,7 @@ class LibCron(Lib):
         incunit = None
         incval = None
         reqdict = {}
+        pool = await tobool(kwargs.get('pool', False))
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'dayofmonth': (1, 'month'),
@@ -8974,6 +8975,7 @@ class LibCron(Lib):
 
         cdef = {'storm': query,
                 'reqs': reqdict,
+                'pool': pool,
                 'incunit': incunit,
                 'incvals': incval,
                 'creator': self.runt.user.iden
@@ -9222,6 +9224,7 @@ class CronJob(Prim):
             'view': view,
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
+            'pool': self.valu.get('pool', False),
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
