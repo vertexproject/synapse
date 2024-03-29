@@ -16,7 +16,6 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -808,57 +807,56 @@ class Agenda(s_base.Base):
         }
         await self.core.addCronEdits(appt.iden, edits)
 
-        with s_provenance.claim('cron', iden=appt.iden):
-            logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                        extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                           'username': user.name, 'view': appt.view}})
-            starttime = self._getNowTick()
-            success = False
-            try:
-                opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
-                opts = self.core._initStormOpts(opts)
-                view = self.core._viewFromOpts(opts)
-                # Yes, this isn't technically on the bottom half of a nexus transaction
-                # But because the scheduling loop only runs on non-mirrors, we can kinda skirt by all that
-                # and be relatively okay. The only catch is that the nexus offset will correspond to the
-                # last nexus transaction, and not the start/stop
-                await self.core.feedBeholder('cron:start', {'iden': appt.iden})
-                async for node in view.eval(appt.query, opts=opts, log_info={'cron': appt.iden}):
-                    count += 1
-            except asyncio.CancelledError:
-                result = 'cancelled'
-                raise
-            except Exception as e:
-                result = f'raised exception {e}'
-                logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                                 extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
-                                 )
-            else:
-                success = True
-                result = f'finished successfully with {count} nodes'
-            finally:
-                finishtime = self._getNowTick()
-                if not success:
-                    appt.lasterrs.append(result)
-                    edits = {
-                        'errcount': appt.errcount + 1,
-                        # we only care about the last five errors
-                        'lasterrs': list(appt.lasterrs[-5:]),
-                    }
-                    await self.core.addCronEdits(appt.iden, edits)
-
-                took = finishtime - starttime
-                mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
-                       f'took {took:.3f}s'
-                logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                     'result': result, 'username': user.name, 'took': took}})
+        logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
+                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
+                                       'username': user.name, 'view': appt.view}})
+        starttime = self._getNowTick()
+        success = False
+        try:
+            opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
+            opts = self.core._initStormOpts(opts)
+            view = self.core._viewFromOpts(opts)
+            # Yes, this isn't technically on the bottom half of a nexus transaction
+            # But because the scheduling loop only runs on non-mirrors, we can kinda skirt by all that
+            # and be relatively okay. The only catch is that the nexus offset will correspond to the
+            # last nexus transaction, and not the start/stop
+            await self.core.feedBeholder('cron:start', {'iden': appt.iden})
+            async for node in view.eval(appt.query, opts=opts, log_info={'cron': appt.iden}):
+                count += 1
+        except asyncio.CancelledError:
+            result = 'cancelled'
+            raise
+        except Exception as e:
+            result = f'raised exception {e}'
+            logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
+                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                             )
+        else:
+            success = True
+            result = f'finished successfully with {count} nodes'
+        finally:
+            finishtime = self._getNowTick()
+            if not success:
+                appt.lasterrs.append(result)
                 edits = {
-                    'lastfinishtime': finishtime,
-                    'isrunning': False,
-                    'lastresult': result,
+                    'errcount': appt.errcount + 1,
+                    # we only care about the last five errors
+                    'lasterrs': list(appt.lasterrs[-5:]),
                 }
                 await self.core.addCronEdits(appt.iden, edits)
 
-                if not self.isfini:
-                    # fire beholder event before invoking nexus change (in case readonly)
-                    await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+            took = finishtime - starttime
+            mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
+                   f'took {took:.3f}s'
+            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
+                                                 'result': result, 'username': user.name, 'took': took}})
+            edits = {
+                'lastfinishtime': finishtime,
+                'isrunning': False,
+                'lastresult': result,
+            }
+            await self.core.addCronEdits(appt.iden, edits)
+
+            if not self.isfini:
+                # fire beholder event before invoking nexus change (in case readonly)
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
