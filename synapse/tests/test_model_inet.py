@@ -2818,3 +2818,19 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('server'), 'tcp://2.2.2.2')
             self.eq(nodes[0].get('ja3s'), ja3)
+
+    async def test_model_inet_tls_certs(self):
+
+        async with self.getTestCore() as core:
+
+            server = 'e4f6db65dbaa7a4598f7379f75dcd5f5'
+            client = 'df8d1f7e04f7c4a322e04b0b252e2851'
+            nodes = await core.nodes('[inet:tls:servercert=(tcp://1.2.3.4:1234, $server)]', opts={'vars': {'server': server}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:1234')
+            self.eq(nodes[0].get('cert'), server)
+
+            nodes = await core.nodes('[inet:tls:clientcert=(tcp://5.6.7.8:5678, $client)]', opts={'vars': {'client': client}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://5.6.7.8:5678')
+            self.eq(nodes[0].get('cert'), client)
