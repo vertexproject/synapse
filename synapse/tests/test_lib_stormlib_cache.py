@@ -1,0 +1,171 @@
+import synapse.exc as s_exc
+
+import synapse.tests.utils as s_test
+
+class StormlibCacheTest(s_test.SynTest):
+
+    async def test_storm_lib_cache_fixed(self):
+
+        async with self.getTestCore() as core:
+
+            # basics
+
+            rets = await core.callStorm('''
+                $rets = ([])
+                $cache = $lib.cache.fixed("return(`{$cache_key}-ret`)")
+
+                $cache.clear()
+
+                $rets.append($lib.len($cache))
+
+                $rets.append($cache.get(key))
+                $rets.append($lib.len($cache))
+
+                $cache.put(key, key-put)
+                $rets.append($cache.get(key))
+
+                $cache.clear()
+                $rets.append($cache.get(key))
+
+                $cache.put(key, key-put)
+                $rets.append($cache.get(key))
+                $rets.append($cache.pop(key))
+                $rets.append($cache.get(key))
+
+                $rets.append($cache.pop(newp))
+
+                return($rets)
+            ''')
+            self.eq([
+                0,
+                'key-ret', 1,
+                'key-put',
+                'key-ret',
+                'key-put', 'key-put', 'key-ret',
+                None,
+            ], rets)
+
+            # exhaust size
+
+            rets = await core.callStorm('''
+                $rets = ([])
+                $cache = $lib.cache.fixed("return(`{$cache_key}-ret`)", size=2)
+
+                $cache.put(one, one-put)
+                $cache.put(two, two-put)
+                $rets.append($cache.get(one))
+                $rets.append($cache.get(two))
+
+                $rets.append($cache.get(three))
+                $rets.append($cache.get(one))
+
+                return($rets)
+            ''')
+            self.eq(['one-put', 'two-put', 'three-ret', 'one-ret'], rets)
+
+            # also accept a storm query object
+
+            ret = await core.callStorm('''
+                $cache = $lib.cache.fixed(${ $suf=ret return(`{$cache_key}-{$suf}`)})
+                return($cache.get(foo))
+            ''')
+            self.eq('foo-ret', ret)
+
+            # callbacks are executed in sub-runtimes
+
+            rets = await core.callStorm('''
+                $val = zero
+                $sent = $lib.null
+
+                function cb(key) {
+                    $sent = $val
+                    return(`{$key}-{$val}`)
+                }
+
+                $cache = $lib.cache.fixed("return($cb($cache_key))")
+
+                $rets = ([])
+
+                $rets.append($cache.get(foo))
+                $rets.append($sent)
+
+                $val = one
+                $rets.append($cache.get(bar))
+                $rets.append($sent)
+
+                return($rets)
+            ''')
+            self.eq(['foo-zero', 'zero', 'bar-one', 'one'], rets)
+
+            # sad
+
+            ## bad storm query
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.cache.fixed("function x -> newp")')
+            self.isin('Invalid callback query', ectx.exception.errinfo.get('mesg'))
+
+            ## no return
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.cache.fixed("$x=1")')
+            self.eq('Callback query must return a value', ectx.exception.errinfo.get('mesg'))
+
+            ## bad size
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.cache.fixed("return()", size=(-1))')
+            self.eq('Cache size must be between 1-10000', ectx.exception.errinfo.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.cache.fixed("return()", size=(1000000))')
+            self.eq('Cache size must be between 1-10000', ectx.exception.errinfo.get('mesg'))
+
+            ## callback raises an exception
+
+            rets = await core.callStorm('''
+                function cb(key) {
+                    if ($key = "sad") {
+                        $lib.raise(Bad, Time)
+                    }
+                    return(`{$key}-happy`)
+                }
+                $cache = $lib.cache.fixed("return($cb($cache_key))")
+
+                $rets = ([])
+
+                try {
+                    $rets.append($cache.get(sad))
+                } catch Bad as e {
+                    $rets.append(badtime)
+                }
+
+                $rets.append($cache.get(foo))
+
+                return($rets)
+            ''')
+            self.eq(['badtime', 'foo-happy'], rets)
+
+            ## mutable key
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.cache.fixed("return()").get((foo,))')
+            self.eq('Mutable values are not allowed as cache keys', ectx.exception.errinfo.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.cache.fixed("return()").put((foo,), bar)')
+            self.eq('Mutable values are not allowed as cache keys', ectx.exception.errinfo.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.cache.fixed("return()").pop((foo,))')
+            self.eq('Mutable values are not allowed as cache keys', ectx.exception.errinfo.get('mesg'))
+
+            ## non-primable key
+
+            with self.raises(s_exc.NoSuchType) as ectx:
+                await core.nodes('$cache = $lib.cache.fixed("return()") $cache.get($cache)')
+            self.eq('Unable to convert object to Storm primitive.', ectx.exception.errinfo.get('mesg'))
+
+            ## missing use of $cache_key - no error
+
+            self.eq('newp', await core.callStorm('return($lib.cache.fixed("return(newp)").get(foo))'))
