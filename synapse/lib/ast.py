@@ -494,9 +494,7 @@ class SubGraph:
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
             revedge = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
-            edgecounts = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
             n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
-            n2delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
             # load the existing graph as already done
             for iden in existing:
@@ -519,26 +517,18 @@ class SubGraph:
                         if n2nid in results:
                             continue
 
-                        if n2delayed.has(n2nid):
-                            continue
-
                         if (re := revedge.get(n2nid)) is None:
-                            re = {nid: []}
+                            re = {nid: [verb]}
                         elif nid not in re:
-                            re[nid] = []
-
-                        count = edgecounts.get(n2nid, defv=0) + 1
-                        if count > edgelimit:
-                            await n2delayed.add(n2nid)
-                            revedge.pop(n2nid)
+                            re[nid] = [verb]
                         else:
-                            await edgecounts.set(n2nid, count)
                             re[nid].append(verb)
-                            await revedge.set(n2nid, re)
 
-                            if not resultsidens.get(n2nid):
-                                n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
-                                await resultsidens.set(n2nid, n2iden)
+                        await revedge.set(n2nid, re)
+
+                        if not resultsidens.get(n2nid):
+                            n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
+                            await resultsidens.set(n2nid, n2iden)
 
             async def todogenr():
 
@@ -628,26 +618,18 @@ class SubGraph:
                         async for verb, n2nid in runt.snap.iterNodeEdgesN1(nid):
                             await asyncio.sleep(0)
 
-                            if n2delayed.has(n2nid):
-                                continue
-
                             if (re := revedge.get(n2nid)) is None:
-                                re = {nid: []}
+                                re = {nid: [verb]}
                             elif nid not in re:
-                                re[nid] = []
-
-                            count = edgecounts.get(n2nid, defv=0) + 1
-                            if count > edgelimit:
-                                await n2delayed.add(n2nid)
-                                revedge.pop(n2nid)
+                                re[nid] = [verb]
                             else:
-                                await edgecounts.set(n2nid, count)
                                 re[nid].append(verb)
-                                await revedge.set(n2nid, re)
 
-                                if not resultsidens.get(n2nid):
-                                    n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
-                                    await resultsidens.set(n2nid, n2iden)
+                            await revedge.set(n2nid, re)
+
+                            if not resultsidens.get(n2nid):
+                                n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
+                                await resultsidens.set(n2nid, n2iden)
 
                             if n2nid in results:
                                 n2iden = resultsidens.get(n2nid)
@@ -660,14 +642,6 @@ class SubGraph:
                                 for verb in verbs:
                                     await asyncio.sleep(0)
                                     edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
-
-                        if n2delayed.has(nid):
-                            async for n1nid in results:
-                                n1iden = resultsidens.get(n1nid)
-
-                                async for verb in runt.snap.iterEdgeVerbs(n1nid, nid):
-                                    await asyncio.sleep(0)
-                                    edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                         async for n1nid in n1delayed:
                             n1iden = resultsidens.get(n1nid)
