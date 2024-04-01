@@ -155,6 +155,10 @@ class StormlibCacheTest(s_test.SynTest):
             ''')
             self.eq(['badtime', 'foo-happy'], rets)
 
+            with self.raises(s_exc.BadCast) as ectx:
+                await core.nodes('$lib.cache.fixed(${ return(($cache_key * 3)) }).get(foo)')
+            self.eq('Failed to make an integer from \'foo\'.', ectx.exception.errinfo.get('mesg'))
+
             ## mutable key
 
             with self.raises(s_exc.BadArg) as ectx:
