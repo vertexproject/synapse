@@ -19,9 +19,12 @@ class LibCache(s_stormtypes.Lib):
         {'name': 'fixed', 'desc': '''
             Get a new Fixed Cache object.
 
-            When the callback Storm query is executed a special variable,
-            $cache_key, will be set. The query must contain a return statement.
-            If the query does not return a value when executed with the input, $lib.null will set as the value.
+            On a cache-miss when calling .get(), the callback Storm query is executed in a sub-runtime
+            in the current execution context. A special variable, $cache_key, will be set
+            to the key argument provided to .get().
+
+            The callback Storm query must contain a return statement, and if it does not return a value
+            when executed with the input $lib.null will set as the value.
 
             The fixed cache uses FIFO to evict items once the maximum size is reached.
 
@@ -74,6 +77,9 @@ class FixedCache(s_stormtypes.StormType):
     A StormLib API instance of a Storm Fixed Cache.
     '''
     _storm_locals = (
+        {'name': 'query', 'desc': 'Get the callback Storm query as string.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorQuery',
+                  'returns': {'type': 'str', 'desc': 'The callback Storm query text.', }}},
         {'name': 'get', 'desc': 'Get an item from the cache by key.',
          'type': {'type': 'function', '_funcname': '_methGet',
                   'args': (
@@ -108,6 +114,9 @@ class FixedCache(s_stormtypes.StormType):
         self.size = size
         self.query = query
         self.locls.update(self.getObjLocals())
+        self.gtors.update({
+            'query': self._gtorQuery,
+        })
 
         self.cache = s_cache.FixedCache(self._runCallback, size=size)
 
@@ -126,6 +135,9 @@ class FixedCache(s_stormtypes.StormType):
             'get': self._methGet,
             'clear': self._methClear,
         }
+
+    async def _gtorQuery(self):
+        return self.query.text
 
     async def _runCallback(self, key):
         opts = {'vars': {'cache_key': key}}

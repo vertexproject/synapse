@@ -34,6 +34,8 @@ class StormlibCacheTest(s_test.SynTest):
 
                 $rets.append($cache.pop(newp))
 
+                $rets.append($cache.query)
+
                 return($rets)
             ''')
             self.eq([
@@ -43,6 +45,7 @@ class StormlibCacheTest(s_test.SynTest):
                 'key-ret',
                 'key-put', 'key-put', 'key-ret',
                 None,
+                'return(`{$cache_key}-ret`)'
             ], rets)
 
             # exhaust size
@@ -97,17 +100,6 @@ class StormlibCacheTest(s_test.SynTest):
             ''')
             self.eq(['foo-zero', 'zero', 'bar-one', 'one'], rets)
 
-            # stormrepr
-
-            msgs = await core.stormlist('''
-                $lib.print($lib.cache.fixed(${return(cool)}))
-                $lib.print($lib.cache.fixed($longq))
-            ''', opts={'vars': {'longq': f'return({"a" * 150})'}})
-            self.stormIsInPrint('cache:fixed: size=10000 query="return(cool)"', msgs)
-            self.stormIsInPrint('aaaaa...', msgs)
-
-            # storm control flow
-
             self.none(await core.callStorm('return($lib.cache.fixed("if (0) { return(yup) }").get(foo))'))
 
             rets = await core.callStorm('''
@@ -143,6 +135,15 @@ class StormlibCacheTest(s_test.SynTest):
                 return($rets)
             """)
             self.eq([('key=foo i=0',), ('key=bar i=0',), ('key=baz i=0',),], rets)
+
+            # stormrepr
+
+            msgs = await core.stormlist('''
+                $lib.print($lib.cache.fixed(${return(cool)}))
+                $lib.print($lib.cache.fixed($longq))
+            ''', opts={'vars': {'longq': f'return({"a" * 150})'}})
+            self.stormIsInPrint('cache:fixed: size=10000 query="return(cool)"', msgs)
+            self.stormIsInPrint('aaaaa...', msgs)
 
             # sad
 
