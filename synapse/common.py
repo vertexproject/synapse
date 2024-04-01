@@ -945,7 +945,7 @@ def config(conf, confdefs):
 
     return conf
 
-def deprecated(name, curv='2.x', eolv='3.0.0'):
+def deprecated(name, curv='3.x', eolv='4.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
     return mesg
@@ -986,6 +986,12 @@ def unjsonsafe_nodeedits(nodeedits):
         retn.append(newedit)
 
     return retn
+
+def reprauthrule(rule):
+    text = '.'.join(rule[1])
+    if not rule[0]:
+        text = '!' + text
+    return text
 
 def reqJsonSafeStrict(item):
     '''

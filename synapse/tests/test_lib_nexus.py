@@ -226,7 +226,7 @@ class NexusTest(s_t_utils.SynTest):
                 getCellInfo = cell00.getCellInfo
                 async def getCrazyVersion():
                     info = await getCellInfo()
-                    info['synapse']['version'] = (9999, 0, 0)
+                    info['cell']['version'] = (9999, 0, 0)
                     return info
 
                 await cell00.runBackup(name='cell01')

@@ -36,7 +36,6 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -907,6 +906,18 @@ class LibService(Lib):
                   'returns': {'type': 'boolean', 'desc': 'Returns true if the service is available, false on a '
                                                          'timeout waiting for the service to be ready.', }}},
     )
+    _storm_lib_perms = (
+        {'perm': ('service', 'add'), 'gate': 'cortex',
+            'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
+        {'perm': ('service', 'del'), 'gate': 'cortex',
+            'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
+        {'perm': ('service', 'get'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the Service object for any Storm Service.'},
+        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
+        {'perm': ('service', 'list'), 'gate': 'cortex',
+         'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
+    )
     _storm_lib_path = ('service',)
 
     def getObjLocals(self):
@@ -923,16 +934,7 @@ class LibService(Lib):
         '''
         Helper to handle service.get.* permissions
         '''
-        try:
-            self.runt.confirm(('service', 'get', ssvc.iden))
-        except s_exc.AuthDeny as e:
-            try:
-                self.runt.confirm(('service', 'get', ssvc.name))
-            except s_exc.AuthDeny:
-                raise e from None
-            else:
-                mesg = 'Use of service.get.<servicename> permissions are deprecated.'
-                await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
+        self.runt.confirm(('service', 'get', ssvc.iden))
 
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))
@@ -3247,13 +3249,14 @@ class LibFeed(Lib):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
-        with s_provenance.claim('feed:data', name=name):
-            #  small work around for the feed API consistency
-            if name == 'syn.nodes':
-                async for node in self.runt.snap.addNodes(data):
-                    yield node
-                return
-            await self.runt.snap.addFeedData(name, data)
+
+        #  small work around for the feed API consistency
+        if name == 'syn.nodes':
+            async for node in self.runt.snap.addNodes(data):
+                yield node
+            return
+
+        await self.runt.snap.addFeedData(name, data)
 
     @stormfunc(readonly=True)
     async def _libList(self):
@@ -3265,11 +3268,12 @@ class LibFeed(Lib):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
-        with s_provenance.claim('feed:data', name=name):
-            strict = self.runt.snap.strict
-            self.runt.snap.strict = False
-            await self.runt.snap.addFeedData(name, data)
-            self.runt.snap.strict = strict
+
+        # TODO this should be a reentrent safe with block
+        strict = self.runt.snap.strict
+        self.runt.snap.strict = False
+        await self.runt.snap.addFeedData(name, data)
+        self.runt.snap.strict = strict
 
 @registry.registerLib
 class LibPipe(Lib):
@@ -8568,7 +8572,7 @@ class LibCron(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects..', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects.', }}},
         {'name': 'enable', 'desc': 'Enable a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronEnable',
                   'args': (

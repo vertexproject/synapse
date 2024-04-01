@@ -84,8 +84,6 @@ class Type:
     def _storLiftSafe(self, cmpr, valu):
         try:
             return self.storlifts['=']('=', valu)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
         except Exception:
             return ()
 
@@ -434,7 +432,7 @@ class Array(Type):
         if self.arraytype.deprecated:
             if self.info.get('custom'):
                 mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
-                       f'which will be removed in 3.0.0'
+                       f'which will be removed in 4.0.0'
                 logger.warning(mesg)
 
         self.setNormFunc(str, self._normPyStr)
@@ -586,7 +584,7 @@ class FieldHelper(collections.defaultdict):
             _type = basetype.clone(opts)
         if _type.deprecated:
             mesg = f'The type {self.tname} field {key} uses a deprecated ' \
-                   f'type {_type.name} which will removed in 3.0.0'
+                   f'type {_type.name} which will removed in 4.0.0'
             logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
@@ -1935,7 +1933,7 @@ class Tag(Str):
             mesg = f'Tag does not match tagre: [{s_grammar.tagre.pattern}]'
             raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
-        return norm, {'subs': subs}
+        return norm, {'subs': subs, 'toks': toks}
 
     def _normPyStr(self, text):
         toks = text.strip('#').split('.')

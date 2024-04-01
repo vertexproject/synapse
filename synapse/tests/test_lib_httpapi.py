@@ -840,8 +840,7 @@ class HttpApiTest(s_tests.SynTest):
                 spkg = {
                     'name': 'testy',
                     'version': (0, 0, 1),
-                    'synapse_minversion': [2, 144, 0],
-                    'synapse_version': '>=2.50.0,<3.0.0',
+                    'synapse_version': '>=3.0.0,<4.0.0',
                     'modules': (
                         {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
                     ),
@@ -965,10 +964,6 @@ class HttpApiTest(s_tests.SynTest):
                         self.nn(data['info'])
                         self.ge(len(data['info']), 1)
                         self.eq(event, data['event'])
-
-                        if not event.startswith('svc'):
-                            self.nn(data['gates'])
-                            self.ge(len(data['gates']), 1)
 
                         if event.startswith('pkg'):
                             self.nn(data['perms'])
@@ -1112,20 +1107,18 @@ class HttpApiTest(s_tests.SynTest):
                     base = data['offset']
 
                     # rule add to a user
-                    await core.callStorm('auth.user.addrule visi "!power-ups.foo.bar" --gate cortex')
+                    await core.callStorm('auth.user.addrule visi "!power-ups.foo.bar"')
                     mesg = await sock.receive_json()
                     data = mesg['data']
                     self.eq(data['event'], 'user:info')
                     self.eq(data['info']['iden'], visi.iden)
                     self.eq(data['info']['name'], 'rule:add')
                     self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
-                    self.len(1, data['gates'])
-                    self.eq(data['gates'][0]['iden'], 'cortex')
 
                     # rule del from a user
                     mesgs = await core.callStorm('''
                         $rule = $lib.auth.ruleFromText("!power-ups.foo.bar")
-                        $lib.auth.users.byname(visi).delRule($rule, gateiden=cortex)
+                        $lib.auth.users.byname(visi).delRule($rule)
                     ''')
                     mesg = await sock.receive_json()
                     data = mesg['data']
@@ -1133,8 +1126,6 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['iden'], visi.iden)
                     self.eq(data['info']['name'], 'rule:del')
                     self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
-                    self.len(1, data['gates'])
-                    self.eq(data['gates'][0]['iden'], 'cortex')
 
                     # user add. couple of messages fall out from it
                     await core.callStorm('auth.user.add beep --email beep@vertex.link')

@@ -1360,29 +1360,32 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
-            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
-            url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
-            expected = (url, {'subs': {
-                'proto': 'http',
-                'path': '/hehe\udcfestuff.asp',
-                'port': 80,
-                'params': '',
-                'fqdn': 'www.googlesites.com',
-                'base': url
-            }})
-            self.eq(valu, expected)
 
-            url = 'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
-            valu = t.norm(url)
-            expected = (url, {'subs': {
-                'base': url,
-                'proto': 'https',
-                'path': '/600x400/000/fff.png&text=cat@bam.com',
-                'port': 443,
-                'params': '',
-                'fqdn': 'dummyimage.com'
-            }})
-            self.eq(valu, expected)
+            for proto in ('http', 'hxxp', 'hXXp'):
+                url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
+                valu = t.norm(f'{proto}://www.googlesites.com/hehe\udcfestuff.asp')
+                expected = (url, {'subs': {
+                    'proto': 'http',
+                    'path': '/hehe\udcfestuff.asp',
+                    'port': 80,
+                    'params': '',
+                    'fqdn': 'www.googlesites.com',
+                    'base': url
+                }})
+                self.eq(valu, expected)
+
+            for proto in ('https', 'hxxps', 'hXXps'):
+                url = f'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
+                valu = t.norm(f'{proto}://dummyimage.com/600x400/000/fff.png&text=cat@bam.com')
+                expected = (url, {'subs': {
+                    'base': url,
+                    'proto': 'https',
+                    'path': '/600x400/000/fff.png&text=cat@bam.com',
+                    'port': 443,
+                    'params': '',
+                    'fqdn': 'dummyimage.com'
+                }})
+                self.eq(valu, expected)
 
             url = 'http://0.0.0.0/index.html?foo=bar'
             valu = t.norm(url)
@@ -2767,3 +2770,54 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
+
+    async def test_model_inet_tls_handshake(self):
+
+        async with self.getTestCore() as core:
+            props = {
+                'ja3': '1' * 32,
+                'ja3s': '2' * 32,
+                'client': 'tcp://1.2.3.4:8888',
+                'server': 'tcp://5.6.7.8:9999'
+            }
+
+            nodes = await core.nodes('''
+                [
+                    inet:tls:handshake=*
+                        :time=now
+                        :flow=*
+                        :server=$server
+                        :server:cert=*
+                        :server:fingerprint:ja3=$ja3s
+                        :client=$client
+                        :client:cert=*
+                        :client:fingerprint:ja3=$ja3
+                ]
+            ''', opts={'vars': props})
+            self.len(1, nodes)
+            self.nn(nodes[0].get('time'))
+            self.nn(nodes[0].get('flow'))
+            self.nn(nodes[0].get('server:cert'))
+            self.nn(nodes[0].get('client:cert'))
+
+            self.eq(props['ja3'], nodes[0].get('client:fingerprint:ja3'))
+            self.eq(props['ja3s'], nodes[0].get('server:fingerprint:ja3'))
+
+            self.eq(props['client'], nodes[0].get('client'))
+            self.eq(props['server'], nodes[0].get('server'))
+
+    async def test_model_inet_ja3(self):
+
+        async with self.getTestCore() as core:
+
+            ja3 = '76e7b0cb0994d60a4b3f360a088fac39'
+            nodes = await core.nodes('[ inet:tls:ja3:sample=(tcp://1.2.3.4, $md5) ]', opts={'vars': {'md5': ja3}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.eq(nodes[0].get('ja3'), ja3)
+
+            ja3 = '4769ad08107979c719d86270e706fed5'
+            nodes = await core.nodes('[ inet:tls:ja3s:sample=(tcp://2.2.2.2, $md5) ]', opts={'vars': {'md5': ja3}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://2.2.2.2')
+            self.eq(nodes[0].get('ja3s'), ja3)

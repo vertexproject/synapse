@@ -2875,7 +2875,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            await prox.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+            await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) ]')
 
             opts = {'graph': True}
             msgs = await prox.storm('inet:dns:a', opts=opts).list()
@@ -2894,16 +2894,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(node[1]['path']['edges'], (
                         ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
                     ))
-
-            await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
-
-            msgs = await prox.storm('edge:refs', opts=opts).list()
-            nodes = [m[1] for m in msgs if m[0] == 'node']
-
-            self.len(3, nodes)
-            self.len(0, nodes[0][1]['path']['edges'])
-            self.len(1, nodes[1][1]['path']['edges'])
-            self.len(1, nodes[2][1]['path']['edges'])
 
     async def test_onadd(self):
         arg_hit = {}
@@ -2950,28 +2940,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(corever, s_version.version)
             self.eq(corever, cellver)
 
-            # NOTE: addNode / addNodes are deprecated in 3.0.0
-            nodes = ((('inet:user', 'visi'), {}),)
-
-            nodes = await alist(proxy.addNodes(nodes))
-            self.len(1, nodes)
-
-            node = await proxy.addNode('test:str', 'foo')
-
-            opts = {'ndefs': [('inet:user', 'visi')]}
-
-            msgs = await proxy.storm('', opts=opts).list()
-            nodes = [m[1] for m in msgs if m[0] == 'node']
-
-            self.len(1, nodes)
-            self.eq('visi', nodes[0][0][1])
-
             await proxy.addFeedData('com.test.record', data)
 
             # test the remote storm result counting API
             self.eq(0, await proxy.count('test:pivtarg'))
-            self.eq(1, await proxy.count('inet:user'))
-            self.eq(1, await core.count('inet:user'))
 
             # Test the getFeedFuncs command to enumerate feed functions.
             ret = await proxy.getFeedFuncs()
@@ -2987,8 +2959,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 144, 0),
-                'synapse_version': '>=2.8.0,<3.0.0',
+                'synapse_version': '>=3.0.0,<4.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -3041,17 +3012,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': (1337, 0, 0),
-                'commands': ()
-            }
-
-            with self.raises(s_exc.BadVersion):
-                await core.addStormPkg(oldverpkg)
-
-            oldverpkg = {
-                'name': 'versionfail',
-                'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=1337.0.0,<2000.0.0',
                 'commands': ()
             }
@@ -3062,7 +3022,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
                 'synapse_version': '>=0.0.1,<2.0.0',
                 'commands': ()
             }
@@ -3076,7 +3045,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'commands': ()
             }
 
-            # Package with no synapse_minversion shouldn't raise
             await core.addStormPkg(noverpkg)
 
             badcmdpkg = {
@@ -4273,11 +4241,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         # misc tests to increase code coverage
         async with self.getTestCore() as core:
-
-            node = (('test:str', 'foo'), {})
-
-            await alist(core.addNodes((node,)))
-
+            await core.nodes('[ test:str=foo ]')
             self.nn(await core.getNodeByNdef(('test:str', 'foo')))
             with self.raises(s_exc.NoSuchForm):
                 await core.getNodeByNdef(('test:newp', 'hehe'))
@@ -4519,10 +4483,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            # This tag does match regex
             data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
             await core1.addFeedData('syn.nodes', data)
-            self.len(0, await core1.nodes('test:int=8 -#test.1234'))
+            self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
@@ -6259,13 +6222,11 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             layr = core.view.layers[0]
             self.eq(layr, core.getLayer())
-            self.eq(layr, core.getLayer(core.iden))
             self.none(core.getLayer('XXX'))
 
             view = core.view
             self.eq(view, core.getView())
             self.eq(view, core.getView(view.iden))
-            self.eq(view, core.getView(core.iden))
             self.none(core.getView('xxx'))
 
     async def test_cortex_cron_deluser(self):
@@ -6293,7 +6254,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         {  # type: ignore
                             'name': 'foo',
                             'version': (0, 0, 1),
-                            'synapse_minversion': [2, 144, 0],
                             'synapse_version': '>=2.100.0,<3.0.0',
                             'modules': [],
                             'commands': []
@@ -6401,7 +6361,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_version': '>=3.0.0,<4.0.0',
             'modules': [
                 {
                     'name': 'boom.mod',

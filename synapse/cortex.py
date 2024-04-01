@@ -53,7 +53,6 @@ import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.stormhttp as s_stormhttp  # NOQA
 import synapse.lib.stormwhois as s_stormwhois  # NOQA
 
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
@@ -89,6 +88,7 @@ import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
 import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
+import synapse.lib.stormlib.spooled as s_stormlib_spooled  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # NOQA
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
@@ -103,7 +103,7 @@ stormlogger = logging.getLogger('synapse.storm')
 A Cortex implements the synapse hypergraph object.
 '''
 
-reqver = '>=0.2.0,<3.0.0'
+reqver = '>=3.0.0,<4.0.0'
 
 # Constants returned in results from syncLayersEvents and syncIndexEvents
 SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
@@ -279,55 +279,6 @@ class CoreApi(s_cell.CellApi):
         wlyr = view.layers[0]
         self.user.confirm(perms, gateiden=wlyr.iden)
 
-    async def addNode(self, form, valu, props=None):
-        '''
-        Deprecated in 2.0.0.
-        '''
-        s_common.deprecated('CoreApi.addNode')
-        async with await self.cell.snap(user=self.user) as snap:
-            self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
-
-                node = await snap.addNode(form, valu, props=props)
-                return node.pack()
-
-    async def addNodes(self, nodes):
-        '''
-        Add a list of packed nodes to the cortex.
-
-        Args:
-            nodes (list): [ ( (form, valu), {'props':{}, 'tags':{}}), ... ]
-
-        Yields:
-            (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
-
-        Deprecated in 2.0.0
-        '''
-        s_common.deprecated('CoreApi.addNodes')
-
-        # First check that that user may add each form
-        done = {}
-        for node in nodes:
-
-            formname = node[0][0]
-            if done.get(formname):
-                continue
-
-            await self._reqDefLayerAllowed(('node', 'add', formname))
-            done[formname] = True
-
-        async with await self.cell.snap(user=self.user) as snap:
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
-
-                snap.strict = False
-
-                async for node in snap.addNodes(nodes):
-
-                    if node is not None:
-                        node = node.pack()
-
-                    yield node
-
     async def getFeedFuncs(self):
         '''
         Get a list of Cortex feed functions.
@@ -361,9 +312,8 @@ class CoreApi(s_cell.CellApi):
                                            })
 
         async with await self.cell.snap(user=self.user, view=view) as snap:
-            with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
-                snap.strict = False
-                await snap.addFeedData(name, items)
+            snap.strict = False
+            await snap.addFeedData(name, items)
 
     async def count(self, text, opts=None):
         '''
@@ -766,16 +716,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
         },
-        'cron:enable': {
-            'default': True,
-            'description': 'Deprecated. This option no longer controls cron execution and will be removed in Synapse 3.0.',
-            'type': 'boolean'
-        },
-        'trigger:enable': {
-            'default': True,
-            'description': 'Deprecated. This option no longer controls trigger execution and will be removed in Synapse 3.0.',
-            'type': 'boolean'
-        },
         'layer:lmdb:map_async': {
             'default': True,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
@@ -795,12 +735,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'default': True,
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
-        },
-        'provenance:en': {  # TODO: Remove in 3.0.0
-            'default': False,
-            'description': 'This no longer does anything.',
-            'type': 'boolean',
-            'hideconf': True,
         },
         'max:nodes': {
             'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
@@ -995,8 +929,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'cortex': self,
             'multiqueue': self.multiqueue,
         })
-
-        await self.auth.addAuthGate('cortex', 'cortex')
 
         self._initVaults()
 
@@ -2463,13 +2395,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         pkgname = pkgdef.get('name')
 
-        # Check minimum synapse version
-        minversion = pkgdef.get('synapse_minversion')
-        if minversion is not None and tuple(minversion) > s_version.version:
-            mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
-                   f'Cortex is running {s_version.version}'
-            raise s_exc.BadVersion(mesg=mesg)
-
         # Check synapse version requirement
         reqversion = pkgdef.get('synapse_version')
         if reqversion is not None:
@@ -2841,42 +2766,34 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 self.model.addType(formname, basetype, typeopts, typeinfo)
                 form = self.model.addForm(formname, {}, ())
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'Extended form ({formname}) error: {e}')
             else:
                 if form.type.deprecated:
                     mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 3.0.0'
+                           f' be removed in 4.0.0'
                     logger.warning(mesg)
 
         for form, prop, tdef, info in self.extprops.values():
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
             else:
                 if prop.type.deprecated:
                     mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
-                           f' be removed in 3.0.0'
+                           f' be removed in 4.0.0'
                     logger.warning(mesg)
 
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'ext univ ({prop}) error: {e}')
 
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
@@ -3118,7 +3035,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         full = f'{form}:{prop}'
@@ -3254,14 +3171,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         buid = s_common.uhex(iden)
         async with await self.snap(user=user) as snap:
 
-            with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
+            node = await snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
 
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                await node.addTag(tag, valu=valu)
-                return node.pack()
+            await node.addTag(tag, valu=valu)
+            return node.pack()
 
     async def addNode(self, user, form, valu, props=None):
 
@@ -3281,14 +3196,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async with await self.snap(user=user) as snap:
 
-            with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
+            node = await snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
 
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                await node.delTag(tag)
-                return node.pack()
+            await node.delTag(tag)
+            return node.pack()
 
     async def _onCoreFini(self):
         '''
@@ -4294,11 +4207,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if iden is None:
             return self.view.layers[0]
 
-        # For backwards compatibility, resolve references to old layer iden == cortex.iden to the main layer
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if iden == self.iden:
-            return self.view.layers[0]
-
         return self.layers.get(iden)
 
     def listLayers(self):
@@ -4328,11 +4236,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if iden is None:
                 iden = self.view.iden
-
-        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if iden == self.iden:
-            iden = self.view.iden
 
         view = self.views.get(iden)
         if view is None:
@@ -4651,12 +4554,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = pdef.get('iden')
         user = pdef.get('user')
         gvar = f'push:{iden}'
-        # TODO Remove the defaults in 3.0.0
-        csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
-        qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
+        csize = pdef.get('chunk:size')
+        qsize = pdef.get('queue:size')
 
         async with await s_base.Base.anit() as base:
-
             queue = s_queue.Queue(maxsize=qsize)
 
             async def fill():
@@ -5011,11 +4912,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             viewiden = user.profile.get('cortex:view')
 
         if viewiden is None:
-            viewiden = self.view.iden
-
-        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if viewiden == self.iden:  # pragma: no cover
             viewiden = self.view.iden
 
         view = self.views.get(viewiden)
@@ -5568,16 +5464,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initCoreMods(self):
 
-        with s_provenance.claim('init', meth='_initCoreMods'):
-            for ctor, modu in list(self.modules.items()):
+        for ctor, modu in list(self.modules.items()):
 
-                try:
-                    await s_coro.ornot(modu.initCoreModule)
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                    raise
-                except Exception:
-                    logger.exception(f'module initCoreModule failed: {ctor}')
-                    self.modules.pop(ctor, None)
+            try:
+                await s_coro.ornot(modu.initCoreModule)
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                raise
+            except Exception:
+                logger.exception(f'module initCoreModule failed: {ctor}')
+                self.modules.pop(ctor, None)
 
     def _loadCoreModule(self, ctor, conf=None):
 

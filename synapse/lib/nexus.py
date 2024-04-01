@@ -527,8 +527,8 @@ class NexsRoot(s_base.Base):
         if features.get('dynmirror'):
             await proxy.readyToMirror()
 
-        cellvers = cellinfo['synapse']['version']
-        if cellvers > s_version.version:
+        cellvers = cellinfo['cell']['version']
+        if cellvers > self.cell.VERSION:
             logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
             await self.addWriteHold(leaderversion)
             # this will fire again on reconnect...
