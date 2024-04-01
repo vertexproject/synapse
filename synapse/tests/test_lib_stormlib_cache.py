@@ -136,6 +136,17 @@ class StormlibCacheTest(s_test.SynTest):
             """)
             self.eq([('key=foo i=0',), ('key=bar i=0',), ('key=baz i=0',),], rets)
 
+            rets = await core.callStorm('''
+                $rets = ([])
+                $cache = $lib.cache.fixed(${ if (0) { return(yup) } [ inet:ipv4=$cache_key ] })
+
+                for $i in (0, 1) {
+                    $rets.append($cache.get($i))
+                }
+                return($rets)
+            ''')
+            self.eq([None, None], rets)  # coverage for subruntime generator
+
             # stormrepr
 
             msgs = await core.stormlist('''
