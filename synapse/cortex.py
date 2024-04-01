@@ -6032,6 +6032,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         elif name == 'doc':
             appt.doc = str(valu)
 
+        elif name == 'pool':
+            appt.pool = bool(valu)
+
         else:
             mesg = f'editCronJob name {name} is not supported for editing.'
             raise s_exc.BadArg(mesg=mesg)
