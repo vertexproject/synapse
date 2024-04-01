@@ -20,7 +20,8 @@ class LibCache(s_stormtypes.Lib):
             Get a new Fixed Cache object.
 
             When the callback Storm query is executed a special variable,
-            $cache_key, will be set. The query must return a value.
+            $cache_key, will be set. The query must contain a return statement.
+            If the query does not return an explicit value, $lib.null will set as the value.
 
             The fixed cache uses FIFO to evict items once the maximum size is reached.
 

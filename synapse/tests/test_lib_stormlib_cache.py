@@ -106,6 +106,44 @@ class StormlibCacheTest(s_test.SynTest):
             self.stormIsInPrint('cache:fixed: size=10000 query="return(cool)"', msgs)
             self.stormIsInPrint('aaaaa...', msgs)
 
+            # storm control flow
+
+            self.none(await core.callStorm('return($lib.cache.fixed("if (0) { return(yup) }").get(foo))'))
+
+            rets = await core.callStorm('''
+                $cache = $lib.cache.fixed( ${ if ($cache_key < (2)) { return (`key={$cache_key}`) } else { break } } )
+
+                $rets = ([])
+
+                for $i in $lib.range(4) {
+                    $rets.append($cache.get($i))
+                }
+
+                $rets.append(`i={$i}`)
+                return($rets)
+            ''')
+            self.eq(['key=0', 'key=1', 'i=2'], rets)
+
+            rets = await core.callStorm("""
+                $cache = $lib.cache.fixed('''
+                    $vals = ([])
+                    for $i in $lib.range(3) {
+                        $vals.append(`key={$cache_key} i={$i}`)
+                        break
+                    }
+                    return($vals)
+                ''')
+
+                $rets = ([])
+
+                for $k in (foo, bar, baz) {
+                    $rets.append($cache.get($k))
+                }
+
+                return($rets)
+            """)
+            self.eq([('key=foo i=0',), ('key=bar i=0',), ('key=baz i=0',),], rets)
+
             # sad
 
             ## bad storm query
