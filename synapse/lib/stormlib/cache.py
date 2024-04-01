@@ -27,7 +27,7 @@ class LibCache(s_stormtypes.Lib):
             Examples:
 
                 // Use a simple query as the callback
-                $cache = $lib.cache.fixed("return(`a value for key={$cache_key}`)")
+                $cache = $lib.cache.fixed(${ return(`a value for key={$cache_key}`) })
                 $value = $cache.get(mykey)  // $value = "a value for key=mykey"
 
                 // Print the number of items in the cache
@@ -112,6 +112,11 @@ class FixedCache(s_stormtypes.StormType):
 
     def __len__(self):
         return len(self.cache)
+
+    async def stormrepr(self):
+        if len(qtext := self.query.text) > 100:
+            qtext = qtext[:100] + '...'
+        return f'{self._storm_typename}: size={self.size} query="{qtext}"'
 
     def getObjLocals(self):
         return {

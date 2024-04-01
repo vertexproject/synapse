@@ -97,6 +97,15 @@ class StormlibCacheTest(s_test.SynTest):
             ''')
             self.eq(['foo-zero', 'zero', 'bar-one', 'one'], rets)
 
+            # stormrepr
+
+            msgs = await core.stormlist('''
+                $lib.print($lib.cache.fixed(${return(cool)}))
+                $lib.print($lib.cache.fixed($longq))
+            ''', opts={'vars': {'longq': f'return({"a" * 150})'}})
+            self.stormIsInPrint('cache:fixed: size=10000 query="return(cool)"', msgs)
+            self.stormIsInPrint('aaaaa...', msgs)
+
             # sad
 
             ## bad storm query
