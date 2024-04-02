@@ -603,7 +603,6 @@ workflows:
             branches:
               only:
                 - master
-                - dev_inactive_logging
 
       - build_docker_tag:
           requires:

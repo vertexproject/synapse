@@ -138,7 +138,7 @@ class NexsRoot(s_base.Base):
         self.nexshot.set('nexs:indx', maxindx)
         self.nexslog.setIndex(maxindx)
 
-        async def onnexsfini():
+        async def fini():
 
             for futu in self._futures.values():  # pragma: no cover
                 futu.cancel()
@@ -146,7 +146,7 @@ class NexsRoot(s_base.Base):
             await self.nexsslab.fini()
             await self.nexslog.fini()
 
-        self.onfini(onnexsfini)
+        self.onfini(fini)
 
     async def _migrateV1toV2(self, nexspath, logpath):
         '''
