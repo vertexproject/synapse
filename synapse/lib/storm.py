@@ -29,7 +29,6 @@ import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.graph as s_stormlib_graph
@@ -1208,6 +1207,8 @@ stormcmds = (
         'descr': addcrondescr,
         'cmdargs': (
             ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--pool', {'action': 'store_true', 'default': False,
+                'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
             ('--minute', {'help': 'Minute value for job or recurrence period.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
             ('--doc', {'help': 'An optional doc string for the cron job.'}),
@@ -1227,6 +1228,7 @@ stormcmds = (
                                   minute=$cmdopts.minute,
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
+                                  pool=$cmdopts.pool,
                                   month=$cmdopts.month,
                                   year=$cmdopts.year,
                                   hourly=$cmdopts.hourly,
@@ -1374,6 +1376,7 @@ stormcmds = (
                 $lib.print('iden:            {iden}', iden=$job.iden)
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print(`pool:            {$job.pool}`)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
                 $lib.print('# errors:        {errcount}', errcount=$job.errcount)
@@ -2310,27 +2313,26 @@ class Runtime(s_base.Base):
 
     async def execute(self, genr=None):
         try:
-            with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
 
-                async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
-                    nodegenr, empty = await s_ast.pullone(nodegenr)
+            async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
+                nodegenr, empty = await s_ast.pullone(nodegenr)
 
-                    if empty:
-                        return
+                if empty:
+                    return
 
-                    rules = self.opts.get('graph')
-                    if rules not in (False, None):
-                        if rules is True:
-                            rules = {'degrees': None, 'refs': True}
-                        elif isinstance(rules, str):
-                            rules = await self.snap.core.getStormGraph(rules)
+                rules = self.opts.get('graph')
+                if rules not in (False, None):
+                    if rules is True:
+                        rules = {'degrees': None, 'refs': True}
+                    elif isinstance(rules, str):
+                        rules = await self.snap.core.getStormGraph(rules)
 
-                        subgraph = s_ast.SubGraph(rules)
-                        nodegenr = subgraph.run(self, nodegenr)
+                    subgraph = s_ast.SubGraph(rules)
+                    nodegenr = subgraph.run(self, nodegenr)
 
-                    async for item in nodegenr:
-                        self.tick()
-                        yield item
+                async for item in nodegenr:
+                    self.tick()
+                    yield item
 
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'

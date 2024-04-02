@@ -832,7 +832,7 @@ class Proxy(s_base.Base):
 
                         mesg = await link.rx()
                         if mesg is None:
-                            raise s_exc.LinkShutDown(mesg=mesg)
+                            raise s_exc.LinkShutDown(mesg='Remote peer disconnected')
 
                         if mesg[0] != 't2:yield':  # pragma: no cover
                             info = 'Telepath protocol violation:  unexpected message received'
@@ -868,6 +868,8 @@ class Proxy(s_base.Base):
 
         if self.sess is not None:
             return await self.taskv2(todo, name=name)
+
+        s_common.deprecated('Telepath task with no session', curv='2.166.0')
 
         task = Task()
 

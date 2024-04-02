@@ -93,6 +93,7 @@ _CronJobSchema = {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
+        'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
         'incunit': {
             'oneOf': [

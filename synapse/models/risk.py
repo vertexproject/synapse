@@ -68,6 +68,14 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'org:name'}},
+                            {'type': 'prop', 'opts': {'name': 'org:names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    },
                 }),
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.',
@@ -81,9 +89,22 @@ class RiskModule(s_module.CoreModule):
                 }),
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        ),
+                    },
                 }),
                 ('risk:mitigation', ('guid', {}), {
                     'doc': 'A mitigation for a specific risk:vuln.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    },
                 }),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of attack types.',
@@ -104,6 +125,14 @@ class RiskModule(s_module.CoreModule):
                 }),
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity, as reported by a specific organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'soft:name'}},
+                            {'type': 'prop', 'opts': {'name': 'soft:names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    },
                 }),
 
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
@@ -128,19 +157,22 @@ class RiskModule(s_module.CoreModule):
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
+
                 ('risk:technique:masquerade', ('guid', {}), {
                     'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
             ),
             'edges': (
                 # some explicit examples...
                 (('risk:attack', 'uses', 'ou:technique'), {
-                    'doc': 'The attackers used the technique in the attack.'}),
+                    'doc': 'The attacker used the technique in the attack.'}),
                 (('risk:threat', 'uses', 'ou:technique'), {
                     'doc': 'The threat cluster uses the technique.'}),
                 (('risk:tool:software', 'uses', 'ou:technique'), {
                     'doc': 'The tool uses the technique.'}),
                 (('risk:compromise', 'uses', 'ou:technique'), {
-                    'doc': 'The attackers used the technique in the compromise.'}),
+                    'doc': 'The attacker used the technique in the compromise.'}),
+                (('risk:extortion', 'uses', 'ou:technique'), {
+                    'doc': 'The attacker used the technique to extort the victim.'}),
 
                 (('risk:attack', 'uses', 'risk:vuln'), {
                     'doc': 'The attack used the vulnerability.'}),
@@ -936,11 +968,17 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'The compromise which allowed the leaker access to the information.'}),
 
+                    ('extortion', ('risk:extortion', {}), {
+                        'doc': 'The extortion event which used the threat of the leak as leverage.'}),
+
                     ('public', ('bool', {}), {
                         'doc': 'Set to true if the leaked information was made publicly available.'}),
 
                     ('public:url', ('inet:url', {}), {
                         'doc': 'The URL where the leaked information was made publicly available.'}),
+
+                    ('size:bytes', ('int', {'min': 0}), {
+                        'doc': 'The approximate uncompressed size of the total data leaked.'}),
 
                 )),
 
@@ -963,6 +1001,9 @@ class RiskModule(s_module.CoreModule):
                     ('demanded', ('time', {}), {
                         'doc': 'The time that the attacker made their demands.'}),
 
+                    ('deadline', ('time', {}), {
+                        'doc': 'The time that the demand must be met.'}),
+
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The goal of the attacker in extorting the victim.'}),
 
@@ -976,7 +1017,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The extortion target identity.'}),
 
                     ('success', ('bool', {}), {
-                        'doc': 'Set to true if the victim met the attackers demands.'}),
+                        'doc': "Set to true if the victim met the attacker's demands."}),
 
                     ('enacted', ('bool', {}), {
                         'doc': 'Set to true if attacker carried out the threat.'}),
