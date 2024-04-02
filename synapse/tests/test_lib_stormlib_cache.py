@@ -74,8 +74,9 @@ class StormlibCacheTest(s_test.SynTest):
             ''')
             self.eq('foo-ret', ret)
 
-            # callbacks are executed in sub-runtimes
+            # callback runtime scoping
 
+            ## a function still has the outer scope as its root
             rets = await core.callStorm('''
                 $val = zero
                 $sent = $lib.null
@@ -98,10 +99,45 @@ class StormlibCacheTest(s_test.SynTest):
 
                 return($rets)
             ''')
-            self.eq(['foo-zero', 'zero', 'bar-one', 'one'], rets)
+            self.eq([
+                'foo-zero', 'zero',
+                'bar-one', 'one'
+            ], rets)
 
+            ## runtime also can modify refs to the outer scope
+            rets = await core.callStorm('''
+                $val = zero
+                $vals = ([])
+                $sent = $lib.null
+
+                $cache = $lib.cache.fixed(${
+                    $sent = $val
+                    $vals.append($cache_key)
+                    return(`{$cache_key}-{$val}`)
+                })
+
+                $rets = ([])
+
+                $rets.append($cache.get(foo))
+                $rets.append($sent)
+                $rets.append($lib.str.join(",", $vals))
+
+                $val = one
+                $rets.append($cache.get(bar))
+                $rets.append($sent)
+                $rets.append($lib.str.join(",", $vals))
+
+                return($rets)
+            ''')
+            self.eq([
+                'foo-zero', None, 'foo',
+                'bar-one', None, 'foo,bar',
+            ], rets)
+
+            ## default to null w/o a return
             self.none(await core.callStorm('return($lib.cache.fixed("if (0) { return(yup) }").get(foo))'))
 
+            ## control flow exceptions don't propagate up
             rets = await core.callStorm('''
                 $cache = $lib.cache.fixed( ${ if ($cache_key < (2)) { return (`key={$cache_key}`) } else { break } } )
 
@@ -114,8 +150,9 @@ class StormlibCacheTest(s_test.SynTest):
                 $rets.append(`i={$i}`)
                 return($rets)
             ''')
-            self.eq(['key=0', 'key=1', 'i=2'], rets)
+            self.eq(['key=0', 'key=1', None, None, 'i=3'], rets)
 
+            ## control flow scoped inside the callback
             rets = await core.callStorm("""
                 $cache = $lib.cache.fixed('''
                     $vals = ([])
@@ -136,6 +173,7 @@ class StormlibCacheTest(s_test.SynTest):
             """)
             self.eq([('key=foo i=0',), ('key=bar i=0',), ('key=baz i=0',),], rets)
 
+            ## coverage for the cb runtime emiting nodes
             rets = await core.callStorm('''
                 $rets = ([])
                 $cache = $lib.cache.fixed(${ if (0) { return(yup) } [ inet:ipv4=$cache_key ] })
@@ -145,7 +183,7 @@ class StormlibCacheTest(s_test.SynTest):
                 }
                 return($rets)
             ''')
-            self.eq([None, None], rets)  # coverage for subruntime generator
+            self.eq([None, None], rets)
 
             # stormrepr
 

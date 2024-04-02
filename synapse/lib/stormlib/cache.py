@@ -30,12 +30,33 @@ class LibCache(s_stormtypes.Lib):
 
             Examples:
 
-                // Use a simple query as the callback
-                $cache = $lib.cache.fixed(${ return(`a value for key={$cache_key}`) })
-                $value = $cache.get(mykey)  // $value = "a value for key=mykey"
+                // Use a callback query with a function that modifies the outer runtime,
+                // since it will run in the scope where it was defined.
+                $test = foo
 
-                // Print the number of items in the cache
-                $lib.print(`There are {$lib.len($cache)} items in the cache`)
+                function callback(key) {
+                    $test = $key // this will modify $test in the outer runtime
+                    return(`{$key}-val`)
+                }
+
+                $cache = $lib.cache.fixed(${ return($callback($cache_key)) })
+                $value = $cache.get(bar)
+                $lib.print($test) // this will equal "bar"
+
+                // Use a callback query that will not modify the outer runtime,
+                // except for variables accessible as references.
+                $test = foo
+                $tests = ([])
+
+                $cache = $lib.cache.fixed(${
+                    $test = $cache_key        // this will *not* modify $test in the outer runtime
+                    $tests.append($cache_key) // this will modify $tests in the outer runtime
+                    return(`{$cache_key}-val`)
+                })
+
+                $value = $cache.get(bar)
+                $lib.print($test)  // this will equal "foo"
+                $lib.print($tests) // this will equal (foo,)
             ''',
          'type': {'type': 'function', '_funcname': '_methFixedCache',
                   'args': (
@@ -140,13 +161,19 @@ class FixedCache(s_stormtypes.StormType):
         return self.query.text
 
     async def _runCallback(self, key):
-        opts = {'vars': {'cache_key': key}}
-        async with self.runt.getSubRuntime(self.query, opts=opts) as subr:
+
+        varz = self.runt.getScopeVars()
+        varz['cache_key'] = key
+
+        opts = {'vars': varz}
+        async with self.runt.getCmdRuntime(self.query, opts=opts) as runt:
             try:
-                async for _ in subr.execute():
+                async for _ in runt.execute():
                     await asyncio.sleep(0)
             except s_stormctrl.StormReturn as e:
                 return await s_stormtypes.toprim(e.item)
+            except s_stormctrl.StormCtrlFlow:
+                pass
 
     async def _reqKey(self, key):
         if s_stormtypes.ismutable(key):
