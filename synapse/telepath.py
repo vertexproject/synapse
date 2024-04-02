@@ -137,16 +137,11 @@ def mergeAhaInfo(info0, info1):
 
     return info0
 
-async def open(url, timeout=None):
+async def open(url):
     '''
-    Open a telepath ClientV2
+    Open a telepath ClientV2 from a url string, urlinfo dict, or list.
     '''
-    # backward compatible support for a list of URLs or urlinfo dicts...
-    if isinstance(url, (tuple, list)): # pragma: no cover
-        return await Client.anit(url)
-
-    urlinfo = chopurl(url)
-    return await ClientV2.anit(urlinfo)
+    return await ClientV2.anit(url)
 
 async def _getAhaSvc(urlinfo, timeout=None):
 
@@ -1006,7 +1001,6 @@ class ClientV2(s_base.Base):
         self.poolname = None
 
         self.onlink = onlink
-        self.timeout = None
 
         self.booturls = urlinfo
         self.bootdeque = collections.deque()
@@ -1036,16 +1030,10 @@ class ClientV2(s_base.Base):
 
     async def _initBootProxy(self):
 
-        await self._shutDownPool()
-
         lastlog = 0.0
         while not self.isfini:
 
             urlinfo = self.getNextBootUrl()
-
-            timeout = getParamFromInfo(urlinfo, 'timeout')
-            if timeout is not None:
-                self.timeout = int(timeout)
 
             try:
 
@@ -1053,7 +1041,8 @@ class ClientV2(s_base.Base):
 
                     self.aha, svcinfo = await _getAhaSvc(urlinfo)
 
-                    # detect if we are a pool
+                    # if the service is a pool, enter pool mode and fire
+                    # the topography sync task to manage pool members.
                     services = svcinfo.get('services')
                     if services is not None:
                         # we are an AHA pool!
@@ -1066,22 +1055,24 @@ class ClientV2(s_base.Base):
                 proxy = await openinfo(urlinfo)
                 await self._onPoolLink(proxy)
 
-                proxy.onfini(self._initBootProxy)
+                async def reconnect():
+                    if not self.isfini:
+                        self.schedCoro(self._initBootProxy())
+
+                proxy.onfini(reconnect)
 
             except Exception as e:
-                import traceback; traceback.print_exc()
+
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
                     url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
                     logger.exception(f'telepath client v2 ({url}) encountered an error: {e}')
                     lastlog = now
-                await self.waitfini(timeout=urlinfo.get('retrysleep', 0.2))
+
+                retrysleep = float(getParamFromInfo(urlinfo, 'retrysleep', defv=0.2))
+                await self.waitfini(timeout=retrysleep)
 
     async def waitready(self, timeout=None):
-
-        if timeout is None:
-            timeout = self.timeout
-
         await s_common.wait_for(self.ready.wait(), timeout=timeout)
 
     def size(self):
@@ -1093,14 +1084,12 @@ class ClientV2(s_base.Base):
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        print(f'ON POOL SVC ADD {svcname}')
         urlinfo = {'scheme': 'aha', 'host': svcname}
-        self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
+        self.clients[svcname] = await ClientV2.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
     async def _onPoolSvcDel(self, mesg):
         svcname = mesg[1].get('name')
-        print(f'ON POOL SVC DEL {svcname}')
         client = self.clients.pop(svcname, None)
         if client is not None:
             await client.fini()
@@ -1109,22 +1098,33 @@ class ClientV2(s_base.Base):
 
     async def _onPoolLink(self, proxy):
 
-        async def onfini():
-            self.proxies.remove(proxy)
+        async def fini():
+            if proxy in self.proxies:
+                self.proxies.remove(proxy)
             if proxy in self.deque:
                 self.deque.remove(proxy)
             if not len(self.proxies):
                 self.ready.clear()
 
-        proxy.onfini(onfini)
+        proxy.onfini(fini)
         self.proxies.add(proxy)
         self.ready.set()
 
+        if self.onlink is not None:
+            try:
+                await self.onlink(proxy)
+            except Exception as e:
+                logger.exception(f'onlink: {onlink}')
+
     async def _shutDownPool(self):
+
         # when we reconnect to our AHA service, we need to dump the current
         # topology state and gather it again.
         for client in self.clients.values():
             await client.fini()
+
+        for proxy in list(self.proxies):
+            await proxy.fini()
 
         self.deque.clear()
         self.ready.clear()

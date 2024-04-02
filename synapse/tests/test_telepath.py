@@ -683,7 +683,6 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
 
             url = 'tcp://visi:secretsauce@localhost/auth'
-            print(repr(s_telepath.chopurl(url)))
             async with await s_telepath.openurl(url, port=port) as proxy:
                 self.eq(17, await proxy.getFooBar(10, 7))
 
@@ -860,7 +859,8 @@ class TeleTest(s_t_utils.SynTest):
                 mesgs = stream.read()
                 self.notin('password', mesgs)
 
-            self.eq(110, await targ.dostuff(100))
+            prox00 = await targ.proxy()
+            self.eq(110, await prox00.dostuff(100))
 
             self.eq(1, fail0.count)
             self.eq(2, fail1.count)

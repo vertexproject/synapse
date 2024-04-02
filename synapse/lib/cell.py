@@ -1421,7 +1421,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             info = await s_telepath.addAhaUrl(ahaurl)
             self.ahaclient = info.get('client')
             if self.ahaclient is None:
-                self.ahaclient = await s_telepath.Client.anit(info.get('url'))
+                self.ahaclient = await s_telepath.ClientV2.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
                 self.onfini(self.ahaclient)
 
@@ -1560,32 +1560,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
-        async def onlink(proxy):
-            while not proxy.isfini:
-                info = await self.getAhaInfo()
+        async def _runAhaRegLoop():
+
+            while not self.isfini:
                 try:
+
+                    info = await self.getAhaInfo()
+                    proxy = await self.ahaclient.proxy()
+
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, info, network=ahanetw)
 
-                    return
+                    await proxy.waitfini()
 
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
+                except Exception as e:
+                    await self.waitfini(1)
 
-                except Exception:
-                    logger.exception('Error in _initAhaService() onlink')
-
-                await proxy.waitfini(1)
-
-        async def fini():
-            await self.ahaclient.offlink(onlink)
-
-        async def init():
-            await self.ahaclient.onlink(onlink)
-            self.onfini(fini)
-
-        self.schedCoro(init())
+        self.schedCoro(_runAhaRegLoop())
 
     async def initServiceRuntime(self):
         pass
