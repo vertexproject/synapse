@@ -903,7 +903,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormpool = None
         self.stormpoolurl = None
         self.stormpoolopts = None
-        self.stormpoolready = asyncio.Event()
 
         self.libroot = (None, {}, {})
         self.stormlibs = []
@@ -1476,34 +1475,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.finiStormPool()
 
     async def initStormPool(self):
-        self.stormpoolready.clear()
-        self.runActiveTask(self._initStormPool())
 
-    async def _initStormPool(self):
+        try:
 
-        while True:
-
-            try:
-
-                byts = self.slab.get(b'storm:pool', db='cell:conf')
-                if byts is None:
-                    return
-
-                url, opts = s_msgpack.un(byts)
-
-                self.stormpoolurl = url
-                self.stormpoolopts = opts
-
-                self.stormpool = await s_telepath.open(url)
-                self.stormpoolready.set()
-
-                # make this one a fini weakref vs the fini() handler
-                self.onfini(self.stormpool)
+            byts = self.slab.get(b'storm:pool', db='cell:conf')
+            if byts is None:
                 return
 
-            except Exception as e:
-                logger.exception(f'Error starting storm pool: {str(e)}')
-                await asyncio.sleep(2)
+            url, opts = s_msgpack.un(byts)
+
+            self.stormpoolurl = url
+            self.stormpoolopts = opts
+
+            self.stormpool = await s_telepath.open(url)
+
+            # make this one a fini weakref vs the fini() handler
+            self.onfini(self.stormpool)
+
+        except Exception as e:
+            logger.exception(f'Error starting storm pool: {str(e)}')
+            await asyncio.sleep(2)
 
     async def finiStormPool(self):
 
