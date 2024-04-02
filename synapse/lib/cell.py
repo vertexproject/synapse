@@ -3686,7 +3686,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.ahaclient.waitready()
 
-        mirrors = await self.ahaclient.getAhaSvcMirrors(self.ahasvcname)
+        proxy = await self.ahaclient.proxy(5)
+        mirrors = await proxy.getAhaSvcMirrors(self.ahasvcname)
         if mirrors is None:
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)

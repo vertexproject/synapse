@@ -1491,6 +1491,26 @@ def getNameFromInfo(urlinfo):
 
     return None
 
+def getUserFromInfo(urlinfo):
+    # check if there is a url param provided
+    query = urlinfo.get('query')
+    if query is not None:
+        user = query.get('user')
+        if user is not None:
+            return user
+
+    return urlinfo.get('user', None)
+
+def getPasswdFromInfo(urlinfo):
+    # check if there is a url param provided
+    query = urlinfo.get('query')
+    if query is not None:
+        passwd = query.get('passwd')
+        if passwd is not None:
+            return passwd
+
+    return urlinfo.get('passwd', None)
+
 def getParamFromInfo(urlinfo, name, defv=None):
     # check if there is a url param
     query = urlinfo.get('query')
@@ -1568,8 +1588,8 @@ async def getLinkFromInfo(info):
         user = getParamFromInfo(info, 'user')
         passwd = getParamFromInfo(info, 'passwd')
 
-        query = info.get('query')
-        logger.info(f'UNUSED OBJECT {query=}')
+        # query = info.get('query')
+        # logger.info(f'UNUSED OBJECT {query=}')
 
         certdir = getParamFromInfo(info, 'certdir')
         certhash = getParamFromInfo(info, 'certhash')
@@ -1616,9 +1636,9 @@ async def openinfo(info):
     prox.onfini(link)
 
     auth = None
-    user = info.get('user')
+    user = getUserFromInfo(info)
     if user is not None:
-        passwd = info.get('passwd')
+        passwd = getPasswdFromInfo(info)
         auth = (user, {'passwd': passwd})
 
     try:

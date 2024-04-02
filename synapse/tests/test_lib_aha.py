@@ -186,8 +186,8 @@ class AhaTest(s_test.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 with self.raises(s_exc.BadArg):
-                    await cryo.ahaclient.waitready(timeout=2)
-                    await cryo.ahaclient.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
+                    _proxy = await cryo.ahaclient.proxy(timeout=2)
+                    await _proxy.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
 
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
@@ -205,9 +205,16 @@ class AhaTest(s_test.SynTest):
                 # force the service into passive mode...
                 await cryo.setCellActive(False)
 
-                with self.raises(s_exc.NoSuchName):
+                # with self.raises(s_exc.NoSuchName):
+                try:
                     async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                         pass
+                except s_exc.NoSuchName:
+                    pass
+                except Exception as e:
+                    self.fail(f'Got exception {e}')
+                else:
+                    self.fail('Did not raise exception where expected.')
 
                 self.nn(await waiter.wait(timeout=6))
 
