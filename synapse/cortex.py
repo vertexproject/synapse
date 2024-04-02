@@ -1495,7 +1495,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             logger.exception(f'Error starting storm pool: {e}')
             # DISCUSS: What is the purpose of this waitfini?
-            await self.waitifni(2)
+            await self.waitfini(2)
 
     async def finiStormPool(self):
 
