@@ -1114,7 +1114,7 @@ class ClientV2(s_base.Base):
             try:
                 await self.onlink(proxy)
             except Exception as e:
-                logger.exception(f'onlink: {onlink}')
+                logger.exception(f'onlink: {self.onlink}')
 
     async def _shutDownPool(self):
 
@@ -1555,7 +1555,7 @@ async def getLinkFromInfo(info):
         return await s_link.unixconnect(full)
 
     if scheme == 'unix':
-        path = _getUnixPathFromInfo(info)
+        path = getUnixPathFromInfo(info)
         return await s_link.unixconnect(path)
 
     host = getHostFromInfo(info)

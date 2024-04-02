@@ -1494,7 +1494,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         except Exception as e:
             logger.exception(f'Error starting storm pool: {str(e)}')
-            await asyncio.sleep(2)
+            await self.waitfini(2)
+            logger.debug('DONE WAITING IN ERROR STATE REMOVE ME')
 
     async def finiStormPool(self):
 
