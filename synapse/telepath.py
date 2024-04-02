@@ -135,25 +135,11 @@ def mergeAhaInfo(info0, info1):
 
     return info0
 
-async def open(url, timeout=None):
+async def open(url):
     '''
-    Open a new telepath Client (or AHA Service Pool) based on the given URL.
+    Open a new telepath ClientV2 object based on the given URL.
     '''
-    # backward compatible support for a list of URLs or urlinfo dicts...
-    if isinstance(url, (tuple, list)): # pragma: no cover
-        return await Client.anit(url)
-
-    urlinfo = chopurl(url)
-
-    if urlinfo.get('scheme') == 'aha':
-
-        ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=timeout)
-
-        # check if we should return a Pool rather than a Client :)
-        if ahasvc.get('services'):
-            return await Pool.anit(ahaclient, ahasvc, urlinfo)
-
-    return await Client.anit(urlinfo)
+    return await ClientV2.anit(url)
 
 async def _getAhaSvc(urlinfo, timeout=None):
 
@@ -982,21 +968,39 @@ class Proxy(s_base.Base):
         setattr(self, name, meth)
         return meth
 
-class Pool(s_base.Base):
+class ClientV2(s_base.Base):
     '''
     A telepath client which:
         * connects to multiple services
         * distributes API calls across them
         * receives topology updates from AHA
+
+    NOTE: This must co-exist with Client until we eliminate uses that
+          attempt to call telepath APIs directly from the Client rather
+          than awaiting a proxy()
     '''
-    async def __anit__(self, aha, ahasvc, urlinfo):
+    async def __anit__(self, urlinfo, onlink=None):
+
         await s_base.Base.__anit__(self)
+
+        # some ugly stuff in order to be backward compatible...
+        if not isinstance(urlinfo, (list, tuple)):
+            urlinfo = (urlinfo,)
+
+        urlinfo = [chopurl(u) for u in urlinfo]
+
+        self.aha = None
+
         self.clients = {}
         self.proxies = set()
 
-        self.aha = aha
-        self.ahasvc = ahasvc
-        self.urlinfo = urlinfo
+        self.poolname = None
+
+        self.onlink = onlink
+
+        self.booturls = urlinfo
+        self.bootdeque = collections.deque()
+        self.bootdeque.extend(self.booturls)
 
         self.ready = asyncio.Event()
         self.deque = collections.deque()
@@ -1005,7 +1009,6 @@ class Pool(s_base.Base):
             'svc:add': self._onPoolSvcAdd,
             'svc:del': self._onPoolSvcDel,
         }
-        self.schedCoro(self._toposync())
 
         async def fini():
             await self._shutDownPool()
@@ -1014,8 +1017,63 @@ class Pool(s_base.Base):
 
         self.onfini(fini)
 
+        self.schedCoro(self._initBootProxy())
+
+    def getNextBootUrl(self):
+        if not self.bootdeque:
+            self.bootdeque.extend(self.booturls)
+        return self.bootdeque.popleft()
+
+    async def _initBootProxy(self):
+
+        lastlog = 0.0
+        while not self.isfini:
+
+            urlinfo = self.getNextBootUrl()
+
+            try:
+
+                if urlinfo.get('scheme') == 'aha':
+
+                    self.aha, svcinfo = await _getAhaSvc(urlinfo)
+
+                    # if the service is a pool, enter pool mode and fire
+                    # the topography sync task to manage pool members.
+                    services = svcinfo.get('services')
+                    if services is not None:
+                        # we are an AHA pool!
+                        if self.poolname is None:
+                            self.poolname = svcinfo.get('name')
+                            self.schedCoro(self._toposync())
+                        return
+
+                # regular telepath client behavior
+                proxy = await openinfo(urlinfo)
+                await self._onPoolLink(proxy)
+
+                async def reconnect():
+                    if not self.isfini:
+                        self.schedCoro(self._initBootProxy())
+
+                proxy.onfini(reconnect)
+
+            except Exception as e:
+
+                now = time.monotonic()
+                if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
+                    url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
+                    logger.exception(f'telepath client v2 ({url}) encountered an error: {e}')
+                    lastlog = now
+
+                # retrysleep = float(getParamFromInfo(urlinfo, 'retrysleep', defv=0.2))
+                retrysleep = float(urlinfo.get('retrysleep', 0.2))
+                await self.waitfini(timeout=retrysleep)
+
+    async def waitready(self, timeout=None):
+        await s_common.wait_for(self.ready.wait(), timeout=timeout)
+
     def size(self):
-        return len(self.clients)
+        return len(self.proxies)
 
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
@@ -1023,8 +1081,8 @@ class Pool(s_base.Base):
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
-        self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
+        urlinfo = {'scheme': 'aha', 'host': svcname}
+        self.clients[svcname] = await ClientV2.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
     async def _onPoolSvcDel(self, mesg):
@@ -1038,7 +1096,8 @@ class Pool(s_base.Base):
     async def _onPoolLink(self, proxy):
 
         async def onfini():
-            self.proxies.remove(proxy)
+            if proxy in self.proxies:
+                self.proxies.remove(proxy)
             if proxy in self.deque:
                 self.deque.remove(proxy)
             if not len(self.proxies):
@@ -1048,13 +1107,23 @@ class Pool(s_base.Base):
         self.proxies.add(proxy)
         self.ready.set()
 
+        if self.onlink is not None:
+            try:
+                await self.onlink(proxy)
+            except Exception as e:
+                logger.exception(f'onlink: {self.onlink}')
+
     async def _shutDownPool(self):
         # when we reconnect to our AHA service, we need to dump the current
         # topology state and gather it again.
         for client in self.clients.values():
             await client.fini()
 
+        for proxy in list(self.proxies):
+            await proxy.fini()
+
         self.deque.clear()
+        self.ready.clear()
         self.clients.clear()
         self.proxies.clear()
 
@@ -1067,14 +1136,12 @@ class Pool(s_base.Base):
 
         while not self.isfini:
 
-            poolname = self.ahasvc.get('name')
-
             try:
                 ahaproxy = await self.aha.proxy()
 
                 await reset()
 
-                async for mesg in ahaproxy.iterPoolTopo(poolname):
+                async for mesg in ahaproxy.iterPoolTopo(self.poolname):
                     hand = self.mesghands.get(mesg[0])
                     if hand is None: # pragma: no cover
                         logger.warning(f'Unknown AHA pool topography message: {mesg}')
@@ -1410,7 +1477,7 @@ class TeleSSLObject(ssl.SSLObject):
         return ssl.SSLObject.do_handshake(self)
 
 async def openinfo(info):
-
+    # logger.info(f'{info=}')
     scheme = info.get('scheme')
 
     if scheme == 'aha':
@@ -1464,7 +1531,7 @@ async def openinfo(info):
 
     else:
 
-        path = info.get('path')
+        path = info.get('path', '')  # FIXME Correct default path is "" or "*" ?
         name = info.get('name', path[1:])
 
         if port is None:

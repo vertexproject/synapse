@@ -1476,19 +1476,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def initStormPool(self):
 
-        byts = self.slab.get(b'storm:pool', db='cell:conf')
-        if byts is None:
-            return
+        try:
 
-        url, opts = s_msgpack.un(byts)
+            byts = self.slab.get(b'storm:pool', db='cell:conf')
+            if byts is None:
+                return
 
-        self.stormpoolurl = url
-        self.stormpoolopts = opts
+            url, opts = s_msgpack.un(byts)
 
-        self.stormpool = await s_telepath.open(url)
+            self.stormpoolurl = url
+            self.stormpoolopts = opts
 
-        # make this one a fini weakref vs the fini() handler
-        self.onfini(self.stormpool)
+            self.stormpool = await s_telepath.open(url)
+
+            # make this one a fini weakref vs the fini() handler
+            self.onfini(self.stormpool)
+
+        except Exception as e:
+            logger.exception(f'Error starting storm pool: {e}')
+            # DISCUSS: What is the purpose of this waitfini?
+            await self.waitifni(2)
 
     async def finiStormPool(self):
 
@@ -5280,9 +5287,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return mirropts
 
     async def _getMirrorProxy(self):
-        if isinstance(self.stormpool, s_telepath.Pool) and self.stormpool.size() == 0:
-            mesg = 'Storm query mirror pool is empty, running locally instead.'
-            logger.warning(mesg)
+
+        if self.stormpool is None:
+            return None
+
+        if self.stormpool.size() == 0:
+            # TODO DEBUG LOG LEVEL
+            logger.warning('Storm query mirror pool is empty, running query locally.')
             return None
 
         proxy = None
@@ -5293,10 +5304,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if proxyname is not None and proxyname == self.ahasvcname:
                 # we are part of the pool and were selected. Convert to local use.
                 return None
-        except (TimeoutError, s_exc.IsFini):
-            mesg = 'Unable to get proxy for query mirror, running locally instead.'
-            logger.warning(mesg)
-        return proxy
+
+            return proxy
+
+        # TODO - fini proxy problem? s_exc.IsFini exception?
+        except TimeoutError:
+            logger.warning('Timeout waiting for pool mirror, running query locally.')
+            return None
 
     async def storm(self, text, opts=None):
 

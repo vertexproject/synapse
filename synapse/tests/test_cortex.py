@@ -7815,6 +7815,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.fini()
 
                     core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
+                    logger.info('Waiting for stormpool to be ready...')
+                    await core00.stormpool.waitready(timeout=12)
+                    logger.info('STORMPOOL IS READY!')
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
@@ -7897,36 +7900,40 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.TimeOut):
                         await core00.count('inet:asn=0', opts=opts)
 
+                    logger.info('Fini core01')
                     await core01.fini()
+                    logger.info('Finid core01')
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
+                    for m in msgs:
+                        logger.info(f'{m}')
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.len(1, await alist(core00.exportStorm('inet:asn=0')))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.eq(1, await core00.count('inet:asn=0'))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     core01 = await base.enter_context(self.getTestCore(dirn=dirn01))
                     await core01.promote(graceful=True)
