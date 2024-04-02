@@ -1569,6 +1569,7 @@ async def getLinkFromInfo(info):
         passwd = getParamFromInfo(info, 'passwd')
 
         query = info.get('query')
+        logger.info(f'UNUSED OBJECT {query=}')
 
         certdir = getParamFromInfo(info, 'certdir')
         certhash = getParamFromInfo(info, 'certhash')
