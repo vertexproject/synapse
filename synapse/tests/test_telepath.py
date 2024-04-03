@@ -868,6 +868,17 @@ class TeleTest(s_t_utils.SynTest):
             prox00 = await targ.proxy(timeout=12)
             self.eq(110, await prox00.dostuff(100))
 
+        async def onlink(proxy, urlinfo):
+            self.eq(110, await proxy.dostuff(100))
+            _url = s_telepath.zipurl(urlinfo)
+            logger.info(f'Connected to url={_url}')
+
+        with self.getAsyncLoggerStream('synapse.tests.test_telepath',
+                                       f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo') as stream:
+            async with await s_telepath.open(url1, onlink=onlink) as targ:
+                self.true(await stream.wait(timeout=12))
+
+        await dmon0.fini()
         await dmon1.fini()
 
     async def test_telepath_poolsize(self):

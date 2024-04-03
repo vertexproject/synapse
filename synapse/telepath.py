@@ -138,6 +138,19 @@ def mergeAhaInfo(info0, info1):
 async def open(url, onlink=None):
     '''
     Open a new telepath ClientV2 object based on the given URL.
+
+    Args:
+        url (str): The URL to connect to.
+        onlink: An optional async callback function to run when connections are made.
+
+    Notes:
+        The onlink callbcak function has the call signature ``(proxy, urlinfo)``.
+        The proxy is the Telepath Proxy object.
+        The urlinfo is the parsed URL information used to create the proxy object.
+        The urlinfo structure may change between versions of Synapse.
+
+    Returns:
+        ClientV2: A ClientV2 object.
     '''
     return await ClientV2.anit(url, onlink=onlink)
 
@@ -1049,7 +1062,7 @@ class ClientV2(s_base.Base):
 
                 # regular telepath client behavior
                 proxy = await openinfo(urlinfo)
-                await self._onPoolLink(proxy)
+                await self._onPoolLink(proxy, urlinfo)
 
                 async def reconnect():
                     if not self.isfini:
@@ -1093,7 +1106,7 @@ class ClientV2(s_base.Base):
         self.deque.clear()
         await self.fire('svc:del', **mesg[1])
 
-    async def _onPoolLink(self, proxy):
+    async def _onPoolLink(self, proxy, urlinfo):
 
         async def onfini():
             if proxy in self.proxies:
@@ -1109,7 +1122,7 @@ class ClientV2(s_base.Base):
 
         if self.onlink is not None:
             try:
-                await self.onlink(proxy)
+                await self.onlink(proxy, urlinfo)
             except Exception as e:
                 logger.exception(f'onlink: {self.onlink}')
 

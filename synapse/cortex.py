@@ -1487,7 +1487,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.stormpoolurl = url
             self.stormpoolopts = opts
 
-            self.stormpool = await s_telepath.open(url)
+            async def onlink(proxy, urlinfo):
+                _url = s_urlhelp.sanitizeUrl(s_telepath.zipurl(urlinfo))
+                logger.debug(f'Stormpool client connected to {_url}')
+
+            self.stormpool = await s_telepath.open(url, onlink=onlink)
 
             # make this one a fini weakref vs the fini() handler
             self.onfini(self.stormpool)
