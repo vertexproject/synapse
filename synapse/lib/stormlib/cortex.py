@@ -1070,6 +1070,20 @@ class CortexHttpApi(s_stormtypes.Lib):
                        'desc': 'The iden of the API to retrieve.'},
                   ),
                   'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
+        {'name': 'get', 'desc': '''
+        Get an Extended ``http:api`` object by path.
+
+        Notes:
+
+            The path argument is evaluated as a regular expression input, and will be
+            used to get the first HTTP API handler whose path value has a match.
+        ''',
+         'type': {'type': 'function', '_funcname': 'getHttpApi',
+                  'args': (
+                      {'name': 'path', 'type': 'string',
+                       'desc': 'Path to use to retreive an object.'},
+                  ),
+                  'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``$lib.null`` if there is no match..'}}},
         {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
                  'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
@@ -1111,6 +1125,7 @@ class CortexHttpApi(s_stormtypes.Lib):
             'list': self.listHttpApis,
             'index': self.setHttpApiIndx,
             'response': self.makeHttpResponse,
+            'getByPath': self.getHttpApiByPath,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1123,6 +1138,15 @@ class CortexHttpApi(s_stormtypes.Lib):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         iden = await s_stormtypes.tostr(iden)
         adef = await self.runt.snap.core.getHttpExtApi(iden)
+        return HttpApi(self.runt, adef)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getHttpApiByPath(self, path):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
+        path = await s_stormtypes.tostr(path)
+        adef, _ = await self.runt.snap.core.getHttpExtApiByPath(path)
+        if adef is None:
+            return None
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
