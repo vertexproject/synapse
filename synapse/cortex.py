@@ -73,6 +73,7 @@ import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
+import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
 import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
 import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
