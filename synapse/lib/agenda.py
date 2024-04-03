@@ -878,7 +878,7 @@ class Agenda(s_base.Base):
             mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
                    f'took {took:.3f}s'
             if not self.core.isactive:
-                mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer active.'
+                mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
             logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
                                                  'result': result, 'username': user.name, 'took': took}})
             edits = {
