@@ -393,6 +393,9 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             return ( $api.iden )
             '''
             iden0 = await core.callStorm(q)
+            msgs = await core.stormlist('$lib.print($lib.cortex.httpapi.get($iden))', opts={'vars': {'iden': iden0}})
+            mesg = 'http:api: the hehe wildcard handler (********************************), path=hehe/([a-z0-9]*)'
+            self.stormIsInPrint(mesg, msgs, deguid=True)
 
             q = '''
             $api = $lib.cortex.httpapi.add('hehe/haha')
@@ -428,6 +431,9 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             return ( $api.iden )
             '''
             iden3 = await core.callStorm(q)
+            msgs = await core.stormlist('$lib.print($lib.cortex.httpapi.get($iden))', opts={'vars': {'iden': iden3}})
+            mesg = 'http:api: <no name> (********************************), path=wow'
+            self.stormIsInPrint(mesg, msgs, deguid=True)
 
             # $lib.dict accessor methods
             q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.keys($api.vars))'

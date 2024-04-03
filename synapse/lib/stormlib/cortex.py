@@ -292,6 +292,13 @@ class HttpApi(s_stormtypes.StormType):
             'created': self.info.get('created'),
         })
 
+    async def stormrepr(self):
+        name = await self._gtorName()
+        if not name:
+            name = '<no name>'
+        path = await self._gtorPath()
+        return f'{self._storm_typename}: {name} ({self.iden}), path={path}'
+
     def getObjLocals(self):
         return {
             'pack': self._methPack,
