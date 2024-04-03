@@ -135,11 +135,11 @@ def mergeAhaInfo(info0, info1):
 
     return info0
 
-async def open(url):
+async def open(url, onlink=None):
     '''
     Open a new telepath ClientV2 object based on the given URL.
     '''
-    return await ClientV2.anit(url)
+    return await ClientV2.anit(url, onlink=onlink)
 
 async def _getAhaSvc(urlinfo, timeout=None):
 
@@ -1056,16 +1056,16 @@ class ClientV2(s_base.Base):
                         self.schedCoro(self._initBootProxy())
 
                 proxy.onfini(reconnect)
+                return
 
             except Exception as e:
 
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
                     url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
-                    logger.exception(f'telepath client v2 ({url}) encountered an error: {e}')
+                    logger.exception(f'telepath clientv2 ({url}) encountered an error: {e}')
                     lastlog = now
 
-                # retrysleep = float(getParamFromInfo(urlinfo, 'retrysleep', defv=0.2))
                 retrysleep = float(urlinfo.get('retrysleep', 0.2))
                 await self.waitfini(timeout=retrysleep)
 
@@ -1116,7 +1116,7 @@ class ClientV2(s_base.Base):
     async def _shutDownPool(self):
         # when we reconnect to our AHA service, we need to dump the current
         # topology state and gather it again.
-        for client in self.clients.values():
+        for client in list(self.clients.values()):
             await client.fini()
 
         for proxy in list(self.proxies):
