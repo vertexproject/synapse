@@ -242,6 +242,8 @@ class HttpApi(s_stormtypes.StormType):
         {'name': 'authenticated', 'desc': 'Boolean value indicating if the Extended HTTP API requires an authenticated user or session.',
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storAuthenticated', '_gtorfunc': '_gtorAuthenticated',
                   'returns': {'type': 'boolean'}}},
+        {'name': 'methods', 'desc': 'The dictionary containing the Storm code used to implement the HTTP methods.',
+         'type': {'type': ['ctor',], '_ctorfunc': '_ctorMethods', 'returns': {'type': 'http:api:methods'}}}
     )
 
     def __init__(self, runt, info):
