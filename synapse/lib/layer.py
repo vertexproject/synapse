@@ -25,7 +25,7 @@ Node Edits / Edits
 Storage Node (<sode>)
 
     A storage node is a layer/storage optimized node representation which is similar to a "packed node".
-    A storage node *may* be partial ( as it is produced by a given layer ) and are joined by the view/snap
+    A storage node *may* be partial ( as it is produced by a given layer ) and are joined by the view
     into "full" storage nodes which are used to construct Node() instances.
 
     Sode format::

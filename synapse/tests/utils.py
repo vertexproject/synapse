@@ -535,9 +535,9 @@ class TestModule(s_module.CoreModule):
             health.update(self.getModName(), 'failed',
                           'Test module is unhealthy', data={'beep': 1})
 
-    async def addTestRecords(self, snap, items):
+    async def addTestRecords(self, view, items, user=None):
         for name in items:
-            await snap.addNode('test:str', name)
+            await view.addNode('test:str', name, user=user)
 
     async def _testRuntLift(self, view, prop, cmprvalu=None):
 

@@ -106,7 +106,7 @@ class LibScrape(s_stormtypes.Lib):
     async def _methContext(self, text):
         text = await s_stormtypes.tostr(text)
 
-        genr = self.runt.snap.view.scrapeIface(text)
+        genr = self.runt.view.scrapeIface(text)
         async for (form, valu, info) in genr:
             yield (form, valu, info)
 
@@ -114,7 +114,7 @@ class LibScrape(s_stormtypes.Lib):
     async def _methNdefs(self, text):
         text = await s_stormtypes.tostr(text)
 
-        genr = self.runt.snap.view.scrapeIface(text, unique=True)
+        genr = self.runt.view.scrapeIface(text, unique=True)
         async for (form, valu, _) in genr:
             yield (form, valu)
 

@@ -2373,20 +2373,19 @@ class CortexTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'haha'))
-                self.eq(node.getTag('bar'), (tick1, tick1 + 1))
+            view = core.getView()
+            node = await view.getNodeByNdef(('test:str', 'haha'))
+            self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
-                # FIXME Snap.strict manipulation, remove in 3.0.0
-                # Sad path with snap.strict=False
-                snap.strict = False
-                waiter = snap.waiter(1, 'warn')
-                ret = await node.addTag('newp.newpnewp', ('2001', '1999'))
-                self.none(ret)
-                msgs = await waiter.wait(timeout=6)
-                self.len(1, msgs)
-                mesg = msgs[0]
-                self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
+            async with await core.getRuntime() as runt:
+                async with core.view.getNodeEditor(node, runt=runt, strict=False) as protonode:
+                    waiter = runt.bus.waiter(1, 'warn')
+                    ret = await protonode.addTag('newp.newpnewp', ('2001', '1999'))
+                    self.none(ret)
+                    msgs = await waiter.wait(timeout=6)
+                    self.len(1, msgs)
+                    mesg = msgs[0]
+                    self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
 
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
             nodes = await core.nodes('test:str=haha')
@@ -3124,16 +3123,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
+            async with core.view.getEditor() as editor:
 
-                node = await snap.addNode('test:str', 'foo')
+                node = await editor.addNode('test:str', 'foo')
 
                 await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
                 await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
 
-                # FIXME Snap.strict manipulation, remove in 3.0.0
-                snap.strict = False
-                self.none(await snap.addNode('test:str', s_common.novalu))
+                editor.strict = False
+                self.none(await editor.addNode('test:str', s_common.novalu))
 
                 self.false(await node.set('newpnewp', 10))
                 self.false(await node.set('tick', (20, 30)))
@@ -3511,13 +3509,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             seeds = []
             alldefs = {}
 
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3562,27 +3558,23 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
+            async for node in core.view.iterStormPodes('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
 
-                async for node, path in snap.storm('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': iden}):
 
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': iden}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3601,15 +3593,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
+            async for node in core.view.iterStormPodes(text):
 
-            async with await core.snap() as snap:
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                async for node, path in snap.storm(text):
-
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3617,13 +3606,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             rules['filterinput'] = False
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             # our TLDs are no longer omits
             self.len(4, seeds)
@@ -3639,13 +3627,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             # The tlds are omitted, but since we are yieldfiltered=True,
             # we still get the seeds. We also get an inet:dns:a node we
@@ -3662,13 +3649,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:dns:a:fqdn=woot.com',
-                                                   opts={'graph': rules}):
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+            async for node in core.view.iterStormPodes('inet:dns:a:fqdn=woot.com', opts={'graph': rules}):
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
+
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             self.len(1, seeds)
             self.len(5, alldefs)
@@ -3686,9 +3672,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '#deathstar | graph --degrees 2 --refs'
             ndefs = set()
-            async with await core.snap() as snap:
-                async for node, path in snap.storm(q):
-                    ndefs.add(node.ndef)
+            async for node in core.view.iterStormPodes(q):
+                ndefs.add(node[0])
             self.isin(('inet:asn', 1138), ndefs)
 
             # Runtsafety test
@@ -5809,7 +5794,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         }
                     }, name=viewdmon)
                 '''
-                # Iden is captured from the current snap
                 await core.nodes(q, opts={'view': view2_iden})
                 await asyncio.sleep(0)
 

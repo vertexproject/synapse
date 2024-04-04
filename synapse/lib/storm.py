@@ -15,12 +15,12 @@ import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
-import synapse.lib.snap as s_snap
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
+import synapse.lib.editor as s_editor
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
@@ -1746,6 +1746,8 @@ class StormDmon(s_base.Base):
 
         viewiden = opts.get('view')
 
+        query = await self.core.getStormQuery(text, mode=opts.get('mode', 'storm'))
+
         info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon'), 'view': viewiden}
         await self.core.boss.promote('storm:dmon', user=self.user, info=info)
 
@@ -1777,12 +1779,12 @@ class StormDmon(s_base.Base):
             try:
 
                 self.status = 'running'
-                async with await self.core.snap(user=self.user, view=view) as snap:
-                    snap.on('warn', dmonWarn)
-                    snap.on('print', dmonPrint)
+                async with await Runtime.anit(query, view, opts=opts, user=self.user) as runt:
+                    runt.bus.on('warn', dmonWarn)
+                    runt.bus.on('print', dmonPrint)
                     self.err_evnt.clear()
 
-                    async for nodepath in snap.storm(text, opts=opts, user=self.user):
+                    async for nodepath in runt.execute():
                         # all storm tasks yield often to prevent latency
                         self.count += 1
                         await asyncio.sleep(0)
@@ -1810,28 +1812,28 @@ class StormDmon(s_base.Base):
 class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
-
-    The runtime should maintain a firm API boundary using the snap.
-    Parallel query execution requires that the snap be treated as an
-    opaque object which is called through, but not dereferenced.
-
     '''
-
     _admin_reason = s_hiveauth._allowedReason(True, isadmin=True)
-    async def __anit__(self, query, snap, opts=None, user=None, root=None):
+
+    async def __anit__(self, query, view, opts=None, user=None, root=None, bus=None):
 
         await s_base.Base.__anit__(self)
 
         if opts is None:
             opts = {}
 
+        if bus is None:
+            bus = await s_base.Base.anit()
+            bus._warnonce_keys = set()
+
+        self.bus = bus
         self.vars = {}
         self.ctors = {
             'lib': s_stormtypes.LibBase,
         }
 
         self.opts = opts
-        self.snap = snap
+        self.view = view
         self.user = user
         self.debug = opts.get('debug', False)
         self.asroot = False
@@ -1841,10 +1843,10 @@ class Runtime(s_base.Base):
 
         self.query = query
 
-        self.spawn_log_conf = await self.snap.core._getSpawnLogConf()
+        self.spawn_log_conf = await self.view.core._getSpawnLogConf()
 
         self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
-        self.model = snap.core.getDataModel()
+        self.model = view.core.getDataModel()
 
         self.task = asyncio.current_task()
         self.emitq = None
@@ -1877,8 +1879,14 @@ class Runtime(s_base.Base):
 
         self.proxies = {}
 
-        self._loadRuntVars(query)
+        if query is not None:
+            self._loadRuntVars(query)
+
         self.onfini(self._onRuntFini)
+
+    async def keepalive(self, period):
+        while not await self.waitfini(period):
+            await self.bus.fire('ping')
 
     def getScopeVars(self):
         '''
@@ -1947,14 +1955,14 @@ class Runtime(s_base.Base):
     async def reqGateKeys(self, gatekeys):
         if self.asroot:
             return
-        await self.snap.core.reqGateKeys(gatekeys)
+        await self.view.core.reqGateKeys(gatekeys)
 
     async def reqUserCanReadLayer(self, layriden):
 
         if self.asroot:
             return
 
-        for view in self.snap.core.viewsbylayer.get(layriden, ()):
+        for view in self.view.core.viewsbylayer.get(layriden, ()):
             if self.user.allowed(('view', 'read'), gateiden=view.iden):
                 return
 
@@ -1969,26 +1977,17 @@ class Runtime(s_base.Base):
         # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
-        return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
+        return await self.view.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
-        async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
+        async for item in self.view.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
     async def getStormQuery(self, text):
-        return await self.snap.core.getStormQuery(text)
-
-    async def coreDynCall(self, todo, perm=None):
-        gatekeys = ()
-        if perm is not None:
-            gatekeys = ((self.user.iden, perm, None),)
-        # bypass all perms checks if we are running asroot
-        if self.asroot:
-            gatekeys = ()
-        return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await self.view.core.getStormQuery(text)
 
     async def getTeleProxy(self, url, **opts):
 
@@ -2000,7 +1999,7 @@ class Runtime(s_base.Base):
         prox = await s_telepath.openurl(url, **opts)
 
         self.proxies[(url, flat)] = prox
-        self.snap.onfini(prox.fini)
+        self.onfini(prox.fini)
 
         return prox
 
@@ -2008,13 +2007,18 @@ class Runtime(s_base.Base):
         return bool(self.runtvars.get(name))
 
     async def printf(self, mesg):
-        return await self.snap.printf(mesg)
+        await self.bus.fire('print', mesg=mesg)
 
-    async def warn(self, mesg, **info):
-        return await self.snap.warn(mesg, **info)
+    async def warn(self, mesg, log=True, **info):
+        if log:
+            logger.warning(mesg)
+        await self.bus.fire('warn', mesg=mesg, **info)
 
-    async def warnonce(self, mesg, **info):
-        return await self.snap.warnonce(mesg, **info)
+    async def warnonce(self, mesg, log=True, **info):
+        if mesg in self.bus._warnonce_keys:
+            return
+        self.bus._warnonce_keys.add(mesg)
+        await self.warn(mesg, log, **info)
 
     def tick(self):
         pass
@@ -2109,7 +2113,7 @@ class Runtime(s_base.Base):
 
         for ndef in self.opts.get('ndefs', ()):
 
-            node = await self.snap.getNodeByNdef(ndef)
+            node = await self.view.getNodeByNdef(ndef)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -2119,14 +2123,14 @@ class Runtime(s_base.Base):
             if len(buid) != 32:
                 raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
 
-            node = await self.snap.getNodeByBuid(buid)
+            node = await self.view.getNodeByBuid(buid)
             if node is not None:
                 yield node, self.initPath(node)
 
     def layerConfirm(self, perms):
         if self.asroot:
             return
-        iden = self.snap.wlyr.iden
+        iden = self.view.layers[0].iden
         return self.user.confirm(perms, gateiden=iden)
 
     def isAdmin(self, gateiden=None):
@@ -2162,7 +2166,7 @@ class Runtime(s_base.Base):
         if default is None:
             default = False
 
-            permdef = self.snap.core.getPermDef(perms)
+            permdef = self.view.core.getPermDef(perms)
             if permdef:
                 default = permdef.get('default', False)
 
@@ -2175,7 +2179,7 @@ class Runtime(s_base.Base):
         if default is None:
             default = False
 
-            permdef = self.snap.core.getPermDef(perms)
+            permdef = self.view.core.getPermDef(perms)
             if permdef:
                 default = permdef.get('default', False)
 
@@ -2192,7 +2196,7 @@ class Runtime(s_base.Base):
             return self._admin_reason
 
         if default is None:
-            permdef = self.snap.core.getPermDef(perms)
+            permdef = self.view.core.getPermDef(perms)
             if permdef:
                 default = permdef.get('default', default)
 
@@ -2201,7 +2205,7 @@ class Runtime(s_base.Base):
     def confirmPropSet(self, prop, layriden=None):
 
         if layriden is None:
-            layriden = self.snap.wlyr.iden
+            layriden = self.view.layers[0].iden
 
         meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
 
@@ -2237,7 +2241,7 @@ class Runtime(s_base.Base):
     def confirmPropDel(self, prop, layriden=None):
 
         if layriden is None:
-            layriden = self.snap.wlyr.iden
+            layriden = self.view.layers[0].iden
 
         meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
 
@@ -2271,12 +2275,12 @@ class Runtime(s_base.Base):
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
-            self.snap.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
+            self.view.core._reqEasyPerm(item, self.user, perm, mesg=mesg)
 
     def allowedEasyPerm(self, item, perm):
         if self.asroot:
             return True
-        return self.snap.core._hasEasyPerm(item, self.user, perm)
+        return self.view.core._hasEasyPerm(item, self.user, perm)
 
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -2312,7 +2316,7 @@ class Runtime(s_base.Base):
                     if rules is True:
                         rules = {'degrees': None, 'refs': True}
                     elif isinstance(rules, str):
-                        rules = await self.snap.core.getStormGraph(rules)
+                        rules = await self.view.core.getStormGraph(rules)
 
                     subgraph = s_ast.SubGraph(rules)
                     nodegenr = subgraph.run(self, nodegenr)
@@ -2325,23 +2329,55 @@ class Runtime(s_base.Base):
             mesg = 'Maximum Storm pipeline depth exceeded.'
             raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
 
-    async def _snapFromOpts(self, opts):
+    async def iterStormPodes(self):
+        '''
+        Yield packed node tuples for the given storm query text.
+        '''
+        dorepr = False
+        dopath = False
 
-        snap = self.snap
+        show_storage = False
+
+        info = {'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden}
+        self.view.core._logStormQuery(self.query.text, self.user, info=info)
+
+        # { form: ( embedprop, ... ) }
+        embeds = self.opts.get('embeds')
+        dorepr = self.opts.get('repr', False)
+        dopath = self.opts.get('path', False)
+        show_storage = self.opts.get('show:storage', False)
+
+        async for node, path in self.execute():
+
+            pode = node.pack(dorepr=dorepr)
+            pode[1]['path'] = await path.pack(path=dopath)
+
+            if show_storage:
+                pode[1]['storage'] = await node.getStorNodes()
+
+            if embeds is not None:
+                embdef = embeds.get(node.form.name)
+                if embdef is not None:
+                    pode[1]['embeds'] = await node.getEmbeds(embdef)
+
+            yield pode
+
+    async def _viewFromOpts(self, opts):
+
+        view = self.view
 
         if opts is not None:
 
             viewiden = opts.get('view')
             if viewiden is not None:
 
-                view = snap.core.views.get(viewiden)
+                view = self.view.core.views.get(viewiden)
                 if view is None:
                     raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
-                snap = await view.snap(self.user)
 
-        return snap
+        return view
 
     @contextlib.asynccontextmanager
     async def getSubRuntime(self, query, opts=None):
@@ -2356,9 +2392,9 @@ class Runtime(s_base.Base):
         Construct and return sub-runtime with a shared scope.
         ( caller must fini )
         '''
-        snap = await self._snapFromOpts(opts)
+        view = await self._viewFromOpts(opts)
 
-        runt = await Runtime.anit(query, snap, user=self.user, opts=opts, root=self)
+        runt = await Runtime.anit(query, view, user=self.user, opts=opts, root=self, bus=self.bus)
         if self.debug:
             runt.debug = True
         runt.asroot = self.asroot
@@ -2371,7 +2407,7 @@ class Runtime(s_base.Base):
         '''
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
-        async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+        async with await Runtime.anit(query, self.view, user=self.user, opts=opts, bus=self.bus) as runt:
             if self.debug:
                 runt.debug = True
             runt.asroot = self.asroot
@@ -2382,7 +2418,7 @@ class Runtime(s_base.Base):
         '''
         Construct a non-context managed runtime for use in module imports.
         '''
-        runt = await Runtime.anit(query, self.snap, user=self.user, opts=opts)
+        runt = await Runtime.anit(query, self.view, user=self.user, opts=opts, bus=self.bus)
         if self.debug:
             runt.debug = True
         runt.asroot = self.asroot
@@ -2395,7 +2431,7 @@ class Runtime(s_base.Base):
         '''
         if opts is None:
             opts = {}
-        query = await self.snap.core.getStormQuery(text)
+        query = await self.view.core.getStormQuery(text)
         async with self.getSubRuntime(query, opts=opts) as runt:
             async for item in runt.execute(genr=genr):
                 await asyncio.sleep(0)
@@ -2410,7 +2446,7 @@ class Runtime(s_base.Base):
         nodes = []
         try:
 
-            async for node in self.snap.nodesByPropValu(propname, cmpr, valu):
+            async for node in self.view.nodesByPropValu(propname, cmpr, valu):
 
                 await asyncio.sleep(0)
 
@@ -2863,7 +2899,7 @@ class Cmd:
         self.runtsafe = runtsafe
 
         self.pars = self.getArgParser()
-        self.pars.printf = runt.snap.printf
+        self.pars.printf = runt.printf
 
     def isReadOnly(self):
         return self.readonly
@@ -2891,7 +2927,7 @@ class Cmd:
             pass
 
         for line in self.pars.mesgs:
-            await self.runt.snap.printf(line)
+            await self.runt.printf(line)
 
         if self.pars.exc is not None:
             raise self.pars.exc
@@ -2993,7 +3029,7 @@ class PureCmd(Cmd):
                 raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         text = self.cdef.get('storm')
-        query = await runt.snap.core.getStormQuery(text)
+        query = await runt.view.core.getStormQuery(text)
 
         cmdopts = s_stormtypes.CmdOpts(self)
 
@@ -3297,7 +3333,7 @@ class HelpCmd(Cmd):
 
     async def _handleGenericCommandHelp(self, item, runt, foundtype=False):
 
-        stormcmds = sorted(runt.snap.core.getStormCmds())
+        stormcmds = sorted(runt.view.core.getStormCmds())
 
         if item:
             stormcmds = [c for c in stormcmds if item in c[0]]
@@ -3306,7 +3342,7 @@ class HelpCmd(Cmd):
                     await runt.printf(f'No commands found matching "{item}"')
                     return
 
-        stormpkgs = await runt.snap.core.getStormPkgs()
+        stormpkgs = await runt.view.core.getStormPkgs()
 
         pkgsvcs = {}
         pkgcmds = {}
@@ -3319,7 +3355,7 @@ class HelpCmd(Cmd):
             for cmd in pkg.get('commands', []):
                 pkgmap[cmd.get('name')] = pkgname
 
-            ssvc = runt.snap.core.getStormSvc(svciden)
+            ssvc = runt.view.core.getStormSvc(svciden)
             if ssvc is not None:
                 pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
 
@@ -3387,7 +3423,7 @@ class HelpCmd(Cmd):
             await runt.printf(line)
 
     def _getChildLibs(self, lib: s_stormtypes.Lib):
-        corelibs = self.runt.snap.core.getStormLib(lib.name)
+        corelibs = self.runt.view.core.getStormLib(lib.name)
         if corelibs is None:
             raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
 
@@ -3548,7 +3584,7 @@ class DiffCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if runt.snap.view.parent is None:
+        if runt.view.parent is None:
             mesg = 'You may only generate a diff in a forked view.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
@@ -3563,9 +3599,9 @@ class DiffCmd(Cmd):
 
             tagname = await s_stormtypes.tostr(self.opts.tag)
 
-            layr = runt.snap.view.layers[0]
+            layr = runt.view.layers[0]
             async for _, nid, sode in layr.liftByTag(tagname):
-                node = await self.runt.snap._joinStorNode(nid)
+                node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
@@ -3575,7 +3611,7 @@ class DiffCmd(Cmd):
 
             propname = await s_stormtypes.tostr(self.opts.prop)
 
-            prop = self.runt.snap.core.model.prop(propname)
+            prop = self.runt.view.core.model.prop(propname)
             if prop is None:
                 mesg = f'The property {propname} does not exist.'
                 raise s_exc.NoSuchProp(mesg=mesg)
@@ -3590,24 +3626,24 @@ class DiffCmd(Cmd):
                 liftform = prop.form.name
                 liftprop = prop.name
 
-            layr = runt.snap.view.layers[0]
+            layr = runt.view.layers[0]
             async for _, nid, sode in layr.liftByProp(liftform, liftprop):
-                node = await self.runt.snap._joinStorNode(nid)
+                node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
             async for nid in layr.iterPropTombstones(liftform, liftprop):
-                node = await self.runt.snap._joinStorNode(nid)
+                node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
             return
 
-        async for nid, sode in runt.snap.view.layers[0].getStorNodes():
+        async for nid, sode in runt.view.layers[0].getStorNodes():
             if sode.get('antivalu') is not None:
                 continue
 
-            node = await runt.snap.getNodeByNid(nid)
+            node = await runt.view.getNodeByNid(nid)
             if node is not None:
                 yield node, runt.initPath(node)
 
@@ -3638,7 +3674,7 @@ class CopyToCmd(Cmd):
 
         iden = await s_stormtypes.tostr(self.opts.view)
 
-        view = runt.snap.core.getView(iden)
+        view = runt.view.core.getView(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
@@ -3646,75 +3682,73 @@ class CopyToCmd(Cmd):
 
         layriden = view.layers[0].iden
 
-        async with await view.snap(user=runt.user) as snap:
+        async for node, path in genr:
 
-            async for node, path in genr:
+            runt.confirm(node.form.addperm, gateiden=layriden)
+            for name in node.getPropNames():
+                runt.confirmPropSet(node.form.props[name], layriden=layriden)
 
-                runt.confirm(node.form.addperm, gateiden=layriden)
-                for name in node.getPropNames():
-                    runt.confirmPropSet(node.form.props[name], layriden=layriden)
+            for tag in node.getTagNames():
+                runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
 
-                for tag in node.getTagNames():
-                    runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
+            if not self.opts.no_data:
+                async for name in node.iterDataKeys():
+                    runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
+
+            async with view.getEditor() as editor:
+
+                proto = await editor.addNode(node.ndef[0], node.ndef[1])
+
+                for name, valu in node.getProps().items():
+
+                    prop = node.form.prop(name)
+                    if prop.info.get('ro'):
+                        if name == '.created':
+                            proto.props['.created'] = valu
+                            continue
+
+                        curv = proto.get(name)
+                        if curv is not None and curv != valu:
+                            valurepr = prop.type.repr(curv)
+                            mesg = f'Cannot overwrite read only property with conflicting ' \
+                                   f'value: {node.iden()} {prop.full} = {valurepr}'
+                            await runt.warn(mesg)
+                            continue
+
+                    await proto.set(name, valu)
+
+                for name, valu in node.getTags():
+                    await proto.addTag(name, valu=valu)
+
+                for tagname, tagprops in node._getTagPropsDict().items():
+                    for propname, valu in tagprops.items():
+                        await proto.setTagProp(tagname, propname, valu)
 
                 if not self.opts.no_data:
-                    async for name in node.iterDataKeys():
-                        runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
+                    async for name, valu in node.iterData():
+                        await proto.setData(name, valu)
 
-                async with snap.getEditor() as editor:
+                verbs = {}
+                async for verb, n2nid in node.iterEdgesN1():
 
-                    proto = await editor.addNode(node.ndef[0], node.ndef[1])
+                    if not verbs.get(verb):
+                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                        verbs[verb] = True
 
-                    for name, valu in node.getProps().items():
+                    await proto.addEdge(verb, n2nid)
 
-                        prop = node.form.prop(name)
-                        if prop.info.get('ro'):
-                            if name == '.created':
-                                proto.props['.created'] = valu
-                                continue
+                # for the reverse edges, we'll need to make edits to the n1 node
+                async for verb, n1nid in node.iterEdgesN2():
 
-                            curv = proto.get(name)
-                            if curv is not None and curv != valu:
-                                valurepr = prop.type.repr(curv)
-                                mesg = f'Cannot overwrite read only property with conflicting ' \
-                                       f'value: {node.iden()} {prop.full} = {valurepr}'
-                                await runt.snap.warn(mesg)
-                                continue
+                    if not verbs.get(verb):
+                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                        verbs[verb] = True
 
-                        await proto.set(name, valu)
+                    n1proto = await editor.getNodeByNid(n1nid)
+                    if n1proto is not None:
+                        await n1proto.addEdge(verb, node.nid)
 
-                    for name, valu in node.getTags():
-                        await proto.addTag(name, valu=valu)
-
-                    for tagname, tagprops in node._getTagPropsDict().items():
-                        for propname, valu in tagprops.items():
-                            await proto.setTagProp(tagname, propname, valu)
-
-                    if not self.opts.no_data:
-                        async for name, valu in node.iterData():
-                            await proto.setData(name, valu)
-
-                    verbs = {}
-                    async for verb, n2nid in node.iterEdgesN1():
-
-                        if not verbs.get(verb):
-                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
-                            verbs[verb] = True
-
-                        await proto.addEdge(verb, n2nid)
-
-                    # for the reverse edges, we'll need to make edits to the n1 node
-                    async for verb, n1nid in node.iterEdgesN2():
-
-                        if not verbs.get(verb):
-                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
-                            verbs[verb] = True
-
-                        n1proto = await editor.getNodeByNid(n1nid)
-                        if n1proto is not None:
-                            await n1proto.addEdge(verb, node.nid)
-
-                yield node, path
+            yield node, path
 
 class MergeCmd(Cmd):
     '''
@@ -3834,9 +3868,9 @@ class MergeCmd(Cmd):
 
     async def _checkNodePerms(self, node, sode, runt):
 
-        core = runt.snap.core
-        layr0 = runt.snap.view.layers[0].iden
-        layr1 = runt.snap.view.layers[1].iden
+        core = runt.view.core
+        layr0 = runt.view.layers[0].iden
+        layr1 = runt.view.layers[1].iden
 
         if sode.get('antivalu') is not None:
             runt.confirm(('node', 'del', node.form.name), gateiden=layr1)
@@ -3891,14 +3925,14 @@ class MergeCmd(Cmd):
                 tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr1)
 
-        async for name, tomb in runt.snap.view.layers[0].iterNodeDataKeys(node.nid):
+        async for name, tomb in runt.view.layers[0].iterNodeDataKeys(node.nid):
             if tomb:
                 runt.confirm(('node', 'data', 'pop', name), gateiden=layr1)
             else:
                 runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
                 runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-        async for abrv, n2nid, tomb in runt.snap.view.layers[0].iterNodeEdgesN1(node.nid):
+        async for abrv, n2nid, tomb in runt.view.layers[0].iterNodeEdgesN1(node.nid):
             verb = core.getAbrvIndx(abrv)[0]
 
             if tomb:
@@ -3909,7 +3943,7 @@ class MergeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if runt.snap.view.parent is None:
+        if runt.view.parent is None:
             mesg = 'You may only merge nodes in forked views'
             raise s_exc.CantMergeView(mesg=mesg)
 
@@ -3919,9 +3953,9 @@ class MergeCmd(Cmd):
         tagfilter = self._getTagFilter()
         propfilter = self._getPropFilter()
 
-        core = runt.snap.core
-        layr0 = runt.snap.view.layers[0].iden
-        layr1 = runt.snap.view.layers[1].iden
+        core = runt.view.core
+        layr0 = runt.view.layers[0].iden
+        layr1 = runt.view.layers[1].iden
 
         if self.opts.diff:
 
@@ -3929,258 +3963,256 @@ class MergeCmd(Cmd):
                 yield node, path
 
             async def diffgenr():
-                async for nid, sode in runt.snap.view.layers[0].getStorNodes():
-                    node = await runt.snap.getNodeByNid(nid, tombs=True)
+                async for nid, sode in runt.view.layers[0].getStorNodes():
+                    node = await runt.view.getNodeByNid(nid, tombs=True)
                     if node is not None:
                         yield node, runt.initPath(node)
 
             genr = diffgenr()
 
-        async with await runt.snap.view.parent.snap(user=runt.user.iden) as snap:
-            snap.strict = False
+        async for node, path in genr:
 
-            async for node, path in genr:
+            # the timestamp for the adds/subs of each node merge will match
+            nodeiden = node.iden()
+            meta = {'user': runt.user.iden, 'time': s_common.now()}
 
-                # the timestamp for the adds/subs of each node merge will match
-                nodeiden = node.iden()
-                meta = {'user': runt.user.iden, 'time': s_common.now()}
+            sodes = await node.getStorNodes()
+            sode = sodes[0]
 
-                sodes = await node.getStorNodes()
-                sode = sodes[0]
+            if self.opts.apply:
+                editor = s_editor.NodeEditor(runt.view.parent, user=runt.user, strict=False)
 
-                if self.opts.apply:
-                    editor = s_snap.SnapEditor(snap)
+            subs = []
 
-                subs = []
+            async def sync():
 
-                async def sync():
+                if not self.opts.apply:
+                    subs.clear()
+                    return
+
+                addedits = editor.getNodeEdits()
+                if addedits:
+                    await runt.view.parent.saveNodeEdits(addedits, meta=meta)
+
+                if subs:
+                    subedits = [(node.nid, node.form.name, subs)]
+                    await runt.view.saveNodeEdits(subedits, meta=meta)
+                    subs.clear()
+
+            # check all node perms first
+            if self.opts.apply:
+                await self._checkNodePerms(node, sode, runt)
+
+            form = node.form.name
+            if form == 'syn:tag':
+                if notags:
+                    continue
+            else:
+                # avoid merging a tag if the node won't exist below us
+                if onlytags:
+                    skip = True
+                    for undr in sodes[1:]:
+                        if undr.get('valu') is not None:
+                            skip = False
+                            break
+                        elif undr.get('antivalu') is not None:
+                            break
+
+                    if skip:
+                        continue
+
+            protonode = None
+            delnode = False
+            if not onlytags or form == 'syn:tag':
+
+                if sode.get('antivalu') is not None:
+                    if tagfilter and form == 'syn:tag' and tagfilter(node.ndef[1]):
+                        continue
 
                     if not self.opts.apply:
-                        subs.clear()
-                        return
-
-                    addedits = editor.getNodeEdits()
-                    if addedits:
-                        await runt.snap.view.parent.saveNodeEdits(addedits, meta=meta)
-
-                    if subs:
-                        subedits = [(node.nid, node.form.name, subs)]
-                        await runt.snap.saveNodeEdits(subedits, meta=meta)
-                        subs.clear()
-
-                # check all node perms first
-                if self.opts.apply:
-                    await self._checkNodePerms(node, sode, runt)
-
-                form = node.form.name
-                if form == 'syn:tag':
-                    if notags:
-                        continue
-                else:
-                    # avoid merging a tag if the node won't exist below us
-                    if onlytags:
-                        skip = True
-                        for undr in sodes[1:]:
-                            if undr.get('valu') is not None:
-                                skip = False
-                                break
-                            elif undr.get('antivalu') is not None:
-                                break
-
-                        if skip:
+                        await runt.printf(f'{nodeiden} delete {form} = {node.repr()}')
+                    else:
+                        protonode = await editor.getNodeByBuid(node.buid)
+                        if protonode is None:
                             continue
 
-                protonode = None
-                delnode = False
-                if not onlytags or form == 'syn:tag':
+                        await protonode.delEdgesN2(meta=meta)
+                        await protonode.delete()
 
-                    if sode.get('antivalu') is not None:
-                        if tagfilter and form == 'syn:tag' and tagfilter(node.ndef[1]):
-                            continue
+                        subs.append((s_layer.EDIT_NODE_TOMB_DEL, ()))
 
-                        if not self.opts.apply:
-                            await runt.printf(f'{nodeiden} delete {form} = {node.repr()}')
-                        else:
-                            protonode = await editor.getNodeByBuid(node.buid)
-                            if protonode is None:
-                                continue
+                        await sync()
+                        runt.view.clearCachedNode(node.buid)
+                    continue
 
-                            await protonode.delEdgesN2(meta=meta)
-                            await protonode.delete()
+                if (valu := sode.get('valu')) is not None:
 
-                            subs.append((s_layer.EDIT_NODE_TOMB_DEL, (), ()))
-
-                            await sync()
-                            runt.snap.clearCachedNode(node.buid)
+                    if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
                         continue
 
-                    if (valu := sode.get('valu')) is not None:
+                    if not self.opts.apply:
+                        await runt.printf(f'{nodeiden} {form} = {node.repr()}')
+                    else:
+                        delnode = True
+                        protonode = await editor.addNode(form, valu[0])
 
-                        if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
-                            continue
-
-                        if not self.opts.apply:
-                            await runt.printf(f'{nodeiden} {form} = {node.repr()}')
-                        else:
-                            delnode = True
-                            protonode = await editor.addNode(form, valu[0])
-
-                    elif self.opts.apply:
-                        protonode = await editor.addNode(form, node.ndef[1], norminfo={})
-
-                    for name, (valu, stortype) in sode.get('props', {}).items():
-
-                        prop = node.form.prop(name)
-                        if propfilter:
-                            if name[0] == '.':
-                                if propfilter(name):
-                                    continue
-                            else:
-                                if propfilter(prop.full):
-                                    continue
-
-                        if prop.info.get('ro'):
-                            if name == '.created':
-                                if self.opts.apply:
-                                    protonode.props['.created'] = valu
-                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
-                                continue
-
-                            isset = False
-                            for undr in sodes[1:]:
-                                props = undr.get('props')
-                                if props is not None:
-                                    curv = props.get(name)
-                                    if curv is not None and curv[0] != valu:
-                                        isset = True
-                                        break
-
-                            if isset:
-                                valurepr = prop.type.repr(curv[0])
-                                mesg = f'Cannot merge read only property with conflicting ' \
-                                       f'value: {nodeiden} {form}:{name} = {valurepr}'
-                                await runt.snap.warn(mesg)
-                                continue
-
-                        if not self.opts.apply:
-                            valurepr = prop.type.repr(valu)
-                            await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                        else:
-                            await protonode.set(name, valu)
-                            subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
-                    for name in sode.get('antiprops', {}).keys():
-                        if not self.opts.apply:
-                            await runt.printf(f'{nodeiden} delete {form}:{name}')
-                        else:
-                            await protonode.pop(name)
-                            subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
-
-                if self.opts.apply and protonode is None:
+                elif self.opts.apply:
                     protonode = await editor.addNode(form, node.ndef[1], norminfo={})
 
-                if not notags:
-                    for tag, valu in sode.get('tags', {}).items():
+                for name, (valu, stortype) in sode.get('props', {}).items():
 
-                        if tagfilter and tagfilter(tag):
+                    prop = node.form.prop(name)
+                    if propfilter:
+                        if name[0] == '.':
+                            if propfilter(name):
+                                continue
+                        else:
+                            if propfilter(prop.full):
+                                continue
+
+                    if prop.info.get('ro'):
+                        if name == '.created':
+                            if self.opts.apply:
+                                protonode.props['.created'] = valu
+                                subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
                             continue
 
+                        isset = False
+                        for undr in sodes[1:]:
+                            props = undr.get('props')
+                            if props is not None:
+                                curv = props.get(name)
+                                if curv is not None and curv[0] != valu:
+                                    isset = True
+                                    break
+
+                        if isset:
+                            valurepr = prop.type.repr(curv[0])
+                            mesg = f'Cannot merge read only property with conflicting ' \
+                                   f'value: {nodeiden} {form}:{name} = {valurepr}'
+                            await runt.warn(mesg)
+                            continue
+
+                    if not self.opts.apply:
+                        valurepr = prop.type.repr(valu)
+                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        await protonode.set(name, valu)
+                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
+                for name in sode.get('antiprops', {}).keys():
+                    if not self.opts.apply:
+                        await runt.printf(f'{nodeiden} delete {form}:{name}')
+                    else:
+                        await protonode.pop(name)
+                        subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
+
+            if self.opts.apply and protonode is None:
+                protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+
+            if not notags:
+                for tag, valu in sode.get('tags', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
+                    if not self.opts.apply:
+                        valurepr = ''
+                        if valu != (None, None):
+                            tagrepr = runt.model.type('ival').repr(valu)
+                            valurepr = f' = {tagrepr}'
+                        await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                    else:
+                        await protonode.addTag(tag, valu)
+                        subs.append((s_layer.EDIT_TAG_DEL, (tag, valu)))
+
+                for tag in sode.get('antitags', {}).keys():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
+                    if not self.opts.apply:
+                        await runt.printf(f'{nodeiden} delete {form}#{tag}')
+                    else:
+                        await protonode.delTag(tag)
+                        subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
+
+                for tag, tagdict in sode.get('tagprops', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
+                    for prop, (valu, stortype) in tagdict.items():
                         if not self.opts.apply:
-                            valurepr = ''
-                            if valu != (None, None):
-                                tagrepr = runt.model.type('ival').repr(valu)
-                                valurepr = f' = {tagrepr}'
-                            await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
+                            valurepr = repr(valu)
+                            await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                         else:
-                            await protonode.addTag(tag, valu)
-                            subs.append((s_layer.EDIT_TAG_DEL, (tag, valu)))
+                            await protonode.setTagProp(tag, prop, valu)
+                            subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
 
-                    for tag in sode.get('antitags', {}).keys():
+                for tag, tagdict in sode.get('antitagprops', {}).items():
 
-                        if tagfilter and tagfilter(tag):
-                            continue
+                    if tagfilter and tagfilter(tag):
+                        continue
 
+                    for prop in tagdict.keys():
                         if not self.opts.apply:
-                            await runt.printf(f'{nodeiden} delete {form}#{tag}')
+                            await runt.printf(f'{nodeiden} delete {form}#{tag}:{prop}')
                         else:
-                            await protonode.delTag(tag)
-                            subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,), ()))
+                            await protonode.delTagProp(tag, prop)
+                            subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
 
-                    for tag, tagdict in sode.get('tagprops', {}).items():
+            if not onlytags or form == 'syn:tag':
 
-                        if tagfilter and tagfilter(tag):
-                            continue
-
-                        for prop, (valu, stortype) in tagdict.items():
-                            if not self.opts.apply:
-                                valurepr = repr(valu)
-                                await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                            else:
-                                await protonode.setTagProp(tag, prop, valu)
-                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
-
-                    for tag, tagdict in sode.get('antitagprops', {}).items():
-
-                        if tagfilter and tagfilter(tag):
-                            continue
-
-                        for prop in tagdict.keys():
-                            if not self.opts.apply:
-                                await runt.printf(f'{nodeiden} delete {form}#{tag}:{prop}')
-                            else:
-                                await protonode.delTagProp(tag, prop)
-                                subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop), ()))
-
-                if not onlytags or form == 'syn:tag':
-
-                    layr = runt.snap.view.layers[0]
-                    async for abrv, valu, tomb in layr.iterNodeData(node.nid):
-                        name = core.getAbrvIndx(abrv)[0]
-                        if tomb:
-                            if not self.opts.apply:
-                                await runt.printf(f'{nodeiden} delete {form} DATA {name}')
-                            else:
-                                await protonode.popData(name)
-                                subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,), ()))
-                                if len(subs) >= 1000:
-                                    await sync()
+                layr = runt.view.layers[0]
+                async for abrv, valu, tomb in layr.iterNodeData(node.nid):
+                    name = core.getAbrvIndx(abrv)[0]
+                    if tomb:
+                        if not self.opts.apply:
+                            await runt.printf(f'{nodeiden} delete {form} DATA {name}')
                         else:
-                            if not self.opts.apply:
-                                valurepr = repr(valu)
-                                await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
-                            else:
-                                await protonode.setData(name, valu)
-                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu)))
-                                if len(subs) >= 1000:
-                                    await sync()
-
-                    async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(node.nid):
-                        verb = core.getAbrvIndx(abrv)[0]
-                        if tomb:
-                            if not self.opts.apply:
-                                dest = s_common.ehex(core.getBuidByNid(n2nid))
-                                await runt.printf(f'{nodeiden} delete {form} -({verb})> {dest}')
-                            else:
-                                await protonode.delEdge(verb, n2nid)
-                                subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
-                                if len(subs) >= 1000:
-                                    await sync()
+                            await protonode.popData(name)
+                            subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
+                            if len(subs) >= 1000:
+                                await sync()
+                    else:
+                        if not self.opts.apply:
+                            valurepr = repr(valu)
+                            await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                         else:
-                            if not self.opts.apply:
-                                dest = s_common.ehex(core.getBuidByNid(n2nid))
-                                await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
-                            else:
-                                await protonode.addEdge(verb, n2nid)
-                                subs.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
-                                if len(subs) >= 1000:
-                                    await sync()
+                            await protonode.setData(name, valu)
+                            subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu)))
+                            if len(subs) >= 1000:
+                                await sync()
 
-                if delnode:
-                    subs.append((s_layer.EDIT_NODE_DEL, valu))
+                async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(node.nid):
+                    verb = core.getAbrvIndx(abrv)[0]
+                    if tomb:
+                        if not self.opts.apply:
+                            dest = s_common.ehex(core.getBuidByNid(n2nid))
+                            await runt.printf(f'{nodeiden} delete {form} -({verb})> {dest}')
+                        else:
+                            await protonode.delEdge(verb, n2nid)
+                            subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
+                            if len(subs) >= 1000:
+                                await sync()
+                    else:
+                        if not self.opts.apply:
+                            dest = s_common.ehex(core.getBuidByNid(n2nid))
+                            await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
+                        else:
+                            await protonode.addEdge(verb, n2nid)
+                            subs.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
+                            if len(subs) >= 1000:
+                                await sync()
 
-                await sync()
+            if delnode:
+                subs.append((s_layer.EDIT_NODE_DEL, valu))
 
-                runt.snap.clearCachedNode(node.nid)
-                yield await runt.snap.getNodeByNid(node.nid), path
+            await sync()
+
+            runt.view.clearCachedNode(node.nid)
+            if (newnode := await runt.view.getNodeByNid(node.nid)) is not None:
+                yield newnode, path
 
 class MoveNodesCmd(Cmd):
     '''
@@ -4274,11 +4306,11 @@ class MoveNodesCmd(Cmd):
             mesg = 'movenodes arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        if len(runt.snap.view.layers) < 2:
+        if len(runt.view.layers) < 2:
             mesg = 'You may only move nodes in views with multiple layers.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        layridens = {layr.iden: layr for layr in runt.snap.view.layers}
+        layridens = {layr.iden: layr for layr in runt.view.layers}
 
         if self.opts.srclayers:
             srclayrs = self.opts.srclayers
@@ -4287,7 +4319,7 @@ class MoveNodesCmd(Cmd):
                     mesg = f'No layer with iden {layr} in this view, cannot move nodes.'
                     raise s_exc.BadOperArg(mesg=mesg, layr=layr)
         else:
-            srclayrs = [layr.iden for layr in runt.snap.view.layers[1:]]
+            srclayrs = [layr.iden for layr in runt.view.layers[1:]]
 
         if self.opts.destlayer:
             self.destlayr = self.opts.destlayer
@@ -4295,7 +4327,7 @@ class MoveNodesCmd(Cmd):
                 mesg = f'No layer with iden {self.destlayr} in this view, cannot move nodes.'
                 raise s_exc.BadOperArg(mesg=mesg, layr=self.destlayr)
         else:
-            self.destlayr = runt.snap.view.layers[0].iden
+            self.destlayr = runt.view.layers[0].iden
 
         if self.destlayr in srclayrs:
             mesg = f'Source layer {self.destlayr} cannot also be the destination layer.'
@@ -4342,7 +4374,7 @@ class MoveNodesCmd(Cmd):
                 sodes[layr] = self.lyrs[layr].getStorNode(node.nid)
                 layrkeys = set()
                 async for abrv, tomb in self.lyrs[layr].iterNodeDataKeys(node.nid):
-                    name = runt.snap.core.getAbrvIndx(abrv)[0]
+                    name = runt.view.core.getAbrvIndx(abrv)[0]
                     layrkeys.add(name)
                 layrdata[layr] = layrkeys
 
@@ -4505,14 +4537,14 @@ class MoveNodesCmd(Cmd):
                         movevals[name] = max(valu, oldv)
 
                     if not self.opts.apply:
-                        tptype = self.runt.snap.core.model.tagprop(prop).type
+                        tptype = self.runt.view.core.model.tagprop(prop).type
                         valurepr = tptype.repr(valu)
                         await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}')
                     else:
                         self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype)))
 
         for (tag, prop), valu in movevals.items():
-            tptype = self.runt.snap.core.model.tagprop(prop).type
+            tptype = self.runt.view.core.model.tagprop(prop).type
             if not self.opts.apply:
                 valurepr = tptype.repr(valu)
                 mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
@@ -4654,7 +4686,7 @@ class UniqCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as uniqset:
+        async with await s_spooled.Set.anit(dirn=self.runt.view.core.dirn) as uniqset:
 
             if len(self.argv) > 0:
                 async for node, path in genr:
@@ -4709,7 +4741,7 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        ivaltype = self.runt.snap.core.model.type('ival')
+        ivaltype = self.runt.view.core.model.type('ival')
 
         async for item in genr:
 
@@ -4762,7 +4794,7 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        ivaltype = self.runt.snap.core.model.type('ival')
+        ivaltype = self.runt.view.core.model.type('ival')
 
         async for node, path in genr:
 
@@ -4822,15 +4854,15 @@ class DelNodeCmd(Cmd):
 
         if delbytes:
             runt.confirm(('storm', 'lib', 'axon', 'del'))
-            await runt.snap.core.getAxon()
-            axon = runt.snap.core.axon
+            await runt.view.core.getAxon()
+            axon = runt.view.core.axon
 
         async for node, path in genr:
 
             runt.layerConfirm(('node', 'del', node.form.name))
 
             if deledges:
-                async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as edges:
+                async with await s_spooled.Set.anit(dirn=self.runt.view.core.dirn) as edges:
                     seenverbs = set()
 
                     async for (verb, n2nid) in node.iterEdgesN2():
@@ -4839,11 +4871,12 @@ class DelNodeCmd(Cmd):
                             seenverbs.add(verb)
                         await edges.add((verb, n2nid))
 
-                    async with self.runt.snap.getEditor() as editor:
+                    async with self.runt.view.getEditor() as editor:
                         async for (verb, n2nid) in edges:
                             if (n2 := await editor.getNodeByNid(n2nid)) is not None:
                                 if await n2.delEdge(verb, node.nid) and len(editor.protonodes) >= 1000:
-                                    await self.runt.snap.saveNodeEdits(editor.getNodeEdits())
+                                    meta = editor.getEditorMeta()
+                                    await self.runt.view.saveNodeEdits(editor.getNodeEdits(), meta=meta)
                                     editor.protonodes.clear()
 
             if delbytes and node.form.name == 'file:bytes':
@@ -4877,7 +4910,7 @@ class ReIndexCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
         mesg = 'reindex currently does nothing but is reserved for future use'
-        await runt.snap.warn(mesg)
+        await runt.warn(mesg)
 
         # Make this a generator
         if False:
@@ -4905,10 +4938,10 @@ class MoveTagCmd(Cmd):
             mesg = 'movetag arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        snap = runt.snap
+        view = runt.view
 
         opts = {'vars': {'tag': self.opts.oldtag}}
-        nodes = await snap.nodes('syn:tag=$tag', opts=opts)
+        nodes = await view.nodes('syn:tag=$tag', opts=opts)
 
         if not nodes:
             raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
@@ -4919,13 +4952,13 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newname, newinfo = await snap.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newname, newinfo = await view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
         newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))
         runt.layerConfirm(('node', 'tag', 'add', *newparts))
 
-        newt = await snap.addNode('syn:tag', newname, norminfo=newinfo)
+        newt = await view.addNode('syn:tag', newname, norminfo=newinfo)
         newstr = newt.ndef[1]
 
         if oldstr == newstr:
@@ -4940,7 +4973,7 @@ class MoveTagCmd(Cmd):
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
             tagcycle.append(isnow)
-            newtag = await snap.addNode('syn:tag', isnow)
+            newtag = await view.addNode('syn:tag', isnow)
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -4952,7 +4985,7 @@ class MoveTagCmd(Cmd):
 
         # first we set all the syn:tag:isnow props
         oldtag = self.opts.oldtag.strip('#')
-        async for node in snap.nodesByPropValu('syn:tag', '^=', oldtag):
+        async for node in view.nodesByPropValu('syn:tag', '^=', oldtag):
 
             tagstr = node.ndef[1]
             tagparts = tagstr.split('.')
@@ -4962,7 +4995,7 @@ class MoveTagCmd(Cmd):
 
             newtag = newstr + tagstr[oldsize:]
 
-            newnode = await snap.addNode('syn:tag', newtag)
+            newnode = await view.addNode('syn:tag', newtag)
 
             olddoc = node.get('doc')
             if olddoc is not None:
@@ -4983,10 +5016,11 @@ class MoveTagCmd(Cmd):
 
             retag[tagstr] = newtag
             await node.set('isnow', newtag)
+            view.tagcache.pop(tagstr)
 
         # now we re-tag all the nodes...
         count = 0
-        async for node in snap.nodesByTag(oldstr):
+        async for node in view.nodesByTag(oldstr):
 
             count += 1
 
@@ -5011,7 +5045,7 @@ class MoveTagCmd(Cmd):
                 for tagp, tagp_valu in tgfo.items():
                     await node.setTagProp(newt, tagp, tagp_valu)
 
-        await snap.printf(f'moved tags on {count} nodes.')
+        await runt.printf(f'moved tags on {count} nodes.')
 
         async for node, path in genr:
             yield node, path
@@ -5109,7 +5143,7 @@ class IdenCmd(Cmd):
                 await runt.warn(f'iden must be 32 bytes [{iden}]')
                 continue
 
-            node = await runt.snap.getNodeByBuid(buid)
+            node = await runt.view.getNodeByBuid(buid)
             if node is None:
                 await asyncio.sleep(0)
                 continue
@@ -5312,7 +5346,7 @@ class BackgroundCmd(Cmd):
 
     async def execStormTask(self, query, opts):
 
-        core = self.runt.snap.core
+        core = self.runt.view.core
         user = core._userFromOpts(opts)
         info = {'query': query.text,
                 'view': opts['view'],
@@ -5338,7 +5372,7 @@ class BackgroundCmd(Cmd):
 
         opts = {
             'user': runt.user.iden,
-            'view': runt.snap.view.iden,
+            'view': runt.view.iden,
             'vars': runtvars,
         }
 
@@ -5349,7 +5383,7 @@ class BackgroundCmd(Cmd):
         query.validate(runt)
 
         coro = self.execStormTask(query, opts)
-        runt.snap.core.schedCoro(coro)
+        runt.view.core.schedCoro(coro)
 
 class ParallelCmd(Cmd):
     '''
@@ -5516,7 +5550,7 @@ class TeeCmd(Cmd):
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
                         subg = s_common.agen((node, path.fork(node)))
-                        self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
+                        self.runt.schedCoro(self.pipeline(subr, outq, genr=subg))
 
                     exited = 0
 
@@ -5549,7 +5583,7 @@ class TeeCmd(Cmd):
 
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
-                        self.runt.snap.schedCoro(self.pipeline(subr, outq))
+                        self.runt.schedCoro(self.pipeline(subr, outq))
 
                     exited = 0
 
@@ -5695,11 +5729,11 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                async for (form, valu, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
-                    nnode = await node.snap.addNode(form, valu)
+                    nnode = await node.view.addNode(form, valu)
                     npath = path.fork(nnode)
 
                     if refs:
@@ -5728,11 +5762,11 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                async for (form, valu, _) in self.runt.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
-                    addnode = await runt.snap.addNode(form, valu)
+                    addnode = await runt.view.addNode(form, valu)
                     if self.opts.doyield:
                         yield addnode, runt.initPath(addnode)
 
@@ -5765,25 +5799,25 @@ class LiftByVerb(Cmd):
 
     async def iterEdgeNodes(self, verb, idenset, n2=False):
         if n2:
-            async for (_, _, n2) in self.runt.snap.view.getEdges(verb):
+            async for (_, _, n2) in self.runt.view.getEdges(verb):
                 if n2 in idenset:
                     continue
                 await idenset.add(n2)
-                node = await self.runt.snap.getNodeByNid(n2)
+                node = await self.runt.view.getNodeByNid(n2)
                 if node:
                     yield node
         else:
-            async for (n1, _, _) in self.runt.snap.view.getEdges(verb):
+            async for (n1, _, _) in self.runt.view.getEdges(verb):
                 if n1 in idenset:
                     continue
                 await idenset.add(n1)
-                node = await self.runt.snap.getNodeByNid(n1)
+                node = await self.runt.view.getNodeByNid(n1)
                 if node:
                     yield node
 
     async def execStormCmd(self, runt, genr):
 
-        core = self.runt.snap.core
+        core = self.runt.view.core
 
         async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as idenset:
 
@@ -5836,7 +5870,7 @@ class EdgesDelCmd(Cmd):
         if n2:
             n2nid = node.nid
             async for (v, n1nid) in node.iterEdgesN2(verb):
-                if (n1 := await self.runt.snap.getNodeByNid(n1nid)) is not None:
+                if (n1 := await self.runt.view.getNodeByNid(n1nid)) is not None:
                     await n1.delEdge(v, n2nid)
 
         else:
@@ -6060,7 +6094,7 @@ class RunAsCmd(Cmd):
             mesg = 'The runas command requires admin privileges.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        core = runt.snap.core
+        core = runt.view.core
 
         node = None
         async for node, path in genr:
@@ -6073,16 +6107,15 @@ class RunAsCmd(Cmd):
 
             opts = {'vars': path.vars}
 
-            async with await core.snap(user=user, view=runt.snap.view) as snap:
-                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
-                    subr.debug = runt.debug
-                    subr.readonly = runt.readonly
+            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt, bus=runt.bus) as subr:
+                subr.debug = runt.debug
+                subr.readonly = runt.readonly
 
-                    if self.opts.asroot:
-                        subr.asroot = runt.asroot
+                if self.opts.asroot:
+                    subr.asroot = runt.asroot
 
-                    async for item in subr.execute():
-                        await asyncio.sleep(0)
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
 
             yield node, path
 
@@ -6095,16 +6128,15 @@ class RunAsCmd(Cmd):
 
             opts = {'user': user}
 
-            async with await core.snap(user=user, view=runt.snap.view) as snap:
-                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
-                    subr.debug = runt.debug
-                    subr.readonly = runt.readonly
+            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt, bus=runt.bus) as subr:
+                subr.debug = runt.debug
+                subr.readonly = runt.readonly
 
-                    if self.opts.asroot:
-                        subr.asroot = runt.asroot
+                if self.opts.asroot:
+                    subr.asroot = runt.asroot
 
-                    async for item in subr.execute():
-                        await asyncio.sleep(0)
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
 
 class IntersectCmd(Cmd):
     '''
@@ -6135,7 +6167,7 @@ class IntersectCmd(Cmd):
             mesg = 'intersect arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        core = self.runt.snap.core
+        core = self.runt.view.core
 
         async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as counters:
             async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as pathvars:
@@ -6169,7 +6201,7 @@ class IntersectCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
-                    node = await runt.snap.getNodeByNid(nid)
+                    node = await runt.view.getNodeByNid(nid)
                     if node is not None:
                         path = runt.initPath(node)
                         path.vars.update(pathvars.get(nid))

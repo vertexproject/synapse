@@ -239,89 +239,88 @@ class NodeTest(s_t_utils.SynTest):
     async def test_storm(self):
 
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                query = await snap.core.getStormQuery('')
-                async with snap.getStormRuntime(query) as runt:
-                    node = await snap.addNode('test:comp', (42, 'lol'))
-                    nodepaths = await alist(node.storm(runt, '-> test:int'))
-                    self.len(1, nodepaths)
-                    self.eq(nodepaths[0][0].ndef, ('test:int', 42))
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query) as runt:
+                node = await core.view.addNode('test:comp', (42, 'lol'))
+                nodepaths = await alist(node.storm(runt, '-> test:int'))
+                self.len(1, nodepaths)
+                self.eq(nodepaths[0][0].ndef, ('test:int', 42))
 
-                    nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
-                    self.eq(nodepaths[0][0].get('loc'), 'us')
+                nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
+                self.eq(nodepaths[0][0].get('loc'), 'us')
 
-                    path = nodepaths[0][1].fork(node)  # type: s_node.Path
-                    path.vars['zed'] = 'ca'
+                path = nodepaths[0][1].fork(node)  # type: s_node.Path
+                path.vars['zed'] = 'ca'
 
-                    # Path present, opts not present
-                    nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
-                    self.eq(nodes[0][0].get('loc'), 'ca')
-                    # path is not updated due to frame scope
-                    self.none(path.vars.get('bar'), 'us')
+                # Path present, opts not present
+                nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
+                self.eq(nodes[0][0].get('loc'), 'ca')
+                # path is not updated due to frame scope
+                self.none(path.vars.get('bar'), 'us')
 
-                    # Path present, opts present but no opts['vars']
-                    nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
-                    self.eq(nodes[0][0].get('loc'), 'ca')
-                    # path is not updated due to frame scope
-                    self.none(path.vars.get('bar'))
+                # Path present, opts present but no opts['vars']
+                nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
+                self.eq(nodes[0][0].get('loc'), 'ca')
+                # path is not updated due to frame scope
+                self.none(path.vars.get('bar'))
 
-                    # Path present, opts present with vars
-                    nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
-                                                   opts={'vars': {'baz': 'ru'}},
-                                                   path=path))
-                    self.eq(nodes[0][0].get('loc'), 'ca')
-                    # path is not updated due to frame scope
-                    self.none(path.vars.get('bar'))
+                # Path present, opts present with vars
+                nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
+                                               opts={'vars': {'baz': 'ru'}},
+                                               path=path))
+                self.eq(nodes[0][0].get('loc'), 'ca')
+                # path is not updated due to frame scope
+                self.none(path.vars.get('bar'))
 
-                    # Path can push / pop vars in frames
-                    self.eq(path.getVar('key'), s_common.novalu)
-                    self.len(0, path.frames)
-                    path.initframe({'key': 'valu'})
-                    self.len(1, path.frames)
-                    self.eq(path.getVar('key'), 'valu')
-                    path.finiframe()
-                    self.len(0, path.frames)
-                    self.eq(path.getVar('key'), s_common.novalu)
+                # Path can push / pop vars in frames
+                self.eq(path.getVar('key'), s_common.novalu)
+                self.len(0, path.frames)
+                path.initframe({'key': 'valu'})
+                self.len(1, path.frames)
+                self.eq(path.getVar('key'), 'valu')
+                path.finiframe()
+                self.len(0, path.frames)
+                self.eq(path.getVar('key'), s_common.novalu)
 
-                    # Path can push / pop a runt as well
-                    # This example is *just* a test example to show the variable movement,
-                    # not as actual runtime movement..
-                    path.initframe({'key': 'valu'})
-                    self.eq(path.getVar('key'), 'valu')
-                    path.finiframe()
-                    self.eq(path.getVar('key'), s_common.novalu)
+                # Path can push / pop a runt as well
+                # This example is *just* a test example to show the variable movement,
+                # not as actual runtime movement..
+                path.initframe({'key': 'valu'})
+                self.eq(path.getVar('key'), 'valu')
+                path.finiframe()
+                self.eq(path.getVar('key'), s_common.novalu)
 
-                    # Path clone() creates a fully independent Path object
-                    pcln = path.clone()
-                    # Ensure that path vars are independent
-                    await pcln.setVar('bar', 'us')
-                    self.eq(pcln.getVar('bar'), 'us')
-                    self.eq(path.getVar('bar'), s_common.novalu)
-                    # Ensure the path nodes are independent
-                    self.eq(len(pcln.nodes), len(path.nodes))
-                    pcln.nodes.pop(-1)
-                    self.ne(len(pcln.nodes), len(path.nodes))
+                # Path clone() creates a fully independent Path object
+                pcln = path.clone()
+                # Ensure that path vars are independent
+                await pcln.setVar('bar', 'us')
+                self.eq(pcln.getVar('bar'), 'us')
+                self.eq(path.getVar('bar'), s_common.novalu)
+                # Ensure the path nodes are independent
+                self.eq(len(pcln.nodes), len(path.nodes))
+                pcln.nodes.pop(-1)
+                self.ne(len(pcln.nodes), len(path.nodes))
 
-                    # push a frame and clone it - ensure clone mods do not
-                    # modify the original path
-                    path.initframe({'key': 'valu'})
-                    self.len(1, path.frames)
-                    pcln = path.clone()
-                    self.len(1, pcln.frames)
-                    self.eq(path.getVar('key'), 'valu')
-                    self.eq(pcln.getVar('key'), 'valu')
-                    pcln.finiframe()
-                    path.finiframe()
-                    await pcln.setVar('bar', 'us')
-                    self.eq(pcln.getVar('bar'), 'us')
-                    self.eq(path.getVar('bar'), s_common.novalu)
-                    self.eq(pcln.getVar('key'), s_common.novalu)
-                    self.eq(path.getVar('key'), s_common.novalu)
+                # push a frame and clone it - ensure clone mods do not
+                # modify the original path
+                path.initframe({'key': 'valu'})
+                self.len(1, path.frames)
+                pcln = path.clone()
+                self.len(1, pcln.frames)
+                self.eq(path.getVar('key'), 'valu')
+                self.eq(pcln.getVar('key'), 'valu')
+                pcln.finiframe()
+                path.finiframe()
+                await pcln.setVar('bar', 'us')
+                self.eq(pcln.getVar('bar'), 'us')
+                self.eq(path.getVar('bar'), s_common.novalu)
+                self.eq(pcln.getVar('key'), s_common.novalu)
+                self.eq(path.getVar('key'), s_common.novalu)
 
-                    # Check that finiframe without frames resets vars
-                    path.finiframe()
-                    self.len(0, path.frames)
-                    self.eq(s_common.novalu, path.getVar('bar'))
+                # Check that finiframe without frames resets vars
+                path.finiframe()
+                self.len(0, path.frames)
+                self.eq(s_common.novalu, path.getVar('bar'))
 
         # Ensure that path clone() behavior in storm is as expected
         # with a real-world style test..

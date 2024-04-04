@@ -1220,9 +1220,7 @@ class FeedV1(Handler):
             info = {'name': name, 'view': view.iden, 'nitems': len(items)}
             await self.cell.boss.promote('feeddata', user=user, info=info)
 
-            async with await self.cell.snap(user=user, view=view) as snap:
-                snap.strict = False
-                await snap.addFeedData(name, items)
+            await self.cell.addFeedData(name, items, user=user, viewiden=view.iden)
 
             return self.sendRestRetn(None)
 

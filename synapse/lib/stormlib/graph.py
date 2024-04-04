@@ -179,7 +179,7 @@ class GraphLib(s_stormtypes.Lib):
 
     async def _methGraphAdd(self, gdef):
         gdef = await s_stormtypes.toprim(gdef)
-        return await self.runt.snap.core.addStormGraph(gdef, user=self.runt.user)
+        return await self.runt.view.core.addStormGraph(gdef, user=self.runt.user)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphGet(self, iden=None):
@@ -187,11 +187,11 @@ class GraphLib(s_stormtypes.Lib):
         if iden is None:
             return self.runt.getGraph()
 
-        return await self.runt.snap.core.getStormGraph(iden, user=self.runt.user)
+        return await self.runt.view.core.getStormGraph(iden, user=self.runt.user)
 
     async def _methGraphDel(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        await self.runt.snap.core.delStormGraph(iden, user=self.runt.user)
+        await self.runt.view.core.delStormGraph(iden, user=self.runt.user)
 
     async def _methGraphMod(self, iden, info):
         iden = await s_stormtypes.tostr(iden)
@@ -201,12 +201,12 @@ class GraphLib(s_stormtypes.Lib):
             if prop not in USER_EDITABLE:
                 raise s_exc.BadArg(mesg=f'User may not edit the field: {prop}.')
 
-        await self.runt.snap.core.modStormGraph(iden, info, user=self.runt.user)
+        await self.runt.view.core.modStormGraph(iden, info, user=self.runt.user)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphList(self):
         projs = []
-        async for proj in self.runt.snap.core.getStormGraphs(user=self.runt.user):
+        async for proj in self.runt.view.core.getStormGraphs(user=self.runt.user):
             projs.append(proj)
 
         return list(sorted(projs, key=lambda x: x.get('name')))
@@ -217,7 +217,7 @@ class GraphLib(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
         level = await s_stormtypes.toint(level, noneok=True)
 
-        await self.runt.snap.core.setStormGraphPerm(gden, scope, iden, level, user=self.runt.user)
+        await self.runt.view.core.setStormGraphPerm(gden, scope, iden, level, user=self.runt.user)
 
     async def _methGraphActivate(self, iden):
         gdef = await self._methGraphGet(iden)

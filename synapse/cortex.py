@@ -311,9 +311,13 @@ class CoreApi(s_cell.CellApi):
                                            'nitems': len(items),
                                            })
 
-        async with await self.cell.snap(user=self.user, view=view) as snap:
-            snap.strict = False
-            await snap.addFeedData(name, items)
+        func = self.cell.getFeedFunc(name)
+        if func is None:
+            raise s_exc.NoSuchName(name=name)
+
+        logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
+
+        await func(view, items, user=self.user)
 
     async def count(self, text, opts=None):
         '''
@@ -693,12 +697,7 @@ class CoreApi(s_cell.CellApi):
 
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
-    A Cortex implements the synapse hypergraph.
-
-    The bulk of the Cortex API lives on the Snap() object which can
-    be obtained by calling Cortex.snap() in a with block.  This allows
-    callers to manage transaction boundaries explicitly and dramatically
-    increases performance.
+    A Cortex implements the Synapse hypergraph.
     '''
 
     # For the cortex, nexslog:en defaults to True
@@ -831,6 +830,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
+        self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
@@ -1876,6 +1876,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return ()
 
         return tuple(prune)
+
+    async def getTagNorm(self, tagname):
+        return await self.tagnorms.aget(tagname)
+
+    async def _getTagNorm(self, tagname):
+
+        if not self.isTagValid(tagname):
+            raise s_exc.BadTag(f'The tag ({tagname}) does not meet the regex for the tree.')
+
+        return self.model.type('syn:tag').norm(tagname)
 
     async def getTagModel(self, tagname):
         '''
@@ -3169,20 +3179,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
 
         buid = s_common.uhex(iden)
-        async with await self.snap(user=user) as snap:
+        node = await self.view.getNodeByBuid(buid)
+        if node is None:
+            raise s_exc.NoSuchIden(iden=iden)
 
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+        await node.addTag(tag, valu=valu)
 
-            await node.addTag(tag, valu=valu)
-            return node.pack()
+        return node.pack()
 
     async def addNode(self, user, form, valu, props=None):
 
-        async with await self.snap(user=user) as snap:
-            node = await snap.addNode(form, valu, props=props)
-            return node.pack()
+        async with self.view.getEditor(user=user) as editor:
+            node = await editor.addNode(form, valu, props=props)
+
+        realnode = await self.view.getNodeByBuid(node.buid)
+        if realnode is not None:
+            return realnode.pack()
 
     async def delNodeTag(self, user, iden, tag):
         '''
@@ -3193,15 +3205,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             tag (str):  A tag string.
         '''
         buid = s_common.uhex(iden)
+        node = await self.view.getNodeByBuid(buid)
+        if node is None:
+            raise s_exc.NoSuchIden(iden=iden)
 
-        async with await self.snap(user=user) as snap:
-
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
-
-            await node.delTag(tag)
-            return node.pack()
+        await node.delTag(tag)
+        return node.pack()
 
     async def _onCoreFini(self):
         '''
@@ -4848,7 +4857,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Set a data ingest function.
 
-        def func(snap, items):
+        def func(view, items):
             loaditems...
         '''
         self.feedfuncs[name] = func
@@ -4874,11 +4883,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         })
         return tuple(ret)
 
-    async def _addSynNodes(self, snap, items):
+    async def _addSynNodes(self, view, items, user=None):
         '''
         Add nodes to the Cortex via the packed node format.
         '''
-        async for node in snap.addNodes(items):
+        async for node in view.addNodes(items, user=user):
             await asyncio.sleep(0)
 
     async def setUserLocked(self, iden, locked):
@@ -4898,6 +4907,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def _initStormOpts(self, opts):
         if opts is None:
             opts = {}
+
+        varz = opts.get('vars')
+        if varz is not None:
+            for valu in varz.keys():
+                if not isinstance(valu, str):
+                    mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
+                    raise s_exc.BadArg(mesg=mesg)
 
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
@@ -5087,9 +5103,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         with s_scope.enter({'user': user}):
             async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
 
-                async with await self.snap(user=user, view=view) as snap:
-
-                    async for node, path in snap.storm(text, opts=opts):
+                query = await self.getStormQuery(text, mode=opts.get('mode', 'storm'))
+                async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
+                    async for node, path in runt.execute():
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
 
                     for nid1, (stoplayr, pode1) in spooldict.items():
@@ -5100,8 +5116,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         for nid2, pode2 in spooldict.items():
                             await asyncio.sleep(0)
 
-                            async for verb in snap.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
-                                n2buid = snap.core.getBuidByNid(nid2)
+                            async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
+                                n2buid = self.getBuidByNid(nid2)
                                 edges.append((verb, s_common.ehex(n2buid)))
 
                         if edges:
@@ -5152,15 +5168,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             base.schedCoro(fill())
 
             count = 0
-            async with await self.snap(user=user, view=view) as snap:
 
-                # feed the items directly to syn.nodes
-                async for items in q.slices(size=100):
-                    async for node in snap.addNodes(items):
-                        count += 1
+            # feed the items directly to syn.nodes
+            async for items in q.slices(size=100):
+                async for node in view.addNodes(items):
+                    count += 1
 
-                if feedexc is not None:
-                    raise feedexc
+            if feedexc is not None:
+                raise feedexc
 
         return count
 
@@ -5211,9 +5226,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
         user = self._userFromOpts(opts)
 
-        async with await self.snap(user=user, view=view) as snap:
-            async with snap.getStormRuntime(query, opts=opts, user=user) as runt:
-                yield runt
+        async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
+            yield runt
 
     async def reqValidStorm(self, text, opts=None):
         '''
@@ -5262,8 +5276,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         buid = s_common.buid((form.name, norm))
 
-        async with await self.snap(view=view) as snap:
-            return await snap.getNodeByBuid(buid)
+        if view is None:
+            view = self.view
+
+        return await view.getNodeByBuid(buid)
 
     def getCoreInfo(self):
         '''This API is deprecated.'''
@@ -5330,12 +5346,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         The "props" or "tags" keys may be omitted.
 
         '''
-        async with await self.snap(view=view) as snap:
-            snap.strict = False
-            async for node in snap.addNodes(nodedefs):
-                yield node
+        if view is None:
+            view = self.view
 
-    async def addFeedData(self, name, items, *, viewiden=None):
+        async for node in view.addNodes(nodedefs):
+            yield node
+
+    async def addFeedData(self, name, items, *, user=None, viewiden=None):
         '''
         Add data using a feed/parser function.
 
@@ -5350,23 +5367,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-        async with await self.snap(view=view) as snap:
-            snap.strict = False
-            await snap.addFeedData(name, items)
+        func = self.getFeedFunc(name)
+        if func is None:
+            raise s_exc.NoSuchName(name=name)
 
-    async def snap(self, user=None, view=None):
+        if user is None:
+            user = self.auth.rootuser
+
+        logger.info(f'User (user.name) adding feed data ({name}): {len(items)}')
+
+        await func(view, items, user=user)
+
+    async def getRuntime(self, user=None, view=None):
         '''
-        Return a transaction object for the default view.
+        Return a Runtime object for the default view.
 
         Args:
-            user (str): The user to get the snap for.
-            view (View): View object to use when making the snap.
+            user (str): The user to get the Runtime for.
+            view (View): View object to use when making the Runtime.
 
         Notes:
             This must be used as an asynchronous context manager.
 
         Returns:
-            s_snap.Snap: A Snap object for the view.
+            s_storm.Runtime: A Runtime object for the view.
         '''
 
         if view is None:
@@ -5375,9 +5399,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = await self.auth.getUserByName('root')
 
-        snap = await view.snap(user)
-
-        return snap
+        return await s_storm.Runtime.anit(None, view, user=user)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''

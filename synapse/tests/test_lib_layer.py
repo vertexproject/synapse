@@ -1018,7 +1018,11 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *'))
 
             await hastombs(opts=viewopts2)
-
+            print('START')
+            print('START')
+            print('START')
+            print('START')
+            print('START')
             await view2.merge()
             await checkempty()
             await notombs()

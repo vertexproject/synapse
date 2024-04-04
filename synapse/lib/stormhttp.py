@@ -348,7 +348,7 @@ class LibHttp(s_stormtypes.Lib):
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if proxy is None:
-            proxy = await self.runt.snap.core.getConfOpt('http:proxy')
+            proxy = await self.runt.view.core.getConfOpt('http:proxy')
 
         connector = None
         if proxy:
@@ -359,7 +359,7 @@ class LibHttp(s_stormtypes.Lib):
         if params:
             kwargs['params'] = params
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.view.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         try:
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
@@ -421,7 +421,7 @@ class LibHttp(s_stormtypes.Lib):
                 self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
                 kwargs = {}
-                axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+                axonvers = self.runt.view.core.axoninfo['synapse']['version']
                 if axonvers >= s_stormtypes.AXON_MINVERS_PROXY:
                     kwargs['proxy'] = proxy
 
@@ -431,15 +431,15 @@ class LibHttp(s_stormtypes.Lib):
                     s_version.reqVersion(axonvers, s_stormtypes.AXON_MINVERS_SSLOPTS, mesg=mesg)
                     kwargs['ssl_opts'] = ssl_opts
 
-                axon = self.runt.snap.core.axon
+                axon = self.runt.view.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
                                             ssl=ssl_verify, timeout=timeout, **kwargs)
                 return HttpResp(info)
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.view.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         if proxy is None:
-            proxy = await self.runt.snap.core.getConfOpt('http:proxy')
+            proxy = await self.runt.view.core.getConfOpt('http:proxy')
 
         connector = None
         if proxy:

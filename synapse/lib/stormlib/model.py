@@ -249,29 +249,29 @@ class LibModelTags(s_stormtypes.Lib):
     async def _delTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.delTagModel(tagname)
+        return await self.runt.view.core.delTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
-        return await self.runt.snap.core.getTagModel(tagname)
+        return await self.runt.view.core.getTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _listTagModel(self):
-        return await self.runt.snap.core.listTagModel()
+        return await self.runt.view.core.listTagModel()
 
     async def _popTagModel(self, tagname, propname):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.popTagModel(tagname, propname)
+        return await self.runt.view.core.popTagModel(tagname, propname)
 
     async def _setTagModel(self, tagname, propname, propvalu):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         propvalu = await s_stormtypes.toprim(propvalu)
         self.runt.confirm(('model', 'tag', 'set'))
-        await self.runt.snap.core.setTagModel(tagname, propname, propvalu)
+        await self.runt.view.core.setTagModel(tagname, propname, propvalu)
 
 @s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
@@ -585,7 +585,7 @@ class LibModelEdge(s_stormtypes.Lib):
         }
 
     async def _chkEdgeVerbInView(self, verb):
-        async for vverb in self.runt.snap.view.getEdgeVerbs():
+        async for vverb in self.runt.view.getEdgeVerbs():
             if vverb == verb:
                 return
 
@@ -608,7 +608,7 @@ class LibModelEdge(s_stormtypes.Lib):
         await self._chkEdgeVerbInView(verb)
 
         path = self.hivepath + (verb, 'extprops')
-        return await self.runt.snap.core.getHiveKey(path) or {}
+        return await self.runt.view.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
         s_common.deprecated('model.edge.set', curv='2.165.0')
@@ -621,10 +621,10 @@ class LibModelEdge(s_stormtypes.Lib):
         valu = await s_stormtypes.tostr(valu)
 
         path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
+        kvdict = await self.runt.view.core.getHiveKey(path) or {}
 
         kvdict[key] = valu
-        await self.runt.snap.core.setHiveKey(path, kvdict)
+        await self.runt.view.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
         s_common.deprecated('model.edge.del', curv='2.165.0')
@@ -635,22 +635,22 @@ class LibModelEdge(s_stormtypes.Lib):
         await self._chkKeyName(key)
 
         path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
+        kvdict = await self.runt.view.core.getHiveKey(path) or {}
 
         oldv = kvdict.pop(key, None)
         if oldv is None:
             raise s_exc.NoSuchProp(mesg=f'Key is not set for this edge verb',
                                    verb=verb, name=key)
 
-        await self.runt.snap.core.setHiveKey(path, kvdict)
+        await self.runt.view.core.setHiveKey(path, kvdict)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeList(self):
         s_common.deprecated('model.edge.list', curv='2.165.0')
         retn = []
-        async for verb in self.runt.snap.view.getEdgeVerbs():
+        async for verb in self.runt.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')
-            kvdict = await self.runt.snap.core.getHiveKey(path) or {}
+            kvdict = await self.runt.view.core.getHiveKey(path) or {}
             retn.append((verb, kvdict))
 
         return retn

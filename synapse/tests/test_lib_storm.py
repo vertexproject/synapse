@@ -983,26 +983,25 @@ class StormTest(s_t_utils.SynTest):
             # test some StormRuntime APIs directly...
             await core.nodes('[ inet:ipv4=1.2.3.4 ]')
             await core.nodes('[ ou:org=* ou:org=* :name=dupcorp ]')
-            async with await core.view.snap(user=core.auth.rootuser) as snap:
 
-                query = await core.getStormQuery('')
-                async with snap.getStormRuntime(query) as runt:
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query) as runt:
 
-                    self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
+                self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
 
-                    self.nn(await runt.getOneNode('inet:ipv4', 0x01020304))
+                self.nn(await runt.getOneNode('inet:ipv4', 0x01020304))
 
-                    counter = itertools.count()
+                counter = itertools.count()
 
-                    async def skipone(n):
-                        if next(counter) == 0:
-                            return True
-                        return False
+                async def skipone(n):
+                    if next(counter) == 0:
+                        return True
+                    return False
 
-                    self.nn(await runt.getOneNode('ou:org:name', 'dupcorp', filt=skipone))
+                self.nn(await runt.getOneNode('ou:org:name', 'dupcorp', filt=skipone))
 
-                    with self.raises(s_exc.StormRuntimeError):
-                        await runt.getOneNode('ou:org:name', 'dupcorp')
+                with self.raises(s_exc.StormRuntimeError):
+                    await runt.getOneNode('ou:org:name', 'dupcorp')
 
             count = 5
             for i in range(count):
@@ -1254,11 +1253,10 @@ class StormTest(s_t_utils.SynTest):
             self.false(await core.callStorm('return(("Foo" ~= "(?-i:foo)"))'))
             self.true(await core.callStorm('return(("Foo" ~= "(?-i:Foo)"))'))
 
-            async with await core.view.snap(user=visi) as snap:
-                query = await core.getStormQuery('')
-                async with snap.getStormRuntime(query) as runt:
-                    with self.raises(s_exc.AuthDeny):
-                        runt.reqAdmin(gateiden=layr)
+            query = await core.getStormQuery('')
+            async with core.getStormRuntime(query, opts={'user': visi.iden}) as runt:
+                with self.raises(s_exc.AuthDeny):
+                    runt.reqAdmin(gateiden=layr)
 
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -1379,7 +1377,7 @@ class StormTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
 
-            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+            with self.getAsyncLoggerStream('synapse.lib.view') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
 
             stream.seek(0)
@@ -1399,7 +1397,7 @@ class StormTest(s_t_utils.SynTest):
             newn = await core.nodes('[ ou:name=readonly ]')
             self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
-            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+            with self.getAsyncLoggerStream('synapse.lib.view') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
 
             stream.seek(0)
@@ -1419,7 +1417,7 @@ class StormTest(s_t_utils.SynTest):
             q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
             await core.nodes(q, opts=altview2)
 
-            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+            with self.getAsyncLoggerStream('synapse.lib.view') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview2)
 
             stream.seek(0)
@@ -2513,12 +2511,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(3, nodes)
 
             q = 'iden newp'
-            with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
+            with self.getLoggerStream('synapse.lib.storm', 'Failed to decode iden') as stream:
                 self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
             q = 'iden deadb33f'
-            with self.getLoggerStream('synapse.lib.snap', 'iden must be 32 bytes') as stream:
+            with self.getLoggerStream('synapse.lib.storm', 'iden must be 32 bytes') as stream:
                 self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 

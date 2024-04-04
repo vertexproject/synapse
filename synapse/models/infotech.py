@@ -276,13 +276,13 @@ class ItModule(s_module.CoreModule):
 
     async def _onFormMakeDevStr(self, node):
         pprop = node.ndef[1]
-        await node.snap.addNode('it:dev:str', pprop)
+        await node.view.addNode('it:dev:str', pprop)
 
     async def _onPropSoftverArch(self, node, oldv):
         # make it:dev:str for arch
         prop = node.get('arch')
         if prop:
-            await node.snap.addNode('it:dev:str', prop)
+            await node.view.addNode('it:dev:str', prop)
 
     async def _onPropSoftverVers(self, node, oldv):
         # Set vers:norm and make its normed valu
@@ -293,7 +293,7 @@ class ItModule(s_module.CoreModule):
         await node.set('vers:norm', prop)
 
         # Make it:dev:str from version str
-        await node.snap.addNode('it:dev:str', prop)
+        await node.view.addNode('it:dev:str', prop)
 
         # form the semver properly or bruteforce parts
         try:

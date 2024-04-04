@@ -12,6 +12,7 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
@@ -123,7 +124,8 @@ class Prop:
         if self.deprecated or self.type.deprecated:
             async def depfunc(node, oldv):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
-                await node.snap.warnonce(mesg)
+                if (runt := s_scope.get('runt')) is not None:
+                    await runt.warnonce(mesg)
             self.onSet(depfunc)
 
     def __repr__(self):
@@ -266,7 +268,9 @@ class Form:
         if self.deprecated:
             async def depfunc(node):
                 mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
-                await node.snap.warnonce(mesg)
+                if (runt := s_scope.get('runt')) is not None:
+                    await runt.warnonce(mesg)
+
             self.onAdd(depfunc)
 
     def getRuntPode(self):

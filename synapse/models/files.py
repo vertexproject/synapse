@@ -195,7 +195,7 @@ class FileModule(s_module.CoreModule):
         name = node.get('mime')
         if name == '??':
             return
-        await node.snap.addNode('file:ismime', (node.ndef[1], name))
+        await node.view.addNode('file:ismime', (node.ndef[1], name))
 
     def getModelDefs(self):
         modl = {
