@@ -1212,6 +1212,10 @@ class StormPoolSetCmd(s_storm.Cmd):
 class StormPoolDelCmd(s_storm.Cmd):
     '''
     Remove a Storm query offload mirror pool configuration.
+
+    Notes:
+        This will result in tearing down any Storm queries currently being serviced by the Storm pool.
+        This may result in this command raising an exception if it was offloaded to a pool member. That would be an expected behavior.
     '''
     name = 'cortex.storm.pool.del'
 
