@@ -406,6 +406,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             $api.name = 'the hehe/haha handler'
             $api.desc = 'beep boop zoop robot captain'
             $api.runas = user
+            $api.pool = (true)
             $api.perms = (
                 ({"perm": ["hehe", "haha"]}),
                 ({"perm": ["some", "thing"], "default": $lib.true}),
@@ -582,6 +583,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: owner', msgs)
             self.stormIsInPrint('Readonly: false', msgs)
+            self.stormIsInPrint('Pool enabled: false', msgs)
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe wildcard handler', msgs)
             self.stormIsInPrint('Description: wildcard words', msgs)
@@ -616,6 +618,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: user', msgs)
             self.stormIsInPrint('Readonly: false', msgs)
+            self.stormIsInPrint('Pool enabled: true', msgs)
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe/haha handler', msgs)
             self.stormIsInPrint('Description: beep boop zoop robot captain', msgs)

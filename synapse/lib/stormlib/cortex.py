@@ -86,7 +86,7 @@ stormcmds = [
             $lib.print(`!View: No view found ({$err.info.iden})`)
         }
         $lib.print(`Readonly: {$api.readonly}`)
-        $lib.print('Pool enabled: ${api.pool}`)
+        $lib.print(`Pool enabled: {$api.pool}`)
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
         $lib.print(`Description: {$api.desc}`)
@@ -277,7 +277,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._gtorName,
             'desc': self._gtorDesc,
             'path': self._gtorPath,
-            'pool': self._storPool,
+            'pool': self._gtorPool,
             'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
