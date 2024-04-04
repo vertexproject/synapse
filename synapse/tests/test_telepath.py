@@ -878,6 +878,14 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.open(url1, onlink=onlink) as targ:
                 self.true(await stream.wait(timeout=12))
 
+        # Coverage
+        async def badonlink(proxy, urlinfo):
+            raise ValueError('oopsie')
+
+        with self.getAsyncLoggerStream('synapse.telepath', 'onlink: ') as stream:
+            async with await s_telepath.open(url1, onlink=badonlink) as targ:
+                self.true(await stream.wait(timeout=12))
+
         await dmon0.fini()
         await dmon1.fini()
 
