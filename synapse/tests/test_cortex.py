@@ -3084,7 +3084,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 144, 0),
                 'synapse_version': '>=2.8.0,<3.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
@@ -3138,17 +3137,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': (1337, 0, 0),
-                'commands': ()
-            }
-
-            with self.raises(s_exc.BadVersion):
-                await core.addStormPkg(oldverpkg)
-
-            oldverpkg = {
-                'name': 'versionfail',
-                'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=1337.0.0,<2000.0.0',
                 'commands': ()
             }
@@ -3159,7 +3147,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
                 'synapse_version': '>=0.0.1,<2.0.0',
                 'commands': ()
             }
@@ -3173,7 +3170,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'commands': ()
             }
 
-            # Package with no synapse_minversion shouldn't raise
             await core.addStormPkg(noverpkg)
 
             badcmdpkg = {
@@ -4568,10 +4564,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            # This tag does match regex
             data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
             await core1.addFeedData('syn.nodes', data)
-            self.len(0, await core1.nodes('test:int=8 -#test.1234'))
+            self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
@@ -6333,7 +6328,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         {  # type: ignore
                             'name': 'foo',
                             'version': (0, 0, 1),
-                            'synapse_minversion': [2, 144, 0],
                             'synapse_version': '>=2.100.0,<3.0.0',
                             'modules': [],
                             'commands': []
@@ -6441,7 +6435,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -6513,6 +6507,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "Storm package boom has unknown config var type newp.")
+
+                # Check no synapse_version and synapse_minversion > cortex version
+                minver = list(s_version.version)
+                minver[1] += 1
+                minver = tuple(minver)
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('synapse_version')
+                pkg['synapse_minversion'] = minver
+                pkgname = pkg.get('name')
+
+                with self.raises(s_exc.BadVersion) as cm:
+                    await core.addStormPkg(pkg)
+                mesg = f'Storm package {pkgname} requires Synapse {minver} but Cortex is running {s_version.version}'
+                self.eq(cm.exception.errinfo.get('mesg'), mesg)
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
@@ -7974,3 +7983,33 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
                     self.len(1, [m for m in msgs if m[0] == 'node'])
+
+    async def test_cortex_authgate(self):
+        # TODO - Remove this in 3.0.0
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
+
+                unfo = await core.addUser('lowuser')
+                lowuser = unfo.get('iden')
+
+                msgs = await core.stormlist('auth.user.addrule lowuser --gate cortex node')
+                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
+                msgs = await core.stormlist('auth.role.addrule all --gate cortex hehe')
+                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
+
+                aslow = {'user': lowuser}
+
+                # The cortex authgate does nothing
+                with self.raises(s_exc.AuthDeny) as cm:
+                    await core.nodes('[test:str=hello]', opts=aslow)
+
+            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+                async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
+                    # The cortex authgate still does nothing
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await core.nodes('[test:str=hello]', opts=aslow)
+            stream.seek(0)
+            buf = stream.read()
+            self.isin('(lowuser) has a rule on the "cortex" authgate', buf)
+            self.isin('(all) has a rule on the "cortex" authgate', buf)

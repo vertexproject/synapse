@@ -20,7 +20,6 @@ import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
@@ -507,7 +506,6 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0,<3.0.0',
             'modules': [
                 {
@@ -4513,7 +4511,6 @@ class StormTypesTest(s_test.SynTest):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
-        s_provenance.reset()
 
         def timetime():
             return unixtime
@@ -4847,6 +4844,7 @@ class StormTypesTest(s_test.SynTest):
 
                     self.stormIsInPrint('last result:     finished successfully with 0 nodes', mesgs)
                     self.stormIsInPrint('entries:         <None>', mesgs)
+                    self.stormIsInPrint('pool:            false', mesgs)
 
                     # Test 'stat' command
                     mesgs = await core.stormlist('cron.stat xxx')
@@ -4920,7 +4918,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('data.iden must match pattern', msgs)
 
                 opts = {'vars': {'iden': 'cd263bd133a5dafa1e1c5e9a01d9d486'}}
-                q = "cron.add --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
+                q = "cron.add --pool --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
 

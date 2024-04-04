@@ -53,7 +53,6 @@ import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.stormhttp as s_stormhttp  # NOQA
 import synapse.lib.stormwhois as s_stormwhois  # NOQA
 
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
@@ -74,6 +73,7 @@ import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
+import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
 import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
 import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
@@ -89,6 +89,7 @@ import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
 import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
+import synapse.lib.stormlib.spooled as s_stormlib_spooled  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # NOQA
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
@@ -286,10 +287,8 @@ class CoreApi(s_cell.CellApi):
         s_common.deprecated('CoreApi.addNode')
         async with await self.cell.snap(user=self.user) as snap:
             self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
-
-                node = await snap.addNode(form, valu, props=props)
-                return node.pack()
+            node = await snap.addNode(form, valu, props=props)
+            return node.pack()
 
     async def addNodes(self, nodes):
         '''
@@ -317,16 +316,14 @@ class CoreApi(s_cell.CellApi):
             done[formname] = True
 
         async with await self.cell.snap(user=self.user) as snap:
-            with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
 
-                snap.strict = False
+            snap.strict = False
+            async for node in snap.addNodes(nodes):
 
-                async for node in snap.addNodes(nodes):
+                if node is not None:
+                    node = node.pack()
 
-                    if node is not None:
-                        node = node.pack()
-
-                    yield node
+                yield node
 
     async def getFeedFuncs(self):
         '''
@@ -361,9 +358,8 @@ class CoreApi(s_cell.CellApi):
                                            })
 
         async with await self.cell.snap(user=self.user, view=view) as snap:
-            with s_provenance.claim('feed:data', name=name, user=snap.user.iden):
-                snap.strict = False
-                await snap.addFeedData(name, items)
+            snap.strict = False
+            await snap.addFeedData(name, items)
 
     async def count(self, text, opts=None):
         '''
@@ -1002,7 +998,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'multiqueue': self.multiqueue,
         })
 
-        await self.auth.addAuthGate('cortex', 'cortex')
+        # TODO - Remove this in 3.0.0
+        ag = await self.auth.addAuthGate('cortex', 'cortex')
+        for (useriden, user) in ag.gateusers.items():
+            mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
+                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
+        for (roleiden, role) in ag.gateroles.items():
+            mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
+                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
 
         self._initVaults()
 
@@ -1447,6 +1452,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
+        await self.agenda.clearRunningStatus()
 
         for view in self.views.values():
             await view.initTrigTask()
@@ -2685,19 +2691,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         pkgname = pkgdef.get('name')
 
-        # Check minimum synapse version
-        minversion = pkgdef.get('synapse_minversion')
-        if minversion is not None and tuple(minversion) > s_version.version:
-            mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
-                   f'Cortex is running {s_version.version}'
-            raise s_exc.BadVersion(mesg=mesg)
-
         # Check synapse version requirement
         reqversion = pkgdef.get('synapse_version')
         if reqversion is not None:
             mesg = f'Storm package {pkgname} requires Synapse {reqversion} but ' \
                    f'Cortex is running {s_version.version}'
             s_version.reqVersion(s_version.version, reqversion, mesg=mesg)
+
+        elif (minversion := pkgdef.get('synapse_minversion')) is not None:
+            # This is for older packages that might not have the
+            # `synapse_version` field.
+            # TODO: Remove this whole else block after Synapse 3.0.0.
+            if tuple(minversion) > s_version.version:
+                mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
+                       f'Cortex is running {s_version.version}'
+                raise s_exc.BadVersion(mesg=mesg)
 
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
@@ -3476,14 +3484,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         buid = s_common.uhex(iden)
         async with await self.snap(user=user) as snap:
 
-            with s_provenance.claim('coreapi', meth='tag:add', user=snap.user.iden):
+            node = await snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
 
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                await node.addTag(tag, valu=valu)
-                return node.pack()
+            await node.addTag(tag, valu=valu)
+            return node.pack()
 
     async def addNode(self, user, form, valu, props=None):
 
@@ -3503,14 +3509,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async with await self.snap(user=user) as snap:
 
-            with s_provenance.claim('coreapi', meth='tag:del', user=snap.user.iden):
+            node = await snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
 
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    raise s_exc.NoSuchIden(iden=iden)
-
-                await node.delTag(tag)
-                return node.pack()
+            await node.delTag(tag)
+            return node.pack()
 
     async def _onCoreFini(self):
         '''
@@ -5765,16 +5769,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initCoreMods(self):
 
-        with s_provenance.claim('init', meth='_initCoreMods'):
-            for ctor, modu in list(self.modules.items()):
+        for ctor, modu in list(self.modules.items()):
 
-                try:
-                    await s_coro.ornot(modu.initCoreModule)
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                    raise
-                except Exception:
-                    logger.exception(f'module initCoreModule failed: {ctor}')
-                    self.modules.pop(ctor, None)
+            try:
+                await s_coro.ornot(modu.initCoreModule)
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                raise
+            except Exception:
+                logger.exception(f'module initCoreModule failed: {ctor}')
+                self.modules.pop(ctor, None)
 
     def _loadCoreModule(self, ctor, conf=None):
 
@@ -6030,6 +6033,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         elif name == 'doc':
             appt.doc = str(valu)
+
+        elif name == 'pool':
+            appt.pool = bool(valu)
 
         else:
             mesg = f'editCronJob name {name} is not supported for editing.'

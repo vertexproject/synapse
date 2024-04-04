@@ -16,7 +16,6 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -259,6 +258,7 @@ class _Appt:
     _synced_attrs = {
         'doc',
         'name',
+        'pool',
         'created',
         'enabled',
         'errcount',
@@ -271,10 +271,11 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False):
         self.doc = ''
         self.name = ''
         self.stor = stor
+        self.pool = pool
         self.iden = iden
         self.recur = recur  # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -339,6 +340,7 @@ class _Appt:
             'ver': 1,
             'doc': self.doc,
             'name': self.name,
+            'pool': self.pool,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
@@ -366,6 +368,7 @@ class _Appt:
         appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, nexttime=val['nexttime'], view=val.get('view'))
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
+        appt.pool = val.get('pool', False)
         appt.created = val.get('created', None)
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
@@ -562,6 +565,8 @@ class Agenda(s_base.Base):
         view = cdef.get('view')
         created = cdef.get('created')
 
+        pool = cdef.get('pool', False)
+
         recur = incunit is not None
         indx = self._next_indx
         self._next_indx += 1
@@ -602,7 +607,7 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view, created=created)
+        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view, created=created, pool=pool)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -697,6 +702,13 @@ class Agenda(s_base.Base):
     def _addTickOff(self, offs):
         self.tickoff += offs
         self._wake_event.set()
+
+    async def clearRunningStatus(self):
+        '''Used for clearing the running state at startup or change of leadership.'''
+        for appt in list(self.appts.values()):
+            if appt.isrunning:
+                logger.debug(f'Clearing the isrunning flag for {appt.iden}')
+                await self.core.addCronEdits(appt.iden, {'isrunning': False})
 
     async def runloop(self):
         '''
@@ -808,57 +820,75 @@ class Agenda(s_base.Base):
         }
         await self.core.addCronEdits(appt.iden, edits)
 
-        with s_provenance.claim('cron', iden=appt.iden):
-            logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                        extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                           'username': user.name, 'view': appt.view}})
-            starttime = self._getNowTick()
-            success = False
-            try:
-                opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
-                opts = self.core._initStormOpts(opts)
-                view = self.core._viewFromOpts(opts)
-                # Yes, this isn't technically on the bottom half of a nexus transaction
-                # But because the scheduling loop only runs on non-mirrors, we can kinda skirt by all that
-                # and be relatively okay. The only catch is that the nexus offset will correspond to the
-                # last nexus transaction, and not the start/stop
-                await self.core.feedBeholder('cron:start', {'iden': appt.iden})
-                async for node in view.eval(appt.query, opts=opts, log_info={'cron': appt.iden}):
+        logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
+                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
+                                       'username': user.name, 'view': appt.view}})
+        starttime = self._getNowTick()
+        success = False
+        try:
+            opts = {
+                'user': user.iden,
+                'view': appt.view,
+                'mirror': appt.pool,
+                'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
+            }
+            opts = self.core._initStormOpts(opts)
+
+            await self.core.feedBeholder('cron:start', {'iden': appt.iden})
+
+            async for mesg in self.core.storm(appt.query, opts=opts):
+
+                if mesg[0] == 'node':
                     count += 1
-            except asyncio.CancelledError:
-                result = 'cancelled'
-                raise
-            except Exception as e:
-                result = f'raised exception {e}'
-                logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                                 extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
-                                 )
-            else:
-                success = True
-                result = f'finished successfully with {count} nodes'
-            finally:
-                finishtime = self._getNowTick()
-                if not success:
-                    appt.lasterrs.append(result)
-                    edits = {
-                        'errcount': appt.errcount + 1,
-                        # we only care about the last five errors
-                        'lasterrs': list(appt.lasterrs[-5:]),
-                    }
+
+                elif mesg[0] == 'err':
+                    excname, errinfo = mesg[1]
+                    errinfo.pop('eline', None)
+                    errinfo.pop('efile', None)
+                    excctor = getattr(s_exc, excname, s_exc.SynErr)
+                    raise excctor(**errinfo)
+
+        except asyncio.CancelledError:
+            result = 'cancelled'
+            raise
+
+        except Exception as e:
+            result = f'raised exception {e}'
+            logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
+                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                             )
+        else:
+            success = True
+            result = f'finished successfully with {count} nodes'
+
+        finally:
+            finishtime = self._getNowTick()
+            if not success:
+                appt.lasterrs.append(result)
+                edits = {
+                    'errcount': appt.errcount + 1,
+                    # we only care about the last five errors
+                    'lasterrs': list(appt.lasterrs[-5:]),
+                }
+
+                if self.core.isactive:
                     await self.core.addCronEdits(appt.iden, edits)
 
-                took = finishtime - starttime
-                mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
-                       f'took {took:.3f}s'
-                logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                     'result': result, 'username': user.name, 'took': took}})
-                edits = {
-                    'lastfinishtime': finishtime,
-                    'isrunning': False,
-                    'lastresult': result,
-                }
+            took = finishtime - starttime
+            mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
+                   f'took {took:.3f}s'
+            if not self.core.isactive:
+                mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
+            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
+                                                 'result': result, 'username': user.name, 'took': took}})
+            edits = {
+                'lastfinishtime': finishtime,
+                'isrunning': False,
+                'lastresult': result,
+            }
+            if self.core.isactive:
                 await self.core.addCronEdits(appt.iden, edits)
 
-                if not self.isfini:
-                    # fire beholder event before invoking nexus change (in case readonly)
-                    await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+            if not self.isfini:
+                # fire beholder event before invoking nexus change (in case readonly)
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
