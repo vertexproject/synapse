@@ -1825,6 +1825,7 @@ class Runtime(s_base.Base):
         if bus is None:
             bus = await s_base.Base.anit()
             bus._warnonce_keys = set()
+            self.onfini(bus)
 
         self.bus = bus
         self.vars = {}
@@ -1879,9 +1880,7 @@ class Runtime(s_base.Base):
 
         self.proxies = {}
 
-        if query is not None:
-            self._loadRuntVars(query)
-
+        self._loadRuntVars(query)
         self.onfini(self._onRuntFini)
 
     async def keepalive(self, period):
@@ -1999,7 +1998,7 @@ class Runtime(s_base.Base):
         prox = await s_telepath.openurl(url, **opts)
 
         self.proxies[(url, flat)] = prox
-        self.onfini(prox.fini)
+        self.bus.onfini(prox.fini)
 
         return prox
 

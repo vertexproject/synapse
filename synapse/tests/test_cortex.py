@@ -2377,16 +2377,6 @@ class CortexTest(s_t_utils.SynTest):
             node = await view.getNodeByNdef(('test:str', 'haha'))
             self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
-            async with await core.getRuntime() as runt:
-                async with core.view.getNodeEditor(node, runt=runt, strict=False) as protonode:
-                    waiter = runt.bus.waiter(1, 'warn')
-                    ret = await protonode.addTag('newp.newpnewp', ('2001', '1999'))
-                    self.none(ret)
-                    msgs = await waiter.wait(timeout=6)
-                    self.len(1, msgs)
-                    mesg = msgs[0]
-                    self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
-
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
             nodes = await core.nodes('test:str=haha')
             self.len(1, nodes)

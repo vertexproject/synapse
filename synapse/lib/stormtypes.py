@@ -3811,7 +3811,7 @@ class ProxyMethod(StormType):
         # TODO: storm types fromprim()
         ret = await self.meth(*args, **kwargs)
         if isinstance(ret, s_telepath.Share):
-            self.runt.onfini(ret)
+            self.runt.bus.onfini(ret)
             return Proxy(self.runt, ret)
         return ret
 

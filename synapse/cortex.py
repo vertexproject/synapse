@@ -3192,7 +3192,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async with self.view.getEditor(user=user) as editor:
             node = await editor.addNode(form, valu, props=props)
 
-        realnode = await self.view.getNodeByBuid(node.buid)
+        realnode = await self.getNodeByNdef((form, valu))
         if realnode is not None:
             return realnode.pack()
 
