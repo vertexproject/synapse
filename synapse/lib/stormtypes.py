@@ -7597,7 +7597,7 @@ class View(Prim):
         {'name': 'getMergeCount', 'desc': 'Get the number of Views that have open merge requests to this View',
          'type': {'type': 'function', '_funcname': 'getMergeCount',
                   'args': (),
-                  'returns': {'name': 'count', 'type': 'int', 'desc': 'The number of open merge requests into this view.'}}},
+                  'returns': {'name': 'count', 'type': 'int', 'desc': 'The number of open merge requests into this View.'}}},
         {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
                   'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
