@@ -168,8 +168,11 @@ class View(s_nexus.Pusher):  # type: ignore
             return s_msgpack.un(byts)
 
     async def getMergeCount(self):
+        if self.info.get('quorum') is None:
+            mesg = f'View ({self.iden}) does not require quorum voting.'
+            raise s_exc.BadState(mesg=mesg)
         count = 0
-        for view in self.core.views.values():
+        for view in list(self.core.views.values()):
             await asyncio.sleep(0)
             if view.parent == self and view.getMergeRequest() is not None:
                 count += 1
