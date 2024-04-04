@@ -1184,6 +1184,9 @@ class AhaTest(s_test.SynTest):
                     self.stormIsInPrint('    00.loop.vertex.link', msgs)
                     self.stormIsInPrint('1 pools', msgs)
 
+                    msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.loop.vertex.link))')
+                    self.stormIsInPrint('aha:pool: pool00.loop.vertex.link', msgs)
+
                     async with await s_telepath.open('aha://pool00...') as pool:
 
                         replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')

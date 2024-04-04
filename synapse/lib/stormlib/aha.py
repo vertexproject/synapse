@@ -35,6 +35,7 @@ class AhaPoolLib(s_stormtypes.Lib):
         if poolinfo is not None:
             return AhaPool(self.runt, poolinfo)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def list(self):
 
         self.runt.reqAdmin()
@@ -59,6 +60,9 @@ class AhaPool(s_stormtypes.StormType):
             'add': self.add,
             'del': self._del,
         })
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.poolinfo.get("name")}'
 
     async def _derefGet(self, name):
         return self.poolinfo.get(name)
@@ -97,7 +101,6 @@ stormcmds = (
         for $pool in $lib.aha.pool.list() {
             $count = ($count + 1)
             $lib.print(`Pool: {$pool.name}`)
-            $lib.print($pool)
             for ($svcname, $svcinfo) in $pool.services {
                 $lib.print(`    {$svcname}`)
             }
