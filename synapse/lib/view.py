@@ -167,6 +167,14 @@ class View(s_nexus.Pusher):  # type: ignore
         if byts is not None:
             return s_msgpack.un(byts)
 
+    async def getMergeCount(self):
+        count = 0
+        for view in self.core.views.values():
+            await asyncio.sleep(0)
+            if view.parent == self and view.getMergeRequest() is not None:
+                count += 1
+        return count
+
     async def setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
         mergeinfo['iden'] = s_common.guid()

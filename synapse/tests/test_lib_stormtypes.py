@@ -6464,6 +6464,10 @@ words\tword\twrd'''
             self.eq(merge['creator'], core.auth.rootuser.iden)
             self.none(merge.get('updated'))
 
+            # base view should have a merge count of 1
+            count = await core.callStorm('return($lib.view.get().getMergeCount())')
+            self.eq(1, count)
+
             with self.raises(s_exc.AuthDeny):
                 core.getView(fork00).reqValidVoter(root.iden)
 
