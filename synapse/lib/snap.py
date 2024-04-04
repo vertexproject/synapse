@@ -678,7 +678,7 @@ class Snap(s_base.Base):
         self.onfini(runt)
         return runt
 
-    async def _joinEmbedStor(self, storage, embeds, nlyrs):
+    async def _joinEmbedStor(self, storage, embeds):
         for nodePath, relProps in embeds.items():
             await asyncio.sleep(0)
             iden = relProps.get('*')
@@ -748,7 +748,7 @@ class Snap(s_base.Base):
                 if embdef is not None:
                     pode[1]['embeds'] = await node.getEmbeds(embdef)
                     if show_storage:
-                        await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'], len(pode[1]['storage']))
+                        await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'])
 
             yield pode
 
