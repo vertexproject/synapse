@@ -83,7 +83,6 @@ class View(s_nexus.Pusher):  # type: ignore
     interact with a subset of the layers configured in a Cortex.
     '''
     tagcachesize = 1000
-    nodecachesize = 100000
 
     async def __anit__(self, core, node):
         '''
@@ -141,16 +140,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
 
-        self.nodecache = collections.deque(maxlen=self.nodecachesize)
-        self.livenodes = weakref.WeakValueDictionary()  # nid -> Node
-
     def clearCache(self):
         self.tagcache.clear()
-        self.nodecache.clear()
-        self.livenodes.clear()
-
-    def clearCachedNode(self, nid):
-        self.livenodes.pop(nid, None)
 
     async def saveNodeEdits(self, edits, meta, bus=None):
         '''
@@ -195,7 +186,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 if etyp == s_layer.EDIT_NODE_DEL or etyp == s_layer.EDIT_NODE_TOMB:
                     callbacks.append((node.form.wasDeleted, (node,), {}))
                     callbacks.append((self.runNodeDel, (node,), {}))
-                    self.clearCachedNode(nid)
                     continue
 
                 if etyp == s_layer.EDIT_NODE_TOMB_DEL:
@@ -680,7 +670,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             async def chunked():
                 nodeedits = []
-                editor = s_editor.NodeEditor(self, merge.get('creator'))
+                editor = s_editor.NodeEditor(self.parent, merge.get('creator'))
 
                 async for (nid, form, edits) in self.layers[0].iterLayerNodeEdits():
 
@@ -1841,10 +1831,10 @@ class View(s_nexus.Pusher):  # type: ignore
             'user': user.iden
         }
 
-        editor = s_editor.NodeEditor(self, user)
+        editor = s_editor.NodeEditor(self.parent, user)
 
         async for (nid, form, edits) in fromlayr.iterLayerNodeEdits():
-            print('MERGING', nid, edits)
+
             if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
                 protonode = await editor.getNodeByNid(nid)
                 if protonode is None:
@@ -2164,7 +2154,7 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 user = self.core.auth.rootuser
 
-        async with self.getEditor(user=user) as editor:
+        async with self.getEditor(user=user, transaction=True) as editor:
             node = await editor.addNode(form, valu, props=props, norminfo=norminfo)
 
         return await self.getNodeByBuid(node.buid)
@@ -2338,14 +2328,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _joinStorNode(self, nid, tombs=False):
 
-        node = self.livenodes.get(nid)
-        if node is not None:
-            await asyncio.sleep(0)
-
-            if not tombs and node.istomb():
-                return None
-            return node
-
         soderefs = []
         for layr in self.layers:
             sref = layr.genStorNodeRef(nid)
@@ -2361,11 +2343,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _joinSodes(self, nid, soderefs):
 
-        node = self.livenodes.get(nid)
-        if node is not None:
-            await asyncio.sleep(0)
-            return node
-
         ndef = None
         # make sure at least one layer has the primary property
         for envl in soderefs:
@@ -2379,9 +2356,6 @@ class View(s_nexus.Pusher):  # type: ignore
             return None
 
         node = s_node.Node(self, nid, ndef, soderefs)
-
-        self.livenodes[nid] = node
-        self.nodecache.append(node)
 
         await asyncio.sleep(0)
         return node
@@ -2402,6 +2376,52 @@ class View(s_nexus.Pusher):  # type: ignore
     async def storNodeEdits(self, edits, meta):
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
+
+    async def delTombstone(self, nid, tombtype, tombinfo, runt=None):
+
+        if (ndef := self.core.getNidNdef(nid)) is None:
+            raise s_exc.BadArg(f'delTombstone() got an invalid nid: {nid}')
+
+        edit = None
+
+        if tombtype == s_layer.INDX_PROP:
+            (form, prop) = tombinfo
+            if prop is None:
+                edit = [((s_layer.EDIT_NODE_TOMB_DEL), ())]
+            else:
+                edit = [((s_layer.EDIT_PROP_TOMB_DEL), (prop,))]
+
+        elif tombtype == s_layer.INDX_TAG:
+            (form, tag) = tombinfo
+            edit = [((s_layer.EDIT_TAG_TOMB_DEL), (tag,))]
+
+        elif tombtype == s_layer.INDX_TAGPROP:
+            (form, tag, prop) = tombinfo
+            edit = [((s_layer.EDIT_TAGPROP_TOMB_DEL), (tag, prop))]
+
+        elif tombtype == s_layer.INDX_NODEDATA:
+            (name,) = tombinfo
+            edit = [((s_layer.EDIT_NODEDATA_TOMB_DEL), (name,))]
+
+        elif tombtype == s_layer.INDX_EDGE_VERB:
+            (verb, n2nid) = tombinfo
+            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, n2nid))]
+
+        if edit is not None:
+
+            if runt is not None:
+                meta = {
+                    'user': runt.user.iden,
+                    'time': s_common.now()
+                }
+                await self.saveNodeEdits([(nid, ndef[0], edit)], meta, bus=runt.bus)
+                return
+
+            meta = {
+                'user': self.core.auth.rootuser,
+                'time': s_common.now()
+            }
+            await self.saveNodeEdits([(nid, ndef[0], edit)], meta, bus=runt.bus)
 
     async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set

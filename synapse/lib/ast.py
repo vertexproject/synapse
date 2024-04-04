@@ -4589,7 +4589,7 @@ class EditTagDel(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[0].computeTagArray(runt, path, excignore=(s_exc.BadTypeValu,))
+            names = await self.kids[0].computeTagArray(runt, path, excignore=(s_exc.BadTypeValu, s_exc.BadTag))
 
             for name in names:
 

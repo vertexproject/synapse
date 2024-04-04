@@ -7064,7 +7064,7 @@ class Layer(Prim):
             mesg = f'delTombstone() got an invalid nid: {nid}'
             raise s_exc.BadArg(mesg=mesg, nid=nid)
 
-        return await self.runt.view.delTombstone(nid, tombtype, tombinfo)
+        return await self.runt.view.delTombstone(nid, tombtype, tombinfo, runt=self.runt)
 
     @stormfunc(readonly=True)
     async def getTombstones(self):

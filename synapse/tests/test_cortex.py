@@ -2906,7 +2906,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=hello]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node, arg_hit.get('hit'))
+            self.eq(str(node), str(arg_hit.get('hit')))
 
             arg_hit['hit'] = None
             core.model.form('test:str').offAdd(testcb)
@@ -3073,7 +3073,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('hehe'), 'haha')
-            self.eq(node, arg_hit['hit'][0])
+            self.eq(str(node), str(arg_hit['hit'][0]))
             self.none(arg_hit['hit'][1])
 
             arg_hit.clear()
@@ -3082,7 +3082,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
 
             self.eq(node.get('hehe'), 'weee')
-            self.eq(node, arg_hit['hit'][0])
+            self.eq(str(node), str(arg_hit['hit'][0]))
             self.eq(arg_hit['hit'][1], 'haha')
 
             arg_hit.clear()
@@ -3092,7 +3092,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.none(node.get('hehe'))
-            self.eq(node, arg_hit['hit'][0])
+            self.eq(str(node), str(arg_hit['hit'][0]))
             self.eq(arg_hit['hit'][1], 'weee')
 
     async def test_storm_logging(self):

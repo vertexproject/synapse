@@ -4042,7 +4042,7 @@ class MergeCmd(Cmd):
                         subs.append((s_layer.EDIT_NODE_TOMB_DEL, ()))
 
                         await sync()
-                        runt.view.clearCachedNode(node.buid)
+
                     continue
 
                 if (valu := sode.get('valu')) is not None:
@@ -4210,9 +4210,8 @@ class MergeCmd(Cmd):
 
             await sync()
 
-            runt.view.clearCachedNode(node.nid)
-            if (newnode := await runt.view.getNodeByNid(node.nid)) is not None:
-                yield newnode, path
+            if node.hasvalu():
+                yield node, path
 
 class MoveNodesCmd(Cmd):
     '''

@@ -411,6 +411,16 @@ class Node(NodeBase):
 
         return False
 
+    def hasvalu(self):
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (valu := sode.get('valu')) is not None:
+                return True
+
+        return False
+
     def get(self, name, defv=None):
         '''
         Return a secondary property or tag value from the Node.
@@ -895,8 +905,6 @@ class Node(NodeBase):
 
         async with self.view.getNodeEditor(self) as protonode:
             await protonode.delete()
-
-        self.view.clearCachedNode(self.nid)
 
     async def hasData(self, name):
         if name in self.nodedata:

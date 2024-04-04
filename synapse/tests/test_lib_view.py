@@ -784,11 +784,11 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await alist(view.nodesByPropValu('test:str', '=', 'hehe'))
             self.len(1, nodes)
-            self.eq(nodes[0], node)
+            self.eq(str(nodes[0]), str(node))
 
             # Make sure that we can still add secondary props even if the node already exists
             node2 = await view.addNode('test:str', 'hehe', props={'baz': 'test:guid:tick=2020'})
-            self.eq(node2, node)
+            self.eq(str(node2), str(node))
             self.nn(node2.get('baz'))
 
     async def test_addNodesAuto(self):
@@ -930,14 +930,10 @@ class ViewTest(s_t_utils.SynTest):
             view = core.getView()
 
             original_node0 = await view.addNode('test:str', 'node0')
-            self.len(2, view.nodecache)
-            self.len(2, view.livenodes)
             self.len(0, view.tagcache)
             self.len(0, core.tagnorms)
 
             await original_node0.addTag('foo.bar.baz')
-            self.len(5, view.nodecache)
-            self.len(5, view.livenodes)
             self.len(3, core.tagnorms)
 
             new_node0 = await view.getNodeByNdef(('test:str', 'node0'))
@@ -946,18 +942,10 @@ class ViewTest(s_t_utils.SynTest):
             # Original reference is updated as well
             self.notin('foo.bar.baz', original_node0.getTags())
 
-            # We rely on the layer's row cache to be correct in this test.
-
-            # Lift is cached..
-            same_node0 = await view.getNodeByNdef(('test:str', 'node0'))
-            self.eq(id(original_node0), id(same_node0))
-
             # flush caches!
             view.clearCache()
             core.tagnorms.clear()
 
-            self.len(0, view.nodecache)
-            self.len(0, view.livenodes)
             self.len(0, view.tagcache)
             self.len(0, core.tagnorms)
 
