@@ -7594,7 +7594,7 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
-        {'name': 'getMergeCount', 'desc': '',
+        {'name': 'getMergeCount', 'desc': 'Get the number of Views that have open merge requests to this View',
          'type': {'type': 'function', '_funcname': 'getMergeCount',
                   'args': (),
                   'returns': {'name': 'count', 'type': 'int', 'desc': 'The number of open merge requests into this view.'}}},
