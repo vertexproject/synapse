@@ -86,6 +86,7 @@ stormcmds = [
             $lib.print(`!View: No view found ({$err.info.iden})`)
         }
         $lib.print(`Readonly: {$api.readonly}`)
+        $lib.print('Pool enabled: ${api.pool}`)
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
         $lib.print(`Description: {$api.desc}`)
@@ -224,6 +225,9 @@ class HttpApi(s_stormtypes.StormType):
         ''',
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPath', '_gtorfunc': '_gtorPath',
                   'returns': {'type': 'str'}}},
+        {'name': 'pool', 'desc': 'Boolean value indicating if the handler resposnes may be executed as part of a Storm pool.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPool', '_gtorfunc': '_gtorPool',
+                  'returns': {'type': 'boolean'}}},
         {'name': 'vars', 'desc': 'The Storm runtime variables specific for the API instance.',
          'type': {'type': ['stor', 'ctor'], '_storfunc': '_storVars', '_ctorfunc': '_ctorVars',
                   'returns': {'type': 'http:api:vars'}}},
@@ -243,7 +247,7 @@ class HttpApi(s_stormtypes.StormType):
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storAuthenticated', '_gtorfunc': '_gtorAuthenticated',
                   'returns': {'type': 'boolean'}}},
         {'name': 'methods', 'desc': 'The dictionary containing the Storm code used to implement the HTTP methods.',
-         'type': {'type': ['ctor',], '_ctorfunc': '_ctorMethods', 'returns': {'type': 'http:api:methods'}}}
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorMethods', 'returns': {'type': 'http:api:methods'}}}
     )
 
     def __init__(self, runt, info):
@@ -259,6 +263,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._storName,
             'desc': self._storDesc,
             'path': self._storPath,
+            'pool': self._storPool,
             'vars': self._storVars,
             'view': self._storView,
             'runas': self._storRunas,
@@ -272,6 +277,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._gtorName,
             'desc': self._gtorDesc,
             'path': self._gtorPath,
+            'pool': self._storPool,
             'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
@@ -324,6 +330,17 @@ class HttpApi(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorPath(self):
         return self.info.get('path')
+
+    async def _storPool(self, pool):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
+        pool = await s_stormtypes.tobool(pool)
+        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'pool', pool)
+        self.info['pool'] = pool
+        self.info['updated'] = adef.get('updated')
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _gtorPool(self):
+        return self.info.get('pool')
 
     async def _storName(self, name):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))

@@ -1,5 +1,7 @@
 import json
 
+import unittest.mock as mock
+
 import aiohttp
 
 import synapse.common as s_common
@@ -1391,3 +1393,49 @@ for $i in $values {
                 self.none(resp.headers.get('X-Content-Type-Options'))
                 # Server is still omitted though
                 self.none(resp.headers.get('Server'))
+
+    async def test_cortex_httpapi_pool(self):
+
+        # Test if we pass the mirror value in opts or not.
+        async with self.getTestCore(conf={'https:headers': {'Key1': 'Valu1'}}) as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$api = $lib.cortex.httpapi.add(stuff)
+            $api.methods.get =  ${
+                $request.reply(200, headers=({"Weee": "valu"}) )
+            }
+            return ( ($api.iden) )'''
+            iden00 = await core.callStorm(q)
+            opts_iden00 = {'vars': {'iden': iden00}}
+
+            data = {}
+
+            oldstorm = core.storm
+            async def storm(self, text, opts=None):
+                data['opts'] = opts
+                async for mesg in oldstorm(text, opts=opts):
+                    yield mesg
+
+            with mock.patch('synapse.cortex.Cortex.storm', new=storm) as patch:
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
+                    self.eq(resp.status, 200)
+                    self.false(data['opts'].get('mirror'))
+                    data.clear()
+
+                    await core.callStorm('$lib.cortex.httpapi.get($iden).pool = (true)', opts=opts_iden00)
+
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
+                    self.eq(resp.status, 200)
+                    self.true(data['opts'].get('mirror'))
+                    data.clear()
+
+                    await core.callStorm('$lib.cortex.httpapi.get($iden).pool = (false)', opts=opts_iden00)
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
+                    self.eq(resp.status, 200)
+                    self.false(data['opts'].get('mirror'))
+                    data.clear()
