@@ -1079,15 +1079,14 @@ class CortexHttpApi(s_stormtypes.Lib):
                        'desc': 'The iden of the API to retrieve.'},
                   ),
                   'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
-        {'name': 'get', 'desc': '''
+        {'name': 'getByPath', 'desc': '''
         Get an Extended ``http:api`` object by path.
 
         Notes:
-
             The path argument is evaluated as a regular expression input, and will be
             used to get the first HTTP API handler whose path value has a match.
         ''',
-         'type': {'type': 'function', '_funcname': 'getHttpApi',
+         'type': {'type': 'function', '_funcname': 'getHttpApiByPath',
                   'args': (
                       {'name': 'path', 'type': 'string',
                        'desc': 'Path to use to retreive an object.'},
