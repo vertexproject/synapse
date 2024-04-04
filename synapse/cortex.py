@@ -5378,29 +5378,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await func(view, items, user=user)
 
-    async def getRuntime(self, user=None, view=None):
-        '''
-        Return a Runtime object for the default view.
-
-        Args:
-            user (str): The user to get the Runtime for.
-            view (View): View object to use when making the Runtime.
-
-        Notes:
-            This must be used as an asynchronous context manager.
-
-        Returns:
-            s_storm.Runtime: A Runtime object for the view.
-        '''
-
-        if view is None:
-            view = self.view
-
-        if user is None:
-            user = await self.auth.getUserByName('root')
-
-        return await s_storm.Runtime.anit(None, view, user=user)
-
     async def loadCoreModule(self, ctor, conf=None):
         '''
         Load a single cortex module with the given ctor and conf.
