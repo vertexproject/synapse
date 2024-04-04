@@ -1398,10 +1398,7 @@ for $i in $values {
 
         # Test if we pass the mirror value in opts or not.
         async with self.getTestCore(conf={'https:headers': {'Key1': 'Valu1'}}) as core:
-            udef = await core.addUser('lowuser')
-            lowuser = udef.get('iden')
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
-            await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
             q = '''$api = $lib.cortex.httpapi.add(stuff)
