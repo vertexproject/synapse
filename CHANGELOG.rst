@@ -6,17 +6,8 @@
 Synapse Changelog
 *****************
 
-v2.166.0 - 2024-04-04
+v2.166.0 - 2024-04-05
 =====================
-
-Automatic Migrations
---------------------
-- Re-normalize ``risk:mitigation:name``, ``it:mitre:attack:technique:name``,
-  and ``it:mitre:attack:mitigation:name`` secondary properties.
-  (`#3585 <https://github.com/vertexproject/synapse/pull/3585>`_)
-- Re-normalize ``velocity`` properties which are float values.
-  (`#3616 <https://github.com/vertexproject/synapse/pull/3616>`_)
-- See :ref:`datamigration` for more information about automatic migrations.
 
 Model Changes
 -------------
