@@ -39,7 +39,7 @@ Model Changes
     The form had the following property added to it:
 
     ``deadline``
-  The time that the demand must be met.
+      The time that the demand must be met.
 
   ``risk:leak``
     The form had the following properties added on it:
