@@ -167,6 +167,18 @@ class View(s_nexus.Pusher):  # type: ignore
         if byts is not None:
             return s_msgpack.un(byts)
 
+    async def getMergingViews(self):
+        if self.info.get('quorum') is None:
+            mesg = f'View ({self.iden}) does not require quorum voting.'
+            raise s_exc.BadState(mesg=mesg)
+
+        idens = []
+        for view in list(self.core.views.values()):
+            await asyncio.sleep(0)
+            if view.parent == self and view.getMergeRequest() is not None:
+                idens.append(view.iden)
+        return idens
+
     async def setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
         mergeinfo['iden'] = s_common.guid()

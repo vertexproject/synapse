@@ -7500,7 +7500,7 @@ class View(Prim):
 
         {'name': 'getPropArrayCount',
          'desc': '''
-            Get the number of invidivual array property values in the View for the given array property name.
+            Get the number of individual array property values in the View for the given array property name.
 
             Notes:
                This is a fast approximate count calculated by summing the number of
@@ -7594,6 +7594,10 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
+        {'name': 'getMergingViews', 'desc': 'Get a list of idens of Views that have open merge requests to this View.',
+         'type': {'type': 'function', '_funcname': 'getMergingViews',
+                  'args': (),
+                  'returns': {'name': 'idens', 'type': 'list', 'desc': 'The list of View idens that have an open merge request into this View.'}}},
         {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
                   'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
@@ -7648,6 +7652,7 @@ class View(Prim):
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
             'setMergeComment': self.setMergeComment,
+            'getMergingViews': self.getMergingViews,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7964,6 +7969,12 @@ class View(Prim):
             raise s_exc.AuthDeny(mesg=mesg)
 
         return await view.setMergeComment((await tostr(comment)))
+
+    async def getMergingViews(self):
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        return await view.getMergingViews()
 
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
