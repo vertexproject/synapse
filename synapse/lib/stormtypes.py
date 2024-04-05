@@ -7594,10 +7594,10 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
-        {'name': 'getMergingViews', 'desc': 'Yields the idens of Views that have open merge requests to this View.',
+        {'name': 'getMergingViews', 'desc': 'Get a list of idens of Views that have open merge requests to this View.',
          'type': {'type': 'function', '_funcname': 'getMergingViews',
                   'args': (),
-                  'returns': {'name': 'Yields', 'type': 'str', 'desc': 'The iden of a View that has an open merge request into this View.'}}},
+                  'returns': {'name': 'idens', 'type': 'list', 'desc': 'The list of View idens that have an open merge request into this View.'}}},
         {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
                   'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
@@ -7974,8 +7974,7 @@ class View(Prim):
         view = self._reqView()
         self.runt.confirm(('view', 'read'), gateiden=view.iden)
 
-        async for iden in view.getMergingViews():
-            yield iden
+        return await view.getMergingViews()
 
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()

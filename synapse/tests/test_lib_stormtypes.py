@@ -6464,11 +6464,7 @@ words\tword\twrd'''
             self.eq(merge['creator'], core.auth.rootuser.iden)
             self.none(merge.get('updated'))
 
-            merging = '''
-            $retn = $lib.list()
-            for $iden in $lib.view.get().getMergingViews() { $retn.append($iden) }
-            return($retn)
-            '''
+            merging = 'return($lib.view.get().getMergingViews()) '
 
             self.eq([fork00], await core.callStorm(merging))
 
