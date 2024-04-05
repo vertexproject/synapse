@@ -5296,11 +5296,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
 
         if self.stormpool.size() == 0:
-            # TODO DEBUG LOG LEVEL
             logger.warning('Storm query mirror pool is empty, running query locally.')
             return None
 
-        proxy = None
         try:
             timeout = self.stormpoolopts.get('timeout:connection')
             proxy = await self.stormpool.proxy(timeout=timeout)
@@ -5311,8 +5309,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             return proxy
 
-        # TODO - fini proxy problem? s_exc.IsFini exception?
-        except TimeoutError:
+        except (TimeoutError, s_exc.IsFini):
             logger.warning('Timeout waiting for pool mirror, running query locally.')
             return None
 
