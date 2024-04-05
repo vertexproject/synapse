@@ -1169,7 +1169,7 @@ class AhaTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
 
-                    # Pool has no memebers....
+                    # Pool has no members....
                     pool = await s_telepath.open('aha://pool00...')
                     self.eq(0, pool.size())
                     waiter = pool.waiter(0, 'svc:add')
