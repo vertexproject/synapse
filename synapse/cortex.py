@@ -1498,7 +1498,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # make this one a fini weakref vs the fini() handler
             self.onfini(self.stormpool)
 
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.exception(f'Error starting stormpool, it will not be available: {e}')
 
     async def finiStormPool(self):
