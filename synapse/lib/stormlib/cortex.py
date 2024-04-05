@@ -315,7 +315,10 @@ class HttpApi(s_stormtypes.StormType):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPack(self):
-        return copy.deepcopy(self.info)
+        # TODO: Remove this when we've migrated the HTTPAPI data to set this value.
+        ret = copy.deepcopy(self.info)
+        ret.setdefault('pool', False)
+        return ret
 
     @s_stormtypes.stormfunc(readonly=True)
     def _ctorMethods(self, path=None):

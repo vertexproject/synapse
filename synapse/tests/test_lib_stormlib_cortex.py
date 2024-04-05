@@ -1427,14 +1427,19 @@ for $i in $values {
                     self.false(data['opts'].get('mirror'))
                     data.clear()
 
-                    await core.callStorm('$lib.cortex.httpapi.get($iden).pool = (true)', opts=opts_iden00)
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api.pack() ) '
+                    adef = await core.callStorm(q, opts=opts_iden00)
+                    self.true(adef.get('pool'))
 
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
                     self.eq(resp.status, 200)
                     self.true(data['opts'].get('mirror'))
                     data.clear()
 
-                    await core.callStorm('$lib.cortex.httpapi.get($iden).pool = (false)', opts=opts_iden00)
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api.pack() ) '
+                    adef = await core.callStorm(q, opts=opts_iden00)
+                    self.false(adef.get('pool'))
+
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
                     self.eq(resp.status, 200)
                     self.false(data['opts'].get('mirror'))
