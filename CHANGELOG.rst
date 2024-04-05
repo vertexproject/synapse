@@ -49,7 +49,7 @@ Features and Enhancements
   Cron job storm query to be executed on a Storm pool member.
   (`#3652 <https://github.com/vertexproject/synapse/pull/3652>`_)
 - Add a ``pool`` option to Extended HTTP API handlers. This can be set to
-  true to enable an HTTP request handler to be executed on a Storm pool member.
+  True to enable an HTTP request handler to be executed on a Storm pool member.
   (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
   (`#3667 <https://github.com/vertexproject/synapse/pull/3667>`_)
 - Add a new Storm API, ``$lib.cortex.httpapi.getByPath()``, that can be
