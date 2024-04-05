@@ -4,6 +4,7 @@ import socket
 import asyncio
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
@@ -41,8 +42,8 @@ async def main(argv, outp=s_output.stdout):
     try:
         async with s_telepath.withTeleEnv():
 
-            prox = await asyncio.wait_for(s_telepath.openurl(url),
-                                          timeout=opts.timeout)
+            prox = await s_common.wait_for(s_telepath.openurl(url),
+                                           timeout=opts.timeout)
     except (FileNotFoundError, ConnectionError, socket.gaierror) as e:
         mesg = f'Unable to connect to cell @ {sanitized_url}.'
         ret = {'status': 'failed',
@@ -69,8 +70,8 @@ async def main(argv, outp=s_output.stdout):
         return 1
 
     try:
-        ret = await asyncio.wait_for(prox.getHealthCheck(),
-                                     timeout=opts.timeout)
+        ret = await s_common.wait_for(prox.getHealthCheck(),
+                                      timeout=opts.timeout)
     except s_exc.SynErr as e:
         mesg = 'Synapse error encountered.'
         ret = {'status': s_health.FAILED,

@@ -1,9 +1,11 @@
 import gc
 import os
+import ssl
 import copy
 import time
 import fcntl
 import shutil
+import signal
 import socket
 import asyncio
 import logging
@@ -11,6 +13,7 @@ import tarfile
 import argparse
 import datetime
 import platform
+import tempfile
 import functools
 import contextlib
 import multiprocessing
@@ -31,6 +34,7 @@ import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
@@ -41,6 +45,8 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -55,6 +61,7 @@ import synapse.tools.backup as s_t_backup
 logger = logging.getLogger(__name__)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
+SSLCTX_CACHE_SIZE = 64
 
 '''
 Base classes for the synapse "cell" microservice architecture.
@@ -72,20 +79,7 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
-easyPermSchema = {
-    'type': 'object',
-    'properties': {
-        'users': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-        'roles': {
-            'type': 'object',
-            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
-        },
-    },
-    'required': ['users', 'roles'],
-}
+diskspace = "Insufficient free space on disk."
 
 def adminapi(log=False):
     '''
@@ -129,7 +123,8 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
+        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -257,17 +252,17 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
-    async def getPermDef(self, perm):
+    def getPermDef(self, perm):
         '''
         Return a specific permission definition.
         '''
-        return await self.cell.getPermDef(perm)
+        return self.cell.getPermDef(perm)
 
-    async def getPermDefs(self):
+    def getPermDefs(self):
         '''
         Return a non-comprehensive list of perm definitions.
         '''
-        return await self.cell.getPermDefs()
+        return self.cell.getPermDefs()
 
     @adminapi()
     def getNexsIndx(self):
@@ -349,7 +344,7 @@ class CellApi(s_base.Base):
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
 
-    @adminapi()
+    @adminapi(log=True)
     async def handoff(self, turl, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
 
@@ -632,8 +627,8 @@ class CellApi(s_base.Base):
         return await self.cell.getRoleDefs()
 
     @adminapi()
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden, default=default)
 
     @adminapi()
     async def isRoleAllowed(self, iden, perm, gateiden=None):
@@ -658,6 +653,10 @@ class CellApi(s_base.Base):
     @adminapi()
     async def popUserProfInfo(self, iden, name, default=None):
         return await self.cell.popUserProfInfo(iden, name, default=default)
+
+    @adminapi()
+    async def checkUserApiKey(self, key):
+        return await self.cell.checkUserApiKey(key)
 
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
@@ -809,6 +808,14 @@ class CellApi(s_base.Base):
             'threshold': gc.get_threshold(),
         }
 
+    @adminapi()
+    async def getReloadableSystems(self):
+        return self.cell.getReloadableSystems()
+
+    @adminapi(log=True)
+    async def reload(self, subsystem=None):
+        return await self.cell.reload(subsystem=subsystem)
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -861,7 +868,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'max:users': {
             'default': 0,
-            'description': 'Maximum number of users allowed on system, not including root (0 is no limit).',
+            'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
             'type': 'integer',
             'minimum': 0
         },
@@ -871,8 +878,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'boolean',
         },
         'nexslog:async': {
-            'default': False,
-            'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
+            'default': True,
+            'description': 'Set to false to disable async memory mapping of the nexus change log.',
             'type': 'boolean',
             'hidedocs': True,
             'hidecmdl': True,
@@ -1053,11 +1060,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellparent = parent
         self.sessions = {}
         self.isactive = False
+        self.activebase = None
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
         self.ahaclient = None
         self._checkspace = s_coro.Event()
+        self._reloadfuncs = {}  # name -> func
 
         self.conf = self._initCellConf(conf)
 
@@ -1146,6 +1155,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.setNexsRoot(root)
 
         await self._initCellSlab(readonly=readonly)
+        self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
+        self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
+        self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        # for runtime cell configuration values
+        self.slab.initdb('cell:conf')
+
+        self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
         self.hive = await self._initCellHive()
 
@@ -1216,22 +1233,37 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
-    async def getPermDef(self, perm):
+    def getPermDef(self, perm):
+        perm = tuple(perm)
         if self.permlook is None:
-            self.permlook = {pdef['perm']: pdef for pdef in await self.getPermDefs()}
+            self.permlook = {pdef['perm']: pdef for pdef in self.getPermDefs()}
         return self.permlook.get(perm)
 
-    async def getPermDefs(self):
+    def getPermDefs(self):
         if self.permdefs is None:
-            self.permdefs = await self._getPermDefs()
+            self.permdefs = self._getPermDefs()
         return self.permdefs
 
-    async def _getPermDefs(self):
+    def _getPermDefs(self):
         return ()
 
     def _clearPermDefs(self):
         self.permdefs = None
         self.permlook = None
+
+    def getDmonUser(self):
+        '''
+        Return the user IDEN of a telepath caller who invoked the current task.
+        ( defaults to returning current root user )
+        '''
+        sess = s_scope.get('sess', None)
+        if sess is None:
+            return self.auth.rootuser.iden
+
+        if sess.user is None: # pragma: no cover
+            return self.auth.rootuser.iden
+
+        return sess.user.iden
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
@@ -1257,10 +1289,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _onBootOptimize(self):
 
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        tdev = os.stat(tdir).st_dev
+
         lmdbs = []
         for (root, dirs, files) in os.walk(self.dirn):
             for dirname in dirs:
-                if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
+                filepath = os.path.join(root, dirname, 'data.mdb')
+                if os.path.isfile(filepath):
+                    if os.stat(filepath).st_dev != tdev:
+                        logger.warning(f'Unable to run onboot:optimize, {filepath} is not on the same volume as {tdir}')
+                        return
+
                     lmdbs.append(os.path.join(root, dirname))
 
         if not lmdbs: # pragma: no cover
@@ -1352,28 +1392,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if (disk.free / disk.total) <= self.minfree:
 
-                await self._setReadOnly(True)
-                nexsroot.readonly = True
+                await nexsroot.addWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             elif nexsroot.readonly:
 
-                await self._setReadOnly(False)
-                nexsroot.readonly = False
-                await self.nexsroot.startup()
+                await nexsroot.delWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
-
-    async def _setReadOnly(self, valu):
-        # implement any behavior necessary to change the cell read-only status
-        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1390,6 +1423,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
+                self.onfini(self.ahaclient)
 
             async def finiaha():
                 await s_telepath.delAhaUrl(ahaurl)
@@ -1526,32 +1560,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
-        async def onlink(proxy):
-            while not proxy.isfini:
-                info = await self.getAhaInfo()
+        async def _runAhaRegLoop():
+
+            while not self.isfini:
                 try:
+                    proxy = await self.ahaclient.proxy()
+                    info = await self.getAhaInfo()
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                except Exception as e:
+                    logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
+                    await self.waitfini(1)
+                else:
+                    await proxy.waitfini()
 
-                    return
-
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-
-                except Exception:
-                    logger.exception('Error in _initAhaService() onlink')
-
-                await proxy.waitfini(1)
-
-        async def fini():
-            await self.ahaclient.offlink(onlink)
-
-        async def init():
-            await self.ahaclient.onlink(onlink)
-            self.onfini(fini)
-
-        self.schedCoro(init())
+        self.schedCoro(_runAhaRegLoop())
 
     async def initServiceRuntime(self):
         pass
@@ -1638,9 +1662,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        ahaname = self.conf.get('aha:name')
+        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful} ahaname={ahaname}')
+
         if graceful:
 
-            ahaname = self.conf.get('aha:name')
             if ahaname is None: # pragma: no cover
                 mesg = 'Cannot gracefully promote without aha:name configured.'
                 raise s_exc.BadArg(mesg=mesg)
@@ -1651,20 +1677,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.BadArg(mesg=mesg)
 
             myurl = f'aha://{ahaname}.{ahanetw}'
+            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff to ahaname={ahaname}')
             async with await s_telepath.openurl(mirurl) as lead:
+                logger.debug(f'PROMOTION: Requesting leadership handoff to ahaname={ahaname}')
                 await lead.handoff(myurl)
+                logger.warning(f'PROMOTION: Completed leadership handoff to ahaname={ahaname}')
                 return
 
+        logger.debug(f'PROMOTION: Clearing mirror configuration for ahaname={ahaname}')
         self.modCellConf({'mirror': None})
 
+        logger.debug(f'PROMOTION: Promoting the nexus root for ahaname={ahaname}')
         await self.nexsroot.promote()
+
+        logger.debug(f'PROMOTION: Setting the cell as active ahaname={ahaname}')
         await self.setCellActive(True)
+
+        logger.warning(f'PROMOTION: Finished leadership promotion ahaname={ahaname}')
 
     async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
+        ahaname = self.conf.get("aha:name")
+        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
         async with await s_telepath.openurl(turl) as cell:
+
+            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
 
             if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
@@ -1674,19 +1713,39 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
+            logger.debug(f'HANDOFF: Obtaining nexus applylock ahaname={ahaname}')
+
             async with self.nexsroot.applylock:
 
+                logger.debug(f'HANDOFF: Obtained nexus applylock ahaname={ahaname}')
                 indx = await self.getNexsIndx()
+
+                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}, ahaname={ahaname}')
                 if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)
 
+                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion ahaname={ahaname}')
                 await cell.promote()
+
+                logger.debug(f'HANDOFF: Setting the service as inactive ahaname={ahaname}')
                 await self.setCellActive(False)
 
+                logger.debug(f'HANDOFF: Configuring service to use the new leader as its mirror ahaname={ahaname}')
                 self.modCellConf({'mirror': turl})
+
+                logger.debug(f'HANDOFF: Restarting the nexus ahaname={ahaname}')
                 await self.nexsroot.startup()
+
+            logger.debug(f'HANDOFF: Released nexus applylock ahaname={ahaname}')
+        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)} ahaname={self.conf.get("aha:name")}')
+
+    async def reqAhaProxy(self, timeout=None):
+        if self.ahaclient is None:
+            mesg = 'AHA is not configured on this service.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+        return await self.ahaclient.proxy(timeout=timeout)
 
     async def _setAhaActive(self):
 
@@ -1720,6 +1779,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
         except Exception as e:  # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
+
+    def isActiveCoro(self, iden):
+        return self.activecoros.get(iden) is not None
 
     def addActiveCoro(self, func, iden=None, base=None):
         '''
@@ -1779,14 +1841,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         func = cdef.get('func')
 
         async def wrap():
-            while not self.isfini:
+            while not self.isfini and self.isActiveCoro(iden):
                 try:
                     await func()
-                except asyncio.CancelledError:
-                    raise
                 except Exception:  # pragma no cover
                     logger.exception(f'activeCoro Error: {func}')
-                    await asyncio.sleep(1)
+                    await self.waitfini(1)
 
         cdef['task'] = self.schedCoro(wrap())
 
@@ -1811,17 +1871,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.isactive
 
     async def setCellActive(self, active):
+
+        if active == self.isactive:
+            return
+
         self.isactive = active
 
         if self.isactive:
+            self.activebase = await s_base.Base.anit()
+            self.onfini(self.activebase)
             self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
+            await self.activebase.fini()
+            self.activebase = None
             await self.initServicePassive()
 
         await self._setAhaActive()
+
+    def runActiveTask(self, coro):
+        # an API for active coroutines to use when running an
+        # ephemeral task which should be automatically torn down
+        # if the cell becomes inactive
+        return self.activebase.schedCoro(coro)
 
     async def initServiceActive(self):  # pragma: no cover
         pass
@@ -2209,12 +2283,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if remove:
                 self.backupstreaming = False
 
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        user = self.auth.user(iden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        user = self.auth.user(iden)  # type: s_hiveauth.HiveUser
         if user is None:
             return False
 
-        return user.allowed(perm, gateiden=gateiden)
+        return user.allowed(perm, default=default, gateiden=gateiden)
 
     async def isRoleAllowed(self, iden, perm, gateiden=None):
         role = self.auth.role(iden)
@@ -2271,7 +2345,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
     async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
@@ -2279,21 +2353,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
         logger.info(f'Removing rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
         logger.info(f'Removing rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
@@ -2301,28 +2375,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.setRules(rules, gateiden=gateiden)
         logger.info(f'Set user rules = {rules} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rules=rules, gateiden=gateiden))
+                                                 rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
         logger.info(f'Set role rules = {rules} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rules=rules, gateiden=gateiden))
+                                                 rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
         oname = role.name
         await role.setName(name)
         logger.info(f'Set name={name} from {oname} on role iden={role.iden}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
         logger.info(f'Set admin={admin} for {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 gateiden=gateiden))
+                                                 gateiden=gateiden, status='MODIFY'))
 
     async def addUserRole(self, useriden, roleiden, indx=None):
         user = await self.auth.reqUser(useriden)
@@ -2330,14 +2405,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.grant(roleiden, indx=indx)
         logger.info(f'Granted role {role.name} to user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 target_role=role.iden, target_rolename=role.name))
+                                                 target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
         logger.info(f'Set roleidens={roleidens} on user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 roleidens=roleidens))
+                                                 roleidens=roleidens, status='MODIFY'))
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
@@ -2345,12 +2421,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.revoke(roleiden)
         logger.info(f'Revoked role {role.name} from user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 target_role=role.iden, target_rolename=role.name))
+                                                 target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
         logger.info(f'Added user={name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 status='CREATE'))
         return user.pack(packroles=True)
 
     async def delUser(self, iden):
@@ -2358,12 +2436,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = user.name
         await self.auth.delUser(iden)
         logger.info(f'Deleted user={name}',
-                   extra=await self.getLogExtra(target_user=iden, target_username=name))
+                   extra=await self.getLogExtra(target_user=iden, target_username=name, status='DELETE'))
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
         logger.info(f'Added role={name}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name, status='CREATE'))
         return role.pack()
 
     async def delRole(self, iden):
@@ -2371,26 +2449,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = role.name
         await self.auth.delRole(iden)
         logger.info(f'Deleted role={name}',
-                     extra=await self.getLogExtra(target_role=iden, target_rolename=name))
+                     extra=await self.getLogExtra(target_role=iden, target_rolename=name, status='DELETE'))
 
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
         user = await self.auth.reqUser(useriden)
         logger.info(f'Set email={email} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserName(self, useriden, name):
         user = await self.auth.reqUser(useriden)
         oname = user.name
         await user.setName(name)
         logger.info(f'Set name={name} from {oname} on user iden={user.iden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
         logger.info(f'Set password for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def genUserOnepass(self, iden, duration=600000):
         user = await self.auth.reqUser(iden)
@@ -2402,7 +2480,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.auth.setUserInfo(iden, 'onepass', onepass)
 
         logger.info(f'Issued one time password for {user.name}',
-                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
         return passwd
 
@@ -2410,13 +2488,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
         logger.info(f'Set lock={locked} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
         logger.info(f'Set archive={archived} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def getUserDef(self, iden, packroles=True):
         user = self.auth.user(iden)
@@ -2492,7 +2570,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if perms:
             p = []
             for perm in perms:
-                permdef = await self.getPermDef(perm)
+                permdef = self.getPermDef(perm)
                 if permdef is not None:
                     p.append(permdef)
             kwargs['perms'] = p
@@ -2553,6 +2631,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return defv
         return user.name
 
+    async def hasHttpSess(self, iden):
+        return self.sessstor.has(iden)
+
     async def genHttpSess(self, iden):
 
         # TODO age out http sessions
@@ -2595,6 +2676,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
+    @s_nexus.Pusher.onPushAuto('http:sess:update')
+    async def updateHttpSessInfo(self, iden, vals: dict):
+        for name, valu in vals.items():
+            s_msgpack.isok(valu)
+        for name, valu in vals.items():
+            self.sessstor.set(iden, name, valu)
+        sess = self.sessions.get(iden)
+        if sess is not None:
+            sess.info.update(vals)
+
     @contextlib.contextmanager
     def getTempDir(self):
         tdir = s_common.gendir(self.dirn, 'tmp')
@@ -2602,11 +2693,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield dirn
 
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
+        '''
+        Add a HTTPS listener to the Cell.
+
+        Args:
+            port (int): The listening port to bind.
+            host (str): The listening host.
+            sslctx (ssl.SSLContext): An externally managed SSL Context.
+
+        Note:
+            If the SSL context is not provided, the Cell will assume it
+            manages the SSL context it creates for a given listener and will
+            add a reload handler named https:certs to enabled reloading the
+            SSL certificates from disk.
+        '''
 
         addr = socket.gethostbyname(host)
 
+        managed_ctx = False
         if sslctx is None:
 
+            managed_ctx = True
             pkeypath = os.path.join(self.dirn, 'sslkey.pem')
             certpath = os.path.join(self.dirn, 'sslcert.pem')
 
@@ -2627,7 +2734,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
-        return list(serv._sockets.values())[0].getsockname()
+
+        lhost, lport = list(serv._sockets.values())[0].getsockname()
+
+        if managed_ctx:
+            # If the Cell is managing the SSLCtx, then we register a reload handler
+            # for it which reloads the pkey / cert.
+            def reload():
+                sslctx.load_cert_chain(certpath, pkeypath)
+                return True
+
+            self.addReloadableSystem('https:certs', reload)
+
+        return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
 
@@ -2716,6 +2835,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.addHttpApi('/robots.txt', s_httpapi.RobotHandler, {'cell': self})
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
+        self.addHttpApi('/api/v1/logout', s_httpapi.LogoutV1, {'cell': self})
+
         self.addHttpApi('/api/v1/active', s_httpapi.ActiveV1, {'cell': self})
         self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
 
@@ -2755,7 +2876,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellDmon(self):
 
-        self.dmon = await s_daemon.Daemon.anit()
+        ahainfo = {
+            'name': self.ahasvcname
+        }
+
+        self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)
@@ -2800,10 +2925,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
+            s_common.deprecated('auth:ctor cell config option', curv='2.157.0')
             ctor = s_dyndeps.getDynLocal(authctor)
-            return await ctor(self)
+            auth = await ctor(self)
+        else:
+            auth = await self._initCellHiveAuth()
 
-        return await self._initCellHiveAuth()
+        # Add callbacks
+        self.on('user:del', self._onUserDelEvnt)
+
+        return auth
 
     def getCellNexsRoot(self):
         # the "cell scope" nexusroot only exists if we are *not* embedded
@@ -2935,8 +3066,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 elif rolelevel >= level:
                     return True
 
-        # allow read by default unless explicitly set
-        if level <= PERM_READ:
+        default = item['permissions'].get('default', PERM_READ)
+        if level <= default:
             return True
 
         return False
@@ -2983,13 +3114,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             perms[iden] = level
 
-    def _initEasyPerm(self, item):
+    def _initEasyPerm(self, item, default=PERM_READ):
         '''
         Ensure that the given object has populated the "easy perm" convention.
         '''
+        if default > PERM_ADMIN or default < PERM_DENY:
+            mesg = f'Invalid permission level: {default} (must be <= {PERM_ADMIN} and >= {PERM_DENY})'
+            raise s_exc.BadArg(mesg=mesg)
+
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
+        item['permissions']['default'] = default
 
     async def getTeleApi(self, link, mesg, path):
 
@@ -3039,8 +3175,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             Dict: A dictionary
         '''
         extra = {**kwargs}
-        sess = s_scope.get('sess')
-        if sess and sess.user:
+        sess = s_scope.get('sess')  # type: s_daemon.Sess
+        user = s_scope.get('user')  # type: s_hiveauth.HiveUser
+        if user:
+            extra['user'] = user.iden
+            extra['username'] = user.name
+        elif sess and sess.user:
             extra['user'] = sess.user.iden
             extra['username'] = sess.user.name
         return {'synapse': extra}
@@ -3359,20 +3499,45 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ahaname = provconf.get('aha:name')
             ahanetw = provconf.get('aha:network')
 
-            if not certdir.getCaCertPath(ahanetw):
-                certdir.saveCaCertByts(await prov.getCaCert())
+            _crt = certdir.getCaCertPath(ahanetw)
+            if _crt:
+                logger.debug(f'Removing existing CA crt: {_crt}')
+                os.unlink(_crt)
+            certdir.saveCaCertByts(await prov.getCaCert())
 
             await self._bootProvConf(provconf)
 
             hostname = f'{ahaname}.{ahanetw}'
-            if certdir.getHostCertPath(hostname) is None:
-                hostcsr = certdir.genHostCsr(hostname)
-                certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+            _crt = certdir.getHostCertPath(hostname)
+            if _crt:
+                logger.debug(f'Removing existing host crt {_crt}')
+                os.unlink(_crt)
+            _kp = certdir.getHostKeyPath(hostname)
+            if _kp:
+                logger.debug(f'Removing existing host key {_kp}')
+                os.unlink(_kp)
+            _csr = certdir.getHostCsrPath(hostname)
+            if _csr:
+                logger.debug(f'Removing existing host csr {_csr}')
+                os.unlink(_csr)
+            hostcsr = certdir.genHostCsr(hostname)
+            certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
 
             userfull = f'{ahauser}@{ahanetw}'
-            if certdir.getUserCertPath(userfull) is None:
-                usercsr = certdir.genUserCsr(userfull)
-                certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+            _crt = certdir.getUserCertPath(userfull)
+            if _crt:
+                logger.debug(f'Removing existing user crt {_crt}')
+                os.unlink(_crt)
+            _kp = certdir.getUserKeyPath(userfull)
+            if _kp:
+                logger.debug(f'Removing existing user key {_kp}')
+                os.unlink(_kp)
+            _csr = certdir.getUserCsrPath(userfull)
+            if _csr:
+                logger.debug(f'Removing existing user csr {_csr}')
+                os.unlink(_csr)
+            usercsr = certdir.genUserCsr(userfull)
+            certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
 
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
@@ -3519,7 +3684,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.ahaclient.waitready()
 
-        mirrors = await self.ahaclient.getAhaSvcMirrors(self.ahasvcname)
+        proxy = await self.ahaclient.proxy(timeout=5)
+        mirrors = await proxy.getAhaSvcMirrors(self.ahasvcname)
         if mirrors is None:
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
@@ -3822,6 +3988,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': s_version.verstring,
             },
             'cell': {
+                'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,
@@ -3832,6 +3999,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'aha': {
+                    'name': self.conf.get('aha:name'),
+                    'leader': self.conf.get('aha:leader'),
+                    'network': self.conf.get('aha:network'),
+                }
             },
             'features': {
                 'tellready': True,
@@ -3859,6 +4031,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - totalmem - Total memory in the system
                 - availmem - Available memory in the system
                 - cpucount - Number of CPUs on system
+                - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
         uptime = int((time.monotonic() - self.starttime) * 1000)
         disk = shutil.disk_usage(self.dirn)
@@ -3875,6 +4048,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
         sysctls = s_thisplat.getSysctls()
+        tmpdir = s_thisplat.getTempDir()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -3890,7 +4064,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
-            'sysctls': sysctls                 # Performance related sysctls
+            'sysctls': sysctls,                # Performance related sysctls
+            'tmpdir': tmpdir,                  # Temporary File / Folder Directory
         }
 
         return retn
@@ -3899,3 +4074,368 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getSpooledSet(self):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
+
+    async def addSignalHandlers(self):
+        await s_base.Base.addSignalHandlers(self)
+
+        def sighup():
+            asyncio.create_task(self.reload())
+
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGHUP, sighup)
+
+    def addReloadableSystem(self, name: str, func: callable):
+        '''
+        Add a reloadable system. This may be dynamically called at at time.
+
+        Args:
+            name (str): Name of the system.
+            func: The callable for reloading a given system.
+
+        Note:
+            Reload functions take no arguments when they are executed.
+            Values returned by the reload function must be msgpack friendly.
+
+        Returns:
+            None
+        '''
+        self._reloadfuncs[name] = func
+
+    def getReloadableSystems(self):
+        return tuple(self._reloadfuncs.keys())
+
+    async def reload(self, subsystem=None):
+        ret = {}
+        if subsystem:
+            func = self._reloadfuncs.get(subsystem)
+            if func is None:
+                raise s_exc.NoSuchName(mesg=f'No reload system named {subsystem}',
+                                       name=subsystem)
+            ret[subsystem] = await self._runReloadFunc(subsystem, func)
+        else:
+            # Run all funcs
+            for (rname, func) in self._reloadfuncs.items():
+                ret[rname] = await self._runReloadFunc(rname, func)
+        return ret
+
+    async def _runReloadFunc(self, name, func):
+        try:
+            logger.debug(f'Running cell reload system {name}')
+            ret = await s_coro.ornot(func)
+            await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception(f'Error running reload system {name}')
+            return s_common.retnexc(e)
+        logger.debug(f'Completed cell reload system {name}')
+        return (True, ret)
+
+    async def addUserApiKey(self, useriden, name, duration=None):
+        '''
+        Add an API key for a user.
+
+        Notes:
+            The secret API key is only available once.
+
+        Args:
+            useriden (str): User iden value.
+            name (str): Name of the API key.
+            duration (int or None): Duration of time for the API key to be valid ( in milliseconds ).
+
+        Returns:
+            tuple: A tuple of the secret API key value and the API key metadata information.
+        '''
+        user = await self.auth.reqUser(useriden)
+        iden, token, shadow = await s_passwd.generateApiKey()
+        now = s_common.now()
+        kdef = {
+            'iden': iden,
+            'name': name,
+            'user': user.iden,
+            'created': now,
+            'updated': now,
+            'shadow': shadow,
+        }
+
+        if duration is not None:
+            if duration < 1:
+                raise s_exc.BadArg(mesg='Duration must be equal or greater than 1', name='duration')
+            kdef['expires'] = now + duration
+
+        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
+
+        await self._push('user:apikey:add', kdef)
+
+        logger.info(f'Created HTTP API key {iden} for {user.name}, {name=}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
+
+        kdef.pop('shadow')
+        return token, kdef
+
+    @s_nexus.Pusher.onPush('user:apikey:add')
+    async def _genUserApiKey(self, kdef):
+        iden = s_common.uhex(kdef.get('iden'))
+        user = s_common.uhex(kdef.get('user'))
+        self.slab.put(iden, user, db=self.apikeydb)
+        lkey = user + b'apikey' + iden
+        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+
+    async def getUserApiKey(self, iden):
+        '''
+        Get a user API key via iden.
+
+        Notes:
+            This contains the raw value. Callers are responsible for removing the ``shadow`` key.
+
+        Args:
+            iden (str): The key iden.
+
+        Returns:
+            dict: The key dictionary; or none.
+        '''
+        lkey = s_common.uhex(iden)
+        user = self.slab.get(lkey, db=self.apikeydb)
+        if user is None:
+            return None
+        buf = self.slab.get(user + b'apikey' + lkey, db=self.usermetadb)
+        if buf is None:  # pragma: no cover
+            logger.warning(f'Missing API key {iden} from user metadata for {s_common.ehex(user)}')
+            return None
+        kdef = s_msgpack.un(buf)  # This includes the shadow key
+        return kdef
+
+    async def listUserApiKeys(self, useriden):
+        '''
+        Get all the API keys for a user.
+
+        Args:
+            useriden (str): The user iden.
+
+        Returns:
+            list: A list of kdef values.
+        '''
+        user = await self.auth.reqUser(useriden)
+        vals = []
+        prefix = s_common.uhex(user.iden) + b'apikey'
+        for lkey, valu in self.slab.scanByPref(prefix, db=self.usermetadb):
+            kdef = s_msgpack.un(valu)
+            kdef.pop('shadow')
+            vals.append(kdef)
+            await asyncio.sleep(0)
+        return vals
+
+    async def getApiKeys(self):
+        '''
+        Get all API keys in the cell.
+
+        Yields:
+            tuple: kdef values
+        '''
+        # yield all users API keys
+        for keyiden, useriden in self.slab.scanByFull(db=self.apikeydb):
+            lkey = useriden + b'apikey' + keyiden
+            valu = self.slab.get(lkey, db=self.usermetadb)
+            kdef = s_msgpack.un(valu)
+            kdef.pop('shadow')
+            yield kdef
+            await asyncio.sleep(0)
+
+    async def checkUserApiKey(self, key):
+        '''
+        Check if a user API key is valid.
+
+        Notes:
+            If the key is not valid, the dictionary will contain a ``mesg`` key.
+            If the key is valid, the dictionary will contain the user def in a ``udef`` key,
+            and the key metadata in a ``kdef`` key.
+
+        Args:
+            key (str): The API key to check.
+
+        Returns:
+            tuple: Tuple of two items, a boolean if the key is valid and a dictionary.
+        '''
+        isok, valu = s_passwd.parseApiKey(key)
+        if isok is False:
+            return False, {'mesg': 'API key is malformed.'}
+
+        iden, secv = valu
+
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            return False, {'mesg': f'API key does not exist: {iden}'}
+
+        user = kdef.get('user')
+        udef = await self.getUserDef(user)
+        if udef is None: # pragma: no cover
+            return False, {'mesg': f'User does not exist for API key: {iden}', 'user': user}
+
+        if udef.get('locked'):
+            return False, {'mesg': f'User associated with API key is locked: {iden}',
+                           'user': user, 'name': udef.get('name')}
+
+        if ((expires := kdef.get('expires')) is not None):
+            if s_common.now() > expires:
+                return False, {'mesg': f'API key is expired: {iden}',
+                               'user': user, 'name': udef.get('name')}
+
+        shadow = kdef.pop('shadow')
+        valid = await s_passwd.checkShadowV2(secv, shadow)
+        if valid is False:
+            return False, {'mesg': f'API key shadow mismatch: {iden}',
+                           'user': user, 'name': udef.get('name')}
+
+        return True, {'kdef': kdef, 'udef': udef}
+
+    async def modUserApiKey(self, iden, key, valu):
+        '''
+        Update a value in the user API key metadata.
+
+        Args:
+            iden (str): Iden of the key to update.
+            key (str): Name of the valu to update.
+            valu: The new value.
+
+        Returns:
+            dict: An updated key metadata dictionary.
+        '''
+        if key not in ('name',):
+            raise s_exc.BadArg(mesg=f'Cannot set {key} on user API keys.', name=key)
+
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist, cannot modify it: {iden}', iden=iden)
+        useriden = kdef.get('user')
+        user = await self.auth.reqUser(useriden)
+
+        vals = {
+            'updated': s_common.now()
+        }
+        if key == 'name':
+            vals['name'] = valu
+
+        kdef.update(vals)
+        kdef = s_schemas.reqValidUserApiKeyDef(kdef)
+
+        await self._push('user:apikey:edit', kdef.get('user'), iden, vals)
+
+        logger.info(f'Updated HTTP API key {iden} for {user.name}, set {key}={valu}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
+
+        kdef.pop('shadow')
+        return kdef
+
+    @s_nexus.Pusher.onPush('user:apikey:edit')
+    async def _setUserApiKey(self, user, iden, vals):
+        lkey = s_common.uhex(user) + b'apikey' + s_common.uhex(iden)
+        buf = self.slab.get(lkey, db=self.usermetadb)
+        if buf is None:  # pragma: no cover
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
+        kdef = s_msgpack.un(buf)
+        kdef.update(vals)
+        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        return kdef
+
+    async def delUserApiKey(self, iden):
+        '''
+        Delete an existing API key.
+
+        Args:
+            iden (str): The iden of the API key to delete.
+
+        Returns:
+            bool: True indicating the key was deleted.
+        '''
+        kdef = await self.getUserApiKey(iden)
+        if kdef is None:
+            raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
+        useriden = kdef.get('user')
+        user = await self.auth.reqUser(useriden)
+        ret = await self._push('user:apikey:del', useriden, iden)
+        logger.info(f'Deleted HTTP API key {iden} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                                                 status='MODIFY'))
+        return ret
+
+    @s_nexus.Pusher.onPush('user:apikey:del')
+    async def _delUserApiKey(self, user, iden):
+        user = s_common.uhex(user)
+        iden = s_common.uhex(iden)
+
+        self.slab.delete(iden, db=self.apikeydb)
+        self.slab.delete(user + b'apikey' + iden, db=self.usermetadb)
+        return True
+
+    async def _onUserDelEvnt(self, evnt):
+        # Call callback for handling user:del events
+        udef = evnt[1].get('udef')
+        user = udef.get('iden')
+        ukey = s_common.uhex(user)
+        for lkey, buf in self.slab.scanByPref(ukey, db=self.usermetadb):
+            suffix = lkey[16:]
+            # Special handling for certain meta which has secondary indexes
+            if suffix.startswith(b'apikey'):
+                key_iden = suffix[6:]
+                self.slab.delete(key_iden, db=self.apikeydb)
+            self.slab.delete(lkey, db=self.usermetadb)
+            await asyncio.sleep(0)
+
+    def _makeCachedSslCtx(self, opts):
+
+        opts = dict(opts)
+
+        cadir = self.conf.get('tls:ca:dir')
+
+        if cadir is not None:
+            sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
+        else:
+            sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+
+        if not opts['verify']:
+            sslctx.check_hostname = False
+            sslctx.verify_mode = ssl.CERT_NONE
+
+        if not opts['client_cert']:
+            return sslctx
+
+        client_cert = opts['client_cert'].encode()
+
+        if opts['client_key']:
+            client_key = opts['client_key'].encode()
+        else:
+            client_key = None
+            client_key_path = None
+
+        with self.getTempDir() as tmpdir:
+
+            with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                fh.write(client_cert)
+                client_cert_path = fh.name
+
+            if client_key:
+                with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                    fh.write(client_key)
+                    client_key_path = fh.name
+
+            try:
+                sslctx.load_cert_chain(client_cert_path, keyfile=client_key_path)
+            except ssl.SSLError as e:
+                raise s_exc.BadArg(mesg=f'Error loading client cert: {str(e)}') from None
+
+        return sslctx
+
+    def getCachedSslCtx(self, opts=None, verify=None):
+
+        if opts is None:
+            opts = {}
+
+        if verify is not None:
+            opts['verify'] = verify
+
+        opts = s_schemas.reqValidSslCtxOpts(opts)
+
+        key = tuple(sorted(opts.items()))
+        return self._sslctx_cache.get(key)

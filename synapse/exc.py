@@ -116,6 +116,8 @@ class BadArg(SynErr):
     ''' Improper function arguments '''
     pass
 
+class BadState(SynErr): pass
+
 class BadFileExt(SynErr): pass
 class BadIndxValu(SynErr): pass
 class BadMesgVers(SynErr): pass
@@ -226,7 +228,7 @@ class NoSuchForm(SynErr):
     @classmethod
     def init(cls, name, mesg=None):
         if mesg is None:
-            mesg = f'No form named {name}'
+            mesg = f'No form named {name}.'
         return NoSuchForm(mesg=mesg, name=name)
 
 class NoSuchProp(SynErr):
@@ -234,7 +236,7 @@ class NoSuchProp(SynErr):
     @classmethod
     def init(cls, name, mesg=None):
         if mesg is None:
-            mesg = f'No property named {name}'
+            mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
 
 class NoSuchAbrv(SynErr): pass
@@ -311,7 +313,6 @@ class StepTimeout(SynErr):
 class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
 
-class TeleRedir(SynErr): pass
 class FatalErr(SynErr):
     '''
     Raised when a fatal error has occurred which an application cannot recover from.
@@ -319,5 +320,3 @@ class FatalErr(SynErr):
     pass
 
 class LmdbLock(SynErr): pass
-
-proxy_admin_mesg = 'Specifying a proxy to the HTTP library requires admin privileges.'

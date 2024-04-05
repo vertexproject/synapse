@@ -39,13 +39,21 @@ class PsModule(s_module.CoreModule):
                 ('ps:persona:has', ('comp', {'fields': (('persona', 'ps:persona'), ('node', 'ndef'))}), {
                     'deprecated': True,
                     'doc': 'A persona owns, controls, or has exclusive use of an object or'
-                           ' resource, potentially during a specific period of time.'
-                }),
+                           ' resource, potentially during a specific period of time.'}),
+
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                            {'type': 'prop', 'opts': {'name': 'orgname'}},
+                            {'type': 'prop', 'opts': {'name': 'email'}},
+                        ),
+                    }}),
+
                 ('ps:contact:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of contact types.',
                 }),
                 ('ps:contactlist', ('guid', {}), {
@@ -55,18 +63,39 @@ class PsModule(s_module.CoreModule):
                     'doc': "A GUID representing entry in a contact's work history.",
                 }),
                 ('ps:vitals', ('guid', {}), {
-                    'doc': 'Statistics and demographic data about a person or contact.',
-                }),
+                    'doc': 'Statistics and demographic data about a person or contact.'}),
+
                 ('ps:skill', ('guid', {}), {
-                    'doc': 'A specific skill which a person or organization may have.'
-                }),
+                    'doc': 'A specific skill which a person or organization may have.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                        ),
+                    }}),
+
                 ('ps:skill:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
-                    'doc': 'A taxonomy of skill types.',
-                }),
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of skill types.'}),
+
                 ('ps:proficiency', ('guid', {}), {
-                    'doc': 'The assessment that a given contact possesses a specific skill.'
-                }),
+                    'doc': 'The assessment that a given contact possesses a specific skill.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                            {'type': 'prop', 'opts': {'name': 'skill::name'}},
+                        ),
+                    }}),
+            ),
+            'edges': (
+                (('ps:contact', 'has', None), {
+                    'doc': 'The contact is or was in possession of the target node.'}),
+                (('ps:person', 'has', None), {
+                    'doc': 'The person is or was in possession of the target node.'}),
+                (('ps:contact', 'owns', None), {
+                    'doc': 'The contact owns or owned the target node.'}),
+                (('ps:person', 'owns', None), {
+                    'doc': 'The person owns or owned the target node.'}),
             ),
             'forms': (
                 ('ps:workhist', {}, (

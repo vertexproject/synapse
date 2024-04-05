@@ -10,7 +10,10 @@ logger = logging.getLogger(__name__)
 # Single Packer object which is reused for performance
 pakr = msgpack.Packer(use_bin_type=True, unicode_errors='surrogatepass')
 if isinstance(pakr, m_fallback.Packer):  # pragma: no cover
-    logger.warning('msgpack is using the pure python fallback implementation. This will impact performance negatively.')
+    logger.warning('******************************************************************************************************')
+    logger.warning('* msgpack is using the pure python fallback implementation. This will impact performance negatively. *')
+    logger.warning('* Check https://github.com/msgpack/msgpack-python for troubleshooting msgpack on your platform.      *')
+    logger.warning('******************************************************************************************************')
     pakr = None
 
 # synapse.lib.msgpack.un uses a hardcoded subset of these arguments for speed

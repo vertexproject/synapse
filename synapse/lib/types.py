@@ -17,6 +17,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.grammar as s_grammar
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +240,7 @@ class Type:
         return cmpr
 
     def _ctorCmprRe(self, text):
-        regx = regex.compile(text)
+        regx = regex.compile(text, flags=regex.I)
 
         def cmpr(valu):
             vtxt = self.repr(valu)
@@ -367,6 +368,7 @@ class Bool(Type):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyInt)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
     def _normPyStr(self, valu):
 
@@ -386,6 +388,9 @@ class Bool(Type):
 
     def _normPyInt(self, valu):
         return int(bool(valu)), {}
+
+    def _normNumber(self, valu):
+        return int(bool(valu.valu)), {}
 
     def repr(self, valu):
         return repr(bool(valu)).lower()
@@ -687,11 +692,26 @@ class Hex(Type):
         )
 
     def _normPyStr(self, valu):
-        valu = s_chop.hexstr(valu)
+        valu = valu.strip().lower()
+        if valu.startswith('0x'):
+            valu = valu[2:]
+
+        valu = valu.replace(' ', '').replace(':', '')
+
+        if not valu:
+            raise s_exc.BadTypeValu(valu=valu, name='hex',
+                                    mesg='No string left after stripping')
 
         if self._zeropad and len(valu) < self._zeropad:
             padlen = self._zeropad - len(valu)
             valu = ('0' * padlen) + valu
+
+        try:
+            # checks for valid hex width and does character
+            # checking in C without using regex
+            s_common.uhex(valu)
+        except (binascii.Error, ValueError) as e:
+            raise s_exc.BadTypeValu(valu=valu, name='hex', mesg=str(e)) from None
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
@@ -872,6 +892,7 @@ class IntBase(Type):
         })
 
         self.setNormFunc(decimal.Decimal, self._normPyDecimal)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
     def _storLiftRange(self, cmpr, valu):
         minv, minfo = self.norm(valu[0])
@@ -909,11 +930,15 @@ class IntBase(Type):
     def _normPyDecimal(self, valu):
         return self._normPyInt(int(valu))
 
+    def _normNumber(self, valu):
+        return self._normPyInt(int(valu.valu))
+
 class Int(IntBase):
 
     _opt_defs = (
         ('size', 8),  # type: ignore # Set the storage size of the integer type in bytes.
         ('signed', True),
+        ('enums:strict', True),
 
         # Note: currently unused
         ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
@@ -936,6 +961,8 @@ class Int(IntBase):
 
         self.enumnorm = {}
         self.enumrepr = {}
+
+        self.enumstrict = self.opts.get('enums:strict')
 
         enums = self.opts.get('enums')
         if enums is not None:
@@ -978,6 +1005,7 @@ class Int(IntBase):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyBool)
+        self.setNormFunc(float, self._normPyFloat)
 
     def merge(self, oldv, newv):
 
@@ -1016,11 +1044,14 @@ class Int(IntBase):
             mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
-        if self.enumrepr and valu not in self.enumrepr:
+        if self.enumrepr and self.enumstrict and valu not in self.enumrepr:
             mesg = 'Value is not a valid enum value.'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         return valu, {}
+
+    def _normPyFloat(self, valu):
+        return self._normPyInt(int(valu))
 
     def repr(self, norm):
 
@@ -1114,6 +1145,7 @@ class Float(Type):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(float, self._normPyFloat)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
     def _normPyStr(self, valu):
 
@@ -1127,6 +1159,9 @@ class Float(Type):
     def _normPyInt(self, valu):
         valu = float(valu)
         return self._normPyFloat(valu)
+
+    def _normNumber(self, valu):
+        return self._normPyFloat(float(valu.valu))
 
     def _normPyFloat(self, valu):
 
@@ -1167,6 +1202,7 @@ class Ival(Type):
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
@@ -1224,6 +1260,11 @@ class Ival(Type):
 
     def _normPyInt(self, valu):
         minv, _ = self.timetype._normPyInt(valu)
+        maxv, info = self.timetype._normPyInt(minv + 1)
+        return (minv, maxv), info
+
+    def _normNumber(self, valu):
+        minv, _ = self.timetype._normPyInt(valu.valu)
         maxv, info = self.timetype._normPyInt(minv + 1)
         return (minv, maxv), info
 
@@ -1613,6 +1654,7 @@ class Str(Type):
         self.setNormFunc(bool, self._normPyBool)
         self.setNormFunc(float, self._normPyFloat)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
+        self.setNormFunc(s_stormtypes.Number, self._normNumber)
 
         self.storlifts.update({
             '=': self._storLiftEq,
@@ -1677,6 +1719,9 @@ class Str(Type):
 
     def _normPyInt(self, valu):
         return self._normPyStr(str(valu))
+
+    def _normNumber(self, valu):
+        return self._normPyStr(str(valu.valu))
 
     def _normPyFloat(self, valu):
         deci = s_common.hugectx.create_decimal(str(valu))
@@ -1746,8 +1791,19 @@ class Taxonomy(Str):
         self.setNormFunc(tuple, self._normPyList)
         self.taxon = self.modl.type('taxon')
 
+    def _ctorCmprPref(self, valu):
+        norm = self._normForLift(valu)
+
+        def cmpr(valu):
+            return valu.startswith(norm)
+
+        return cmpr
+
     def _normForLift(self, valu):
-        return self.norm(valu)[0]
+        norm = self.norm(valu)[0]
+        if isinstance(valu, str) and not valu.strip().endswith('.'):
+            return norm.rstrip('.')
+        return norm
 
     def _normPyList(self, valu):
 
@@ -1794,7 +1850,7 @@ class Tag(Str):
             mesg = f'Tag does not match tagre: [{s_grammar.tagre.pattern}]'
             raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
-        return norm, {'subs': subs}
+        return norm, {'subs': subs, 'toks': toks}
 
     def _normPyStr(self, text):
         toks = text.strip('#').split('.')
@@ -1872,7 +1928,7 @@ class Velocity(IntBase):
 
         unit = valu[offs:].strip()
         if not unit:
-            return base, {}
+            return int(base), {}
 
         if unit.find('/') != -1:
             dist, dura = unit.split('/', 1)

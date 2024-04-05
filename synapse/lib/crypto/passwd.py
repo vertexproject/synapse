@@ -1,7 +1,9 @@
 import os
 import hmac
+import base64
 import hashlib
 import logging
+import binascii
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -104,3 +106,23 @@ async def checkShadowV2(passwd: AnyStr, shadow: Dict) -> bool:
     if func is None:
         raise s_exc.CryptoErr(mesg=f'type [{ptyp}] does not map to a known function', valu=ptyp)
     return await func(passwd=passwd, shadow=shadow)
+
+async def generateApiKey(iden=None):
+    if iden is None:
+        iden = s_common.guid()
+    else:
+        if not s_common.isguid(iden):
+            raise s_exc.CryptoErr(mesg=f'Invalid iden provided: {iden}, must be a guid.')
+    secv = s_common.guid()
+    key = base64.b64encode(s_common.uhex(iden) + s_common.uhex(secv), altchars=b'-_').decode('utf-8')
+    shadow = await getShadowV2(secv)
+    return iden, key, shadow
+
+def parseApiKey(valu):
+    try:
+        buf = base64.b64decode(valu.encode('utf-8'), altchars=b'-_', validate=True)
+    except binascii.Error as e:
+        return False, f'{e}'
+    if len(buf) != 32:
+        return False, f'Incorrect length, got {len(valu)}'
+    return True, (s_common.ehex(buf[:16]), s_common.ehex(buf[16:]))

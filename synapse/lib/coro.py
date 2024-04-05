@@ -78,7 +78,7 @@ class Event(asyncio.Event):
             return True
 
         try:
-            await asyncio.wait_for(self.wait(), timeout)
+            await s_common.wait_for(self.wait(), timeout)
         except asyncio.TimeoutError:
             return False
 
@@ -96,7 +96,7 @@ async def event_wait(event: asyncio.Event, timeout=None):
         return True
 
     try:
-        await asyncio.wait_for(event.wait(), timeout)
+        await s_common.wait_for(event.wait(), timeout)
     except asyncio.TimeoutError:
         return False
     return True
@@ -111,7 +111,7 @@ async def waittask(task, timeout=None):
     futu = asyncio.get_running_loop().create_future()
     task.add_done_callback(futu.set_result)
     try:
-        await asyncio.wait_for(futu, timeout=timeout)
+        await s_common.wait_for(futu, timeout=timeout)
         return True
     except asyncio.TimeoutError:
         return False
@@ -241,7 +241,7 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
 
         coro = executor(execspawn)
 
-        retn = await asyncio.wait_for(coro, timeout=timeout)
+        retn = await s_common.wait_for(coro, timeout=timeout)
         if isinstance(retn, Exception):
             raise retn
 

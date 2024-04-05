@@ -831,8 +831,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path) as slab:
                 guidstor = s_lmdbslab.GuidStor(slab, 'guids')
 
+                self.false(guidstor.has('aaaa'))
                 info0 = guidstor.gen('aaaa')
+                self.false(guidstor.has('aaaa'))
                 info0.set('hehe', 20)
+                self.true(guidstor.has('aaaa'))
                 self.eq(20, info0.get('hehe'))
                 self.none(info0.get('haha'))
 
@@ -845,6 +848,14 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.none(info0.pop('woot'))
                 self.true(info0.pop('woot', s_common.novalu) is s_common.novalu)
 
+                iden1 = s_common.guid()
+                info1 = guidstor.gen(iden1)
+                self.false(guidstor.has(iden1))
+                info1.set('weeee', 'wowie')
+                self.true(guidstor.has(iden1))
+                await guidstor.del_(iden1)
+                self.false(guidstor.has(iden1))
+
                 # Sad path case
                 self.raises(s_exc.NotMsgpackSafe, info0.set, 'newp', {1, 2, 3})
 
@@ -855,6 +866,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.none(info1.pop('woot'))
                 self.len(1, info1.items())
                 self.eq((('hehe', 20), ), info1.items())
+                self.true(guidstor.has('aaaa'))
+                self.false(guidstor.has(iden1))
 
     async def test_slab_initdb_grow(self):
         self.thisHostMust(platform='linux')
@@ -915,11 +928,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with self.getTestCore() as core:
                 before_mapsize = core.view.layers[0].layrslab.mapsize
                 for i in range(numbatches):
-                    async with await core.snap() as snap:
-                        ips = ((('test:int', i * 1000000 + x), {'props': {'loc': 'us'}}) for x in range(batchsize))
-                        await alist(snap.addNodes(ips))
-                        # Wait for the syncloop to run
-                        await asyncio.sleep(1.1)
+                    q = 'for $i in $vals { [test:int=$i :loc=us] } | spin'
+                    await core.nodes(q, opts={'vars': {'vals': list(range(batchsize))}})
+                    await asyncio.sleep(1.1)
 
                 # Verify that it hit
                 self.gt(core.view.layers[0].layrslab.mapsize, before_mapsize)
@@ -1430,6 +1441,28 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.len(6, items)
                 self.eq(items, ['bot', 'timewarp', 'foo', 'bar', 'baz', 'eot'])
 
+    async def test_lmdbslab_count(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                self.eq(0, slab.count(b'newp', db=testdb))
+                self.eq(0, slab.count(b'newp', db=dupsdb))
+
+                slab.put(b'foo', b'bar', db=testdb)
+
+                self.eq(1, slab.count(b'foo', db=testdb))
+
+                slab.put(b'foo', b'bar', db=dupsdb)
+                slab.put(b'foo', b'baz', db=dupsdb)
+                slab.put(b'foo', b'faz', db=dupsdb)
+
+                self.eq(3, slab.count(b'foo', db=dupsdb))
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 

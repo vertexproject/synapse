@@ -1,10 +1,11 @@
+import synapse.common as s_common
+
 import synapse.lib.cli as s_cli
+import synapse.lib.output as s_output
 
 import synapse.cmds.boss as s_cmds_boss
-import synapse.cmds.cron as s_cmds_cron
 import synapse.cmds.hive as s_cmds_hive
 import synapse.cmds.cortex as s_cmds_cortex
-import synapse.cmds.trigger as s_cmds_trigger
 
 cmdsbycell = {
     'cell': (
@@ -14,14 +15,11 @@ cmdsbycell = {
     ),
 
     'cortex': (
-        s_cmds_cron.At,
-        s_cmds_cron.Cron,
         s_cmds_cortex.Log,
         s_cmds_boss.PsCmd,
         s_cmds_boss.KillCmd,
         s_cmds_hive.HiveCmd,
         s_cmds_cortex.StormCmd,
-        s_cmds_trigger.Trigger,
     ),
 }
 
@@ -45,6 +43,13 @@ async def getItemCmdr(cell, outp=None, color=False, **opts):
         s_cli.Cli: A Cli instance with Cmds loaeded into it.
 
     '''
+    mesg = s_common.deprecated('cmdr', curv='2.164.0')
+
+    if outp is None:
+        outp = s_output.OutPut()
+
+    outp.printf(f'WARNING: {mesg}')
+
     cmdr = await s_cli.Cli.anit(cell, outp=outp)
     if color:
         cmdr.colorsenabled = True

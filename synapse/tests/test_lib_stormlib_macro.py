@@ -93,6 +93,31 @@ class MacroTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.macro.get(hehe))'))
 
+            # readonly tests
+            msgs = await core.stormlist('macro.set print { $lib.print("macro has words") }')
+            self.stormHasNoWarnErr(msgs)
+            msgs = await core.stormlist('macro.set node { [test:guid=*] }')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('macro.exec print', opts={'readonly': True})
+            self.stormIsInPrint('macro has words', msgs)
+
+            msgs = await core.stormlist('macro.exec node', opts={'readonly': True})
+            self.stormIsInErr('runtime is in readonly mode', msgs)
+            self.len(0, await core.nodes('test:guid'))
+
+            msgs = await core.stormlist('macro.list', opts={'readonly': True})
+            self.stormIsInPrint('node', msgs)
+            self.stormIsInPrint('print', msgs)
+            msgs = await core.stormlist('macro.get print', opts={'readonly': True})
+            self.stormIsInPrint('$lib.print("macro', msgs)
+
+            msgs = await core.stormlist('macro.set newp { }', opts={'readonly': True})
+            self.stormIsInErr('not marked readonly safe', msgs)
+
+            msgs = await core.stormlist('macro.del print', opts={'readonly': True})
+            self.stormIsInErr('not marked readonly safe', msgs)
+
     async def test_stormlib_macro_vars(self):
 
         async with self.getTestCore() as core:
@@ -127,7 +152,7 @@ class MacroTest(s_test.SynTest):
             self.eq([('test:str', 'cooler')], [n.ndef for n in nodes])
 
             # Inner vars win on conflict
-            q = 'macro.set data2 ${ $data=$lib.dict(value=beef) [test:str=$data.value +#cool.story] }'
+            q = 'macro.set data2 ${ $data=({"value": "beef"}) [test:str=$data.value +#cool.story] }'
             msgs = await core.stormlist(q)
             self.stormIsInPrint('Set macro: data2', msgs)
 

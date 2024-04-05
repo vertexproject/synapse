@@ -13,8 +13,11 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -22,25 +25,6 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
-
-reqValidVdef = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string'},
-        'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'nomerge': {'type': 'boolean'},
-        'layers': {
-            'type': 'array',
-            'items': {'type': 'string', 'pattern': s_config.re_iden},
-            'minItems': 1,
-            'uniqueItems': True
-        },
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'parent', 'creator', 'layers'],
-})
 
 class ViewApi(s_cell.CellApi):
 
@@ -104,6 +88,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         self.node = node
         self.iden = node.name()
+        self.bidn = s_common.uhex(self.iden)
         self.info = await node.dict()
 
         self.core = core
@@ -123,10 +108,7 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
                 await self.triggers.load(tdef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
-            except Exception:
+            except Exception: # pragma: no cover
                 logger.exception(f'Failed to load trigger {tdef!r}')
 
         await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
@@ -137,11 +119,385 @@ class View(s_nexus.Pusher):  # type: ignore
         self.invalid = None
         self.parent = None  # The view this view was forked from
 
+        # This will be True for a view which has a merge in progress
+        self.merging = self.info.get('merging', False)
+
         # isolate some initialization to easily override.
         await self._initViewLayers()
 
         self.trigtask = None
         await self.initTrigTask()
+
+        self.mergetask = None
+
+    def reqParentQuorum(self):
+
+        if self.parent is None:
+            mesg = f'View ({self.iden}) has no parent.'
+            raise s_exc.BadState(mesg=mesg)
+
+        quorum = self.parent.info.get('quorum')
+        if quorum is None:
+            mesg = f'Parent view of ({self.iden}) does not require quorum voting.'
+            raise s_exc.BadState(mesg=mesg)
+
+        if self.parent.layers[0].readonly:
+            mesg = f'Parent view of ({self.iden}) has a read-only top layer.'
+            raise s_exc.BadState(mesg=mesg)
+
+        return quorum
+
+    def reqNoParentQuorum(self):
+
+        if self.parent is None:
+            return
+
+        quorum = self.parent.info.get('quorum')
+        if quorum is not None:
+            mesg = f'Parent view of ({self.iden}) requires quorum voting.'
+            raise s_exc.SynErr(mesg=mesg)
+
+    async def _wipeViewMeta(self):
+        for lkey in self.core.slab.scanKeysByPref(self.bidn, db='view:meta'):
+            self.core.slab.delete(lkey, db='view:meta')
+            await asyncio.sleep(0)
+
+    def getMergeRequest(self):
+        byts = self.core.slab.get(self.bidn + b'merge:req', db='view:meta')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    async def getMergingViews(self):
+        if self.info.get('quorum') is None:
+            mesg = f'View ({self.iden}) does not require quorum voting.'
+            raise s_exc.BadState(mesg=mesg)
+
+        idens = []
+        for view in list(self.core.views.values()):
+            await asyncio.sleep(0)
+            if view.parent == self and view.getMergeRequest() is not None:
+                idens.append(view.iden)
+        return idens
+
+    async def setMergeRequest(self, mergeinfo):
+        self.reqParentQuorum()
+        mergeinfo['iden'] = s_common.guid()
+        mergeinfo['created'] = s_common.now()
+        return await self._push('merge:set', mergeinfo)
+
+    def hasKids(self):
+        for view in self.core.views.values():
+            if view.parent == self:
+                return True
+        return False
+
+    @s_nexus.Pusher.onPush('merge:set')
+    async def _setMergeRequest(self, mergeinfo):
+        self.reqParentQuorum()
+
+        if self.hasKids():
+            mesg = 'Cannot add a merge request to a view with children.'
+            raise s_exc.BadState(mesg=mesg)
+
+        s_schemas.reqValidMerge(mergeinfo)
+        lkey = self.bidn + b'merge:req'
+        self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
+        await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
+        return mergeinfo
+
+    async def setMergeComment(self, comment):
+        return await self._push('merge:set:comment', s_common.now(), comment)
+
+    @s_nexus.Pusher.onPush('merge:set:comment')
+    async def _setMergeRequestComment(self, updated, comment):
+        self.reqParentQuorum()
+        merge = self.getMergeRequest()
+        if merge is None:
+            mesg = 'Cannot set the comment of a merge request that does not exist.'
+            raise s_exc.BadState(mesg=mesg)
+
+        merge['updated'] = updated
+        merge['comment'] = comment
+        s_schemas.reqValidMerge(merge)
+        lkey = self.bidn + b'merge:req'
+        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+
+        await self.core.feedBeholder('view:merge:set', {'view': self.iden, 'merge': merge})
+
+        return merge
+
+    async def delMergeRequest(self):
+        return await self._push('merge:del')
+
+    @s_nexus.Pusher.onPush('merge:del')
+    async def _delMergeRequest(self):
+        self.reqParentQuorum()
+        byts = self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
+
+        await self._delMergeMeta()
+
+        if byts is not None:
+            merge = s_msgpack.un(byts)
+            await self.core.feedBeholder('view:merge:request:del', {'view': self.iden, 'merge': merge})
+            return merge
+
+    async def _delMergeMeta(self):
+        for lkey in self.core.slab.scanKeysByPref(self.bidn + b'merge:', db='view:meta'):
+            await asyncio.sleep(0)
+            self.core.slab.delete(lkey, db='view:meta')
+
+    async def getMergeVotes(self):
+        for lkey, byts in self.core.slab.scanByPref(self.bidn + b'merge:vote', db='view:meta'):
+            await asyncio.sleep(0)
+            yield s_msgpack.un(byts)
+
+    async def getMerges(self):
+        '''
+        Yield the historical merges into this view.
+        '''
+        for lkey, bidn in self.core.slab.scanByPrefBack(self.bidn + b'hist:merge:time', db='view:meta'):
+            byts = self.core.slab.get(self.bidn + b'hist:merge:iden' + bidn, db='view:meta')
+            if byts is not None:
+                yield s_msgpack.un(byts)
+            await asyncio.sleep(0)
+
+    async def tryToMerge(self, tick):
+        # NOTE: must be called from within a nexus handler!
+
+        if self.merging: # pragma: no cover
+            return
+
+        if not await self.isMergeReady():
+            return
+
+        self.merging = True
+        await self.info.set('merging', True)
+
+        layr = self.layers[0]
+
+        layr.readonly = True
+        await layr.layrinfo.set('readonly', True)
+
+        merge = self.getMergeRequest()
+        votes = [vote async for vote in self.getMergeVotes()]
+
+        merge['votes'] = votes
+        merge['merged'] = tick
+
+        tick = s_common.int64en(tick)
+        bidn = s_common.uhex(merge.get('iden'))
+
+        lkey = self.parent.bidn + b'hist:merge:iden' + bidn
+        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+
+        lkey = self.parent.bidn + b'hist:merge:time' + tick + bidn
+        self.core.slab.put(lkey, bidn, db='view:meta')
+
+        await self.core.feedBeholder('view:merge:init', {'view': self.iden, 'merge': merge, 'votes': votes})
+
+        await self.initMergeTask()
+
+    async def setMergeVote(self, vote):
+        self.reqParentQuorum()
+        vote['created'] = s_common.now()
+        vote['offset'] = await self.layers[0].getEditIndx()
+        return await self._push('merge:vote:set', vote)
+
+    def reqValidVoter(self, useriden):
+
+        merge = self.getMergeRequest()
+        if merge is None:
+            raise s_exc.BadState(mesg=f'View ({self.iden}) does not have a merge request.')
+
+        if merge.get('creator') == useriden:
+            raise s_exc.AuthDeny(mesg='A user may not vote for their own merge request.')
+
+    @s_nexus.Pusher.onPush('merge:vote:set')
+    async def _setMergeVote(self, vote):
+
+        self.reqParentQuorum()
+        s_schemas.reqValidVote(vote)
+
+        useriden = vote.get('user')
+
+        self.reqValidVoter(useriden)
+
+        bidn = s_common.uhex(useriden)
+
+        self.core.slab.put(self.bidn + b'merge:vote' + bidn, s_msgpack.en(vote), db='view:meta')
+
+        await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
+
+        tick = vote.get('created')
+        await self.tryToMerge(tick)
+
+        return vote
+
+    async def setMergeVoteComment(self, useriden, comment):
+        return await self._push('merge:vote:set:comment', s_common.now(), useriden, comment)
+
+    @s_nexus.Pusher.onPush('merge:vote:set:comment')
+    async def _setMergeVoteComment(self, tick, useriden, comment):
+        self.reqParentQuorum()
+
+        uidn = s_common.uhex(useriden)
+
+        lkey = self.bidn + b'merge:vote' + uidn
+        byts = self.core.slab.pop(lkey, db='view:meta')
+
+        if byts is None:
+            mesg = 'Cannot set the comment for a vote that does not exist.'
+            raise s_exc.BadState(mesg=mesg)
+
+        vote = s_msgpack.un(byts)
+        vote['updated'] = tick
+        vote['comment'] = comment
+        self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
+        await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
+
+        return vote
+
+    async def delMergeVote(self, useriden):
+        return await self._push('merge:vote:del', useriden, s_common.now())
+
+    @s_nexus.Pusher.onPush('merge:vote:del')
+    async def _delMergeVote(self, useriden, tick):
+
+        self.reqParentQuorum()
+        uidn = s_common.uhex(useriden)
+
+        vote = None
+        byts = self.core.slab.pop(self.bidn + b'merge:vote' + uidn, db='view:meta')
+
+        if byts is not None:
+            vote = s_msgpack.un(byts)
+            await self.core.feedBeholder('view:merge:vote:del', {'view': self.iden, 'vote': vote})
+
+        await self.tryToMerge(tick)
+
+        return vote
+
+    async def initMergeTask(self):
+
+        if not self.merging:
+            return
+
+        if not await self.core.isCellActive():
+            return
+
+        self.mergetask = self.core.schedCoro(self.runViewMerge())
+
+    async def finiMergeTask(self):
+        if self.mergetask is not None:
+            self.mergetask.cancel()
+            self.mergetask = None
+
+    async def runViewMerge(self):
+        # run a view merge which eventually results in removing the view and top layer
+        # this routine must be able to be resumed and may assume that the top layer is
+        # not receiving any edits.
+        try:
+
+            # ensure there are none marked dirty
+            await self.layers[0]._saveDirtySodes()
+
+            merge = self.getMergeRequest()
+            votes = [vote async for vote in self.getMergeVotes()]
+
+            # merge edits as the merge request user
+            meta = {
+                'user': merge.get('creator'),
+                'merge': merge.get('iden'),
+            }
+
+            async def chunked():
+                nodeedits = []
+
+                async for nodeedit in self.layers[0].iterLayerNodeEdits():
+
+                    nodeedits.append(nodeedit)
+
+                    if len(nodeedits) == 10:
+                        yield nodeedits
+                        nodeedits.clear()
+
+                if nodeedits:
+                    yield nodeedits
+
+            total = self.layers[0].getStorNodeCount()
+
+            count = 0
+            nextprog = 1000
+
+            await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total, 'merge': merge, 'votes': votes})
+
+            async with await self.parent.snap(user=self.core.auth.rootuser) as snap:
+
+                async for edits in chunked():
+
+                    meta['time'] = s_common.now()
+
+                    await snap.saveNodeEdits(edits, meta)
+                    await asyncio.sleep(0)
+
+                    count += len(edits)
+
+                    if count >= nextprog:
+                        await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total, 'merge': merge, 'votes': votes})
+                        nextprog += 1000
+
+            await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'merge': merge, 'votes': votes})
+
+            # remove the view and top layer
+            await self.core.delView(self.iden)
+            await self.core.delLayer(self.layers[0].iden)
+
+        except Exception as e: # pragma: no cover
+            logger.exception(f'Error while merging view: {self.iden}')
+
+    async def isMergeReady(self):
+        # count the current votes and potentially trigger a merge
+
+        offset = await self.layers[0].getEditIndx()
+
+        quorum = self.reqParentQuorum()
+
+        approvals = 0
+        async for vote in self.getMergeVotes():
+
+            if vote.get('offset') != offset:
+                continue
+
+            # any disapprovals will hold merging
+            if not vote.get('approved'):
+                return False
+
+            approvals += 1
+
+        return approvals >= quorum.get('count')
+
+    async def detach(self):
+        '''
+        Detach the view from its parent but do not change the layers.
+        ( this is not reversible! )
+        '''
+        if not self.parent:
+            mesg = 'A view with no parent is already detached.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return await self._push('view:detach')
+
+    @s_nexus.Pusher.onPush('view:detach')
+    async def _detach(self):
+
+        # remove any pending merge requests or votes
+        await self._delMergeMeta()
+
+        self.parent = None
+        await self.info.pop('parent')
+
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
+                                     gates=[self.iden, self.layers[0].iden])
 
     async def mergeStormIface(self, name, todo):
         '''
@@ -171,8 +527,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     genrs.append(await func(*funcargs, **funckwargs))
 
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
                 except Exception as e:  # pragma: no cover
                     logger.exception('mergeStormIface()')
 
@@ -207,8 +561,6 @@ class View(s_nexus.Pusher):  # type: ignore
                         valu = await func(*funcargs, **funckwargs)
                         yield await s_stormtypes.toprim(valu)
 
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
                 except Exception as e:
                     modname = moddef.get('name')
                     logger.exception(f'callStormIface {name} mod: {modname}')
@@ -289,12 +641,75 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-        layers = [self.layers[0]]
 
-        view = self.parent
-        while view is not None:
+        '''
+        We spent a lot of time thinking/talking about this so some hefty
+        comments are in order:
+
+        For a given stack of views (example below), only the bottom view of
+        the stack may have more than one original layer. When adding a new view to the
+        top of the stack (via `<viewE>.setViewInfo('parent', <viewD>)`), we
+        grab the top layer of each of the views from View D to View B and then
+        all of the layers from View A. We know this is the right behavior
+        because all views above the bottom view only have one original layer
+        (but will include all of the layers of it's parents) which is enforced
+        by `setViewInfo()`.
+
+        View D
+        - Layer 6 (original to View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View C (parent of D)
+        - Layer 5 (original to View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View B (parent of C)
+        - Layer 4 (original to View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View A (parent of B)
+        - Layer 3
+        - Layer 2
+        - Layer 1
+
+        Continuing the exercise: when adding View E, it has it's own layer
+        (Layer 7). We then copy Layer 6 from View D, Layer 5 from View C, Layer
+        4 from View B, and Layers 3-1 from View A (the bottom view). This gives
+        us the new view which looks like this:
+
+        View E:
+        - Layer 7 (original to View E)
+        - Layer 6 (copied from View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View D (now parent of View E)
+        ... (everything from View D and below is the same as above)
+        '''
+
+        layers = []
+
+        # Add the top layer from each of the views that aren't the bottom view.
+        # This is the view's original layer.
+        view = self
+        while view.parent is not None:
             layers.append(view.layers[0])
             view = view.parent
+
+        # Add all of the bottom view's layers.
+        layers.extend(view.layers)
 
         self.layers = layers
         await self.info.set('layers', [layr.iden for layr in layers])
@@ -317,6 +732,95 @@ class View(s_nexus.Pusher):  # type: ignore
             for name, valu in (await layr.getFormCounts()).items():
                 counts[name] += valu
         return counts
+
+    async def getPropCount(self, propname, valu=s_common.novalu):
+        prop = self.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        count = 0
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getPropCount(formname, propname)
+            return count
+
+        norm, info = prop.type.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
+
+        return count
+
+    async def getTagPropCount(self, form, tag, propname, valu=s_common.novalu):
+        prop = self.core.model.getTagProp(propname)
+        if prop is None:
+            mesg = f'No tag property named {propname}'
+            raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
+
+        count = 0
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getTagPropCount(form, tag, prop.name)
+            return count
+
+        norm, info = prop.type.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
+
+        return count
+
+    async def getPropArrayCount(self, propname, valu=s_common.novalu):
+        prop = self.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not prop.type.isarray:
+            mesg = f'Property is not an array type: {prop.type.name}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        count = 0
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getPropArrayCount(formname, propname)
+            return count
+
+        atyp = prop.type.arraytype
+        norm, info = atyp.norm(valu)
+
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
+
+        return count
 
     async def getEdgeVerbs(self):
 
@@ -363,22 +867,31 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.layers.append(layr)
 
-    async def eval(self, text, opts=None):
+    async def eval(self, text, opts=None, log_info=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.iden)
+        if log_info is None:
+            log_info = {}
+
+        log_info['mode'] = opts.get('mode', 'storm')
+        log_info['view'] = self.iden
+
+        self.core._logStormQuery(text, user, info=log_info)
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
-        await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for node in snap.eval(text, opts=opts, user=user):
-                yield node
+        with s_scope.enter({'user': user}):
+
+            await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+            async with await self.snap(user=user) as snap:
+                async for node in snap.eval(text, opts=opts, user=user):
+                    yield node
 
     async def callStorm(self, text, opts=None):
         user = self.core._userFromOpts(opts)
@@ -442,19 +955,20 @@ class View(s_nexus.Pusher):  # type: ignore
 
         mode = opts.get('mode', 'storm')
         editformat = opts.get('editformat', 'nodeedits')
-        if editformat not in ('nodeedits', 'splices', 'count', 'none'):
-            raise s_exc.BadConfValu(mesg='editformat')
+        if editformat not in ('nodeedits', 'count', 'none'):
+            raise s_exc.BadConfValu(mesg=f'invalid edit format, got {editformat}', name='editformat', valu=editformat)
 
         texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
         async def runStorm():
             cancelled = False
             tick = s_common.now()
+            abstick = s_common.mononow()
             count = 0
             try:
 
                 # Always start with an init message.
-                await chan.put(('init', {'tick': tick, 'text': text,
+                await chan.put(('init', {'tick': tick, 'text': text, 'abstick': abstick,
                                          'hash': texthash, 'task': synt.iden}))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
@@ -463,26 +977,29 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 shownode = (not show or 'node' in show)
 
-                async with await self.snap(user=user) as snap:
+                with s_scope.enter({'user': user}):
 
-                    if keepalive:
-                        snap.schedCoro(snap.keepalive(keepalive))
+                    async with await self.snap(user=user) as snap:
 
-                    if not show:
-                        snap.link(chan.put)
+                        if keepalive:
+                            snap.schedCoro(snap.keepalive(keepalive))
 
-                    else:
-                        [snap.on(n, chan.put) for n in show]
+                        if not show:
+                            snap.link(chan.put)
 
-                    if shownode:
-                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                            await chan.put(('node', pode))
-                            count += 1
+                        else:
+                            [snap.on(n, chan.put) for n in show]
 
-                    else:
-                        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.iden)
-                        async for item in snap.storm(text, opts=opts, user=user):
-                            count += 1
+                        if shownode:
+                            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                                await chan.put(('node', pode))
+                                count += 1
+
+                        else:
+                            self.core._logStormQuery(text, user,
+                                                     info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            async for item in snap.storm(text, opts=opts, user=user):
+                                count += 1
 
             except s_stormctrl.StormExit:
                 pass
@@ -503,9 +1020,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
             finally:
                 if not cancelled:
-                    tock = s_common.now()
-                    took = tock - tick
-                    await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+                    abstock = s_common.mononow()
+                    abstook = abstock - abstick
+                    tock = tick + abstook
+                    await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
 
         await synt.worker(runStorm(), name='runstorm')
 
@@ -532,18 +1050,11 @@ class View(s_nexus.Pusher):  # type: ignore
                 if editformat == 'none':
                     continue
 
-                if editformat == 'count':
-                    count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
-                    mesg = ('node:edits:count', {'count': count})
-                    yield mesg
-                    continue
+                assert editformat == 'count'
 
-                assert editformat == 'splices'
-
-                nodeedits = mesg[1].get('edits', [()])
-                async for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
-                    if not show or splice[0] in show:
-                        yield splice
+                count = sum(len(edit[2]) for edit in mesg[1].get('edits', ()))
+                mesg = ('node:edits:count', {'count': count})
+                yield mesg
                 continue
 
             if kind == 'fini':
@@ -561,9 +1072,10 @@ class View(s_nexus.Pusher):  # type: ignore
         taskiden = opts.get('task')
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                yield pode
+        with s_scope.enter({'user': user}):
+            async with await self.snap(user=user) as snap:
+                async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                    yield pode
 
     async def snap(self, user):
 
@@ -586,17 +1098,13 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name', 'desc', 'parent', 'nomerge'):
+        if name not in ('name', 'desc', 'parent', 'nomerge', 'quorum'):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
         if name == 'parent':
 
-            parent = self.core.getView(valu)
-            if parent is None:
-                mesg = 'The parent view must already exist.'
-                raise s_exc.NoSuchView(mesg=mesg)
-
+            parent = self.core.reqView(valu, mesg='The parent view must already exist.')
             if parent.iden == self.iden:
                 mesg = 'A view may not have parent set to itself.'
                 raise s_exc.BadArg(mesg=mesg)
@@ -604,6 +1112,10 @@ class View(s_nexus.Pusher):  # type: ignore
             if parent.isForkOf(self.iden):
                 mesg = 'Circular dependency of view parents is not supported.'
                 raise s_exc.BadArg(mesg=mesg)
+
+            if parent.getMergeRequest() is not None:
+                mesg = 'You may not set the parent to a view with a pending merge request.'
+                raise s_exc.BadState(mesg=mesg)
 
             if self.parent is not None:
                 if self.parent.iden == parent.iden:
@@ -627,6 +1139,21 @@ class View(s_nexus.Pusher):  # type: ignore
             self.core._calcViewsByLayer()
 
         else:
+            if name == 'quorum':
+                # TODO hack a schema test until the setViewInfo API is updated to
+                # enforce ( which will need to be done very carefully to prevent
+                # existing non-compliant values from causing issues with existing views )
+                if valu is not None:
+                    vdef = self.info.pack()
+                    vdef['quorum'] = s_msgpack.deepcopy(valu)
+                    s_schemas.reqValidView(vdef)
+                else:
+                    for view in self.core.views.values():
+                        if view.parent != self:
+                            continue
+                        if view.getMergeRequest() is not None:
+                            await view._delMergeRequest()
+
             if valu is None:
                 await self.info.pop(name)
             else:
@@ -666,6 +1193,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', [lyr.iden for lyr in self.layers])
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
+        self.core._calcViewsByLayer()
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -673,14 +1201,11 @@ class View(s_nexus.Pusher):  # type: ignore
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
-        for view in self.core.views.values():
-            if view.parent is self:
-                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')
+        layrs = []
 
         if self.parent is not None:
-            raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
-
-        layrs = []
+            mesg = 'You cannot set the layers of a forked view.'
+            raise s_exc.BadArg(mesg=mesg)
 
         for iden in layers:
             layr = self.core.layers.get(iden)
@@ -696,6 +1221,39 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', layers)
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
+
+        await self._calcChildViews()
+        self.core._calcViewsByLayer()
+
+    async def _calcChildViews(self):
+
+        todo = collections.deque([self])
+
+        byparent = collections.defaultdict(list)
+        for view in self.core.views.values():
+            if view.parent is None:
+                continue
+
+            byparent[view.parent].append(view)
+
+        while todo:
+
+            view = todo.pop()
+
+            for child in byparent.get(view, ()):
+
+                layers = [child.layers[0]]
+                layers.extend(view.layers)
+
+                child.layers = layers
+
+                # convert layers to a list of idens...
+                lids = [layr.iden for layr in layers]
+                await child.info.set('layers', lids)
+
+                await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
+
+                todo.append(child)
 
     async def fork(self, ldef=None, vdef=None):
         '''
@@ -714,6 +1272,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if vdef is None:
             vdef = {}
+
+        if self.getMergeRequest() is not None:
+            mesg = 'Cannot fork a view which has a merge request.'
+            raise s_exc.BadState(mesg=mesg)
 
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')
@@ -777,6 +1339,8 @@ class View(s_nexus.Pusher):  # type: ignore
     async def mergeAllowed(self, user=None, force=False):
         '''
         Check whether a user can merge a view into its parent.
+
+        NOTE: This API may not be used to check for merges based on quorum votes.
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
@@ -784,6 +1348,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if self.info.get('nomerge'):
             raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has nomerge set.')
+
+        if self.parent.info.get('quorum') is not None:
+            raise s_exc.CantMergeView(mesg=f'Cannot merge view({self.iden}). Parent view requires quorum voting.')
 
         if self.trigqueue.size and not force:
             raise s_exc.CantMergeView(mesg=f'There are still {self.trigqueue.size} triggers waiting to complete.', canforce=True)
@@ -817,69 +1384,57 @@ class View(s_nexus.Pusher):  # type: ignore
                 self._confirm(user, perm)
                 await asyncio.sleep(0)
 
-    async def runTagAdd(self, node, tag, valu, view=None):
+    async def runTagAdd(self, node, tag, valu):
 
-        # Run the non-glob callbacks, then the glob callbacks
-        funcs = itertools.chain(self.core.ontagadds.get(tag, ()), (x[1] for x in self.core.ontagaddglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception:
-                logger.exception('onTagAdd Error')
-
-        if view is None:
-            view = self.iden
+        if self.core.migration:
+            return
 
         # Run any trigger handlers
-        await self.triggers.runTagAdd(node, tag, view=view)
+        await self.triggers.runTagAdd(node, tag)
 
-    async def runTagDel(self, node, tag, valu, view=None):
+    async def runTagDel(self, node, tag, valu):
 
-        funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
-        for func in funcs:
-            try:
-                await s_coro.ornot(func, node, tag, valu)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception:
-                logger.exception('onTagDel Error')
-
-        if view is None:
-            view = self.iden
-
-        await self.triggers.runTagDel(node, tag, view=view)
-
-    async def runNodeAdd(self, node, view=None):
-        if not node.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runTagDel(node, tag)
 
-        await self.triggers.runNodeAdd(node, view=view)
+    async def runNodeAdd(self, node):
 
-    async def runNodeDel(self, node, view=None):
-        if not node.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runNodeAdd(node)
 
-        await self.triggers.runNodeDel(node, view=view)
+    async def runNodeDel(self, node):
 
-    async def runPropSet(self, node, prop, oldv, view=None):
+        if self.core.migration:
+            return
+
+        await self.triggers.runNodeDel(node)
+
+    async def runPropSet(self, node, prop, oldv):
         '''
         Handle when a prop set trigger event fired
         '''
-        if not node.snap.trigson:
+        if self.core.migration:
             return
 
-        if view is None:
-            view = self.iden
+        await self.triggers.runPropSet(node, prop, oldv)
 
-        await self.triggers.runPropSet(node, prop, oldv, view=view)
+    async def runEdgeAdd(self, n1, edge, n2):
+
+        if self.core.migration:
+            return
+
+        await self.triggers.runEdgeAdd(n1, edge, n2)
+
+    async def runEdgeDel(self, n1, edge, n2):
+
+        if self.core.migration:
+            return
+
+        await self.triggers.runEdgeDel(n1, edge, n2)
 
     async def addTrigger(self, tdef):
         '''
@@ -893,6 +1448,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         root = await self.core.auth.getUserByName('root')
 
+        tdef.setdefault('created', s_common.now())
         tdef.setdefault('user', root.iden)
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
@@ -978,6 +1534,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.node.pop()
+        await self._wipeViewMeta()
         shutil.rmtree(self.dirn, ignore_errors=True)
 
     async def addNode(self, form, valu, props=None, user=None):
@@ -1002,7 +1559,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
-            for item in s_scrape.contextScrape(text, refang=refang, first=False):
+            async for item in s_scrape.contextScrapeAsync(text, refang=refang, first=False):
                 form = item.pop('form')
                 valu = item.pop('valu')
                 if unique:

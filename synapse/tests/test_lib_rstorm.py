@@ -21,7 +21,7 @@ HI
 .. storm-pre:: [ inet:ipv6=0 ]
 .. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
 .. storm:: --hide-props testpkgcmd foo
-.. storm:: --hide-query $lib.print(secret)
+.. storm:: --hide-query $lib.print(secret) $lib.print($lib.globals.get(testpkg))
 .. storm:: --hide-query file:bytes
 .. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
 .. storm:: testsvc.test
@@ -44,6 +44,7 @@ HI
 ::
 
     secret
+    testpkg-done
 
 ::
 
@@ -53,6 +54,7 @@ HI
 
     > testsvc.test
     jupiter
+    testsvc-done
 
 '''
 
@@ -259,6 +261,17 @@ HI
 .. storm-cortex:: path.to.NewpCell
 '''
 
+pkg_onload_timeout = '''
+.. storm-cortex:: default
+.. storm-pre:: $lib.globals.set(onload_sleep, 2)
+.. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
+'''
+
+svc_onload_timeout = '''
+.. storm-cortex:: default
+.. storm-pre:: $lib.globals.set(onload_sleep, 2)
+.. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
+'''
 
 async def get_rst_text(rstfile):
     async with await s_rstorm.StormRst.anit(rstfile) as rstorm:
@@ -339,7 +352,7 @@ class RStormLibTest(s_test.SynTest):
             self.isin('inet:ipv4=5.6.7.8', text)  # one mock at a time
             self.isin('it:dev:str=notjson', text)  # one mock at a time
 
-            # multi reqest in 1 rstorm command
+            # multi request in 1 rstorm command
             path = s_common.genpath(dirn, 'http_multi.rst')
             with s_common.genfile(path) as fd:
                 fd.write(multi_rst_in_http.encode())
@@ -495,6 +508,29 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(ctor_fail.encode())
             with self.raises(s_exc.NoSuchCtor):
                 await get_rst_text(path)
+
+            # onload failures
+
+            try:
+                oldv = s_rstorm.ONLOAD_TIMEOUT
+                s_rstorm.ONLOAD_TIMEOUT = 0.1
+
+                path = s_common.genpath(dirn, 'pkg_onload_timeout.rst')
+                with s_common.genfile(path) as fd:
+                    fd.write(pkg_onload_timeout.encode())
+                with self.raises(s_exc.SynErr) as ectx:
+                    await get_rst_text(path)
+                self.eq('Package onload failed to run for testpkg', ectx.exception.errinfo['mesg'])
+
+                path = s_common.genpath(dirn, 'svc_onload_timeout.rst')
+                with s_common.genfile(path) as fd:
+                    fd.write(svc_onload_timeout.encode())
+                with self.raises(s_exc.SynErr) as ectx:
+                    await get_rst_text(path)
+                self.eq('Package onload failed to run for service test', ectx.exception.errinfo['mesg'])
+
+            finally:
+                s_rstorm.ONLOAD_TIMEOUT = oldv
 
     async def test_rstorm_cli(self):
 

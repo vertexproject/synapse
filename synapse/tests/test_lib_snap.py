@@ -276,6 +276,16 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await alist(view1.eval('inet:ipv4 +:asn=42')))
             self.len(1, await alist(view1.eval('inet:ipv4 +#woot')))
 
+            await view0.core.nodes('[ inet:ipv4=1.1.1.1 :asn=5 ]')
+            nodes = await view0.core.nodes('inet:ipv4=1.1.1.1 [ :asn=6 ]', opts={'view': view1.iden})
+
+            await view0.core.nodes('inet:ipv4=1.1.1.1 | delnode')
+            edits = await nodes[0]._getPropDelEdits('asn')
+
+            root = view0.core.auth.rootuser
+            async with await view1.snap(user=root) as snap:
+                await snap.applyNodeEdit((nodes[0].buid, 'inet:ipv4', edits))
+
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
@@ -625,3 +635,12 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
+
+    async def test_snap_subs_depth(self):
+
+        async with self.getTestCore() as core:
+            fqdn = '.'.join(['x' for x in range(300)]) + '.foo.com'
+            q = f'[ inet:fqdn="{fqdn}"]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('zone'), 'foo.com')

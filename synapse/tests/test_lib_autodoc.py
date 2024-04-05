@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 
 class AutodocTest(s_t_utils.SynTest):
 
-    def test_rst(self):
+    def test_autodoc_rsthelp(self):
 
         page = s_autodoc.RstHelp()
 
@@ -35,7 +35,7 @@ burma
 shave'''
         self.eq(text, expected)
 
-    def test_helpers(self):
+    def test_autodoc_helpers(self):
 
         # callsig
         rtype = {
@@ -54,7 +54,7 @@ shave'''
             )
         }
         callsig = s_autodoc.genCallsig(rtype)
-        self.eq(callsig, '(foo, bar=None, **kwargs)')
+        self.eq(callsig, '(foo, bar=$lib.null, **kwargs)')
         self.eq(s_autodoc.genCallsig({}), '()')
         self.eq(s_autodoc.genCallsig({'args': ({'name': 'beep'},)}), '(beep)')
 
@@ -62,7 +62,7 @@ shave'''
         self.eq(s_autodoc.getArgLines({}), [])
         lines = s_autodoc.getArgLines(rtype)
         self.eq(lines, ['\n', 'Args:', '    foo (str): The foos!', '\n',
-                        '    bar: The bar. The input type may one one of the following: ``str``, ``int``.',
+                        '    bar: The bar. The input type may be one of the following: ``str``, ``int``.',
                         '\n', '    \\*\\*kwargs (any): Extra foobars.', '\n'])
 
         lines = s_autodoc.getArgLines({'args': [{'name': 'cmplx', 'type': {}, 'desc': 'unsupported'}]})
@@ -165,6 +165,29 @@ Args:
 
 
 Returns:
+    The beeped string. The return type is ``str``.
+
+
+.. _test-lib-test-someargs:
+
+someargs(valu, bar=$lib.true, faz=$lib.null)
+============================================
+
+Example storm func with args.
+
+
+Args:
+    valu (str): The value to beep.
+
+
+    bar (bool): The value to beep.
+
+
+    faz (str): The value to beep.
+
+
+
+Returns:
     The beeped string. The return type is ``str``.'''
         self.eq(text, expected)
 
@@ -205,6 +228,29 @@ Notes:
 
 Args:
     valu (str): The value to beep.
+
+
+
+Returns:
+    The beeped string. The return type is ``str``.
+
+
+.. _test-lib-test-someargs:
+
+$lib.test.someargs(valu, bar=$lib.true, faz=$lib.null)
+======================================================
+
+Example storm func with args.
+
+
+Args:
+    valu (str): The value to beep.
+
+
+    bar (bool): The value to beep.
+
+
+    faz (str): The value to beep.
 
 
 

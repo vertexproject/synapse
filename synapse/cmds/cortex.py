@@ -56,17 +56,6 @@ Examples:
         ('line', {'type': 'glob'}),  # type: ignore
     )
 
-    splicetypes = (
-        'tag:add',
-        'tag:del',
-        'node:add',
-        'node:del',
-        'prop:set',
-        'prop:del',
-        'tag:prop:set',
-        'tag:prop:del',
-    )
-
     def _make_argparser(self):
 
         parser = s_cmd.Parser(prog='log', outp=self, description=self.__doc__)
@@ -111,7 +100,7 @@ Examples:
         editsonly = self.locs.get('log:editsonly')
         nodesonly = self.locs.get('log:nodesonly')
         if fd and not fd.closed:
-            if editsonly and mesg[0] not in (*self.splicetypes, 'node:edits'):
+            if editsonly and mesg[0] != 'node:edits':
                 return
             if nodesonly:
                 if mesg[0] != 'node':
@@ -221,10 +210,9 @@ class StormCmd(s_cli.Cmd):
         --editformat <format>: What format of edits the server shall emit.
                 Options are
                    * nodeedits (default),
-                   * splices (similar to < 2.0.0),
                    * count (just counts of nodeedits), or
                    * none (no such messages emitted).
-        --show-prov:  Show provenance messages.
+        --show-prov:  Deprecated. This no longer does anything.
         --raw: Print the nodes in their raw format. This overrides --hide-tags and --hide-props.
         --debug: Display cmd debug information along with nodes in raw format. This overrides other display arguments.
         --path: Get path information about returned nodes.
@@ -239,7 +227,7 @@ class StormCmd(s_cli.Cmd):
     '''
     _cmd_name = 'storm'
 
-    editformat_enums = ('nodeedits', 'splices', 'count', 'none')
+    editformat_enums = ('nodeedits', 'count', 'none')
     _cmd_syntax = (
         ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
@@ -268,7 +256,6 @@ class StormCmd(s_cli.Cmd):
             'err': self._onErr,
             'node:edits': self._onNodeEdits,
             'node:edits:count': self._onNodeEditsCount,
-            'prov:new': self._onProvNew,  # TODO remove in 3.0.0
         }
         self._indented = False
 
@@ -292,10 +279,6 @@ class StormCmd(s_cli.Cmd):
         count = mesg[1].get('count', 1)
         s_cli.Cmd.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
         self._indented = True
-
-    def _onProvNew(self, mesg, opts):
-        if opts.get('show-prov'):
-            self.printf(repr(mesg), color=PROVNEW_COLOR)
 
     def _printNodeProp(self, name, valu):
         self.printf(f'        {name} = {valu}')

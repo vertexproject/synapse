@@ -292,6 +292,21 @@ log message pretty-printed log message::
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
 
+Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFORMAT`` string. This is expected to be a
+strftime_ format string. The following shows an example of setting this value::
+
+    SYN_LOG_DATEFORMAT="%d%m%Y %H:%M:%S"
+
+produces the following output::
+
+    28062021 15:48:01 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+
+This will also be used to format the ``time`` key used for structured logging.
+
+.. warning::
+    Milliseconds are not available when using the date formatting option. This will result in a loss of precision for
+    the timestamps that appear in log output.
+
 .. _devops-task-diskfree:
 
 Configure Free Space Requirement
@@ -915,6 +930,626 @@ not be emitted.
 
 For the full list supported options, see the :ref:`autodoc-conf-cortex`.
 
+.. _devops-svc-cortex-ext-http:
+
+Extended HTTP API
+~~~~~~~~~~~~~~~~~
+
+.. highlight:: none
+
+The Cortex can be configured ( via Storm ) to service custom HTTP API endpoints. These user defined endpoints execute
+Storm code in order to generate responses. This allows creating custom HTTP API responses or URL paths which may meet
+custom needs.
+
+These endpoints have a base URL of ``/api/ext/``. Additional path components in a request are used to resolve which API
+definition is used to handle the response.
+
+The Storm queries which implement these endpoints will have a ``$request`` object ( see
+:ref:`stormprims-http-api-request-f527` ) added to them. This object is used to send custom data back to the caller.
+This object contains helpers to access the request data, as well as functions to send data back to the caller.
+
+.. note::
+
+    Several examples show curl_ and jq_ being used to access endpoints or process data. These tools are not required
+    in order to interact with the Extended HTTP API.
+
+A Simple Example
+++++++++++++++++
+
+The following simple example shows adding an API endpoint and setting the ``GET`` method on it that just returns a
+simple message embedded in a dictionary::
+
+    $api = $lib.cortex.httpapi.add('demo/path00')
+    $api.methods.get = ${
+        $mesg=`Hello! I am a request made to {$request.path}`
+        $headers = ({"Some": "Value"})
+        $body = ({"mesg": $mesg})
+        $request.reply(200, headers=$headers, body=$body)
+     }
+
+When accessing that HTTP API endpoint on the Cortex, the response data has the status code, custom headers, and custom
+body in the reponse::
+
+    $ curl -D - -sku "root:root" "https://127.0.0.1:4443/api/ext/demo/path00"
+    HTTP/1.1 200 OK
+    Content-Type: application/json; charset=utf8"
+    Date: Tue, 17 Oct 2023 16:21:32 GMT
+    Some: value
+    Content-Length: 53
+
+    {"mesg": "Hello! I am a request made to demo/path00"}
+
+The ``$request.reply()`` method automatically will convert primitive objects into a JSON response, enabling rapid
+development of JSON based API endpoints.
+
+Accessing Request Data
+++++++++++++++++++++++
+
+The ``$request`` object has information available about the request itself. The following API example shows access to
+all of that request data, and echoes it back to the caller::
+
+    $api = $lib.cortex.httpapi.add('demo/([a-z0-9]*)')
+    $api.methods.post = ${
+        $body = ({
+            "method": $request.method,        // The HTTP method
+            "headers": $request.headers,      // Any request headers
+            "params": $request.params,        // Any requets parameters
+            "uri": $request.uri,              // The full URI requested
+            "path": $request.path,            // The path component after /api/ext/
+            "args": $request.args,            // Any capture groups matched from the path.
+            "client": $request.client,        // Requester client IP
+            "iden": $request.api.iden,        // The iden of the HTTP API handling the request
+            "nbyts": $lib.len($request.body), // The raw body is available as bytes
+        })
+        try {
+            $body.json = $request.json        // Synapse will lazily load the request body as json upon access
+        } catch StormRuntimeError as err {    // But it may not be json!
+            $body.json = 'err'
+        }
+        $headers = ({'Echo': 'hehe!'})
+        $request.reply(200, headers=$headers, body=$body)
+    }
+
+Accessing that endpoint shows that request information is echoed back to the caller::
+
+    $ curl -sku "root:secret" -XPOST -d '{"some":["json", "items"]}' "https://127.0.0.1:4443/api/ext/demo/ohmy?hehe=haha" | jq
+    {
+      "method": "POST",
+      "headers": {
+        "host": "127.0.0.1:4443",
+        "authorization": "Basic cm9vdDpzZWNyZXQ=",
+        "user-agent": "curl/7.81.0",
+        "accept": "*/*",
+        "content-length": "26",
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      "params": {
+        "hehe": "haha"
+      },
+      "uri": "/api/ext/demo/ohmy?hehe=haha",
+      "path": "demo/ohmy",
+      "args": [
+        "ohmy"
+      ],
+      "client": "127.0.0.1",
+      "iden": "50cf80d0e332a31608331490cd453103",
+      "nbyts": 26,
+      "json": {
+        "some": [
+          "json",
+          "items"
+        ]
+      }
+    }
+
+
+The ``$request.headers`` are accessed in a case-insensitive manner.  ``$request.parameters`` are case sensitive. The
+following example shows that::
+
+    $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
+    $api.methods.get = ${
+        $body=({
+            "ua":   $request.headers."UseR-AGent",  // case insensitive match on the User-Agent string
+            "hehe": $request.params.hehe,
+            "HEHE": $request.params.HEHE,
+        })
+        $request.reply(200, body=$body)
+    }
+
+The output of that endpoint::
+
+    $ curl -s -k -u "root:secret" "https://127.0.0.1:4443/api/ext/demo/casemath?hehe=haha&HEHE=uppercase"  | jq
+    {
+      "ua": "curl/7.81.0",
+      "hehe": "haha",
+      "HEHE": "uppercase"
+    }
+
+.. note::
+
+    Request headers and parameters are flattened into a single key / value mapping. Duplicate request headers or
+    parameters are not exposed in the ``$request`` object.
+
+Managing HTTP APIs
+++++++++++++++++++
+
+When creating an Extended HTTP API, the request path must be provided. This path component is matched against any
+path components after ``/api/etx/*`` when determing which API endpoint will service the request. The API endpoints are
+matched in order, comparing their ``path`` against the requested path using a case sensitive fullmatch_ regular
+expression comparison. Newly created API endpoints are added to the end of the list for matching. It is best for
+these endpoints to be ordered from most specific to least specific.
+
+To list the registered APIs, their order, and path information, use the ``cortex.httpapi.list`` command::
+
+    storm> cortex.httpapi.list
+    order iden                             owner                auth  runas  path
+    0     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+    1     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
+    2     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/path01
+    3     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
+
+In this example, there are four items listed. The ``path`` of the first item will match the paths for the second and
+third items. The index for the first item needs to be moved using the ``cortex.httpapi.index`` commmand. That command
+allows users to change the order in which the API endpoints are matched::
+
+    storm> cortex.httpapi.index 50cf80d0e332a31608331490cd453103 3
+    Set HTTP API 50cf80d0e332a31608331490cd453103 to index 3
+
+    storm> cortex.httpapi.list
+    order iden                             owner                auth  runas  path
+    0     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
+    1     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/path01
+    2     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
+    3     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+
+The endpoints in the example are now checked in a "more specific" to "least specific" order.
+
+The path of an endpoint can also be changed. This can be done by assigning a new value to the ``path`` attribute on
+the ``http:api`` object in Storm::
+
+    storm> $api=$lib.cortex.httpapi.get(1896bda5dbd97615ee553059079620ba) $api.path="demo/mynew/path"
+    complete. 0 nodes in 8 ms (0/sec).
+
+    storm> cortex.httpapi.list
+    order iden                             owner                auth  runas  path
+    0     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
+    1     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/mynew/path
+    2     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
+    3     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+
+The path components which match each regular expression capture group in the ``path`` will be set in the
+``$request.args`` data. An endpoint can capture multiple args this way::
+
+    // Set the echo API handler defined earlier to have a path which has multiple capture groups
+    $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
+    $api.path="demo/([a-z0-9]+)/(.*)"
+
+The capture groups are then available::
+
+    $ curl -sku "root:secret" -XPOST "https://127.0.0.1:4443/api/ext/demo/foobar1/AnotherArgument/inTheGroup"  | jq '.args'
+    [
+      "foobar1",
+      "AnotherArgument/inTheGroup"
+    ]
+
+
+.. note::
+
+    The Cortex does not make any attempt to do any inspection of path values which may conflict between the endpoints.
+    This is because the paths for a given endpoint may be changed, they can contain regular expressions, and they may
+    have their resolution order changed. Cortex users are responsible for configuring their endpoints with correct
+    paths and order to meet their use cases.
+
+The Extended HTTP APIs can also be given a name and a description. The following shows setting the ``name`` and
+``desc`` fields, and then showing the details of the API using ``cortex.httpapi.stat``. This command shows detailed
+information about the Extended HTTP API endpoint::
+
+    $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
+    $api.name="demo wildcard"
+    $api.desc='''This API endpoint is a wildcard example. It has a GET method and a POST method available.'''
+
+    // Stat output
+    storm> cortex.httpapi.stat 50cf80d0e332a31608331490cd453103
+    Iden: 50cf80d0e332a31608331490cd453103
+    Creator: root (b13c21813628ac4464b78b5d7c55cd64)
+    Created: 2023/10/18 14:02:52.070
+    Updated: 2023/10/18 14:07:29.448
+    Path: demo/([a-z0-9]+)/(.*)
+    Owner: root (b13c21813628ac4464b78b5d7c55cd64)
+    Runas: owner
+    View: default (a1877dd028915d90862e35e24b491bfc)
+    Readonly: false
+    Authenticated: true
+    Name: demo wildcard
+    Description: This API endpoint is a wildcard example. It has a GET method and a POST method available.
+
+    No user permissions are required to run this HTTP API endpoint.
+    The handler defines the following HTTP methods:
+    Method: POST
+    $body = ({
+                "method": $request.method,        // The HTTP method
+                "headers": $request.headers,      // Any request headers
+                "params": $request.params,        // Any requets parameters
+                "uri": $request.uri,              // The full URI requested
+                "path": $request.path,            // The path component after /api/ext/
+                "args": $request.args,            // Any capture groups matched from the path.
+                "client": $request.client,        // Requester client IP
+                "iden": $request.api.iden,        // The iden of the HTTP API handling the request
+                "nbyts": $lib.len($request.body), // The raw body is available as bytes
+            })
+            try {
+                $body.json = $request.json        // Synapse will lazily load the request body as json upon access
+            } catch StormRuntimeError as err {    // But it may not be json!
+                $body.json = 'err'
+            }
+            $headers = ({'Echo': 'hehe!'})
+            $request.reply(200, headers=$headers, body=$body)
+
+    Method: GET
+    $body=({
+                "ua":   $request.headers."UseR-AGent",  // case insensitive match on the User-Agent string
+                "hehe": $request.params.hehe,
+                "HEHE": $request.params.HEHE,
+            })
+            $request.reply(200, body=$body)
+
+    No vars are set for the handler.
+
+Supported Methods
++++++++++++++++++
+
+The endpoints support the following HTTP Methods:
+
+- ``GET``
+- ``PUT``
+- ``HEAD``
+- ``POST``
+- ``PATCH``
+- ``DELETE``
+- ``OPTIONS``
+
+The logic which implements these methods is set via Storm. The following example shows setting two simple methods for a
+given endpoint::
+
+    $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
+    $api.methods.get = ${ $request.reply(200, headers=({"X-Method": "GET"}))
+    $api.methods.put = ${ $request.reply(200, headers=({"X-Method": "PUT"}))
+
+These methods can be removed as well by assigning ``$lib.undef`` to the value::
+
+    // Remove the GET method
+    $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
+    $api.methods.put = $lib.undef
+
+Users are not required to implement their methods in any particular styles or conventions. The only method specific
+restriction on the endpoint logic is for the ``HEAD`` method. Any body content that is sent in response to the ``HEAD``
+method will not be transmitted to the requester. This body content will be omitted from being transmitted without
+warning or error.
+
+A request which is made with for method that a matching handler does not implement will return an HTTP 405 error.
+
+Authentication, Permissions, and Users
+++++++++++++++++++++++++++++++++++++++
+
+Since the endpoints are executed by running Storm queries to generate responses, Synapse must resolve the associated
+:ref:`gloss-user` and a :ref:`gloss-view` which will be used to run the query. There are a few important properties of
+the endpoints that users configuring them must be aware of.
+
+**owner**
+
+    By default, the user that creates an endpoint is marked as the ``owner`` for that endpoint. This is the default
+    user that will execute the Storm queries which implement the HTTP Methods. This value can be changed by setting
+    the ``.owner`` property on the endpoint object to a different User.
+
+    A user marked as the ``owner`` of an endpoint does not have any permissions granted that allows them to edit the
+    endpoint.
+
+**view**
+
+    The View that an Extended HTTP API endpoint is created in is recorded as the View that the Storm endpoints are
+    executed in. This View can be changed by assigning the ``.view`` property on the endpoint object to a different
+    View.
+
+**authenticated**
+
+    By default, the endpoints require the requester to have an authenticated session. Information about API
+    authentication can be found at :ref:`http-api-authentication`. This authentication requirement can be disabled by
+    setting the ``.authenticated`` property on the endpoint object to ``$lib.false``. That will allow the endpoint to
+    be resolved without presenting any sort of authentication information.
+
+**runas**
+
+    By default, the Storm logic is run by the user that is marked as the ``owner``. Endpoints can instead be configured
+    to run as the authenticated user by setting the ``.runas`` property on the HTTP API object to ``user``.  In order
+    to change the behavior to executing the queries as the owner, the value should be set to ``owner``.
+
+    When an endpoint is configured with ``runas`` set to ``user`` and ``authenticated`` to ``$lib.false`` any
+    calls to that API will be executed as the ``owner``.
+
+This allows creating endpoints that run in one of three modes:
+
+- Authenticated & runs as the Owner
+- Authenticated & runs as the User
+- Unauthenticated & runs as the Owner
+
+These three modes can be demonstrated by configuring endpoints that will echo back the current user::
+
+    // Create a query object that we will use for each handler
+    $echo=${ $request.reply(200, body=$lib.user.name()) }
+
+    // Create the first endpoint with a default configuration.
+    $api0 = $lib.cortex.httpapi.add('demo/owner')
+    $api0.methods.get=$echo
+
+    // Create the second endpoint which runs its logic as the requester.
+    $api1 = $lib.cortex.httpapi.add('demo/user')
+    $api1.runas=user
+    $api1.methods.get=$echo
+
+    // Create the third endpoint which does not require authentication.
+    $api2 = $lib.cortex.httpapi.add('demo/noauth')
+    $api2.authenticated=$lib.false  // Disable authentication
+    $api2.methods.get=$echo
+
+Accessing those endpoints with different users gives various results::
+
+    # The demo/owner endpoint runs as the owner
+    $ curl -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    "root"
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    "root"
+
+    # The demo/user endpoint runs as the requester
+    $ curl -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/user"  | jq
+    "root"
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/user"  | jq
+    "lowuser"
+
+    # The demo/noauth endpoint runas the owner
+    $ curl -sk "https://127.0.0.1:4443/api/ext/demo/noauth"  | jq
+    "root"
+
+If the owner or an authenticated user does not have permission to execute a Storm query in the configured View, or if
+the endpoints' View is deleted from the Cortex, this will raise a fatal error and return an HTTP 500 error. Once a
+query has started executing, regular Storm permissions apply.
+
+Endpoints can also have permissions defined for them. This allows locking down an endpoint such that while a user may
+still have access to the underlying view, they may lack the specific permissions required to execute the endpoint.
+These permissions are checked against the authenticated user, and not the endpoint owner. The following example shows
+setting a single permission on one of our earlier endpoints::
+
+    $api=$lib.cortex.httpapi.get(bd4679ab8e8a1fbc030b46e275ddba96)
+    $api.perms=(your.custom.permission,)
+
+Accessing it as a user without the specified permission generates an ``AuthDeny`` error::
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    {
+      "status": "err",
+      "code": "AuthDeny",
+      "mesg": "User (lowuser) must have permission your.custom.permission"
+    }
+
+The user can have that permission granted via Storm::
+
+    storm> auth.user.addrule lowuser your.custom.permission
+    Added rule your.custom.permission to user lowuser.
+
+Then the endpoint can be accessed::
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    "root"
+
+For additional information about managing user permissions, see :ref:`admin_create_users_roles`.
+
+.. note::
+
+    When the Optic UI is used to proxy the ``/api/ext`` endpoint, authentication must be done using Optic's login
+    endpoint. Basic auth is not available.
+
+Readonly Mode
++++++++++++++
+
+The Storm queries for a given handler may be executed in a ``readonly`` runtime. This is disabled by default. This can
+be changed by setting the ``readonly`` attribute on the ``http:api`` object::
+
+    // Enable the Storm queries to be readonly
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.readonly = $lib.true
+
+Endpoint Variables
+++++++++++++++++++
+
+User defined variables may be set for the queries as well. These variables are mapped into the runtime for each method.
+This can be used to provide constants or other information which may change, without needing to alter the underlying
+Storm code which defines a method. These can be read ( or removed ) by altering the ``$api.vars`` dictionary. This is
+an example of using a variable in a query::
+
+    // Set a variable that a method uses:
+
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.methods.get = ${
+        $mesg = `There are {$number} things available!`
+        $request.reply(200, body=({"mesg": $mesg})
+    }
+    $api.vars.number = (5)
+
+When executing this method, the JSON response would be the following::
+
+    {"mesg": "There are 5 things available!"}
+
+If ``$api.vars.number = "several"`` was executed, the JSON response would now be the following::
+
+    {"mesg": "There are several things available!"}
+
+Variables can be removed by assigning ``$lib.undef`` to them::
+
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.vars.number = $lib.undef
+
+Sending Custom Responses
+++++++++++++++++++++++++
+
+Responses can be made which are not JSON formatted. The ``$request.reply()`` method can be used to send raw bytes. The
+user must provide any appropriate headers alongside their request.
+
+**HTML Example**
+
+The following example shows an endpoint which generates a small amount of HTML. It uses an HTML template stored in in
+the method ``vars``. This template has a small string formatted in it, converted to bytes, and then the headers are
+set. The end result can be then rendered in a web browser::
+
+    $api = $lib.cortex.httpapi.add('demo/html')
+    $api.vars.template = '''<!DOCTYPE html>
+    <html>
+    <body>
+    <h1>A Header</h1>
+    <p>{mesg}</p>
+    </body>
+    </html>'''
+    $api.methods.get = ${
+        $duration = $lib.model.type(duration).repr($lib.cell.uptime().uptime)
+        $mesg = `The Cortex has been up for {$duration}`
+        $html = $lib.str.format($template, mesg=$mesg)
+        $buf = $html.encode()
+        $headers = ({
+            "Content-Type": "text/html",
+            "Content-Length": `{$lib.len($buf)}`
+        })
+        $request.reply(200, headers=$headers, body=$buf)
+    }
+
+Accessing this endpoint with ``curl`` shows the following::
+
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/html"
+    HTTP/1.1 200 OK
+    Content-Type: text/html
+    Date: Wed, 18 Oct 2023 14:07:47 GMT
+    Content-Length: 137
+
+    <!DOCTYPE html>
+    <html>
+    <body>
+    <h1>A Header</h1>
+    <p>The Cortex has been up for 1D 00:59:12.704</p>
+    </body>
+    </html>f
+
+**Streaming Examples**
+
+The ``http:request`` object has methods that allow a user to send the response code, headers and body separately.
+One use for this is to create a streaming response. This can be used when the total response size may not be known
+or to avoid incurring memory pressure on the Cortex when computing results.
+
+The following examples generates some JSONLines data::
+
+    $api = $lib.cortex.httpapi.add('demo/jsonlines')
+    $api.methods.get = ${
+        $request.sendcode(200)
+        // This allows a browser to view the response
+        $request.sendheaders(({"Content-Type": "text/plain; charset=utf8"}))
+        $values = ((1), (2), (3))
+        for $i in $values {
+            $data = ({'i': $i})
+            $body=`{$lib.json.save($data)}\n`
+            $request.sendbody($body.encode())
+        }
+    }
+
+Accessing this endpoint shows the JSONLines rows sent back::
+
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/jsonlines"
+    HTTP/1.1 200 OK
+    Content-Type: text/plain; charset=utf8
+    Date: Wed, 18 Oct 2023 14:31:29 GMT
+     nosniff
+    Transfer-Encoding: chunked
+
+    {"i": 1}
+    {"i": 2}
+    {"i": 3}
+
+In a similar fashion, a CSV can be generated. This example shows an integer and its square being computed::
+
+    $api = $lib.cortex.httpapi.add('demo/csv')
+    $api.methods.get = ${
+        $request.sendcode(200)
+        $request.sendheaders(({"Content-Type": "text/csv"}))
+
+        // Header row
+        $header="i, square\n"
+        $request.sendbody($header.encode())
+
+        $n = 10  // Number of rows to compute
+        for $i in $lib.range($n) {
+            $square = ($i * $i)
+            $body = `{$i}, {$square}\n`
+            $request.sendbody($body.encode())
+        }
+    }
+
+Accessing this shows the CSV content being sent back::
+
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/csv"
+    HTTP/1.1 200 OK
+    Content-Type: text/csv
+    Date: Wed, 18 Oct 2023 14:43:37 GMT
+    Transfer-Encoding: chunked
+
+    i, square
+    0, 0
+    1, 1
+    2, 4
+    3, 9
+    4, 16
+    5, 25
+    6, 36
+    7, 49
+    8, 64
+    9, 81
+
+
+When using the ``sendcode()``, ``sendheaders()``, and ``sendbody()`` APIs the order in which they are called does
+matter. The status code and headers can be set at any point before sending body data. They can even be set multiple
+times if the response logic needs to change a value it previously set.
+
+Once the body data has been sent, the status code and headers will be sent to the HTTP client and cannot be changed.
+Attempting to change the status code or send additional headers will have no effect. This will generate a warning
+message on the Cortex.
+
+The **minimum** data that the Extended HTTP API requires for a response to be considered valid is setting the status
+code. If the status code is not set by an endpoint, or if body content is sent prior to setting the endpoint, then
+an HTTP 500 status code will be sent to the caller.
+
+Messages and Error Handling
++++++++++++++++++++++++++++
+
+Messages sent out of the Storm runtime using functions such as ``$lib.print()``, ``$lib.warn()``, or ``$lib.fire()``
+are not available to HTTP API callers. The ``$lib.log`` Storm library can be used for doing out of band logging of
+messages that need to be generated while handling a response.
+
+A Storm query which generates an error which tears down the Storm runtime with an ``err`` message will result in an
+HTTP 500 response being sent. The error will be encoded in the Synapse HTTP API error convention documented at
+:ref:`http-api-conventions`.
+
+For example, if the previous example where the handler sent a ``mesg``  about the ``$number`` of things available was
+run after the variable  ``$number`` was removed, the code would generate the following response body:
+
+.. highlight:: none
+
+::
+
+    {"status": "err", "code": "NoSuchVar", "mesg": "Missing variable: number"}
+
+Custom error handling of issues that arise inside of the Storm query execution can be handled with the
+:ref:`flow-try-catch`. This allows a user to have finer control over their error codes, headers and error body content.
+
+.. note::
+
+    The HTTP 500 response will not be sent if there has already been body data send by the endpoint.
+
 Devops Details
 ==============
 
@@ -972,6 +1607,8 @@ The following ``aha.yaml`` can be used to deploy an Aha service.
 
 This can be deployed via ``kubectl apply``. That will create the PVC, deployment, and service.
 
+.. highlight:: bash
+
 ::
 
     $ kubectl apply -f aha.yaml
@@ -980,6 +1617,8 @@ This can be deployed via ``kubectl apply``. That will create the PVC, deployment
     service/aha created
 
 You can see the startup logs as well:
+
+.. highlight:: bash
 
 ::
 
@@ -1007,6 +1646,8 @@ The following ``axon.yaml`` can be used as the basis to deploy an Axon service.
 Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
 like the following:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.axon
@@ -1015,12 +1656,16 @@ like the following:
 We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
+.. highlight:: yaml
+
 ::
 
     - name: SYN_AXON_AHA_PROVISION
       value: "ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
 
 This can then be deployed via ``kubectl apply``:
+
+.. highlight:: bash
 
 ::
 
@@ -1029,6 +1674,8 @@ This can then be deployed via ``kubectl apply``:
     deployment.apps/axon00 created
 
 You can see the Axon logs as well. These show provisioning and listening for traffic:
+
+.. highlight:: bash
 
 ::
 
@@ -1060,6 +1707,8 @@ The following ``jsonstor.yaml`` can be used as the basis to deploy a JSONStor se
 Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
 like the following:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.jsonstor
@@ -1067,6 +1716,8 @@ like the following:
 
 We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block looks like the
 following:
+
+.. highlight:: yaml
 
 ::
 
@@ -1076,6 +1727,8 @@ following:
 
 This can then be deployed via ``kubectl apply``:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl apply -f jsonstor.yaml
@@ -1083,6 +1736,8 @@ This can then be deployed via ``kubectl apply``:
     deployment.apps/jsonstor00 created
 
 You can see the JSONStor logs as well. These show provisioning and listening for traffic:
+
+.. highlight:: bash
 
 ::
 
@@ -1118,6 +1773,8 @@ like the following:
 We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
+.. highlight:: bash
+
 ::
 
     - name: SYN_CORTEX_AHA_PROVISION
@@ -1125,6 +1782,8 @@ following:
 
 
 This can then be deployed via ``kubectl apply``:
+
+.. highlight:: bash
 
 ::
 
@@ -1136,6 +1795,8 @@ This can then be deployed via ``kubectl apply``:
 
 You can see the Cortex logs as well. These show provisioning and listening for traffic, as well as the connection being
 made to the Axon and JSONStor services:
+
+.. highlight:: bash
 
 ::
 
@@ -1170,6 +1831,8 @@ This does assume that your local environment has the Python synapse package avai
 
 First add a user to the Cortex:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --add --admin true visi
@@ -1178,6 +1841,8 @@ First add a user to the Cortex:
 
 Then we need to generate a user provisioning URL:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec -it deployment/aha -- python -m synapse.tools.aha.provision.user visi
@@ -1185,12 +1850,16 @@ Then we need to generate a user provisioning URL:
 
 Port-forward the AHA provisioning service to your local environment:
 
+.. highlight:: bash
+
 ::
 
-    kubectl port-forward service/aha 27272:provisioning
+    $ kubectl port-forward service/aha 27272:provisioning
 
 Run the enroll tool to create a user certificate pair and have it signed by the Aha service. We replace the service DNS
 name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
+
+.. highlight:: bash
 
 ::
 
@@ -1201,12 +1870,16 @@ name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
 
 The Aha service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
 
+.. highlight:: bash
+
 ::
 
     kubectl port-forward service/cortex 27492:telepath
 
 Then connect to the Cortex via the Storm CLI, using the URL
 ``ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local``.
+
+.. highlight:: bash
 
 ::
 
@@ -1244,6 +1917,8 @@ The following ``optic.yaml`` can be used as the basis to deploy Optic.
 Before we deploy that, we need to create the Aha provisioning URL. We do this via ``kubectl exec``. That should look
 like the following:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.optic
@@ -1252,6 +1927,8 @@ like the following:
 We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
+.. highlight:: yaml
+
 ::
 
     - name: SYN_OPTIC_AHA_PROVISION
@@ -1259,6 +1936,8 @@ following:
 
 
 This can then be deployed via ``kubectl apply``:
+
+.. highlight:: bash
 
 ::
 
@@ -1269,6 +1948,8 @@ This can then be deployed via ``kubectl apply``:
 
 You can see the Optic logs as well. These show provisioning and listening for traffic, as well as the connection being
 made to the Axon, Cortex, and JSONStor services:
+
+.. highlight:: bash
 
 ::
 
@@ -1302,6 +1983,8 @@ made to the Axon, Cortex, and JSONStor services:
 Once Optic is connected, we will need to set a password for the user we previously created in order to log in. This can
 be done via ``kubectl exec``, setting the password for the user on the Cortex:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --passwd secretPassword visi
@@ -1309,6 +1992,8 @@ be done via ``kubectl exec``, setting the password for the user on the Cortex:
     ...setting passwd: secretPassword
 
 Enable a port-forward to connect to the Optic service:
+
+.. highlight:: bash
 
 ::
 
@@ -1369,12 +2054,16 @@ The following ``sysctl.yaml`` can be used as the basis to deploy these modificat
 
 This can be deployed via ``kubectl apply``. That will create the DaemonSet for you..
 
+.. highlight:: bash
+
 ::
 
     $ kubectl apply -f sysctl_dset.yaml
     daemonset.apps/setsysctl created
 
 You can see the sysctl pods by running the following command:
+
+.. highlight:: bash
 
 ::
 
@@ -1410,3 +2099,7 @@ Cortex Configuration Options
 .. _Synapse-S3: ../../../projects/s3/en/latest/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 .. _warnings: https://docs.python.org/3/library/warnings.html
+.. _strftime: https://docs.python.org/3/library/time.html#time.strftime
+.. _fullmatch: https://docs.python.org/3/library/re.html#re.fullmatch
+.. _curl: https://curl.se/
+.. _jq: https://github.com/jqlang/jq

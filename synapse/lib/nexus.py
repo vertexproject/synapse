@@ -12,8 +12,11 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
+
+leaderversion = 'Leader is a higher version than we are.'
 
 # As a mirror follower, amount of time before giving up on a write request
 FOLLOWER_WRITE_WAIT_S = 30.0
@@ -86,6 +89,9 @@ class NexsRoot(s_base.Base):
         self.started = False
         self.celliden = self.cell.iden
         self.readonly = False
+        self.writeholds = set()
+
+        self.applytask = None
         self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
@@ -263,21 +269,57 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
+    async def addWriteHold(self, reason):
+
+        self.readonly = True
+
+        if reason not in self.writeholds:
+            logger.error(f'Entering Read-Only Mode: {reason}')
+            self.writeholds.add(reason)
+            return True
+
+        return False
+
+    async def delWriteHold(self, reason):
+
+        if reason in self.writeholds:
+
+            self.writeholds.remove(reason)
+
+            if not self.writeholds:
+                self.readonly = False
+
+            return True
+
+        return False
+
+    def reqNotReadOnly(self):
+
+        if not self.readonly:
+            return
+
+        # sets have stable order like dicts, so use the first message...
+        for reason in self.writeholds:
+            raise s_exc.IsReadOnly(mesg=reason)
+
+        mesg = 'Unable to issue Nexus events when readonly is set.'
+        raise s_exc.IsReadOnly(mesg=mesg)
+
     async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-        assert self.started, 'Attempt to issue before nexsroot is started'
-
-        if self.readonly:
-            raise s_exc.IsReadOnly(mesg='Unable to issue Nexus events when readonly is set')
 
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
 
         if client is None:
             return await self.eat(nexsiden, event, args, kwargs, meta)
+
+        # check here because we shouldn't be sending an edit upstream if we
+        # are in readonly mode because the mirror sync will never complete.
+        self.reqNotReadOnly()
 
         try:
             await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
@@ -294,7 +336,7 @@ class NexsRoot(s_base.Base):
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
             await client.issue(nexsiden, event, args, kwargs, meta)
-            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta):
         '''
@@ -303,7 +345,11 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        return await self._eat((nexsiden, event, args, kwargs, meta))
+        async with self.applylock:
+            self.reqNotReadOnly()
+            # Keep a reference to the shielded task to ensure it isn't GC'd
+            self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
+            return await asyncio.shield(self.applytask)
 
     async def index(self):
         if self.donexslog:
@@ -356,11 +402,10 @@ class NexsRoot(s_base.Base):
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
 
-        async with self.applylock:
-            if passitem:
-                return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
+        if passitem:
+            return await func(nexus, *args, nexsitem=(indx, mesg), **kwargs)
 
-            return await func(nexus, *args, **kwargs)
+        return await func(nexus, *args, **kwargs)
 
     async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
         '''
@@ -457,7 +502,15 @@ class NexsRoot(s_base.Base):
         if features.get('dynmirror'):
             await proxy.readyToMirror()
 
-        cellvers = cellinfo['synapse']['version']
+        cellvers = cellinfo['cell']['version']
+        if cellvers > self.cell.VERSION:
+            logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
+            await self.addWriteHold(leaderversion)
+            # this will fire again on reconnect...
+            return
+
+        # When we reconnect and the leader version has become ok...
+        await self.delWriteHold(leaderversion)
 
         if self.celliden is not None:
             if self.celliden != await proxy.getCellIden():
@@ -469,6 +522,11 @@ class NexsRoot(s_base.Base):
         while not proxy.isfini:
 
             try:
+
+                if self.readonly:
+                    await self.waitfini(timeout=2)
+                    continue
+
                 offs = self.nexslog.index()
 
                 opts = {}
@@ -478,12 +536,10 @@ class NexsRoot(s_base.Base):
                 genr = proxy.getNexusChanges(offs, **opts)
                 async for item in genr:
 
-                    if self.readonly:
-                        logger.error('Unable to consume Nexus events when readonly is set')
-                        await self.client.fini()
-                        return
-
                     if proxy.isfini:  # pragma: no cover
+                        break
+
+                    if self.readonly:
                         break
 
                     # with tellready we move to ready=true when we get a None
@@ -506,9 +562,6 @@ class NexsRoot(s_base.Base):
                     try:
                         retn = await self.eat(*args)
 
-                    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                        raise
-
                     except Exception as e:
                         if respfutu is not None:
                             assert not respfutu.done()
@@ -519,9 +572,6 @@ class NexsRoot(s_base.Base):
                     else:
                         if respfutu is not None:
                             respfutu.set_result(retn)
-
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
 
             except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
@@ -539,10 +589,11 @@ class NexsRoot(s_base.Base):
 
         try:
             await self.cell.ahaclient.waitready(timeout=5)
-            ahainfo = await self.cell.ahaclient.getCellInfo()
+            proxy = await self.cell.ahaclient.proxy(timeout=5)
+            ahainfo = await proxy.getCellInfo()
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
-                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
+                await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise

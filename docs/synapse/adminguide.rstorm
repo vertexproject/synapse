@@ -308,7 +308,7 @@ Revoke the role "a-cat-emic researcher" from user "ron":
   
   - revoke the roles and grant them in the desired order;
   - use the ``--index`` option to specify the location to insert the role;
-  - use :ref:`stormprims-storm-auth-user-setRoles` to replace the user's roles with a new list of roles; or
+  - use :ref:`stormprims-auth-user-setRoles` to replace the user's roles with a new list of roles; or
   - use the commercial Synapse UI (Optic) to reorder the roles using drag-and drop.
   
   See :ref:`admin_perms_background` for additional detail on permissions and :ref:`admin_bkd_precedence`.
@@ -680,6 +680,18 @@ Synapse assumes an implicit default ``deny all`` as the final rule evaluated whe
   the new permission is given a "default allow" that can then be specifically denied if necessary.
 
 
+.. admin_available_perms:
+
+Available Permissions
+~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`storm-auth-perms-list` command can be used to display the set of permissions available in your Cortex.
+This includes native Synapse permissions as well as any permissions associated with other packages and services.
+
+Sample output for this command can be seen under :ref:`admin_cortex_perms`. The permissions available on your
+Cortex may vary depending on the services and packages installed (e.g., such as Power-Ups).
+
+
 .. admin_global_perms:
 
 Global (Cortex) Permissions
@@ -715,7 +727,7 @@ Specifying rules at the global (Cortex) level may be sufficient for many basic S
   - use the ``--index`` option with ``auth.user.addrule`` or ``auth.role.addrule`` to specify a location to
     insert a specific rule;
   - remove and re-add the rules in the desired order;
-  - use :ref:`stormprims-storm-auth-user-setRules` or :ref:`stormprims-storm-auth-role-setRules` to replace the
+  - use :ref:`stormprims-auth-user-setRules` or :ref:`stormprims-auth-role-setRules` to replace the
     rules for a user or role with a new set of rules; or
   - use the commercial Synapse UI (Optic) to reorder rules using drag-and-drop.
 
@@ -1179,7 +1191,7 @@ roles. In the example below, all users would have the general ``users`` role and
 +---------------------+------------------------------+-------------------------------------------------+
 | **senior analyst**  | ``node.tag.add.cno.threat``  | Senior analysts can apply tags in the           |
 |                     |                              |                                                 |
-|                     |                              | ``cno.threat`` and ``cno.mal`` trees            |
+|                     | ``node.tag.add.cno.mal``     | ``cno.threat`` and ``cno.mal`` trees            |
 |                     |                              |                                                 |
 |                     |                              | (assessments related to threat clusters and     |
 |                     |                              |                                                 |
@@ -1373,6 +1385,13 @@ The Synapse data model in a Cortex can be extended with custom `forms`_ or `prop
 extension Storm Library (:ref:`stormlibs-lib-model-ext`). Extended model forms and properties must have names
 beginning with an underscore (``_``) to avoid potential naming conflicts with built-in model elements.
 
+.. NOTE::
+
+  Extended model elements that are in-use (have nodes using the extended forms or properties) cannot be removed until
+  all instances of that extended model element are removed. In other words, before removing extended forms any nodes
+  created with that extended form must be delete first, and before removing extended properties any nodes with that
+  extended property must have the property value removed.
+
 Extended Forms
 --------------
 
@@ -1494,6 +1513,14 @@ ready for future model updates.
 Configure a Mirrored Layer
 ==========================
 
+.. note::
+
+    Mirrored layers are deprecated in 2.x and will be removed in 3.0.0. The `layer.pull.add`_
+    and `layer.push.add`_ commands can be used to configure streaming edits to/from 
+    layers in a separate Cortex.
+
+Once a mirrored layer is configured, it will need to stream down the entire history of events from the upstream
+layer.  During this process, the layer will be readable but writes will hang due to needing to await the write-back
 A Cortex may be configured to mirror a layer from a remote Cortex which will synchronize all edits from the
 remote layer and use write-back support to facilitate edits originating from the downstream layer. The mirrored
 layer will be an exact copy of the layer on the remote system including all edit history and will only allow
@@ -1536,6 +1563,8 @@ you may track progress by calling the ``getMirrorStatus()`` API on the ``layer``
 .. _`Docker containers`: https://www.docker.com/resources/what-container/
 
 .. _`$lib.macro.grant`: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-macro-grant-name-scope-iden-level
+.. _`layer.pull.add`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#layer-pull-add
+.. _`layer.push.add`: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#layer-push-add
 .. _`Power-Up documentation`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _`Rapid Power-Ups`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups/rapid_power_ups.html
 .. _`Optic Deployment Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/deploymentguide.html

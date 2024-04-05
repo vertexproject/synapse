@@ -7,6 +7,8 @@ Many components within the Synapse ecosystem provide HTTP/REST APIs to
 provide a portable interface.  Some of these APIs are RESTful, while other
 (streaming data) APIs are technically not.
 
+.. _http-api-conventions:
+
 HTTP/REST API Conventions
 -------------------------
 
@@ -35,23 +37,51 @@ modules. They should be enough to understand the basic operation of the APIs.
 
 For additional examples, see the code examples at `HTTPAPI Examples`_.
 
+.. _http-api-authentication:
+
 Authentication
 --------------
 
 Most Synapse HTTP APIs require an authenticated user. HTTP API endpoints requiring
 authentication may be accessed using either HTTP Basic authentication via the HTTP
-"Authorization" header or as part of an authenticated session.
+"Authorization" header, using an API Key with the "X-API-KEY" header, or as part of
+an authenticated session.
 
-To create and use an authenticated session, the HTTP client library must support
-cookies.
+API Key Support
+~~~~~~~~~~~~~~~
+
+A Cortex user can create their own API key via Storm. The following is an example
+of generating a user API key:
+
+  ::
+
+    storm> ($key, $info)= $lib.auth.users.byname($lib.user.name()).genApiKey('Test Key') $lib.print($key)
+    XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=
+
+This API Key can then be used to make HTTP API calls. The following example shows
+the use of ``curl`` and ``jq`` to make a Storm call with the API key and then format
+the response:
+
+  ::
+
+    $ curl -k -s -H "X-API-KEY: XauBgBIUKgWJEm7VyvkmcuaGZbIl6M2nmueWjRtnYtA=" \
+    --data '{"query": "return($lib.user.name())"}' \
+    https://localhost:4443/api/v1/storm/call | jq
+
+    {
+      "status": "ok",
+      "result": "root"
+    }
+
 
 /api/v1/login
 ~~~~~~~~~~~~~
 
-The login API endpoint may be used to create an authenticated session.  This
-session may then be used to call other HTTP API endpoints as the authenticated user.
-This expects a ``user`` and ``passwd`` provided in the body of a ``POST`` request.
-The reusable session cookie is returned in a ``Set-Cookie`` header.
+The login API endpoint may be used to create an authenticated session. To create and use an
+authenticated session, the HTTP client library must support cookies. This session may then be
+used to call other HTTP API endpoints as the authenticated user. This expects a ``user`` and
+``passwd`` provided in the body of a ``POST`` request. The reusable session cookie is returned
+in a ``Set-Cookie`` header.
 
 Both of the Python examples use session managers which manage the session cookie automatically.
 
@@ -94,6 +124,43 @@ Both of the Python examples use session managers which manage the session cookie
             raise Exception(f'Login error ({code}): {mesg}')
 
         # we are now clear to make additional HTTP API calls using sess
+
+/api/v1/logout
+~~~~~~~~~~~~~~
+
+The logout API endpoint may be used to end an authenticated session. This invalidates
+the session, and any further requests to authenticated endpoints will fail on
+authentication failed errors.
+
+Both of the Python examples use session managers which manage the session cookie automatically.
+
+.. code:: python3
+    :name: aiohttp logout example
+
+    import aiohttp
+
+    def logoutExample(sess, ssl):
+        url = 'https://localhost:4443/api/v1/logout'
+        resp = sess.get(url, ssl=ssl)
+        item = resp.json()
+        if item.get('status') != 'ok':
+            code = item.get('code')
+            mesg = item.get('mesg')
+            raise Exception(f'Logout error ({code}): {mesg}')
+
+.. code:: python3
+    :name: requests logout example
+
+    import requests
+
+    def logoutExample(sess, ssl):
+        url = 'https://localhost:4443/api/v1/logout'
+        resp = sess.get(url, verify=ssl)
+        item = resp.json()
+        if item.get('status') != 'ok':
+            code = item.get('code')
+            mesg = item.get('mesg')
+            raise Exception(f'Logout error ({code}): {mesg}')
 
 /api/v1/active
 ~~~~~~~~~~~~~~
@@ -208,7 +275,7 @@ Both of the Python examples use session managers which manage the session cookie
     the user whose password is being changed.
 
     *Input*
-        This API expects a JSON dictionary containing the a key ``passwd`` with the new password string.
+        This API expects a JSON dictionary containing the key ``passwd`` with the new password string.
 
     *Returns*
         The updated user dictionary.
@@ -284,6 +351,9 @@ of the provided APIs are pure REST APIs for simple data model operations and sin
 modification.  However, many of the HTTP APIs provided by the Cortex are streaming APIs which use
 HTTP chunked encoding to deliver a stream of results as they become available.
 
+The Cortex also implements the `Axon`_ HTTP API. Permissions are checked within the Cortex, and then
+the request is executed on the Axon.
+
 /api/v1/feed
 ~~~~~~~~~~~~
 
@@ -314,7 +384,7 @@ The Cortex feed API endpoint allows the caller to add nodes in bulk.
 
 The Storm API endpoint allows the caller to execute a Storm query on the Cortex and stream
 back the messages generated during the Storm runtime execution.  In addition to returning nodes,
-these messsages include events for node edits, tool console output, etc. This streaming API has back-pressure,
+these messages include events for node edits, tool console output, etc. This streaming API has back-pressure,
 and will handle streaming millions of results as the reader consumes them.
 For more information about Storm APIs, including opts behavior, see :ref:`dev_storm_api`.
 
@@ -355,7 +425,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
             import json
             import pprint
 
-            # Assumes sess is an aiotthp client session that has previously logged in
+            # Assumes sess is an aiohttp client session that has previously logged in
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
             data = {'query': query, 'opts': {'repr': True}}
@@ -458,7 +528,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             import pprint
 
-            # Assumes sess is an aiotthp client session that has previously logged in
+            # Assumes sess is an aiohttp client session that has previously logged in
 
             query = '$foo = $lib.str.format("hello {valu}", valu="world") return ($foo)'
             data = {'query': query}
@@ -656,7 +726,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
             
     *Returns*
-        The API returns the the current value of the variable or default using the REST API convention described earlier.
+        The API returns the current value of the variable or default using the REST API convention described earlier.
 
 
 /api/v1/core/info
@@ -688,6 +758,13 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                     ]
                 }
             }
+
+/api/ext/*
+~~~~~~~~~~
+
+This API endpoint is used as the Base URL for Extended HTTP API endpoints which are user defined. See
+:ref:`devops-svc-cortex-ext-http` for additional information about this endpoint.
+
 
 Aha
 ---

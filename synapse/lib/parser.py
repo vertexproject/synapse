@@ -20,8 +20,6 @@ import synapse.lib.datfile as s_datfile
 # For easier-to-understand syntax errors
 terminalEnglishMap = {
     'AS': 'as',
-    'ABSPROP': 'absolute or universal property',
-    'ABSPROPNOUNIV': 'absolute property',
     'ALLTAGS': '#',
     'AND': 'and',
     'BACKQUOTE': '`',
@@ -74,6 +72,7 @@ terminalEnglishMap = {
     'MODSET': '+= or -=',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
+    'NULL': 'null',
     'NUMBER': 'number',
     'OCTNUMBER': 'number',
     'OR': 'or',
@@ -101,6 +100,7 @@ terminalEnglishMap = {
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
     'WILDCARD': '*',
+    'WILDPROPS': 'property name potentially with wildcards',
     'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
@@ -113,10 +113,13 @@ terminalEnglishMap = {
     '_EDGEN1INIT': '-(',
     '_EDGEN2INIT': '<(',
     '_EDGEN2FINI': ')-',
+    '_EDGEN1JOINFINI': ')+>',
+    '_EDGEN2JOININIT': '<+(',
     '_ELSE': 'else',
     '_EMBEDQUERYSTART': '${',
     '_EXPRCOLONNOSPACE': ':',
     '_EMIT': 'emit',
+    '_EMPTY': 'empty',
     '_FINI': 'fini',
     '_HASH': '#',
     '_HASHSPACE': '#',
@@ -125,11 +128,14 @@ terminalEnglishMap = {
     '_LEFTPIVOT': '<-',
     '_LPARNOSPACE': '(',
     '_MATCHHASH': '#',
-    '_MATCHHASHSPACE': '#',
+    '_MATCHHASHWILD': '#',
     '_RETURN': 'return',
+    '_REVERSE': 'reverse',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_STOP': 'stop',
+    '_WALKNJOINN1': '--+>',
+    '_WALKNJOINN2': '<+--',
     '_WALKNPIVON1': '-->',
     '_WALKNPIVON2': '<--',
     '$END': 'end of input',
@@ -445,6 +451,13 @@ class AstConverter(lark.Transformer):
 
         return s_ast.SwitchCase(astinfo, newkids)
 
+    @lark.v_args(meta=True)
+    def liftreverse(self, meta, kids):
+        assert len(kids) == 1
+        astinfo = self.metaToAstInfo(meta)
+        kids[0].reverseLift(astinfo)
+        return kids[0]
+
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
@@ -596,8 +609,6 @@ def massage_vartokn(astinfo, x):
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
-    'ABSPROP': s_ast.AbsProp,
-    'ABSPROPNOUNIV': s_ast.AbsProp,
     'ALLTAGS': lambda astinfo, _: s_ast.TagMatch(astinfo, ''),
     'BREAK': lambda astinfo, _: s_ast.BreakOper(astinfo),
     'CONTINUE': lambda astinfo, _: s_ast.ContinueOper(astinfo),
@@ -608,6 +619,7 @@ terminalClassMap = {
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
+    'NULL': lambda astinfo, x: s_ast.Const(astinfo, None),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
@@ -632,6 +644,7 @@ ruleClassMap = {
     'editparens': s_ast.EditParens,
     'emit': s_ast.Emit,
     'initblock': s_ast.InitBlock,
+    'emptyblock': s_ast.EmptyBlock,
     'finiblock': s_ast.FiniBlock,
     'formname': s_ast.FormName,
     'editpropdel': lambda astinfo, kids: s_ast.EditPropDel(astinfo, kids[1:]),
@@ -682,8 +695,12 @@ ruleClassMap = {
     'liftbyformtagprop': s_ast.LiftFormTagProp,
     'looklist': s_ast.LookList,
     'lookup': s_ast.Lookup,
+    'n1join': lambda astinfo, kids: s_ast.N1Walk(astinfo, kids, isjoin=True),
+    'n2join': lambda astinfo, kids: s_ast.N2Walk(astinfo, kids, isjoin=True),
     'n1walk': s_ast.N1Walk,
     'n2walk': s_ast.N2Walk,
+    'n1walknjoin': lambda astinfo, kids: s_ast.N1WalkNPivo(astinfo, kids, isjoin=True),
+    'n2walknjoin': lambda astinfo, kids: s_ast.N2WalkNPivo(astinfo, kids, isjoin=True),
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
     'notcond': s_ast.NotCond,

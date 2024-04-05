@@ -52,6 +52,8 @@ import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
@@ -94,6 +96,44 @@ def norm(z):
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
 
+@contextlib.asynccontextmanager
+async def matchContexts(testself):
+    origenter = s_base.Base.__aenter__
+    origexit = s_base.Base.__aexit__
+    origstorm = s_cortex.Cortex.storm
+    orignodes = s_cortex.Cortex.nodes
+
+    contexts = collections.defaultdict(int)
+
+    async def enter(self):
+        contexts[type(self)] += 1
+        return await origenter(self)
+
+    async def exit(self, exc, cls, tb):
+        contexts[type(self)] -= 1
+        await origexit(self, exc, cls, tb)
+
+    async def storm(self, text, opts=None):
+        async for mesg in origstorm(self, text, opts=opts):
+            yield mesg
+
+        for cont, refs in contexts.items():
+            testself.eq(0, refs)
+
+    async def nodes(self, text, opts=None):
+        nodes = await orignodes(self, text, opts=opts)
+
+        for cont, refs in contexts.items():
+            testself.eq(0, refs)
+
+        return nodes
+
+    with mock.patch('synapse.lib.base.Base.__aenter__', enter):
+        with mock.patch('synapse.lib.base.Base.__aexit__', exit):
+            with mock.patch('synapse.cortex.Cortex.nodes', nodes):
+                with mock.patch('synapse.cortex.Cortex.storm', storm):
+                    yield
+
 class PickleableMagicMock(mock.MagicMock):
     def __reduce__(self):
         return mock.MagicMock, ()
@@ -114,12 +154,22 @@ class LibTst(s_stormtypes.Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
+        {'name': 'someargs',
+         'desc': '''Example storm func with args.''',
+         'type': {'type': 'function', '_funcname': 'someargs',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
+                      {'name': 'bar', 'type': 'bool', 'desc': 'The value to beep.', 'default': True, },
+                      {'name': 'faz', 'type': 'str', 'desc': 'The value to beep.', 'default': None, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
 
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
+            'someargs': self.someargs,
         })
 
     async def beep(self, valu):
@@ -127,6 +177,13 @@ class LibTst(s_stormtypes.Lib):
         Example storm func
         '''
         ret = f'A {valu} beep!'
+        return ret
+
+    async def someargs(self, valu, bar=True, faz=None):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
 
 class TestType(s_types.Type):
@@ -190,7 +247,16 @@ testmodel = {
         ('test:type', 'synapse.tests.utils.TestType', {}, {}),
         ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
-
+    'interfaces': (
+        ('test:interface', {
+            'doc': 'test interface',
+            'props': (
+                ('size', ('int', {}), {}),
+                ('names', ('array', {'type': 'str'}), {}),
+            ),
+            'interfaces': ('inet:proto:request',)
+        }),
+    ),
     'types': (
         ('test:type10', ('test:type', {'foo': 10}), {
             'doc': 'A fake type.'}),
@@ -210,6 +276,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
+        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
         ('test:hugenum', ('hugenum', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
@@ -241,7 +308,8 @@ testmodel = {
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
-
+        ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
+        ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
     ),
 
     'univs': (
@@ -258,6 +326,7 @@ testmodel = {
         )),
         ('test:arrayform', {}, (
         )),
+        ('test:taxonomy', {}, ()),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {}),
@@ -377,7 +446,10 @@ testmodel = {
         ('test:ro', {}, (
             ('writeable', ('str', {}), {'doc': 'writeable property'}),
             ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
-        ))
+        )),
+
+        ('test:hasiface', {}, ()),
+        ('test:hasiface2', {}, ()),
 
     ),
 }
@@ -443,10 +515,7 @@ class TestModule(s_module.CoreModule):
 
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
 
-        async with await self.core.snap() as snap:
-            node = await snap.getNodeByNdef(('meta:source', self.testguid))
-            if node is None:
-                await snap.addNode('meta:source', self.testguid, {'name': 'test'})
+        await self.core.addNode(self.core.auth.rootuser, 'meta:source', self.testguid, {'name': 'test'})
 
         self.core.addStormLib(('test',), LibTst)
 
@@ -829,6 +898,31 @@ test_schema = {
         },
         'type': 'object',
     }
+
+class ReloadCell(s_cell.Cell):
+    async def postAnit(self):
+        self._reloaded = False
+        self._reloadevt = None
+
+    async def getCellInfo(self):
+        info = await s_cell.Cell.getCellInfo(self)
+        info['cell']['reloaded'] = self._reloaded
+        return info
+
+    async def addTestReload(self):
+        async def func():
+            self._reloaded = True
+            if self._reloadevt:
+                self._reloadevt.set()
+            return True
+
+        self.addReloadableSystem('testreload', func)
+
+    async def addTestBadReload(self):
+        async def func():
+            return 1 / 0
+
+        self.addReloadableSystem('badreload', func)
 
 class SynTest(unittest.TestCase):
     '''

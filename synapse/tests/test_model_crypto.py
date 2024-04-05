@@ -344,7 +344,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:smart:token=(2bdea834252a220b61aadf592cc0de66, 30)
                         :owner=eth/aaaa
                         :nft:url = https://coin.vertex.link/nfts/30
-                        :nft:meta = $lib.dict(name=WootWoot)
+                        :nft:meta = ({'name':'WootWoot'})
                         :nft:meta:name = WootWoot
                         :nft:meta:description = LoLoL
                         :nft:meta:image = https://vertex.link/favicon.ico
@@ -404,30 +404,38 @@ class CryptoModelTest(s_t_utils.SynTest):
 
     async def test_forms_crypto_simple(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
-            async with await core.snap() as snap:
-                # md5
-                node = await snap.addNode('hash:md5', TEST_MD5.upper())
-                self.eq(node.ndef, ('hash:md5', TEST_MD5))
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('hash:md5', TEST_SHA1))
-                # sha1
-                node = await snap.addNode('hash:sha1', TEST_SHA1.upper())
-                self.eq(node.ndef, ('hash:sha1', TEST_SHA1))
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('hash:sha1', TEST_SHA256))
-                # sha256
-                node = await snap.addNode('hash:sha256', TEST_SHA256.upper())
-                self.eq(node.ndef, ('hash:sha256', TEST_SHA256))
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('hash:sha256', TEST_SHA384))
-                # sha384
-                node = await snap.addNode('hash:sha384', TEST_SHA384.upper())
-                self.eq(node.ndef, ('hash:sha384', TEST_SHA384))
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('hash:sha384', TEST_SHA512))
-                # sha512
-                node = await snap.addNode('hash:sha512', TEST_SHA512.upper())
-                self.eq(node.ndef, ('hash:sha512', TEST_SHA512))
-                await self.asyncraises(s_exc.BadTypeValu, snap.addNode('hash:sha512', TEST_MD5))
+
+            nodes = await core.nodes('[(hash:md5=$valu)]', opts={'vars': {'valu': TEST_MD5.upper()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('hash:md5', TEST_MD5))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(hash:md5=$valu)]', opts={'vars': {'valu': TEST_SHA1}})
+
+            nodes = await core.nodes('[(hash:sha1=$valu)]', opts={'vars': {'valu': TEST_SHA1.upper()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('hash:sha1', TEST_SHA1))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(hash:sha1=$valu)]', opts={'vars': {'valu': TEST_SHA256}})
+
+            nodes = await core.nodes('[(hash:sha256=$valu)]', opts={'vars': {'valu': TEST_SHA256.upper()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('hash:sha256', TEST_SHA256))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(hash:sha256=$valu)]', opts={'vars': {'valu': TEST_SHA384}})
+
+            nodes = await core.nodes('[(hash:sha384=$valu)]', opts={'vars': {'valu': TEST_SHA384.upper()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('hash:sha384', TEST_SHA384))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(hash:sha384=$valu)]', opts={'vars': {'valu': TEST_SHA512}})
+
+            nodes = await core.nodes('[(hash:sha512=$valu)]', opts={'vars': {'valu': TEST_SHA512.upper()}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('hash:sha512', TEST_SHA512))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[(hash:sha512=$valu)]', opts={'vars': {'valu': TEST_MD5}})
 
     async def test_form_rsakey(self):
-        prop = 'rsa:key'
         props = {
             'bits': BITS,
             'priv:exp': HEXSTR_PRIVATE_EXPONENT,
@@ -438,18 +446,19 @@ class CryptoModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
-            async with await core.snap() as snap:
+            opts = {'vars': {'valu': valu, 'p': props}}
+            q = '[(rsa:key=$valu :bits=$p.bits :priv:exp=$p."priv:exp" :priv:p=$p."priv:p" :priv:q=$p."priv:q")]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
 
-                node = await snap.addNode(prop, valu, props)
-
-                self.eq(node.ndef[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
-
-                self.eq(node.get('mod'), HEXSTR_MODULUS)
-                self.eq(node.get('bits'), BITS)
-                self.eq(node.get('pub:exp'), HEXSTR_PUBLIC_EXPONENT)
-                self.eq(node.get('priv:exp'), HEXSTR_PRIVATE_EXPONENT)
-                self.eq(node.get('priv:p'), HEXSTR_PRIVATE_PRIME_P)
-                self.eq(node.get('priv:q'), HEXSTR_PRIVATE_PRIME_Q)
+            self.eq(node.ndef[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
+            self.eq(node.get('mod'), HEXSTR_MODULUS)
+            self.eq(node.get('bits'), BITS)
+            self.eq(node.get('pub:exp'), HEXSTR_PUBLIC_EXPONENT)
+            self.eq(node.get('priv:exp'), HEXSTR_PRIVATE_EXPONENT)
+            self.eq(node.get('priv:p'), HEXSTR_PRIVATE_PRIME_P)
+            self.eq(node.get('priv:q'), HEXSTR_PRIVATE_PRIME_Q)
 
     async def test_model_x509(self):
 
@@ -458,7 +467,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             crl = s_common.guid()
             cert = s_common.guid()
             icert = s_common.guid()
-            fileguid = 'guid:' + s_common.guid()
+            fileguid = f'guid:{s_common.guid()}'
 
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$icert
@@ -555,3 +564,18 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('crypto:x509:revoked', (crl, cert)))
             self.eq(nodes[0].get('crl'), crl)
             self.nn(nodes[0].get('cert'), cert)
+
+            # odd-length serials
+            serials = [
+                '1' * 7,
+                '2' * 9,
+                '3' * 15,
+                '4' * 17,
+                '5' * 31,
+                '6' * 33,
+                '7' * 39,
+            ]
+
+            for serial in serials:
+                msgs = await core.stormlist(f'[crypto:x509:cert=* :serial={serial}]')
+                self.stormHasNoErr(msgs)

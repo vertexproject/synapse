@@ -12,6 +12,7 @@ queries. These include:
 
 - `Init Block`_
 - `Fini Block`_
+- `Empty Block`_
 - `If-Else Statement`_
 - `Switch Statement`_
 - `For Loop`_
@@ -68,7 +69,7 @@ current working set is not what you think it is.
 **Be aware of your variables.** Storm supports both runtime-safe ("runtsafe") and non-runtime-safe
 ("non-runtsafe") variables. Non-runtsafe variables have values that may **change** based on the current node
 in the Storm pipeline. Another significant part of Storm troubleshooting involves understanding the values of
-any variables at any given point in your Storm code. (See :ref:`var-concepts` for addditional information.)
+any variables at any given point in your Storm code. (See :ref:`var-concepts` for additional information.)
 
 **Operations may execute multiple times.** Because each node passes through each operation in a Storm query
 individually, operations execute more than once (typically once for each node in the pipeline as it passes
@@ -206,6 +207,31 @@ set of nodes.
   }
 
 
+.. _flow-empty:
+
+Empty Block
++++++++++++
+
+An **empty block** allows you to execute the specified Storm when there are no nodes in the pipeline. If there
+are nodes in the pipeline, the associated Storm will not be executed.
+
+**Syntax:**
+
+::
+
+  empty { <storm> }
+
+**Example:**
+
+You have a function that conditionally creates a set of nodes and you wish to be warned if no nodes have been made.
+
+::
+
+    yield $makeSomeNodes()
+    empty {
+        $lib.print("No nodes created")
+    }
+
 .. _flow-if-else:
 
 If-Else Statement
@@ -302,7 +328,7 @@ before attempting to download it.
   
   <inbound file:bytes node(s)>
   
-  if $lib.bytes.has(:sha256) { }
+  if $lib.axon.has(:sha256) { }
   
   else { | malware.download }
 
@@ -310,9 +336,9 @@ before attempting to download it.
 The Storm query above:
 
 - takes an inbound ``file:bytes`` node;
-- checks for the file in the Axon (:ref:`stormlibs-lib-bytes-has`) using the ``:sha256`` value of the inbound
+- checks for the file in the Axon (:ref:`stormlibs-lib-axon-has`) using the ``:sha256`` value of the inbound
   file;
-- if ``$lib.bytes.has(:sha256)`` returns ``true`` (i.e., we have the file), do nothing (``{  }``);
+- if ``$lib.axon.has(:sha256)`` returns ``true`` (i.e., we have the file), do nothing (``{  }``);
 - otherwise call the ``malware.download`` service to attempt to download the file.
 
 **Note:** In the above example, ``malware.download`` is used as an example Storm command; it does not exist
@@ -421,16 +447,16 @@ the file's hashes. (**Note:** this code could be executed by a **trigger** (see 
 when the relevant tag(s) are applied.)
 
 ::
-  
+
   <inbound file:bytes node(s)>
-  
-  for $tag in $node.tags(cno.**) {
-      
+
+  { for $tag in $node.tags(cno.**) {
+
       { :md5 -> hash:md5 [ +#$tag ] }
       { :sha1 -> hash:sha1 [ +#$tag ] }
       { :sha256 -> hash:sha256 [ +#$tag ] }
       { :sha512 -> hash:sha512 [ +#$tag ] }
-  }
+  }}
 
 
 For each inbound node, the for loop:

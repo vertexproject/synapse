@@ -1,0 +1,652 @@
+.. highlight:: none
+
+.. storm-cortex:: default
+.. storm-pre:: $propinfo = ({"doc": "The VirusTotal reputation score."}) $lib.model.ext.addFormProp(inet:fqdn, _virustotal:reputation, (int, ({})), $propinfo)
+.. storm-pre:: $propinfo = ({"doc": "The number of harmless votes from the VirusTotal community."}) $lib.model.ext.addFormProp(inet:fqdn, _virustotal:votes:harmless, (int, ({})), $propinfo)
+.. storm-pre:: $propinfo = ({"doc": "The number of malicious votes from the VirusTotal community."}) $lib.model.ext.addFormProp(inet:fqdn, _virustotal:votes:malicious, (int, ({})), $propinfo)
+
+.. _userguide_datamodel:
+
+Data Model
+##########
+
+Synapse's knowledge graph is built on a robust, extensible data model that can represent a broad range of data
+and relationships. The data model (and associated :ref:`analytical-model`) allow both data and assertions to be
+represented in a structured, consistent manner. This means that instead of analysts needing to review prose
+reports to understand current state (and fuse those reports into still more prose to revise their assessments),
+analysts (and algorithms) can ask analytical questions directly of the data - and answer those questions quickly
+and easily.
+
+Capturing data and analysis in a structured model abstracts away some of the subtleties and caveats that can
+be conveyed in prose, and finished reporting is still appropriate in many cases. But a **good** data model
+can represent enough information so that key objects, relationships, and assessments are well-defined,
+unambiguous, and self-evident upon examination.
+
+This section provides background on the components of Synapse's data model and their use.
+
+.. TIP::
+  
+  There are various ways to examine Synapse's data model in greater detail:
+  
+  - Synapse Enterprise customers or users who have requested a `Synapse demo instance`_ and have access to
+    the `Synapse UI (Optic)`_ can use the `Data Model Explorer`_ to view Synapse's forms and light edges and
+    their relationships to each other. The `Tag Explorer`_ can be used to view the tags that exist in your
+    instance of Synapse.
+    
+  - Data model components such as types, forms, and properties are generated as runtime nodes ("runt nodes")
+    when a Cortex is initialized and can be viewed as meta-objects within Synapse itself. See the
+    :ref:`storm-ref-model-introspect` section for details.
+  
+  - The data model is defined in the Synapse `source code`_. The :ref:`dm-index` provides a technical
+    reference of individual types and forms, and includes our data model deprecation policy.
+
+.. _data-model-terms:
+
+Data Model Objects
+==================
+
+To work effectively with Synapse and the Storm query language, you need to understand the basic elements of
+the Synapse data model.
+
+.. _data-type:
+
+Type
+----
+
+A **type** is the definition of a data element within the Synapse data model. A type describes what the element is
+and enforces how it should look, including how it should be normalized, if necessary, for both storage (including
+indexing) and representation (display).
+
+Synapse's data model includes standard types such as integers and strings, but further defines a broad range of
+types such as globally unique identifiers (``guid``), date/time values (``time``), time intervals (``ival``), and
+tags (``syn:tag``).
+
+Objects (nodes) may also be specialized types. For example, an IPv4 address (``inet:ipv4``) is its own type.
+An IPv4 address is stored as an integer, but the ``inet:ipv4`` type has additional constraints (e.g., to ensure
+that IPv4s created in Synapse only use integer values that fall within the allowable IPv4 address space). These
+constraints may be defined by a :ref:`gloss-constructor` that specifies how a property of that type can
+be created (constructed) in Synapse.
+
+Synapse uses :ref:`gloss-type-enforce`, :ref:`gloss-type-norm`, and :ref:`gloss-type-aware` to ensure consistency
+in the way data is entered, stored, and represented, and to facilitate navigation of the knowledge graph.
+
+Type-Specific Behavior
+++++++++++++++++++++++
+
+Synapse includes optimizations for some types to improve performance and functionality. Some of these are "back end"
+optimizations (i.e., for indexing and storage) while some are more "front end" in terms of how users can interact
+with data. See :ref:`storm-ref-type-specific` for additional detail.
+
+.. _data-form:
+
+Form
+----
+
+A **form** is the definition of an object in the Synapse data model. A form acts as a "template" that tells you how
+to create a particular object (node). While the concepts of form and node are closely related, it is useful
+to maintain the distinction between the **template** for creating an object (a form) and an **instance** of a particular
+object (a node). ``inet:fqdn`` is a form; ``inet:fqdn = vertex.link`` is a node.
+
+All forms must have a **primary property.** The primary property is the name of the form and the definition of the
+value to be provided for individual instances (nodes) of that form. The primary property must be defined so that it
+is unique across all possible instances of that form. For example, FQDNs are unique, based on the way they are defined
+and registered (two different organizations cannot both register the FQDN ``vertex.link``). So the primary property
+value of an ``inet:fqdn`` is simply the FQDN itself.
+
+All properties in Synapse must have a defined **type;** in many cases, a form is also its own type (for example, the form
+``inet:fqdn`` has a type of ``inet:fqdn``).
+
+Forms may have **secondary properties** that record additional information about the form or further describe it.
+Secondary properties are form-specific. In most cases, secondary properties are explicitly defined for each form.
+If similar forms should share a subset of common properties, the properties may be defined as an **interface**
+that is **inherited** by those forms.
+
+Synapse also supports a set of universal secondary properties (**universal properties**) that are valid for all forms.
+
+**Extended properties** may be added to forms to store specialized or use case-specific data related to the form.
+
+.. _form-namespace:
+
+Form Namespace
+++++++++++++++
+
+Synapse uses a structured namespace for forms. Each form name consists of at least two elements separated by a
+colon ( ``:`` ). For example:
+
+ - ``file:bytes``
+ - ``inet:fqdn``
+ - ``ou:org``
+ - ``risk:threat``
+ 
+The first element in the namespace represents a rough "category" for the form (i.e., ``inet`` for Internet-related
+objects). The Synapse data model is broad and extensible. The ability to group portions of the data model into
+related categories makes a large model easier to manage, and also allows Synapse users to focus on those portions
+of the model most relevant to them.
+
+The second and / or subsequent elements in the form name define the specific "subcategory" or "thing" within the
+form's primary category (e.g., ``inet:fqdn`` represents a fully qualified domain name (FQDN) within the "Internet"
+(``inet``) category.
+
+**Properties** have a namespace that extends the form namespace (form names are also primary properties). See
+:ref:`data-props` and :ref:`prop-namespace` below for additional detail.
+
+.. _form-extended:
+
+Extended Form
++++++++++++++
+
+Synapse users can add their own **extended forms** to the data model using the :ref:`stormlibs-lib-model-ext`
+libraries.
+
+.. NOTE::
+  
+  We **strongly encourage** Synapse users who are considering extending the data model by creating custom
+  forms to reach out to The Vertex Project first - you can readily contact us through our `Slack`_ channel.
+  If there are gaps or missing elements in the data model, we would prefer to expand Synapse's data model
+  for all users vs. individual users making numerous one-off customizations. If an extended form is
+  appropriate for the use case, we can also offer feedback to help ensure the form's design is consistent
+  with best practices.
+
+
+.. _interface:
+
+Interface
+---------
+
+An **interface** defines a set of secondary properties that should be present on a particular subset of forms.
+Instead of explicitly defining each secondary property on each form, the forms can be defined as **inheriting**
+a particular interface and its associated properties. This both simplifies and ensures consistency in the
+data model.
+
+For example, Synapse uses several forms to represent activity occurring on a host, such as a file being added
+(``it:exec:file:add``) or a process being executed (``it:exec:proc``). These forms represent similar operations,
+so they all share a subset of secondary properties such as the time of execution (``:time``) or the file
+(``:exe``) or process (``:proc``) responsible for the activity. These properties are defined as an
+``it:host:activity`` **interface** which is then declared / inherited for each form.
+
+Interfaces can be inherited by other interfaces. For example, the ``inet:proto:request`` interface, which
+represents a client (host) requesting a network connection, inherits the ``inet:host:activity`` interface.
+
+Interfaces can be used in Storm lift, filter, and pivot operations to make it easier to work with nodes
+of all forms that share the interface (vs. specifying each kind of node separately). See the appropriate
+sections of the :ref:`userguide_storm_ref` for details.
+
+
+.. _data-node:
+
+Node
+----
+
+A **node** is a unique object within Synapse; they are specific instances of generic forms. Every node consists of:
+
+- A **primary property**, represented by the form of the node plus its value (``<form> = <valu>``). All primary
+  properties must be unique for a given form; the uniqueness of the ``<form> = <valu>`` pair ensures there can 
+  be only one node in Synapse that represents the domain woot.com ( ``inet:fqdn = woot.com`` ). Because this
+  unique pair "defines" the node, the comma-separated form / value combination (``<form>,<valu>``) is also known
+  as the node’s :ref:`gloss-ndef` (short for "node definition").
+
+- One or more **universal properties** and an associated property value. As the name implies, universal properties
+  apply to all nodes.
+
+- Optional **secondary properties**. Similar to primary properties, secondary properties consist of a property name
+  (of a specific **type**) and the property’s value (``<prop> = <pval>``).
+
+- Optional **tags**. A tag acts as a label with a particular meaning that can be applied to a node to provide context.
+
+- Optional **extended properties** and their associated values.
+
+Node Example
+++++++++++++
+
+The Storm query below lifts and displays the node for the domain ``www.google.com``:
+
+.. storm-pre:: [ inet:fqdn=www.google.com +#rep.moz.500 :_virustotal:reputation=497 :_virustotal:votes:harmless=318 :_virustotal:votes:malicious=53 ]
+.. storm-cli:: inet:fqdn=www.google.com
+
+In the output above:
+
+- ``inet:fqdn = www.google.com`` is the **primary property** (``<form> = <valu>``).
+- ``.created`` is a **universal property** showing when the node was added to the Cortex.
+- ``:domain``, ``:host``, etc. are form-specific **secondary properties** with their associated values (``<prop> = <pval>``).
+  For readability, secondary properties (including universal properties and extended properties) are displayed as
+  **relative properties** within the namespace of the form’s primary property (e.g., ``:domain`` as opposed to ``inet:fqdn:domain``).
+- The various ``:_virustotal:*`` properties are **extended properties** added to the data model by the `Synapse-VirusTotal`_
+  Power-Up to represent specialized data provided by VirusTotal.
+- ``#rep.moz.500`` is a **tag** indicating that ``www.google.com`` has been reported by web analytics company Moz_ 
+  as one of their top 500 most popular websites.
+
+See :ref:`data-node-types` below for additional detail on how nodes are used to represent various objects in
+Synapse.
+
+.. _data-props:
+
+Property
+--------
+
+**Properties** are the individual elements that define a **form** or (along with their values) that comprise a
+**node.** All properties in Synapse must have a defined **type**.
+
+.. _data-prop-primary:
+
+Primary Property
+++++++++++++++++
+
+Every form consists of (at minimum) a **primary property:** the name of the form and the definition of the
+value to be provided for individual instances (nodes) of that form. All forms must be designed so that their
+primary property value is unique across all instances (nodes) of that form.
+
+This uniqueness is straightforward for simple objects such as FQDNs or email addresses. Ensuring "uniqueness" for
+more complex nodes (such as those representing a :ref:`node-relationship` or an :ref:`node-event`) can be more
+challenging; these forms are often :ref:`gloss-guid` forms.
+
+Because a primary property uniquely defines a node, **it cannot be modified once the node is created.** To "change"
+a node's primary property value you must delete and re-create the node.
+
+.. _data-prop-secondary:
+
+Secondary Property
+++++++++++++++++++
+
+A form can include optional **secondary properties** that provide additional detail about the form. Secondary
+properties are specific to a given form and further describe that form. A node may include secondary properties
+with their associated values (``<prop> = <pval>``).
+
+Some secondary properties are based on (derived from) a node's primary property value. For example, an email
+address (``inet:email``) has secondary properties for both the associated FQDN (``inet:email:fqdn``) and username
+(``inet:email:user``). When you create the node ``inet:email=info@vertex.link``, Synapse automatically sets the
+associated secondary property values. Any secondary properties derived from a node's primary property are read-only
+(just like the primary property they are based on) and cannot be changed once set.
+
+Any secondary properties **not** based on a node's primary property are **optional.** Their values can be set if
+the data is available and relevant to your use case; otherwise they can remain unset. For example, an IPv4 node
+(``inet:ipv4``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ipv4:asn``).
+All optional secondary property values can be set, modified, or removed as needed.
+
+.. _data-prop-universal:
+
+Universal Property
+++++++++++++++++++
+
+Synapse defines a subset of secondary properties as **universal properties** that are applicable to all forms:
+
+- ``.created``, which is set automatically by Synapse for all nodes and whose value is the date/time that the
+  node was created within that instance of Synapse (Cortex).
+- ``.seen``, which is optional for all nodes and whose value is a time interval (minimum or "first seen" and
+  maximum or "last seen") during which the node was observed, existed, or was valid.
+
+.. _data-prop-extended:
+
+Extended Property
++++++++++++++++++
+
+Synapse supports the addition of specialized ("extended") properties outside of Synapse's baseline data
+model. Extended properties may be used to represent specialized data that is relevant for specific use
+cases and can be added using the :ref:`stormlibs-lib-model-ext` libraries.
+
+For example, third-party vendors that provide threat intelligence or cybersecurity data may include vendor
+assessments, such as "risk" or "reputation" scores. These values may only be "interesting" to security
+researchers, and are provided by a very specific data source. Instead of adding these specialized values to
+the baseline data model, extended properties can be added as needed to accommodate specialized needs.
+
+Extended properties must start with an underscore ( ``:_<extended_property>`` ) to avoid name collisions
+with baseline data model properties (current or future). In addition, we recommend using the name of the
+vendor or data source (if appropriate) as the first element in the property namespace (e.g.,
+``:_virustotal:reputation``).
+
+.. NOTE::
+  
+  We **strongly encourage** Synapse users who are considering extending the data model by creating custom
+  properties to reach out to The Vertex Project first - you can readily contact us through our `Slack`_
+  channel. If there are gaps or missing elements in the data model, we would prefer to expand Synapse's
+  data model for all users vs. individual users making numerous one-off customizations. If an extended
+  property is appropriate for the use case, we can also offer feedback to help ensure the property's
+  design is consistent with best practices.
+
+.. _prop-namespace:
+
+Property Namespace
+++++++++++++++++++
+
+Properties extend the :ref:`form-namespace`. Form names are **primary properties**, and consist of at least
+two elements separated by a colon ( ``:`` ).
+
+- **Secondary properties** exist within the namespace of their primary property (form). Secondary properties
+  are preceded by a colon ( ``:`` ) and use the colon to separate additional namespace elements, if needed.
+- **Universal properties** are preceded by a period ( ``.`` ) to distinguish them from form-specific secondary properties.
+- **Extended properties** are preceded by a colon and an underscore ( ``:_`` ).
+
+For example, the secondary (both universal and form-specific) properties of ``inet:fqdn`` include:
+
+- ``inet:fqdn.created`` (universal property)
+- ``inet:fqdn:zone`` (secondary property)
+
+The VirusTotal Power-Up adds extended properties to various forms, including ``inet:fqdn``:
+
+- ``inet:fqdn:_virustotal:reputation``
+
+Secondary properties (including extended and universal properties) also make up a relative namespace (set of
+**relative properties**) with respect to their primary property (form). The Storm query language allows (or
+in some cases, requires) you to reference a property using its relative property name (i.e., ``:zone`` vs.
+``inet:fqdn:zone``).
+
+Relative properties are also used for display purposes within Synapse for visual clarity (see the `Node Example`_ above).
+
+Secondary properties (including extended properties) may have their own namespace. Both primary and secondary
+properties use colons to separate elements of the property name. However, not all separators represent property
+"boundaries"; some act more as "sub-namespace" separators.
+
+For example ``file:bytes`` is a primary property / form. A ``file:bytes`` form may include
+secondary properties such as ``:mime:pe:imphash`` and ``:mime:pe:compiled``.  In these examples, ``:mime``
+and ``:mime:pe`` are not secondary properties, but sub-namespaces for individual MIME data types and the
+"PE executable" data type specifically.
+
+.. _data-tag:
+
+Tag
+---
+
+**Tags** are annotations applied to nodes. They can be thought of as labels that provide context to the data
+represented by the node.
+
+Broadly speaking, within Synapse:
+
+- Nodes represent **things:** objects, relationships, or events. In other words, nodes typically represent
+  observables that are verifiable and largely unchanging.
+- Tags typically represent **assessments:** observations that could change if the data or the analysis of the
+  data changes.
+
+For example:
+
+- An Internet domain is an "observable thing" - a domain exists, was registered through a domain registrar, and can be
+  created as a node such as ``inet:fqdn = woot.com``.
+- Whether a domain has been sinkholed is an assessment. A researcher may need to evaluate data related to that domain
+  (such as domain registration records or current and past IP resolutions) to decide whether the domain appears to be
+  sinkholed. This assessment can be represented by applying a tag such as ``cno.infra.dns.sink.holed`` to the
+  ``inet:fqdn = woot.com`` node.
+
+Tags can include :ref:`tag-timestamps` and support the addition of :ref:`tag-properties`.
+
+Tags are unique within the Synapse model because tags are both **nodes** and **labels applied to nodes.** The tag
+``cno.infra.dns.sink.holed`` can be applied to another node; but the tag itself also exists as the node 
+``syn:tag = cno.infra.dns.sink.holed``. This difference is illustrated in the example below.
+
+.. TIP::
+  
+  Synapse does not have any pre-defined tags. Users are free to create tags that are meaningful for their analysis.
+  See :ref:`analytical-model` for more detail.
+
+Tag Example
++++++++++++
+
+The Storm query below displays the **node** for the tag ``cno.infra.dns.sink.holed``:
+
+.. storm-pre:: [syn:tag=cno.infra.dns.sink.holed :title='Sinkholed domain' :doc='A domain (zone) that has been sinkholed.']
+.. storm-pre:: [inet:fqdn=hugesoft.org +#cno.infra.dns.sink.holed ]
+
+.. storm-cli:: syn:tag=cno.infra.dns.sink.holed
+
+The Storm query below displays the **tag** ``cno.infra.dns.sink.holed`` applied to the **node** ``inet:fqdn = hugesoft.org``:
+
+.. storm-cli:: inet:fqdn=hugesoft.org
+
+Note that a tag **applied to a node** uses the "hashtag" symbol ( ``#`` ). This is a visual cue to distinguish tags
+on a node from the node's secondary properties. The symbol is also used within the Storm query language syntax to
+reference a tag as opposed to a ``syn:tag`` node.
+
+.. _data-light-edge:
+
+Lightweight (Light) Edge
+------------------------
+
+Lightweight (light) edges are used in Synapse to provide greater flexibility and improved performance when representing 
+certain types of relationships. A light edge is similar to an edge in a traditional directed graph; each light edge
+links exactly two nodes (``n1`` and ``n2``), and consists of:
+
+- A **direction.** Light edge relationships only "make sense" in one direction, given the forms that they link. For
+  example, an article can reference an indicator such as an MD5 hash, but an MD5 hash does not "reference" an article.
+- A **"verb"** that represents the relationship (e.g., ``refs`` for "references" in the example above).
+
+Light edges do not have properties, and you cannot apply tags to light edges - hence the "light" in light edge.
+
+Light edges are used for performance and flexibility in certain use cases. For example:
+
+- When the **only** information you need to record about a relationship is that it exists (that is, no properties are
+  required to further "describe" the relationship). An example is ``meta:ruleset -(contains)> meta:rule``.
+- When the objects (nodes) involved in the relationship may vary. That is, either the ``n1`` or ``n2`` node (or both)
+  may be **any** kind of node, depending on the context of the relationship. Examples include ``meta:source -(seen)> *``
+  (where a data source may "see", observe, or provide data on any ``n2`` object) and ``* -(refs)> *`` (where a
+  variety of ``n1`` nodes may "reference" or contain a reference to any ``n2`` node).
+- When the objects (nodes) to be linked do not share any properties in common (i.e., that could allow the nodes to
+  be implicity linked via a shared property value / pivot relationship).
+
+Synapse's source code includes some pre-defined light edges that represent The Vertex Project's conventions. While
+we recommend the use of these conventions, we do not enforce their use. Synapse users are free to create / define
+their own light edges and use them as they see fit. (Note that Synapse `Power-Ups`_ provided by The Vertex Project
+will create light edges according to our conventions when ingesting data.)
+
+.. TIP::
+  
+  Light edges should not be used as a convenience to short-circuit proper data modeling using forms. Using forms
+  and nodes (combined with Synapse's strong typing, type enforcement, and type awareness) are key to the powerful
+  analysis and performance capabilities of a Synapse hypergraph.
+
+
+.. _data-form-types:
+
+Kinds of Forms
+==============
+
+Synapse forms can be broadly grouped based on how their **primary properties** (``<form> = <valu>``) are formed.
+Recall that primary properties must be defined so that they are unique for all possible instances of that form.
+
+.. _form-simple:
+
+Simple Form
+-----------
+
+A simple form refers to a form whose primary property is a single value. Simple forms are commonly used
+to represent an :ref:`node-object` and are the most readily understood from a modeling perspective. The "object
+itself" is unique by definition, so the form's primary property value is the object. Examples of simple forms
+include FQDNs, IP addresses (IPv4 or IPv6), hashes, and so on.
+
+.. _form-comp:
+
+Composite (Comp) Form
+---------------------
+
+A composite (comp) form is one where the primary property is a comma-separated list of two or more elements.
+While no single element makes the form unique, a set of elements may be sufficiently unique to define
+the form. Comp forms are often (though not universally) used to represent a :ref:`node-relationship`.
+
+Fused DNS A records are an example of a comp form. A DNS A record can be uniquely defined by the combination
+of the domain (``inet:fqdn``) and the IP address (``inet:ipv4``) in the A record. In Synapse, an ``inet:dns:a``
+form represents the knowledge that a given domain resolved to a specific IP at some time, or within a time window.
+(The universal ``.seen`` property captures "when" (first observed / last observed) the resolution took place.)
+
+.. _form-guid:
+
+Guid Form
+---------
+
+A guid (Globally Unique Identifier) form is uniquely defined by a machine-generated 128-bit number. Guids account
+for cases where it is impossible to uniquely define a thing based on a property or set of properties. Guids are
+also useful for cases where the amount of data available to create a particular object (node) may vary greatly -
+that is, not all properties or details are available from all data sources. A guid form gives you the flexibility
+(through secondary properties) to capture as much (or as little) data as is available to you.
+
+A guid form can be considered a special case of a **simple form** where the form's value is a ``<guid>``.
+
+Forms that represent one-time events are often guid forms. Examples include host execution activity (such as
+``it:exec:file:add`` nodes) or network activity (such as ``inet:dns:request`` nodes). Guid forms are also used
+to represent entities such as people (``ps:person``) or organizations (``ou:org``).
+
+.. NOTE::
+
+  Guid values can be arbitrary (generated ad-hoc by Synapse) or predictable / deconflictable (generated based on
+  a specific set of inputs). See the :ref:`type-guid` section of :ref:`storm-ref-type-specific` for a more
+  detailed discussion of this concept.
+
+.. _form-edge:
+
+Edge (Digraph) Form
+-------------------
+
+An edge (digraph) form is a specialized **composite form** where the set of values for the primary property
+includes at least one **ndef** ("node definition, or ``<form>,<valu>`` pair). An edge form is a specialized
+relationship form that can be used when one or both of the forms to be linked could be an arbitrary (i.e., any)
+form. For example, a ``meta:seen`` node (now replaced by a ``seen`` light edge) was previously used to link a
+``meta:source`` (using the node's guid value) to an arbitrary node that was "seen" by the source (such as the
+domain "woot.com", using the ndef value ``inet:fqdn, woot.com``).
+
+Edge forms predate the introduction of light edges to the Synapse data model; light edges were added in order
+to address some of the performance overhead incurred by edge forms (i.e., it is easier and faster to create
+a light edge for simple relationships vs. creating an entire node simply to link two other nodes).
+
+Edge forms may be appropriate for particular use cases, but light edges are generally preferred where possible.
+
+
+.. _form-generic:
+
+Generic Form
+------------
+
+The Synapse data model includes a number of "generic" forms that can be used to represent metadata and / or arbitrary data. 
+
+Synapse's data model can be expanded as needed, so ideally all data in Synapse would be represented using
+an appropriate form. However, designing a new form may require discussion, subject matter expertise, and testing
+against "real world" data, as well as time to implement the changes. Analysts may have a need to capture data "in
+the moment" without waiting for model updates. Alternatively, some data may be "one off" information that needs to
+be represented, but does not necessarily require its own form for a limited or unique use case.
+
+In the above cases, generic forms may be used to capture data where a more specific form does not exist. Generic
+forms reside in two primary parts of the data model: ``meta:*`` forms and ``graph:*`` forms.
+
+The ``meta:rule`` form is an example of a generic form. Synapse includes more specific forms to represent common
+detection logic such as antivirus (``it:av:sig`` and ``it:av:filehit``) or YARA rules (``it:app:yara:rule`` and 
+``it:app:yara:match``). Other technologies or organizations may have their own specific (and often "black box")
+detection logic.
+
+A ``meta:rule`` form can represent an arbitrary detection rule, with a ``-(matches)>`` light edge used to link the
+rule to the "thing" (file, network traffic, etc.) that the rule fired on.
+
+.. _data-node-types:
+
+Kinds of Nodes
+==============
+
+Nodes represent standard objects ("nouns") such as IP addresses, files, people, conferences, or airplanes. They can
+also represent more abstract objects such as industries, risks, attacks, or goals. However, in Synapse nodes can also
+represent relationships or specific time-based events. You can think of a node generically as a "thing" - most "things"
+you want to model within Synapse are nodes.
+
+Broadly speaking, nodes can be thought of in terms of some generic categories:
+
+.. _node-object:
+
+Object
+------
+
+Nodes can represent atomic objects or entities, whether real or abstract. Entities are often (though not always)
+represented as a :ref:`form-simple`. An email address (``inet:email``) is a basic example of an entity-type node /
+simple form:
+
+.. storm-pre:: [inet:email=kilkys@yandex.ru]
+.. storm-cli:: inet:email=kilkys@yandex.ru
+
+.. _node-relationship:
+
+Relationship
+------------
+
+Nodes can represent specific **relationships** among entities. Examples include a domain resolving to an IPv4
+address, a malware dropper containing or extracting another file, a company being a subsidiary of another business,
+or a person being a member of a group.
+
+Relationship nodes are often represented as a :ref:`form-comp`. Comp forms have a primary property consisting
+of a comma-separated list of two or more values that uniquely define the relationship. A DNS A record (``inet:dns:a``)
+is a basic example of a relationship node:
+
+.. storm-pre:: [inet:dns:a=(google.com,172.217.9.142)]
+.. storm-cli:: inet:dns:a=(google.com,172.217.9.142)
+
+.. _node-event:
+
+Event
+-----
+
+Nodes can represent individual time-based occurrences. The term **event** implies that an entity existed or a
+relationship occurred at a specific point in time. Events represent the combination of a node and a timestamp
+for when the node was observed. Examples of event forms include an individual login to an account, a specific
+DNS query, or a domain registration (whois) record captured on a specific date.
+
+The structure of an event node may vary depending on the specific event being modeled. A "simple" event
+may be represented as a :ref:`form-comp` that combines an entity and a timestamp; for example, a domain whois
+record (``inet:whois:rec``) consists of the whois record and the time that record was observed or retrieved.
+
+Other more complex events are represented as a :ref:`form-guid` with the timestamp as one of several secondary
+properties on the form. A specific, individual DNS query (``inet:dns:request``) is an example of an event node:
+
+.. storm-pre:: [inet:dns:request="00000a17dbe261d10ce6ed514872bd37" :query=(tcp://199.68.196.162,download.applemusic.itemdb.com,1) :reply:code=0 :server=tcp://178.62.239.55 :time="2018/09/30 16:01:27.506"]
+.. storm-cli:: inet:dns:request=00000a17dbe261d10ce6ed514872bd37
+
+.. _instance-fused:
+
+Instance Knowledge vs. Fused Knowledge
+--------------------------------------
+
+For some types of data, event nodes and relationship nodes can encode similar information but represent the
+difference between **instance knowledge** and **fused knowledge.**
+
+- Event forms represent the specific point-in-time existence of an entity or occurrence of a relationship - an
+  **instance** of that knowledge.
+
+- Relationship forms can leverage the universal ``.seen`` property to set "first observed" and "last observed"
+  times during which an entity existed or a relationship was true. This date range can be viewed as **fused**
+  knowledge - knowledge that summarizes or "fuses" the data from many individual observations (instances) of the
+  node over time.
+
+Instance knowledge and fused knowledge represent differences in data granularity. Whether to create an event
+node or a relationship node (or both) depends on how much detail is required for your analysis. This 
+consideration often applies to relationships that change over time, particularly those that may change frequently.
+
+DNS records are a good example of these differences. The IP address that a domain resolves to may change
+infrequently (e.g., for a website hosted on a stable server) or may change quite often (e.g., where the IP is
+dynamically assigned or where load balancing is used).
+
+One option to represent and track DNS A records is to create individual events every time you check the domain’s
+current resolution (e.g., ``inet:dns:request`` and ``inet:dns:answer`` forms). This represents a very high degree
+of granularity as the nodes will record the exact time a domain resolved to a given IP. The nodes can also capture
+additional detail such as the querying client, the responding server, the response code, and so on. However, the
+number of such nodes could readily reach into the hundreds of millions if you create nodes for every resolution
+of every domain you want to track.
+
+On the other hand, it may be sufficient to know that a domain resolved to an IP address during a given **period**
+of time – a "first observed" and "last observed" (``.seen``) range. A single ``inet:dns:a`` node can be created
+to show that domain ``woot.com`` resolved to IP address ``1.2.3.4``, where the earliest observed resolution was
+2014/08/06 at 13:56 and the most recently observed resolution was 2018/05/29 at 7:32. These timestamps can be
+extended (earlier or later) if additional data changes our observation boundaries.
+
+This second approach loses some granularity:
+
+- The domain is not guaranteed to have resolved to that IP **continuously** throughout the entire time period.
+- Given only this node, we don’t know **exactly** when the domain resolved to the IP address during that time
+  period, except for the earliest and most recent observations.
+
+However, this fused knowledge may be sufficient for our needs and may be preferable to creating thousands of nodes
+for individual DNS resolutions.
+
+Of course, a hybrid approach is also possible, where most DNS A record data is recorded in fused ``inet:dns:a``
+nodes but it is also possible to record high-resolution, point-in-time ``inet:dns:request`` and ``inet:dns:answer``
+nodes when needed.
+
+
+
+.. _source code: https://github.com/vertexproject/synapse
+.. _Synapse demo instance: https://synapse.docs.vertex.link/en/latest/synapse/quickstart.html#synapse-demo-instance
+.. _Synapse UI (Optic): https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _Data Model Explorer: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/get_help.html#using-data-model-explorer
+.. _Tag Explorer: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/get_help.html#using-tag-explorer
+.. _Synapse-VirusTotal: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html
+.. _Moz: https://moz.com/top500
+.. _Slack: https://v.vtx.lk/slack
+.. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html

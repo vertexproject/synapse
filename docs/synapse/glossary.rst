@@ -132,6 +132,15 @@ Column, Embed
 In :ref:`gloss-optic`, a column in Tabular display mode that displays a **property value from an adjacent or nearby
 node**.
 
+.. _gloss-col-path-var:
+
+Column, Path Variable
+---------------------
+
+In :ref:`gloss-optic`, a column in Tabular display mode that displays **arbitrary data in a column** by defining
+the data as a :ref:`gloss-variable` (a path variable or "path var") within a Storm query.
+
+
 .. _gloss-col-prop:
 
 Column, Property
@@ -344,12 +353,14 @@ See :ref:`gloss-graph-directed`.
 Display Mode
 ------------
 
-In :ref:`gloss-optic`, a means of visualizing data using the :ref:`gloss-research-tool`. Optic supports four display modes, namely:
+In :ref:`gloss-optic`, a means of visualizing data using the :ref:`gloss-research-tool`. Optic supports the following display modes:
 
 - **Tabular mode,** which displays data and tags in tables (rows of results with configurable columns).
 - **Force Graph mode,** which projects data into a directed graph-like view of nodes and their interconnections.
 - **Statistics (stats) mode,** which automatically summarizes data using histogram (bar) and sunburst charts.
 - **Geospatial mode,** which can be used to plot geolocation data on a map projection.
+- **Tree Graph mode,** which displays nodes as a series of vertical "cards" and their property-based links to other nodes.
+- **Timeline mode,** which displays nodes with a time property in time sequence order.
 
 .. _gloss-dmon:
 
@@ -729,6 +740,15 @@ Ingest Tool
 
 See :ref:`gloss-tool-ingest`.
 
+.. _gloss-interface:
+
+Interface
+---------
+
+In Synapse, an interface is a data model element that defines a set of secondary properties that are common to a
+subset of related forms. Forms that should have the set of secondary properties can be defined so as to "inherit"
+the interface and its properties, as opposed to explicitly declaring each property on every form.
+
 .. _gloss-inst-know:
 
 Instance Knowledge
@@ -976,6 +996,13 @@ A package is a set of commands and library code used to implement a :ref:`gloss-
 service is loaded into a Cortex, the Cortex verifies that the service is legitimate and then requests the service's
 packages in order to load any extended Storm commands associated with the service and any library code used to
 implement the service.
+
+.. _gloss-path-var-col:
+
+Path Variable Column
+--------------------
+
+See :ref:`gloss-col-path-var`.
 
 .. _gloss-permission:
 
@@ -1226,7 +1253,7 @@ Runtsafe
 
 Short for "runtime safe". Runtsafe refers to the use of variables within Storm. A variable that is **runtsafe** has a
 value that will not change based on the specific node passing through the Storm pipeline. A variable whose value is
-explcitly set, such as ``$fqdn = woot.com`` is an example of a runtsafe varaible.
+explicitly set, such as ``$fqdn = woot.com`` is an example of a runtsafe varaible.
 
 Contrast with :ref:`gloss-non-runtsafe`.
 
@@ -1448,6 +1475,16 @@ Tag Glob Column
 
 See :ref:`gloss-col-tagglob`.
 
+.. _gloss-taxonomy:
+
+Taxonomy
+--------
+
+In Synapse, a taxonomy is a user-defined set of hierarchical categories that can optionally be used to further
+classify particular objects (forms). Taxonomies use a dotted namespace (similar to tags). Forms that support
+a taxonomy will have a secondary property whose :ref:`gloss-type` is the taxonomy for that form (e.g., an
+``ou:industry`` form has a ``:type`` secondary property whose type is ``ou:industry:type:taxonomy``).
+
 .. _gloss-telepath:
 
 Telepath
@@ -1530,8 +1567,8 @@ Tool, Storm Editor
 
 Also known as simply "Storm Editor". In :ref:`gloss-optic`, a tool used to compose, test, and store Storm
 queries (including macros - see :ref:`gloss-macro`). Storm Editor includes a number of integrated development
-environment (IDE) features, including syntax highlighting, auto-indenting, and auto-completion (via
-``ctrl-space``) for the names of forms, properties, tags, and libraries.
+environment (IDE) features, including syntax highlighting, auto-indenting, and auto-completion for the names
+of forms, properties, tags, and libraries.
 
 .. _gloss-tool-workflows:
 
@@ -1664,6 +1701,18 @@ the value is variable.
 Contrast with :ref:`gloss-constant`. See also :ref:`gloss-runtsafe` and :ref:`gloss-non-runtsafe`.
 
 See :ref:`storm-adv-vars` for a more detailed discussion of variables.
+
+
+.. _gloss-vault:
+
+Vault
+-----
+
+In Synapse, a vault is a protected storage mechanism that allows you to store secret values (such as API keys) and
+any associated configuration settings. Vaults support permissions and can be shared with other users or roles.
+Granting 'read' access to a vault allows someone to use the vault contents without allowing them to see the
+vault's secret values.
+
 
 .. _gloss-view:
 

@@ -56,17 +56,17 @@ edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS 
 edittagpropdel: EXPRMINUS tagprop
 EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
-TRYSETPLUS: "?+="
-TRYSETMINUS: "?-="
+TRYSETPLUS.1: "?+="
+TRYSETMINUS.1: "?-="
 TRYSET.1: "?="
 SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
 
-_oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | formjoin | formpivotin
-     | formjoinin | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
+_oper: stormfunc | initblock | emptyblock | finiblock | trycatch | subquery | _formpivot | formjoin
+     | formpivotin | formjoinin | opervarlist | setitem | setvar | vareval | filtoper
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
-     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1join | n2join | n1walknpivo | n2walknpivo | n1walknjoin | n2walknjoin | rawpivot
 
 BREAK.4: /break(?=[\s\}])/
 CONTINUE.4: /continue(?=[\s\}])/
@@ -106,6 +106,9 @@ yieldvalu: YIELD _argvalu
 _INIT.2: /init(?=[\s\{])/
 initblock: _INIT "{" query "}"
 
+_EMPTY.2: /empty(?=[\s\{])/
+emptyblock: _EMPTY "{" query "}"
+
 _FINI.2: /fini(?=[\s\{])/
 finiblock: _FINI "{" query "}"
 
@@ -129,40 +132,48 @@ formpivot_jointags: _RIGHTJOIN (ALLTAGS | tagmatch)
 ALLTAGS.3: /#(?=\/[\/\*]|\s|$|\})/
 
 formpivot_pivotout:    _RIGHTPIVOT "*"
-formpivot_:            _RIGHTPIVOT ABSPROP
+formpivot_:            _RIGHTPIVOT (PROPS | UNIVNAME | WILDPROPS | valulist | _varvalu)
 
 formjoin: _RIGHTJOIN "*"     -> formjoin_pivotout
-        | _RIGHTJOIN ABSPROP -> formjoin_formpivot
+        | _RIGHTJOIN (PROPS | UNIVNAME | WILDPROPS | valulist | _varvalu) -> formjoin_formpivot
 
 formpivotin: _LEFTPIVOT "*" -> formpivotin_
-           | _LEFTPIVOT ABSPROP -> formpivotin_pivotinfrom
+           | _LEFTPIVOT (PROPS | UNIVNAME) -> formpivotin_pivotinfrom
 
 formjoinin: _LEFTJOIN "*" -> formjoinin_pivotin
-          | _LEFTJOIN ABSPROP -> formjoinin_pivotinfrom
+          | _LEFTJOIN (PROPS | UNIVNAME) -> formjoinin_pivotinfrom
 
-operrelprop: relprop _RIGHTPIVOT ("*" | ABSPROP) -> operrelprop_pivot
-           | relprop _RIGHTJOIN ("*" | ABSPROP) -> operrelprop_join
+operrelprop: relprop _RIGHTPIVOT ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_pivot
+           | relprop _RIGHTJOIN ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_join
 
 rawpivot: _RIGHTPIVOT "{" query "}"
 
 _RIGHTJOIN.4:  "-+>"
 _LEFTJOIN.4:   "<+-"
 _RIGHTPIVOT.4: "->"
-_LEFTPIVOT.4:  "<-"
+_LEFTPIVOT.4:  /<\-[^0-9]/
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
-            | liftbytagprop | liftbyformtagprop
+            | liftbytagprop | liftbyformtagprop | liftbytag | lifttagtag
+            | liftreverse
 
 WILDCARD: "*"
 
 // A wild card, full prop, list, or $varvalu
-_wildprops: WILDCARD | PROPS | valulist | _varvalu
+_wildprops: WILDCARD | PROPS | WILDPROPS | valulist | _varvalu
 
-n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1FINI _wildprops [ _cmpr _valu ]
+n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | PROPS) _EDGEN1FINI _wildprops [ _cmpr _valu ]
 
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
-walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP))+ ","?) ")") -> valulist
+n1join: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | PROPS) _EDGEN1JOINFINI _wildprops [ _cmpr _valu ]
+
+n2join: _EDGEN2JOININIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
+
+walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | PROPS) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | PROPS))+ ","?) ")") -> valulist
+
+_WALKNJOINN1.4: "--+>"
+_WALKNJOINN2.4: "<+--"
 
 _WALKNPIVON1.4: "-->"
 _WALKNPIVON2.4: "<--"
@@ -170,11 +181,17 @@ _WALKNPIVON2.4: "<--"
 n1walknpivo: _WALKNPIVON1 "*"
 n2walknpivo: _WALKNPIVON2 "*"
 
+n1walknjoin: _WALKNJOINN1 "*"
+n2walknjoin: _WALKNJOINN2 "*"
+
 _EDGEADDN1INIT.2: "+("
 _EDGEN1INIT.2: "-("
 _EDGEN1FINI: ")>"
 _EDGEADDN2FINI: ")+"
 _EDGEN2FINI: ")-"
+
+_EDGEN1JOINFINI: ")+>"
+_EDGEN2JOININIT: "<+("
 
 // Regex to check for a matching ')-' or ')+' so we can avoid incorrectly matching
 // comparisons to an expression like '<(2)'
@@ -185,18 +202,23 @@ edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI baresubquery
 edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI baresubquery
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI baresubquery
 
-liftformtag: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname [_cmpr _valu]
+_REVERSE: /reverse(?=[\s\(])/
+liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | lifttagtag | liftbytag | liftbytagprop | liftbyformtagprop) ")"
+
 _DEREF.3:  /\*(?=\$)/
+
+liftformtag: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname [_cmpr _valu]
 liftpropby: ((PROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
-liftprop: ((PROPS | UNIVNAME) | _DEREF _varvalu)
+liftprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu)
 liftbyarray: ((PROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
-lifttagtag:(_HASH | _HASHSPACE) tagname [_cmpr _valu]
+lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
 liftbytag: (tagname | tagnamewithspace) [_cmpr _valu]
 liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
+
 tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
 tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
-formtagprop: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
+formtagprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
 _COLONNOSPACE.2: /(?<!\s):/
 
 _funcarg: (VARTOKN [EQNOSPACE _valu])
@@ -208,7 +230,7 @@ stormcmdargs: _stormcmdarg
 _stormcmdarg: _stormcmdarg? ((CMDOPT (EQNOSPACE (argvquery | _argvalu | wordtokn))?) | argvquery | _argvalu | wordtokn)
 
 // The name of a storm command
-CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
+CMDNAME.2: /(?!(init|empty|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
 
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
@@ -235,15 +257,36 @@ _tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
 TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
-tagmatch: (_MATCHHASH | _MATCHHASHSPACE) (_varvalu | _wildtagsegs)
-_MATCHHASH.3: /(?<!\s)#/
-_MATCHHASHSPACE.3: /(?<=\s)#/
+tagmatch: _MATCHHASH (_varvalu | _tagsegs)
+    | _MATCHHASHWILD _wildtagsegs
+
+_MATCHHASH.3: /#/
+
+// A tagmatch with wildcards cannot be followed by a cmpr
+_MATCHHASHWILD.3: /\#
+(?=
+    (?:[\w.$]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*       # match tag parts
+    \*                                               # match a *
+    (?!                                              # negative lookahead for cmpr
+        (?:[\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))* # continue matching tag parts
+        \s*                                          # match any whitespace before cmpr
+        (?!                                          # avoid matching EDGEN2INIT as a cmpr
+            <\(
+            (?=(?>(?<N2MATCHRECUR>\(((?>[^()"'`]+|(?&N2MATCHRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)-
+            )
+            | <(\+|-[^0-9])                          # avoid matching joins or pivots
+        )
+        [@?!<>^~=]+                                  # match any cmprs (regex fail)
+    )
+)
+/x
+
 _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
 _cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
-BYNAME.2: /[^=\s]+=/
+BYNAME.2: /\w+[@?!<>^~=]*[<>=]/
 
 _safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 
@@ -265,7 +308,7 @@ evalvalu: _valu
 exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
 exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
-_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
+_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
@@ -367,10 +410,10 @@ notcond: "not" _cond
 
 hasrelpropcond: relprop | univprop
 relpropcond: relpropvalue _cmpr _valu
-relpropvalue:   relprop | univprop
+relpropvalue: relprop | univprop
 
-abspropcond:  ABSPROPNOUNIV _cmpr _valu
-hasabspropcond: ABSPROPNOUNIV
+abspropcond: PROPS _cmpr _valu
+hasabspropcond: (PROPS | WILDPROPS)
 
 tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
 hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)
@@ -398,12 +441,11 @@ formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
 PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
+WILDPROPS.2: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+([:.][a-z0-9_]+)*:?\*)(?![:.a-z0-9_\-\[])/
 // A universal property
 UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
-ABSPROP.2: PROPS | UNIVNAME
-ABSPROPNOUNIV.2: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
 relprop: RELNAME | _COLONDOLLAR _varvaluatom
@@ -548,6 +590,7 @@ OCTNUMBER.1: /
 /x
 
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
+NULL.2: "null"
 NOT.2: "not"
 OR.2: "or"
 AND.2: "and"

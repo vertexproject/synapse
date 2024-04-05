@@ -3,6 +3,7 @@ import asyncio
 
 import synapse.exc as s_exc
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -144,3 +145,31 @@ class SlabSeqn(s_t_utils.SynTest):
             self.chk_size(seqn)
 
             await slab.fini()
+
+    async def test_slab_seqn_aiter(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_base.Base.anit() as base:
+
+                path = os.path.join(dirn, 'test.lmdb')
+                slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
+
+                seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
+
+                await self.agenlen(0, seqn.aiter(0))
+
+                await self.agenlen(0, seqn.aiter(0, wait=True, timeout=1))
+
+                genr = seqn.aiter(0, wait=True)
+                task = base.schedCoro(genr.__anext__())
+                await asyncio.sleep(0)
+
+                seqn.add('foo')
+                seqn.add('bar')
+
+                res = await asyncio.wait_for(task, timeout=1)
+                self.eq((0, 'foo'), res)
+
+                res = await asyncio.wait_for(genr.__anext__(), timeout=1)
+                self.eq((1, 'bar'), res)

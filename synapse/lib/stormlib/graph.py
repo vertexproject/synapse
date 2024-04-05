@@ -1,8 +1,8 @@
 import synapse.exc as s_exc
 
-import synapse.lib.cell as s_cell
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 
 gdefSchema = {
@@ -14,10 +14,13 @@ gdefSchema = {
         'scope': {'type': 'string', 'enum': ['user', 'power-up']},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'power-up': {'type': 'string', 'minLength': 1},
+        'maxsize': {'type': 'number', 'minimum': 0},
+        'existing': {'type': 'array', 'items': {'type': 'string'}},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
         'refs': {'type': 'boolean', 'default': False},
         'edges': {'type': 'boolean', 'default': True},
+        'edgelimit': {'type': 'number', 'default': 3000},
         'degrees': {'type': ['integer', 'null'], 'minimum': 0},
         'filterinput': {'type': 'boolean', 'default': True},
         'yieldfiltered': {'type': 'boolean', 'default': False},
@@ -48,7 +51,7 @@ gdefSchema = {
                 }
             }
         },
-        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema)
+        'permissions': s_msgpack.deepcopy(s_schemas.easyPermSchema)
     },
     'additionalProperties': False,
     'required': ['iden', 'name', 'scope'],
@@ -94,7 +97,7 @@ class GraphLib(s_stormtypes.Lib):
                         "name": "Test Projection",
                         "desc": "My test projection",
                         "degrees": 2,
-                        "pivots": ["<- meta:seen <- meta:source"],
+                        "pivots": ["-> meta:seen"],
                         "filters": ["-#nope"],
                         "forms": {
                             "inet:fqdn": {
@@ -178,6 +181,7 @@ class GraphLib(s_stormtypes.Lib):
         gdef = await s_stormtypes.toprim(gdef)
         return await self.runt.snap.core.addStormGraph(gdef, user=self.runt.user)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphGet(self, iden=None):
         iden = await s_stormtypes.tostr(iden, noneok=True)
         if iden is None:
@@ -199,6 +203,7 @@ class GraphLib(s_stormtypes.Lib):
 
         await self.runt.snap.core.modStormGraph(iden, info, user=self.runt.user)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphList(self):
         projs = []
         async for proj in self.runt.snap.core.getStormGraphs(user=self.runt.user):

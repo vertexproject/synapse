@@ -28,6 +28,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('help storm')
             outp.expect(help_msg)
+            outp.expect('WARNING: "cmdr" is deprecated in 2.164.0 and will be removed in 3.0.0')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -245,7 +246,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --format jsonl')
                 fp = cmdr.locs.get('log:fp')
-                await cmdr.runCmdLine('storm --editformat splices [test:str=hi :tick=2018 +#haha.hehe]')
+                await cmdr.runCmdLine('storm [test:str=hi :tick=2018 +#haha.hehe]')
 
                 await cmdr.runCmdLine('storm --editformat nodeedits [test:str=hi2 :tick=2018 +#haha.hehe]')
                 await cmdr.runCmdLine('storm [test:comp=(42, bar)]')

@@ -410,7 +410,9 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A GUID for a geographic place.'}),
 
                     ('geo:place:taxonomy', ('taxonomy', {}), {
-                        'doc': 'A taxonomy of place types.'}),
+                        'doc': 'A taxonomy of place types.',
+                        'interfaces': ('meta:taxonomy',),
+                    }),
 
                     ('geo:address', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A street/mailing address string.'}),

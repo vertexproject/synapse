@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -57,11 +58,7 @@ class Node:
         '''
         Return a dictionary that translates the node's bylayer dict to a primitive.
         '''
-        ndef = self.bylayer.get('ndef')
-        tags = {t: l for (t, l) in self.bylayer.get('tags', {}).items()}
-        props = {p: l for (p, l) in self.bylayer.get('props', {}).items()}
-        tagprops = {p: l for (p, l) in self.bylayer.get('tagprops', {}).items()}
-        return {'ndef': ndef, 'props': props, 'tags': tags, 'tagprops': tagprops}
+        return s_msgpack.deepcopy(self.bylayer)
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -89,6 +86,10 @@ class Node:
     async def iterEdgesN2(self, verb=None):
         async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
             yield edge
+
+    async def iterEdgeVerbs(self, n2buid):
+        async for verb in self.snap.iterEdgeVerbs(self.buid, n2buid):
+            yield verb
 
     async def storm(self, runt, text, opts=None, path=None):
         '''
@@ -205,16 +206,6 @@ class Node:
                 embdnode[relp] = node.props.get(relp)
 
         return retn
-
-    async def seen(self, tick, source=None):
-        '''
-        Update the .seen interval and optionally a source specific seen node.
-        '''
-        await self.set('.seen', tick)
-
-        if source is not None:
-            seen = await self.snap.addNode('meta:seen', (source, self.ndef))
-            await seen.set('.seen', tick)
 
     def getNodeRefs(self):
         '''
@@ -340,8 +331,7 @@ class Node:
         if not edits:
             return False
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
-        self.props.pop(name, None)
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
         return True
 
     def repr(self, name=None, defv=None):
@@ -481,10 +471,6 @@ class Node:
             raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
                                    form=self.form.full, tag=tag)
 
-        curv = self.tags.get(name, s_common.novalu)
-        if curv is s_common.novalu:
-            return ()
-
         pref = name + '.'
 
         todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
@@ -525,7 +511,8 @@ class Node:
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
 
         edits.extend(self._getTagPropDel(name))
-        edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
+        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+            edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         return edits
 
@@ -536,7 +523,7 @@ class Node:
         edits = await self._getTagDelEdits(tag, init=init)
         if edits:
             nodeedit = (self.buid, self.form.name, edits)
-            await self.snap.applyNodeEdit(nodeedit)
+            await self.snap.applyNodeEdit(nodeedit, nodecache={self.buid: self})
 
     def _getTagPropDel(self, tag):
 
@@ -597,7 +584,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
         )
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
 
     async def delete(self, force=False):
         '''
@@ -612,17 +599,15 @@ class Node:
             * delete all the tags (bottom up)
                 * fire onDelTag() handlers
                 * delete tag properties from storage
-                * log tag:del splices
 
             * delete all secondary properties
                 * fire onDelProp handler
                 * delete secondary property from storage
-                * log prop:del splices
 
             * delete the primary property
                 * fire onDel handlers for the node
                 * delete primary property from storage
-                * log node:del splices
+
         '''
 
         formname, formvalu = self.ndef
@@ -768,12 +753,10 @@ class Path:
         self.metadata[name] = valu
 
     async def pack(self, path=False):
-        ret = dict(self.metadata)
-        if ret:
-            ret = await s_stormtypes.toprim(ret)
+        info = await s_stormtypes.toprim(dict(self.metadata))
         if path:
-            ret['nodes'] = [node.iden() for node in self.nodes]
-        return ret
+            info['nodes'] = [node.iden() for node in self.nodes]
+        return info
 
     def fork(self, node):
 
@@ -889,6 +872,7 @@ def _tagscommon(pode, leafonly):
     # brute force rather than build a tree.  faster in small sets.
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
+        val = tuple(val)
         if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
@@ -1018,6 +1002,7 @@ def reprTag(pode, tag):
     valu = pode[1]['tags'].get(tag)
     if valu is None:
         return None
+    valu = tuple(valu)
     if valu == (None, None):
         return ''
     mint = s_time.repr(valu[0])

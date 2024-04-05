@@ -65,6 +65,7 @@ class NotifyLib(s_stormtypes.Lib):
             # 'bytype':
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def get(self, indx):
         indx = await s_stormtypes.toint(indx)
         mesg = await self.runt.snap.core.getUserNotif(indx)
@@ -81,6 +82,7 @@ class NotifyLib(s_stormtypes.Lib):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         await self.runt.snap.core.delUserNotif(indx)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def list(self, size=None):
         size = await s_stormtypes.toint(size, noneok=True)
         async for mesg in self.runt.snap.core.iterUserNotifs(self.runt.user.iden, size=size):

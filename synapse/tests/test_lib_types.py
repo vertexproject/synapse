@@ -6,6 +6,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.time as s_time
 import synapse.lib.const as s_const
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -39,7 +40,7 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 mass.norm('newps')
 
-    def test_velocity(self):
+    async def test_velocity(self):
         model = s_datamodel.Model()
         velo = model.type('velocity')
 
@@ -77,6 +78,12 @@ class TypesTest(s_t_utils.SynTest):
 
         relv = velo.clone({'relative': True})
         self.eq(-2777, relv.norm('-10k/h')[0])
+
+        self.eq(1, velo.norm('1.23')[0])
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[transport:sea:telem=(foo,) :speed=(1.1 * 2) ]')
+            self.eq(2, nodes[0].get('speed'))
 
     def test_hugenum(self):
 
@@ -116,7 +123,7 @@ class TypesTest(s_t_utils.SynTest):
         big2 = '-730750818665451459101841.0000000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
-    def test_taxonomy(self):
+    async def test_taxonomy(self):
 
         model = s_datamodel.Model()
         taxo = model.type('taxonomy')
@@ -155,6 +162,58 @@ class TypesTest(s_t_utils.SynTest):
         self.true(taxo.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
         self.true(taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
         self.false(taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:taxonomy', 'foo.bar.baz.'))
+            self.eq(node.get('title'), 'title words')
+            self.eq(node.get('desc'), 'a test taxonomy')
+            self.eq(node.get('sort'), 1)
+            self.eq(node.get('base'), 'baz')
+            self.eq(node.get('depth'), 2)
+            self.eq(node.get('parent'), 'foo.bar.')
+
+            self.sorteq(
+                ['foo.', 'foo.bar.', 'foo.bar.baz.'],
+                [n.ndef[1] for n in await core.nodes('test:taxonomy')]
+            )
+
+            self.len(0, await core.nodes('test:taxonomy=foo.bar.ba'))
+            self.len(1, await core.nodes('test:taxonomy=foo.bar.baz'))
+            self.len(1, await core.nodes('test:taxonomy=foo.bar.baz.'))
+
+            self.len(0, await core.nodes('test:taxonomy=(foo, bar, ba)'))
+            self.len(1, await core.nodes('test:taxonomy=(foo, bar, baz)'))
+
+            self.len(3, await core.nodes('test:taxonomy^=f'))
+            self.len(0, await core.nodes('test:taxonomy^=f.'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.b'))
+            self.len(0, await core.nodes('test:taxonomy^=foo.b.'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.bar'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.bar.'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.b'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz.'))
+
+            self.len(0, await core.nodes('test:taxonomy^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy^=(foo, b)'))
+            self.len(2, await core.nodes('test:taxonomy^=(foo, bar)'))
+            self.len(1, await core.nodes('test:taxonomy^=(foo, bar, baz)'))
+
+            # just test one conditional since RelPropCond and
+            # AbsPropCond (for form and prop) use the same logic
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=f'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=f.'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b.'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar.'))
+
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, b)'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, bar)'))
 
     def test_duration(self):
         model = s_datamodel.Model()
@@ -196,6 +255,9 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.norm('0'), (0, {}))
         self.eq(t.norm('1'), (1, {}))
 
+        self.eq(t.norm(s_stormtypes.Number('1')), (1, {}))
+        self.eq(t.norm(s_stormtypes.Number('0')), (0, {}))
+
         for s in ('trUe', 'T', 'y', ' YES', 'On '):
             self.eq(t.norm(s), (1, {}))
 
@@ -211,8 +273,9 @@ class TypesTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             t = 'test:complexcomp'
             valu = ('123', 'HAHA')
-            async with await core.snap() as snap:
-                node = await snap.addNode(t, valu)
+            nodes = await core.nodes('[test:complexcomp=(123, HAHA)]')
+            self.len(1, nodes)
+            node = nodes[0]
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (123, 'haha')))
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
@@ -308,11 +371,18 @@ class TypesTest(s_t_utils.SynTest):
 
             # size = 8, zeropad = True
             testvectors = [
-                ('0x12', '00000012'),
-                ('0x1234', '00001234'),
+                ('0X12', '00000012'),
+                ('0x123', '00000123'),
+                ('0X1234', '00001234'),
                 ('0x123456', '00123456'),
-                ('0x12345678', '12345678'),
+                ('0X12345678', '12345678'),
+                ('56:78', '00005678'),
+                ('12:34:56:78', '12345678'),
+                ('::', s_exc.BadTypeValu),
+                ('0x::', s_exc.BadTypeValu),
+                ('0x1234qwer', s_exc.BadTypeValu),
                 ('0x123456789a', s_exc.BadTypeValu),
+                ('::', s_exc.BadTypeValu),
                 (b'\x12', '00000012'),
                 (b'\x12\x34', '00001234'),
                 (b'\x12\x34\x56', '00123456'),
@@ -332,6 +402,7 @@ class TypesTest(s_t_utils.SynTest):
             # zeropad = 20
             testvectors = [
                 ('0x12', '00000000000000000012'),
+                ('0x123', '00000000000000000123'),
                 ('0x1234', '00000000000000001234'),
                 ('0x123456', '00000000000000123456'),
                 ('0x12345678', '00000000000012345678'),
@@ -354,16 +425,12 @@ class TypesTest(s_t_utils.SynTest):
                     self.raises(b, t.norm, v)
 
             # Do some node creation and lifting
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:hexa', '01:00 01')
-                self.eq(node.ndef[1], '010001')
-
-            async with await core.snap() as snap:
-                nodes = await snap.nodes('test:hexa=010001')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hexa=$byts', opts={'vars': {'byts': b'\x01\x00\x01'}})
-                self.len(1, nodes)
+            nodes = await core.nodes('[test:hexa="01:00 01"]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:hexa', '010001'))
+            self.len(1, await core.nodes('test:hexa=010001'))
+            self.len(1, await core.nodes('test:hexa=$byts', opts={'vars': {'byts': b'\x01\x00\x01'}}))
 
             # Do some fancy prefix searches for test:hexa
             valus = ['deadb33f',
@@ -371,58 +438,34 @@ class TypesTest(s_t_utils.SynTest):
                      'deadb3b3',
                      'deaddead',
                      'DEADBEEF']
-            async with await core.snap() as snap:
-                for valu in valus:
-                    node = await snap.addNode('test:hexa', valu)
-
-            async with await core.snap() as snap:
-                nodes = await snap.nodes('test:hexa=dead*')
-                self.len(5, nodes)
-
-                nodes = await snap.nodes('test:hexa=deadb3*')
-                self.len(3, nodes)
-
-                nodes = await snap.nodes('test:hexa=deadb33fb3*')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hexa=deadde*')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hexa=b33f*')
-                self.len(0, nodes)
-
+            self.len(5, await core.nodes('for $valu in $vals {[test:hexa=$valu]}', opts={'vars': {'vals': valus}}))
+            self.len(5, await core.nodes('test:hexa=dead*'))
+            self.len(3, await core.nodes('test:hexa=deadb3*'))
+            self.len(1, await core.nodes('test:hexa=deadb33fb3*'))
+            self.len(1, await core.nodes('test:hexa=deadde*'))
+            self.len(0, await core.nodes('test:hexa=b33f*'))
             # Do some fancy prefix searches for test:hex4
             valus = ['0000',
                      '0100',
                      '01ff',
                      '0200',
                      ]
-            async with await core.snap() as snap:
-                for valu in valus:
-                    node = await snap.addNode('test:hex4', valu)
-
-            async with await core.snap() as snap:
-                nodes = await snap.nodes('test:hex4=00*')
-                self.len(1, nodes)
-
-                nodes = await snap.nodes('test:hex4=01*')
-                self.len(2, nodes)
-
-                nodes = await snap.nodes('test:hex4=02*')
-                self.len(1, nodes)
-
-                # You can ask for a longer prefix then allowed
-                # but you'll get no results
-                nodes = await snap.nodes('test:hex4=022020*')
-                self.len(0, nodes)
+            self.len(4, await core.nodes('for $valu in $vals {[test:hex4=$valu]}', opts={'vars': {'vals': valus}}))
+            self.len(1, await core.nodes('test:hex4=00*'))
+            self.len(2, await core.nodes('test:hex4=01*'))
+            self.len(1, await core.nodes('test:hex4=02*'))
+            # You can ask for a longer prefix then allowed
+            # but you'll get no results
+            self.len(0, await core.nodes('test:hex4=022020*'))
 
             self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
             self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
             self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
 
             # Check creating and lifting zeropadded hex types
-            self.len(2, await core.nodes('[test:zeropad=11 test:zeropad=0x22]'))
+            self.len(3, await core.nodes('[test:zeropad=11 test:zeropad=0x22 test:zeropad=111]'))
             self.len(1, await core.nodes('test:zeropad=0x11'))
+            self.len(1, await core.nodes('test:zeropad=0x111'))
             self.len(1, await core.nodes('test:zeropad=000000000011'))
             self.len(1, await core.nodes('test:zeropad=00000000000000000011'))  # len=20
             self.len(0, await core.nodes('test:zeropad=0000000000000000000011'))  # len=22
@@ -453,6 +496,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.norm(True)[0], 1)
         self.eq(t.norm(False)[0], 0)
         self.eq(t.norm(decimal.Decimal('1.0'))[0], 1)
+        self.eq(t.norm(s_stormtypes.Number('1.0'))[0], 1)
 
         # Test merge
         self.eq(30, t.merge(20, 30))
@@ -539,6 +583,7 @@ class TypesTest(s_t_utils.SynTest):
         self.true(math.isnan(t.norm('NaN')[0]))
         self.eq(t.norm('-0.0')[0], -0.0)
         self.eq(t.norm('42')[0], 42.0)
+        self.eq(t.norm(s_stormtypes.Number('1.23'))[0], 1.23)
         minmax = model.type('float').clone({'min': -10.0, 'max': 100.0, 'maxisvalid': True, 'minisvalid': False})
         self.raises(s_exc.BadTypeValu, minmax.norm, 'NaN')
         self.raises(s_exc.BadTypeValu, minmax.norm, '-inf')
@@ -577,6 +622,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ test:float=42.0 :open=0.001]'))
             self.len(1, await core.nodes('[ test:float=42.0 :open=359.0]'))
 
+            self.eq(5, await core.callStorm('return($lib.cast(int, (5.5)))'))
+
     async def test_ival(self):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
@@ -588,6 +635,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq((0, 5356800000), ival.norm((0, '1970-03-04'))[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
+        self.eq((1451606400000, 1451606400001), ival.norm(s_stormtypes.Number(1451606400000))[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1483228800000), ival.norm(('2016', '  2017'))[0])
         self.eq((1451606400000, 1483228800000), ival.norm(('2016-01-01', '  2017'))[0])
@@ -602,6 +650,14 @@ class TypesTest(s_t_utils.SynTest):
         self.eq((1594038593000, 1594038593001), ival.norm('20200707162953+04:00-1day')[0])
         self.eq((1594240193000, 1594240193001), ival.norm('20200707162953-04:00+1day')[0])
         self.eq((1594067393000, 1594067393001), ival.norm('20200707162953-04:00-1day')[0])
+        self.eq((1594240193000, 1594240193001), ival.norm('20200707162953EDT+1day')[0])
+        self.eq((1594067393000, 1594067393001), ival.norm('20200707162953EDT-1day')[0])
+        self.eq((1594240193000, 1594240193001), ival.norm('7 Jul 2020 16:29:53 EDT+1day')[0])
+        self.eq((1594067393000, 1594067393001), ival.norm('7 Jul 2020 16:29:53 -0400-1day')[0])
+
+        # these fail because ival norming will split on a comma
+        self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 EDT+1day')
+        self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 -0400+1day')
 
         start = s_common.now() + s_time.oneday - 1
         end = ival.norm(('now', '+1day'))[0][1]
@@ -620,40 +676,21 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            t = core.model.type('test:time')
-
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '2014', '.seen': ('2005', '2006')})
-                await node.addTag('foo', valu=('2000', '2001'))
-
-                node = await snap.addNode('test:str', 'b', {'tick': '2015', '.seen': ('8679', '9000')})
-                await node.addTag('foo', valu=('2015', '2018'))
-
-                node = await snap.addNode('test:str', 'c', {'tick': '2016', '.seen': ('now-5days', 'now-1day')})
-                await node.addTag('bar', valu=('1970', '1990'))
-
-                node = await snap.addNode('test:str', 'd', {'tick': 'now', '.seen': ('now-10days', '?')})
-                await node.addTag('baz', valu='now')
-
-                node = await snap.addNode('test:str', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
-                await node.addTag('biz', valu=('now-1day', 'now+1day'))
-
-                # node whose primary prop is an ival
-                node = await snap.addNode('test:ival', (0, 10), {'interval': ("now", "now+4days")})
-                node = await snap.addNode('test:ival', (50, 100), {'interval': ("now-2days", "now+2days")})
-                node = await snap.addNode('test:ival', ("1995", "1997"), {'interval': ("2010", "2011")})
-                node = await snap.addNode('test:ival', ("now-2days", "now+4days"), {'interval': ("201006", "20100605")})
-                node = await snap.addNode('test:ival', ("now+21days", "?"), {'interval': ("2000", "2001")})
-
-                # tag of tags
-                node = (await snap.nodes('syn:tag=foo'))[0]
-                await node.addTag('v.p', valu=('2005', '2006'))
-
-                node = (await snap.nodes('syn:tag=bar'))[0]
-                await node.addTag('vert.proj', valu=('20110605', 'now'))
-
-                node = (await snap.nodes('syn:tag=biz'))[0]
-                await node.addTag('vertex.project', valu=('now-5days', 'now'))
+            self.len(1, await core.nodes('[test:str=a .seen=(2005, 2006) :tick=2014 +#foo=(2000, 2001)]'))
+            self.len(1, await core.nodes('[test:str=b .seen=(8679, 9000) :tick=2015 +#foo=(2015, 2018)]'))
+            self.len(1, await core.nodes('[test:str=c .seen=("now-5days", "now-1day") :tick=2016 +#bar=(1970, 1990)]'))
+            self.len(1, await core.nodes('[test:str=d .seen=("now-10days", "?") :tick=now +#baz=now]'))
+            self.len(1, await core.nodes('[test:str=e .seen=("now+1day", "now+5days") :tick="now-3days" +#biz=("now-1day", "now+1 day")]'))
+            # node whose primary prop is an ival
+            self.len(1, await core.nodes('[test:ival=((0),(10)) :interval=(now, "now+4days")]'))
+            self.len(1, await core.nodes('[test:ival=((50),(100)) :interval=("now-2days", "now+2days")]'))
+            self.len(1, await core.nodes('[test:ival=(1995, 1997) :interval=(2010, 2011)]'))
+            self.len(1, await core.nodes('[test:ival=("now-2days", "now+4days") :interval=(201006, 20100605) ]'))
+            self.len(1, await core.nodes('[test:ival=("now+21days", "?") :interval=(2000, 2001)]'))
+            # tag of tags
+            self.len(1, await core.nodes('[syn:tag=foo +#v.p=(2005, 2006)]'))
+            self.len(1, await core.nodes('[syn:tag=bar +#vert.proj=(20110605, now)]'))
+            self.len(1, await core.nodes('[syn:tag=biz +#vertex.project=("now-5days", now)]'))
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str :tick=(20150102, "-4 day")')
@@ -884,36 +921,34 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(1, await core.count('test:int:loc^=""'))
             self.eq(0, await core.count('test:int:loc^=23'))
 
-    def test_ndef(self):
-        model = s_datamodel.Model()
-        model.addDataModels([('test', s_t_utils.testmodel)])
-        t = model.type('test:ndef')
+    async def test_ndef(self):
+        async with self.getTestCore() as core:
+            t = core.model.type('test:ndef')
 
-        norm, info = t.norm(('test:str', 'Foobar!'))
-        self.eq(norm, ('test:str', 'Foobar!'))
-        self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
-                       'subs': {'form': 'test:str'}})
+            norm, info = t.norm(('test:str', 'Foobar!'))
+            self.eq(norm, ('test:str', 'Foobar!'))
+            self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
+                           'subs': {'form': 'test:str'}})
 
-        rval = t.repr(('test:str', 'Foobar!'))
-        self.eq(rval, ('test:str', 'Foobar!'))
-        rval = t.repr(('test:int', 1234))
-        self.eq(rval, ('test:int', '1234'))
+            rval = t.repr(('test:str', 'Foobar!'))
+            self.eq(rval, ('test:str', 'Foobar!'))
+            rval = t.repr(('test:int', 1234))
+            self.eq(rval, ('test:int', '1234'))
 
-        self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
-        self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
-        self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
+            self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
+            self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
+            self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
-    def test_nodeprop(self):
-        model = s_datamodel.Model()
-        model.addDataModels([('test', s_t_utils.testmodel)])
-        t = model.type('nodeprop')
+    async def test_nodeprop(self):
+        async with self.getTestCore() as core:
+            t = core.model.type('nodeprop')
 
-        expected = (('test:str', 'This is a sTring'), {'subs': {'prop': 'test:str'}})
-        self.eq(t.norm('test:str=This is a sTring'), expected)
-        self.eq(t.norm(('test:str', 'This is a sTring')), expected)
+            expected = (('test:str', 'This is a sTring'), {'subs': {'prop': 'test:str'}})
+            self.eq(t.norm('test:str=This is a sTring'), expected)
+            self.eq(t.norm(('test:str', 'This is a sTring')), expected)
 
-        self.raises(s_exc.NoSuchProp, t.norm, ('test:str:newp', 'newp'))
-        self.raises(s_exc.BadTypeValu, t.norm, ('test:str:tick', '2020', 'a wild argument appears'))
+            self.raises(s_exc.NoSuchProp, t.norm, ('test:str:newp', 'newp'))
+            self.raises(s_exc.BadTypeValu, t.norm, ('test:str:tick', '2020', 'a wild argument appears'))
 
     def test_range(self):
         model = s_datamodel.Model()
@@ -944,15 +979,14 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_range_filter(self):
         async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'bar': ('test:str', 'a'), 'tick': '19990101'})
-                node = await snap.addNode('test:str', 'b', {'.seen': ('20100101', '20110101'), 'tick': '20151207'})
-                node = await snap.addNode('test:str', 'm', {'bar': ('test:str', 'm'), 'tick': '20200101'})
-                node = await snap.addNode('test:guid', 'C' * 32)
-                node = await snap.addNode('test:guid', 'F' * 32)
-                await core.nodes('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]')
-                await core.nodes('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]')
-                await core.nodes('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]')
+            self.len(1, await core.nodes('[test:str=a :bar=(test:str, b) :tick=19990101]'))
+            self.len(1, await core.nodes('[test:str=b .seen=(20100101, 20110101) :tick=20151207]'))
+            self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
+            self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
+            self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
+            self.len(1, await core.nodes('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]'))
+            self.len(1, await core.nodes('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]'))
+            self.len(1, await core.nodes('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]'))
 
             self.len(0, await core.nodes('test:str=a +:tick*range=(20000101, 20101201)'))
             nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
@@ -978,14 +1012,10 @@ class TypesTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str +test:str*range=(b, m)'))
 
             # Range against a integer
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:int', -1)
-                node = await snap.addNode('test:int', 0)
-                node = await snap.addNode('test:int', 1)
-                node = await snap.addNode('test:int', 2)
+            valus = (-1, 0, 1, 2)
+            self.len(4, await core.nodes('for $valu in $vals {[test:int=$valu]}', opts={'vars': {'vals': valus}}))
             self.len(3, await core.nodes('test:int*range=(0, 2)'))
             self.len(3, await core.nodes('test:int +test:int*range=(0, 2)'))
-
             self.len(1, await core.nodes('test:int*range=(-1, -1)'))
             self.len(1, await core.nodes('test:int +test:int*range=(-1, -1)'))
 
@@ -1062,6 +1092,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('1234567891.1234567', flt.norm(1234567890.123456790123456790123456789 + 1)[0])
         self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789 + 0.0000000001)[0])
         self.eq('2.718281828459045', flt.norm(2.718281828459045)[0])
+        self.eq('1.23', flt.norm(s_stormtypes.Number(1.23))[0])
 
     def test_syntag(self):
 
@@ -1156,11 +1187,10 @@ class TypesTest(s_t_utils.SynTest):
             self.raises(s_exc.BadCmprValu,
                         t.cmpr, '2015', 'range=', tick)
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '2014'})
-                node = await snap.addNode('test:str', 'b', {'tick': '2015'})
-                node = await snap.addNode('test:str', 'c', {'tick': '2016'})
-                node = await snap.addNode('test:str', 'd', {'tick': 'now'})
+            self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
+            self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
+            self.len(1, await core.nodes('[(test:str=c :tick=2016)]'))
+            self.len(1, await core.nodes('[(test:str=d :tick=now)]'))
 
             nodes = await core.nodes('test:str:tick=2014')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
@@ -1256,10 +1286,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=(2000, "?+1 day")')
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 't1', {'tick': '2018/12/02 23:59:59.000'})
-                node = await snap.addNode('test:str', 't2', {'tick': '2018/12/03'})
-                node = await snap.addNode('test:str', 't3', {'tick': '2018/12/03 00:00:01.000'})
+            self.len(1, await core.nodes('[(test:str=t1 :tick="2018/12/02 23:59:59.000")]'))
+            self.len(1, await core.nodes('[(test:str=t2 :tick="2018/12/03")]'))
+            self.len(1, await core.nodes('[(test:str=t3 :tick="2018/12/03 00:00:01.000")]'))
 
             self.eq(0, await core.count('test:str:tick*range=(2018/12/01, "+24 hours")'))
             self.eq(2, await core.count('test:str:tick*range=(2018/12/01, "+48 hours")'))
@@ -1368,15 +1397,18 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '2014'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
-                node = await snap.addNode('test:str', 'b', {'tick': '2015'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
-                node = await snap.addNode('test:str', 'c', {'tick': '2016'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
-                node = await snap.addNode('test:str', 'd', {'tick': 'now'})
-                node = await snap.addNode('test:int', node.get('tick') + 1)
+            nodes = await core.nodes('[test:str=a :tick=2014]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            nodes = await core.nodes('[test:str=b :tick=2015]')
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, nodes)
+            nodes = await core.nodes('[test:str=c :tick=2016]')
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, nodes)
+            nodes = await core.nodes('[test:str=d :tick=now]')
+            self.len(1, await core.nodes('[test:int=$valu]', opts={'vars': {'valu': nodes[0].get('tick')}}))
+            self.len(1, nodes)
 
             q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
             nodes = await core.nodes(q)

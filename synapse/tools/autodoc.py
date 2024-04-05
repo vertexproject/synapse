@@ -1,10 +1,12 @@
 import sys
+import copy
 import json
 import asyncio
-import inspect
 import logging
 import argparse
 import collections
+
+from typing import List, Tuple, Dict, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -24,9 +26,17 @@ import synapse.tools.genpkg as s_genpkg
 
 logger = logging.getLogger(__name__)
 
+# src / name / target
+EdgeDef = Tuple[Union[str, None], str, Union[str, None]]
+EdgeDict = Dict[str, str]
+Edge = Tuple[EdgeDef, EdgeDict]
+Edges = List[Edge]
+
 poptsToWords = {
     'ex': 'Example',
     'ro': 'Read Only',
+    'deprecated': 'Deprecated',
+    'disp': 'Display',
 }
 
 info_ignores = (
@@ -257,13 +267,28 @@ def processTypes(rst, dochelp, types):
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
 
-def processFormsProps(rst, dochelp, forms, univ_names):
+def has_popts_data(props):
+    # Props contain "doc" which we pop out
+    # Check if a list of props has any keys
+    # which are not 'doc'
+    for _, _, popts in props:
+        keys = set(popts.keys())
+        if 'doc' in keys:
+            keys.remove('doc')
+        if keys:
+            return True
+
+    return False
+
+def processFormsProps(rst, dochelp, forms, univ_names, alledges):
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
                  'Forms are derived from types, or base types. Forms represent node types in the graph.'
                  '')
 
     for name, info, props in forms:
+
+        formedges = lookupedgesforform(name, alledges)
 
         doc = dochelp.forms.get(name)
         if not doc.endswith('.'):
@@ -291,49 +316,154 @@ def processFormsProps(rst, dochelp, forms, univ_names):
                          ''
                          )
 
+        props = [blob for blob in props if blob[0] not in univ_names]
+
         if props:
-            rst.addLines('Properties:',
-                         )
-        for pname, (ptname, ptopts), popts in props:
 
-            if pname in univ_names:
-                continue
+            has_popts = has_popts_data(props)
 
-            hpname = pname
-            if ':' in pname:
-                hpname = pname.replace(':', raw_back_slash_colon)
+            rst.addLines('', '', f'  Properties:', )
+            rst.addLines('   .. list-table::',
+                         '      :header-rows: 1',
+                         '      :widths: auto',
+                         '      :class: tight-table',
+                         '')
+            header = ('      * - name',
+                      '        - type',
+                      '        - doc',
+                      )
+            if has_popts:
+                header = header + ('        - opts',)
+            rst.addLines(*header)
 
-            _ = popts.pop('doc', None)
-            doc = dochelp.props.get((name, pname))
-            if not doc.endswith('.'):
-                logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
-                doc = doc + '.'
+            for pname, (ptname, ptopts), popts in props:
 
-            rst.addLines('',
-                         raw_back_slash_colon + hpname + ' / ' + f'{":".join([hname, hpname])}',
-                         '  ' + doc,
-                         )
+                _ = popts.pop('doc', None)
+                doc = dochelp.props.get((name, pname))
+                if not doc.endswith('.'):
+                    logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
+                    doc = doc + '.'
 
-            if popts:
+                hptlink = f'dm-type-{ptname.replace(":", "-")}'
 
-                rst.addLines('  ' + 'It has the following property options set:',
-                             ''
+                rst.addLines(f'      * - ``:{pname}``',)
+                if ptopts:
+
+                    rst.addLines(f'        - | :ref:`{hptlink}`', )
+                    for k, v in ptopts.items():
+                        if ptname == 'array' and k == 'type':
+                            tlink = f'dm-type-{v.replace(":", "-")}'
+                            rst.addLines(f'          | {k}: :ref:`{tlink}`', )
+                        else:
+                            rst.addLines(f'          | {k}: ``{v}``', )
+
+                else:
+                    rst.addLines(f'        - :ref:`{hptlink}`',)
+
+                rst.addLines(f'        - {doc}',)
+
+                if has_popts:
+                    if popts:
+                        if len(popts) == 1:
+                            for k, v in popts.items():
+                                k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
+                                rst.addLines(f'        - {k}: ``{v}``')
+                        else:
+                            for i, (k, v) in enumerate(popts.items()):
+                                k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
+                                if i == 0:
+                                    rst.addLines(f'        - | {k}: ``{v}``')
+                                else:
+                                    rst.addLines(f'          | {k}: ``{v}``')
+                    else:
+                        rst.addLines(f'        - ')
+
+        if formedges:
+
+            source_edges = formedges.pop('source', None)
+            dst_edges = formedges.pop('target', None)
+            generic_edges = formedges.pop('generic', None)
+
+            if source_edges:
+                if generic_edges:
+                    source_edges.extend(generic_edges)
+
+                rst.addLines(f'  Source Edges:',)
+                rst.addLines('   .. list-table::',
+                             '      :header-rows: 1',
+                             '      :widths: auto',
+                             '      :class: tight-table',
+                             '',
+                             '      * - source',
+                             '        - verb',
+                             '        - target',
+                             '        - doc',
                              )
-                for k, v in popts.items():
-                    k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
-                    rst.addLines('  ' + f'* {k}: ``{v}``')
 
-            hptlink = f'dm-type-{ptname.replace(":", "-")}'
-            tdoc = f'The property type is :ref:`{hptlink}`.'
+                _edges = []
+                for (edef, enfo) in source_edges:
+                    src, enam, dst = edef
+                    doc = enfo.pop('doc', None)
 
-            rst.addLines('',
-                         '  ' + tdoc,
-                         )
-            if ptopts:
-                rst.addLines('  ' + "Its type has the following options set:",
-                             '')
-                for k, v in ptopts.items():
-                    rst.addLines('  ' + f'* {k}: ``{v}``')
+                    if src is None:
+                        src = '*'
+                    if dst is None:
+                        dst = '*'
+
+                    if enfo:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+                    _edges.append((src, enam, dst, doc))
+                _edges.sort(key=lambda x: x[:2])
+
+                for src, enam, dst, doc in _edges:
+                    rst.addLines(f'      * - ``{src}``',
+                                 f'        - ``-({enam})>``',
+                                 f'        - ``{dst}``',
+                                 f'        - {doc}',
+                                 )
+
+            if dst_edges:
+                if generic_edges:
+                    dst_edges.extend(generic_edges)
+
+                rst.addLines(f'  Target Edges:', )
+                rst.addLines('   .. list-table::',
+                             '      :header-rows: 1',
+                             '      :widths: auto',
+                             '      :class: tight-table',
+                             '',
+                             '      * - source',
+                             '        - verb',
+                             '        - target',
+                             '        - doc',
+                             )
+
+                _edges = []
+                for (edef, enfo) in dst_edges:
+                    src, enam, dst = edef
+                    doc = enfo.pop('doc', None)
+                    if src is None:
+                        src = '*'
+                    if dst is None:
+                        dst = '*'
+
+                    if enfo:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+
+                    _edges.append((src, enam, dst, doc))
+                _edges.sort(key=lambda x: x[:2])
+
+                for src, enam, dst, doc in _edges:
+                    rst.addLines(f'      * - ``{src}``',
+                                 f'        - ``-({enam})>``',
+                                 f'        - ``{dst}``',
+                                 f'        - {doc}',
+                                 )
+
+                rst.addLines('', '')
+
+            if formedges:
+                logger.warning(f'{name} has unhandled light edges: {formedges}')
 
 def processUnivs(rst, dochelp, univs):
     rst.addHead('Universal Properties', lvl=1, link='.. _dm-universal-props:')
@@ -457,6 +587,94 @@ async def processStormCmds(rst, pkgname, commands):
 
         rst.addLines(*lines)
 
+async def processStormModules(rst, pkgname, modules):
+
+    rst.addHead('Storm Modules', lvl=2)
+
+    hasapi = False
+    modules = sorted(modules, key=lambda x: x.get('name'))
+
+    for mdef in modules:
+
+        apidefs = mdef.get('apidefs')
+        if not apidefs:
+            continue
+
+        if not hasapi:
+            rst.addLines('This package implements the following Storm Modules.\n')
+            hasapi = True
+
+        mname = mdef['name']
+
+        mref = f'.. _stormmod-{pkgname.replace(":", "-")}-{mname.replace(".", "-")}:'
+        rst.addHead(mname, lvl=3, link=mref)
+
+        for apidef in apidefs:
+
+            apiname = apidef['name']
+            apidesc = apidef['desc']
+            apitype = apidef['type']
+
+            callsig = s_autodoc.genCallsig(apitype)
+            rst.addHead(f'{apiname}{callsig}', lvl=4)
+
+            rst.addLines(*s_autodoc.prepareRstLines(apidesc))
+            rst.addLines(*s_autodoc.getArgLines(apitype))
+            rst.addLines(*s_autodoc.getReturnLines(apitype))
+
+    if not hasapi:
+        rst.addLines('This package does not export any Storm APIs.\n')
+
+def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
+    ret = collections.defaultdict(list)
+
+    for edge in edges:
+        src, name, dst = edge[0]
+
+        # src and dst may be None, form==name, or form!=name.
+        # This gives us 9 possible states to consider.
+        # src  |  dst | -> ret
+        # ===================================
+        # none | none | -> generic
+        # none |   != | -> source
+        # none |    = | -> target
+        #   != | none | -> target
+        #    = | none | -> source
+        #   != |    = | -> target
+        #    = |   != | -> source
+        #   != |   != | -> no-op
+        #    = |    = | -> source, target
+
+        if src is None and dst is None:
+            ret['generic'].append(edge)
+            continue
+        if src is None and dst != form:
+            ret['source'].append(edge)
+            continue
+        if src is None and dst == form:
+            ret['target'].append(edge)
+            continue
+        if src != form and dst is None:
+            ret['target'].append(edge)
+            continue
+        if src == form and dst is None:
+            ret['source'].append(edge)
+            continue
+        if src != form and dst == form:
+            ret['target'].append(edge)
+            continue
+        if src == form and dst != form:
+            ret['source'].append(edge)
+            continue
+        if src != form and dst != form:
+            # no-op
+            continue
+        if src == form and dst == form:
+            ret['source'].append(edge)
+            ret['target'].append(edge)
+
+    return copy.deepcopy(dict(ret))
+
 async def docModel(outp,
                    core):
     coreinfo = await core.getCoreInfo()
@@ -466,6 +684,7 @@ async def docModel(outp,
     types = model.get('types')
     forms = model.get('forms')
     univs = model.get('univs')
+    edges = model.get('edges')
     props = collections.defaultdict(list)
 
     ctors = sorted(ctors, key=lambda x: x[0])
@@ -510,7 +729,7 @@ async def docModel(outp,
     rst2 = s_autodoc.RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
-    processFormsProps(rst2, dochelp, forms, univ_names)
+    processFormsProps(rst2, dochelp, forms, univ_names, edges)
     processUnivs(rst2, dochelp, univs)
 
     return rst, rst2
@@ -652,7 +871,8 @@ async def docStormsvc(ctor):
         if commands:
             await processStormCmds(rst, pname, commands)
 
-        # TODO: Modules are not currently documented.
+        if modules := pkg.get('modules'):
+            await processStormModules(rst, pname, modules)
 
     return rst, clsname
 
@@ -680,7 +900,8 @@ async def docStormpkg(pkgpath):
     if commands:
         await processStormCmds(rst, pkgname, commands)
 
-    # TODO: Modules are not currently documented.
+    if modules := pkgdef.get('modules'):
+        await processStormModules(rst, pkgname, modules)
 
     return rst, pkgname
 

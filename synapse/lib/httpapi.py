@@ -42,6 +42,11 @@ class Sess(s_base.Base):
         await self.cell.setHttpSessInfo(self.iden, name, valu)
         self.info[name] = valu
 
+    async def update(self, vals: dict):
+        await self.cell.updateHttpSessInfo(self.iden, vals)
+        for name, valu in vals.items():
+            self.info[name] = valu
+
     async def login(self, user):
         self.user = user
         await self.set('user', user.iden)
@@ -139,6 +144,35 @@ class HandlerBase:
         except Exception:
             self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
+
+    def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
+        '''
+        Helper to log issues related to request authentication.
+
+        Args:
+            mesg (str): Additional message to log.
+            user (str): User iden, if available.
+            username (str): Username, if available.
+            level (int): Logging level to log the message at. Defaults to logging.WARNING.
+
+        Returns:
+            None
+        '''
+        uri = self.request.uri
+        remote_ip = self.request.remote_ip
+        enfo = {'uri': uri,
+                'remoteip': remote_ip,
+                }
+        errm = f'Failed to authenticate request to {uri} from {remote_ip} '
+        if mesg:
+            errm = f'{errm}: {mesg}'
+        if user:
+            errm = f'{errm}: user={user}'
+            enfo['user'] = user
+        if username:
+            errm = f'{errm} ({username})'
+            enfo['username'] = username
+        logger.log(level, msg=errm, extra={'synapse': enfo})
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')
@@ -249,6 +283,11 @@ class HandlerBase:
 
             return iden
 
+        # Check for API Keys
+        key = self.request.headers.get('X-API-KEY')
+        if key is not None:
+            return await self.handleApiKeyAuth()
+
         return await self.handleBasicAuth()
 
     async def handleBasicAuth(self):
@@ -282,24 +321,42 @@ class HandlerBase:
 
         udef = await authcell.getUserDefByName(name)
         if udef is None:
+            self.logAuthIssue(mesg='No such user.', username=name)
             return None
 
         if udef.get('locked'):
+            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
             return None
 
         if not await authcell.tryUserPasswd(name, passwd):
+            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return None
 
         self.web_useriden = udef.get('iden')
         self.web_username = udef.get('name')
         return self.web_useriden
 
-    async def allowed(self, perm, gateiden=None):
+    async def handleApiKeyAuth(self):
+        authcell = self.getAuthCell()
+        key = self.request.headers.get('X-API-KEY')
+        isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
+        if isok is False:
+            self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
+            return
+
+        udef = info.get('udef')
+
+        self.web_useriden = udef.get('iden')
+        self.web_username = udef.get('name')
+        return self.web_useriden
+
+    async def allowed(self, perm, default=False, gateiden=None):
         '''
         Check if the authenticated user has the given permission.
 
         Args:
             perm (tuple): The permission tuple to check.
+            default (boolean): The default value for the permission.
             gateiden (str): The gateiden to check the permission against.
 
         Notes:
@@ -315,11 +372,16 @@ class HandlerBase:
             self.sendAuthRequired()
             return False
 
-        if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden):
+        if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden, default=default):
             return True
 
         self.set_status(403)
+
         mesg = f'User ({self.web_username}) must have permission {".".join(perm)}'
+        if default:
+            mesg = f'User ({self.web_username}) is denied the permission {".".join(perm)}'
+        if gateiden:
+            mesg = f'{mesg} on object {gateiden}'
         self.sendRestErr('AuthDeny', mesg)
         return False
 
@@ -480,7 +542,7 @@ class StormV1(StormHandler):
         if opts is None:
             return
 
-        opts['editformat'] = 'splices'
+        opts.setdefault('editformat', 'nodeedits')
 
         async for mesg in self.getCore().storm(query, opts=opts):
             self.write(json.dumps(mesg))
@@ -574,48 +636,6 @@ class ReqValidStormV1(StormHandler):
         else:
             return self.sendRestRetn(valid)
 
-class WatchSockV1(WebSocket):
-    '''
-    A web-socket based API endpoint for distributing cortex tag events.
-
-    Deprecated.
-    '''
-    async def onWatchMesg(self, byts):
-        # Note: This API handler is intended to be used on a heavy Cortex object.
-        try:
-
-            wdef = json.loads(byts)
-            iden = wdef.get('view', self.cell.view.iden)
-
-            perm = ('watch', 'view', iden)
-            await self._reqUserAllow(perm)
-
-            async with self.cell.watcher(wdef) as watcher:
-
-                await self.xmit('init')
-
-                async for mesg in watcher:
-                    await self.xmit(mesg[0], **mesg[1])
-
-                # pragma: no cover
-                # (this would only happen on slow-consumer)
-                await self.xmit('fini')
-
-        except s_exc.SynErr as e:
-
-            text = e.get('mesg', str(e))
-            await self.xmit('errx', code=e.__class__.__name__, mesg=text)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception as e:
-            await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
-
-    async def on_message(self, byts):
-        s_common.deprecated('WatchSockV1')
-        self.cell.schedCoro(self.onWatchMesg(byts))
-
 class BeholdSockV1(WebSocket):
 
     async def onInitMessage(self, byts):
@@ -665,9 +685,15 @@ class LoginV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDefByName(name)
         if udef is None:
+            self.logAuthIssue(mesg='No such user.', username=name)
             return self.sendRestErr('AuthDeny', 'No such user.')
 
+        if udef.get('locked'):
+            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
+            return self.sendRestErr('AuthDeny', 'User is locked.')
+
         if not await authcell.tryUserPasswd(name, passwd):
+            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         iden = udef.get('iden')
@@ -679,6 +705,19 @@ class LoginV1(Handler):
         self.web_username = name
 
         return self.sendRestRetn(await authcell.getUserDef(iden))
+
+class LogoutV1(Handler):
+
+    async def get(self):
+        sess = await self.sess(gen=False)
+        if sess is not None:
+            self.web_useriden = sess.info.get('user')
+            self.web_username = sess.info.get('username', '<no username>')
+            await self.getAuthCell().delHttpSess(sess.iden)
+
+        self.clear_cookie('sess')
+
+        self.sendRestRetn(True)
 
 class AuthUsersV1(Handler):
 
@@ -1202,3 +1241,194 @@ class CoreInfoV1(Handler):
 
         resp = await self.cell.getCoreInfoV2()
         return self.sendRestRetn(resp)
+
+class ExtApiHandler(StormHandler):
+    '''
+    /api/ext/.*
+    '''
+
+    storm_prefix = 'init { $request = $lib.cortex.httpapi.response($_http_request_info) }'
+
+    # Disables the etag header from being computed and set. It is too much magic for
+    # a user defined API to utilize.
+    def compute_etag(self):
+        return None
+
+    def set_default_headers(self):
+        self.clear_header('Server')
+
+    async def get(self, path):
+        return await self._runHttpExt('get', path)
+
+    async def head(self, path):
+        return await self._runHttpExt('head', path)
+
+    async def post(self, path):
+        return await self._runHttpExt('post', path)
+
+    async def put(self, path):
+        return await self._runHttpExt('put', path)
+
+    async def delete(self, path):
+        return await self._runHttpExt('delete', path)
+
+    async def patch(self, path):
+        return await self._runHttpExt('patch', path)
+
+    async def options(self, path):
+        return await self._runHttpExt('options', path)
+
+    async def _runHttpExt(self, meth, path):
+        core = self.getCore()
+        adef, args = await core.getHttpExtApiByPath(path)
+        if adef is None:
+            self.set_status(404)
+            self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}')
+            return await self.finish()
+
+        requester = ''
+        iden = adef.get("iden")
+        useriden = adef.get('owner')
+
+        if adef.get('authenticated'):
+
+            requester = await self.useriden()
+
+            if requester is None:
+                await self.reqAuthUser()
+                return
+
+            for pdef in adef.get('perms'):
+                if not await self.allowed(pdef.get('perm'), default=pdef.get('default')):
+                    return
+
+            if adef.get('runas') == 'user':
+                useriden = requester
+
+        storm = adef['methods'].get(meth)
+        if storm is None:
+            self.set_status(405)
+            meths = [meth.upper() for meth in adef.get('methods')]
+            self.set_header('Allowed', ', '.join(meths))
+            mesg = f'Extended HTTP API {iden} has no method for {meth.upper()}.'
+            if meths:
+                mesg = f'{mesg} Supports {", ".join(meths)}.'
+            self.sendRestErr('NeedConfValu', mesg)
+            return await self.finish()
+
+        # We flatten the request headers and parameters into a flat key/valu map.
+        # The first instance of a given key wins.
+        request_headers = {}
+        for key, valu in self.request.headers.get_all():
+            request_headers.setdefault(key.lower(), valu)
+
+        params = {}
+        for key, valus in self.request.query_arguments.items():
+            for valu in valus:
+                params.setdefault(key, valu.decode())
+
+        info = {
+            'uri': self.request.uri,
+            'body': self.request.body,
+            'iden': iden,
+            'path': path,
+            'user': requester,
+            'method': self.request.method,
+            'params': params,
+            'headers': request_headers,
+            'args': args,
+            'client': self.request.remote_ip,
+        }
+
+        varz = adef.get('vars')
+        varz['_http_request_info'] = info
+
+        opts = {
+            'mirror': adef.get('pool', False),
+            'readonly': adef.get('readonly'),
+            'show': (
+                'http:resp:body',
+                'http:resp:code',
+                'http:resp:headers',
+            ),
+            'user': useriden,
+            'vars': varz,
+            'view': adef.get('view'),
+        }
+
+        query = '\n'.join((self.storm_prefix, storm))
+
+        rcode = False
+        rbody = False
+
+        try:
+            async for mtyp, info in core.storm(query, opts=opts):
+                if mtyp == 'http:resp:code':
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        mesg = f'Extended HTTP API {iden} tried to set code after sending body.'
+                        logger.error(mesg)
+                        continue
+
+                    rcode = True
+                    self.set_status(info['code'])
+
+                elif mtyp == 'http:resp:headers':
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        mesg = f'Extended HTTP API {iden} tried to set headers after sending body.'
+                        logger.error(mesg)
+                        continue
+                    for hkey, hval in info['headers'].items():
+                        self.set_header(hkey, hval)
+
+                elif mtyp == 'http:resp:body':
+                    if not rcode:
+                        self.clear()
+                        self.set_status(500)
+                        self.sendRestErr('StormRuntimeError',
+                                         f'Extended HTTP API {iden} must set status code before sending body.')
+                        return await self.finish()
+                    rbody = True
+                    body = info['body']
+                    self.write(body)
+                    await self.flush()
+
+                elif mtyp == 'err':
+                    errname, erfo = info
+                    mesg = f'Error executing Extended HTTP API {iden}: {errname} {erfo.get("mesg")}'
+                    logger.error(mesg)
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        continue
+
+                    # Since we haven't flushed the body yet, we can clear the handler
+                    # and send the error the user.
+                    self.clear()
+                    self.set_status(500)
+                    self.sendRestErr(errname, erfo.get('mesg'))
+                    rcode = True
+                    rbody = True
+
+        except Exception as e:
+            rcode = True
+            enfo = s_common.err(e)
+            logger.exception(f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+            if rbody is False:
+                self.clear()
+                self.set_status(500)
+                self.sendRestErr(enfo[0],
+                                 f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+
+        if rcode is False:
+            self.clear()
+            self.set_status(500)
+            self.sendRestErr('StormRuntimeError', f'Extended HTTP API {iden} never set status code.')
+
+        await self.finish()

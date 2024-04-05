@@ -16,63 +16,10 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.config as s_config
-import synapse.lib.provenance as s_provenance
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
 logger = logging.getLogger(__name__)
-
-reqValidCdef = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'storm': {'type': 'string'},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string'},
-        'doc': {'type': 'string'},
-        'incunit': {
-            'oneOf': [
-                {'type': 'null'},
-                {'enum': ['year', 'month', 'dayofmonth', 'dayofweek', 'day', 'hour', 'minute']}
-            ]
-        },
-        'incvals': {
-            'type': ['array', 'number', 'null'],
-            'items': {'type': 'number'}
-        },
-        'reqs': {
-            'oneOf': [
-                {
-                    '$ref': '#/definitions/req',
-                },
-                {
-                    'type': ['array'],
-                    'items': {'$ref': '#/definitions/req'},
-                },
-            ]
-        },
-    },
-    'additionalProperties': False,
-    'required': ['creator', 'storm'],
-    'dependencices': {
-        'incvals': ['incunit'],
-        'incunit': ['incvals'],
-    },
-    'definitions': {
-        'req': {
-            'type': 'object',
-            'properties': {
-                'minute': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'hour': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'dayofmonth': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'month': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-                'year': {'oneOf': [{'type': 'number'}, {'type': 'array', 'items': {'type': 'number'}}]},
-            }
-        }
-    }
-})
 
 def _dayofmonth(hardday, month, year):
     '''
@@ -307,10 +254,28 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None):
+
+    _synced_attrs = {
+        'doc',
+        'name',
+        'pool',
+        'created',
+        'enabled',
+        'errcount',
+        'nexttime',
+        'lasterrs',
+        'isrunning',
+        'lastresult',
+        'startcount',
+        'laststarttime',
+        'lastfinishtime',
+    }
+
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False):
         self.doc = ''
         self.name = ''
         self.stor = stor
+        self.pool = pool
         self.iden = iden
         self.recur = recur  # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -319,6 +284,7 @@ class _Appt:
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None  # index of rec who is up next
         self.view = view
+        self.created = created
 
         if self.recur and not self.recs:
             raise s_exc.BadTime(mesg='A recurrent appointment with no records')
@@ -333,7 +299,7 @@ class _Appt:
         self.isrunning = False  # whether it is currently running
         self.startcount = 0  # how many times query has started
         self.errcount = 0  # how many times this appt failed
-        self.lasterrs = collections.deque((), maxlen=5)
+        self.lasterrs = []
         self.laststarttime = None
         self.lastfinishtime = None
         self.lastresult = None
@@ -347,6 +313,7 @@ class _Appt:
             'doc': self.doc,
             'name': self.name,
             'storm': self.query,
+            '.created': self.created,
         }
 
         pnorms = {}
@@ -373,6 +340,7 @@ class _Appt:
             'ver': 1,
             'doc': self.doc,
             'name': self.name,
+            'pool': self.pool,
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
@@ -380,6 +348,7 @@ class _Appt:
             'indx': self.indx,
             'query': self.query,
             'creator': self.creator,
+            'created': self.created,
             'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
@@ -388,7 +357,7 @@ class _Appt:
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
             'lastresult': self.lastresult,
-            'lasterrs': list(self.lasterrs)
+            'lasterrs': list(self.lasterrs[:5])
         }
 
     @classmethod
@@ -399,6 +368,8 @@ class _Appt:
         appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, nexttime=val['nexttime'], view=val.get('view'))
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
+        appt.pool = val.get('pool', False)
+        appt.created = val.get('created', None)
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
@@ -442,21 +413,25 @@ class _Appt:
         if not self.recs:
             self._recidxnexttime = None
             self.nexttime = None
-            return
 
-    async def setDoc(self, text, nexs=False):
-        '''
-        Set the doc field of an appointment.
-        '''
-        self.doc = text
-        await self._save(nexs=nexs)
+        return self.nexttime
 
-    async def setName(self, text, nexs=False):
-        self.name = text
-        await self._save(nexs=nexs)
+    async def edits(self, edits):
+        for name, valu in edits.items():
+            if name not in self.__class__._synced_attrs:
+                extra = await self.stor.core.getLogExtra(name=name, valu=valu)
+                logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
+                continue
 
-    async def _save(self, nexs=False):
-        await self.stor._storeAppt(self, nexs=nexs)
+            else:
+                setattr(self, name, valu)
+
+        await self.save()
+
+    async def save(self):
+        full = self.stor._hivenode.full + (self.iden,)
+        stordict = self.pack()
+        await self.stor.core.hive.set(full, stordict)
 
 class Agenda(s_base.Base):
     '''
@@ -477,45 +452,8 @@ class Agenda(s_base.Base):
         self.onfini(self._wake_event.set)
 
         self._hivenode = await self.core.hive.open(('agenda', 'appts'))  # Persistent storage
-        self.onfini(self.stop)
-
-        self.enabled = False
-        self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
-
-        self._running_tasks = []  # The actively running cron job tasks
-        await self._load_all()
-
-    async def start(self):
-        '''
-        Enable cron jobs to start running, start the scheduler loop
-
-        Go through all the appointments, making sure the query is valid, and remove the ones that aren't.  (We can't
-        evaluate queries until enabled because not all the modules are loaded yet.)
-        '''
-        if self.enabled:
-            return
 
         await self._load_all()
-        for iden, appt in self.appts.items():
-            try:
-                await self.core.getStormQuery(appt.query)
-            except Exception as e:
-                logger.exception(f'Invalid appointment {iden} {appt.name} found in storage. Disabling. {e}',
-                                 extra={'synapse': {'iden': iden, 'name': appt.name, 'text': appt.query}})
-                appt.enabled = False
-
-        self._schedtask = self.schedCoro(self._scheduleLoop())
-        self.enabled = True
-
-    async def stop(self):
-        "Cancel the scheduler loop, and set self.enabled to False."
-        if not self.enabled:
-            return
-        self._schedtask.cancel()
-        for task in self._running_tasks:
-            await task.fini()
-
-        self.enabled = False
 
     async def _load_all(self):
         '''
@@ -559,17 +497,6 @@ class Agenda(s_base.Base):
         self.appts[iden] = appt
         if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
-
-    async def _storeAppt(self, appt, nexs=False):
-        ''' Store a single appointment '''
-        full = self._hivenode.full + (appt.iden,)
-        stordict = appt.pack()
-
-        # Don't store ephemeral props
-        for prop in ('startcount', 'errcount', 'lasterrs'):
-            stordict.pop(prop, None)
-
-        await self.core.hive.set(full, stordict, nexs=nexs)
 
     @staticmethod
     def _dictproduct(rdict):
@@ -636,6 +563,9 @@ class Agenda(s_base.Base):
         query = cdef.get('storm')
         creator = cdef.get('creator')
         view = cdef.get('view')
+        created = cdef.get('created')
+
+        pool = cdef.get('pool', False)
 
         recur = incunit is not None
         indx = self._next_indx
@@ -677,12 +607,12 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view)
+        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view, created=created, pool=pool)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
 
-        await self._storeAppt(appt)
+        await appt.save()
 
         return appt.pack()
 
@@ -708,7 +638,7 @@ class Agenda(s_base.Base):
             raise s_exc.NoSuchIden()
 
         appt.enabled = False
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def mod(self, iden, query):
         '''
@@ -721,13 +651,12 @@ class Agenda(s_base.Base):
         if not query:
             raise ValueError('empty query')
 
-        if self.enabled:
-            await self.core.getStormQuery(query)
+        await self.core.getStormQuery(query)
 
         appt.query = query
         appt.enabled = True  # in case it was disabled for a bad query
 
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def move(self, croniden, viewiden):
         '''
@@ -739,7 +668,7 @@ class Agenda(s_base.Base):
 
         appt.view = viewiden
 
-        await self._storeAppt(appt)
+        await appt.save()
 
     async def delete(self, iden):
         '''
@@ -774,11 +703,18 @@ class Agenda(s_base.Base):
         self.tickoff += offs
         self._wake_event.set()
 
-    async def _scheduleLoop(self):
+    async def clearRunningStatus(self):
+        '''Used for clearing the running state at startup or change of leadership.'''
+        for appt in list(self.appts.values()):
+            if appt.isrunning:
+                logger.debug(f'Clearing the isrunning flag for {appt.iden}')
+                await self.core.addCronEdits(appt.iden, {'isrunning': False})
+
+    async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
         '''
-        while True:
+        while not self.isfini:
 
             timeout = None
             if self.apptheap:
@@ -795,12 +731,16 @@ class Agenda(s_base.Base):
             while self.apptheap and self.apptheap[0].nexttime <= now:
 
                 appt = heapq.heappop(self.apptheap)
-                appt.updateNexttime(now)
+                nexttime = appt.updateNexttime(now)
+                edits = {
+                    'nexttime': nexttime,
+                }
+                await self.core.addCronEdits(appt.iden, edits)
 
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
 
-                if not appt.enabled or not self.enabled:
+                if not appt.enabled:
                     continue
 
                 if appt.isrunning:  # pragma: no cover
@@ -809,7 +749,20 @@ class Agenda(s_base.Base):
                     logger.warning(mesg,
                                    extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
                 else:
-                    await self._execute(appt)
+                    try:
+                        await self._execute(appt)
+                    except Exception as e:
+                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
+                        user = self.core.auth.user(appt.creator)
+                        if user is not None:
+                            extra['username'] = user.name
+                        if isinstance(e, s_exc.SynErr):
+                            mesg = e.get('mesg', str(e))
+                        else:  # pragma: no cover
+                            mesg = str(e)
+                        logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
+                                         extra={'synapse': extra})
+                        await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
         '''
@@ -839,73 +792,103 @@ class Agenda(s_base.Base):
             return
 
         info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
-        task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
 
-        appt.task = task
-        self._running_tasks.append(task)
-
-        task.onfini(functools.partial(self._running_tasks.remove, task))
+        coro = self._runJob(user, appt)
+        task = self.core.runActiveTask(coro)
+        appt.task = await self.core.boss.promotetask(task, f'Cron {appt.iden}', user, info=info)
 
     async def _markfailed(self, appt, reason):
-        appt.lastfinishtime = appt.laststarttime = self._getNowTick()
-        appt.startcount += 1
-        appt.isrunning = False
-        appt.lastresult = f'Failed due to {reason}'
-        if not self.isfini:
-            await self._storeAppt(appt, nexs=True)
+        now = self._getNowTick()
+        edits = {
+            'laststarttime': now,
+            'lastfinishtime': now,
+            'startcount': appt.startcount + 1,
+            'isrunning': False,
+            'lastresult': f'Failed due to {reason}',
+        }
+        await self.core.addCronEdits(appt.iden, edits)
 
     async def _runJob(self, user, appt):
         '''
         Actually run the storm query, updating the appropriate statistics and results
         '''
         count = 0
-        appt.isrunning = True
-        appt.laststarttime = self._getNowTick()
-        appt.startcount += 1
-        await self._storeAppt(appt, nexs=True)
+        edits = {
+            'isrunning': True,
+            'laststarttime': self._getNowTick(),
+            'startcount': appt.startcount + 1,
+        }
+        await self.core.addCronEdits(appt.iden, edits)
 
-        with s_provenance.claim('cron', iden=appt.iden):
-            logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                        extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                           'username': user.name, 'view': appt.view}})
-            starttime = self._getNowTick()
-            success = False
-            try:
-                opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
-                opts = self.core._initStormOpts(opts)
-                view = self.core._viewFromOpts(opts)
-                # Yes, this isn't technically on the bottom half of a nexus transaction
-                # But because the scheduling loop only runs on non-mirrors, we can kinda skirt by all that
-                # and be relatively okay. The only catch is that the nexus offset will correspond to the
-                # last nexus transaction, and not the start/stop
-                await self.core.feedBeholder('cron:start', {'iden': appt.iden})
-                async for node in view.eval(appt.query, opts=opts):
+        logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
+                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
+                                       'username': user.name, 'view': appt.view}})
+        starttime = self._getNowTick()
+        success = False
+        try:
+            opts = {
+                'user': user.iden,
+                'view': appt.view,
+                'mirror': appt.pool,
+                'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
+            }
+            opts = self.core._initStormOpts(opts)
+
+            await self.core.feedBeholder('cron:start', {'iden': appt.iden})
+
+            async for mesg in self.core.storm(appt.query, opts=opts):
+
+                if mesg[0] == 'node':
                     count += 1
-            except asyncio.CancelledError:
-                result = 'cancelled'
-                raise
-            except Exception as e:
-                result = f'raised exception {e}'
-                logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                                 extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
-                                 )
-            else:
-                success = True
-                result = f'finished successfully with {count} nodes'
-            finally:
-                finishtime = self._getNowTick()
-                if not success:
-                    appt.errcount += 1
-                    appt.lasterrs.append(result)
-                took = finishtime - starttime
-                mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
-                       f'took {took:.3f}s'
-                logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                     'result': result, 'username': user.name, 'took': took}})
-                appt.lastfinishtime = finishtime
-                appt.isrunning = False
-                appt.lastresult = result
-                if not self.isfini:
-                    # fire beholder event before invoking nexus change (in case readonly)
-                    await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
-                    await self._storeAppt(appt, nexs=True)
+
+                elif mesg[0] == 'err':
+                    excname, errinfo = mesg[1]
+                    errinfo.pop('eline', None)
+                    errinfo.pop('efile', None)
+                    excctor = getattr(s_exc, excname, s_exc.SynErr)
+                    raise excctor(**errinfo)
+
+        except asyncio.CancelledError:
+            result = 'cancelled'
+            raise
+
+        except Exception as e:
+            result = f'raised exception {e}'
+            logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
+                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                             )
+        else:
+            success = True
+            result = f'finished successfully with {count} nodes'
+
+        finally:
+            finishtime = self._getNowTick()
+            if not success:
+                appt.lasterrs.append(result)
+                edits = {
+                    'errcount': appt.errcount + 1,
+                    # we only care about the last five errors
+                    'lasterrs': list(appt.lasterrs[-5:]),
+                }
+
+                if self.core.isactive:
+                    await self.core.addCronEdits(appt.iden, edits)
+
+            took = finishtime - starttime
+            mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
+                   f'took {took:.3f}s'
+            if not self.core.isactive:
+                mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
+            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
+                                                 'result': result, 'username': user.name, 'took': took}})
+            edits = {
+                'lastfinishtime': finishtime,
+                'isrunning': False,
+                'lastresult': result,
+            }
+            if self.core.isactive:
+                await self.core.addCronEdits(appt.iden, edits)
+
+            if not self.isfini:
+                # fire beholder event before invoking nexus change (in case readonly)
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})

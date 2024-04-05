@@ -3,6 +3,7 @@ import asyncio
 import aioimaplib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
 async def run_imap_coro(coro):
@@ -58,6 +59,10 @@ class ImapLib(s_stormtypes.Lib):
         },
     )
     _storm_lib_path = ('inet', 'imap', )
+    _storm_lib_perms = (
+        {'perm': ('storm', 'inet', 'imap', 'connect'), 'gate': 'cortex',
+         'desc': 'Controls connecting to external servers via imap.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -80,7 +85,7 @@ class ImapLib(s_stormtypes.Lib):
 
         async def fini():
             # call protocol.logout() so fini() doesn't hang
-            await asyncio.wait_for(imap_cli.protocol.logout(), 5)
+            await s_common.wait_for(imap_cli.protocol.logout(), 5)
 
         self.runt.snap.onfini(fini)
 
@@ -183,6 +188,8 @@ class ImapServer(s_stormtypes.StormType):
                 'args': (
                     {'type': 'str', 'name': '*args',
                      'desc': 'A set of search criteria to use.'},
+                    {'type': ['str', 'null'], 'name': 'charset', 'default': 'utf-8',
+                     'desc': 'The CHARSET used for the search. May be set to $lib.null to disable CHARSET.'},
                 ),
                 'returns': {
                     'type': 'list',
@@ -314,10 +321,10 @@ class ImapServer(s_stormtypes.StormType):
 
         return True, None
 
-    async def search(self, *args):
+    async def search(self, *args, charset='utf-8'):
         args = [await s_stormtypes.tostr(arg) for arg in args]
-
-        coro = self.imap_cli.uid_search(*args)
+        charset = await s_stormtypes.tostr(charset, noneok=True)
+        coro = self.imap_cli.uid_search(*args, charset=charset)
         data = await run_imap_coro(coro)
 
         uids = data[0].decode().split(' ') if data[0] else []

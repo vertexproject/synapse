@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 21)
+maxvers = (0, 2, 24)
 
 class ModelRev:
 
@@ -35,6 +35,9 @@ class ModelRev:
             ((0, 2, 19), self.revModel_0_2_19),
             ((0, 2, 20), self.revModel_0_2_20),
             ((0, 2, 21), self.revModel_0_2_21),
+            ((0, 2, 22), self.revModel_0_2_22),
+            ((0, 2, 23), self.revModel_0_2_23),
+            ((0, 2, 24), self.revModel_0_2_24),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -725,6 +728,35 @@ class ModelRev:
         await self._normPropValu(layers, 'risk:vuln:name')
         await self._propToForm(layers, 'risk:vuln:name', 'risk:vulnname')
 
+    async def revModel_0_2_22(self, layers):
+        await self._normFormSubs(layers, 'inet:ipv4', cmprvalu='100.64.0.0/10')
+
+    async def revModel_0_2_23(self, layers):
+        await self._normFormSubs(layers, 'inet:ipv6')
+
+    async def revModel_0_2_24(self, layers):
+        await self._normPropValu(layers, 'risk:mitigation:name')
+        await self._normPropValu(layers, 'it:mitre:attack:technique:name')
+        await self._normPropValu(layers, 'it:mitre:attack:mitigation:name')
+
+        formprops = {}
+        for prop in self.core.model.getPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for prop in self.core.model.getArrayPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for form, props in formprops.items():
+            await self._normVelocityProps(layers, form, props)
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -782,7 +814,6 @@ class ModelRev:
         if not layers:
             return
 
-        await self.core._enableMigrationMode()
         for revvers, revmeth in self.revs:
 
             todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
@@ -795,7 +826,6 @@ class ModelRev:
 
             [await lyr.setModelVers(revvers) for lyr in todo]
 
-        await self.core._disableMigrationMode()
         logger.warning('...model migrations complete!')
 
     async def _normPropValu(self, layers, propfull):
@@ -842,6 +872,72 @@ class ModelRev:
             if nodeedits:
                 await save()
 
+    async def _normVelocityProps(self, layers, form, props):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for buid, formvalu in layr.iterFormRows(form):
+                sode = layr._getStorNode(buid)
+                if (nodeprops := sode.get('props')) is None:
+                    continue
+
+                for prop in props:
+                    if (curv := nodeprops.get(prop.name)) is None:
+                        continue
+
+                    propvalu = curv[0]
+                    if prop.type.isarray:
+                        hasfloat = False
+                        strvalu = []
+                        for valu in propvalu:
+                            if isinstance(valu, float):
+                                strvalu.append(str(valu))
+                                hasfloat = True
+
+                        if not hasfloat:
+                            continue
+                    else:
+                        if not isinstance(propvalu, float):
+                            continue
+                        strvalu = str(propvalu)
+
+                    nodeprops.pop(prop.name)
+
+                    try:
+                        norm, info = prop.type.norm(strvalu)
+                    except s_exc.BadTypeValu as e:
+                        nodeedits.append(
+                            (buid, form, (
+                                (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
+                                (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                            )),
+                        )
+
+                        oldm = e.errinfo.get('mesg')
+                        iden = s_common.ehex(buid)
+                        logger.warning(f'error re-norming {prop.full}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                       extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                        continue
+
+                    nodeedits.append(
+                        (buid, form, (
+                            (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
+
+            if nodeedits:
+                await save()
+
     async def _updatePropStortype(self, layers, propfull):
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
@@ -857,7 +953,14 @@ class ModelRev:
             stortype = prop.type.stortype
 
             async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
-                curv = sode['props'].get(prop.name)
+
+                props = sode.get('props')
+
+                # this should be impossible, but has been observed in the wild...
+                if props is None: # pragma: no cover
+                    continue
+
+                curv = props.get(prop.name)
                 if curv is None or curv[1] == stortype:
                     continue
 
@@ -873,7 +976,7 @@ class ModelRev:
             if nodeedits:
                 await save()
 
-    async def _normFormSubs(self, layers, formname, liftprop=None):
+    async def _normFormSubs(self, layers, formname, liftprop=None, cmprvalu=s_common.novalu, cmpr='='):
 
         # NOTE: this API may be used to re-normalize subs but *not* to change their storage types
         # and will *not* auto-populate linked forms from subs which are form types.
@@ -891,7 +994,36 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
-            async for lkey, buid, sode in layr.liftByProp(form.name, liftprop):
+            if cmprvalu is s_common.novalu:
+                # This is for lifts such as:
+                #   <formname>
+                #   <formname>:<liftprop>
+                # E.g.:
+                #   inet:ipv4
+                #   inet:ipv4:type
+                genr = layr.liftByProp(form.name, liftprop)
+
+            elif liftprop is None:
+                # This is for lifts such as:
+                #   <formname><cmpr><cmprvalu>
+                # E.g.:
+                #   inet:ipv4=1.2.3.4
+
+                # Don't norm cmprvalu first because it may not be normable
+                cmprvals = form.type.getStorCmprs(cmpr, cmprvalu)
+                genr = layr.liftByFormValu(form.name, cmprvals)
+
+            else: # liftprop is not None  # pragma: no cover
+                # This is for lifts such as:
+                #   <formname>:<liftprop><cmpr><cmprvalu>
+                # E.g.:
+                #   inet:ipv4:type=private
+
+                # Don't norm cmprvalu first because it may not be normable
+                cmprvals = form.type.getStorCmprs(cmpr, cmprvalu)
+                genr = layr.liftByPropValu(form.name, liftprop, cmprvals)
+
+            async for _, buid, sode in genr:
 
                 sodevalu = sode.get('valu')
                 if sodevalu is None: # pragma: no cover
@@ -926,7 +1058,11 @@ class ModelRev:
                             logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
                             continue
 
-                        subcurv = sode['props'].get(subprop.name)
+                        props = sode.get('props')
+                        if props is None: # pragma: no cover
+                            continue
+
+                        subcurv = props.get(subprop.name)
                         if subcurv is not None:
                             if subcurv[1] != subprop.type.stortype: # pragma: no cover
                                 logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')

@@ -3,6 +3,7 @@ Time related utilities for synapse "epoch millis" time values.
 '''
 import logging
 import datetime
+import calendar
 
 from dateutil.relativedelta import relativedelta
 
@@ -11,11 +12,48 @@ import regex
 
 import synapse.exc as s_exc
 
+import synapse.lookup.timezones as s_l_timezones
+
 logger = logging.getLogger(__name__)
 
 EPOCH = datetime.datetime(1970, 1, 1)
 
-tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\w+|\+\w))')
+onesec = 1000
+onemin = 60000
+onehour = 3600000
+oneday = 86400000
+
+timeunits = {
+    'sec': onesec,
+    'secs': onesec,
+    'seconds': onesec,
+
+    'min': onemin,
+    'mins': onemin,
+    'minute': onemin,
+    'minutes': onemin,
+
+    'hour': onehour,
+    'hours': onehour,
+
+    'day': oneday,
+    'days': oneday,
+}
+
+tzcat = '|'.join(sorted(s_l_timezones.getTzNames(), key=lambda x: len(x), reverse=True))
+unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
+tz_re = regex.compile(
+    r'\d(?P<tzstr>\s?(?:'
+    r'(?P<tzname>%s)|'
+    r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2}):?(?P<tzmin>\d{2})))'
+    r')(?:[\-|\+]\d+(?:%s))?$' % (tzcat, unitcat),
+    flags=regex.IGNORECASE
+)
+
+daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
+monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))
+rfc822_re = regex.compile(r'((?:%s),)?\d{1,2}(?:%s)\d{4}\d{2}:\d{2}:\d{2}' % (daycat, monthcat))
+rfc822_fmt = '%d%b%Y%H:%M:%S'
 
 def _rawparse(text, base=None, chop=False):
     otext = text
@@ -26,6 +64,21 @@ def _rawparse(text, base=None, chop=False):
         text, base = parsetz(text)
         if base != 0:
             parsed_tz = True
+
+    # regex match is ~10x faster than strptime, so optimize
+    # for the case that *most* datetimes will not be RFC822
+    rfc822_match = rfc822_re.match(text)
+    if rfc822_match is not None:
+
+        # remove leading day since it is not used in strptime
+        if grp := rfc822_match.groups()[0]:
+            text = text.replace(grp, '', 1)
+
+        try:
+            dt = datetime.datetime.strptime(text, rfc822_fmt)
+            return dt, base, len(text)
+        except ValueError as e:
+            raise s_exc.BadTypeValu(mesg=f'Error parsing time as RFC822 "{otext}"; {str(e)}', valu=otext)
 
     text = (''.join([c for c in text if c.isdigit()]))
 
@@ -127,23 +180,31 @@ def parsetz(text):
     Returns:
         tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
     '''
-    tz_hm = tz_hm_re.search(text)
 
-    if tz_hm is not None:
+    match = tz_re.search(text)
+    if match is None:
+        return text, 0
 
-        tzstr, rel, hrs, mins, _, _ = tz_hm.groups()
+    tzrel = match['tzrel']
+    if tzrel is not None:
 
-        rel = 1 if rel == '-' else -1
-
-        base = rel * (onehour * int(hrs) + onemin * int(mins))
+        base = onehour * int(match['tzhr']) + onemin * int(match['tzmin'])
+        if tzrel == '+':
+            base *= -1
 
         if abs(base) >= oneday:
             raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
                                     valu=text, name='time')
 
-        return text.replace(tzstr, '', 1), base
+        return text.replace(match['tzstr'], '', 1), base
 
-    return text, 0
+    offset, _ = s_l_timezones.getTzOffset(match['tzname'])
+    if offset is None:  # pragma: no cover
+        raise s_exc.BadTypeValu(mesg=f'Unknown timezone for {text}', valu=text, name='time') from None
+
+    base = offset * -1
+
+    return text.replace(match['tzstr'], '', 1), base
 
 def repr(tick, pack=False):
     '''
@@ -202,28 +263,6 @@ def ival(*times):
         maxv += 1
 
     return (minv, maxv)
-
-onesec = 1000
-onemin = 60000
-onehour = 3600000
-oneday = 86400000
-
-timeunits = {
-    'sec': onesec,
-    'secs': onesec,
-    'seconds': onesec,
-
-    'min': onemin,
-    'mins': onemin,
-    'minute': onemin,
-    'minutes': onemin,
-
-    'hour': onehour,
-    'hours': onehour,
-
-    'day': oneday,
-    'days': oneday,
-}
 
 # TODO: use synapse.lib.syntax once it gets cleaned up
 def _noms(text, offs, cset):

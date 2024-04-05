@@ -74,11 +74,13 @@ class HexLib(s_stormtypes.Lib):
             'signext': self.signext,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def encode(self, valu):
         if not isinstance(valu, bytes):
             raise s_exc.BadArg(mesg='$lib.hex.encode() requires a bytes argument.')
         return s_common.ehex(valu)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def decode(self, valu):
         valu = await s_stormtypes.tostr(valu)
         try:
@@ -86,6 +88,7 @@ class HexLib(s_stormtypes.Lib):
         except binascii.Error as e:
             raise s_exc.BadArg(mesg=f'$lib.hex.decode(): {e}')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def toint(self, valu, signed=False):
         valu = await s_stormtypes.tostr(valu)
         signed = await s_stormtypes.tobool(signed)
@@ -97,6 +100,7 @@ class HexLib(s_stormtypes.Lib):
 
         return int.from_bytes(byts, 'big', signed=signed)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def fromint(self, valu, length, signed=False):
         valu = await s_stormtypes.toint(valu)
         length = await s_stormtypes.toint(length)
@@ -108,6 +112,7 @@ class HexLib(s_stormtypes.Lib):
         except OverflowError as e:
             raise s_exc.BadArg(mesg=f'$lib.hex.fromint(): {e}')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def trimext(self, valu):
         valu = await s_stormtypes.tostr(valu)
 
@@ -124,6 +129,7 @@ class HexLib(s_stormtypes.Lib):
             break
         return valu
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def signext(self, valu, length):
         valu = await s_stormtypes.tostr(valu)
         length = await s_stormtypes.toint(length)

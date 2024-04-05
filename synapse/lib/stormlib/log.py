@@ -115,6 +115,16 @@ class LoggerLib(s_stormtypes.Lib):
     )
 
     _storm_lib_path = ('log',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'log', 'debug'), 'gate': 'cortex',
+            'desc': 'Controls the ability to log a debug level message.'},
+        {'perm': ('storm', 'lib', 'log', 'error'), 'gate': 'cortex',
+            'desc': 'Controls the ability to log a error level message.'},
+        {'perm': ('storm', 'lib', 'log', 'info'), 'gate': 'cortex',
+            'desc': 'Controls the ability to log a info level message.'},
+        {'perm': ('storm', 'lib', 'log', 'warning'), 'gate': 'cortex',
+            'desc': 'Controls the ability to log a warning level message.'},
+    )
 
     def getObjLocals(self):
         return {

@@ -1,4 +1,7 @@
 import logging
+import dataclasses
+
+from typing import Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -37,6 +40,45 @@ def textFromRule(rule):
     if not rule[0]:
         text = '!' + text
     return text
+
+@dataclasses.dataclass(slots=True)
+class _allowedReason:
+    value: Union[bool | None]
+    default: bool = False
+    isadmin: bool = False
+    islocked: bool = False
+    gateiden: Union[str | None] = None
+    roleiden: Union[str | None] = None
+    rolename: Union[str | None] = None
+    rule: tuple = ()
+
+    @property
+    def mesg(self):
+        if self.islocked:
+            return 'The user is locked.'
+        if self.default:
+            return 'No matching rule found.'
+
+        if self.isadmin:
+            if self.gateiden:
+                return f'The user is an admin of auth gate {self.gateiden}.'
+            return 'The user is a global admin.'
+
+        if self.rule:
+            rt = textFromRule((self.value, self.rule))
+            if self.gateiden:
+                if self.roleiden:
+                    m = f'Matched role rule ({rt}) for role {self.rolename} on gate {self.gateiden}.'
+                else:
+                    m = f'Matched user rule ({rt}) on gate {self.gateiden}.'
+            else:
+                if self.roleiden:
+                    m = f'Matched role rule ({rt}) for role {self.rolename}.'
+                else:
+                    m = f'Matched user rule ({rt}).'
+            return m
+
+        return 'No matching rule found.'
 
 class Auth(s_nexus.Pusher):
     '''
@@ -313,6 +355,9 @@ class Auth(s_nexus.Pusher):
         if gateiden is not None:
             info = await user.genGateInfo(gateiden)
 
+        if name in ('locked', 'archived') and not valu:
+            self.checkUserLimit()
+
         await info.set(name, valu)
 
         if mesg is None:
@@ -413,6 +458,32 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchAuthGate(iden=iden, mesg=mesg)
         return gate
 
+    def checkUserLimit(self):
+        '''
+        Check if we're at the specified user limit.
+
+        This should be called right before adding/unlocking/unarchiving a user.
+
+        Raises: s_exc.HitLimit if the number of active users is at the maximum.
+        '''
+        if self.maxusers == 0:
+            return
+
+        numusers = 0
+
+        for user in self.users():
+            if user.name == 'root':
+                continue
+
+            if user.isLocked() or user.isArchived():
+                continue
+
+            numusers += 1
+
+        if numusers >= self.maxusers:
+            mesg = f'Cell at maximum number of users ({self.maxusers}).'
+            raise s_exc.HitLimit(mesg=mesg)
+
     async def addUser(self, name, passwd=None, email=None, iden=None):
         '''
         Add a User to the Hive.
@@ -427,10 +498,7 @@ class Auth(s_nexus.Pusher):
             HiveUser: A Hive User.
         '''
 
-        #  GT instead of GE allows us to not count root
-        if self.maxusers and len(self.users()) > self.maxusers:
-            mesg = f'Cell at maximum number of users ({self.maxusers}).'
-            raise s_exc.HitLimit(mesg=mesg)
+        self.checkUserLimit()
 
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
@@ -465,7 +533,7 @@ class Auth(s_nexus.Pusher):
 
         user = self.usersbyname.get(name)
         if user is not None:
-            return user
+            return
 
         node = await self.node.open(('users', iden))
         await node.set(name)
@@ -491,7 +559,7 @@ class Auth(s_nexus.Pusher):
 
         role = self.rolesbyname.get(name)
         if role is not None:
-            return role
+            return
 
         node = await self.node.open(('roles', iden))
         await node.set(name)
@@ -517,6 +585,7 @@ class Auth(s_nexus.Pusher):
         if user is None:
             return
 
+        udef = user.pack()
         self.usersbyiden.pop(user.iden)
         self.usersbyname.pop(user.name)
 
@@ -527,6 +596,7 @@ class Auth(s_nexus.Pusher):
 
         await user.fini()
         await self.node.hive.pop(path)
+        await self.fire('user:del', udef=udef)
         await self.feedBeholder('user:del', {'iden': iden})
 
     def _getUsersInRole(self, role):
@@ -799,7 +869,7 @@ class HiveRole(HiveRuler):
                         return allow
             return default
 
-        # 2. check user rules
+        # 2. check role rules
         for allow, path in self.info.get('rules', ()):
             if perm[:len(path)] == path:
                 return allow
@@ -830,12 +900,20 @@ class HiveUser(HiveRuler):
         self.vars = await varz.dict(nexs=True)
 
         self.permcache = s_cache.FixedCache(self._allowed)
+        self.allowedcache = s_cache.FixedCache(self._getAllowedReason)
 
     def pack(self, packroles=False):
 
         roles = self.info.get('roles', ())
         if packroles:
-            roles = [self.auth.role(r).pack() for r in roles]
+            _roles = []
+            for r in roles:
+                role = self.auth.role(r)
+                if role is None:
+                    logger.error(f'User {self.iden} ({self.name}) contains a missing role: {r}')
+                    continue
+                _roles.append(role.pack())
+            roles = _roles
 
         return {
             'type': 'user',
@@ -868,6 +946,9 @@ class HiveUser(HiveRuler):
         return self.permcache.get((perm, default, gateiden))
 
     def _allowed(self, pkey):
+        '''
+        NOTE: This must remain in sync with any changes to _getAllowedReason()!
+        '''
 
         perm, default, gateiden = pkey
 
@@ -916,18 +997,23 @@ class HiveUser(HiveRuler):
 
         return default
 
-    def getAllowedReason(self, perm, gateiden=None, default=False):
+    def getAllowedReason(self, perm, default=None, gateiden=None):
         '''
-        A non-optimized diagnostic routine which will return a tuple
-        of (allowed, reason). This is implemented separately for perf.
+        A routine which will return a tuple of (allowed, info).
+        '''
+        perm = tuple(perm)
+        return self.allowedcache.get((perm, default, gateiden))
 
+    def _getAllowedReason(self, pkey):
+        '''
         NOTE: This must remain in sync with any changes to _allowed()!
         '''
+        perm, default, gateiden = pkey
         if self.info.get('locked'):
-            return (False, 'The user is locked.')
+            return _allowedReason(False, islocked=True)
 
         if self.info.get('admin'):
-            return (True, 'The user is a global admin.')
+            return _allowedReason(True, isadmin=True)
 
         # 1. check authgate user rules
         if gateiden is not None:
@@ -936,16 +1022,16 @@ class HiveUser(HiveRuler):
             if info is not None:
 
                 if info.get('admin'):
-                    return (True, f'The user is an admin of auth gate {gateiden}.')
+                    return _allowedReason(True, isadmin=True, gateiden=gateiden)
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, f'Matched user rule ({textFromRule((allow, path))}) on gate {gateiden}.')
+                        return _allowedReason(allow, gateiden=gateiden, rule=path)
 
         # 2. check user rules
         for allow, path in self.info.get('rules', ()):
             if perm[:len(path)] == path:
-                return (allow, f'Matched user rule ({textFromRule((allow, path))}).')
+                return _allowedReason(allow, rule=path)
 
         # 3. check authgate role rules
         if gateiden is not None:
@@ -958,18 +1044,20 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name} on gate {gateiden}.')
+                        return _allowedReason(allow, gateiden=gateiden, roleiden=role.iden, rolename=role.name,
+                                              rule=path)
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name}.')
+                    return _allowedReason(allow, roleiden=role.iden, rolename=role.name, rule=path)
 
-        return (default, 'No matching rule found.')
+        return _allowedReason(default, default=True)
 
     def clearAuthCache(self):
         self.permcache.clear()
+        self.allowedcache.clear()
 
     async def genGateInfo(self, gateiden):
         info = self.authgates.get(gateiden)
@@ -997,7 +1085,7 @@ class HiveUser(HiveRuler):
         for iden in self.info.get('roles', ()):
             role = self.auth.role(iden)
             if role is None:
-                logger.warning('user {self.iden} has non-existent role: {iden}')
+                logger.warning(f'user {self.iden} has non-existent role: {iden}')
                 continue
             yield role
 
@@ -1088,6 +1176,21 @@ class HiveUser(HiveRuler):
 
         return gateinfo.get('admin', False)
 
+    def reqAdmin(self, gateiden=None, mesg=None):
+
+        if self.isAdmin(gateiden=gateiden):
+            return
+
+        if mesg is None:
+            mesg = 'This action requires global admin permissions.'
+            if gateiden is not None:
+                mesg = f'This action requires admin permissions on gate: {gateiden}'
+
+        raise s_exc.AuthDeny(mesg=mesg, user=self.iden, username=self.name)
+
+    def isArchived(self):
+        return self.info.get('archived')
+
     async def setAdmin(self, admin, gateiden=None, logged=True):
         if not isinstance(admin, bool):
             raise s_exc.BadArg(mesg='setAdmin requires a boolean')
@@ -1107,7 +1210,6 @@ class HiveUser(HiveRuler):
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
             raise s_exc.BadArg(mesg='setArchived requires a boolean')
-        archived = bool(archived)
         await self.auth.setUserInfo(self.iden, 'archived', archived)
         if archived:
             await self.setLocked(True)

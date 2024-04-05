@@ -3,6 +3,7 @@ import os
 import ssl
 import sys
 import json
+import http
 import stat
 import time
 import heapq
@@ -10,6 +11,7 @@ import types
 import base64
 import shutil
 import struct
+import asyncio
 import decimal
 import fnmatch
 import hashlib
@@ -33,6 +35,15 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
+import enum
+
+try:
+    from yaml import CSafeLoader as Loader
+    from yaml import CSafeDumper as Dumper
+except ImportError:  # pragma: no cover
+    from yaml import SafeLoader as Loader
+    from yaml import SafeDumper as Dumper
+
 class NoValu:
     pass
 
@@ -50,23 +61,33 @@ novalu = NoValu()
 
 logger = logging.getLogger(__name__)
 
+if Loader == yaml.SafeLoader:  # pragma: no cover
+    logger.warning('*****************************************************************************************************')
+    logger.warning('* PyYAML is using the pure python fallback implementation. This will impact performance negatively. *')
+    logger.warning('* See PyYAML docs (https://pyyaml.org/wiki/PyYAMLDocumentation) for tips on resolving this issue.   *')
+    logger.warning('*****************************************************************************************************')
+
 def now():
     '''
     Get the current epoch time in milliseconds.
 
-    This relies on time.time(), which is system-dependent in terms of resolution.
-
-    Examples:
-        Get the current time and make a row for a Cortex::
-
-            tick = now()
-            row = (someiden, 'foo:prop', 1, tick)
-            core.addRows([row])
+    This relies on time.time_ns(), which is system-dependent in terms of resolution.
 
     Returns:
         int: Epoch time in milliseconds.
     '''
     return time.time_ns() // 1000000
+
+def mononow():
+    '''
+    Get the current monotonic clock time in milliseconds.
+
+    This relies on time.monotonic_ns(), which is a relative time.
+
+    Returns:
+        int: Monotonic clock time in milliseconds.
+    '''
+    return time.monotonic_ns() // 1000000
 
 def guid(valu=None):
     '''
@@ -502,6 +523,9 @@ def jssave(js, *paths):
     with io.open(path, 'wb') as fd:
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
+def yamlloads(data):
+    return yaml.load(data, Loader)
+
 def yamlload(*paths):
 
     path = genpath(*paths)
@@ -509,18 +533,15 @@ def yamlload(*paths):
         return None
 
     with io.open(path, 'rb') as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-        return yaml.safe_load(byts.decode('utf8'))
+        return yamlloads(fd)
 
 def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
-        s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
-                           default_style='', explicit_start=True, explicit_end=True, sort_keys=True)
         fd.truncate(0)
-        fd.write(s.encode('utf8'))
+        yaml.dump(obj, allow_unicode=True, default_flow_style=False,
+                  default_style='', explicit_start=True, explicit_end=True,
+                  encoding='utf8', stream=fd, Dumper=Dumper)
 
 def yamlmod(obj, *paths):
     '''
@@ -638,7 +659,7 @@ def iterfd(fd, size=10000000):
     Notes:
         If the first read call on the file descriptor is a empty bytestring,
         that zero length bytestring will be yielded and the generator will
-        then be exhuasted. This behavior is intended to allow the yielding of
+        then be exhausted. This behavior is intended to allow the yielding of
         contents of a zero byte file.
 
     Yields:
@@ -741,14 +762,15 @@ def makedirs(path, mode=0o777):
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def _getLogConfFromEnv(defval=None, structlog=None):
+def _getLogConfFromEnv(defval=None, structlog=None, datefmt=None):
     if structlog:
         structlog = 'true'
     else:
         structlog = 'false'
     defval = os.getenv('SYN_LOG_LEVEL', defval)
+    datefmt = os.getenv('SYN_LOG_DATEFORMAT', datefmt)
     structlog = envbool('SYN_LOG_STRUCT', structlog)
-    ret = {'defval': defval, 'structlog': structlog}
+    ret = {'defval': defval, 'structlog': structlog, 'datefmt': datefmt}
     return ret
 
 def normLogLevel(valu):
@@ -779,7 +801,7 @@ def normLogLevel(valu):
             return normLogLevel(valu)
     raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
 
-def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
+def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=None):
     '''
     Configure synapse logging.
 
@@ -787,6 +809,7 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
         mlogger (logging.Logger): Reference to a logging.Logger()
         defval (str): Default log level. May be an integer.
         structlog (bool): Enabled structured (jsonl) logging output.
+        datefmt (str): Optional strftime format string.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
@@ -794,8 +817,9 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
     Returns:
         None
     '''
-    ret = _getLogConfFromEnv(defval, structlog)
+    ret = _getLogConfFromEnv(defval, structlog, datefmt)
 
+    datefmt = ret.get('datefmt')
     log_level = ret.get('defval')
     log_struct = ret.get('structlog')
 
@@ -805,11 +829,11 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
 
         if log_struct:
             handler = logging.StreamHandler()
-            formatter = s_structlog.JsonFormatter()
+            formatter = s_structlog.JsonFormatter(datefmt=datefmt)
             handler.setFormatter(formatter)
             logging.basicConfig(level=log_level, handlers=(handler,))
         else:
-            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT, datefmt=datefmt)
         if log_setup:
             mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 
@@ -910,6 +934,11 @@ def config(conf, confdefs):
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
+    return mesg
+
+def deprdate(name, date):  # pragma: no cover
+    mesg = f'{name} is deprecated and will be removed on {date}.'
+    warnings.warn(mesg, DeprecationWarning)
 
 def reqjsonsafe(item):
     '''
@@ -943,6 +972,12 @@ def unjsonsafe_nodeedits(nodeedits):
         retn.append(newedit)
 
     return retn
+
+def reprauthrule(rule):
+    text = '.'.join(rule[1])
+    if not rule[0]:
+        text = '!' + text
+    return text
 
 def reqJsonSafeStrict(item):
     '''
@@ -1130,28 +1165,171 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
             logger.exception(f'Error loading {certpath}')
     return sslctx
 
-# TODO:  Remove when this is added to contextlib in py 3.10
-class aclosing(contextlib.AbstractAsyncContextManager):
-    """Async context manager for safely finalizing an asynchronously cleaned-up
-    resource such as an async generator, calling its ``aclose()`` method.
+def httpcodereason(code):
+    '''
+    Get the reason for an HTTP status code.
 
-    Code like this::
+    Args:
+        code (int): The code.
 
-        async with aclosing(<module>.fetch(<arguments>)) as agen:
-            <block>
+    Note:
+        If the status code is unknown, a string indicating it is unknown is returned.
 
-    is equivalent to this::
+    Returns:
+        str: A string describing the status code.
+    '''
+    try:
+        return http.HTTPStatus(code).phrase
+    except ValueError:
+        return f'Unknown HTTP status code {code}'
 
-        agen = <module>.fetch(<arguments>)
+# TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
+# This is a workaround for a race where asyncio.wait_for can end up
+# ignoring cancellation https://github.com/python/cpython/issues/86296
+async def wait_for(fut, timeout):
+
+    if timeout is not None and timeout <= 0:
+        fut = asyncio.ensure_future(fut)
+
+        if fut.done():
+            return fut.result()
+
+        await _cancel_and_wait(fut)
         try:
-            <block>
-        finally:
-            await agen.aclose()
+            return fut.result()
+        except asyncio.CancelledError as exc:
+            raise TimeoutError from exc
 
+    async with _timeout(timeout):
+        return await fut
+
+def _release_waiter(waiter, *args):
+    if not waiter.done():
+        waiter.set_result(None)
+
+async def _cancel_and_wait(fut):
+    """Cancel the *fut* future or task and wait until it completes."""
+
+    loop = asyncio.get_running_loop()
+    waiter = loop.create_future()
+    cb = functools.partial(_release_waiter, waiter)
+    fut.add_done_callback(cb)
+
+    try:
+        fut.cancel()
+        # We cannot wait on *fut* directly to make
+        # sure _cancel_and_wait itself is reliably cancellable.
+        await waiter
+    finally:
+        fut.remove_done_callback(cb)
+
+
+class _State(enum.Enum):
+    CREATED = "created"
+    ENTERED = "active"
+    EXPIRING = "expiring"
+    EXPIRED = "expired"
+    EXITED = "finished"
+
+class _Timeout:
+    """Asynchronous context manager for cancelling overdue coroutines.
+    Use `timeout()` or `timeout_at()` rather than instantiating this class directly.
     """
-    def __init__(self, thing):
-        self.thing = thing
+
+    def __init__(self, when):
+        """Schedule a timeout that will trigger at a given loop time.
+        - If `when` is `None`, the timeout will never trigger.
+        - If `when < loop.time()`, the timeout will trigger on the next
+          iteration of the event loop.
+        """
+        self._state = _State.CREATED
+        self._timeout_handler = None
+        self._task = None
+        self._when = when
+
+    def when(self):  # pragma: no cover
+        """Return the current deadline."""
+        return self._when
+
+    def reschedule(self, when):
+        """Reschedule the timeout."""
+        assert self._state is not _State.CREATED
+        if self._state is not _State.ENTERED:  # pragma: no cover
+            raise RuntimeError(
+                f"Cannot change state of {self._state.value} Timeout",
+            )
+        self._when = when
+        if self._timeout_handler is not None:  # pragma: no cover
+            self._timeout_handler.cancel()
+        if when is None:
+            self._timeout_handler = None
+        else:
+            loop = asyncio.get_running_loop()
+            if when <= loop.time():  # pragma: no cover
+                self._timeout_handler = loop.call_soon(self._on_timeout)
+            else:
+                self._timeout_handler = loop.call_at(when, self._on_timeout)
+
+    def expired(self):  # pragma: no cover
+        """Is timeout expired during execution?"""
+        return self._state in (_State.EXPIRING, _State.EXPIRED)
+
+    def __repr__(self):  # pragma: no cover
+        info = ['']
+        if self._state is _State.ENTERED:
+            when = round(self._when, 3) if self._when is not None else None
+            info.append(f"when={when}")
+        info_str = ' '.join(info)
+        return f"<Timeout [{self._state.value}]{info_str}>"
+
     async def __aenter__(self):
-        return self.thing
-    async def __aexit__(self, exc, cls, tb):
-        await self.thing.aclose()
+        self._state = _State.ENTERED
+        self._task = asyncio.current_task()
+        self._cancelling = self._task.cancelling()
+        if self._task is None:  # pragma: no cover
+            raise RuntimeError("Timeout should be used inside a task")
+        self.reschedule(self._when)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+
+            if self._task.uncancel() <= self._cancelling and exc_type is asyncio.CancelledError:
+                # Since there are no new cancel requests, we're
+                # handling this.
+                raise TimeoutError from exc_val
+        elif self._state is _State.ENTERED:
+            self._state = _State.EXITED
+
+        return None
+
+    def _on_timeout(self):
+        assert self._state is _State.ENTERED
+        self._task.cancel()
+        self._state = _State.EXPIRING
+        # drop the reference early
+        self._timeout_handler = None
+
+def _timeout(delay):
+    """Timeout async context manager.
+
+    Useful in cases when you want to apply timeout logic around block
+    of code or in cases when asyncio.wait_for is not suitable. For example:
+
+    >>> async with asyncio.timeout(10):  # 10 seconds timeout
+    ...     await long_running_task()
+
+
+    delay - value in seconds or None to disable timeout logic
+
+    long_running_task() is interrupted by raising asyncio.CancelledError,
+    the top-most affected timeout() context manager converts CancelledError
+    into TimeoutError.
+    """
+    loop = asyncio.get_running_loop()
+    return _Timeout(loop.time() + delay if delay is not None else None)

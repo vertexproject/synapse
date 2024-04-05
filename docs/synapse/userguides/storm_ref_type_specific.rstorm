@@ -27,6 +27,7 @@ enforcement, see the online documentation_ or the Synapse source code_.
 - `guid`_ (globally unique identifier)
 - `inet:fqdn`_ (FQDN)
 - `inet:ipv4`_ (IPv4)
+- `int`_ (integer)
 - `ival`_ (time interval)
 - `loc`_ (location)
 - `str`_ (string)
@@ -47,7 +48,7 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **set** consists of a unique group of entries.
 
 ``Array`` types can be used for properties where that property is likely to have multiple values, but it is
-undesirable to represent those values using multiple :ref:`form-relationship` nodes. Examples of array
+undesirable to represent those values using multiple :ref:`node-relationship` nodes. Examples of array
 secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``.
 You can view all secondary properties that are ``array`` types using the following Storm query:
 
@@ -248,12 +249,12 @@ the ``file:bytes`` value can be copied and pasted for use in a query.
 The primary property of a ``file:bytes`` node indicates how the node was created (i.e., via the SHA256 hash or via a guid):
 
 - A node created using the SHA256 hash will have a primary property value consisting of ``sha256:`` prepended
-to the SHA256 hash:
+  to the SHA256 hash:
 
   ``file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``
 
 - A node created using a ``guid`` will have a primary property value consisting of ``guid:`` prepended to the
-``guid`` value:
+  ``guid`` value:
   
   ``file:bytes=guid:22d4ed1b75c9eb5ff8070e0df1e8ed6b``
 
@@ -437,7 +438,7 @@ the nodes.
   for example, establishing internal processes where users "check first" before creating certain
   nodes. Note that while this may limit duplication, it is unlikely to eliminate it entirely.
   
-- Bulk data that is ingested using arbitraty guids cannot be reingested, at least not in the same way.
+- Bulk data that is ingested using arbitrary guids cannot be reingested, at least not in the same way.
   Reingesting the same data will create a second set of nodes for the same data but with different
   arbitrary guids.
 
@@ -532,7 +533,7 @@ before manually creating one.
   commands simplify secondary property deconfliction and node creation for several common
   guid nodes.
   
-  For example, the :ref:`storm-gen-org` command takes an organization name as input (e.g,
+  For example, the :ref:`storm-gen-ou-org` command takes an organization name as input (e.g,
   "vertex"), checks for any ``ou:org`` nodes with that name (i.e., in the ``:name`` or
   ``:names`` properties) and either lifts the existing node, or creates a new one.
   
@@ -610,7 +611,7 @@ specific values or variables:
   any secondary property values based on data provided to the ``guid`` generator. Any property values
   must be set as part of the node creation process.
 
-A full discussion of writing ingest code (particulary for Storm packages, services, or Power-Ups) is beyond
+A full discussion of writing ingest code (particularly for Storm packages, services, or Power-Ups) is beyond
 the scope of this User Guide. For more information, see the :ref:`devguide`.
 
 Operations
@@ -897,6 +898,67 @@ Filter a set of DNS A records to only include those whose IPv4 value is within t
 .. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.com,127.0.0.1) inet:dns:a=(woot.com,172.16.47.12) ]
 .. storm-cli:: inet:dns:a:fqdn=woot.com +:ipv4=172.16.0.0/12
 
+.. _type-int:
+
+int
+---
+
+An ``int`` is an integer value. Synapse stores, indexes, and displays integer values as decimal integers, but will also accept as hex or octal values as input.
+
+Indexing
+++++++++
+
+N/A
+
+Parsing
++++++++
+
+When adding or modifying integer values, Synapse will accept integer, hex (preceded by 0x), and octal (preceded by 0o) values and represent them as decimal integer values.
+
+**Examples**
+
+Set the ``:count`` of the ``biz:bundle`` to 42:
+
+.. storm-pre:: [ biz:bundle=(350,) ]
+.. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+
+Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
+
+.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :dst=tcp://142.118.95.50 :dst:proto=tcp :dst:ipv4=142.118.95.50 ]
+.. storm-cli:: inet:flow=684babd42810ae9dc11132805abc2831 [ :ip:proto=0x06 ]
+
+Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
+
+.. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
+.. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
+
+Insertion
++++++++++
+
+Same as for parsing.
+
+Operations
+++++++++++
+
+Use integer, hex, or octal values to lift and filter integer types using standard comparison operators.
+
+**Examples**
+
+Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
+
+.. storm-pre:: [ risk:alert=(outbound traffic to SOC-reported IP, 20230801 09:00:00, 9) :desc="outbound traffic to SOC-reported IP" :name="suspicious outbound traffic" :detected="20230801 09:00:00" :priority=8]
+.. storm-cli:: risk:alert:priority<10
+
+Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
+
+.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :dst=tcp://62.152.42.139 :dst:proto=tcp :dst:ipv4=62.152.42.139 :ip:proto=6 +#my.tag]
+.. storm-cli:: inet:flow#mytag +:ip:proto=0x06
+
+Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
+
+.. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ] 
+.. storm-cli:: it:group:posix:gid=0o426
+
 
 .. _type-ival:
 
@@ -1116,7 +1178,7 @@ Lift all organizations with locations in Turkey:
 .. storm-cli:: ou:org:loc^=tr
 
 
-Lift all IP addresses geolocated in the the province of Ontario, Canada:
+Lift all IP addresses geolocated in the province of Ontario, Canada:
 
 
 .. storm-pre:: [ ( inet:ipv4=149.248.52.240 :loc=ca.on ) ( inet:ipv4=49.51.12.195 :loc=ca.on.barrie ) ( inet:ipv4=199.201.123.200 :loc=ca.on.keswick ) ]
@@ -1203,7 +1265,7 @@ syn:\tag
 ``syn:tag`` is a specialized type used for :ref:`data-tag` nodes within Synapse. Tags represent domain-specific,
 analytically relevant observations or assessments. They support a hierarchical namespace based on user-defined
 dot-separated strings. This hierarchy allows recording classes or categories of analytical observations that can
-be defined with increasing specificity. (See :ref:`analytical-model-tags` for more information.)
+be defined with increasing specificity. (See :ref:`analytical-model` for more information.)
 
 ``syn:tag`` is an extension of the :ref:`type-str` type. However, because ``syn:tag`` types use strings that
 comprise a dot-separated hierarchy, they exhibit slightly modified behavior from standard string types for

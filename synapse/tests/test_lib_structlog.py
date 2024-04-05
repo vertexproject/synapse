@@ -1,5 +1,6 @@
 import io
 import json
+import time
 import logging
 
 import synapse.common as s_common
@@ -15,7 +16,7 @@ class ZDE(s_exc.SynErr): pass
 
 class StructLogTest(s_test.SynTest):
 
-    def test_structlog(self):
+    def test_structlog_base(self):
         stream = io.StringIO()
         handler = logging.StreamHandler(stream=stream)
         formatter = s_structlog.JsonFormatter()
@@ -86,3 +87,32 @@ class StructLogTest(s_test.SynTest):
         rawm = raw_mesgs[4]
         self.isin(r'Unicode is cool for \u7a0b\u5e8f\u5458!', rawm)
         self.eq(mesg.get('message'), 'Unicode is cool for 程序员!')
+
+        logger.removeHandler(handler)
+
+    def test_structlog_datefmt(self):
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream=stream)
+        datefmt = '%m-%Y-%d'  # MMYYYYYDD
+        formatter = s_structlog.JsonFormatter(datefmt=datefmt)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+        now = time.gmtime()
+        logger.error('Time test', extra={'synapse': {'foo': 'bar'}})
+
+        data = stream.getvalue()
+
+        # There is a trailing \n on the stream
+        raw_mesgs = [m for m in data.split('\n') if m]
+        mesgs = [json.loads(m) for m in raw_mesgs]
+        self.len(1, mesgs)
+        ptime = time.strptime(mesgs[0].get('time'), datefmt)
+        self.eq(now.tm_year, ptime.tm_year)
+        self.eq(now.tm_mon, ptime.tm_mon)
+        self.eq(now.tm_mday, ptime.tm_mday)
+        self.eq(0, ptime.tm_hour)
+        self.eq(0, ptime.tm_min)
+        self.eq(0, ptime.tm_sec)
+
+        logger.removeHandler(handler)

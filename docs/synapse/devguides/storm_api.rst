@@ -64,7 +64,12 @@ task
     The task identifier (which can be used for task cancellation).
 
 tick
-    The epoch time the query execution started (in milliseconds).
+    The epoch time the query execution started (in milliseconds). This value is computed from the host time and may
+    be affected by any changes in the host clock.
+
+abstick
+    The relative time that the query execution started (in milliseconds). This value is computed from a monotonic
+    clock and can be used as a reference time.
 
 text
     The Storm query text.
@@ -214,10 +219,16 @@ any sort of rollup of messages.
 It includes the following keys:
 
 tock
-    The epoch time the query execution finished (in milliseconds).
+    The epoch time the query execution finished (in milliseconds). This value is computed from adding the ``took``
+    value to the ``tick`` value from the ``init`` message.
 
 took
-    The amount of time it took for the query to execute (in milliseconds).
+    The amount of time it took for the query to execute (in milliseconds). This value is computed from the ``abstick``
+    and ``abstock`` values.
+
+abstock
+    The relative time that the query execution finished at (in milliseconds). This value is computed from a monotonic
+    clock and should always be equal to or greater than the ``abstick`` value from the ``init`` message.
 
 count
     The number of nodes yielded by the runtime.
@@ -513,6 +524,42 @@ Example:
 
         opts = {'ndefs': ndefs}
 
+nexsoffs
+--------
+
+Wait for the Cortex to reach the specified Nexus offset before executing the query.
+This is intended for internal use when offloading queries to a mirror.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'nexsoffs': 7759195}
+
+nexstimeout
+-----------
+
+Timeout (in seconds) to wait for the Cortex to reach the Nexus offset specified by ``nexsoffs``.
+This is intended for internal use when offloading queries to a mirror.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'nexstimeout': 5}
+
+mirror
+------
+
+If Storm query offloading is configured and ``mirror`` is ``true`` (the default value),
+the Cortex will attempt to offload the query to a mirror. Setting this to ``false`` will
+force the query to be run on the local Cortex rather than a mirror.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'mirror': False}
 
 path
 ----
@@ -613,6 +660,19 @@ Example:
 
         # Only include required messages.
         opts = {'show': []}
+
+show:storage
+------------
+
+A boolean option which, when set to ``true``, instructs the Storm runtime to add a ``storage`` key to each yielded node
+which contains a raw breakdown of storage nodes which can be used to determine which parts of the node are stored in
+which layer within the view.
+
+Example:
+
+    .. code:: python3
+
+        opts = {'show:storage': True}
 
 task
 ----

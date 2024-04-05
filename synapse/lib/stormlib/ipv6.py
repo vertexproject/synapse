@@ -39,6 +39,7 @@ class LibIpv6(s_stormtypes.Lib):
             'expand': self._expand,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _expand(self, valu):
         valu = await s_stormtypes.tostr(valu)
         valu = valu.strip()

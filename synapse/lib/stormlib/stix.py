@@ -247,7 +247,7 @@ _DefaultConfig = {
                         'name': '{+:name return(:name)} return($node.repr())',
                         'size': '+:size return(:size)',
                         'hashes': '''
-                            init { $dict = $lib.dict() }
+                            init { $dict = ({}) }
                             { +:md5 $dict.MD5 = :md5 }
                             { +:sha1 $dict."SHA-1" = :sha1 }
                             { +:sha256 $dict."SHA-256" = :sha256 }
@@ -392,7 +392,7 @@ _DefaultConfig = {
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list($lib.dict(source_name=cve, external_id=$cve)) return($list) }'
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list(({"source_name": "cve", "external_id": $cve})) return($list) }'
                     },
                     'rels': (
 
@@ -653,10 +653,12 @@ class LibStix(s_stormtypes.Lib):
             'validate': self.validateBundle,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
         return await s_coro.semafork(validateStix, bundle)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
 
@@ -861,6 +863,7 @@ class LibStixImport(s_stormtypes.Lib):
             'ingest': self.ingest,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def config(self):
         return s_msgpack.deepcopy(stixingest, use_list=True)
 
@@ -869,6 +872,7 @@ class LibStixImport(s_stormtypes.Lib):
         if config is None:
             config = stixingest
 
+        bundle = await s_stormtypes.toprim(bundle)
         config = await s_stormtypes.toprim(config)
 
         config.setdefault('bundle', {})
@@ -995,7 +999,7 @@ class LibStixImport(s_stormtypes.Lib):
     async def _callStorm(self, text, varz):
 
         query = await self.runt.snap.core.getStormQuery(text)
-        async with self.runt.getSubRuntime(query, opts={'vars': varz}) as runt:
+        async with self.runt.getCmdRuntime(query, opts={'vars': varz}) as runt:
             try:
                 async for _ in runt.execute():
                     await asyncio.sleep(0)
@@ -1129,10 +1133,12 @@ class LibStixExport(s_stormtypes.Lib):
             'timestamp': self.timestamp,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def config(self):
         # make a new mutable config
         return json.loads(json.dumps(_DefaultConfig))
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def bundle(self, config=None):
 
         if config is None:
@@ -1144,8 +1150,9 @@ class LibStixExport(s_stormtypes.Lib):
         return StixBundle(self, self.runt, config)
 
     def timestamp(self, tick):
-        dt = datetime.datetime.utcfromtimestamp(tick / 1000.0)
-        return dt.isoformat(timespec='milliseconds') + 'Z'
+        dt = datetime.datetime.fromtimestamp(tick / 1000.0, datetime.UTC)
+        millis = int(dt.microsecond / 1000)
+        return f'{dt.strftime("%Y-%m-%dT%H:%M:%S")}.{millis:03d}Z'
 
 stix_sdos = {
     'attack-pattern',
@@ -1264,6 +1271,7 @@ class StixBundle(s_stormtypes.Prim):
     # async def addPropMap(self, formname, stixtype, propname, stormtext):
     # async def addRelsMap(self, formname, stixtype, relname, targtype,  stormtext):
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def add(self, node, stixtype=None):
 
         if len(self.objs) >= self.maxsize:
@@ -1379,6 +1387,7 @@ class StixBundle(s_stormtypes.Prim):
         }
         return ret
 
+    @s_stormtypes.stormfunc(readonly=True)
     def pack(self):
         objects = list(self.objs.values())
         if self.synextension:
@@ -1390,14 +1399,18 @@ class StixBundle(s_stormtypes.Prim):
         }
         return bundle
 
+    @s_stormtypes.stormfunc(readonly=True)
     def size(self):
         return len(self.objs)
 
     async def _callStorm(self, text, node):
 
-        opts = {'vars': {'bundle': self}}
+        varz = self.runt.getScopeVars()
+        varz['bundle'] = self
+
+        opts = {'vars': varz}
         query = await self.runt.snap.core.getStormQuery(text)
-        async with self.runt.getSubRuntime(query, opts=opts) as runt:
+        async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 
             async def genr():
                 yield node, runt.initPath(node)

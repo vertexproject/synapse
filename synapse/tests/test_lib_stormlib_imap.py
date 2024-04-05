@@ -79,6 +79,20 @@ class MockIMAPProtocol:
             ]
             return resp('OK', lines)
 
+        if kwargs.get('charset') is None:
+            lines = [
+                b'2001 2010 2061 3001',
+                b'SEARCH completed (Success)',
+            ]
+            return resp('OK', lines)
+
+        if kwargs.get('charset') == 'us-ascii':
+            lines = [
+                b'1138 4443 8443',
+                b'SEARCH completed (Success)',
+            ]
+            return resp('OK', lines)
+
         lines = [
             b'8181 8192 8194',
             b'SEARCH completed (Success)',
@@ -133,6 +147,26 @@ class ImapTest(s_test.SynTest):
                 '''
                 retn = await core.callStorm(scmd)
                 self.eq((True, ('8181', '8192', '8194')), retn)
+
+                # search for UIDs with specific charset
+                scmd = '''
+                $server = $lib.inet.imap.connect(hello)
+                $server.login("vtx@email.com", "secret")
+                $server.select("INBOX")
+                return($server.search("FROM", "foo@mail.com", charset=us-ascii))
+                '''
+                retn = await core.callStorm(scmd)
+                self.eq((True, ('1138', '4443', '8443')), retn)
+
+                # search for UIDs with no charset
+                scmd = '''
+                $server = $lib.inet.imap.connect(hello)
+                $server.login("vtx@email.com", "secret")
+                $server.select("INBOX")
+                return($server.search("FROM", "foo@mail.com", charset=$lib.null))
+                '''
+                retn = await core.callStorm(scmd)
+                self.eq((True, ('2001', '2010', '2061', '3001')), retn)
 
                 scmd = '''
                     $server = $lib.inet.imap.connect(search.empty)
