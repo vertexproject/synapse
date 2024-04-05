@@ -40,6 +40,7 @@ _HttpExtAPIConfSchema = {
         'name': {'type': 'string', 'default': ''},
         'desc': {'type': 'string', 'default': ''},
         'path': {'type': 'string', 'minlen': 1},
+        'pool': {'type': 'boolean', 'default': False},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'runas': {'type': 'string', 'pattern': '^(owner|user)$'},
         'owner': {'type': 'string', 'pattern': s_config.re_iden},

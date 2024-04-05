@@ -4132,7 +4132,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
         # Created, Creator, Updated are not mutable
-        if name in ('name', 'desc', 'runas', 'methods', 'authenticated', 'perms', 'readonly', 'vars'):
+        if name in ('name', 'desc', 'runas', 'methods', 'authenticated', 'pool', 'perms', 'readonly', 'vars'):
             # Schema takes care of these values
             pass
         elif name == 'owner':
