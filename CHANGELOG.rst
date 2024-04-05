@@ -87,7 +87,7 @@ Features and Enhancements
 Bugfixes
 --------
 - Fix a bug where a Cortex ``promote()`` call could hang when tearing down
-  any running Cron jobs. Cron jobs cancelled during a promotion even will
+  any running Cron jobs. Cron jobs cancelled during a promotion event will
   be logged but their cancelled status will not be recorded in the Nexus.
   (`#3658 <https://github.com/vertexproject/synapse/pull/3658>`_)
 - Fix a bug where the Storm pool configuration could cause a Cortex to fail
@@ -101,7 +101,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 - Update the list of Cortex permissions in the Admin Guide to include
-  ``service.add``, ``service.dell``, ``service.get``,  and ``service.list``.
+  ``service.add``, ``service.del``, ``service.get``,  and ``service.list``.
   (`#3647 <https://github.com/vertexproject/synapse/pull/3647>`_)
 - Update the docstring for the Storm ``cortex.storm.pool.del`` command to note
   the effects of removing a pool and the interruption of running queries.
