@@ -7808,6 +7808,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
 
+                    msgs = await core00.stormlist('cortex.storm.pool.set newp')
+                    self.stormIsInErr(':// not found in [newp]', msgs)
+
                     msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Storm pool configuration set.', msgs)
