@@ -144,7 +144,7 @@ async def open(url, onlink=None):
         onlink: An optional async callback function to run when connections are made.
 
     Notes:
-        The onlink callbcak function has the call signature ``(proxy, urlinfo)``.
+        The onlink callback function has the call signature ``(proxy, urlinfo)``.
         The proxy is the Telepath Proxy object.
         The urlinfo is the parsed URL information used to create the proxy object.
         The urlinfo structure may change between versions of Synapse.
