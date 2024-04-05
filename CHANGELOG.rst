@@ -6,6 +6,131 @@
 Synapse Changelog
 *****************
 
+v2.166.0 - 2024-04-04
+=====================
+
+Automatic Migrations
+--------------------
+- Re-normalize ``risk:mitigation:name``, ``it:mitre:attack:technique:name``,
+  and ``it:mitre:attack:mitigation:name`` secondary properties.
+  (`#3585 <https://github.com/vertexproject/synapse/pull/3585>`_)
+- Re-normalize ``velocity`` properties which are float values.
+  (`#3616 <https://github.com/vertexproject/synapse/pull/3616>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Updates to the ``ou``, ``person`` and ``risk`` models.
+  (`#3649 <https://github.com/vertexproject/synapse/pull/3649>`_)
+
+  **Column Display Hints**
+
+  The following forms had column display hints added to them:
+
+    ``ou:campaign``
+    ``ou:conference``
+    ``ou:goal``
+    ``ou:org``
+    ``ou:team``
+    ``ou:technique``
+    ``ps:contact``
+    ``ps:skil``
+    ``ps:proficiency``
+    ``risk:threat``
+    ``risk:compromise``
+    ``risk:mitigation``
+    ``risk:tool:software``
+
+Features and Enhancements
+-------------------------
+- When setting a tag on a node, the tag value is now redirected based on
+  parent tags having ``:isnow`` properties set.
+  (`#3650 <https://github.com/vertexproject/synapse/pull/3650>`_)
+- Add a ``$lib.spooled.set()`` Storm API. This can be used to get a
+  ``spooled:set`` object. This set will offload the storage of its members
+  to a temporary location on disk when it grows above a certain size.
+  (`#3632 <https://github.com/vertexproject/synapse/pull/3632>`_)
+- Add a ``$lib.cache.fixed()`` Storm API. This can be used to get a
+  ``cache:fixed`` object. This cache will execute user provided callbacks
+  written in Storm upon a cache miss.
+  (`#3661 <https://github.com/vertexproject/synapse/pull/3661>`_)
+- Add a ``pool`` option to Cron jobs. This can be set to True to enable a
+  Cron job storm query to be executed on a Storm pool member.
+  (`#3652 <https://github.com/vertexproject/synapse/pull/3652>`_)
+- Add a ``pool`` option to Extended HTTP API handlers. This can be set to
+  true to enable an HTTP response to be executed on a Storm pool member.
+  (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
+  (`#3667 <https://github.com/vertexproject/synapse/pull/3667>`_)
+- Add a new Storm API, ``$lib.cortex.httpapi.getByPath()``, that can be
+  used to get a ``http:api`` object by its path. The ``path`` value is
+  evaluated in the same order that the HTTP endpoint resolves the handlers.
+  (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
+- Add ``--list`` and ``--gate`` options to `synapse.tools.modrole`` and
+  ``synapse.tools.moduser``.
+  (`#3632 <https://github.com/vertexproject/synapse/pull/3632>`_)
+- Add a ``view.getMergingViews()`` Storm API. This returns a list of view
+  idens that have open merge requests on view.
+  (`#3666 <https://github.com/vertexproject/synapse/pull/3666>`_)
+- The Storm API ``show:storage`` option now includes storage information for
+  any embedded properties
+  (`#3656 <https://github.com/vertexproject/synapse/pull/3656>`_)
+- Update the ``LinkShutDown`` exception that a Telepath client may raise to
+  indicate that the connection has been disconnected.
+  (`#3640 <https://github.com/vertexproject/synapse/pull/3640>`_)
+- Add a repr functions for printing the ``aha:pool`` and ``http:api`` objects
+  in Storm.
+  (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
+  (`#3665 <https://github.com/vertexproject/synapse/pull/3665>`_)
+- The Telepath ``Pool`` object has been replaced with a new object,
+  ``ClientV2``. This is now the only object returned by the
+  ``synapse.telepath.open()`` API. This is an AHA pool aware Client which
+  can be used to connect to an AHA pool.
+  (`#3662 <https://github.com/vertexproject/synapse/pull/3662>`_)
+- Remove the unused Provenance subsystem from the Cortex.
+  (`#3655 <https://github.com/vertexproject/synapse/pull/3655>`_)
+- Constrain the ``stix2-validator`` library to ``3.0.0,<3.2.0`` due to
+  an API change. This constraint is expected be changed in the next
+  release.
+  (`#3669 <https://github.com/vertexproject/synapse/pull/3669>`_)
+
+Bugfixes
+--------
+- Fix a bug where a Cortex ``promote()`` call could hang when tearing down
+  any running Cron jobs. Cron jobs cancelled during a promotion even will
+  be logged but their cancelled status will not be recorded in the Nexus.
+  (`#3658 <https://github.com/vertexproject/synapse/pull/3658>`_)
+- Fix a bug where the Storm pool configuration could cause a Cortex to fail
+  to start up. The Storm pool is now configured upon startup but its use is
+  blocked until the Storm pool is ready to service requests.
+  (`#3662 <https://github.com/vertexproject/synapse/pull/3662>`_)
+- Ensure that the URL argument provided to ``cortex.storm.pool.set`` can be
+  parsed as a Telepath URL. Previously any string input was accepted.
+  (`#3665 <https://github.com/vertexproject/synapse/pull/3665>`_)
+
+Improved Documentation
+----------------------
+- Update the list of Cortex permissions in the Admin Guide to include
+  ``service.add``, ``service.dell``, ``service.get``,  and ``service.list``.
+  (`#3647 <https://github.com/vertexproject/synapse/pull/3647>`_)
+- Update the docstring for the Storm ``cortex.storm.pool.del`` command to note
+  the effects of removing a pool and the interruption of running queries.
+  (`#3665 <https://github.com/vertexproject/synapse/pull/3665>`_)
+- Update the documentation for the Storm ``http:api`` object to include the
+  ``methods`` attribute.
+  (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
+
+Deprecations
+------------
+- The Telepath ``task:init`` message format has been marked as deprecated and
+  will be removed in ``v3.0.0``. This should not affect any users using Synapse
+  ``v2.x.x`` in their client code.
+  (`#3640 <https://github.com/vertexproject/synapse/pull/3640>`_)
+- The authgate with the name ``iden`` is not used for permission checking and
+  will be removed in ``v3.0.0``. At startup, the Cortex will now check for any
+  use of this authgate and log warning messages. Attempts to set permissions
+  with this gateiden via Storm will produce ``warn`` messages.
+  (`#3648 <https://github.com/vertexproject/synapse/pull/3648>`_)
+
 v2.165.0 - 2024-03-25
 =====================
 
