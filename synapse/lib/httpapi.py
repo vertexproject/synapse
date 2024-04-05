@@ -1344,6 +1344,7 @@ class ExtApiHandler(StormHandler):
         varz['_http_request_info'] = info
 
         opts = {
+            'mirror': adef.get('pool', False),
             'readonly': adef.get('readonly'),
             'show': (
                 'http:resp:body',

@@ -87,6 +87,7 @@ stormcmds = [
             $lib.print(`!View: No view found ({$err.info.iden})`)
         }
         $lib.print(`Readonly: {$api.readonly}`)
+        $lib.print(`Pool enabled: {$api.pool}`)
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
         $lib.print(`Description: {$api.desc}`)
@@ -225,6 +226,9 @@ class HttpApi(s_stormtypes.StormType):
         ''',
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPath', '_gtorfunc': '_gtorPath',
                   'returns': {'type': 'str'}}},
+        {'name': 'pool', 'desc': 'Boolean value indicating if the handler responses may be executed as part of a Storm pool.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPool', '_gtorfunc': '_gtorPool',
+                  'returns': {'type': 'boolean'}}},
         {'name': 'vars', 'desc': 'The Storm runtime variables specific for the API instance.',
          'type': {'type': ['stor', 'ctor'], '_storfunc': '_storVars', '_ctorfunc': '_ctorVars',
                   'returns': {'type': 'http:api:vars'}}},
@@ -243,6 +247,8 @@ class HttpApi(s_stormtypes.StormType):
         {'name': 'authenticated', 'desc': 'Boolean value indicating if the Extended HTTP API requires an authenticated user or session.',
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storAuthenticated', '_gtorfunc': '_gtorAuthenticated',
                   'returns': {'type': 'boolean'}}},
+        {'name': 'methods', 'desc': 'The dictionary containing the Storm code used to implement the HTTP methods.',
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorMethods', 'returns': {'type': 'http:api:methods'}}}
     )
 
     def __init__(self, runt, info):
@@ -258,6 +264,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._storName,
             'desc': self._storDesc,
             'path': self._storPath,
+            'pool': self._storPool,
             'vars': self._storVars,
             'view': self._storView,
             'runas': self._storRunas,
@@ -271,6 +278,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._gtorName,
             'desc': self._gtorDesc,
             'path': self._gtorPath,
+            'pool': self._gtorPool,
             'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
@@ -292,6 +300,13 @@ class HttpApi(s_stormtypes.StormType):
             'iden': self.iden,
             'created': self.info.get('created'),
         })
+
+    async def stormrepr(self):
+        name = await self._gtorName()
+        if not name:
+            name = '<no name>'
+        path = await self._gtorPath()
+        return f'{self._storm_typename}: {name} ({self.iden}), path={path}'
 
     def getObjLocals(self):
         return {
@@ -316,6 +331,17 @@ class HttpApi(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorPath(self):
         return self.info.get('path')
+
+    async def _storPool(self, pool):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
+        pool = await s_stormtypes.tobool(pool)
+        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'pool', pool)
+        self.info['pool'] = pool
+        self.info['updated'] = adef.get('updated')
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _gtorPool(self):
+        return self.info.get('pool')
 
     async def _storName(self, name):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
@@ -1071,6 +1097,19 @@ class CortexHttpApi(s_stormtypes.Lib):
                        'desc': 'The iden of the API to retrieve.'},
                   ),
                   'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
+        {'name': 'getByPath', 'desc': '''
+        Get an Extended ``http:api`` object by path.
+
+        Notes:
+            The path argument is evaluated as a regular expression input, and will be
+            used to get the first HTTP API handler whose path value has a match.
+        ''',
+         'type': {'type': 'function', '_funcname': 'getHttpApiByPath',
+                  'args': (
+                      {'name': 'path', 'type': 'string',
+                       'desc': 'Path to use to retrieve an object.'},
+                  ),
+                  'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``$lib.null`` if there is no match.'}}},
         {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
                  'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
@@ -1112,6 +1151,7 @@ class CortexHttpApi(s_stormtypes.Lib):
             'list': self.listHttpApis,
             'index': self.setHttpApiIndx,
             'response': self.makeHttpResponse,
+            'getByPath': self.getHttpApiByPath,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1124,6 +1164,15 @@ class CortexHttpApi(s_stormtypes.Lib):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         iden = await s_stormtypes.tostr(iden)
         adef = await self.runt.snap.core.getHttpExtApi(iden)
+        return HttpApi(self.runt, adef)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getHttpApiByPath(self, path):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
+        path = await s_stormtypes.tostr(path)
+        adef, _ = await self.runt.snap.core.getHttpExtApiByPath(path)
+        if adef is None:
+            return None
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
