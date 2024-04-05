@@ -1436,7 +1436,7 @@ for $i in $values {
                     self.true(data['opts'].get('mirror'))
                     data.clear()
 
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api.pack() ) '
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api.pack() ) '
                     adef = await core.callStorm(q, opts=opts_iden00)
                     self.false(adef.get('pool'))
 
