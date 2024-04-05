@@ -5292,7 +5292,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _getMirrorProxy(self):
 
-        if self.stormpool is None:
+        if self.stormpool is None:  # pragma: no cover
             return None
 
         if self.stormpool.size() == 0:
