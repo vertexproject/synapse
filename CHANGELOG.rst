@@ -25,7 +25,7 @@ Model Changes
     ``ou:team``
     ``ou:technique``
     ``ps:contact``
-    ``ps:skil``
+    ``ps:skill``
     ``ps:proficiency``
     ``risk:threat``
     ``risk:compromise``
@@ -49,26 +49,26 @@ Features and Enhancements
   Cron job storm query to be executed on a Storm pool member.
   (`#3652 <https://github.com/vertexproject/synapse/pull/3652>`_)
 - Add a ``pool`` option to Extended HTTP API handlers. This can be set to
-  true to enable an HTTP response to be executed on a Storm pool member.
+  true to enable an HTTP request handler to be executed on a Storm pool member.
   (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
   (`#3667 <https://github.com/vertexproject/synapse/pull/3667>`_)
 - Add a new Storm API, ``$lib.cortex.httpapi.getByPath()``, that can be
-  used to get a ``http:api`` object by its path. The ``path`` value is
+  used to get an ``http:api`` object by its path. The ``path`` value is
   evaluated in the same order that the HTTP endpoint resolves the handlers.
   (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
-- Add ``--list`` and ``--gate`` options to `synapse.tools.modrole`` and
+- Add ``--list`` and ``--gate`` options to ``synapse.tools.modrole`` and
   ``synapse.tools.moduser``.
   (`#3632 <https://github.com/vertexproject/synapse/pull/3632>`_)
 - Add a ``view.getMergingViews()`` Storm API. This returns a list of view
-  idens that have open merge requests on view.
+  idens that have open merge requests on a view.
   (`#3666 <https://github.com/vertexproject/synapse/pull/3666>`_)
 - The Storm API ``show:storage`` option now includes storage information for
-  any embedded properties
+  any embedded properties.
   (`#3656 <https://github.com/vertexproject/synapse/pull/3656>`_)
 - Update the ``LinkShutDown`` exception that a Telepath client may raise to
   indicate that the connection has been disconnected.
   (`#3640 <https://github.com/vertexproject/synapse/pull/3640>`_)
-- Add a repr functions for printing the ``aha:pool`` and ``http:api`` objects
+- Add repr functions for printing the ``aha:pool`` and ``http:api`` objects
   in Storm.
   (`#3663 <https://github.com/vertexproject/synapse/pull/3663>`_)
   (`#3665 <https://github.com/vertexproject/synapse/pull/3665>`_)
@@ -116,7 +116,7 @@ Deprecations
   will be removed in ``v3.0.0``. This should not affect any users using Synapse
   ``v2.x.x`` in their client code.
   (`#3640 <https://github.com/vertexproject/synapse/pull/3640>`_)
-- The authgate with the name ``iden`` is not used for permission checking and
+- The authgate with the name ``cortex`` is not used for permission checking and
   will be removed in ``v3.0.0``. At startup, the Cortex will now check for any
   use of this authgate and log warning messages. Attempts to set permissions
   with this gateiden via Storm will produce ``warn`` messages.
