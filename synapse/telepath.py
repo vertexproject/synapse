@@ -1156,7 +1156,7 @@ class ClientV2(s_base.Base):
 
                 async for mesg in ahaproxy.iterPoolTopo(self.poolname):
                     hand = self.mesghands.get(mesg[0])
-                    if hand is None: # pragma: no cover
+                    if hand is None:  # pragma: no cover
                         logger.warning(f'Unknown AHA pool topography message: {mesg}')
                         continue
 
@@ -1174,7 +1174,7 @@ class ClientV2(s_base.Base):
 
                 await self.ready.wait()
 
-                if self.isfini: # pragma: no cover
+                if self.isfini:  # pragma: no cover
                     raise s_exc.IsFini()
 
                 if not self.deque:
