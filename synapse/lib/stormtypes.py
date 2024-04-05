@@ -7594,10 +7594,10 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
-        {'name': 'getMergeCount', 'desc': 'Get the number of Views that have open merge requests to this View',
-         'type': {'type': 'function', '_funcname': 'getMergeCount',
+        {'name': 'getMergingViews', 'desc': 'Yields the idens of Views that have open merge requests to this View.',
+         'type': {'type': 'function', '_funcname': 'getMergingViews',
                   'args': (),
-                  'returns': {'name': 'count', 'type': 'int', 'desc': 'The number of open merge requests into this View.'}}},
+                  'returns': {'name': 'Yields', 'type': 'str', 'desc': 'The iden of a View that has an open merge request into this View.'}}},
         {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
                   'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
@@ -7652,7 +7652,7 @@ class View(Prim):
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
             'setMergeComment': self.setMergeComment,
-            'getMergeCount': self.getMergeCount,
+            'getMergingViews': self.getMergingViews,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7970,11 +7970,12 @@ class View(Prim):
 
         return await view.setMergeComment((await tostr(comment)))
 
-    async def getMergeCount(self):
+    async def getMergingViews(self):
         view = self._reqView()
         self.runt.confirm(('view', 'read'), gateiden=view.iden)
 
-        return await view.getMergeCount()
+        async for iden in view.getMergingViews():
+            yield iden
 
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
