@@ -186,8 +186,8 @@ class AhaTest(s_test.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 with self.raises(s_exc.BadArg):
-                    await cryo.ahaclient.waitready(timeout=2)
-                    await cryo.ahaclient.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
+                    _proxy = await cryo.ahaclient.proxy(timeout=2)
+                    await _proxy.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
 
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
@@ -1169,12 +1169,23 @@ class AhaTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
 
-                    with self.raises(s_exc.BadArg):
-                        await s_telepath.open('aha://pool00...')
+                    # Pool has no members....
+                    pool = await s_telepath.open('aha://pool00...')
+                    self.eq(0, pool.size())
+                    waiter = pool.waiter(0, 'svc:add')
 
                     msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                    self.len(1, await waiter.wait(timeout=12))
+                    prox = await pool.proxy(timeout=12)
+                    info = await prox.getCellInfo()
+                    self.eq('00', info.get('cell').get('aha').get('name'))
+                    self.eq(1, pool.size())
+                    await pool.fini()
+                    self.eq(0, pool.size())
+                    self.true(prox.isfini)
 
                     poolinfo = await aha.getAhaPool('pool00...')
                     self.len(1, poolinfo['services'])

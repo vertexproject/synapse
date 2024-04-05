@@ -831,15 +831,17 @@ class TeleTest(s_t_utils.SynTest):
 
             await targ.waitready()
 
-            self.eq(110, await targ.dostuff(100))
+            prox00 = await targ.proxy(timeout=12)
+            self.eq(110, await prox00.dostuff(100))
+
             self.eq(1, fail0.count)
             self.eq(0, fail1.count)
 
-            _prox = await targ.proxy()
             await dmon0.fini()
-            self.true(await _prox.waitfini(10))
+            self.true(await prox00.waitfini(10))
 
-            self.eq(110, await targ.dostuff(100))
+            prox01 = await targ.proxy(timeout=12)
+            self.eq(110, await prox01.dostuff(100))
             self.eq(1, fail0.count)
             self.eq(1, fail1.count)
 
@@ -855,15 +857,36 @@ class TeleTest(s_t_utils.SynTest):
                 mesgs = stream.read()
                 self.notin('password', mesgs)
 
-            self.eq(110, await targ.dostuff(100))
+            prox00 = await targ.proxy(timeout=12)
+            self.eq(110, await prox00.dostuff(100))
 
             self.eq(1, fail0.count)
             self.eq(2, fail1.count)
 
         async with await s_telepath.open(url1) as targ:
-            await targ.waitready()
-            self.eq(110, await targ.dostuff(100))
+            await targ.waitready(timeout=12)
+            prox00 = await targ.proxy(timeout=12)
+            self.eq(110, await prox00.dostuff(100))
 
+        async def onlink(proxy, urlinfo):
+            self.eq(110, await proxy.dostuff(100))
+            _url = s_telepath.zipurl(urlinfo)
+            logger.info(f'Connected to url={_url}')
+
+        with self.getAsyncLoggerStream('synapse.tests.test_telepath',
+                                       f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo') as stream:
+            async with await s_telepath.open(url1, onlink=onlink) as targ:
+                self.true(await stream.wait(timeout=12))
+
+        # Coverage
+        async def badonlink(proxy, urlinfo):
+            raise ValueError('oopsie')
+
+        with self.getAsyncLoggerStream('synapse.telepath', 'onlink: ') as stream:
+            async with await s_telepath.open(url1, onlink=badonlink) as targ:
+                self.true(await stream.wait(timeout=12))
+
+        await dmon0.fini()
         await dmon1.fini()
 
     async def test_telepath_poolsize(self):

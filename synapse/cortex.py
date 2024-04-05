@@ -1478,19 +1478,28 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def initStormPool(self):
 
-        byts = self.slab.get(b'storm:pool', db='cell:conf')
-        if byts is None:
-            return
+        try:
 
-        url, opts = s_msgpack.un(byts)
+            byts = self.slab.get(b'storm:pool', db='cell:conf')
+            if byts is None:
+                return
 
-        self.stormpoolurl = url
-        self.stormpoolopts = opts
+            url, opts = s_msgpack.un(byts)
 
-        self.stormpool = await s_telepath.open(url)
+            self.stormpoolurl = url
+            self.stormpoolopts = opts
 
-        # make this one a fini weakref vs the fini() handler
-        self.onfini(self.stormpool)
+            async def onlink(proxy, urlinfo):
+                _url = s_urlhelp.sanitizeUrl(s_telepath.zipurl(urlinfo))
+                logger.debug(f'Stormpool client connected to {_url}')
+
+            self.stormpool = await s_telepath.open(url, onlink=onlink)
+
+            # make this one a fini weakref vs the fini() handler
+            self.onfini(self.stormpool)
+
+        except Exception as e:  # pragma: no cover
+            logger.exception(f'Error starting stormpool, it will not be available: {e}')
 
     async def finiStormPool(self):
 
@@ -5282,12 +5291,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return mirropts
 
     async def _getMirrorProxy(self):
-        if isinstance(self.stormpool, s_telepath.Pool) and self.stormpool.size() == 0:
-            mesg = 'Storm query mirror pool is empty, running locally instead.'
-            logger.warning(mesg)
+
+        if self.stormpool is None:  # pragma: no cover
             return None
 
-        proxy = None
+        if self.stormpool.size() == 0:
+            logger.warning('Storm query mirror pool is empty, running query locally.')
+            return None
+
         try:
             timeout = self.stormpoolopts.get('timeout:connection')
             proxy = await self.stormpool.proxy(timeout=timeout)
@@ -5295,10 +5306,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if proxyname is not None and proxyname == self.ahasvcname:
                 # we are part of the pool and were selected. Convert to local use.
                 return None
+
+            return proxy
+
         except (TimeoutError, s_exc.IsFini):
-            mesg = 'Unable to get proxy for query mirror, running locally instead.'
-            logger.warning(mesg)
-        return proxy
+            logger.warning('Timeout waiting for pool mirror, running query locally.')
+            return None
 
     async def storm(self, text, opts=None):
 
