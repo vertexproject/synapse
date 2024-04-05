@@ -585,7 +585,7 @@ def validateStix(bundle, version='2.1'):
         'result': {},
     }
     bundle = json.loads(json.dumps(bundle))
-    opts = stix2validator.ValidationOptions(strict=True, version=version)
+    opts = stix2validator.ValidationOptions(strict=True, version=version, no_cache=True)
     try:
         results = stix2validator.validate_parsed_json(bundle, options=opts)
     except stix2validator.ValidationError as e:
