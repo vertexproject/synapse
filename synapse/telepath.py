@@ -1094,7 +1094,7 @@ class ClientV2(s_base.Base):
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
-        urlinfo = {'scheme': 'aha', 'host': svcname}
+        urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
         self.clients[svcname] = await ClientV2.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
 
@@ -1544,7 +1544,7 @@ async def openinfo(info):
 
     else:
 
-        path = info.get('path', '')
+        path = info.get('path')
         name = info.get('name', path[1:])
 
         if port is None:
