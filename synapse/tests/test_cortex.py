@@ -7818,9 +7818,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.fini()
 
                     core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
-                    logger.info('Waiting for stormpool to be ready...')
+
                     await core00.stormpool.waitready(timeout=12)
-                    logger.info('STORMPOOL IS READY!')
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
@@ -7903,15 +7902,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     with self.raises(s_exc.TimeOut):
                         await core00.count('inet:asn=0', opts=opts)
 
-                    logger.info('Fini core01')
                     await core01.fini()
-                    logger.info('Finid core01')
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
-                    for m in msgs:
-                        logger.info(f'{m}')
 
                     stream.seek(0)
                     data = stream.read()

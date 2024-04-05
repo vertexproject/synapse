@@ -1490,7 +1490,7 @@ class TeleSSLObject(ssl.SSLObject):
         return ssl.SSLObject.do_handshake(self)
 
 async def openinfo(info):
-    # logger.info(f'{info=}')
+
     scheme = info.get('scheme')
 
     if scheme == 'aha':
@@ -1544,7 +1544,7 @@ async def openinfo(info):
 
     else:
 
-        path = info.get('path', '')  # FIXME Correct default path is "" or "*" ?
+        path = info.get('path', '')
         name = info.get('name', path[1:])
 
         if port is None:
