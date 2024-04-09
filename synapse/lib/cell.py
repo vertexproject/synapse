@@ -1560,32 +1560,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
-        async def onlink(proxy):
-            while not proxy.isfini:
-                info = await self.getAhaInfo()
+        async def _runAhaRegLoop():
+
+            while not self.isfini:
                 try:
+                    proxy = await self.ahaclient.proxy()
+                    info = await self.getAhaInfo()
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                except Exception as e:
+                    logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
+                    await self.waitfini(1)
+                else:
+                    await proxy.waitfini()
 
-                    return
-
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-
-                except Exception:
-                    logger.exception('Error in _initAhaService() onlink')
-
-                await proxy.waitfini(1)
-
-        async def fini():
-            await self.ahaclient.offlink(onlink)
-
-        async def init():
-            await self.ahaclient.onlink(onlink)
-            self.onfini(fini)
-
-        self.schedCoro(init())
+        self.schedCoro(_runAhaRegLoop())
 
     async def initServiceRuntime(self):
         pass
@@ -3694,7 +3684,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.ahaclient.waitready()
 
-        mirrors = await self.ahaclient.getAhaSvcMirrors(self.ahasvcname)
+        proxy = await self.ahaclient.proxy(timeout=5)
+        mirrors = await proxy.getAhaSvcMirrors(self.ahasvcname)
         if mirrors is None:
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
