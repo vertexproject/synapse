@@ -1200,6 +1200,8 @@ stormcmds = (
         'descr': addcrondescr,
         'cmdargs': (
             ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--pool', {'action': 'store_true', 'default': False,
+                'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
             ('--minute', {'help': 'Minute value for job or recurrence period.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
             ('--doc', {'help': 'An optional doc string for the cron job.'}),
@@ -1219,6 +1221,7 @@ stormcmds = (
                                   minute=$cmdopts.minute,
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
+                                  pool=$cmdopts.pool,
                                   month=$cmdopts.month,
                                   year=$cmdopts.year,
                                   hourly=$cmdopts.hourly,
@@ -1366,6 +1369,7 @@ stormcmds = (
                 $lib.print('iden:            {iden}', iden=$job.iden)
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print(`pool:            {$job.pool}`)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
                 $lib.print('# errors:        {errcount}', errcount=$job.errcount)

@@ -71,6 +71,8 @@ Types
     - Please use `edge:has` or a light edge.
 - `ps:persona:has`
     - Please use `ps:person` or `ps:context` in combination with an `edge:has` or a light edge.
+- `inet:ssl:cert`
+    - `inet:ssl:cert` is deprecated in favor of `inet:tls:servercert` and `inet:tls:clientcert`.
 
 Forms
 +++++
@@ -88,6 +90,7 @@ Consistent with the deprecated types, the following forms are deprecated:
 - `ps:person:has`
 - `ps:persona`
 - `ps:persona:has`
+- `inet:ssl:cert`
 
 Properties
 ++++++++++

@@ -4776,6 +4776,7 @@ class StormTypesTest(s_test.SynTest):
 
                     self.stormIsInPrint('last result:     finished successfully with 0 nodes', mesgs)
                     self.stormIsInPrint('entries:         <None>', mesgs)
+                    self.stormIsInPrint('pool:            false', mesgs)
 
                     # Test 'stat' command
                     mesgs = await core.stormlist('cron.stat xxx')
@@ -4849,7 +4850,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('data.iden must match pattern', msgs)
 
                 opts = {'vars': {'iden': 'cd263bd133a5dafa1e1c5e9a01d9d486'}}
-                q = "cron.add --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
+                q = "cron.add --pool --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
 
@@ -6355,6 +6356,10 @@ words\tword\twrd'''
             self.eq(merge['creator'], core.auth.rootuser.iden)
             self.none(merge.get('updated'))
 
+            merging = 'return($lib.view.get().getMergingViews()) '
+
+            self.eq([fork00], await core.callStorm(merging))
+
             with self.raises(s_exc.AuthDeny):
                 core.getView(fork00).reqValidVoter(root.iden)
 
@@ -6430,7 +6435,12 @@ words\tword\twrd'''
             self.none(core.getView(fork00))
             nodes = await core.nodes('inet:fqdn')
             self.len(2, nodes)
+
+            # previously successful merges
             self.len(1, await core.callStorm('$list = ([]) for $merge in $lib.view.get().getMerges() { $list.append($merge) } fini { return($list) }'))
+
+            # current open merge requests
+            self.eq([], await core.callStorm(merging))
 
             # test out the delMergeRequest logic / cleanup
             forkdef = await core.getView().fork()
@@ -6439,6 +6449,7 @@ words\tword\twrd'''
 
             opts = {'view': fork.iden}
             self.nn(await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts))
+            self.eq([fork.iden], await core.callStorm(merging))
 
             # confirm that you may not re-parent to a view with a merge request
             layr = await core.addLayer()
@@ -6454,6 +6465,8 @@ words\tword\twrd'''
             self.nn(await core.callStorm('return($lib.view.get().delMergeRequest())', opts=opts))
             self.len(0, [vote async for vote in fork.getMergeVotes()])
 
+            self.eq([], await core.callStorm(merging))
+
             # test coverage for beholder progress events...
             forkdef = await core.getView().fork()
             fork = core.getView(forkdef.get('iden'))
@@ -6462,10 +6475,12 @@ words\tword\twrd'''
             await core.stormlist('[ inet:ipv4=1.2.3.0/20 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
+            self.eq([fork.iden], await core.callStorm(merging))
+
             nevents = 8
             if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
                 # view:merge:vote:set fires twice
-                nevents = nevents + 1
+                nevents += 1
             waiter = core.waiter(nevents, 'cell:beholder')
 
             opts = {'view': fork.iden, 'user': visi.iden}
@@ -6488,6 +6503,8 @@ words\tword\twrd'''
             self.eq(msgs[-1][1]['info']['merge']['creator'], core.auth.rootuser.iden)
             self.eq(msgs[-1][1]['info']['votes'][0]['user'], visi.iden)
 
+            self.eq([], await core.callStorm(merging))
+
             # test coverage for bad state for merge request
             fork00 = await core.getView().fork()
             fork01 = await core.getView(fork00['iden']).fork()
@@ -6496,8 +6513,11 @@ words\tword\twrd'''
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
+            self.eq([], await core.callStorm(merging))
+
             await core.delView(fork01['iden'])
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+            self.eq([fork00['iden']], await core.callStorm(merging))
 
             core.getView().layers[0].readonly = True
             with self.raises(s_exc.BadState):
@@ -6515,6 +6535,8 @@ words\tword\twrd'''
             opts = {'view': fork.iden}
             await core.stormlist('[ inet:ipv4=5.5.5.5 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            self.eq(set([fork.iden, fork00['iden']]), set(await core.callStorm(merging)))
 
             # hamstring the runViewMerge method on the new view
             async def fake():
@@ -6550,3 +6572,6 @@ words\tword\twrd'''
 
             msgs = await core.stormlist('$lib.view.get().set(quorum, $lib.null)')
             self.stormHasNoWarnErr(msgs)
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm(merging)
