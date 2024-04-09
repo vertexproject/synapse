@@ -654,7 +654,10 @@ class Snap(s_base.Base):
             if not iden:
                 continue
 
-            stor = await self.view.getStorNodes(s_common.uhex(iden))
+            if (nid := self.core.getNidByBuid(s_common.uhex(iden))) is None:
+                continue
+
+            stor = await self.view.getStorNodes(nid)
             for relProp in relProps.keys():
                 await asyncio.sleep(0)
                 if relProp == '*':
