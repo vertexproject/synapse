@@ -1206,9 +1206,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('storm:macro:set:perm')
     async def _setStormMacroPerm(self, name, scope, iden, level):
 
-        if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least one character long')
-
         mdef = self.reqStormMacro(name)
         await self._setEasyPerm(mdef, scope, iden, level)
 
