@@ -1181,7 +1181,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         reqValidStormMacro(mdef)
 
         newname = info.get('name')
-
         if newname is not None and newname != name:
 
             byts = self.slab.get(newname.encode(), db=self.macrodb)

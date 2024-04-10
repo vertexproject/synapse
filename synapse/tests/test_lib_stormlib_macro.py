@@ -63,6 +63,9 @@ class MacroTest(s_test.SynTest):
                 await core.nodes('$lib.macro.del("")')
 
             with self.raises(s_exc.BadArg):
+                await core.delStormMacro('', user=None)
+
+            with self.raises(s_exc.BadArg):
                 await core.nodes('$lib.macro.grant("", users, hehe, 3)')
 
             with self.raises(s_exc.SchemaViolation):
