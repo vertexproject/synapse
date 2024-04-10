@@ -890,7 +890,7 @@ class Snap(s_base.Base):
         async for nid, srefs in self.view.liftByDataName(name):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
-                data = self.getNodeData(nid, name, defv=s_common.novalu)
+                data = await self.getNodeData(nid, name, defv=s_common.novalu)
                 if data is not s_common.novalu:
                     node.nodedata[name] = data
                     yield node
