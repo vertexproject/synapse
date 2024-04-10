@@ -7,6 +7,7 @@ import signal
 import socket
 import asyncio
 import tarfile
+import warnings
 import collections
 import multiprocessing
 
@@ -509,8 +510,11 @@ class CellTest(s_t_utils.SynTest):
 
             s_common.yamlsave(tree, bootpath)
 
-            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
-                self.eq('haha', await cell.hive.get(('hehe',)))
+            with warnings.catch_warnings(record=True) as warns:
+                async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                    self.eq('haha', await cell.hive.get(('hehe',)))
+
+                self.isin('Initial hive config from hiveboot.yaml', str(warns[0].message))
 
             # test that the file does not load again
             tree['kids']['redballoons'] = {'value': 99}
