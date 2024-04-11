@@ -382,6 +382,7 @@ class MacroTest(s_test.SynTest):
                     self.eq('storm:macro:mod', setmesg['data']['event'])
                     event = setmesg['data']['info']
                     self.eq(event['name'], 'foobar')
+                    self.nn(event['iden'])
                     self.eq(event['info']['storm'], 'inet:ipv4 | [+#burrito]')
                     self.nn(event['info']['updated'])
 
@@ -389,18 +390,21 @@ class MacroTest(s_test.SynTest):
                     self.eq('storm:macro:mod', modmesg['data']['event'])
                     event = modmesg['data']['info']
                     self.eq(event['name'], 'foobar')
+                    self.nn(event['iden'])
                     self.eq(event['info']['name'], 'bizbaz')
                     self.nn(event['info']['updated'])
 
                     grantmesg = await sock.receive_json()
                     self.eq('storm:macro:set:perm', grantmesg['data']['event'])
                     event = grantmesg['data']['info']
-                    self.eq(event['level'], 3)
                     self.eq(event['name'], 'bizbaz')
-                    self.eq(event['scope'], 'users')
-                    self.eq(event['iden'], visi.iden)
+                    self.nn(event['iden'])
+                    self.eq(event['info']['level'], 3)
+                    self.eq(event['info']['scope'], 'users')
+                    self.eq(event['info']['iden'], visi.iden)
 
                     delmesg = await sock.receive_json()
                     self.eq('storm:macro:del', delmesg['data']['event'])
                     event = delmesg['data']['info']
+                    self.nn(event['iden'])
                     self.eq(event['name'], 'bizbaz')

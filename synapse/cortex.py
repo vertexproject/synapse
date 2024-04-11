@@ -1161,8 +1161,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         byts = self.slab.pop(name.encode(), db=self.macrodb)
 
         if byts is not None:
-            await self.feedBeholder('storm:macro:del', {'name': name})
-            return s_msgpack.un(byts)
+            macro = s_msgpack.un(byts)
+            await self.feedBeholder('storm:macro:del', {'name': name, 'iden': macro.get('iden')})
+            return macro
 
     async def modStormMacro(self, name, info, user=None):
         if user is not None:
@@ -1192,7 +1193,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
-        await self.feedBeholder('storm:macro:mod', {'name': name, 'info': info})
+        await self.feedBeholder('storm:macro:mod', {'name': name, 'iden': mdef.get('iden'), 'info': info})
         return mdef
 
     async def setStormMacroPerm(self, name, scope, iden, level, user=None):
@@ -1212,7 +1213,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
-        await self.feedBeholder('storm:macro:set:perm', {'name': name, 'scope': scope, 'iden': iden, 'level': level})
+        info = {
+            'scope': scope,
+            'iden': iden,
+            'level': level
+        }
+
+        await self.feedBeholder('storm:macro:set:perm', {'name': name, 'iden': mdef.get('iden'), 'info': info})
         return mdef
 
     async def getStormMacros(self, user=None):
