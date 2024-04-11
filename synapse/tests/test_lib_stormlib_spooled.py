@@ -29,7 +29,7 @@ class StormlibSpooledTest(s_test.SynTest):
                 $set = $lib.spooled.set()
                 inet:ipv4 $set.add(:asn)
                 $set.rems((:asn,:asn))
-                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
