@@ -2895,6 +2895,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if isnew:
             path = os.path.join(self.dirn, 'hiveboot.yaml')
             if os.path.isfile(path):
+                s_common.deprdate('Initial hive config from hiveboot.yaml', '2024-05-05')
                 logger.debug(f'Loading cell hive from {path}')
                 tree = s_common.yamlload(path)
                 if tree is not None:
