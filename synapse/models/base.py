@@ -63,28 +63,36 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
                 ('graph:cluster', ('guid', {}), {
+                    'deprecated': True,
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
                            'single node in the model.'}),
 
                 ('graph:node', ('guid', {}), {
+                    'deprecated': True,
                     'doc': 'A generic node used to represent objects outside the model.'}),
 
                 ('graph:event', ('guid', {}), {
+                    'deprecated': True,
                     'doc': 'A generic event node to represent events outside the model.'}),
 
                 ('edge:refs', ('edge', {}), {
+                    'deprecated': True,
                     'doc': 'A digraph edge which records that N1 refers to or contains N2.'}),
 
                 ('edge:has', ('edge', {}), {
+                    'deprecated': True,
                     'doc': 'A digraph edge which records that N1 has N2.'}),
 
                 ('edge:wentto', ('timeedge', {}), {
+                    'deprecated': True,
                     'doc': 'A digraph edge which records that N1 went to N2 at a specific time.'}),
 
                 ('graph:edge', ('edge', {}), {
+                    'deprecated': True,
                     'doc': 'A generic digraph edge to show relationships outside the model.'}),
 
                 ('graph:timeedge', ('timeedge', {}), {
+                    'deprecated': True,
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
                 ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
