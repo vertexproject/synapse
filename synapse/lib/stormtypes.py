@@ -4395,58 +4395,58 @@ class Str(Prim):
          {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
           'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
                   'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
-         {'name': 'isalnum', 'desc': '''
+         {'name': 'isAlnum', 'desc': '''
             Returns true if all chars in the string are alphanumeric, false otherwise.
 
             Examples:
                 Test if string `aca123` is alphanumeric::
 
-                    $foo="aca123" return ( $foo.isalnum() ) // true
+                    $foo="aca123" return ( $foo.isAlnum() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsAlnum',
                   'returns': {'type': 'bool', 'desc': 'Whether string is alphanumeric', }}},
-         {'name': 'isalpha', 'desc': '''
+         {'name': 'isAlpha', 'desc': '''
             Returns true if all chars in the string are in the alphabet, false otherwise.
 
             Examples:
                 Test if string `aca` contains only letters in the alphabet::
 
-                    $foo="aca" return ( $foo.isalpha() ) // true
+                    $foo="aca" return ( $foo.isAlpha() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsAlpha',
                   'returns': {'type': 'bool', 'desc': 'Whether string only contains chars from alphabet', }}},
-         {'name': 'isascii', 'desc': '''
+         {'name': 'isAscii', 'desc': '''
             Returns true if all chars in the string are ASCII chars, false otherwise.
 
             Examples:
                 Test if string `aca` contains only letters in the alphabet::
 
-                    $foo="aca" return ( $foo.isascii() ) // true
+                    $foo="aca" return ( $foo.isAscii() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsASCII',
                   'returns': {'type': 'bool', 'desc': 'Whether all the chars are ASCII', }}},
-         {'name': 'isdecimal', 'desc': '''
+         {'name': 'isDecimal', 'desc': '''
             Returns true if all the chars are decimals (including unicode), false otherwise.
 
             Examples:
                 Test if string `123` contains only decimals::
 
-                    $foo="123" return ( $foo.isdecimal() ) // true
+                    $foo="123" return ( $foo.isDecimal() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsDecimal',
                   'returns': {'type': 'bool', 'desc': 'Whether all the chars are decimals', }}},
-         {'name': 'isdigit', 'desc': '''
+         {'name': 'isDigit', 'desc': '''
             Returns true if all the chars are decimals, false otherwise.
             Exponents are considered as digits.
 
             Examples:
                 Test if string `123` contains only digits::
 
-                    $foo="123" return ( $foo.isdigit() ) // true
+                    $foo="123" return ( $foo.isDigit() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsDigit',
                   'returns': {'type': 'bool', 'desc': 'Whether all the chars are digits', }}},
-         {'name': 'isidentifier', 'desc': '''
+         {'name': 'isIdentifier', 'desc': '''
             Returns true if the string is a valid identifier, false otherwise.
             A valid identifier only contains alphanumeric letters (a-z) and (0-9), or underscores (_).
             and cannot start with a number, or contain any spaces.
@@ -4454,70 +4454,70 @@ class Str(Prim):
             Examples:
                 Test if string `aca_123` is a valid identifier::
 
-                    $foo="aca_123" return ( $foo.isidentifier() ) // true
+                    $foo="aca_123" return ( $foo.isIdentifier() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsIdentifier',
                   'returns': {'type': 'bool', 'desc': 'Whether the string is a valid identifier', }}},
-         {'name': 'islower', 'desc': '''
+         {'name': 'isLower', 'desc': '''
             Returns true if all the chars are in lower case, false otherwise.
             Numbers, symbols and spaces are not checked, only alphabet characters.
 
             Examples:
                 Test if string `aca` only contains lower case chars::
 
-                    $foo="aca" return ( $foo.islower() ) // true
+                    $foo="aca" return ( $foo.isLower() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsLower',
                   'returns': {'type': 'bool', 'desc': 'Whether all chars are in lower case', }}},
-         {'name': 'isnumeric', 'desc': '''
+         {'name': 'isNumeric', 'desc': '''
             Returns true if all the chars are numeric, false otherwise.
             Unicode fractions are considered as numeric, but not decimals like `1.5`.
 
             Examples:
                 Test if string `123` only contains numeric chars::
 
-                    $foo="123" return ( $foo.isnumeric() ) // true
+                    $foo="123" return ( $foo.isNumeric() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsNumeric',
                   'returns': {'type': 'bool', 'desc': 'Whether all chars are numeric', }}},
-         {'name': 'isprintable', 'desc': '''
+         {'name': 'isPrintable', 'desc': '''
             Returns true if all the chars are printable, false otherwise.
 
             Examples:
                 Test if string `aca 123` only contains printable chars::
 
-                    $foo="aca 123" return ( $foo.isprintable() ) // true
+                    $foo="aca 123" return ( $foo.isPrintable() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsPrintable',
                   'returns': {'type': 'bool', 'desc': 'Whether all chars are printable', }}},
-         {'name': 'isspace', 'desc': '''
+         {'name': 'isSpace', 'desc': '''
             Returns true if all the chars are whitespaces, false otherwise.
 
             Examples:
                 Test if string `   ` only contains whitespaces::
 
-                    $foo="   " return ( $foo.isspace() ) // true
+                    $foo="   " return ( $foo.isSpace() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsSpace',
                   'returns': {'type': 'bool', 'desc': 'Whether all chars are whitespaces', }}},
-         {'name': 'istitle', 'desc': '''
+         {'name': 'isTitle', 'desc': '''
             Returns true if all words in a text start with a upper case letter and others are lower case, false otherwise.
 
             Examples:
                 Test if string `Aca Test` has words start with a upper case letter and others are lower case::
 
-                    $foo="Aca Test" return ( $foo.istitle() ) // true
+                    $foo="Aca Test" return ( $foo.isTitle() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsTitle',
                   'returns': {'type': 'bool', 'desc': 'Whether all words starts with an upper case', }}},
-         {'name': 'isupper', 'desc': '''
+         {'name': 'isUpper', 'desc': '''
             Returns true if all the characters are in upper case, false otherwise.
             Numbers, symbols and spaces are not checked, only alphabet characters.
 
             Examples:
                 Test if string `ACA` only contains upper case chars::
 
-                    $foo="ACA" return ( $foo.isupper() ) // true
+                    $foo="ACA" return ( $foo.isUpper() ) // true
             ''',
          'type': {'type': 'function', '_funcname': '_methStrIsUpper',
                   'returns': {'type': 'bool', 'desc': 'Whether all chars are upper case', }}},
