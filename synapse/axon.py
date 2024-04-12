@@ -1548,9 +1548,6 @@ class Axon(s_cell.Cell):
                     }
                     return info
 
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-
             except Exception as e:
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
                 err = s_common.err(e)
@@ -1600,9 +1597,6 @@ class Axon(s_cell.Cell):
                         'headers': dict(resp.headers),
                     }
                     return info
-
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
 
             except Exception as e:
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
