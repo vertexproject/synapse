@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 import aiohttp
 import aiohttp_socks
-import aiohttp.client_exceptions
 
 import synapse.exc as s_exc
 import synapse.common as s_common
