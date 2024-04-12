@@ -1548,7 +1548,7 @@ class Axon(s_cell.Cell):
                     }
                     return info
 
-            except asyncio.CancelledError:  # pramga: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
 
             except Exception as e:
