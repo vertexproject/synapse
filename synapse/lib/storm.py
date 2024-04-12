@@ -4369,6 +4369,8 @@ class MoveNodesCmd(Cmd):
             for layr in self.lyrs.keys():
                 sodes[layr] = self.lyrs[layr].getStorNode(node.nid)
 
+            destsode = sodes[self.destlayr]
+
             # check all perms
             if self.opts.apply:
                 await self._checkNodePerms(node, sodes)
@@ -4401,8 +4403,11 @@ class MoveNodesCmd(Cmd):
 
                     if not layr == self.destlayr:
                         if not self.opts.apply:
-                            await runt.printf(f'{self.destlayr} delete {nodeiden} {node.form.name} = {valurepr}')
-                            await runt.printf(f'{layr} delete tombstone {nodeiden} {node.form.name} = {valurepr}')
+                            if (valu := destsode.get('valu')) is not None:
+                                valurepr = node.form.type.repr(valu[0])
+
+                                await runt.printf(f'{self.destlayr} delete {nodeiden} {node.form.name} = {valurepr}')
+                            await runt.printf(f'{layr} delete tombstone {nodeiden} {node.form.name}')
                         else:
                             self.subs.append((s_layer.EDIT_NODE_TOMB_DEL, ()))
 
@@ -4417,7 +4422,6 @@ class MoveNodesCmd(Cmd):
                 await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
             if delnode:
-                destsode = sodes[self.destlayr]
                 if (valu := destsode.get('valu')) is not None:
                     self.adds.append((s_layer.EDIT_NODE_DEL, valu))
 
