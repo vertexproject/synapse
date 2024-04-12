@@ -902,7 +902,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(info['creator'], root.iden)
                     self.eq(info['iden'], view)
 
-                    cdef = await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    cdef = await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30).pack())')
                     layr = await core.callStorm('return($lib.layer.add().iden)')
 
                     opts = {'vars': {'view': view, 'cron': cdef['iden'], 'layr': layr}}

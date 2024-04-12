@@ -1343,34 +1343,34 @@ class StormTypesTest(s_test.SynTest):
             n2 = s_common.guid()
             n3 = s_common.guid()
 
-            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': ghstr}})
+            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': ghstr}})
             self.len(1, nodes)
             node1 = nodes[0]
 
-            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': mstr}})
+            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': mstr}})
             self.len(1, nodes)
             node2 = nodes[0]
-            q = '''graph:node=$n1 $gzthing = :data
+            q = '''tel:mob:telem=$n1 $gzthing = :data
                 $foo = $lib.base64.decode($gzthing).gunzip()
                 $lib.print($foo)
-                [( graph:node=$n2 :data=$foo.decode() )]'''
+                [( tel:mob:telem=$n2 :data=$foo.decode() )]'''
 
             msgs = await core.stormlist(q, opts={'vars': {'n1': node1.ndef[1], 'n2': n2}})
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('ohhai', msgs)
 
             # make sure we gunzip correctly
-            nodes = await core.nodes('graph:node=$valu', opts={'vars': {'valu': n2}})
+            nodes = await core.nodes('tel:mob:telem=$valu', opts={'vars': {'valu': n2}})
             self.len(1, nodes)
             self.eq(hstr, nodes[0].get('data'))
 
-            text = f'''graph:node=$n2 $bar = :data
-                    [( graph:node=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
+            text = f'''tel:mob:telem=$n2 $bar = :data
+                    [( tel:mob:telem=$n3 :data=$lib.base64.encode($bar.encode().gzip()) )]'''
             msgs = await core.stormlist(text, opts={'vars': {'n2': node2.ndef[1], 'n3': n3}})
             self.stormHasNoWarnErr(msgs)
 
             # make sure we gzip correctly
-            nodes = await core.nodes('graph:node=$valu', opts={'vars': {'valu': n3}})
+            nodes = await core.nodes('tel:mob:telem=$valu', opts={'vars': {'valu': n3}})
             self.len(1, nodes)
             self.eq(mstr.encode(), gzip.decompress(base64.urlsafe_b64decode(nodes[0].get('data'))))
 
@@ -1383,30 +1383,30 @@ class StormTypesTest(s_test.SynTest):
             n2 = s_common.guid()
             n3 = s_common.guid()
 
-            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': ghstr}})
+            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': ghstr}})
             self.len(1, nodes)
             node1 = nodes[0]
-            nodes = await core.nodes('[graph:node="*" :data=$data]', opts={'vars': {'data': mstr}})
+            nodes = await core.nodes('[tel:mob:telem="*" :data=$data]', opts={'vars': {'data': mstr}})
             self.len(1, nodes)
             node2 = nodes[0]
 
-            q = '''graph:node=$valu $bzthing = :data $foo = $lib.base64.decode($bzthing).bunzip()
+            q = '''tel:mob:telem=$valu $bzthing = :data $foo = $lib.base64.decode($bzthing).bunzip()
             $lib.print($foo)
-            [( graph:node=$n2 :data=$foo.decode() )] -graph:node=$valu'''
+            [( tel:mob:telem=$n2 :data=$foo.decode() )] -tel:mob:telem=$valu'''
             msgs = await core.stormlist(q, opts={'vars': {'valu': node1.ndef[1], 'n2': n2}})
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('ohhai', msgs)
 
             # make sure we bunzip correctly
             opts = {'vars': {'iden': n2}}
-            nodes = await core.nodes('graph:node=$iden', opts=opts)
+            nodes = await core.nodes('tel:mob:telem=$iden', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('data'), hstr)
 
             # bzip
-            q = '''graph:node=$valu $bar = :data
-                [( graph:node=$n3 :data=$lib.base64.encode($bar.encode().bzip()) )] -graph:node=$valu'''
+            q = '''tel:mob:telem=$valu $bar = :data
+                [( tel:mob:telem=$n3 :data=$lib.base64.encode($bar.encode().bzip()) )] -tel:mob:telem=$valu'''
             nodes = await core.nodes(q, opts={'vars': {'valu': node2.ndef[1], 'n3': n3}})
             self.len(1, nodes)
             node = nodes[0]
@@ -1420,13 +1420,13 @@ class StormTypesTest(s_test.SynTest):
             valu = s_common.guid()
             n2 = s_common.guid()
 
-            nodes = await core.nodes('[graph:node=$valu :data=$data]', opts={'vars': {'valu': valu, 'data': ghstr}})
+            nodes = await core.nodes('[tel:mob:telem=$valu :data=$data]', opts={'vars': {'valu': valu, 'data': ghstr}})
             self.len(1, nodes)
             node1 = nodes[0]
             self.eq(node1.get('data'), ghstr)
 
-            q = '''graph:node=$valu $jzthing=:data $foo=$jzthing.encode().json() [(graph:node=$n2 :data=$foo)]
-                  -graph:node=$valu'''
+            q = '''tel:mob:telem=$valu $jzthing=:data $foo=$jzthing.encode().json() [(tel:mob:telem=$n2 :data=$foo)]
+                  -tel:mob:telem=$valu'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'n2': n2}})
             self.len(1, nodes)
             node2 = nodes[0]
@@ -1720,7 +1720,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $set = $lib.set()
                 inet:ipv4 $set.add(:asn)
-                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -1729,7 +1729,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $set = $lib.set()
                 inet:ipv4 $set.adds((:asn,:asn))
-                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -1739,7 +1739,7 @@ class StormTypesTest(s_test.SynTest):
                 $set = $lib.set()
                 inet:ipv4 $set.adds((:asn,:asn))
                 { +:asn=20 $set.rem(:asn) }
-                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -1749,7 +1749,7 @@ class StormTypesTest(s_test.SynTest):
                 $set = $lib.set()
                 inet:ipv4 $set.add(:asn)
                 $set.rems((:asn,:asn))
-                [ graph:node="*" ] +graph:node [ :data=$set.list() ]
+                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2151,7 +2151,7 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4
                 $idens = $path.idens()
-                [ graph:node="*" ] +graph:node [ :data=$idens ]
+                [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$idens ]
             '''
 
             idens = (
@@ -4406,7 +4406,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            cdef = await core.callStorm('return($lib.cron.add(query="{[graph:node=*]}", hourly=30).pack())')
+            cdef = await core.callStorm('return($lib.cron.add(query="{[tel:mob:telem=*]}", hourly=30).pack())')
             self.eq('', cdef.get('doc'))
             self.eq('', cdef.get('name'))
 
@@ -4422,7 +4422,7 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.cron.get($iden).set(hehe, haha))', opts=opts)
 
-            mesgs = await core.stormlist('cron.add --hour +1 {[graph:node=*]} --name myname --doc mydoc')
+            mesgs = await core.stormlist('cron.add --hour +1 {[tel:mob:telem=*]} --name myname --doc mydoc')
             for mesg in mesgs:
                 if mesg[0] == 'print':
                     iden0 = mesg[1]['mesg'].split(' ')[-1]
@@ -4527,7 +4527,7 @@ class StormTypesTest(s_test.SynTest):
                 nextlayroffs = await layr.getEditOffs() + 1
 
                 # Start simple: add a cron job that creates a node every minute
-                q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
+                q = "cron.add --minute +1 {[meta:note='*' :type=m1]}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint('Created cron job', mesgs)
                 for mesg in mesgs:
@@ -4569,24 +4569,24 @@ class StormTypesTest(s_test.SynTest):
 
                 # Make sure it ran
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
-                self.eq(1, await prox.count('graph:node:type=m1'))
+                self.eq(1, await prox.count('meta:note:type=m1'))
 
-                q = "cron.mod $guid { [graph:node='*' :type=m2] }"
+                q = "cron.mod $guid { [meta:note='*' :type=m2] }"
                 mesgs = await core.stormlist(q, opts={'vars': {'guid': guid[:6]}})
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
-                q = "cron.mod xxx { [graph:node='*' :type=m2] }"
+                q = "cron.mod xxx { [meta:note='*' :type=m2] }"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
                 # Make sure the old one didn't run and the new query ran
                 unixtime += 60
                 await asyncio.sleep(0)
-                self.eq(1, await prox.count('graph:node:type=m1'))
+                self.eq(1, await prox.count('meta:note:type=m1'))
                 # UNG WTF
                 await asyncio.sleep(0)
                 await asyncio.sleep(0)
-                self.eq(1, await prox.count('graph:node:type=m2'))
+                self.eq(1, await prox.count('meta:note:type=m2'))
 
                 # Delete the job
                 q = f"cron.del {guid}"
@@ -4599,8 +4599,8 @@ class StormTypesTest(s_test.SynTest):
 
                 # Make sure deleted job didn't run
                 unixtime += 60
-                self.eq(1, await prox.count('graph:node:type=m1'))
-                self.eq(1, await prox.count('graph:node:type=m2'))
+                self.eq(1, await prox.count('meta:note:type=m1'))
+                self.eq(1, await prox.count('meta:note:type=m2'))
 
                 # Test fixed minute, i.e. every hour at 17 past
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
@@ -4776,6 +4776,7 @@ class StormTypesTest(s_test.SynTest):
 
                     self.stormIsInPrint('last result:     finished successfully with 0 nodes', mesgs)
                     self.stormIsInPrint('entries:         <None>', mesgs)
+                    self.stormIsInPrint('pool:            false', mesgs)
 
                     # Test 'stat' command
                     mesgs = await core.stormlist('cron.stat xxx')
@@ -4849,7 +4850,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('data.iden must match pattern', msgs)
 
                 opts = {'vars': {'iden': 'cd263bd133a5dafa1e1c5e9a01d9d486'}}
-                q = "cron.add --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
+                q = "cron.add --pool --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
 
@@ -5038,7 +5039,8 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.lift.byNodeData(hehe) $node.data.load(lulz)')
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x01020304), nodes[0].ndef)
-            self.none(nodes[0].nodedata.get('hehe'))
+            self.eq('haha', nodes[0].nodedata['hehe'])
+            self.eq('haha', nodes[0].pack()[1]['nodedata']['hehe'])
             self.eq('rofl', nodes[0].nodedata['lulz'])
             self.eq('rofl', nodes[0].pack()[1]['nodedata']['lulz'])
 
@@ -6355,6 +6357,10 @@ words\tword\twrd'''
             self.eq(merge['creator'], core.auth.rootuser.iden)
             self.none(merge.get('updated'))
 
+            merging = 'return($lib.view.get().getMergingViews()) '
+
+            self.eq([fork00], await core.callStorm(merging))
+
             with self.raises(s_exc.AuthDeny):
                 core.getView(fork00).reqValidVoter(root.iden)
 
@@ -6430,7 +6436,12 @@ words\tword\twrd'''
             self.none(core.getView(fork00))
             nodes = await core.nodes('inet:fqdn')
             self.len(2, nodes)
+
+            # previously successful merges
             self.len(1, await core.callStorm('$list = ([]) for $merge in $lib.view.get().getMerges() { $list.append($merge) } fini { return($list) }'))
+
+            # current open merge requests
+            self.eq([], await core.callStorm(merging))
 
             # test out the delMergeRequest logic / cleanup
             forkdef = await core.getView().fork()
@@ -6439,6 +6450,7 @@ words\tword\twrd'''
 
             opts = {'view': fork.iden}
             self.nn(await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts))
+            self.eq([fork.iden], await core.callStorm(merging))
 
             # confirm that you may not re-parent to a view with a merge request
             layr = await core.addLayer()
@@ -6454,6 +6466,8 @@ words\tword\twrd'''
             self.nn(await core.callStorm('return($lib.view.get().delMergeRequest())', opts=opts))
             self.len(0, [vote async for vote in fork.getMergeVotes()])
 
+            self.eq([], await core.callStorm(merging))
+
             # test coverage for beholder progress events...
             forkdef = await core.getView().fork()
             fork = core.getView(forkdef.get('iden'))
@@ -6462,10 +6476,12 @@ words\tword\twrd'''
             await core.stormlist('[ inet:ipv4=1.2.3.0/20 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
+            self.eq([fork.iden], await core.callStorm(merging))
+
             nevents = 8
             if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
                 # view:merge:vote:set fires twice
-                nevents = nevents + 1
+                nevents += 1
             waiter = core.waiter(nevents, 'cell:beholder')
 
             opts = {'view': fork.iden, 'user': visi.iden}
@@ -6488,6 +6504,8 @@ words\tword\twrd'''
             self.eq(msgs[-1][1]['info']['merge']['creator'], core.auth.rootuser.iden)
             self.eq(msgs[-1][1]['info']['votes'][0]['user'], visi.iden)
 
+            self.eq([], await core.callStorm(merging))
+
             # test coverage for bad state for merge request
             fork00 = await core.getView().fork()
             fork01 = await core.getView(fork00['iden']).fork()
@@ -6496,8 +6514,11 @@ words\tword\twrd'''
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
+            self.eq([], await core.callStorm(merging))
+
             await core.delView(fork01['iden'])
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+            self.eq([fork00['iden']], await core.callStorm(merging))
 
             core.getView().layers[0].readonly = True
             with self.raises(s_exc.BadState):
@@ -6515,6 +6536,8 @@ words\tword\twrd'''
             opts = {'view': fork.iden}
             await core.stormlist('[ inet:ipv4=5.5.5.5 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            self.eq(set([fork.iden, fork00['iden']]), set(await core.callStorm(merging)))
 
             # hamstring the runViewMerge method on the new view
             async def fake():
@@ -6550,3 +6573,6 @@ words\tword\twrd'''
 
             msgs = await core.stormlist('$lib.view.get().set(quorum, $lib.null)')
             self.stormHasNoWarnErr(msgs)
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm(merging)

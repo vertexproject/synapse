@@ -5,7 +5,7 @@
 version: 2.1
 
 orbs:
-  gh-release: vertexproject/github-release@0.0.4
+  gh-release: vertexproject/github-release@0
 
 commands:
   do_report_coverage:

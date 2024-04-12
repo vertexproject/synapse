@@ -1047,6 +1047,36 @@ class Snap(s_base.Base):
         self.onfini(runt)
         return runt
 
+    async def _joinEmbedStor(self, storage, embeds):
+        for nodePath, relProps in embeds.items():
+            await asyncio.sleep(0)
+            iden = relProps.get('*')
+            if not iden:
+                continue
+
+            if (nid := self.core.getNidByBuid(s_common.uhex(iden))) is None:
+                continue
+
+            stor = await self.view.getStorNodes(nid)
+            for relProp in relProps.keys():
+                await asyncio.sleep(0)
+                if relProp == '*':
+                    continue
+
+                for idx, layrstor in enumerate(stor):
+                    await asyncio.sleep(0)
+                    props = layrstor.get('props')
+                    if not props:
+                        continue
+
+                    if relProp not in props:
+                        continue
+
+                    if 'embeds' not in storage[idx]:
+                        storage[idx]['embeds'] = {}
+
+                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+
     async def iterStormPodes(self, text, opts, user=None):
         '''
         Yield packed node tuples for the given storm query text.
@@ -1081,6 +1111,8 @@ class Snap(s_base.Base):
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
                     pode[1]['embeds'] = await node.getEmbeds(embdef)
+                    if show_storage:
+                        await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'])
 
             yield pode
 
@@ -1269,7 +1301,10 @@ class Snap(s_base.Base):
         async for nid, srefs in self.view.liftByDataName(name):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
-                yield node
+                data = await self.getNodeData(nid, name, defv=s_common.novalu)
+                if data is not s_common.novalu:
+                    node.nodedata[name] = data
+                    yield node
 
     async def nodesByProp(self, full, reverse=False, subtype=None):
 
