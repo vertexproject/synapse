@@ -936,7 +936,9 @@ class LayerTest(s_t_utils.SynTest):
             $node.data.pop(foodata)
             '''
 
-            self.len(1, await core.nodes(addq))
+            nodes = await core.nodes(addq)
+            self.len(1, nodes)
+            nodeiden = nodes[0].iden()
 
             self.false(await core.callStorm('[ test:str=newp ] return($node.data.has(foodata))'))
 
@@ -1230,6 +1232,88 @@ class LayerTest(s_t_utils.SynTest):
             viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
             view3 = core.getView(viewiden3)
             viewopts3 = {'view': viewiden3}
+
+            # use movenodes with tombstones
+            destlayr = view3.layers[0].iden
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            msgs = await core.stormlist('inet:ipv4=1.2.3.4 | movenodes', opts=viewopts3)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4:asn', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4#foo.tag', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4 -(bar)>', msgs)
+
+            msgs = await core.stormlist('inet:ipv4=1.2.3.4 | movenodes --preserve-tombstones', opts=viewopts3)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4:asn', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4#foo.tag', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4 -(bar)>', msgs)
+
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | movenodes --apply', opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await notombs(opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | movenodes --apply --preserve-tombstones', opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await hastombs(opts=viewopts3)
+
+            layr1 = core.getView().layers[0].iden
+            layr2 = view2.layers[0].iden
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | delnode --force', opts=viewopts2)
+            await core.nodes(addq, opts=viewopts3)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr}
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4', msgs)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --preserve-tombstones --precedence {layr2} {layr1} {destlayr}
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4', msgs)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --apply --precedence {layr2} {layr1} {destlayr}
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await notombs(opts=viewopts3)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3))
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | delnode --force', opts=viewopts2)
+            await core.nodes(addq, opts=viewopts3)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --apply --preserve-tombstones --precedence {layr2} {layr1} {destlayr}
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3))
+
+            q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(2, [m for m in msgs if m[0] == 'print'])
+            self.stormIsInPrint("('inet:ipv4', None)", msgs)
+            self.stormIsInPrint("('it:dev:str', None)", msgs)
+
+            await view2.wipeLayer()
+            await view3.wipeLayer()
 
             await core.nodes(addq)
 

@@ -4412,8 +4412,12 @@ class MoveNodesCmd(Cmd):
 
                                 await runt.printf(f'{self.destlayr} delete {nodeiden} {node.form.name} = {valurepr}')
                             await runt.printf(f'{layr} delete tombstone {nodeiden} {node.form.name}')
+
+                            if self.opts.preserve_tombstones:
+                                await runt.printf(f'{self.destlayr} tombstone {nodeiden} {node.form.name}')
+
                         else:
-                            self.subs.append((s_layer.EDIT_NODE_TOMB_DEL, ()))
+                            self.subs[layr].append((s_layer.EDIT_NODE_TOMB_DEL, ()))
 
             await self._moveProps(node, sodes, meta, delnode)
             await self._moveTags(node, sodes, meta, delnode)
@@ -4627,15 +4631,12 @@ class MoveNodesCmd(Cmd):
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
-            if layr == self.destlayr:
-                continue
 
             for tag, tagdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in tagdict.items():
                     name = (tag, prop)
 
                     if (oldv := movevals.get(name)) is not s_common.novalu:
-
                         if oldv is None:
                             movevals[name] = valu
 
@@ -4649,14 +4650,14 @@ class MoveNodesCmd(Cmd):
                         elif stortype == s_layer.STOR_TYPE_MAXTIME:
                             movevals[name] = max(valu, oldv)
 
-                        if not layr == self.destlayr:
-                            if not self.opts.apply:
-                                tptype = self.core.model.tagprop(prop).type
-                                valurepr = tptype.repr(valu)
-                                mesg = f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
-                                await self.runt.printf(mesg)
-                            else:
-                                self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype)))
+                    if not layr == self.destlayr:
+                        if not self.opts.apply:
+                            tptype = self.core.model.tagprop(prop).type
+                            valurepr = tptype.repr(valu)
+                            mesg = f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                            await self.runt.printf(mesg)
+                        else:
+                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype)))
 
             for tag, tagdict in sode.get('antitagprops', {}).items():
                 for prop in tagdict.keys():
@@ -4828,7 +4829,7 @@ class MoveNodesCmd(Cmd):
                             dest = s_common.ehex(self.core.getBuidByNid(n2nid))
                             await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form} -({verb})> {dest}')
                         else:
-                            self.adds.append((s_layer.EDIT_NODEDATA_TOMB, (name,)))
+                            self.adds.append((s_layer.EDIT_EDGE_TOMB, (verb, n2nid)))
                             ecnt += 1
 
                 else:
