@@ -1302,6 +1302,32 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="hehe {haha} {newp}" return ( $foo.format(haha=yup, baz=faz) )'
             self.eq('hehe yup {newp}', await core.callStorm(q))
 
+<<<<<<< HEAD
+            self.true(await core.callStorm('$foo="aca123" return ( $foo.isAlnum() )'))
+            self.false(await core.callStorm('$foo="$aca 123" return ( $foo.isAlnum() )'))
+            self.true(await core.callStorm('$foo="aca" return ( $foo.isAlpha() )'))
+            self.false(await core.callStorm('$foo="123" return ( $foo.isAlpha() )'))
+            self.true(await core.callStorm('$foo="aca123!" return ( $foo.isAscii() )'))
+            self.false(await core.callStorm('$foo="é" return ( $foo.isAscii() )'))
+            self.true(await core.callStorm('$foo="123" return ( $foo.isDecimal() )'))
+            self.false(await core.callStorm('$foo="a" return ( $foo.isDecimal() )'))
+            self.true(await core.callStorm('$foo="123" return ( $foo.isDigit() )'))
+            self.false(await core.callStorm('$foo="a" return ( $foo.isDigit() )'))
+            self.true(await core.callStorm('$foo="aca_123" return ( $foo.isIdentifier() )'))
+            self.false(await core.callStorm('$foo="aca 123" return ( $foo.isIdentifier() )'))
+            self.true(await core.callStorm('$foo="aca" return ( $foo.isLower() )'))
+            self.false(await core.callStorm('$foo="ACA" return ( $foo.isLower() )'))
+            self.true(await core.callStorm('$foo="123" return ( $foo.isNumeric() )'))
+            self.false(await core.callStorm('$foo="aca123" return ( $foo.isNumeric() )'))
+            self.true(await core.callStorm('$foo="aca" return ( $foo.isPrintable() )'))
+            self.false(await core.callStorm('$foo="\x0b" return ( $foo.isPrintable() )'))
+            self.true(await core.callStorm('$foo="      " return ( $foo.isSpace() )'))
+            self.false(await core.callStorm('$foo="not_a_space" return ( $foo.isSpace() )'))
+            self.true(await core.callStorm('$foo="Hello" return ( $foo.isTitle() )'))
+            self.false(await core.callStorm('$foo="hello" return ( $foo.isTitle() )'))
+            self.true(await core.callStorm('$foo="ACA" return ( $foo.isUpper() )'))
+            self.false(await core.callStorm('$foo="aca" return ( $foo.isUpper() )'))
+=======
             q = '$foo="aca123" return ( $foo.isalnum() )'
             self.eq(True, await core.callStorm(q))
 
@@ -1337,6 +1363,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '$foo="ACA" return ( $foo.isupper() )'
             self.eq(True, await core.callStorm(q))
+>>>>>>> 6ba590f15 (Introduces is* methods for strings in storm lib)
 
             # tuck the regx tests in with str
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
