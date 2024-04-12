@@ -1551,6 +1551,10 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
+                ClientConnectionError = getattr(aiohttp.client_exceptions, 'ClientConnectionError', None)
+                if ClientConnectionError is not None and isinstance(e, ClientConnectionError):
+                    e = e.__cause__
+
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
@@ -1605,6 +1609,10 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
+                ClientConnectionError = getattr(aiohttp.client_exceptions, 'ClientConnectionError', None)
+                if ClientConnectionError is not None and isinstance(e, ClientConnectionError):
+                    e = e.__cause__
+
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
