@@ -473,15 +473,15 @@ class HiveApi(s_base.Base):
         self.onfini(self._onHapiFini)
 
     async def loadHiveTree(self, tree, path=(), trim=False):
-        s_common.deprdate('HiveApi.loadHiveTree', '2024-05-05')
+        s_common.deprecated('HiveApi.loadHiveTree', curv='2.167.0')
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)
 
     async def saveHiveTree(self, path=()):
-        s_common.deprdate('HiveApi.saveHiveTree', '2024-05-05')
+        s_common.deprecated('HiveApi.saveHiveTree', curv='2.167.0')
         return await self.hive.saveHiveTree(path=path)
 
     async def treeAndSync(self, path, iden):
-        s_common.deprdate('HiveApi.treeAndSync', '2024-05-05')
+        s_common.deprecated('HiveApi.treeAndSync', curv='2.167.0')
 
         node = await self.hive.open(path)
 
@@ -513,21 +513,21 @@ class HiveApi(s_base.Base):
         return
 
     async def setAndSync(self, path, valu, iden, nexs=False):
-        s_common.deprdate('HiveApi.setAndSync', '2024-05-05')
+        s_common.deprecated('HiveApi.setAndSync', curv='2.167.0')
 
         valu = await self.hive.set(path, valu, nexs=nexs)
         await self.msgq.put(('hive:sync', {'iden': iden}))
         return valu
 
     async def addAndSync(self, path, valu, iden):
-        s_common.deprdate('HiveApi.addAndSync', '2024-05-05')
+        s_common.deprecated('HiveApi.addAndSync', curv='2.167.0')
 
         valu = await self.hive.add(path, valu)
         await self.msgq.put(('hive:sync', {'iden': iden}))
         return valu
 
     async def popAndSync(self, path, iden, nexs=False):
-        s_common.deprdate('HiveApi.popAndSync', '2024-05-05')
+        s_common.deprecated('HiveApi.popAndSync', curv='2.167.0')
 
         valu = await self.hive.pop(path, nexs=nexs)
         await self.msgq.put(('hive:sync', {'iden': iden}))
@@ -540,11 +540,11 @@ class HiveApi(s_base.Base):
         self.msgq.put_nowait(mesg)
 
     async def get(self, full):
-        s_common.deprdate('HiveApi.get', '2024-05-05')
+        s_common.deprecated('HiveApi.get', curv='2.167.0')
         return await self.hive.get(full)
 
     async def edits(self):
-        s_common.deprdate('HiveApi.edits', '2024-05-05')
+        s_common.deprecated('HiveApi.edits', curv='2.167.0')
 
         while not self.isfini:
 
