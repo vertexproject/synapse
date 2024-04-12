@@ -473,3 +473,10 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:mitre:attack:technique=T0100')
             self.len(1, nodes)
             self.eq('lockpicking', nodes[0].get('name'))
+
+    async def test_modelrev_0_2_25(self):
+        async with self.getRegrCore('model-0.2.25') as core:
+            for view in core.listViews():
+                nomerge = view.info.get('nomerge')
+                protected = view.info.get('protected')
+                self.eq(nomerge, protected)

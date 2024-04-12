@@ -173,6 +173,7 @@ reqValidView = s_config.getJsValidator({
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'nomerge': {'type': 'boolean'},
+        'protected': {'type': 'boolean'},
         'merging': {'type': 'boolean'},
         'layers': {
             'type': 'array',
