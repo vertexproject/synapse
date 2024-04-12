@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 import aiohttp
 import aiohttp_socks
+import aiohttp.client_exceptions
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -475,6 +476,10 @@ class LibHttp(s_stormtypes.Lib):
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
+                ClientConnectionError = getattr(aiohttp.client_exceptions, 'ClientConnectionError', None)
+                if ClientConnectionError is not None and isinstance(e, ClientConnectionError):
+                    e = e.__cause__
+
                 logger.exception(f'Error during http {meth} @ {url}')
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
