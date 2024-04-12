@@ -3875,6 +3875,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     # ----- Change distributed Auth methods ----
 
     async def listHiveKey(self, path=None):
+        s_common.deprdate('Cell.listHiveKey', '2024-05-05')
         if path is None:
             path = ()
         items = self.hive.dir(path)
@@ -3886,6 +3887,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Return a list of (name, value) tuples for nodes under the path.
         '''
+        s_common.deprdate('Cell.getHiveKeys', '2024-05-05')
         items = self.hive.dir(path)
         if items is None:
             return ()
@@ -3896,12 +3898,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Get the value of a key in the cell default hive
         '''
+        s_common.deprdate('Cell.getHiveKey', '2024-05-05')
         return await self.hive.get(path)
 
     async def setHiveKey(self, path, valu):
         '''
         Set or change the value of a key in the cell default hive
         '''
+        s_common.deprdate('Cell.setHiveKey', '2024-05-05')
         return await self.hive.set(path, valu, nexs=True)
 
     async def popHiveKey(self, path):
@@ -3910,15 +3914,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Note:  this is for expert emergency use only.
         '''
+        s_common.deprdate('Cell.popHiveKey', '2024-05-05')
         return await self.hive.pop(path, nexs=True)
 
     async def saveHiveTree(self, path=()):
+        s_common.deprdate('Cell.saveHiveTree', '2024-05-05')
         return await self.hive.saveHiveTree(path=path)
 
     async def loadHiveTree(self, tree, path=(), trim=False):
         '''
         Note:  this is for expert emergency use only.
         '''
+        s_common.deprdate('Cell.loadHiveTree', '2024-05-05')
         return await self._push('hive:loadtree', tree, path, trim)
 
     @s_nexus.Pusher.onPush('hive:loadtree')
