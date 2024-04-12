@@ -93,15 +93,13 @@ class ProtoNode(s_node.NodeBase):
                     edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
 
             if (props := sode.get('props')) is not None:
-                for name in props.keys():
-                    prop = self.form.props.get(name)
-                    edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype)))
+                for name, stortype in props.items():
+                    edits.append((s_layer.EDIT_PROP_DEL, (name, None, stortype)))
 
             if (tagprops := sode.get('tagprops')) is not None:
                 for tag, props in tagprops.items():
-                    for name in props.keys():
-                        prop = self.ctx.snap.core.model.getTagProp(name)
-                        edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
+                    for name, stortype in props.items():
+                        edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, stortype)))
 
         if self.tombnode:
             edits.append((s_layer.EDIT_NODE_TOMB, ()))
@@ -408,7 +406,7 @@ class ProtoNode(s_node.NodeBase):
             return curv
 
         if self.node is not None:
-            return self.node.getTag(tag)
+            return self.node.getTag(tag, defval=defval)
 
     async def addTag(self, tag, valu=(None, None), tagnode=None):
 

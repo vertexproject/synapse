@@ -1590,14 +1590,14 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org#hehe.haha', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org#one:score', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org DATA', msgs)
-            self.stormIsInPrint(f'{layr2} add {nodeiden} ou:org +(bar)>', msgs)
+            self.stormIsInPrint(f'{layr2} add {nodeiden} ou:org -(bar)>', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden}', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org:.created', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org:desc', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org#hehe.haha', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org#one:score', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org DATA', msgs)
-            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org +(bar)>', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org -(bar)>', msgs)
 
             nodes = await core.nodes('ou:org | movenodes --apply', opts=view2)
 

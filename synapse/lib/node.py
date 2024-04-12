@@ -417,6 +417,16 @@ class Node(NodeBase):
 
         return False
 
+    def hasvalu(self):
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (valu := sode.get('valu')) is not None:
+                return True
+
+        return False
+
     def get(self, name, defv=None):
         '''
         Return a secondary property or tag value from the Node.
