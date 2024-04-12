@@ -1508,33 +1508,35 @@ class Axon(s_cell.Cell):
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
-            try:
-                data = aiohttp.FormData()
-                data._is_multipart = True
+        try:
+            data = aiohttp.FormData()
+            data._is_multipart = True
 
-                for field in fields:
+            for field in fields:
 
-                    name = field.get('name')
-                    if not isinstance(name, str):
-                        mesg = f'Each field requires a "name" key with a string value: {name}'
-                        raise s_exc.BadArg(mesg=mesg, name=name)
+                name = field.get('name')
+                if not isinstance(name, str):
+                    mesg = f'Each field requires a "name" key with a string value: {name}'
+                    raise s_exc.BadArg(mesg=mesg, name=name)
 
-                    sha256 = field.get('sha256')
-                    if sha256:
-                        valu = self.get(s_common.uhex(sha256))
-                    else:
-                        valu = field.get('value')
-                        if not isinstance(valu, (bytes, str)):
-                            valu = json.dumps(valu)
+                sha256 = field.get('sha256')
+                if sha256:
+                    sha256b = s_common.uhex(sha256)
+                    await self._reqHas(sha256b)
+                    valu = self.get(sha256b)
+                else:
+                    valu = field.get('value')
+                    if not isinstance(valu, (bytes, str)):
+                        valu = json.dumps(valu)
 
-                    data.add_field(name,
-                                   valu,
-                                   content_type=field.get('content_type'),
-                                   filename=field.get('filename'),
-                                   content_transfer_encoding=field.get('content_transfer_encoding'))
+                data.add_field(name,
+                               valu,
+                               content_type=field.get('content_type'),
+                               filename=field.get('filename'),
+                               content_transfer_encoding=field.get('content_transfer_encoding'))
 
+            async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
                 async with sess.request(method, url, headers=headers, params=params,
                                         data=data, ssl=ssl) as resp:
                     info = {
@@ -1547,31 +1549,31 @@ class Axon(s_cell.Cell):
                     }
                     return info
 
-            except asyncio.CancelledError:  # pramga: no cover
-                raise
+        except asyncio.CancelledError:  # pramga: no cover
+            raise
 
-            except Exception as e:
-                ClientConnectionError = getattr(aiohttp.client_exceptions, 'ClientConnectionError', None)
-                if ClientConnectionError is not None and isinstance(e, ClientConnectionError):
-                    e = e.__cause__
+        except Exception as e:
+            # ClientConnectionError = getattr(aiohttp.client_exceptions, 'ClientConnectionError', None)
+            # if ClientConnectionError is not None and isinstance(e, ClientConnectionError):
+            #     e = e.__cause__
 
-                logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
-                err = s_common.err(e)
-                errmsg = err[1].get('mesg')
-                if errmsg:
-                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
-                else:
-                    reason = f'Exception occurred during request: {err[0]}'
+            logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
+            err = s_common.err(e)
+            errmsg = err[1].get('mesg')
+            if errmsg:
+                reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+            else:
+                reason = f'Exception occurred during request: {err[0]}'
 
-                return {
-                    'ok': False,
-                    'err': err,
-                    'url': url,
-                    'body': b'',
-                    'code': -1,
-                    'reason': reason,
-                    'headers': dict(),
-                }
+            return {
+                'ok': False,
+                'err': err,
+                'url': url,
+                'body': b'',
+                'code': -1,
+                'reason': reason,
+                'headers': dict(),
+            }
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
                    filename=None, filemime=None, proxy=None, ssl_opts=None):
@@ -1589,10 +1591,10 @@ class Axon(s_cell.Cell):
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+        try:
+            await self._reqHas(sha256)
 
-            try:
-
+            async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
                 async with sess.request(method, url, headers=headers, params=params,
                                         data=self.get(sha256), ssl=ssl) as resp:
 
@@ -1605,31 +1607,27 @@ class Axon(s_cell.Cell):
                     }
                     return info
 
-            except asyncio.CancelledError:  # pramga: no cover
-                raise
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
 
-            except Exception as e:
-                ClientConnectionError = getattr(aiohttp.client_exceptions, 'ClientConnectionError', None)
-                if ClientConnectionError is not None and isinstance(e, ClientConnectionError):
-                    e = e.__cause__
+        except Exception as e:
+            logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
+            err = s_common.err(e)
+            errmsg = err[1].get('mesg')
+            if errmsg:
+                mesg = f"{err[0]}: {errmsg}"
+                reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+            else:
+                mesg = err[0]
+                reason = f'Exception occurred during request: {err[0]}'
 
-                logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
-                err = s_common.err(e)
-                errmsg = err[1].get('mesg')
-                if errmsg:
-                    mesg = f"{err[0]}: {errmsg}"
-                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
-                else:
-                    mesg = err[0]
-                    reason = f'Exception occurred during request: {err[0]}'
-
-                return {
-                    'ok': False,
-                    'mesg': mesg,
-                    'code': -1,
-                    'reason': reason,
-                    'err': err,
-                }
+            return {
+                'ok': False,
+                'mesg': mesg,
+                'code': -1,
+                'reason': reason,
+                'err': err,
+            }
 
     def _flatten_clientresponse(self,
                                 resp: aiohttp.ClientResponse,
