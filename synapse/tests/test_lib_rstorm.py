@@ -205,7 +205,7 @@ multiline00_input = '''
 A multiline secondary property.
 .. storm-cortex:: default
 .. storm-opts:: {"vars": {"name": "Node\\nWith a\\nweird name"}}
-.. storm:: [graph:node=(n1,) :name=$name]
+.. storm:: [meta:note=(n1,) :text=$name]
 Bye!
 '''
 
@@ -213,9 +213,9 @@ multiline00_output = '''
 A multiline secondary property.
 ::
 
-    storm> [graph:node=(n1,) :name=$name]
-    graph:node=85d3511b97098d7fd9e07be21f6390de
-            :name = Node
+    storm> [meta:note=(n1,) :text=$name]
+    meta:note=85d3511b97098d7fd9e07be21f6390de
+            :text = Node
                     With a
                     weird name
 

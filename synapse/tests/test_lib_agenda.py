@@ -361,10 +361,13 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # schedule a query to run every Wednesday and Friday at 10:15am
                 cdef = {'creator': visi.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
+                        'pool': True,
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
                 adef = await agenda.add(cdef)
+
+                self.true(adef['pool'])
                 guid = adef.get('iden')
 
                 self.len(1, agenda.apptheap)
@@ -634,7 +637,7 @@ class AgendaTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int=97', opts={'view': newview})
             self.len(0, nodes)
 
-    async def test_agenda_edit_creator(self):
+    async def test_agenda_edit(self):
 
         async with self.getTestCore() as core:
 
@@ -645,7 +648,11 @@ class AgendaTest(s_t_utils.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
+            self.false(cdef['pool'])
             self.eq(cdef['creator'], core.auth.rootuser.iden)
+
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.set(pool, (true)) return($cron) }')
+            self.true(cdef['pool'])
 
             opts = {'vars': {'lowuser': lowuser}}
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $lowuser)) }',
