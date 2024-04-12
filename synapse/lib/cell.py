@@ -668,26 +668,32 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def listHiveKey(self, path=None):
+        s_common.deprecated('CellApi.listHiveKey', curv='2.167.0')
         return await self.cell.listHiveKey(path=path)
 
     @adminapi(log=True)
     async def getHiveKeys(self, path):
+        s_common.deprecated('CellApi.getHiveKeys', curv='2.167.0')
         return await self.cell.getHiveKeys(path)
 
     @adminapi(log=True)
     async def getHiveKey(self, path):
+        s_common.deprecated('CellApi.getHiveKey', curv='2.167.0')
         return await self.cell.getHiveKey(path)
 
     @adminapi(log=True)
     async def setHiveKey(self, path, valu):
+        s_common.deprecated('CellApi.setHiveKey', curv='2.167.0')
         return await self.cell.setHiveKey(path, valu)
 
     @adminapi(log=True)
     async def popHiveKey(self, path):
+        s_common.deprecated('CellApi.popHiveKey', curv='2.167.0')
         return await self.cell.popHiveKey(path)
 
     @adminapi(log=True)
     async def saveHiveTree(self, path=()):
+        s_common.deprecated('CellApi.saveHiveTree', curv='2.167.0')
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
