@@ -1509,7 +1509,6 @@ class Axon(s_cell.Cell):
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
-
             try:
                 data = aiohttp.FormData()
                 data._is_multipart = True
@@ -1523,7 +1522,9 @@ class Axon(s_cell.Cell):
 
                     sha256 = field.get('sha256')
                     if sha256:
-                        valu = self.get(s_common.uhex(sha256))
+                        sha256b = s_common.uhex(sha256)
+                        await self._reqHas(sha256b)
+                        valu = self.get(sha256b)
                     else:
                         valu = field.get('value')
                         if not isinstance(valu, (bytes, str)):
@@ -1546,9 +1547,6 @@ class Axon(s_cell.Cell):
                         'headers': dict(resp.headers),
                     }
                     return info
-
-            except asyncio.CancelledError:  # pramga: no cover
-                raise
 
             except Exception as e:
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
@@ -1586,9 +1584,8 @@ class Axon(s_cell.Cell):
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
-
             try:
-
+                await self._reqHas(sha256)
                 async with sess.request(method, url, headers=headers, params=params,
                                         data=self.get(sha256), ssl=ssl) as resp:
 
@@ -1600,9 +1597,6 @@ class Axon(s_cell.Cell):
                         'headers': dict(resp.headers),
                     }
                     return info
-
-            except asyncio.CancelledError:  # pramga: no cover
-                raise
 
             except Exception as e:
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')

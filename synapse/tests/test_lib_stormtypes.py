@@ -5039,7 +5039,8 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.lift.byNodeData(hehe) $node.data.load(lulz)')
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x01020304), nodes[0].ndef)
-            self.none(nodes[0].nodedata.get('hehe'))
+            self.eq('haha', nodes[0].nodedata['hehe'])
+            self.eq('haha', nodes[0].pack()[1]['nodedata']['hehe'])
             self.eq('rofl', nodes[0].nodedata['lulz'])
             self.eq('rofl', nodes[0].pack()[1]['nodedata']['lulz'])
 
