@@ -62,39 +62,6 @@ class BaseModule(s_module.CoreModule):
                 ('meta:rule', ('guid', {}), {
                     'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
-                ('graph:cluster', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
-                           'single node in the model.'}),
-
-                ('graph:node', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic node used to represent objects outside the model.'}),
-
-                ('graph:event', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic event node to represent events outside the model.'}),
-
-                ('edge:refs', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 refers to or contains N2.'}),
-
-                ('edge:has', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 has N2.'}),
-
-                ('edge:wentto', ('timeedge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 went to N2 at a specific time.'}),
-
-                ('graph:edge', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic digraph edge to show relationships outside the model.'}),
-
-                ('graph:timeedge', ('timeedge', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic digraph time edge to show relationships outside the model.'}),
-
                 ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic priority enumeration.'}),
 
@@ -263,82 +230,6 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A URL which documents the rule.'}),
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the rule.'}),
-                )),
-
-                ('graph:cluster', {}, (
-                    ('name', ('str', {'lower': True}), {
-                        'doc': 'A human friendly name for the cluster.'}),
-                    ('desc', ('str', {'lower': True}), {
-                        'doc': 'A human friendly long form description for the cluster.'}),
-                    ('type', ('str', {'lower': True}), {
-                        'doc': 'An optional type field used to group clusters.'}),
-                )),
-
-                ('edge:has', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('edge:refs', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('edge:wentto', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-
-                    ('time', ('time', {}), {'ro': True}),
-                )),
-
-                ('graph:node', {}, (
-
-                    ('type', ('str', {}), {
-                        'doc': 'The type name for the non-model node.'}),
-
-                    ('name', ('str', {}), {
-                        'doc': 'A human readable name for this record.'}),
-
-                    ('data', ('data', {}), {
-                        'doc': 'Arbitrary non-indexed msgpack data attached to the node.'}),
-
-                )),
-
-                ('graph:edge', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('graph:timeedge', {}, (
-                    ('time', ('time', {}), {'ro': True}),
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('graph:event', {}, (
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time of the event.'}),
-
-                    ('type', ('str', {}), {
-                        'doc': 'A arbitrary type string for the event.'}),
-
-                    ('name', ('str', {}), {
-                        'doc': 'A name for the event.'}),
-
-                    ('data', ('data', {}), {
-                        'doc': 'Arbitrary non-indexed msgpack data attached to the event.'}),
-
                 )),
 
             ),

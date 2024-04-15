@@ -273,7 +273,6 @@ testmodel = {
         ('test:str', ('str', {}), {}),
         ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
-        ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
         ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
@@ -369,13 +368,6 @@ testmodel = {
         ('test:float', {}, (
             ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
             ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
-        )),
-
-        ('test:edge', {}, (
-            ('n1', ('ndef', {}), {'ro': True}),
-            ('n1:form', ('str', {}), {'ro': True}),
-            ('n2', ('ndef', {}), {'ro': True}),
-            ('n2:form', ('str', {}), {'ro': True}),
         )),
 
         ('test:guid', {}, (

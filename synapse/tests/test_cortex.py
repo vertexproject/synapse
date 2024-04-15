@@ -2011,9 +2011,9 @@ class CortexTest(s_t_utils.SynTest):
             # seed a node for pivoting
 
             await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
-            await wcore.nodes('[ edge:refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]')
+            await wcore.nodes('[ meta:seen=((meta:source, "*"), (test:pivcomp,(foo,bar))) ]')
 
-            self.len(1, await core.nodes('ou:org -> edge:refs:n1'))
+            self.len(1, await core.nodes('meta:source -> meta:seen:source'))
 
             q = 'test:pivcomp=(foo,bar) -> test:pivtarg'
             nodes = await getPackNodes(core, q)
@@ -2101,43 +2101,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('test:str', 'bar'))
-
-            # A simple edge for testing pivotinfrom with a edge to n2
-            await wcore.nodes('[ edge:has=((test:str, foobar), (test:str, foo)) ]')
-
-            q = 'test:str=foobar -+> edge:has'
-            nodes = await getPackNodes(core, q)
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-            self.eq(nodes[1][0], ('test:str', 'foobar'))
-
-            # traverse from node to edge:n1
-            q = 'test:str=foo <- edge:has'
-            nodes = await getPackNodes(core, q)
-            self.len(1, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-
-            # traverse from node to edge:n1 with a join
-            q = 'test:str=foo <+- edge:has'
-            nodes = await getPackNodes(core, q)
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-            self.eq(nodes[1][0], ('test:str', 'foo'))
-
-            # Traverse from a edge to :n2
-            # (this is technically a circular query)
-            q = 'test:str=foobar -> edge:has <- test:str'
-            nodes = await getPackNodes(core, q)
-            self.len(1, nodes)
-            self.eq(nodes[0][0], ('test:str', 'foobar'))
-
-            # Traverse from a edge to :n2 with a join
-            # (this is technically a circular query)
-            q = 'test:str=foobar -> edge:has <+- test:str'
-            nodes = await getPackNodes(core, q)
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-            self.eq(nodes[1][0], ('test:str', 'foobar'))
 
             # Add tag
             q = 'test:str=bar test:pivcomp=(foo,bar) [+#test.bar]'
@@ -2230,27 +2193,23 @@ class CortexTest(s_t_utils.SynTest):
 
             q = 'test:str -+> #'
             nodes = await getPackNodes(core, q)
-            self.len(7, nodes)
+            self.len(5, nodes)
             self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
             self.eq(nodes[1][0], ('syn:tag', 'test.bar'))
             self.eq(nodes[2][0], ('test:str', 'bar'))
-            self.eq(nodes[3][0], ('test:str', 'foo'))
-            self.eq(nodes[4][0], ('test:str', 'foobar'))
-            self.eq(nodes[5][0], ('test:str', 'tagyourtags'))
-            self.eq(nodes[6][0], ('test:str', 'yyy'))
+            self.eq(nodes[3][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[4][0], ('test:str', 'yyy'))
 
             q = 'test:str -+> #*'
             nodes = await getPackNodes(core, q)
-            self.len(9, nodes)
+            self.len(7, nodes)
             self.eq(nodes[0][0], ('syn:tag', 'biz'))
             self.eq(nodes[1][0], ('syn:tag', 'biz.meta'))
             self.eq(nodes[2][0], ('syn:tag', 'test'))
             self.eq(nodes[3][0], ('syn:tag', 'test.bar'))
             self.eq(nodes[4][0], ('test:str', 'bar'))
-            self.eq(nodes[5][0], ('test:str', 'foo'))
-            self.eq(nodes[6][0], ('test:str', 'foobar'))
-            self.eq(nodes[7][0], ('test:str', 'tagyourtags'))
-            self.eq(nodes[8][0], ('test:str', 'yyy'))
+            self.eq(nodes[5][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[6][0], ('test:str', 'yyy'))
 
             q = 'test:str=bar -+> #'
             nodes = await getPackNodes(core, q)
@@ -2276,29 +2235,6 @@ class CortexTest(s_t_utils.SynTest):
             q = '#test.bar -#test -+> *'
             nodes = await getPackNodes(core, q)
             self.len(0, nodes)
-
-            # Do a PropPivotOut with a :prop value which is not a form.
-            tgud = s_common.guid()
-            tstr = 'boom'
-            q = '[test:str=$tstr] [test:guid=$tgud] [test:edge=((test:guid, $tgud), (test:str, $tstr))]'
-            self.len(3, await wcore.nodes(q, opts={'vars': {'tstr': tstr, 'tgud': tgud}}))
-
-            q = f'test:str={tstr} <- test:edge :n1:form -> *'
-            mesgs = await core.stormlist(q)
-            self.stormIsInWarn('The source property "n1:form" type "str" is not a form. Cannot pivot.',
-                               mesgs)
-            self.len(0, [m for m in mesgs if m[0] == 'node'])
-
-            # Do a PivotInFrom with a bad form
-            with self.raises(s_exc.NoSuchForm) as cm:
-                await core.nodes('.created <- test:newp')
-
-            with self.raises(s_exc.StormRuntimeError) as cm:
-                await core.nodes('test:str <- test:str')
-
-            mesg = 'Pivot in from a specific form cannot be used with nodes of type test:str'
-            self.eq(cm.exception.get('mesg'), mesg)
-            self.eq(cm.exception.get('name'), 'test:str')
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
@@ -3873,15 +3809,11 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" edge:has=($node, (inet:fqdn,woot.com)) ]')
+            nodes = await core.nodes('[ ps:person="*" meta:seen=((meta:source, *), $node) ]')
             self.len(2, nodes)
-            self.eq('edge:has', nodes[0].ndef[0])
+            self.eq('meta:seen', nodes[0].ndef[0])
 
-            nodes = await core.nodes('[test:str=test] [ edge:refs=($node,(test:int, 1234)) ] -test:str')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], (('test:str', 'test'), ('test:int', 1234)))
-
-            nodes = await core.nodes('test:int=1234 [test:str=$node.value()] -test:int')
+            nodes = await core.nodes('[ test:int=1234 ] [test:str=$node.value()] -test:int')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', '1234'))
 
@@ -5093,7 +5025,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # Filter by var as node
-            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
+            q = '[ps:person=*] $person = $node { [meta:seen=((meta:source,  *), $person)] } -ps:person meta:seen +:node=$person'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 

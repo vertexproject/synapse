@@ -76,146 +76,6 @@ class BaseTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
 
-    async def test_model_base_node(self):
-
-        async with self.getTestCore() as core:
-            iden = s_common.guid()
-
-            nodes = await core.nodes('[(graph:node=$valu :type="hehe haha" :data=(some, data, here))]',
-                                     opts={'vars': {'valu': iden}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('graph:node', iden))
-            self.eq(node.get('type'), 'hehe haha')
-            self.eq(node.get('data'), ('some', 'data', 'here'))
-
-    async def test_model_base_link(self):
-
-        async with self.getTestCore() as core:
-
-            nodes = await core.nodes('[test:int=20 test:str=foo]')
-            self.len(2, nodes)
-            node1 = nodes[0]
-            node2 = nodes[1]
-
-            nodes = await core.nodes('[graph:edge=$valu]', opts={'vars': {'valu': (node1.ndef, node2.ndef)}})
-            self.len(1, nodes)
-            link = nodes[0]
-
-            self.eq(link.ndef, ('graph:edge', (('test:int', 20), ('test:str', 'foo'))))
-            self.eq(link.get('n1'), ('test:int', 20))
-            self.eq(link.get('n1:form'), 'test:int')
-            self.eq(link.get('n2'), ('test:str', 'foo'))
-            self.eq(link.get('n2:form'), 'test:str')
-
-            nodes = await core.nodes('[graph:timeedge=$valu]',
-                                     opts={'vars': {'valu': (node1.ndef, node2.ndef, '2015')}})
-            self.len(1, nodes)
-            timeedge = nodes[0]
-
-            self.eq(timeedge.ndef, ('graph:timeedge', (('test:int', 20), ('test:str', 'foo'), 1420070400000)))
-            self.eq(timeedge.get('time'), 1420070400000)
-            self.eq(timeedge.get('n1'), ('test:int', 20))
-            self.eq(timeedge.get('n1:form'), 'test:int')
-            self.eq(timeedge.get('n2'), ('test:str', 'foo'))
-            self.eq(timeedge.get('n2:form'), 'test:str')
-
-    async def test_model_base_event(self):
-
-        async with self.getTestCore() as core:
-            iden = s_common.guid()
-
-            props = {
-                'type': 'HeHe HaHa',
-                'time': '2015',
-                'name': 'Magic Pony',
-                'data': ('some', 'data', 'here'),
-            }
-            opts = {'vars': {'valu': iden, 'p': props}}
-            q = '[(graph:event=$valu :type=$p.type :time=$p.time :name=$p.name :data=$p.data)]'
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('graph:event', iden))
-
-            self.eq(node.get('type'), 'HeHe HaHa')
-            self.eq(node.get('time'), 1420070400000)
-            self.eq(node.get('data'), ('some', 'data', 'here'))
-            self.eq(node.get('name'), 'Magic Pony')
-
-            # Raise on non-json-safe values
-            props['data'] = {(1, 2): 'foo'}
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes(q, opts=opts)
-
-            props['data'] = b'bindata'
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes(q, opts=opts)
-
-    async def test_model_base_edge(self):
-
-        async with self.getTestCore() as core:
-
-            pers = s_common.guid()
-            plac = s_common.guid()
-
-            n1def = ('ps:person', pers)
-            n2def = ('geo:place', plac)
-
-            nodes = await core.nodes('[edge:has=$valu]', opts={'vars': {'valu': (n1def, n2def)}})
-            self.len(1, nodes)
-            node = nodes[0]
-
-            self.eq(node.get('n1'), n1def)
-            self.eq(node.get('n1:form'), 'ps:person')
-            self.eq(node.get('n2'), n2def)
-            self.eq(node.get('n2:form'), 'geo:place')
-
-            nodes = await core.nodes('[edge:wentto=$valu]', opts={'vars': {'valu': (n1def, n2def, '2016')}})
-            self.len(1, nodes)
-            node = nodes[0]
-
-            self.eq(node.get('time'), 1451606400000)
-            self.eq(node.get('n1'), n1def)
-            self.eq(node.get('n1:form'), 'ps:person')
-            self.eq(node.get('n2'), n2def)
-            self.eq(node.get('n2:form'), 'geo:place')
-
-            opts = {'vars': {'pers': pers}}
-            self.eq(1, await core.count('ps:person=$pers -> edge:has -> *', opts=opts))
-            self.eq(1, await core.count('ps:person=$pers -> edge:has -> geo:place', opts=opts))
-            self.eq(0, await core.count('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
-
-            self.eq(1, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
-            q = 'ps:person=$pers -> edge:wentto +:time@=(2014,2017) -> geo:place'
-            self.eq(1, await core.count(q, opts=opts))
-            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
-
-            opts = {'vars': {'place': plac}}
-            self.eq(1, await core.count('geo:place=$place <- edge:has <- *', opts=opts))
-            self.eq(1, await core.count('geo:place=$place <- edge:has <- ps:person', opts=opts))
-            self.eq(0, await core.count('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
-
-            # Make a restricted edge and validate that you can only form certain relationships
-            copts = {'n1:forms': ('ps:person',), 'n2:forms': ('geo:place',)}
-            t = core.model.type('edge').clone(copts)
-            norm, info = t.norm((n1def, n2def))
-            self.eq(norm, (n1def, n2def))
-            with self.raises(s_exc.BadTypeValu):
-                t.norm((n1def, ('test:int', 1)))
-            with self.raises(s_exc.BadTypeValu):
-                t.norm((('test:int', 1), n2def))
-
-            # Make sure we don't return None nodes if one node of an edge is deleted
-            node = await core.getNodeByNdef(n2def)
-            await node.delete()
-            opts = {'vars': {'pers': pers}}
-            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
-
-            # Make sure we don't return None nodes on a PropPivotOut
-            opts = {'vars': {'pers': pers}}
-            self.eq(0, await core.count('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
-
     async def test_model_base_source(self):
 
         async with self.getTestCore() as core:
@@ -235,25 +95,6 @@ class BaseTest(s_t_utils.SynTest):
 
             self.eq(seen.get('source'), sorc.ndef[1])
             self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))
-
-    async def test_model_base_cluster(self):
-
-        async with self.getTestCore() as core:
-            guid = s_common.guid()
-            q = '[(graph:cluster=$valu :name="Test Cluster" :desc="a test cluster" :type=similarity)]'
-            nodes = await core.nodes(q, opts={'vars': {'valu': guid}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('type'), 'similarity')
-            self.eq(node.get('name'), 'test cluster')
-            self.eq(node.get('desc'), 'a test cluster')
-
-            await core.nodes('[(edge:refs=($ndef, (test:str, 1234)))]', opts={'vars': {'ndef': node.ndef}})
-            await core.nodes('[(edge:refs=($ndef, (test:int, (1234))))]', opts={'vars': {'ndef': node.ndef}})
-
-            # Gather up all the nodes in the cluster
-            nodes = await core.nodes(f'graph:cluster=$valu -+> edge:refs -+> * | uniq', opts={'vars': {'valu': guid}})
-            self.len(5, nodes)
 
     async def test_model_base_rules(self):
 
@@ -311,12 +152,7 @@ class BaseTest(s_t_utils.SynTest):
                 'inet:dns:request:query:name:ipv4', 'inet:dns:request:query:name:ipv6',
                 'inet:dns:request:query:name:fqdn', 'inet:dns:request:query:type',
                 'inet:dns:request:server', 'inet:dns:answer:ttl', 'inet:dns:answer:request',
-                'ou:team:org', 'ou:team:name', 'edge:has:n1', 'edge:has:n1:form', 'edge:has:n2',
-                'edge:has:n2:form', 'edge:refs:n1', 'edge:refs:n1:form', 'edge:refs:n2',
-                'edge:refs:n2:form', 'edge:wentto:n1', 'edge:wentto:n1:form', 'edge:wentto:n2',
-                'edge:wentto:n2:form', 'edge:wentto:time', 'graph:edge:n1', 'graph:edge:n1:form',
-                'graph:edge:n2', 'graph:edge:n2:form', 'graph:timeedge:time', 'graph:timeedge:n1',
-                'graph:timeedge:n1:form', 'graph:timeedge:n2', 'graph:timeedge:n2:form',
+                'ou:team:org', 'ou:team:name',
                 'ps:contact:asof', 'pol:country:iso2', 'pol:country:iso3', 'pol:country:isonum',
                 'pol:country:tld', 'tel:mob:carrier:mcc', 'tel:mob:carrier:mnc',
                 'tel:mob:telem:time', 'tel:mob:telem:latlong', 'tel:mob:telem:cell',

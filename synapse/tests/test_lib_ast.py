@@ -658,8 +658,8 @@ class AstTest(s_test.SynTest):
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ edge:refs=((test:int, 10), (test:str, woot)) ]')
-            nodes = await core.nodes('edge:refs -> test:str')
+            nodes = await core.nodes('[ meta:seen=((meta:source, *), (test:str, woot)) ]')
+            nodes = await core.nodes('meta:seen -> test:str')
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
 
             nodes = await core.nodes('[ geo:nloc=((inet:fqdn, woot.com), "34.1,-118.3", now) ]')
