@@ -1014,7 +1014,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (2, self._storLayrFeedDefaults),
+            (3, self._viewNomergeToProtected),
         ), nexs=False)
+
+    async def _viewNomergeToProtected(self):
+        for view in self.listViews():
+            nomerge = view.info.get('nomerge')
+            await view.info.set('protected', nomerge)
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
