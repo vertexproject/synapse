@@ -293,23 +293,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 if etyp == s_layer.EDIT_TAGPROP_DEL or etyp == s_layer.EDIT_TAGPROP_TOMB:
                     continue
 
-                if etyp == s_layer.EDIT_NODEDATA_SET:
-                    name, data, oldv = parms
-                    node.nodedata[name] = data
+                if etyp == s_layer.EDIT_NODEDATA_SET or etyp == s_layer.EDIT_NODEDATA_TOMB_DEL:
                     continue
 
-                if etyp == s_layer.EDIT_NODEDATA_TOMB_DEL:
-                    name = parms[0]
-                    if (data := await node.getData(name, s_common.novalu)) is not s_common.novalu:
-                        node.nodedata[name] = data
-                    continue
-
-                if etyp == s_layer.EDIT_NODEDATA_DEL:
-                    name, oldv = parms
-                    node.nodedata.pop(name, None)
-                    continue
-
-                if etyp == s_layer.EDIT_NODEDATA_TOMB:
+                if etyp == s_layer.EDIT_NODEDATA_DEL or etyp == s_layer.EDIT_NODEDATA_TOMB:
                     continue
 
                 if etyp == s_layer.EDIT_EDGE_ADD or etyp == s_layer.EDIT_EDGE_TOMB_DEL:
@@ -436,6 +423,18 @@ class View(s_nexus.Pusher):  # type: ignore
         byts = self.core.slab.get(self.bidn + b'merge:req', db='view:meta')
         if byts is not None:
             return s_msgpack.un(byts)
+
+    async def getMergingViews(self):
+        if self.info.get('quorum') is None:
+            mesg = f'View ({self.iden}) does not require quorum voting.'
+            raise s_exc.BadState(mesg=mesg)
+
+        idens = []
+        for view in list(self.core.views.values()):
+            await asyncio.sleep(0)
+            if view.parent == self and view.getMergeRequest() is not None:
+                idens.append(view.iden)
+        return idens
 
     async def setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()

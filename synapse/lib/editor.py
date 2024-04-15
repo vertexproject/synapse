@@ -44,7 +44,6 @@ class ProtoNode(s_node.NodeBase):
         self.edgetombdels = set()
         self.nodedatadels = set()
         self.nodedatatombs = set()
-        self.nodedatatombdels = set()
 
         if self.node is not None:
             self.nid = self.node.nid

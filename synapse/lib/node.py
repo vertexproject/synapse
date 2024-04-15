@@ -143,8 +143,6 @@ class Node(NodeBase):
 
         self.form = view.core.model.form(self.ndef[0])
 
-        self.nodedata = {}
-
     async def getStorNodes(self):
         '''
         Return a list of the raw storage nodes for each layer.
@@ -269,7 +267,6 @@ class Node(NodeBase):
             'tags': self._getTagsDict(),
             'props': self.getProps(),
             'tagprops': self._getTagPropsDict(),
-            'nodedata': self.nodedata,
         })
 
         if dorepr:
@@ -907,16 +904,9 @@ class Node(NodeBase):
             await protonode.delete()
 
     async def hasData(self, name):
-        if name in self.nodedata:
-            return True
-
         return await self.view.hasNodeData(self.nid, name, stop=self.lastlayr())
 
     async def getData(self, name, defv=None):
-        valu = self.nodedata.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
-
         return await self.view.getNodeData(self.nid, name, defv=defv, stop=self.lastlayr())
 
     async def setData(self, name, valu):
@@ -1017,6 +1007,7 @@ class Path:
         }
 
         self.metadata = {}
+        self.nodedata = collections.defaultdict(dict)
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -1055,6 +1046,24 @@ class Path:
         if path:
             info['nodes'] = [node.iden() for node in self.nodes]
         return info
+
+    def setData(self, nid, name, valu):
+        self.nodedata[nid][name] = valu
+
+    def popData(self, nid, name, defv=None):
+        if (nodedata := self.nodedata.get(nid, s_common.novalu)) is s_common.novalu:
+            return defv
+
+        return nodedata.pop(name, defv)
+
+    def getData(self, nid, name=None, defv=None):
+        if (nodedata := self.nodedata.get(nid, s_common.novalu)) is s_common.novalu:
+            return defv
+
+        if name is not None:
+            return nodedata.get(name, defv)
+
+        return nodedata
 
     def fork(self, node):
 

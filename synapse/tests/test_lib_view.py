@@ -733,12 +733,13 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
 
-            nodes = await core.nodes('test:str=foo $node.data.load(foo)')
-            self.len(1, nodes)
-            self.nn(nodes[0].get('.seen'))
-            self.nn(nodes[0].get('#seen'))
-            self.nn(nodes[0].getTagProp('seen', 'score'))
-            self.nn(nodes[0].nodedata.get('foo'))
+            msgs = await core.stormlist('test:str=foo $node.data.load(foo)')
+            podes = [n[1] for n in msgs if n[0] == 'node']
+            self.len(1, podes)
+            self.nn(podes[0][1]['props'].get('.seen'))
+            self.nn(podes[0][1]['tags'].get('seen'))
+            self.nn(podes[0][1]['tagprops']['seen']['score'])
+            self.nn(podes[0][1]['nodedata'].get('foo'))
 
             await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
 

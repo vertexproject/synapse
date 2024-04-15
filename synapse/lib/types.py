@@ -1530,6 +1530,8 @@ class Edge(Type):
 
     def postTypeInit(self):
 
+        self.deprecated = True
+
         self.fieldoffs = {'n1': 0, 'n2': 1}
 
         self.ndeftype = self.modl.types.get('ndef')  # type: Ndef

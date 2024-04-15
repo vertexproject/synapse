@@ -668,26 +668,32 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def listHiveKey(self, path=None):
+        s_common.deprecated('CellApi.listHiveKey', curv='2.167.0')
         return await self.cell.listHiveKey(path=path)
 
     @adminapi(log=True)
     async def getHiveKeys(self, path):
+        s_common.deprecated('CellApi.getHiveKeys', curv='2.167.0')
         return await self.cell.getHiveKeys(path)
 
     @adminapi(log=True)
     async def getHiveKey(self, path):
+        s_common.deprecated('CellApi.getHiveKey', curv='2.167.0')
         return await self.cell.getHiveKey(path)
 
     @adminapi(log=True)
     async def setHiveKey(self, path, valu):
+        s_common.deprecated('CellApi.setHiveKey', curv='2.167.0')
         return await self.cell.setHiveKey(path, valu)
 
     @adminapi(log=True)
     async def popHiveKey(self, path):
+        s_common.deprecated('CellApi.popHiveKey', curv='2.167.0')
         return await self.cell.popHiveKey(path)
 
     @adminapi(log=True)
     async def saveHiveTree(self, path=()):
+        s_common.deprecated('CellApi.saveHiveTree', curv='2.167.0')
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
@@ -1419,7 +1425,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahaurl is not None:
 
             info = await s_telepath.addAhaUrl(ahaurl)
-            self.ahaclient = info.get('client')
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
@@ -1560,32 +1565,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
-        async def onlink(proxy):
-            while not proxy.isfini:
-                info = await self.getAhaInfo()
+        async def _runAhaRegLoop():
+
+            while not self.isfini:
                 try:
+                    proxy = await self.ahaclient.proxy()
+                    info = await self.getAhaInfo()
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                except Exception as e:
+                    logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
+                    await self.waitfini(1)
+                else:
+                    await proxy.waitfini()
 
-                    return
-
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-
-                except Exception:
-                    logger.exception('Error in _initAhaService() onlink')
-
-                await proxy.waitfini(1)
-
-        async def fini():
-            await self.ahaclient.offlink(onlink)
-
-        async def init():
-            await self.ahaclient.onlink(onlink)
-            self.onfini(fini)
-
-        self.schedCoro(init())
+        self.schedCoro(_runAhaRegLoop())
 
     async def initServiceRuntime(self):
         pass
@@ -2905,6 +2900,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if isnew:
             path = os.path.join(self.dirn, 'hiveboot.yaml')
             if os.path.isfile(path):
+                s_common.deprdate('Initial hive config from hiveboot.yaml', '2024-05-05')
                 logger.debug(f'Loading cell hive from {path}')
                 tree = s_common.yamlload(path)
                 if tree is not None:
@@ -3694,7 +3690,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.ahaclient.waitready()
 
-        mirrors = await self.ahaclient.getAhaSvcMirrors(self.ahasvcname)
+        proxy = await self.ahaclient.proxy(timeout=5)
+        mirrors = await proxy.getAhaSvcMirrors(self.ahasvcname)
         if mirrors is None:
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)

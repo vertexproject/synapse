@@ -2799,7 +2799,7 @@ class Layer(s_nexus.Pusher):
 
     async def _calcNodeTombDel(self, nid, edit, sode, newsode):
 
-        if sode is None or (oldv := sode.get('antivalu')) is None:
+        if sode is None or sode.get('antivalu') is None:
             return
 
         return (
@@ -3069,9 +3069,7 @@ class Layer(s_nexus.Pusher):
         try:
             abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
         except s_exc.NoSuchAbrv:
-            return (
-                (EDIT_NODEDATA_TOMB, (name,)),
-            )
+            return
 
         if self.dataslab.has(nid + abrv + FLAG_TOMB, db=self.nodedata):
             return
@@ -3087,9 +3085,7 @@ class Layer(s_nexus.Pusher):
         try:
             abrv = self.core.getIndxAbrv(INDX_NODEDATA, name)
         except s_exc.NoSuchAbrv:
-            return (
-                (EDIT_NODEDATA_TOMB, (name,)),
-            )
+            return
 
         if not self.dataslab.has(nid + abrv + FLAG_TOMB, db=self.nodedata):
             return
@@ -3295,7 +3291,7 @@ class Layer(s_nexus.Pusher):
 
     async def _editNodeTombDel(self, nid, form, edit, sode, meta):
 
-        if (oldv := sode.pop('antivalu', None)) is None:
+        if sode.pop('antivalu', None) is None:
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
