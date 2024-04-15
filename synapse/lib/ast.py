@@ -1923,16 +1923,6 @@ class PivotOut(PivotOper):
 
             return
 
-        if isinstance(node.form.type, s_types.Edge):
-            n2def = node.get('n2')
-            pivo = await runt.snap.getNodeByNdef(n2def)
-            if pivo is None:  # pragma: no cover
-                logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
-                return
-
-            yield pivo, path.fork(pivo)
-            return
-
         for name, prop in node.form.props.items():
 
             valu = node.get(name)
@@ -2075,17 +2065,6 @@ class PivotIn(PivotOper):
 
     async def getPivsIn(self, runt, node, path):
 
-        # if it's a graph edge, use :n1
-        if isinstance(node.form.type, s_types.Edge):
-
-            ndef = node.get('n1')
-
-            pivo = await runt.snap.getNodeByNdef(ndef)
-            if pivo is not None:
-                yield pivo, path.fork(pivo)
-
-            return
-
         name, valu = node.ndef
 
         for prop in runt.model.getPropsByType(name):
@@ -2112,56 +2091,6 @@ class N2WalkNPivo(PivotIn):
                 wnode = await runt.snap.getNodeByNid(n1nid)
                 if wnode is not None:
                     yield wnode, path.fork(wnode)
-
-class PivotInFrom(PivotOper):
-    '''
-    <- foo:edge
-    '''
-
-    async def run(self, runt, genr):
-
-        name = self.kids[0].value()
-
-        form = runt.model.forms.get(name)
-        if form is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(name))
-
-        # <- edge
-        if isinstance(form.type, s_types.Edge):
-
-            full = form.name + ':n2'
-
-            async for node, path in genr:
-
-                if self.isjoin:
-                    yield node, path
-
-                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
-                    yield pivo, path.fork(pivo)
-
-            return
-
-        # edge <- form
-        async for node, path in genr:
-
-            if self.isjoin:
-                yield node, path
-
-            if not isinstance(node.form.type, s_types.Edge):
-                mesg = f'Pivot in from a specific form cannot be used with nodes of type {node.form.type.name}'
-                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=node.form.type.name))
-
-            # dont bother traversing edges to the wrong form
-            if node.get('n1:form') != form.name:
-                continue
-
-            n1def = node.get('n1')
-
-            pivo = await runt.snap.getNodeByNdef(n1def)
-            if pivo is None:
-                continue
-
-            yield pivo, path.fork(pivo)
 
 class FormPivot(PivotOper):
     '''
@@ -2195,15 +2124,6 @@ class FormPivot(PivotOper):
                 async for pivo in ngenr:
                     yield pivo
 
-        # if dest form is a subtype of a graph "edge", use N1 automatically
-        elif isinstance(prop.type, s_types.Edge):
-
-            full = prop.name + ':n1'
-
-            async def pgenr(node, strict=True):
-                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
-                    yield pivo
-
         else:
             # form -> form pivot is nonsensical. Lets help out...
 
@@ -2215,19 +2135,6 @@ class FormPivot(PivotOper):
                 # <syn:tag> -> <form> is "from tags to nodes" pivot
                 if node.form.name == 'syn:tag' and prop.isform:
                     async for pivo in runt.snap.nodesByTag(node.ndef[1], form=prop.name):
-                        yield pivo
-
-                    return
-
-                # if the source node is a graph edge, use n2
-                if isinstance(node.form.type, s_types.Edge):
-
-                    n2def = node.get('n2')
-                    if n2def[0] != destform.name:
-                        return
-
-                    pivo = await runt.snap.getNodeByNdef(node.get('n2'))
-                    if pivo:
                         yield pivo
 
                     return
