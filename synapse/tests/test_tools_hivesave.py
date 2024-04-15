@@ -28,6 +28,7 @@ class HiveSaveTest(s_test.SynTest):
                 with mock.patch('synapse.telepath.Proxy._getSynVers', _getOldSynVers):
                     outp = self.getTestOutp()
                     retn = await s_hivesave.main(argv, outp=outp)
+                    outp.expect('WARNING: "synapse.tools.hive.save" is deprecated in 2.167.0 and will be removed in 3.0.0')
                     outp.expect('Hive version 0.0.0 is outside of the hive.save supported range')
                     self.eq(1, retn)
 
