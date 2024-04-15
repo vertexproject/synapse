@@ -903,6 +903,8 @@ class Node(NodeBase):
         async with self.view.getNodeEditor(self) as protonode:
             await protonode.delete()
 
+        self.view.clearCachedNode(self.nid)
+
     async def hasData(self, name):
         return await self.view.hasNodeData(self.nid, name, stop=self.lastlayr())
 

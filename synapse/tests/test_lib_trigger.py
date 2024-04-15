@@ -852,8 +852,9 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('test:str=prime | delnode')
             node = await core.nodes('test:str=mersenne | edges.del *', opts=opts)
             self.len(1, node)
-            self.len(1, node[0].getTags())
+            self.len(3, node[0].getTags())
             self.nn(node[0].getTag('coffee'))
+            self.nn(node[0].getTag('oeis.a000668'))
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
             self.len(0, await core.callStorm('return($lib.trigger.list())'))

@@ -116,7 +116,7 @@ class ProtoNode(s_node.NodeBase):
 
         edits = []
 
-        if not self.node or self.node.istomb():
+        if not self.node or not self.node.hasvalu():
             edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype)))
 
         for name, valu in self.props.items():

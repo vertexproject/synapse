@@ -83,6 +83,7 @@ class View(s_nexus.Pusher):  # type: ignore
     interact with a subset of the layers configured in a Cortex.
     '''
     tagcachesize = 1000
+    nodecachesize = 10000
 
     async def __anit__(self, core, node):
         '''
@@ -140,8 +141,16 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
 
+        self.nodecache = collections.deque(maxlen=self.nodecachesize)
+        self.livenodes = weakref.WeakValueDictionary()
+
     def clearCache(self):
         self.tagcache.clear()
+        self.nodecache.clear()
+        self.livenodes.clear()
+
+    def clearCachedNode(self, nid):
+        self.livenodes.pop(nid, None)
 
     async def saveNodeEdits(self, edits, meta, bus=None):
         '''
@@ -171,7 +180,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is None:
                 node = await self.getNodeByNid(nid)
 
-            if node is None:  # pragma: no cover
+            if node is None or not node.hasvalu():  # pragma: no cover
                 continue
 
             for edit in edits:
@@ -186,6 +195,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 if etyp == s_layer.EDIT_NODE_DEL or etyp == s_layer.EDIT_NODE_TOMB:
                     callbacks.append((node.form.wasDeleted, (node,), {}))
                     callbacks.append((self.runNodeDel, (node,), {}))
+                    self.clearCachedNode(nid)
                     continue
 
                 if etyp == s_layer.EDIT_NODE_TOMB_DEL:
@@ -287,27 +297,13 @@ class View(s_nexus.Pusher):  # type: ignore
                     callbacks.append((wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
-                if etyp == s_layer.EDIT_TAGPROP_SET or etyp == s_layer.EDIT_TAGPROP_TOMB_DEL:
-                    continue
-
-                if etyp == s_layer.EDIT_TAGPROP_DEL or etyp == s_layer.EDIT_TAGPROP_TOMB:
-                    continue
-
-                if etyp == s_layer.EDIT_NODEDATA_SET or etyp == s_layer.EDIT_NODEDATA_TOMB_DEL:
-                    continue
-
-                if etyp == s_layer.EDIT_NODEDATA_DEL or etyp == s_layer.EDIT_NODEDATA_TOMB:
-                    continue
-
                 if etyp == s_layer.EDIT_EDGE_ADD or etyp == s_layer.EDIT_EDGE_TOMB_DEL:
                     verb, n2nid = parms
-                    n2 = await self.getNodeByNid(n2nid)
-                    callbacks.append((self.runEdgeAdd, (node, verb, n2), {}))
+                    callbacks.append((self.runEdgeAdd, (node, verb, n2nid), {}))
 
                 if etyp == s_layer.EDIT_EDGE_DEL or etyp == s_layer.EDIT_EDGE_TOMB:
                     verb, n2nid = parms
-                    n2 = await self.getNodeByNid(n2nid)
-                    callbacks.append((self.runEdgeDel, (node, verb, n2), {}))
+                    callbacks.append((self.runEdgeDel, (node, verb, n2nid), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
@@ -934,7 +930,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     node = await self.getNodeByNid(nid)
-                    if node is None:
+                    if node is None or not node.hasvalu():
                         continue
 
                     await trig._execute(node, vars=varz)
@@ -2327,6 +2323,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _joinStorNode(self, nid, tombs=False):
 
+        node = self.livenodes.get(nid)
+        if node is not None:
+            await asyncio.sleep(0)
+
+            if not tombs and node.istomb():
+                return None
+            return node
+
         soderefs = []
         for layr in self.layers:
             sref = layr.genStorNodeRef(nid)
@@ -2342,6 +2346,11 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _joinSodes(self, nid, soderefs):
 
+        node = self.livenodes.get(nid)
+        if node is not None:
+            await asyncio.sleep(0)
+            return node
+
         ndef = None
         # make sure at least one layer has the primary property
         for envl in soderefs:
@@ -2355,6 +2364,9 @@ class View(s_nexus.Pusher):  # type: ignore
             return None
 
         node = s_node.Node(self, nid, ndef, soderefs)
+
+        self.livenodes[nid] = node
+        self.nodecache.append(node)
 
         await asyncio.sleep(0)
         return node
@@ -2420,7 +2432,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 'user': self.core.auth.rootuser,
                 'time': s_common.now()
             }
-            await self.saveNodeEdits([(nid, ndef[0], edit)], meta, bus=runt.bus)
+            await self.saveNodeEdits([(nid, ndef[0], edit)], meta)
 
     async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
