@@ -2874,7 +2874,7 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('test:int=10 $node.data.set(bar, newp)')
             await core.nodes('test:int=10 $node.data.set(bar, baz)', opts={'view': fork})
             data = await core.callStorm('test:int=10 return( $node.data.list() )', opts={'view': fork})
-            self.eq(data, (('bar', 'baz'), ('foo', 'hehe')))
+            self.sorteq(data, (('bar', 'baz'), ('foo', 'hehe')))
 
             # delete and remake the node to confirm data wipe
             nodes = await core.nodes('test:int=10 | delnode')
@@ -3896,7 +3896,7 @@ class StormTypesTest(s_test.SynTest):
             # Test formcounts
             nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
             counts = await core.callStorm('return( $lib.view.get().getFormCounts() )')
-            self.eq(counts.get('test:int'), 1003)
+            self.eq(counts.get('test:int'), 1002)
             self.eq(counts.get('test:guid'), 1)
 
             opts = {'vars': {'props': {'asn': 'asdf'}}}

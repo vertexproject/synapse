@@ -6652,6 +6652,23 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
+        {'name': 'getTombstones', 'desc': '''
+            Get (iden, tombtype, info) tuples representing tombstones stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getTombstones',
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Tuple of iden, tombstone type, and type specific info.'}}},
+        {'name': 'delTombstone', 'desc': '''
+            Delete a tombstone stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'delTombstone',
+                  'args': (
+                      {'name': 'nid', 'type': 'str', 'desc': 'The node id of the node.'},
+                      {'name': 'tombtype', 'type': 'int', 'desc': 'The tombstone type.'},
+                      {'name': 'tombinfo', 'type': 'list', 'desc': 'The tombstone info to delete.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the tombstone was deleted, False if not.'}}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -6705,6 +6722,8 @@ class Layer(Prim):
             'getStorNodes': self.getStorNodes,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
+            'delTombstone': self.delTombstone,
+            'getTombstones': self.getTombstones,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -7006,9 +7025,12 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
+        async for n1nid, abrv, n2nid, tomb in layr.getEdges():
+            if tomb:
+                continue
 
-        async for n1nid, verb, n2nid in layr.getEdges():
             n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+            verb = self.runt.snap.core.getAbrvIndx(abrv)[0]
             n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
             yield (n1buid, verb, n2buid)
 
@@ -7021,7 +7043,11 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(layriden)
 
         n1nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
-        async for verb, n2nid in layr.iterNodeEdgesN1(n1nid):
+        async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(n1nid):
+            if tomb:
+                continue
+
+            verb = self.runt.snap.core.getAbrvIndx(abrv)[0]
             yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid)))
 
     @stormfunc(readonly=True)
@@ -7033,8 +7059,36 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(layriden)
 
         n2nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
-        async for (verb, n1nid) in layr.iterNodeEdgesN2(n2nid):
+        async for abrv, n1nid, tomb in layr.iterNodeEdgesN2(n2nid):
+            if tomb:
+                continue
+
+            verb = self.runt.snap.core.getAbrvIndx(abrv)[0]
             yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid)))
+
+    async def delTombstone(self, nid, tombtype, tombinfo):
+        nid = await toprim(nid)
+        tombtype = await toprim(tombtype)
+        tombinfo = await toprim(tombinfo)
+
+        if not isinstance(nid, bytes):
+            mesg = f'delTombstone() got an invalid type for nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
+
+        if len(nid) != 8:
+            mesg = f'delTombstone() got an invalid nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
+
+        return await self.runt.snap.delTombstone(nid, tombtype, tombinfo)
+
+    @stormfunc(readonly=True)
+    async def getTombstones(self):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        async for item in layr.iterTombstones():
+            yield item
 
     @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
@@ -7597,8 +7651,16 @@ class View(Prim):
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.snap.core.getView(viewiden)
 
-        async for n1nid, verb, n2nid in view.getEdges():
+        if verb is not None:
+            async for n1nid, _, n2nid in view.getEdges(verb=verb):
+                n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+                n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
+                yield (n1buid, verb, n2buid)
+            return
+
+        async for n1nid, vabrv, n2nid in view.getEdges(verb=verb):
             n1buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid))
+            verb = self.runt.snap.core.getAbrvIndx(vabrv)[0]
             n2buid = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
             yield (n1buid, verb, n2buid)
 

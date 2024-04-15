@@ -5105,9 +5105,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 async with await self.snap(user=user, view=view) as snap:
 
                     async for node, path in snap.storm(text, opts=opts):
-                        await spooldict.set(node.nid, node.pack())
+                        await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
 
-                    for nid1, pode1 in spooldict.items():
+                    for nid1, (stoplayr, pode1) in spooldict.items():
                         await asyncio.sleep(0)
 
                         edges = []
@@ -5115,7 +5115,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         for nid2, pode2 in spooldict.items():
                             await asyncio.sleep(0)
 
-                            async for verb in snap.iterEdgeVerbs(nid1, nid2):
+                            async for verb in snap.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
                                 n2buid = snap.core.getBuidByNid(nid2)
                                 edges.append((verb, s_common.ehex(n2buid)))
 

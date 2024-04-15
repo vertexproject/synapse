@@ -412,12 +412,85 @@ class View(s_nexus.Pusher):  # type: ignore
 
             async def chunked():
                 nodeedits = []
+                editor = s_snap.SnapEditor(snap)
 
-                async for nodeedit in self.layers[0].iterLayerNodeEdits():
+                async for (nid, form, edits) in self.layers[0].iterLayerNodeEdits():
 
-                    nodeedits.append(nodeedit)
+                    if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
+                        protonode = await editor.getNodeByNid(nid)
+                        if protonode is None:
+                            continue
 
-                    if len(nodeedits) == 10:
+                        await protonode.delEdgesN2(meta=meta)
+                        await protonode.delete()
+
+                        nodeedits.extend(editor.getNodeEdits())
+                        editor.protonodes.clear()
+                    else:
+                        realedits = []
+
+                        protonode = None
+                        for edit in edits:
+                            etyp, parms = edit
+
+                            if etyp == s_layer.EDIT_PROP_TOMB:
+                                if protonode is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                                        continue
+
+                                await protonode.pop(parms[0])
+                                continue
+
+                            if etyp == s_layer.EDIT_TAG_TOMB:
+                                if protonode is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                                        continue
+
+                                await protonode.delTag(parms[0])
+                                continue
+
+                            if etyp == s_layer.EDIT_TAGPROP_TOMB:
+                                if protonode is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                                        continue
+
+                                (tag, prop) = parms
+
+                                await protonode.delTagProp(tag, prop)
+                                continue
+
+                            if etyp == s_layer.EDIT_NODEDATA_TOMB:
+                                if protonode is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                                        continue
+
+                                await protonode.popData(parms[0])
+                                continue
+
+                            if etyp == s_layer.EDIT_EDGE_TOMB:
+                                if protonode is None:
+                                    if (protonode := await editor.getNodeByNid(nid)) is None:
+                                        continue
+
+                                (verb, n2nid) = parms
+
+                                await protonode.delEdge(verb, n2nid)
+                                continue
+
+                            realedits.append(edit)
+
+                        if protonode is None:
+                            nodeedits.append((nid, form, realedits))
+                        else:
+                            deledits = editor.getNodeEdits()
+                            editor.protonodes.clear()
+                            if deledits:
+                                deledits[0][2].extend(realedits)
+                                nodeedits.extend(deledits)
+                            else:
+                                nodeedits.append((nid, form, realedits))
+
+                    if len(nodeedits) >= 10:
                         yield nodeedits
                         nodeedits.clear()
 
@@ -825,35 +898,29 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
-
+        for byts, abrv in self.core.indxabrv.iterByPref(s_layer.INDX_EDGE_VERB):
             for layr in self.layers:
-
-                async for verb in layr.getEdgeVerbs():
-
-                    await asyncio.sleep(0)
-
-                    if verb in vset:
-                        continue
-
-                    await vset.add(verb)
-                    yield verb
+                if layr.indxcounts.get(abrv) > 0:
+                    yield s_msgpack.un(byts[2:])[0]
+                    break
 
     async def getEdges(self, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as eset:
+        last = None
+        genrs = [layr.getEdges(verb=verb) for layr in self.layers]
 
-            for layr in self.layers:
+        async for item in s_common.merggenr2(genrs, cmprkey=lambda x: x[:3]):
+            edge = item[:3]
+            if edge == last:
+                continue
 
-                async for edge in layr.getEdges(verb=verb):
+            await asyncio.sleep(0)
+            last = edge
 
-                    await asyncio.sleep(0)
+            if item[-1]:
+                continue
 
-                    if edge in eset:
-                        continue
-
-                    await eset.add(edge)
-                    yield edge
+            yield edge
 
     async def _initViewLayers(self):
 
@@ -1307,8 +1374,88 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.parent.snap(user=user) as snap:
 
             meta = await snap.getSnapMeta()
-            async for nodeedits in fromlayr.iterLayerNodeEdits():
-                await self.parent.storNodeEdits([nodeedits], meta)
+            editor = s_snap.SnapEditor(snap)
+
+            async for (nid, form, edits) in fromlayr.iterLayerNodeEdits():
+
+                if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
+                    protonode = await editor.getNodeByNid(nid)
+                    if protonode is None:
+                        continue
+
+                    await protonode.delEdgesN2(meta=meta)
+                    await protonode.delete()
+
+                    deledits = editor.getNodeEdits()
+                    await self.parent.storNodeEdits(deledits, meta)
+
+                    editor.protonodes.clear()
+                    continue
+
+                realedits = []
+
+                protonode = None
+                for edit in edits:
+                    etyp, parms = edit
+
+                    if etyp == s_layer.EDIT_PROP_TOMB:
+                        if protonode is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
+                                continue
+
+                        await protonode.pop(parms[0])
+                        continue
+
+                    if etyp == s_layer.EDIT_TAG_TOMB:
+                        if protonode is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
+                                continue
+
+                        await protonode.delTag(parms[0])
+                        continue
+
+                    if etyp == s_layer.EDIT_TAGPROP_TOMB:
+                        if protonode is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
+                                continue
+
+                        (tag, prop) = parms
+
+                        await protonode.delTagProp(tag, prop)
+                        continue
+
+                    if etyp == s_layer.EDIT_NODEDATA_TOMB:
+                        if protonode is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
+                                continue
+
+                        await protonode.popData(parms[0])
+                        continue
+
+                    if etyp == s_layer.EDIT_EDGE_TOMB:
+                        if protonode is None:
+                            if (protonode := await editor.getNodeByNid(nid)) is None:
+                                continue
+
+                        (verb, n2nid) = parms
+
+                        await protonode.delEdge(verb, n2nid)
+                        continue
+
+                    realedits.append(edit)
+
+                if protonode is None:
+                    await self.parent.storNodeEdits([(nid, form, realedits)], meta)
+                    continue
+
+                deledits = editor.getNodeEdits()
+                editor.protonodes.clear()
+
+                if deledits:
+                    deledits[0][2].extend(realedits)
+                    await self.parent.storNodeEdits(deledits, meta)
+                else:
+                    await self.parent.storNodeEdits([(nid, form, realedits)], meta)
 
     async def wipeLayer(self, useriden=None):
         '''
@@ -1641,30 +1788,30 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _genSrefList(self, nid, smap, filtercmpr=None):
         srefs = []
-
-        if filtercmpr is not None:
-            filt = True
-            for layr in self.layers:
-                sref = smap.get(layr.iden)
-                if sref is None:
-                    sref = layr.genStorNodeRef(nid)
-                    if filt and filtercmpr(sref.sode):
-                        return
-                else:
-                    filt = False
-
-                srefs.append(sref)
-
-            return srefs
+        filt = True
+        hasvalu = False
 
         for layr in self.layers:
-            sref = smap.get(layr.iden)
-            if sref is None:
+            if (sref := smap.get(layr.iden)) is None:
                 sref = layr.genStorNodeRef(nid)
+                if filt:
+                    if filtercmpr is not None and filtercmpr(sref.sode):
+                        return
+                    if sref.sode.get('antivalu') is not None:
+                        return
+            else:
+                filt = False
+
+            if not hasvalu:
+                if sref.sode.get('valu') is not None:
+                    hasvalu = True
+                elif sref.sode.get('antivalu') is not None:
+                    return
 
             srefs.append(sref)
 
-        return srefs
+        if hasvalu:
+            return srefs
 
     async def _mergeLiftRows(self, genrs, filtercmpr=None, reverse=False):
         lastnid = None
@@ -1696,9 +1843,12 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         def filt(sode):
-            props = sode.get('props')
-            if props is None:
+            if (antiprops := sode.get('antiprops')) is not None and antiprops.get(prop):
+                return True
+
+            if (props := sode.get('props')) is None:
                 return False
+
             return props.get(prop) is not None
 
         genrs = [layr.liftByProp(form, prop, reverse=reverse, indx=indx) for layr in self.layers]
@@ -1725,9 +1875,12 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         def filt(sode):
-            props = sode.get('props')
-            if props is None:
+            if (antiprops := sode.get('antiprops')) is not None and antiprops.get(prop):
+                return True
+
+            if (props := sode.get('props')) is None:
                 return False
+
             return props.get(prop) is not None
 
         for cval in cmprvals:
@@ -1743,9 +1896,12 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         def filt(sode):
-            tags = sode.get('tags')
-            if tags is None:
+            if (antitags := sode.get('antitags')) is not None and antitags.get(tag):
+                return True
+
+            if (tags := sode.get('tags')) is None:
                 return False
+
             return tags.get(tag) is not None
 
         genrs = [layr.liftByTag(tag, form=form, reverse=reverse, indx=indx) for layr in self.layers]
@@ -1760,9 +1916,12 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         def filt(sode):
-            tags = sode.get('tags')
-            if tags is None:
+            if (antitags := sode.get('antitags')) is not None and antitags.get(tag):
+                return True
+
+            if (tags := sode.get('tags')) is None:
                 return False
+
             return tags.get(tag) is not None
 
         for cval in cmprvals:
@@ -1778,12 +1937,16 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         def filt(sode):
-            tagprops = sode.get('tagprops')
-            if tagprops is None:
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and antiprops.get(prop):
+                    return True
+
+            if (tagprops := sode.get('tagprops')) is None:
                 return False
-            props = tagprops.get(tag)
-            if not props:
+
+            if (props := tagprops.get(tag)) is None:
                 return False
+
             return props.get(prop) is not None
 
         genrs = [layr.liftByTagProp(form, tag, prop, reverse=reverse, indx=indx) for layr in self.layers]
@@ -1798,12 +1961,16 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         def filt(sode):
-            tagprops = sode.get('tagprops')
-            if tagprops is None:
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and antiprops[prop]:
+                    return True
+
+            if (tagprops := sode.get('tagprops')) is None:
                 return False
-            props = tagprops.get(tag)
-            if not props:
+
+            if (props := tagprops.get(tag)) is None:
                 return False
+
             return props.get(prop) is not None
 
         for cval in cmprvals:
@@ -1822,9 +1989,12 @@ class View(s_nexus.Pusher):  # type: ignore
             filt = None
         else:
             def filt(sode):
-                props = sode.get('props')
-                if props is None:
+                if (antiprops := sode.get('antiprops')) is not None and antiprops.get(prop):
+                    return True
+
+                if (props := sode.get('props')) is None:
                     return False
+
                 return props.get(prop) is not None
 
         for cval in cmprvals:
@@ -1835,10 +2005,29 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByDataName(self, name):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByDataName(name):
-                yield nid, [sref]
+            async for nid, sref, tomb in self.layers[0].liftByDataName(name):
+                if not tomb:
+                    yield nid, [sref]
             return
 
         genrs = [layr.liftByDataName(name) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
-            yield item
+
+        lastnid = None
+        smap = {}
+
+        async for nid, sref, tomb in s_common.merggenr2(genrs, cmprkey=lambda x: x[0]):
+            if not nid == lastnid or sref.layriden in smap:
+                if lastnid is not None and not istomb:
+                    srefs = await self._genSrefList(lastnid, smap)
+                    if srefs is not None:
+                        yield lastnid, srefs
+
+                lastnid = nid
+                istomb = tomb
+
+            smap[sref.layriden] = sref
+
+        if lastnid is not None and not istomb:
+            srefs = await self._genSrefList(lastnid, smap)
+            if srefs is not None:
+                yield lastnid, srefs
