@@ -4429,7 +4429,7 @@ class MoveNodesCmd(Cmd):
                 edit = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu)])]
                 await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
-            if delnode:
+            if delnode and destsode.get('antivalu') is None:
                 if (valu := destsode.get('valu')) is not None:
                     self.adds.append((s_layer.EDIT_NODE_DEL, valu))
 

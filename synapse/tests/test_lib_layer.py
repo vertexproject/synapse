@@ -1267,6 +1267,46 @@ class LayerTest(s_t_utils.SynTest):
             layr1 = core.getView().layers[0].iden
             layr2 = view2.layers[0].iden
 
+            # moving a full node tomb should clear individual tombstones
+            await core.nodes('[ inet:ipv4=1.2.3.4 it:dev:str=n2 ]')
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | delnode --force', opts=viewopts2)
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr} --apply --preserve-tombstones
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+
+            q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(2, [m for m in msgs if m[0] == 'print'])
+            self.stormIsInPrint("('inet:ipv4', None)", msgs)
+            self.stormIsInPrint("('it:dev:str', None)", msgs)
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes(addq, opts=viewopts3)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr}
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4:asn', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4#foo', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4 -(bar)>', msgs)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr} --apply
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await notombs(opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
             await core.nodes(addq)
             await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | delnode --force', opts=viewopts2)
             await core.nodes(addq, opts=viewopts3)
