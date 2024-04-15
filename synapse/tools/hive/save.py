@@ -14,6 +14,9 @@ reqver = '>=3.0.0,<4.0.0'
 
 async def main(argv, outp=s_output.stdout):
 
+    mesg = s_common.deprecated('synapse.tools.hive.save', curv='2.167.0')
+    outp.printf(f'WARNING: {mesg}')
+
     pars = argparse.ArgumentParser(prog='synapse.tools.hive.save',
                                    description='Save tree data from a remote hive to file.')
 
