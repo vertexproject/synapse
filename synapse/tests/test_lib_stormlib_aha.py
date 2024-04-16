@@ -138,13 +138,13 @@ Member:     00.cell.loop.vertex.link'''
                 self.len(nevents, await waiter.wait(timeout=12))
 
                 msgs = await core00.stormlist('aha.svc.list')
-                self.stormIsInPrint('01.cell.loop.vertex.link       false  null   true', msgs)
+                self.stormIsInPrint('01.cell.loop.vertex.link       false  false  false', msgs)
 
                 # Fake a record
                 await aha.addAhaSvc('00.newp', info={'urlinfo': {'scheme': 'tcp', 'host': '0.0.0.0', 'port': '3030'}})
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
-                emsg = '00.newp                        null   null   null  0.0.0.0         3030  ' \
+                emsg = '00.newp                        null   false  null  0.0.0.0         3030  ' \
                        'Service is not online. Will not attempt to retrieve its nexus offset.'
                 self.stormIsInPrint(emsg, msgs)
 

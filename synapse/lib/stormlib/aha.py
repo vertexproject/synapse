@@ -266,7 +266,12 @@ stormcmds = (
     },
     {
         'name': 'aha.svc.stat',
-        'descr': 'Show all information for a specific aha service.',
+        'descr': '''Show all information for a specific aha service.
+
+If the --nexus argument is given, the Cortex will attempt to connect the service and report the Nexus offset of the service.
+
+The ready value indicates that a service has entered into the realtime change window for synchronizing changes from its leader.
+        ''',
         'cmdargs': (
             ('svc', {'help': 'The service to inspect.'}),
             ('--nexus', {'help': 'Try to connect to online services and report their nexus offset.',
@@ -321,7 +326,7 @@ stormcmds = (
                     $leader = 'Service did not register itself with a leader name.'
                 }
                 $lib.print(`Name:       {$svc.name}`)
-                $lib.print(`Online:     {$_getBoolKey($svcinfo, online, null)}`)
+                $lib.print(`Online:     {$_getBoolKey($svcinfo, online, false)}`)
                 $lib.print(`Ready:      {$_getBoolKey($svcinfo, ready, null)}`)
                 $lib.print(`Run iden:   {$svcinfo.run}`)
                 $lib.print(`Cell iden:  {$svcinfo.iden}`)
@@ -351,7 +356,11 @@ stormcmds = (
     },
     {
         'name': 'aha.svc.list',
-        'descr': 'List AHA services.',
+        'descr': '''List AHA services.
+
+If the --nexus argument is given, the Cortex will attempt to connect to each service and report the Nexus offset of the service.
+
+The ready column indicates that a service has entered into the realtime change window for synchronizing changes from its leader.''',
         'cmdargs': (
             ('--nexus', {'help': 'Try to connect to online services and report their nexus offset.',
                          'default': False, 'action': 'store_true'}),
@@ -420,7 +429,7 @@ stormcmds = (
                 }
                 $name=$name.ljust(30)
 
-                $online = $_getBoolKey($svcinfo, online, null)
+                $online = $_getBoolKey($svcinfo, online, false)
                 $online = $online.ljust(6)
 
                 $urlinfo = $svcinfo.urlinfo
