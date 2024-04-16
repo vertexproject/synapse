@@ -2699,6 +2699,11 @@ class StormTypesTest(s_test.SynTest):
             await core.addUserRule(user, (True, ('storm', 'lib', 'telepath', 'open', 'cell')))
             self.len(2, await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts))
 
+            # SynErr exceptions are allowed through. They can be caught by storm.
+            with self.raises(s_exc.BadUrl):
+                await core.callStorm('$prox=$lib.telepath.open("weeeeeeeeeeeeee")')
+
+            # Python exceptions are caught and raised as StormRuntimeError exceptions.
             with self.raises(s_exc.StormRuntimeError) as cm:
                 await core.callStorm('$prox=$lib.telepath.open("tcp://0.0.0.0:60000")')
             emsg = cm.exception.get('mesg')

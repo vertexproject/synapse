@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -11,21 +12,21 @@ class AhaLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methSvcDel',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the service to delete.', },
-                      {'name': 'network', 'type': 'str', 'desc': 'An optional network to use when looking up the service name.',
-                       'default': None},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'get', 'desc': 'Get information about an AHA service.',
          'type': {'type': 'function', '_funcname': '_methSvcGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the AHA service to look up.', },
-                      {'name': 'filters', 'type': 'dict', 'desc': 'An optional dictionary of filters to use when resolving the AHA service.',
-                       'default': None}
+                      {'name': 'filters', 'type': 'dict', 'default': None,
+                       'desc': 'An optional dictionary of filters to use when resolving the AHA service.'}
                   ),
-                  'returns': {'type': ('null', 'dict'), 'desc': 'The AHA service information dictionary, or $lib.null.', }}},
+                  'returns': {'type': ('null', 'dict'),
+                              'desc': 'The AHA service information dictionary, or $lib.null.', }}},
         {'name': 'list', 'desc': 'List the services registered with AHA.',
          'type': {'type': 'function', '_funcname': '_methSvcList', 'args': (),
-                  'returns': {'type': 'list', 'desc': 'A list of the AHA service dictionaries for all registered services.', }}},
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'A list of the AHA service dictionaries for all registered services.', }}},
     )
     _storm_lib_path = ('aha',)
     def getObjLocals(self):
@@ -39,18 +40,20 @@ class AhaLib(s_stormtypes.Lib):
     async def _methSvcList(self):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
-        # DISCUSS: Do we want this to be a generator or list?
-        svcs = []
         async for info in proxy.getAhaSvcs():
-            svcs.append(info)
-        return svcs
+            yield info
 
-    async def _methSvcDel(self, name, network=None):
+    async def _methSvcDel(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
-        network = await s_stormtypes.tostr(network, noneok=True)
         proxy = await self.runt.snap.core.reqAhaProxy()
-        return await proxy.delAhaSvc(name, network=network)
+        svc = await proxy.getAhaSvc(name)
+        if svc.get('services'):  # It is an AHA Pool!
+            mesg = f'Cannot use $lib.aha.del() to remove an AHA Pool. Use $lib.aha.pool.del(); {name=}'
+            raise s_exc.BadArg(mesg=mesg)
+        if svc is None:
+            raise s_exc.NoSuchName(mesg=f'No AHA service for {name=}')
+        return await proxy.delAhaSvc(svc.get('svcname'), network=svc.get('svcnetw'))
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSvcGet(self, name, filters=None):
@@ -393,8 +396,11 @@ The ready column indicates that a service has entered into the realtime change w
             return ( $default )
         }
 
-        $leaders = $lib.set()
-        $svcs = $lib.aha.list()
+        $svcs = ()
+        for $svc in $lib.aha.list() {
+            $svcs.append($svc)
+        }
+
         if ($lib.len($svcs) = 0) {
             $lib.print('No AHA services registered.')
         }
@@ -404,6 +410,7 @@ The ready column indicates that a service has entered into the realtime change w
                 $columns = `{$columns} Nexus`
             }
 
+            $leaders = $lib.set()
             for $info in $svcs {
                 $svcinfo = $info.svcinfo
                 if $svcinfo {
