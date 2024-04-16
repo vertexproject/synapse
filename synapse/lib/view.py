@@ -180,8 +180,8 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is None:
                 node = await self.getNodeByNid(nid)
 
-            if node is None or not node.hasvalu():  # pragma: no cover
-                continue
+                if node is None:  # pragma: no cover
+                    continue
 
             for edit in edits:
 
@@ -930,7 +930,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     node = await self.getNodeByNid(nid)
-                    if node is None or not node.hasvalu():
+                    if node is None:
                         continue
 
                     await trig._execute(node, vars=varz)
@@ -2327,7 +2327,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if node is not None:
             await asyncio.sleep(0)
 
-            if not tombs and node.istomb():
+            if not tombs and not node.hasvalu():
                 return None
             return node
 
