@@ -266,7 +266,7 @@ stormcmds = (
     },
     {
         'name': 'aha.svc.stat',
-        'descr': '''Show all information for a specific aha service.
+        'descr': '''Show all information for a specific AHA service.
 
 If the --nexus argument is given, the Cortex will attempt to connect the service and report the Nexus offset of the service.
 
@@ -286,7 +286,7 @@ The ready value indicates that a service has entered into the realtime change wi
                 return ( $_info.cell.nexsindx )
             } catch * as _err {
                 $_emsg = $_err.mesg
-                if ($_emsg = $lib.null ) {
+                if ($_emsg = null ) {
                     $_emsg = `{$_err}`
                 }
                 return ( $_emsg )
@@ -295,7 +295,7 @@ The ready value indicates that a service has entered into the realtime change wi
 
         function _getBoolKey(dict, key, default) {
             $_valu = $dict.$key
-            if ( $_valu != $lib.null ) {
+            if ( $_valu != null ) {
                 if $_valu {
                     return ( true )
                 } else {
@@ -306,7 +306,7 @@ The ready value indicates that a service has entered into the realtime change wi
         }
 
         $svc = $lib.aha.get($cmdopts.svc)
-        if ($svc = (null)) {
+        if ($svc = null) {
             $lib.print(`No service found for: "{$cmdopts.svc}"`)
         } else {
             $services = $svc.services
@@ -322,7 +322,7 @@ The ready value indicates that a service has entered into the realtime change wi
                 $lib.print(`Resolved {$cmdopts.svc} to an AHA Service.\n`)
                 $svcinfo = $svc.svcinfo
                 $leader = $svcinfo.leader
-                if ($leader = (null)) {
+                if ($leader = null) {
                     $leader = 'Service did not register itself with a leader name.'
                 }
                 $lib.print(`Name:       {$svc.name}`)
@@ -374,7 +374,7 @@ The ready column indicates that a service has entered into the realtime change w
                 return ( $_info.cell.nexsindx )
             } catch * as _err {
                 $_emsg = $_err.mesg
-                if ($_emsg = $lib.null ) {
+                if ($_emsg = null ) {
                     $_emsg = `{$_err}`
                 }
                 return ( $_emsg )
@@ -383,7 +383,7 @@ The ready column indicates that a service has entered into the realtime change w
 
         function _getBoolKey(dict, key, default) {
             $_valu = $dict.$key
-            if ( $_valu != $lib.null ) {
+            if ( $_valu != null ) {
                 if $_valu {
                     return ( true )
                 } else {
@@ -444,7 +444,7 @@ The ready column indicates that a service has entered into the realtime change w
                 $ready = $ready.ljust(5)
 
                 $leader = null
-                if ( $svcinfo.leader != $lib.null ) {
+                if ( $svcinfo.leader != null ) {
                     if $leaders.has($svcinfo.run) {
                         $leader = true
                     } else {
@@ -455,7 +455,7 @@ The ready column indicates that a service has entered into the realtime change w
 
                 if $info {
                     $s = `{$name} {$leader} {$online} {$ready} {$host} {$port}`
-                    if ($nexusOffset != (null)) {
+                    if ($nexusOffset != null) {
                         $s = `{$s} {$nexusOffset}`
                     }
                     $lib.print($s)
