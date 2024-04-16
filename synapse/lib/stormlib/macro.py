@@ -34,7 +34,7 @@ stormcmds = [
         'name': 'macro.del',
         'descr': macro_del_descr,
         'cmdargs': (
-            ('name', {'help': 'The name of the macro to delete.'}),
+            ('name', {'type': 'str', 'help': 'The name of the macro to delete.'}),
         ),
         'storm': '''
             $lib.macro.del($cmdopts.name)
@@ -45,7 +45,7 @@ stormcmds = [
         'name': 'macro.set',
         'descr': macro_set_descr,
         'cmdargs': (
-            ('name', {'help': 'The name of the macro to set.'}),
+            ('name', {'type': 'str', 'help': 'The name of the macro to set.'}),
             ('storm', {'help': 'The storm command string or embedded query to set.'}),
         ),
         'storm': '''
@@ -57,7 +57,7 @@ stormcmds = [
         'name': 'macro.get',
         'descr': macro_get_descr,
         'cmdargs': (
-            ('name', {'help': 'The name of the macro to display.'}),
+            ('name', {'type': 'str', 'help': 'The name of the macro to display.'}),
         ),
         'storm': '''
             $mdef = $lib.macro.get($cmdopts.name)
