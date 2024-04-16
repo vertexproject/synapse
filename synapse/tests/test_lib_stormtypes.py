@@ -2699,6 +2699,12 @@ class StormTypesTest(s_test.SynTest):
             await core.addUserRule(user, (True, ('storm', 'lib', 'telepath', 'open', 'cell')))
             self.len(2, await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts))
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.callStorm('$prox=$lib.telepath.open("tcp://0.0.0.0:60000")')
+            emsg = cm.exception.get('mesg')
+            self.isin('Failed to connect to Telepath service: "tcp://0.0.0.0:60000" error:', emsg)
+            self.isin('Connect call failed', emsg)
+
     async def test_storm_lib_queue(self):
 
         async with self.getTestCore() as core:
