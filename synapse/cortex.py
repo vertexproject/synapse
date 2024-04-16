@@ -1019,7 +1019,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():
-            view: s_view.View
             nomerge = view.info.get('nomerge', None)
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
@@ -4381,7 +4380,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 self.view = view
 
         for view in self.views.values():
-            view: s_view.View
             view.init2()
 
         # if we have no views, we are initializing.  Add a default main view and layer.
