@@ -139,6 +139,13 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist('macro.del print', opts={'readonly': True})
             self.stormIsInErr('not marked readonly safe', msgs)
 
+            msgs = await core.stormlist('macro.set blorpblorp "+#foo"', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            await core.auth.delUser(visi.iden)
+            msgs = await core.stormlist('macro.list')
+            self.stormIsInPrint("<deleted user>", msgs)
+
     async def test_stormlib_macro_vars(self):
 
         async with self.getTestCore() as core:
