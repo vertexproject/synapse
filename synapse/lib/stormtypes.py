@@ -7382,7 +7382,8 @@ class View(Prim):
                     The parent View iden.
 
                 nomerge (bool)
-                    Deprecated - use protected. Setting to $lib.true will prevent the layer from being merged.
+                    Deprecated - use protected. Updates to this option will be redirected to
+                    the protected option (below) until this option is removed.
 
                 protected (bool)
                     Setting to $lib.true will prevent the layer from being merged or deleted.

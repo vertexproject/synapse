@@ -1019,7 +1019,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():
-            nomerge = view.info.get('nomerge', None)
+            nomerge = view.info.get('nomerge', False)
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
 
