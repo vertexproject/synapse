@@ -3941,11 +3941,10 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, edits[0][1]['edits'][0][2])
 
             # don't get any node edits for a different view
-            # TODO - is this correct?
-            # opts = {'user': visi.iden, 'vars': {'fork': fork}}
-            # msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, *)', opts=opts)
-            # edits = [ne for ne in msgs if ne[0] == 'node:edits']
-            # self.len(0, edits)
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, *)', opts=opts)
+            edits = [ne for ne in msgs if ne[0] == 'node:edits']
+            self.len(0, edits)
 
         async with self.getTestCore() as core:
 

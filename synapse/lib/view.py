@@ -170,6 +170,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
+        fireedit = (bus is not None and bus.viewiden == self.iden)
+
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
@@ -307,7 +309,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
-        if nodeedits and bus is not None:
+        if nodeedits and fireedit:
             await bus.fire('node:edits', edits=nodeedits)
 
         return saveoff, nodeedits

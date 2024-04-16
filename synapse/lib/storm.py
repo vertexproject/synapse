@@ -1828,6 +1828,7 @@ class Runtime(s_base.Base):
 
         if bus is None:
             bus = await s_base.Base.anit()
+            bus.viewiden = view.iden
             bus._warnonce_keys = set()
             self.onfini(bus)
 
