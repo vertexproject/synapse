@@ -1018,9 +1018,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ), nexs=False)
 
     async def _viewNomergeToProtected(self):
-        for view in self.listViews():
-            nomerge = view.info.get('nomerge')
-            await view.info.set('protected', nomerge)
+        for view in self.views.values():
+            view: s_view.View
+            nomerge = view.info.get('nomerge', None)
+            await view.setViewInfo('protected', nomerge)
+            await view.setViewInfo('nomerge', None)
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -4379,6 +4381,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 self.view = view
 
         for view in self.views.values():
+            view: s_view.View
             view.init2()
 
         # if we have no views, we are initializing.  Add a default main view and layer.

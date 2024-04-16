@@ -70,10 +70,8 @@ class ViewTest(s_t_utils.SynTest):
     async def test_view_nomerge_migration(self):
         async with self.getRegrCore('cortex-storage-v3') as core:
             view = core.getView('0df16dd693c74109da0d58ab87ba768a')
-            nomerge = view.info.get('nomerge')
-            protected = view.info.get('protected')
-            self.eq(nomerge, protected)
-            self.true(protected)
+            self.none(view.info.get('nomerge'))
+            self.true(view.info.get('protected'))
 
     async def test_view_set_parent(self):
 
