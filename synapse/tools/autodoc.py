@@ -717,7 +717,7 @@ async def docModel(outp,
                 raise s_exc.SynErr(mesg='Invalid example', form=form, example=example, info=mnfo)
             if mtyp == 'node':
                 node = True
-        if not node:  # pramga: no cover
+        if not node:  # pragma: no cover
             raise s_exc.SynErr(mesg='Unable to make a node from example.', form=form, example=example)
 
     rst = s_autodoc.RstHelp()

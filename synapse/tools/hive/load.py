@@ -14,6 +14,9 @@ reqver = '>=0.2.0,<3.0.0'
 
 async def main(argv, outp=s_output.stdout):
 
+    mesg = s_common.deprecated('synapse.tools.hive.load', curv='2.167.0')
+    outp.printf(f'WARNING: {mesg}')
+
     pars = argparse.ArgumentParser(prog='synapse.tools.hive.load',
                                    description='Load data into a remote hive from a previous hivesave.')
 
