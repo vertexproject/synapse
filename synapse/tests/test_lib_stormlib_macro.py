@@ -381,24 +381,21 @@ class MacroTest(s_test.SynTest):
                     setmesg = await sock.receive_json()
                     self.eq('storm:macro:mod', setmesg['data']['event'])
                     event = setmesg['data']['info']
-                    self.eq(event['name'], 'foobar')
-                    self.nn(event['iden'])
+                    self.nn(event['macro'])
                     self.eq(event['info']['storm'], 'inet:ipv4 | [+#burrito]')
                     self.nn(event['info']['updated'])
 
                     modmesg = await sock.receive_json()
                     self.eq('storm:macro:mod', modmesg['data']['event'])
                     event = modmesg['data']['info']
-                    self.eq(event['name'], 'foobar')
-                    self.nn(event['iden'])
+                    self.nn(event['macro'])
                     self.eq(event['info']['name'], 'bizbaz')
                     self.nn(event['info']['updated'])
 
                     grantmesg = await sock.receive_json()
                     self.eq('storm:macro:set:perm', grantmesg['data']['event'])
                     event = grantmesg['data']['info']
-                    self.eq(event['name'], 'bizbaz')
-                    self.nn(event['iden'])
+                    self.nn(event['macro'])
                     self.eq(event['info']['level'], 3)
                     self.eq(event['info']['scope'], 'users')
                     self.eq(event['info']['iden'], visi.iden)

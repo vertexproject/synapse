@@ -1193,7 +1193,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
-        await self.feedBeholder('storm:macro:mod', {'name': name, 'iden': mdef.get('iden'), 'info': info})
+        await self.feedBeholder('storm:macro:mod', {'macro': mdef, 'info': info})
         return mdef
 
     async def setStormMacroPerm(self, name, scope, iden, level, user=None):
@@ -1219,7 +1219,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'level': level
         }
 
-        await self.feedBeholder('storm:macro:set:perm', {'name': name, 'iden': mdef.get('iden'), 'info': info})
+        await self.feedBeholder('storm:macro:set:perm', {'macro': mdef, 'info': info})
         return mdef
 
     async def getStormMacros(self, user=None):

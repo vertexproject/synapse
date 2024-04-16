@@ -74,7 +74,7 @@ stormcmds = [
         'storm': '''
             $count = $(0)
             for ($name, $mdef) in $lib.macro.list() {
-                $user = $lib.auth.users.get($mdef.user)
+                $user = $lib.auth.users.get($mdef.creator)
                 $lib.print('{name} (owner: {user})', name=$name.ljust(20), user=$user.name)
                 $count = $($count + 1)
             }
