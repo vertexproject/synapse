@@ -137,11 +137,9 @@ formpivot_:            _RIGHTPIVOT (PROPS | UNIVNAME | WILDPROPS | valulist | _v
 formjoin: _RIGHTJOIN "*"     -> formjoin_pivotout
         | _RIGHTJOIN (PROPS | UNIVNAME | WILDPROPS | valulist | _varvalu) -> formjoin_formpivot
 
-formpivotin: _LEFTPIVOT "*" -> formpivotin_
-           | _LEFTPIVOT (PROPS | UNIVNAME) -> formpivotin_pivotinfrom
+formpivotin: _LEFTPIVOT "*"
 
-formjoinin: _LEFTJOIN "*" -> formjoinin_pivotin
-          | _LEFTJOIN (PROPS | UNIVNAME) -> formjoinin_pivotinfrom
+formjoinin: _LEFTJOIN "*"
 
 operrelprop: relprop _RIGHTPIVOT ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_pivot
            | relprop _RIGHTJOIN ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_join

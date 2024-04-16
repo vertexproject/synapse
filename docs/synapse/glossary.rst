@@ -536,19 +536,6 @@ Form, Composite
 A category of form whose primary property is an ordered set of two or more comma-separated typed values. Examples
 include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
 
-.. _gloss-form-digraph:
-
-See also :ref:`gloss-form-edge`.
-
-.. _gloss-form-edge:
-
-Form, Edge
-----------
-
-A specialized **composite form** (:ref:`gloss-form-comp`) whose primary property consists of two :ref:`gloss-ndef`
-values. Edge forms can be used to link two arbitrary forms via a generic relationship where additional information
-needs to be captured about that relationship (i.e., via secondary properties and/or tags). Contrast with
-:ref:`gloss-edge-light`.
 
 .. _gloss-form-extended:
 
