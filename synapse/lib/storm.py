@@ -5235,7 +5235,7 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newname, newinfo = await view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newname, newinfo = view.core.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
         newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))

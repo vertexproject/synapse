@@ -1888,10 +1888,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return tuple(prune)
 
-    async def getTagNorm(self, tagname):
-        return await self.tagnorms.aget(tagname)
+    def getTagNorm(self, tagname):
+        return self.tagnorms.get(tagname)
 
-    async def _getTagNorm(self, tagname):
+    def _getTagNorm(self, tagname):
 
         if not self.isTagValid(tagname):
             raise s_exc.BadTag(f'The tag ({tagname}) does not meet the regex for the tree.')

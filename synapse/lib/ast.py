@@ -3614,7 +3614,7 @@ class TagName(Value):
                 mesg = 'Invalid value type for tag name, tag names must be strings.'
                 raise s_exc.BadTypeValu(mesg=mesg)
 
-            normtupl = await runt.view.core.getTagNorm(valu)
+            normtupl = runt.view.core.getTagNorm(valu)
             return normtupl[0]
 
         vals = []
@@ -3625,7 +3625,7 @@ class TagName(Value):
                 raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             part = await tostr(part)
-            partnorm = await runt.view.core.getTagNorm(part)
+            partnorm = runt.view.core.getTagNorm(part)
             vals.append(partnorm[0])
 
         return '.'.join(vals)
@@ -3649,7 +3649,7 @@ class TagName(Value):
                         mesg = 'Invalid value type for tag name, tag names must be strings.'
                         raise s_exc.BadTypeValu(mesg=mesg)
 
-                    normtupl = await runt.view.core.getTagNorm(valu)
+                    normtupl = runt.view.core.getTagNorm(valu)
                     if normtupl is None:
                         continue
 
@@ -3666,7 +3666,7 @@ class TagName(Value):
                 raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             part = await tostr(part)
-            partnorm = await runt.view.core.getTagNorm(part)
+            partnorm = runt.view.core.getTagNorm(part)
             vals.append(partnorm[0])
 
         return ('.'.join(vals),)

@@ -18,8 +18,8 @@ class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a NodeEditor.
     '''
-    def __init__(self, ctx, buid, form, valu, node):
-        self.ctx = ctx
+    def __init__(self, editor, buid, form, valu, node):
+        self.editor = editor
         self.form = form
         self.valu = valu
         self.buid = buid
@@ -50,12 +50,12 @@ class ProtoNode(s_node.NodeBase):
         else:
             self.nid = None
 
-        self.multilayer = len(self.ctx.view.layers) > 1
+        self.multilayer = len(self.editor.view.layers) > 1
 
         if node is not None:
             self.nid = node.nid
         else:
-            self.nid = self.ctx.view.core.getNidByBuid(buid)
+            self.nid = self.editor.view.core.getNidByBuid(buid)
 
     def iden(self):
         return s_common.ehex(self.buid)
@@ -88,7 +88,7 @@ class ProtoNode(s_node.NodeBase):
             if (tagprops := sode.get('tagprops')) is not None:
                 for tag, props in tagprops.items():
                     for name in props.keys():
-                        prop = self.ctx.view.core.model.getTagProp(name)
+                        prop = self.editor.view.core.model.getTagProp(name)
                         edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
 
         if self.tombnode:
@@ -152,11 +152,11 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
 
         for (tag, name), valu in self.tagprops.items():
-            prop = self.ctx.view.core.model.getTagProp(name)
+            prop = self.editor.view.core.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype)))
 
         for (tag, name) in self.tagpropdels:
-            prop = self.ctx.view.core.model.getTagProp(name)
+            prop = self.editor.view.core.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
 
         for (tag, name) in self.tagproptombs:
@@ -180,17 +180,17 @@ class ProtoNode(s_node.NodeBase):
 
         if not isinstance(verb, str):
             mesg = f'addEdge() got an invalid type for verb: {verb}'
-            await self.ctx._raiseOnStrict(s_exc.BadArg, mesg)
+            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
         if not isinstance(n2nid, bytes):
             mesg = f'addEdge() got an invalid type for n2nid: {n2nid}'
-            await self.ctx._raiseOnStrict(s_exc.BadArg, mesg)
+            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
         if len(n2nid) != 8:
             mesg = f'addEdge() got an invalid node id: {n2nid}'
-            await self.ctx._raiseOnStrict(s_exc.BadArg, mesg)
+            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
         tupl = (verb, n2nid)
@@ -206,7 +206,7 @@ class ProtoNode(s_node.NodeBase):
             return True
 
         if not self.multilayer:
-            if not await self.ctx.view.hasNodeEdge(self.nid, verb, n2nid):
+            if not await self.editor.view.hasNodeEdge(self.nid, verb, n2nid):
                 self.edges.add(tupl)
                 return True
 
@@ -214,11 +214,11 @@ class ProtoNode(s_node.NodeBase):
             self.edgetombs.remove(tupl)
             return True
 
-        toplayr = await self.ctx.view.layers[0].hasNodeEdge(self.nid, verb, n2nid)
+        toplayr = await self.editor.view.layers[0].hasNodeEdge(self.nid, verb, n2nid)
         if toplayr is True:
             return False
 
-        for layr in self.ctx.view.layers[1:self.node.lastlayr()]:
+        for layr in self.editor.view.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr and toplayr is False:
                     self.edgetombdels.add(tupl)
@@ -232,17 +232,17 @@ class ProtoNode(s_node.NodeBase):
 
         if not isinstance(verb, str):
             mesg = f'delEdge() got an invalid type for verb: {verb}'
-            await self.ctx._raiseOnStrict(s_exc.BadArg, mesg)
+            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
         if not isinstance(n2nid, bytes):
             mesg = f'delEdge() got an invalid type for n2nid: {n2nid}'
-            await self.ctx._raiseOnStrict(s_exc.BadArg, mesg)
+            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
         if len(n2nid) != 8:
             mesg = f'delEdge() got an invalid node id: {n2nid}'
-            await self.ctx._raiseOnStrict(s_exc.BadArg, mesg)
+            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
         tupl = (verb, n2nid)
@@ -257,12 +257,12 @@ class ProtoNode(s_node.NodeBase):
             return False
 
         if not self.multilayer:
-            if await self.ctx.view.hasNodeEdge(self.nid, verb, n2nid):
+            if await self.editor.view.hasNodeEdge(self.nid, verb, n2nid):
                 self.edgedels.add(tupl)
                 return True
             return False
 
-        toplayr = await self.ctx.view.layers[0].hasNodeEdge(self.nid, verb, n2nid)
+        toplayr = await self.editor.view.layers[0].hasNodeEdge(self.nid, verb, n2nid)
         if toplayr is False:
             return False
 
@@ -270,7 +270,7 @@ class ProtoNode(s_node.NodeBase):
         if toplayr is True:
             self.edgedels.add(tupl)
 
-        for layr in self.ctx.view.layers[1:self.node.lastlayr()]:
+        for layr in self.editor.view.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr:
                     self.edgetombs.add(tupl)
@@ -287,11 +287,11 @@ class ProtoNode(s_node.NodeBase):
         nid = self.nid
 
         if meta is None:
-            meta = self.ctx.getEditorMeta()
+            meta = self.editor.getEditorMeta()
 
-        async for abrv, n1nid, tomb in self.ctx.view.layers[0].iterNodeEdgesN2(self.nid):
-            verb = self.ctx.view.core.getAbrvIndx(abrv)[0]
-            n1ndef = self.ctx.view.core.getNidNdef(n1nid)
+        async for abrv, n1nid, tomb in self.editor.view.layers[0].iterNodeEdgesN2(self.nid):
+            verb = self.editor.view.core.getAbrvIndx(abrv)[0]
+            n1ndef = self.editor.view.core.getNidNdef(n1nid)
 
             if tomb:
                 edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, nid))]
@@ -301,11 +301,11 @@ class ProtoNode(s_node.NodeBase):
             dels.append((n1nid, n1ndef[0], edit))
 
             if len(dels) >= 1000:
-                await self.ctx.view.saveNodeEdits(dels, meta=meta)
+                await self.editor.view.saveNodeEdits(dels, meta=meta)
                 dels.clear()
 
         if dels:
-            await self.ctx.view.saveNodeEdits(dels, meta=meta)
+            await self.editor.view.saveNodeEdits(dels, meta=meta)
 
     async def getData(self, name):
 
@@ -326,29 +326,29 @@ class ProtoNode(s_node.NodeBase):
         try:
             s_common.reqjsonsafe(valu)
         except s_exc.MustBeJsonSafe as e:
-            if self.ctx.strict:
+            if self.editor.strict:
                 raise e
-            return await self.ctx.warn(str(e))
+            return await self.editor.warn(str(e))
 
         self.nodedata[name] = valu
 
     async def popData(self, name):
 
         if not self.multilayer:
-            valu = await self.ctx.view.getNodeData(self.nid, name, defv=s_common.novalu)
+            valu = await self.editor.view.getNodeData(self.nid, name, defv=s_common.novalu)
             if valu is not s_common.novalu:
                 self.nodedatadels.add(name)
                 return valu
             return None
 
-        (ok, valu, tomb) = await self.ctx.view.layers[0].getNodeData(self.nid, name)
+        (ok, valu, tomb) = await self.editor.view.layers[0].getNodeData(self.nid, name)
         if (ok and not tomb):
             self.nodedatadels.add(name)
 
         if tomb:
             return None
 
-        valu = await self.ctx.view.getNodeDataFromLayers(self.nid, name, strt=1, defv=s_common.novalu)
+        valu = await self.editor.view.getNodeDataFromLayers(self.nid, name, strt=1, defv=s_common.novalu)
         if valu is not s_common.novalu:
             self.nodedatatombs.add(name)
             return valu
@@ -357,24 +357,24 @@ class ProtoNode(s_node.NodeBase):
     async def _getRealTag(self, tag):
 
         try:
-            normtupl = await self.ctx.view.core.getTagNorm(tag)
+            normtupl = self.editor.view.core.getTagNorm(tag)
         except (s_exc.BadTag, s_exc.BadTypeValu) as e:
-            if self.ctx.strict:
+            if self.editor.strict:
                 raise e
-            await self.ctx.warn(e.errinfo.get('mesg'))
+            await self.editor.warn(e.errinfo.get('mesg'))
             return None
 
         norm, info = normtupl
-        tagnode = await self.ctx.view.getTagNode(norm)
+        tagnode = await self.editor.view.getTagNode(norm)
         if tagnode is not s_common.novalu:
-            return self.ctx.loadNode(tagnode)
+            return self.editor.loadNode(tagnode)
 
         # check for an :isnow tag redirection in our hierarchy...
         toks = info.get('toks')
         for i in range(len(toks)):
 
             toktag = '.'.join(toks[:i + 1])
-            toknode = await self.ctx.view.getTagNode(toktag)
+            toknode = await self.editor.view.getTagNode(toktag)
             if toknode is s_common.novalu:
                 continue
 
@@ -383,14 +383,14 @@ class ProtoNode(s_node.NodeBase):
                 continue
 
             realnow = tokvalu + norm[len(toktag):]
-            tagnode = await self.ctx.view.getTagNode(realnow)
+            tagnode = await self.editor.view.getTagNode(realnow)
             if tagnode is not s_common.novalu:
-                return self.ctx.loadNode(tagnode)
+                return self.editor.loadNode(tagnode)
 
-            norm, info = await self.ctx.view.core.getTagNorm(realnow)
+            norm, info = self.editor.view.core.getTagNorm(realnow)
             break
 
-        return await self.ctx.addNode('syn:tag', norm, norminfo=info)
+        return await self.editor.addNode('syn:tag', norm, norminfo=info)
 
     def getTag(self, tag, defval=None):
 
@@ -417,12 +417,12 @@ class ProtoNode(s_node.NodeBase):
 
         if valu != (None, None):
             try:
-                valu, _ = self.ctx.view.core.model.type('ival').norm(valu)
+                valu, _ = self.editor.view.core.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
-                if self.ctx.strict:
+                if self.editor.strict:
                     e.set('tag', tagnode.valu)
                     raise e
-                return await self.ctx.warn(f'Invalid Tag Value: {tagnode.valu}={valu}.')
+                return await self.editor.warn(f'Invalid Tag Value: {tagnode.valu}={valu}.')
 
         tagup = tagnode.get('up')
         if tagup:
@@ -490,7 +490,7 @@ class ProtoNode(s_node.NodeBase):
             parent = '.'.join(path[:-1])
 
             # retrieve a list of prunable tags
-            prune = await self.ctx.view.core.getTagPrune(parent)
+            prune = await self.editor.view.core.getTagPrune(parent)
             if prune:
                 tree = self._getTagTree()
 
@@ -580,17 +580,17 @@ class ProtoNode(s_node.NodeBase):
         if tagnode is None:
             return False
 
-        prop = self.ctx.view.core.model.getTagProp(name)
+        prop = self.editor.view.core.model.getTagProp(name)
         if prop is None:
             mesg = f'Tagprop {name} does not exist in this Cortex.'
-            return await self.ctx._raiseOnStrict(s_exc.NoSuchTagProp, mesg)
+            return await self.editor._raiseOnStrict(s_exc.NoSuchTagProp, mesg)
 
         try:
             norm, info = prop.type.norm(valu)
         except s_exc.BadTypeValu as e:
-            if self.ctx.strict:
+            if self.editor.strict:
                 raise e
-            await self.ctx.warn(f'Bad property value: #{tagnode.valu}:{prop.name}={valu!r}')
+            await self.editor.warn(f'Bad property value: #{tagnode.valu}:{prop.name}={valu!r}')
             return False
 
         curv = self.getTagProp(tagnode.valu, name)
@@ -605,10 +605,10 @@ class ProtoNode(s_node.NodeBase):
 
     async def delTagProp(self, tag, name):
 
-        prop = self.ctx.view.core.model.getTagProp(name)
+        prop = self.editor.view.core.model.getTagProp(name)
         if prop is None:
             mesg = f'Tagprop {name} does not exist in this Cortex.'
-            return await self.ctx._raiseOnStrict(s_exc.NoSuchTagProp, mesg, name=name)
+            return await self.editor._raiseOnStrict(s_exc.NoSuchTagProp, mesg, name=name)
 
         (curv, layr) = self.getTagPropWithLayer(tag, name)
         if curv is None:
@@ -659,14 +659,14 @@ class ProtoNode(s_node.NodeBase):
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
-            await self.ctx._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            await self.editor._raiseOnStrict(s_exc.IsDeprLocked, mesg)
             return False
 
         if isinstance(prop.type, s_types.Array):
-            arrayform = self.ctx.view.core.model.form(prop.type.arraytype.name)
+            arrayform = self.editor.view.core.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.editor._raiseOnStrict(s_exc.IsDeprLocked, mesg)
                 return False
 
         if norminfo is None:
@@ -677,16 +677,16 @@ class ProtoNode(s_node.NodeBase):
                 e.errinfo['prop'] = prop.name
                 e.errinfo['form'] = prop.form.name
                 e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
-                if self.ctx.strict:
+                if self.editor.strict:
                     raise e
-                await self.ctx.warn(e)
+                await self.editor.warn(e)
                 return False
 
         if isinstance(prop.type, s_types.Ndef):
-            ndefform = self.ctx.view.core.model.form(valu[0])
+            ndefform = self.editor.view.core.model.form(valu[0])
             if ndefform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.editor._raiseOnStrict(s_exc.IsDeprLocked, mesg)
                 return False
 
         curv = self.get(prop.name)
@@ -695,11 +695,11 @@ class ProtoNode(s_node.NodeBase):
 
         if prop.info.get('ro') and curv is not None:
             mesg = f'Property is read only: {prop.full}.'
-            await self.ctx._raiseOnStrict(s_exc.ReadOnlyProp, mesg)
+            await self.editor._raiseOnStrict(s_exc.ReadOnlyProp, mesg)
             return False
 
         if self.node is not None:
-            await self.ctx.view.core._callPropSetHook(self.node, prop, valu)
+            await self.editor.view.core._callPropSetHook(self.node, prop, valu)
 
         self.props[prop.name] = valu
         self.propdels.discard(prop.name)
@@ -711,7 +711,7 @@ class ProtoNode(s_node.NodeBase):
         prop = self.form.props.get(name)
         if prop is None:
             mesg = f'No property named {name} on form {self.form.name}.'
-            await self.ctx._raiseOnStrict(s_exc.NoSuchProp, mesg)
+            await self.editor._raiseOnStrict(s_exc.NoSuchProp, mesg)
             return False
 
         retn = await self._set(prop, valu, norminfo=norminfo)
@@ -720,9 +720,9 @@ class ProtoNode(s_node.NodeBase):
 
         (valu, norminfo) = retn
 
-        propform = self.ctx.view.core.model.form(prop.type.name)
+        propform = self.editor.view.core.model.form(prop.type.name)
         if propform is not None:
-            await self.ctx.addNode(propform.name, valu, norminfo=norminfo)
+            await self.editor.addNode(propform.name, valu, norminfo=norminfo)
 
         # TODO can we mandate any subs are returned pre-normalized?
         propsubs = norminfo.get('subs')
@@ -735,7 +735,7 @@ class ProtoNode(s_node.NodeBase):
         propadds = norminfo.get('adds')
         if propadds is not None:
             for addname, addvalu, addinfo in propadds:
-                await self.ctx.addNode(addname, addvalu, norminfo=addinfo)
+                await self.editor.addNode(addname, addvalu, norminfo=addinfo)
 
         return True
 
@@ -744,7 +744,7 @@ class ProtoNode(s_node.NodeBase):
         prop = self.form.prop(name)
         if prop is None:
             mesg = f'No property named {name}.'
-            await self.ctx._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name, form=self.form.name)
+            await self.editor._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name, form=self.form.name)
             return False
 
         (valu, layr) = self.getWithLayer(name, defv=s_common.novalu)
@@ -753,7 +753,7 @@ class ProtoNode(s_node.NodeBase):
 
         if prop.info.get('ro'):
             mesg = f'Property is read only: {prop.full}.'
-            await self.ctx._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
+            await self.editor._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
             return False
 
         self.props.pop(name, None)
@@ -779,9 +779,9 @@ class ProtoNode(s_node.NodeBase):
         (valu, norminfo) = retn
         ops = []
 
-        propform = self.ctx.view.core.model.form(prop.type.name)
+        propform = self.editor.view.core.model.form(prop.type.name)
         if propform is not None:
-            ops.append(self.ctx.getAddNodeOps(propform.name, valu, norminfo=norminfo))
+            ops.append(self.editor.getAddNodeOps(propform.name, valu, norminfo=norminfo))
 
         # TODO can we mandate any subs are returned pre-normalized?
         propsubs = norminfo.get('subs')
@@ -794,7 +794,7 @@ class ProtoNode(s_node.NodeBase):
         propadds = norminfo.get('adds')
         if propadds is not None:
             for addname, addvalu, addinfo in propadds:
-                ops.append(self.ctx.getAddNodeOps(addname, addvalu, norminfo=addinfo))
+                ops.append(self.editor.getAddNodeOps(addname, addvalu, norminfo=addinfo))
 
         return ops
 
