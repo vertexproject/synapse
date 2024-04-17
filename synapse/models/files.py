@@ -66,6 +66,8 @@ class FilePath(s_types.Str):
             path.append(part)
 
         fullpath = lead + '/'.join(path)
+        if len(fullpath) == 0:
+            return '', {}
 
         base = path[-1]
         subs = {'base': base}
