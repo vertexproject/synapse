@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
@@ -186,3 +187,10 @@ Connection information:
                 # Delete the fake service with its full service name
                 self.none(await core00.callStorm('return($lib.aha.del(00.newp.loop.vertex.link))'))
                 self.none(await core00.callStorm('return($lib.aha.get(00.newp...))'))
+
+                # Coverage for sad paths
+                with self.raises(s_exc.BadArg):
+                    await core00.callStorm('$lib.aha.del(pool00...)')
+
+                with self.raises(s_exc.NoSuchName):
+                    await core00.callStorm('$lib.aha.del(axon...)')

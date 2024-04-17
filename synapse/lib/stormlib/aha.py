@@ -70,11 +70,11 @@ class AhaLib(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name)
         proxy = await self.runt.snap.core.reqAhaProxy()
         svc = await proxy.getAhaSvc(name)
+        if svc is None:
+            raise s_exc.NoSuchName(mesg=f'No AHA service for {name=}')
         if svc.get('services'):  # It is an AHA Pool!
             mesg = f'Cannot use $lib.aha.del() to remove an AHA Pool. Use $lib.aha.pool.del(); {name=}'
             raise s_exc.BadArg(mesg=mesg)
-        if svc is None:
-            raise s_exc.NoSuchName(mesg=f'No AHA service for {name=}')
         return await proxy.delAhaSvc(svc.get('svcname'), network=svc.get('svcnetw'))
 
     @s_stormtypes.stormfunc(readonly=True)
