@@ -19,7 +19,7 @@ class AhaLib(s_stormtypes.Lib):
 
                 $lib.aha.del(00.mysvc.loop.vertex.link)
         ''',
-         'type': {'type': 'function', '_funcname': '_methSvcDel',
+         'type': {'type': 'function', '_funcname': '_methAhaDel',
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the service to delete. It is easiest to use the relative name of a service, ending with "...".', },
@@ -36,7 +36,7 @@ class AhaLib(s_stormtypes.Lib):
 
                 $lib.aha.get(00.cortex.loop.vertex.link)
         ''',
-         'type': {'type': 'function', '_funcname': '_methSvcGet',
+         'type': {'type': 'function', '_funcname': '_methAhaGet',
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the AHA service to look up. It is easiest to use the relative name of a service, ending with "...".', },
@@ -46,26 +46,26 @@ class AhaLib(s_stormtypes.Lib):
                   'returns': {'type': ('null', 'dict'),
                               'desc': 'The AHA service information dictionary, or $lib.null.', }}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA services.',
-         'type': {'type': 'function', '_funcname': '_methSvcList', 'args': (),
+         'type': {'type': 'function', '_funcname': '_methAhaList', 'args': (),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'The AHA service dictionaries.', }}},
     )
     _storm_lib_path = ('aha',)
     def getObjLocals(self):
         return {
-            'del': self._methSvcDel,
-            'get': self._methSvcGet,
-            'list': self._methSvcList,
+            'del': self._methAhaDel,
+            'get': self._methAhaGet,
+            'list': self._methAhaList,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methSvcList(self):
+    async def _methAhaList(self):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
         async for info in proxy.getAhaSvcs():
             yield info
 
-    async def _methSvcDel(self, name):
+    async def _methAhaDel(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
         proxy = await self.runt.snap.core.reqAhaProxy()
@@ -78,7 +78,7 @@ class AhaLib(s_stormtypes.Lib):
         return await proxy.delAhaSvc(svc.get('svcname'), network=svc.get('svcnetw'))
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methSvcGet(self, name, filters=None):
+    async def _methAhaGet(self, name, filters=None):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
         filters = await s_stormtypes.toprim(filters)
@@ -99,7 +99,7 @@ class AhaPoolLib(s_stormtypes.Lib):
 
                 $lib.aha.pool.add(pool00.cortex...)
         ''',
-         'type': {'type': 'function', '_funcname': '_add',
+         'type': {'type': 'function', '_funcname': '_methPoolAdd',
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the pool to add. It is easiest to use the relative name of a service, ending with "...".', },
@@ -112,47 +112,47 @@ class AhaPoolLib(s_stormtypes.Lib):
 
                 $lib.aha.pool.del(pool00.cortex...)
         ''',
-         'type': {'type': 'function', '_funcname': '_del',
+         'type': {'type': 'function', '_funcname': '_methPoolDel',
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the pool to delete. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'The AHA pool definition that was deleted.'}}},
         {'name': 'get', 'desc': 'Get an existing AHA service pool.',
-         'type': {'type': 'function', '_funcname': '_get',
+         'type': {'type': 'function', '_funcname': '_methPoolGet',
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the pool to get. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
                   'returns': {'type': ['null', 'aha:pool'], 'desc': 'The pool if it exists, or $lib.null.'}}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA service pools.',
-         'type': {'type': 'function', '_funcname': '_list',
+         'type': {'type': 'function', '_funcname': '_methPoolList',
                   'returns': {'name': 'yields', 'type': 'aha:pool'}}},
     )
     _storm_lib_path = ('aha', 'pool')
 
     def getObjLocals(self):
         return {
-            'add': self._add,
-            'del': self._del,
-            'get': self._get,
-            'list': self._list,
+            'add': self._methPoolAdd,
+            'del': self._methPoolDel,
+            'get': self._methPoolGet,
+            'list': self._methPoolList,
         }
 
-    async def _add(self, name):
+    async def _methPoolAdd(self, name):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
         poolinfo = {'creator': self.runt.user.iden}
         poolinfo = await proxy.addAhaPool(name, poolinfo)
         return AhaPool(self.runt, poolinfo)
 
-    async def _del(self, name):
+    async def _methPoolDel(self, name):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
         return await proxy.delAhaPool(name)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _get(self, name):
+    async def _methPoolGet(self, name):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
         poolinfo = await proxy.getAhaPool(name)
@@ -160,7 +160,7 @@ class AhaPoolLib(s_stormtypes.Lib):
             return AhaPool(self.runt, poolinfo)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _list(self):
+    async def _methPoolList(self):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
 
@@ -181,7 +181,7 @@ class AhaPool(s_stormtypes.StormType):
                 $pool = $lib.aha.pool.get(pool00.cortex...)
                 $pool.add(00.cortex...)
         ''',
-         'type': {'type': 'function', '_funcname': '_add',
+         'type': {'type': 'function', '_funcname': '_methPoolSvcAdd',
                   'args': (
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to add. It is easiest to use the relative name of a service, ending with "...".', },
@@ -195,7 +195,7 @@ class AhaPool(s_stormtypes.StormType):
                 $pool = $lib.aha.pool.get(pool00.cortex...)
                 $pool.del(00.cortex...)
         ''',
-         'type': {'type': 'function', '_funcname': '_del',
+         'type': {'type': 'function', '_funcname': '_methPoolSvcDel',
                   'args': (
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to remove. It is easiest to use the relative name of a service, ending with "...".', },
@@ -210,8 +210,8 @@ class AhaPool(s_stormtypes.StormType):
         self.poolinfo = poolinfo
 
         self.locls.update({
-            'add': self._add,
-            'del': self._del,
+            'add': self._methPoolSvcAdd,
+            'del': self._methPoolSvcDel,
         })
 
     async def stormrepr(self):
@@ -220,7 +220,7 @@ class AhaPool(s_stormtypes.StormType):
     async def _derefGet(self, name):
         return self.poolinfo.get(name)
 
-    async def _add(self, svcname):
+    async def _methPoolSvcAdd(self, svcname):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
 
@@ -233,7 +233,7 @@ class AhaPool(s_stormtypes.StormType):
 
         self.poolinfo.update(poolinfo)
 
-    async def _del(self, svcname):
+    async def _methPoolSvcDel(self, svcname):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
 
