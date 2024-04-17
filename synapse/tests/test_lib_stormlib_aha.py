@@ -182,3 +182,7 @@ Connection information:
     scheme:     tcp
     user:       root'''
                 self.stormIsInPrint(emsg, msgs)
+
+                # Delete the fake service with its full service name
+                self.none(await core00.callStorm('return($lib.aha.del(00.newp.loop.vertex.link))'))
+                self.none(await core00.callStorm('return($lib.aha.get(00.newp...))'))

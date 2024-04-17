@@ -8,16 +8,38 @@ class AhaLib(s_stormtypes.Lib):
     '''
 
     _storm_locals = (
-        {'name': 'del', 'desc': 'Delete a service from AHA.',
+        {'name': 'del', 'desc': '''Delete a service from AHA.
+
+        Examples:
+            Deleting a service with its relative name::
+
+                $lib.aha.del(00.mysvc...)
+
+            Deleting a service with its full name::
+
+                $lib.aha.del(00.mysvc.loop.vertex.link)
+        ''',
          'type': {'type': 'function', '_funcname': '_methSvcDel',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the service to delete.', },
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the service to delete. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
                   'returns': {'type': 'null'}}},
-        {'name': 'get', 'desc': 'Get information about an AHA service.',
+        {'name': 'get', 'desc': '''Get information about an AHA service.
+
+        Examples:
+            Getting service information with a relative name::
+
+                $lib.aha.get(00.cortex...)
+
+            Getting service information with its a full name::
+
+                $lib.aha.get(00.cortex.loop.vertex.link)
+        ''',
          'type': {'type': 'function', '_funcname': '_methSvcGet',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the AHA service to look up.', },
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'The name of the AHA service to look up. It is easiest to use the relative name of a service, ending with "...".', },
                       {'name': 'filters', 'type': 'dict', 'default': None,
                        'desc': 'An optional dictionary of filters to use when resolving the AHA service.'}
                   ),
@@ -136,16 +158,32 @@ class AhaPool(s_stormtypes.StormType):
     Implements the Storm API for an AHA pool.
     '''
     _storm_locals = (
-        {'name': 'add', 'desc': 'Add a service to the AHA pool.',
+        {'name': 'add', 'desc': '''Add a service to the AHA pool
+
+        Examples:
+            Add a service to a pool with its relative name::
+
+                $pool = $lib.aha.pool.get(pool00.cortex...)
+                $pool.add(00.cortex...)
+        ''',
          'type': {'type': 'function', '_funcname': '_add',
                   'args': (
-                      {'name': 'svcname', 'type': 'str', 'desc': 'The name of the AHA service to add.', },
+                      {'name': 'svcname', 'type': 'str',
+                       'desc': 'The name of the AHA service to add. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'add', 'desc': 'Remove a service from the AHA pool.',
+        {'name': 'add', 'desc': '''Remove a service from the AHA pool.
+
+        Examples:
+            Remove a service from a pool with its relative name::
+
+                $pool = $lib.aha.pool.get(pool00.cortex...)
+                $pool.del(00.cortex...)
+        ''',
          'type': {'type': 'function', '_funcname': '_del',
                   'args': (
-                      {'name': 'svcname', 'type': 'str', 'desc': 'The name of the AHA service to remove.', },
+                      {'name': 'svcname', 'type': 'str',
+                       'desc': 'The name of the AHA service to remove. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
                   'returns': {'type': 'null', }}},
     )
