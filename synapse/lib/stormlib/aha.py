@@ -349,18 +349,6 @@ The ready value indicates that a service has entered into the realtime change wi
             }
         }
 
-        function _getBoolKey(dict, key, default) {
-            $_valu = $dict.$key
-            if ( $_valu != null ) {
-                if $_valu {
-                    return ( true )
-                } else {
-                    return ( false )
-                }
-            }
-            return ( $default )
-        }
-
         $svc = $lib.aha.get($cmdopts.svc)
         if ($svc = null) {
             $lib.print(`No service found for: "{$cmdopts.svc}"`)
@@ -381,9 +369,17 @@ The ready value indicates that a service has entered into the realtime change wi
                 if ($leader = null) {
                     $leader = 'Service did not register itself with a leader name.'
                 }
+                $online = false
+                if $svcinfo.online {
+                    $online = true
+                }
+                $ready = 'null'
+                if $lib.dict.has($svcinfo, ready) {
+                    $ready = `{$svcinfo.ready}`
+                }
                 $lib.print(`Name:       {$svc.name}`)
-                $lib.print(`Online:     {$_getBoolKey($svcinfo, online, false)}`)
-                $lib.print(`Ready:      {$_getBoolKey($svcinfo, ready, null)}`)
+                $lib.print(`Online:     {$online}`)
+                $lib.print(`Ready:      {$ready}`)
                 $lib.print(`Run iden:   {$svcinfo.run}`)
                 $lib.print(`Cell iden:  {$svcinfo.iden}`)
                 $lib.print(`Leader:     {$leader}`)
@@ -437,18 +433,6 @@ The ready column indicates that a service has entered into the realtime change w
             }
         }
 
-        function _getBoolKey(dict, key, default) {
-            $_valu = $dict.$key
-            if ( $_valu != null ) {
-                if $_valu {
-                    return ( true )
-                } else {
-                    return ( false )
-                }
-            }
-            return ( $default )
-        }
-
         $svcs = ()
         for $svc in $lib.aha.list() {
             $svcs.append($svc)
@@ -489,7 +473,10 @@ The ready column indicates that a service has entered into the realtime change w
                 }
                 $name=$name.ljust(30)
 
-                $online = $_getBoolKey($svcinfo, online, false)
+                $online = false
+                if $svcinfo.online {
+                    $online = true
+                }
                 $online = $online.ljust(6)
 
                 $urlinfo = $svcinfo.urlinfo
@@ -500,7 +487,10 @@ The ready column indicates that a service has entered into the realtime change w
                 $port = $lib.cast(str, $urlinfo.port)  // Cast to str
                 $port = $port.ljust(5)
 
-                $ready = $_getBoolKey($svcinfo, ready, null)
+                $ready = 'null'
+                if $lib.dict.has($svcinfo, ready) {
+                    $ready = `{$svcinfo.ready}`
+                }
                 $ready = $ready.ljust(5)
 
                 $leader = null
