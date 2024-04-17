@@ -2351,10 +2351,12 @@ class StormPkgTest(SynTest):
     pkgprotos = ()
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, conf=None, dirn=None):
+    async def getTestCore(self, conf=None, dirn=None, preppkghook=None):
 
         async with SynTest.getTestCore(self, conf=None, dirn=None) as core:
-            await self.preTestCore(core)
+
+            if preppkghook is not None:
+                await preppkghook(core)
 
             for pkgproto in self.pkgprotos:
                 self.eq(0, await s_genpkg.main((pkgproto, '--no-docs', '--push', core.getLocalUrl())))
@@ -2371,12 +2373,6 @@ class StormPkgTest(SynTest):
 
             await self.initTestCore(core)
             yield core
-
-    async def preTestCore(self, core):
-        '''
-        This is executed before the package has been loaded and a VCR context has been entered.
-        '''
-        pass
 
     async def initTestCore(self, core):
         '''
