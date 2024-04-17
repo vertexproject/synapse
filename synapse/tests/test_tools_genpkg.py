@@ -236,3 +236,37 @@ class GenPkgTest(s_test.SynTest):
         self.raises(ValueError, s_files.getAssetPath, 'newp.bin')
         self.raises(ValueError, s_files.getAssetPath,
                     '../../../../../../../../../etc/passwd')
+
+class TestStormPkgTest(s_test.StormPkgTest):
+    pkgprotos = (s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml'),)
+
+    async def initTestCore(self, core):
+        await core.callStorm('$lib.globals.set(inittestcore, frob)')
+
+    async def test_stormpkg_base(self):
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('testpkgcmd foo')
+            self.stormHasNoWarnErr(msgs)
+            self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
+
+    async def stormpkg_preppkghook(self, core):
+        await core.callStorm('$lib.globals.set(stormpkg_preppkghook, boundmethod)')
+
+    async def test_stormpkg_preppkghook(self):
+
+        # inline example
+        async def hook(core):
+            await core.callStorm('$lib.globals.set(inlinehook, haha)')
+
+        async with self.getTestCore(preppkghook=hook) as core:
+            msgs = await core.stormlist('testpkgcmd foo')
+            self.stormHasNoWarnErr(msgs)
+            self.eq('haha', await core.callStorm('return($lib.globals.get(inlinehook))'))
+            self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
+
+        # bound method example
+        async with self.getTestCore(preppkghook=self.stormpkg_preppkghook) as core:
+            msgs = await core.stormlist('testpkgcmd foo')
+            self.stormHasNoWarnErr(msgs)
+            self.eq('boundmethod', await core.callStorm('return($lib.globals.get(stormpkg_preppkghook))'))
+            self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
