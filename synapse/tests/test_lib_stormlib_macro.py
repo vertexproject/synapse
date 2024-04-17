@@ -144,7 +144,8 @@ class MacroTest(s_test.SynTest):
 
             await core.auth.delUser(visi.iden)
             msgs = await core.stormlist('macro.list')
-            self.stormIsInPrint("<deleted user>", msgs)
+            self.stormIsInPrint("User not found", msgs)
+            self.stormIsInPrint(visi.iden, msgs)
 
     async def test_stormlib_macro_vars(self):
 

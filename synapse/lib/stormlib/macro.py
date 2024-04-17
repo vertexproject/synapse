@@ -77,7 +77,7 @@ stormcmds = [
                 $user = $lib.auth.users.get($mdef.creator)
                 $username = $lib.null
                 if (not $user) {
-                    $username = "<deleted user>"
+                    $username = `User not found ({$mdef.creator})`
                 } else {
                     $username = $user.name
                 }
