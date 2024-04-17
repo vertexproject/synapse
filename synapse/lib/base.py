@@ -143,7 +143,7 @@ class Base:
         self._fini_atexit = False
         self._active_tasks = None       # the set of free running tasks associated with me
         self._context_managers = None   # the set of context managers i must fini
-        self._syn_signal_tasks = None   # intialized as a Set when addSignalHandlers is called.
+        self._syn_signal_tasks = None   # initialized as a Set when addSignalHandlers is called.
 
     async def postAnit(self):
         '''
