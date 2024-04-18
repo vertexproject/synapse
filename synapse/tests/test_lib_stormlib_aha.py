@@ -49,11 +49,11 @@ class AhaLibTest(s_test.SynTest):
                 # List the aha services available
                 msgs = await core00.stormlist('aha.svc.list --nexus')
                 self.stormIsInPrint('Nexus', msgs)
-                self.stormIsInPrint('00.cell.loop.vertex.link       true   true   true', msgs)
-                self.stormIsInPrint('01.cell.loop.vertex.link       false  true   true', msgs)
-                self.stormIsInPrint('cell.loop.vertex.link          true   true   true', msgs)
-                self.stormIsInPrint('core.loop.vertex.link          null   true   true', msgs)
-                self.stormIsInPrint('mysvc.loop.vertex.link         null   true   true', msgs)
+                self.stormIsInPrint('00.cell.loop.vertex.link                      true   true   true', msgs)
+                self.stormIsInPrint('01.cell.loop.vertex.link                      false  true   true', msgs)
+                self.stormIsInPrint('cell.loop.vertex.link                         true   true   true', msgs)
+                self.stormIsInPrint('core.loop.vertex.link                         null   true   true', msgs)
+                self.stormIsInPrint('mysvc.loop.vertex.link                        null   true   true', msgs)
 
                 msgs = await core00.stormlist('aha.svc.list')
                 self.stormNotInPrint('Nexus', msgs)
@@ -139,14 +139,14 @@ Member:     00.cell.loop.vertex.link'''
                 self.len(nevents, await waiter.wait(timeout=12))
 
                 msgs = await core00.stormlist('aha.svc.list')
-                self.stormIsInPrint('01.cell.loop.vertex.link       false  false  true', msgs)
+                self.stormIsInPrint('01.cell.loop.vertex.link                      false  false  true', msgs)
 
                 # Fake a record
                 await aha.addAhaSvc('00.newp', info={'urlinfo': {'scheme': 'tcp', 'host': '0.0.0.0', 'port': '3030'}},
                                     network='loop.vertex.link')
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
-                emsg = '00.newp.loop.vertex.link       null   false  null  0.0.0.0         3030  ' \
+                emsg = '00.newp.loop.vertex.link                      null   false  null  0.0.0.0         3030  ' \
                        'Service is not online. Will not attempt to retrieve its nexus offset.'
                 self.stormIsInPrint(emsg, msgs)
 
@@ -163,7 +163,7 @@ Member:     00.cell.loop.vertex.link'''
                                                      },
                                     network='loop.vertex.link')
                 msgs = await core00.stormlist('aha.svc.list --nexus')
-                emsg = '00.newp.loop.vertex.link       null   true   null  0.0.0.0         3030  ' \
+                emsg = '00.newp.loop.vertex.link                      null   true   null  0.0.0.0         3030  ' \
                        'Failed to connect to Telepath service: "aha://00.newp.loop.vertex.link/" error:'
                 self.stormIsInPrint(emsg, msgs)
 
