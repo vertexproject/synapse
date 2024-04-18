@@ -74,8 +74,14 @@ stormcmds = [
         'storm': '''
             $count = $(0)
             for ($name, $mdef) in $lib.macro.list() {
-                $user = $lib.auth.users.get($mdef.user)
-                $lib.print('{name} (owner: {user})', name=$name.ljust(20), user=$user.name)
+                $user = $lib.auth.users.get($mdef.creator)
+                $username = $lib.null
+                if (not $user) {
+                    $username = `User not found ({$mdef.creator})`
+                } else {
+                    $username = $user.name
+                }
+                $lib.print('{name} (owner: {user})', name=$name.ljust(20), user=$username)
                 $count = $($count + 1)
             }
             $lib.print('{count} macros found', count=$count)
