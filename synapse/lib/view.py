@@ -1099,6 +1099,7 @@ class View(s_nexus.Pusher):  # type: ignore
         Set a mutable view property.
         '''
         if name not in ('name', 'desc', 'parent', 'nomerge', 'protected', 'quorum'):
+            # TODO: Remove nomerge after Synapse 3.x.x
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
