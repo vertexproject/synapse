@@ -18,21 +18,21 @@ Model Changes
 
   The following forms have been marked as deprecated:
 
-  ``edge``
-  ``timeedge``
+  * ``edge``
+  * ``timeedge``
 
   **Deprecated Forms**
 
   The following forms have been marked as deprecated:
 
-  ``graph:cluster``
-  ``graph:node``
-  ``graph:event``
-  ``edge:refs``
-  ``edge:has``
-  ``edge:wentto``
-  ``graph:edge``
-  ``graph:timeedge``
+  * ``graph:cluster``
+  * ``graph:node``
+  * ``graph:event``
+  * ``edge:refs``
+  * ``edge:has``
+  * ``edge:wentto``
+  * ``graph:edge``
+  * ``graph:timeedge``
 
 Features and Enhancements
 -------------------------
@@ -44,7 +44,7 @@ Features and Enhancements
 - Ensure that the ``Cell.ahaclient`` is fully owned and managed by the
   ``Cell``. It will no longer use a global client that may exist.
   (`#3677 <https://github.com/vertexproject/synapse/pull/3677>`_)
-- Update the ``stix2-validator`` library constraints to ``3.2.0,<4.0.0``.
+- Update the ``stix2-validator`` library constraints to ``>=3.2.0,<4.0.0``.
   Update the allowed range of the ``idna`` library  to ``>=3.6,<3.8``.
   (`#3672 <https://github.com/vertexproject/synapse/pull/3672>`_)
   (`#3684 <https://github.com/vertexproject/synapse/pull/3684>`_)
@@ -74,7 +74,7 @@ Deprecations
   (`#3678 <https://github.com/vertexproject/synapse/pull/3678>`_)
 - The Telepath APIs for interacting with a Cell Hive, ``listHiveKey``,
   ``getHiveKeys``, ``getHiveKey``, ``setHiveKey``, ``popHiveKey``, and
-  ``saveHiveTree`` have been deprecated. The tools ``synapse.too.s.hive.load``
+  ``saveHiveTree`` have been deprecated. The tools ``synapse.tool.s.hive.load``
   and ``synapse.tools.hive.save`` have been deprecated. These will be removed
   in ``v3.0.0``.
   (`#3683 <https://github.com/vertexproject/synapse/pull/3683>`_)
