@@ -68,10 +68,15 @@ class ViewTest(s_t_utils.SynTest):
             self.false(protected)
 
     async def test_view_nomerge_migration(self):
-        async with self.getRegrCore('cortex-storage-v3') as core:
+        async with self.getRegrCore('cortex-defaults-v2') as core:
             view = core.getView('0df16dd693c74109da0d58ab87ba768a')
             self.none(view.info.get('nomerge'))
             self.true(view.info.get('protected'))
+
+            with self.raises(s_exc.CantMergeView):
+                await core.callStorm('return($lib.view.get(0df16dd693c74109da0d58ab87ba768a).merge())')
+            with self.raises(s_exc.CantDelView):
+                await core.callStorm('return($lib.view.del(0df16dd693c74109da0d58ab87ba768a))')
 
     async def test_view_set_parent(self):
 
