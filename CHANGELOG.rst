@@ -26,7 +26,7 @@ Model Changes
 
   ``file:path``
     Normalizing paths such as ``../.././..`` previously failed. This now
-    produces a empty path.
+    produces an empty path.
 
   **Deprecated Types**
 
@@ -54,7 +54,7 @@ Features and Enhancements
   services. Add ``$lib.aha`` Storm APIs to delete, get, and list the AHA
   services.
   (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
-- Add a ``protected`` option to that can be set on Views to prevent
+- Add a ``protected`` option that can be set on Views to prevent
   merging and deletion. This replaces the ``nomerge`` option.
   (`#3679 <https://github.com/vertexproject/synapse/pull/3679>`_)
 - Add Beholder events for creating, deleting, and updating Macros.
