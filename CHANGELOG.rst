@@ -36,7 +36,6 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-
 - Update the ``StormPkgTest.getTestCore()`` API to add a ``preppkghook``
   callback option. This can be used to execute code prior to loading Storm
   packages. The ``getTestCore()`` API now waits for ``onload`` handlers to
