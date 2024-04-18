@@ -16,7 +16,7 @@ Model Changes
 
   **Deprecated Types**
 
-  The following forms have been marked as deprecated:
+  The following types have been marked as deprecated:
 
   * ``edge``
   * ``timeedge``
