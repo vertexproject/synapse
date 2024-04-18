@@ -1036,14 +1036,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef.setdefault('updated', now)
         mdef.setdefault('created', now)
 
-        useriden = mdef.get('user', user.iden)
-
-        mdef['creator'] = useriden
+        mdef['creator'] = user.iden
 
         mdef.setdefault('storm', '')
         self._initEasyPerm(mdef)
 
-        mdef['permissions']['users'][useriden] = s_cell.PERM_ADMIN
+        mdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
 
         return mdef
 
