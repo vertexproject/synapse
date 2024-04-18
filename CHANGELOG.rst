@@ -9,10 +9,24 @@ Synapse Changelog
 v2.167.0 - 2024-04-18
 =====================
 
+Automatic Migrations
+--------------------
+- Set the ``protected`` flag on all Views in the Cortex, using the existing
+  value of the ``nomerge`` flag.
+  (`#3681 <https://github.com/vertexproject/synapse/pull/3681>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
 Model Changes
 -------------
-- Updates to the ``base`` model.
+- Updates to the ``base`` and ``file`` models.
   (`#3674 <https://github.com/vertexproject/synapse/pull/3674>`_)
+  (`#3688 <https://github.com/vertexproject/synapse/pull/3688>`_)
+
+  **Updated Types**
+
+  ``file:path``
+    Normalizing paths such as ``../.././..`` previously failed. This now
+    produces a empty path.
 
   **Deprecated Types**
 
@@ -36,6 +50,15 @@ Model Changes
 
 Features and Enhancements
 -------------------------
+- Add ``aha.svc.list`` and ``aha.svc.stat`` commands to enumerate the AHA
+  services. Add ``$lib.aha`` Storm APIs to delete, get, and list the AHA
+  services.
+  (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
+- Add a ``protected`` option to that can be set on Views to prevent
+  merging and deletion. This replaces the ``nomerge`` option.
+  (`#3679 <https://github.com/vertexproject/synapse/pull/3679>`_)
+- Add Beholder events for creating, deleting, and updating Macros.
+  (`#3681 <https://github.com/vertexproject/synapse/pull/3681>`_)
 - Update the ``StormPkgTest.getTestCore()`` API to add a ``preppkghook``
   callback option. This can be used to execute code prior to loading Storm
   packages. The ``getTestCore()`` API now waits for ``onload`` handlers to
@@ -61,16 +84,27 @@ Bugfixes
 - Fix an issue where pruning a non-existent tag mistakenly pruned related
   tags.
   (`#3673 <https://github.com/vertexproject/synapse/pull/3673>`_)
+- Ensure that macro names are at least 1 character in length.
+  (`#3679 <https://github.com/vertexproject/synapse/pull/3679>`_)
+- Fix a bug where ``$lib.telepath.open()`` could leak Python exceptions into
+  the Storm runtime.
+  (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
 
 Improved Documentation
 ----------------------
-- TBD
+- Add documentation for ``$lib.aha``, ``$lib.aha.pool``, and the ``aha:pool``
+  type.
+  (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
 
 Deprecations
 ------------
 - Deprecate the use of ``hiveboot.yaml`` to configure a Cell hive. This will be
   removed on 2024-05-05.
   (`#3678 <https://github.com/vertexproject/synapse/pull/3678>`_)
+- The ``nomerge`` option on views has been deprecated. It is automatically
+  redirected to the ``protected`` option. This redirection will be removed in
+  ``v3.0.0``.
+  (`#3681 <https://github.com/vertexproject/synapse/pull/3681>`_)
 - The Telepath APIs for interacting with a Cell Hive, ``listHiveKey``,
   ``getHiveKeys``, ``getHiveKey``, ``setHiveKey``, ``popHiveKey``, and
   ``saveHiveTree`` have been deprecated. The tools ``synapse.tools.hive.load``
