@@ -6,6 +6,80 @@
 Synapse Changelog
 *****************
 
+v2.167.0 - 2024-04-18
+=====================
+
+Model Changes
+-------------
+- Updates to the ``base`` model.
+  (`#3674 <https://github.com/vertexproject/synapse/pull/3674>`_)
+
+  **Deprecated Types**
+
+  The following forms have been marked as deprecated:
+
+  ``edge``
+  ``timeedge``
+
+  **Deprecated Forms**
+
+  The following forms have been marked as deprecated:
+
+  ``graph:cluster``
+  ``graph:node``
+  ``graph:event``
+  ``edge:refs``
+  ``edge:has``
+  ``edge:wentto``
+  ``graph:edge``
+  ``graph:timeedge``
+
+Features and Enhancements
+-------------------------
+
+- Update the ``StormPkgTest.getTestCore()`` API to add a ``preppkghook``
+  callback option. This can be used to execute code prior to loading Storm
+  packages. The ``getTestCore()`` API now waits for ``onload`` handlers to
+  complete for each package it loads.
+  (`#3687 <https://github.com/vertexproject/synapse/pull/3687>`_)
+- Ensure that the ``Cell.ahaclient`` is fully owned and managed by the
+  ``Cell``. It will no longer use a global client that may exist.
+  (`#3677 <https://github.com/vertexproject/synapse/pull/3677>`_)
+- Update the ``stix2-validator`` library constraints to ``3.2.0,<4.0.0``.
+  Update the allowed range of the ``idna`` library  to ``>=3.6,<3.8``.
+  (`#3672 <https://github.com/vertexproject/synapse/pull/3672>`_)
+  (`#3684 <https://github.com/vertexproject/synapse/pull/3684>`_)
+
+Bugfixes
+--------
+- Asyncio Tasks created by signal handlers on the Base object are now held
+  onto, to ensure that they cannot be garbage collected before or during
+  their task execution.
+  (`#3686 <https://github.com/vertexproject/synapse/pull/3686>`_)
+- Update the ``Axon.postfiles`` and ``Axon.wput`` APIs to check for the
+  existence of files before making an attempting to send them over an
+  HTTP connection.
+  (`#3682 <https://github.com/vertexproject/synapse/pull/3682>`_)
+- Fix an issue where pruning a non-existent tag mistakenly pruned related
+  tags.
+  (`#3673 <https://github.com/vertexproject/synapse/pull/3673>`_)
+
+Improved Documentation
+----------------------
+- TBD
+
+Deprecations
+------------
+- Deprecate the use of ``hiveboot.yaml`` to configure a Cell hive. This will be
+  removed 2024-05-05.
+  (`#3678 <https://github.com/vertexproject/synapse/pull/3678>`_)
+- The Telepath APIs for interacting with a Cell Hive, ``listHiveKey``,
+  ``getHiveKeys``, ``getHiveKey``, ``setHiveKey``, ``popHiveKey``, and
+  ``saveHiveTree`` have been deprecated. The tools ``synapse.too.s.hive.load``
+  and ``synapse.tools.hive.save`` have been deprecated. These will be removed
+  in ``v3.0.0``.
+  (`#3683 <https://github.com/vertexproject/synapse/pull/3683>`_)
+
 v2.166.0 - 2024-04-05
 =====================
 
