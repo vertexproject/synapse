@@ -1050,6 +1050,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def getStormMacro(self, name, user=None):
 
+        if not name:
+            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
@@ -1140,6 +1143,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg(mesg=f'Duplicate macro name: {name}')
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        await self.feedBeholder('storm:macro:add', {'macro': mdef})
         return mdef
 
     async def delStormMacro(self, name, user=None):
@@ -1151,9 +1155,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:macro:del')
     async def _delStormMacro(self, name):
+        if not name:
+            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+
         byts = self.slab.pop(name.encode(), db=self.macrodb)
+
         if byts is not None:
-            return s_msgpack.un(byts)
+            macro = s_msgpack.un(byts)
+            await self.feedBeholder('storm:macro:del', {'name': name, 'iden': macro.get('iden')})
+            return macro
 
     async def modStormMacro(self, name, info, user=None):
         if user is not None:
@@ -1183,6 +1193,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
+        await self.feedBeholder('storm:macro:mod', {'macro': mdef, 'info': info})
         return mdef
 
     async def setStormMacroPerm(self, name, scope, iden, level, user=None):
@@ -1201,6 +1212,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         reqValidStormMacro(mdef)
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+
+        info = {
+            'scope': scope,
+            'iden': iden,
+            'level': level
+        }
+
+        await self.feedBeholder('storm:macro:set:perm', {'macro': mdef, 'info': info})
         return mdef
 
     async def getStormMacros(self, user=None):
