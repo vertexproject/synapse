@@ -500,6 +500,7 @@ class GenrMethod(Method):
 class Pipeline(s_base.Base):
 
     async def __anit__(self, proxy, genr, name=None):
+        s_common.deprecated('Telepath.Pipeline', curv='2.167.0')
 
         await s_base.Base.__anit__(self)
 
