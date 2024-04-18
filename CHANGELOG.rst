@@ -6,6 +6,115 @@
 Synapse Changelog
 *****************
 
+v2.167.0 - 2024-04-18
+=====================
+
+Automatic Migrations
+--------------------
+- Set the ``protected`` flag on all Views in the Cortex, using the existing
+  value of the ``nomerge`` flag.
+  (`#3681 <https://github.com/vertexproject/synapse/pull/3681>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Updates to the ``base`` and ``file`` models.
+  (`#3674 <https://github.com/vertexproject/synapse/pull/3674>`_)
+  (`#3688 <https://github.com/vertexproject/synapse/pull/3688>`_)
+
+  **Updated Types**
+
+  ``file:path``
+    Normalizing paths such as ``../.././..`` previously failed. This now
+    produces an empty path.
+
+  **Deprecated Types**
+
+  The following types have been marked as deprecated:
+
+  * ``edge``
+  * ``timeedge``
+
+  **Deprecated Forms**
+
+  The following forms have been marked as deprecated:
+
+  * ``graph:cluster``
+  * ``graph:node``
+  * ``graph:event``
+  * ``edge:refs``
+  * ``edge:has``
+  * ``edge:wentto``
+  * ``graph:edge``
+  * ``graph:timeedge``
+
+Features and Enhancements
+-------------------------
+- Add ``aha.svc.list`` and ``aha.svc.stat`` commands to enumerate the AHA
+  services. Add ``$lib.aha`` Storm APIs to delete, get, and list the AHA
+  services.
+  (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
+- Add a ``protected`` option that can be set on Views to prevent
+  merging and deletion. This replaces the ``nomerge`` option.
+  (`#3679 <https://github.com/vertexproject/synapse/pull/3679>`_)
+- Add Beholder events for creating, deleting, and updating Macros.
+  (`#3681 <https://github.com/vertexproject/synapse/pull/3681>`_)
+- Update the ``StormPkgTest.getTestCore()`` API to add a ``prepkghook``
+  callback option. This can be used to execute code prior to loading Storm
+  packages. The ``getTestCore()`` API now waits for ``onload`` handlers to
+  complete for each package it loads.
+  (`#3687 <https://github.com/vertexproject/synapse/pull/3687>`_)
+- Ensure that the ``Cell.ahaclient`` is fully owned and managed by the
+  ``Cell``. It will no longer use a global client that may exist.
+  (`#3677 <https://github.com/vertexproject/synapse/pull/3677>`_)
+- Update the ``stix2-validator`` library constraints to ``>=3.2.0,<4.0.0``.
+  Update the allowed range of the ``idna`` library  to ``>=3.6,<3.8``.
+  (`#3672 <https://github.com/vertexproject/synapse/pull/3672>`_)
+  (`#3684 <https://github.com/vertexproject/synapse/pull/3684>`_)
+
+Bugfixes
+--------
+- Asyncio Tasks created by signal handlers on the Base object are now held
+  onto, to ensure that they cannot be garbage collected before or during
+  their task execution.
+  (`#3686 <https://github.com/vertexproject/synapse/pull/3686>`_)
+- Update the ``Axon.postfiles`` and ``Axon.wput`` APIs to check for the
+  existence of files before attempting to send them over an HTTP connection.
+  (`#3682 <https://github.com/vertexproject/synapse/pull/3682>`_)
+- Fix an issue where pruning a non-existent tag mistakenly pruned related
+  tags.
+  (`#3673 <https://github.com/vertexproject/synapse/pull/3673>`_)
+- Ensure that macro names are at least 1 character in length.
+  (`#3679 <https://github.com/vertexproject/synapse/pull/3679>`_)
+- Fix a bug where ``$lib.telepath.open()`` could leak Python exceptions into
+  the Storm runtime.
+  (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for ``$lib.aha``, ``$lib.aha.pool``, and the ``aha:pool``
+  type.
+  (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
+
+Deprecations
+------------
+- Deprecate the use of ``hiveboot.yaml`` to configure a Cell hive. This will be
+  removed on 2024-05-05.
+  (`#3678 <https://github.com/vertexproject/synapse/pull/3678>`_)
+- The ``nomerge`` option on views has been deprecated. It is automatically
+  redirected to the ``protected`` option. This redirection will be removed in
+  ``v3.0.0``.
+  (`#3681 <https://github.com/vertexproject/synapse/pull/3681>`_)
+- The Telepath APIs for interacting with a Cell Hive, ``listHiveKey``,
+  ``getHiveKeys``, ``getHiveKey``, ``setHiveKey``, ``popHiveKey``, and
+  ``saveHiveTree`` have been deprecated. The tools ``synapse.tools.hive.load``
+  and ``synapse.tools.hive.save`` have been deprecated. These will be removed
+  in ``v3.0.0``.
+  (`#3683 <https://github.com/vertexproject/synapse/pull/3683>`_)
+- The ``Telepath.Pipeline`` class has been marked as deprecated and will be
+  removed in ``v3.0.0``.
+  (`#3691 <https://github.com/vertexproject/synapse/pull/3691>`_)
+
 v2.166.0 - 2024-04-05
 =====================
 
