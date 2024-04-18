@@ -6,6 +6,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
@@ -1145,8 +1146,6 @@ class AhaTest(s_test.SynTest):
     async def test_aha_service_pools(self):
 
         async with self.getTestAhaProv() as aha:
-
-            import synapse.cortex as s_cortex
 
             async with await s_base.Base.anit() as base:
 

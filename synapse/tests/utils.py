@@ -1444,7 +1444,7 @@ class SynTest(unittest.TestCase):
         Get an Aha cell that is configured for provisioning on aha.loop.vertex.link.
 
         Args:
-            conf: Optional configuraiton information for the Aha cell.
+            conf: Optional configuration information for the Aha cell.
             dirn: Optional path to create the Aha cell in.
 
         Returns:
