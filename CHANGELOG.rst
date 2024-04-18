@@ -56,8 +56,7 @@ Bugfixes
   their task execution.
   (`#3686 <https://github.com/vertexproject/synapse/pull/3686>`_)
 - Update the ``Axon.postfiles`` and ``Axon.wput`` APIs to check for the
-  existence of files before making an attempting to send them over an
-  HTTP connection.
+  existence of files before attempting to send them over an HTTP connection.
   (`#3682 <https://github.com/vertexproject/synapse/pull/3682>`_)
 - Fix an issue where pruning a non-existent tag mistakenly pruned related
   tags.
@@ -70,11 +69,11 @@ Improved Documentation
 Deprecations
 ------------
 - Deprecate the use of ``hiveboot.yaml`` to configure a Cell hive. This will be
-  removed 2024-05-05.
+  removed on 2024-05-05.
   (`#3678 <https://github.com/vertexproject/synapse/pull/3678>`_)
 - The Telepath APIs for interacting with a Cell Hive, ``listHiveKey``,
   ``getHiveKeys``, ``getHiveKey``, ``setHiveKey``, ``popHiveKey``, and
-  ``saveHiveTree`` have been deprecated. The tools ``synapse.tool.s.hive.load``
+  ``saveHiveTree`` have been deprecated. The tools ``synapse.tools.hive.load``
   and ``synapse.tools.hive.save`` have been deprecated. These will be removed
   in ``v3.0.0``.
   (`#3683 <https://github.com/vertexproject/synapse/pull/3683>`_)
