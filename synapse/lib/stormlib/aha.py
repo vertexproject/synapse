@@ -32,7 +32,7 @@ class AhaLib(s_stormtypes.Lib):
 
                 $lib.aha.get(00.cortex...)
 
-            Getting service information with its a full name::
+            Getting service information with its full name::
 
                 $lib.aha.get(00.cortex.loop.vertex.link)
         ''',
@@ -102,27 +102,27 @@ class AhaPoolLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methPoolAdd',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc': 'The name of the pool to add. It is easiest to use the relative name of a service, ending with "...".', },
+                       'desc': 'The name of the pool to add. It is easiest to use the relative name of a pool, ending with "...".', },
                   ),
                   'returns': {'type': 'aha:pool'}}},
         {'name': 'del', 'desc': '''Delete an existing AHA service pool.
 
         Examples:
-            Delete a  pool via its relative name::
+            Delete a pool via its relative name::
 
                 $lib.aha.pool.del(pool00.cortex...)
         ''',
          'type': {'type': 'function', '_funcname': '_methPoolDel',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc': 'The name of the pool to delete. It is easiest to use the relative name of a service, ending with "...".', },
+                       'desc': 'The name of the pool to delete. It is easiest to use the relative name of a pool, ending with "...".', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'The AHA pool definition that was deleted.'}}},
         {'name': 'get', 'desc': 'Get an existing AHA service pool.',
          'type': {'type': 'function', '_funcname': '_methPoolGet',
                   'args': (
                       {'name': 'name', 'type': 'str',
-                       'desc': 'The name of the pool to get. It is easiest to use the relative name of a service, ending with "...".', },
+                       'desc': 'The name of the pool to get. It is easiest to use the relative name of a pool, ending with "...".', },
                   ),
                   'returns': {'type': ['null', 'aha:pool'], 'desc': 'The pool if it exists, or $lib.null.'}}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA service pools.',
