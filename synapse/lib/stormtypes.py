@@ -7388,7 +7388,11 @@ class View(Prim):
                     The parent View iden.
 
                 nomerge (bool)
-                    Setting to $lib.true will prevent the layer from being merged.
+                    Deprecated - use protected. Updates to this option will be redirected to
+                    the protected option (below) until this option is removed.
+
+                protected (bool)
+                    Setting to $lib.true will prevent the layer from being merged or deleted.
 
                 layers (list(str))
                     Set the list of layer idens for a non-forked view. Layers are specified
@@ -7787,6 +7791,8 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
+        if name == 'nomerge':
+            name = 'protected'
         return self.valu.get(name, defv)
 
     def _reqView(self):
@@ -7813,6 +7819,10 @@ class View(Prim):
             valu = await toprim(valu)
 
         elif name == 'nomerge':
+            name = 'protected'
+            valu = await tobool(valu)
+
+        elif name == 'protected':
             valu = await tobool(valu)
 
         elif name == 'layers':
