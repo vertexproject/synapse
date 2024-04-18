@@ -1016,6 +1016,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (2, self._storLayrFeedDefaults),
         ), nexs=False)
 
+    async def _viewNomergeToProtected(self):
+        for view in self.views.values():
+            nomerge = view.info.get('nomerge', False)
+            await view.setViewInfo('protected', nomerge)
+            await view.setViewInfo('nomerge', None)
+
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
 
@@ -1419,6 +1425,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
+            (2, self._viewNomergeToProtected),
         ))
 
     async def _addAllLayrRead(self):
@@ -4476,6 +4483,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
+
+        if view.info.get('protected'):
+            mesg = f'Cannot delete view ({iden}) that has protected set.'
+            raise s_exc.CantDelView(mesg=mesg)
 
         return await self._push('view:del', iden)
 
