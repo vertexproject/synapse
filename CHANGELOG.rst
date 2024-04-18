@@ -78,6 +78,9 @@ Deprecations
   and ``synapse.tools.hive.save`` have been deprecated. These will be removed
   in ``v3.0.0``.
   (`#3683 <https://github.com/vertexproject/synapse/pull/3683>`_)
+- The ``Telepath.Pipeline`` class has been marked as deprecated and will be
+  removed in ``v3.0.0``.
+  (`#3691 <https://github.com/vertexproject/synapse/pull/3691>`_)
 
 v2.166.0 - 2024-04-05
 =====================
