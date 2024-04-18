@@ -445,7 +445,7 @@ The ready column indicates that a service has entered into the realtime change w
             $lib.print('No AHA services registered.')
         }
         else {
-            $columns = 'Name                           Leader Online Ready Host            Port '
+            $columns = 'Name                                          Leader Online Ready Host            Port '
             if $cmdopts.nexus {
                 $columns = `{$columns} Nexus`
             }
@@ -474,7 +474,7 @@ The ready column indicates that a service has entered into the realtime change w
                         $nexusOffset = 'Service is not online. Will not attempt to retrieve its nexus offset.'
                     }
                 }
-                $name=$name.ljust(30)
+                $name=$name.ljust(45)
 
                 $online = false
                 if $svcinfo.online {
