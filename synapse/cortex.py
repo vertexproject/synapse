@@ -127,8 +127,6 @@ reqValidStormMacro = s_config.getJsValidator({
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,491}$'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        # user kept for backward compat. remove eventually...
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'desc': {'type': 'string', 'default': ''},
         'storm': {'type': 'string'},
@@ -139,7 +137,6 @@ reqValidStormMacro = s_config.getJsValidator({
     'required': [
         'name',
         'iden',
-        'user',
         'storm',
         'creator',
         'created',
@@ -1041,7 +1038,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         useriden = mdef.get('user', user.iden)
 
-        mdef['user'] = useriden
         mdef['creator'] = useriden
 
         mdef.setdefault('storm', '')
