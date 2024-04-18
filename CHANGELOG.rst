@@ -59,7 +59,7 @@ Features and Enhancements
   (`#3679 <https://github.com/vertexproject/synapse/pull/3679>`_)
 - Add Beholder events for creating, deleting, and updating Macros.
   (`#3681 <https://github.com/vertexproject/synapse/pull/3681>`_)
-- Update the ``StormPkgTest.getTestCore()`` API to add a ``preppkghook``
+- Update the ``StormPkgTest.getTestCore()`` API to add a ``prepkghook``
   callback option. This can be used to execute code prior to loading Storm
   packages. The ``getTestCore()`` API now waits for ``onload`` handlers to
   complete for each package it loads.

@@ -2353,12 +2353,12 @@ class StormPkgTest(SynTest):
     pkgprotos = ()
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, conf=None, dirn=None, preppkghook=None):
+    async def getTestCore(self, conf=None, dirn=None, prepkghook=None):
 
         async with SynTest.getTestCore(self, conf=None, dirn=None) as core:
 
-            if preppkghook is not None:
-                await preppkghook(core)
+            if prepkghook is not None:
+                await prepkghook(core)
 
             for pkgproto in self.pkgprotos:
 
