@@ -55,6 +55,7 @@ Features and Enhancements
   services.
   (`#3685 <https://github.com/vertexproject/synapse/pull/3685>`_)
   (`#3692 <https://github.com/vertexproject/synapse/pull/3692>`_)
+  (`#3693 <https://github.com/vertexproject/synapse/pull/3693>`_)
 - Add a ``protected`` option that can be set on Views to prevent
   merging and deletion. This replaces the ``nomerge`` option.
   (`#3679 <https://github.com/vertexproject/synapse/pull/3679>`_)
