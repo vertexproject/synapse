@@ -247,6 +247,9 @@ class FileTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, base.norm, 'foo/bar.exe')
             self.raises(s_exc.BadTypeValu, base.norm, '/haha')
 
+            norm, info = path.norm('../.././..')
+            self.eq(norm, '')
+
             norm, info = path.norm('c:\\Windows\\System32\\calc.exe')
 
             self.eq(norm, 'c:/windows/system32/calc.exe')

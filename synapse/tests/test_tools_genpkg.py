@@ -258,14 +258,14 @@ class TestStormPkgTest(s_test.StormPkgTest):
         async def hook(core):
             await core.callStorm('$lib.globals.set(inlinehook, haha)')
 
-        async with self.getTestCore(preppkghook=hook) as core:
+        async with self.getTestCore(prepkghook=hook) as core:
             msgs = await core.stormlist('testpkgcmd foo')
             self.stormHasNoWarnErr(msgs)
             self.eq('haha', await core.callStorm('return($lib.globals.get(inlinehook))'))
             self.eq('frob', await core.callStorm('return($lib.globals.get(inittestcore))'))
 
         # bound method example
-        async with self.getTestCore(preppkghook=self.stormpkg_preppkghook) as core:
+        async with self.getTestCore(prepkghook=self.stormpkg_preppkghook) as core:
             msgs = await core.stormlist('testpkgcmd foo')
             self.stormHasNoWarnErr(msgs)
             self.eq('boundmethod', await core.callStorm('return($lib.globals.get(stormpkg_preppkghook))'))

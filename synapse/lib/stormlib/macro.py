@@ -34,7 +34,7 @@ stormcmds = [
         'name': 'macro.del',
         'descr': macro_del_descr,
         'cmdargs': (
-            ('name', {'help': 'The name of the macro to delete.'}),
+            ('name', {'type': 'str', 'help': 'The name of the macro to delete.'}),
         ),
         'storm': '''
             $lib.macro.del($cmdopts.name)
@@ -45,7 +45,7 @@ stormcmds = [
         'name': 'macro.set',
         'descr': macro_set_descr,
         'cmdargs': (
-            ('name', {'help': 'The name of the macro to set.'}),
+            ('name', {'type': 'str', 'help': 'The name of the macro to set.'}),
             ('storm', {'help': 'The storm command string or embedded query to set.'}),
         ),
         'storm': '''
@@ -57,7 +57,7 @@ stormcmds = [
         'name': 'macro.get',
         'descr': macro_get_descr,
         'cmdargs': (
-            ('name', {'help': 'The name of the macro to display.'}),
+            ('name', {'type': 'str', 'help': 'The name of the macro to display.'}),
         ),
         'storm': '''
             $mdef = $lib.macro.get($cmdopts.name)
@@ -191,26 +191,16 @@ class LibMacro(s_stormtypes.Lib):
     async def _funcMacroGet(self, name):
         name = await s_stormtypes.tostr(name)
 
-        if len(name) > 491:
-            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
-
         return self.runt.snap.core.getStormMacro(name, user=self.runt.user)
 
     async def _funcMacroDel(self, name):
-
         name = await s_stormtypes.tostr(name)
-
-        if len(name) > 491:
-            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
         return await self.runt.snap.core.delStormMacro(name, user=self.runt.user)
 
     async def _funcMacroSet(self, name, storm):
         name = await s_stormtypes.tostr(name)
         storm = await s_stormtypes.tostr(storm)
-
-        if len(name) > 491:
-            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
         await self.runt.getStormQuery(storm)
 
@@ -225,9 +215,6 @@ class LibMacro(s_stormtypes.Lib):
 
         name = await s_stormtypes.tostr(name)
         info = await s_stormtypes.toprim(info)
-
-        if len(name) > 491:
-            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
         if not isinstance(info, dict):
             raise s_exc.BadArg(mesg='Macro info must be a dictionary object.')

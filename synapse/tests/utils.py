@@ -1391,7 +1391,7 @@ class SynTest(unittest.TestCase):
         Get an Aha cell that is configured for provisioning on aha.loop.vertex.link.
 
         Args:
-            conf: Optional configuraiton information for the Aha cell.
+            conf: Optional configuration information for the Aha cell.
             dirn: Optional path to create the Aha cell in.
 
         Returns:
@@ -2300,12 +2300,12 @@ class StormPkgTest(SynTest):
     pkgprotos = ()
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, conf=None, dirn=None, preppkghook=None):
+    async def getTestCore(self, conf=None, dirn=None, prepkghook=None):
 
         async with SynTest.getTestCore(self, conf=None, dirn=None) as core:
 
-            if preppkghook is not None:
-                await preppkghook(core)
+            if prepkghook is not None:
+                await prepkghook(core)
 
             for pkgproto in self.pkgprotos:
 

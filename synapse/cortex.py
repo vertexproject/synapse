@@ -935,6 +935,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (2, self._storLayrFeedDefaults),
         ), nexs=False)
 
+    async def _viewNomergeToProtected(self):
+        for view in self.views.values():
+            nomerge = view.info.get('nomerge', False)
+            await view.setViewInfo('protected', nomerge)
+            await view.setViewInfo('nomerge', None)
+
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
 
@@ -968,6 +974,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 logger.exception(f'Macro migration error for macro: {name} (skipped).')
 
     def getStormMacro(self, name, user=None):
+
+        if not name:
+            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
 
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
@@ -1056,6 +1065,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg(mesg=f'Duplicate macro name: {name}')
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        await self.feedBeholder('storm:macro:add', {'macro': mdef})
         return mdef
 
     async def delStormMacro(self, name, user=None):
@@ -1067,9 +1077,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:macro:del')
     async def _delStormMacro(self, name):
+        if not name:
+            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+
         byts = self.slab.pop(name.encode(), db=self.macrodb)
+
         if byts is not None:
-            return s_msgpack.un(byts)
+            macro = s_msgpack.un(byts)
+            await self.feedBeholder('storm:macro:del', {'name': name, 'iden': macro.get('iden')})
+            return macro
 
     async def modStormMacro(self, name, info, user=None):
         if user is not None:
@@ -1099,6 +1115,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
+        await self.feedBeholder('storm:macro:mod', {'macro': mdef, 'info': info})
         return mdef
 
     async def setStormMacroPerm(self, name, scope, iden, level, user=None):
@@ -1117,6 +1134,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         reqValidStormMacro(mdef)
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+
+        info = {
+            'scope': scope,
+            'iden': iden,
+            'level': level
+        }
+
+        await self.feedBeholder('storm:macro:set:perm', {'macro': mdef, 'info': info})
         return mdef
 
     async def getStormMacros(self, user=None):
@@ -1316,6 +1341,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
+            (2, self._viewNomergeToProtected),
         ))
 
     async def _addAllLayrRead(self):
@@ -4122,6 +4148,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
+
+        if view.info.get('protected'):
+            mesg = f'Cannot delete view ({iden}) that has protected set.'
+            raise s_exc.CantDelView(mesg=mesg)
 
         return await self._push('view:del', iden)
 
