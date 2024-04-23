@@ -692,3 +692,113 @@ class LibModelDeprecated(s_stormtypes.Lib):
         todo = s_common.todo('setDeprLock', name, locked)
         gatekeys = ((self.runt.user.iden, ('model', 'deprecated', 'lock'), None),)
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations(s_stormtypes.Lib):
+    '''
+    A Storm library for selectively migrating nodes.
+    '''
+    _storm_locals = (
+        {'name': 'riskHasVuln',
+         'desc': 'Returns a list of risk:vulnerable nodes created from the provided risk:hasvuln node.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of risk:vulnerable nodes.'}}},
+    )
+    _storm_lib_path = ('model', 'migrations')
+
+    _storm_query = '''
+        function __copyTags(src, dst) {
+            $srcdata = $src.pack().1
+
+            yield $dst
+
+            { for ($tag, $valu) in $srcdata.tags {
+                [ +#$tag=$valu ]
+            }}
+
+            { for ($tag, $tagprops) in $srcdata.tagprops {
+                for ($tagprop, $valu) in $tagprops {
+                    [ +#$tag:$tagprop=$valu ]
+                }
+            }}
+
+            return()
+        }
+
+        function __copyEdges(src, dst) {
+            yield $dst
+
+            { for ($verb, $iden) in $src.edges() {
+                [ +($verb)> { yield $iden } ]
+            }}
+
+            { for ($verb, $iden) in $src.edges(reverse=$lib.true) {
+                [ <($verb)+ { yield $iden } ]
+            }}
+
+            return()
+        }
+
+        function __copyNodeData(src, dst) {
+            for ($k, $v) in $src.data.list() {
+                if $dst.data.has($k) { continue }
+                $dst.data.set($k, $v)
+            }
+            return()
+        }
+
+        function riskHasVuln(n) {
+
+            if (not $n.isform(risk:hasvuln)) {
+                $lib.raise(BadArg, `riskHasVuln() only accepts risk:hasvuln nodes, not {$n.form()}.`)
+            }
+
+            $ret = ([])
+            $links = ({})
+
+            $vuln = $n.props.vuln
+            if (not $vuln) { return() }
+
+            for $prop in (hardware, host, item, org, person, place, software, spec) {
+                $valu = $n.props.$prop
+                if $valu { $links.$prop = $valu }
+            }
+
+            $linkcnt = $lib.dict.keys($links).size()
+            if ($linkcnt = 0) { return() }
+
+            if ($linkcnt = 1) {
+                $guid = $n.value()
+            } else {
+                $guid = $lib.null
+            }
+
+            $model = $lib.model.form(risk:hasvuln)
+
+            for ($prop, $valu) in $links {
+
+                $pguid = $guid
+                if ($pguid = $lib.null) {
+                    $pguid = $lib.guid($n.value(), $prop)
+                }
+
+                [ risk:vulnerable=$pguid
+                    :vuln=$vuln
+                    :node=($model.prop($prop).type.name, $valu)
+                    .seen?=$n.props.".seen"
+                ]
+
+                $__copyTags($n, $node)
+                $__copyEdges($n, $node)
+                $__copyNodeData($n, $node)
+
+                $ret.append($node)
+
+            }
+
+            fini { return($ret) }
+        }
+    '''
