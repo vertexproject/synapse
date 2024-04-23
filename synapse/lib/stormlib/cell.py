@@ -64,6 +64,14 @@ for $view in $views {
 }
 '''
 
+storm_migrate_riskhasvuln = '''
+for $view in $lib.view.list(deporder=$lib.true) {
+    view.exec $view.iden {
+        risk:hasvuln
+        $lib.model.migrations.riskHasVuln($node)
+    }
+}
+'''
 
 hotfixes = (
     ((1, 0, 0), {
@@ -77,6 +85,10 @@ hotfixes = (
     ((3, 0, 0), {
         'desc': 'Populate it:sec:cpe:v2_2 properties from existing CPE where the property is not set.',
         'query': storm_missing_cpe22,
+    }),
+    ((4, 0, 0), {
+        'desc': 'Create risk:vulnerable nodes from existing risk:hasvuln nodes.',
+        'query': storm_migrate_riskhasvuln,
     }),
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'

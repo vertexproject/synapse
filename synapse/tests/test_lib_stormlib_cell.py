@@ -312,3 +312,41 @@ class StormCellTest(s_test.SynTest):
             self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
             self.len(2, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
             self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))
+
+    async def test_stormfix_riskhasvuln(self):
+
+        async with self.getTestCore() as core:
+
+            view0 = core.getView().iden
+            view1 = await core.callStorm('return ( $lib.view.get().fork().iden )')
+            view2 = await core.callStorm('return($lib.view.add(($lib.layer.add().iden,)).iden)')
+
+            self.len(1, await core.nodes('''
+                [ risk:hasvuln=*
+                    :vuln={[ risk:vuln=* ]}
+                    :software={[ it:prod:softver=* :name=view0 ]}
+                ]
+            ''', opts={'view': view0}))
+
+            self.len(1, await core.nodes('''
+                risk:hasvuln
+                [ :software={[ it:prod:softver=* :name=view1 ]} ]
+            ''', opts={'view': view1}))
+
+            self.len(1, await core.nodes('''
+                [ risk:hasvuln=*
+                    :vuln={[ risk:vuln=* ]}
+                    :host={[ it:host=* :name=view2 ]}
+                ]
+            ''', opts={'view': view2}))
+
+            opts = {'vars': {'key': s_stormlib_cell.runtime_fixes_key, 'valu': (3, 0, 0)}}
+            await core.callStorm('$lib.globals.set($key, $valu)', opts)
+
+            msgs = await core.stormlist('$lib.cell.hotFixesApply()')
+            self.stormIsInPrint('Applying hotfix (4, 0, 0) for [Create risk:vulnerable nodes', msgs)
+            self.stormIsInPrint('Applied hotfix (4, 0, 0)', msgs)
+
+            self.len(1, await core.nodes('risk:vulnerable -> it:prod:softver +:name=view0', opts={'view': view0}))
+            self.len(1, await core.nodes('risk:vulnerable -> it:prod:softver +:name=view1', opts={'view': view1}))
+            self.len(1, await core.nodes('risk:vulnerable -> it:host', opts={'view': view2}))
