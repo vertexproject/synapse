@@ -1480,12 +1480,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
         await self.agenda.clearRunningStatus()
 
-        for view in self.views.values():
-            await view.initTrigTask()
-            await view.initMergeTask()
+        async def _runMigrations():
+            # Run migrations when this cortex becomes active. This is to prevent
+            # migrations getting skipped in a zero-downtime upgrade path
+            # (upgrade mirror, promote mirror).
+            await self._checkLayerModels()
 
-        for layer in self.layers.values():
-            await layer.initLayerActive()
+            # Once migrations are complete, start the view and layer tasks.
+            for view in self.views.values():
+                await view.initTrigTask()
+                await view.initMergeTask()
+
+            for layer in self.layers.values():
+                await layer.initLayerActive()
+
+        self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
 
