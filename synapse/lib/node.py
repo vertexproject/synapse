@@ -331,8 +331,7 @@ class Node:
         if not edits:
             return False
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
-        self.props.pop(name, None)
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
         return True
 
     def repr(self, name=None, defv=None):
@@ -473,10 +472,12 @@ class Node:
                                    form=self.form.full, tag=tag)
 
         pref = name + '.'
+        exists = self.tags.get(name, s_common.novalu) is not s_common.novalu
 
         todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
 
-        if len(path) > 1:
+        # only prune when we're actually deleting a tag
+        if len(path) > 1 and exists:
 
             parent = '.'.join(path[:-1])
 
@@ -512,7 +513,7 @@ class Node:
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
 
         edits.extend(self._getTagPropDel(name))
-        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+        if exists:
             edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         return edits
@@ -524,7 +525,7 @@ class Node:
         edits = await self._getTagDelEdits(tag, init=init)
         if edits:
             nodeedit = (self.buid, self.form.name, edits)
-            await self.snap.applyNodeEdit(nodeedit)
+            await self.snap.applyNodeEdit(nodeedit, nodecache={self.buid: self})
 
     def _getTagPropDel(self, tag):
 
@@ -585,7 +586,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
         )
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
 
     async def delete(self, force=False):
         '''

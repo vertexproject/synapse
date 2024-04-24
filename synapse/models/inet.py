@@ -1304,8 +1304,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                        'doc': 'An SSL certificate file served by a server.',
-                        'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:tls:servercert or inet:tls:clientcert',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -1489,6 +1489,24 @@ class InetModule(s_module.CoreModule):
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
                         'doc': 'A JARM hash sample taken from a server.'}),
 
+                    ('inet:tls:handshake', ('guid', {}), {
+                        'doc': 'An instance of a TLS handshake between a server and client.'}),
+
+                    ('inet:tls:ja3s:sample', ('comp', {'fields': (('server', 'inet:server'), ('ja3s', 'hash:md5'))}), {
+                        'doc': 'A JA3 sample taken from a server.'}),
+
+                    ('inet:tls:ja3:sample', ('comp', {'fields': (('client', 'inet:client'), ('ja3', 'hash:md5'))}), {
+                        'doc': 'A JA3 sample taken from a client.'}),
+
+                    ('inet:tls:servercert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An x509 certificate sent by a server for TLS.',
+                        'ex': '(1.2.3.4:443, c7437790af01ae1bb2f8f3b684c70bf8)',
+                    }),
+
+                    ('inet:tls:clientcert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An x509 certificate sent by a client for TLS.',
+                        'ex': '(1.2.3.4:443, 3fdf364e081c14997b291852d1f23868)',
+                    }),
                 ),
 
                 'interfaces': (
@@ -1559,6 +1577,18 @@ class InetModule(s_module.CoreModule):
 
                         ('headers', ('array', {'type': 'inet:email:header'}), {
                             'doc': 'An array of email headers from the message.'}),
+
+                        ('received:from:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The sending SMTP server IPv4, potentially from the Received: header.'}),
+
+                        ('received:from:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The sending SMTP server IPv6, potentially from the Received: header.'}),
+
+                        ('received:from:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The sending server FQDN, potentially from the Received: header.'}),
+
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The inet:flow which delivered the message.'}),
 
                     )),
 
@@ -3222,6 +3252,60 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The server that was sampled to compute the JARM hash.'}),
                     )),
 
+                    ('inet:tls:handshake', {}, (
+                        ('time', ('time', {}), {
+                            'doc': 'The time the handshake was initiated.'}),
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The raw inet:flow associated with the handshake.'}),
+                        ('server', ('inet:server', {}), {
+                            'doc': 'The TLS server during the handshake.'}),
+                        ('server:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the server during the handshake.'}),
+                        ('server:fingerprint:ja3', ('hash:md5', {}), {
+                            'doc': 'The JA3S finger of the server.'}),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The TLS client during the handshake.'}),
+                        ('client:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the client during the handshake.'}),
+                        ('client:fingerprint:ja3', ('hash:md5', {}), {
+                            'doc': 'The JA3 fingerprint of the client.'}),
+                    )),
+
+                    ('inet:tls:ja3s:sample', {}, (
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server that was sampled to produce the JA3S hash.'}),
+                        ('ja3s', ('hash:md5', {}), {
+                            'ro': True,
+                            'doc': "The JA3S hash computed from the server's TLS hello packet."})
+                    )),
+
+                    ('inet:tls:ja3:sample', {}, (
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client that was sampled to produce the JA3 hash.'}),
+                        ('ja3', ('hash:md5', {}), {
+                            'ro': True,
+                            'doc': "The JA3 hash computed from the client's TLS hello packet."})
+                    )),
+
+                    ('inet:tls:servercert', {}, (
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server associated with the x509 certificate.'}),
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The x509 certificate sent by the server.'})
+                    )),
+
+                    ('inet:tls:clientcert', {}, (
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client associated with the x509 certificate.'}),
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The x509 certificate sent by the client.'})
+                    )),
                 ),
             }),
         )

@@ -7,10 +7,13 @@ import signal
 import socket
 import asyncio
 import tarfile
+import warnings
 import collections
 import multiprocessing
 
 from unittest import mock
+
+import cryptography.x509 as c_x509
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
@@ -23,6 +26,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -33,9 +37,6 @@ import synapse.lib.crypto.passwd as s_passwd
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
-
-from OpenSSL import crypto
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -509,8 +510,11 @@ class CellTest(s_t_utils.SynTest):
 
             s_common.yamlsave(tree, bootpath)
 
-            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
-                self.eq('haha', await cell.hive.get(('hehe',)))
+            with warnings.catch_warnings(record=True) as warns:
+                async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                    self.eq('haha', await cell.hive.get(('hehe',)))
+
+                self.isin('Initial hive config from hiveboot.yaml', str(warns[0].message))
 
             # test that the file does not load again
             tree['kids']['redballoons'] = {'value': 99}
@@ -558,6 +562,9 @@ class CellTest(s_t_utils.SynTest):
                 self.false(cnfo.get('uplink'))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
+
+                # Defaults aha data is
+                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
 
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)
@@ -743,7 +750,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await prox.cullNexsLog(offs))
 
                     # last entry in nexus log is cull
-                    retn = await alist(cell.nexsroot.nexslog.iter(0))
+                    retn = await s_t_utils.alist(cell.nexsroot.nexslog.iter(0))
                     self.len(1, retn)
                     self.eq(ind, retn[0][0])
                     self.eq('nexslog:cull', retn[0][1][1])
@@ -880,7 +887,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'celluptime', 'cellrealdisk',
@@ -891,7 +898,7 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(conf=conf, dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
                     info = await proxy.getSystemInfo()
-                    for prop in ('osversion', 'pyversion'):
+                    for prop in ('osversion', 'pyversion', 'sysctls', 'tmpdir'):
                         self.nn(info.get(prop))
 
                     for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
@@ -2086,15 +2093,23 @@ class CellTest(s_t_utils.SynTest):
             return _ntuple_diskusage(100, 96, 4)
 
         revt = asyncio.Event()
-        orig = s_cortex.Cortex._setReadOnly
-        async def wrapReadOnly(self, valu, reason=None):
-            await orig(self, valu, reason=reason)
+        addWriteHold = s_nexus.NexsRoot.addWriteHold
+        delWriteHold = s_nexus.NexsRoot.delWriteHold
+        async def wrapAddWriteHold(root, reason):
+            retn = await addWriteHold(root, reason)
             revt.set()
+            return retn
+
+        async def wrapDelWriteHold(root, reason):
+            retn = await delWriteHold(root, reason)
+            revt.set()
+            return retn
 
         errmsg = 'Insufficient free space on disk.'
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
-             mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
+             mock.patch.object(s_nexus.NexsRoot, 'addWriteHold', wrapAddWriteHold), \
+             mock.patch.object(s_nexus.NexsRoot, 'delWriteHold', wrapDelWriteHold):
 
             async with self.getTestCore() as core:
 
@@ -2106,8 +2121,7 @@ class CellTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
                     self.stormIsInErr(errmsg, msgs)
 
-                    revt.clear()
-
+                revt.clear()
                 self.true(await asyncio.wait_for(revt.wait(), 1))
 
                 self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
@@ -2148,6 +2162,7 @@ class CellTest(s_t_utils.SynTest):
                             self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
                             revt.clear()
 
+                        revt.clear()
                         self.true(await asyncio.wait_for(revt.wait(), 1))
                         await core01.sync()
 
@@ -2192,10 +2207,17 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.nexsroot.setReadOnly(True)
+            await core.nexsroot.addWriteHold('LOLWRITE TESTING')
 
             msgs = await core.stormlist('[inet:fqdn=newp.fail]')
-            self.stormIsInErr('Unable to issue Nexus events when readonly is set.', msgs)
+
+            self.stormIsInErr('LOLWRITE TESTING', msgs)
+
+            await core.nexsroot.delWriteHold('LOLWRITE TESTING')
+
+            core.nexsroot.readonly = True
+            with self.raises(s_exc.IsReadOnly):
+                core.nexsroot.reqNotReadOnly()
 
     async def test_cell_onboot_optimize(self):
 
@@ -2353,8 +2375,9 @@ class CellTest(s_t_utils.SynTest):
                     return ssl.DER_cert_to_PEM_cert(der_cert)
 
                 original_cert = await s_coro.executor(get_pem_cert)
-                ocert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
-                self.eq(ocert.get_subject().CN, 'reloadcell')
+                ocert = c_x509.load_pem_x509_certificate(original_cert.encode())
+                cname = ocert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                self.eq(cname, 'reloadcell')
 
                 # Start a beholder session that runs over TLS
 
@@ -2399,8 +2422,9 @@ class CellTest(s_t_utils.SynTest):
                         await cell.reload()
 
                         reloaded_cert = await s_coro.executor(get_pem_cert)
-                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)
-                        self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
+                        rcert = c_x509.load_pem_x509_certificate(reloaded_cert.encode())
+                        rname = rcert.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+                        self.eq(rname, 'SomeTestCertificate')
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                             resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')

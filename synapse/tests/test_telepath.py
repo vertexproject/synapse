@@ -8,7 +8,7 @@ import threading
 
 from unittest import mock
 
-logger = logging.getLogger(__name__)
+import cryptography.hazmat.primitives.hashes as c_hashes
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -21,11 +21,11 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
-import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
+
+logger = logging.getLogger(__name__)
 
 class Boom:
     pass
@@ -248,7 +248,7 @@ class TeleTest(s_t_utils.SynTest):
             # check an async generator return channel
             genr = prox.corogenr(3)
             self.true(isinstance(genr, s_telepath.GenrIter))
-            self.eq((0, 1, 2), await alist(genr))
+            self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
             # check async generator explodes channel
             genr = prox.agenrboom()
@@ -343,11 +343,11 @@ class TeleTest(s_t_utils.SynTest):
 
                 # check a generator return channel
                 genr = await prox.genr()
-                self.eq((10, 20, 30), await alist(genr))
+                self.eq((10, 20, 30), await s_t_utils.alist(genr))
 
                 # check an async generator return channel
                 genr = prox.corogenr(3)
-                self.eq((0, 1, 2), await alist(genr))
+                self.eq((0, 1, 2), await s_t_utils.alist(genr))
 
                 await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
 
@@ -398,7 +398,7 @@ class TeleTest(s_t_utils.SynTest):
                 hostkey, hostcert = certdir.genHostCert(hostname, signas='loopy')
                 self.none(certdir.getHostCertHash('newp.newp.newp'))
 
-                certhash = hostcert.digest('sha256').decode().lower().replace(':', '')
+                certhash = s_common.ehex(hostcert.fingerprint(c_hashes.SHA256()))
 
                 host, port = await dmon.listen(f'ssl://{hostname}:0')
                 dmon.share('foo', foo)
@@ -662,7 +662,7 @@ class TeleTest(s_t_utils.SynTest):
                          key: 'synapse.tests.test_telepath.CustomShare'})
 
                 # and we can still use the first obj we made
-                ret = await alist(obj.custgenr(3))
+                ret = await s_t_utils.alist(obj.custgenr(3))
                 self.eq(ret, [0, 1, 2])
 
             # check that a dynamic share works
@@ -831,15 +831,17 @@ class TeleTest(s_t_utils.SynTest):
 
             await targ.waitready()
 
-            self.eq(110, await targ.dostuff(100))
+            prox00 = await targ.proxy(timeout=12)
+            self.eq(110, await prox00.dostuff(100))
+
             self.eq(1, fail0.count)
             self.eq(0, fail1.count)
 
-            _prox = await targ.proxy()
             await dmon0.fini()
-            self.true(await _prox.waitfini(10))
+            self.true(await prox00.waitfini(10))
 
-            self.eq(110, await targ.dostuff(100))
+            prox01 = await targ.proxy(timeout=12)
+            self.eq(110, await prox01.dostuff(100))
             self.eq(1, fail0.count)
             self.eq(1, fail1.count)
 
@@ -855,15 +857,36 @@ class TeleTest(s_t_utils.SynTest):
                 mesgs = stream.read()
                 self.notin('password', mesgs)
 
-            self.eq(110, await targ.dostuff(100))
+            prox00 = await targ.proxy(timeout=12)
+            self.eq(110, await prox00.dostuff(100))
 
             self.eq(1, fail0.count)
             self.eq(2, fail1.count)
 
         async with await s_telepath.open(url1) as targ:
-            await targ.waitready()
-            self.eq(110, await targ.dostuff(100))
+            await targ.waitready(timeout=12)
+            prox00 = await targ.proxy(timeout=12)
+            self.eq(110, await prox00.dostuff(100))
 
+        async def onlink(proxy, urlinfo):
+            self.eq(110, await proxy.dostuff(100))
+            _url = s_telepath.zipurl(urlinfo)
+            logger.info(f'Connected to url={_url}')
+
+        with self.getAsyncLoggerStream('synapse.tests.test_telepath',
+                                       f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo') as stream:
+            async with await s_telepath.open(url1, onlink=onlink) as targ:
+                self.true(await stream.wait(timeout=12))
+
+        # Coverage
+        async def badonlink(proxy, urlinfo):
+            raise ValueError('oopsie')
+
+        with self.getAsyncLoggerStream('synapse.telepath', 'onlink: ') as stream:
+            async with await s_telepath.open(url1, onlink=badonlink) as targ:
+                self.true(await stream.wait(timeout=12))
+
+        await dmon0.fini()
         await dmon1.fini()
 
     async def test_telepath_poolsize(self):

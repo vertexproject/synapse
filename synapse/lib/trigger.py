@@ -11,7 +11,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
 import synapse.lib.config as s_config
 import synapse.lib.grammar as s_grammar
-import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +48,7 @@ TrigSchema = {
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
         'enabled': {'type': 'boolean'},
+        'created': {'type': 'integer', 'minimum': 0},
     },
     'additionalProperties': True,
     'required': ['iden', 'user', 'storm', 'enabled'],
@@ -136,49 +136,47 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    async def runNodeAdd(self, node, view=None):
+    async def runNodeAdd(self, node):
         with self._recursion_check():
-            [await trig.execute(node, view=view) for trig in self.nodeadd.get(node.form.name, ())]
+            [await trig.execute(node) for trig in self.nodeadd.get(node.form.name, ())]
 
-    async def runNodeDel(self, node, view=None):
+    async def runNodeDel(self, node):
         with self._recursion_check():
-            [await trig.execute(node, view=view) for trig in self.nodedel.get(node.form.name, ())]
+            [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
 
-    async def runPropSet(self, node, prop, oldv, view=None):
+    async def runPropSet(self, node, prop, oldv):
         vars = {'propname': prop.name, 'propfull': prop.full,
                 'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, }},
                 }
         with self._recursion_check():
-            [await trig.execute(node, vars=vars, view=view) for trig in self.propset.get(prop.full, ())]
+            [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
-                [await trig.execute(node, vars=vars, view=view) for trig in self.propset.get(prop.univ.full, ())]
+                [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.univ.full, ())]
 
-    async def runTagAdd(self, node, tag, view=None):
+    async def runTagAdd(self, node, tag):
 
-        vars = {'tag': tag,
-                'auto': {'opts': {'tag': tag}},
-                }
+        vars = {'tag': tag, 'auto': {'opts': {'tag': tag}}}
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars, view=view)
+                await trig.execute(node, vars=vars)
 
             for trig in self.tagadd.get((None, tag), ()):
-                await trig.execute(node, vars=vars, view=view)
+                await trig.execute(node, vars=vars)
 
             # check for form specific globs
             globs = self.tagaddglobs.get(node.form.name)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars, view=view)
+                    await trig.execute(node, vars=vars)
 
             # check for form agnostic globs
             globs = self.tagaddglobs.get(None)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars, view=view)
+                    await trig.execute(node, vars=vars)
 
-    async def runTagDel(self, node, tag, view=None):
+    async def runTagDel(self, node, tag):
 
         vars = {'tag': tag,
                 'auto': {'opts': {'tag': tag}},
@@ -186,24 +184,24 @@ class Triggers:
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
-                await trig.execute(node, vars=vars, view=view)
+                await trig.execute(node, vars=vars)
 
             for trig in self.tagdel.get((None, tag), ()):
-                await trig.execute(node, vars=vars, view=view)
+                await trig.execute(node, vars=vars)
 
             # check for form specific globs
             globs = self.tagdelglobs.get(node.form.name)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars, view=view)
+                    await trig.execute(node, vars=vars)
 
             # check for form agnostic globs
             globs = self.tagdelglobs.get(None)
             if globs is not None:
                 for _, trig in globs.get(tag):
-                    await trig.execute(node, vars=vars, view=view)
+                    await trig.execute(node, vars=vars)
 
-    async def runEdgeAdd(self, n1, verb, n2, view=None):
+    async def runEdgeAdd(self, n1, verb, n2):
         n1form = n1.form.name if n1 else None
         n2form = n2.form.name if n2 else None
         n2iden = n2.iden() if n2 else None
@@ -251,9 +249,9 @@ class Triggers:
                 self.edgeaddcache[cachekey] = cached
 
             for trig in cached:
-                await trig.execute(n1, vars=varz, view=view)
+                await trig.execute(n1, vars=varz)
 
-    async def runEdgeDel(self, n1, verb, n2, view=None):
+    async def runEdgeDel(self, n1, verb, n2):
         n1form = n1.form.name if n1 else None
         n2form = n2.form.name if n2 else None
         n2iden = n2.iden() if n2 else None
@@ -301,7 +299,7 @@ class Triggers:
                 self.edgedelcache[cachekey] = cached
 
             for trig in cached:
-                await trig.execute(n1, vars=varz, view=view)
+                await trig.execute(n1, vars=varz)
 
     async def load(self, tdef):
 
@@ -501,7 +499,7 @@ class Trigger:
     def get(self, name):
         return self.tdef.get(name)
 
-    async def execute(self, node, vars=None, view=None):
+    async def execute(self, node, vars=None):
         '''
         Actually execute the query
         '''
@@ -513,9 +511,9 @@ class Trigger:
             await self.view.addTrigQueue(triginfo)
             return
 
-        return await self._execute(node, vars=vars, view=view)
+        return await self._execute(node, vars=vars)
 
-    async def _execute(self, node, vars=None, view=None):
+    async def _execute(self, node, vars=None):
 
         locked = self.user.info.get('locked')
         if locked:
@@ -532,9 +530,6 @@ class Trigger:
 
         query = await self.view.core.getStormQuery(storm)
 
-        if view is None:
-            view = self.view.iden
-
         if vars is None:
             vars = {}
         else:
@@ -546,28 +541,23 @@ class Trigger:
         optvars['form'] = node.ndef[0]
         optvars['valu'] = node.ndef[1]
 
-        opts = {
-            'vars': vars,
-            'view': view,
-            'user': self.user.iden,
-        }
+        opts = {'vars': vars, 'user': self.user.iden, 'view': self.view.iden}
 
         self.startcount += 1
 
-        with s_provenance.claim('trig', cond=cond, form=form, tag=tag, prop=prop):
-            try:
-                async with self.view.core.getStormRuntime(query, opts=opts) as runt:
+        try:
+            async with self.view.core.getStormRuntime(query, opts=opts) as runt:
 
-                    runt.addInput(node)
-                    await s_common.aspin(runt.execute())
+                runt.addInput(node)
+                await s_common.aspin(runt.execute())
 
-            except (asyncio.CancelledError, s_exc.RecursionLimitHit):
-                raise
+        except (asyncio.CancelledError, s_exc.RecursionLimitHit):
+            raise
 
-            except Exception as e:
-                self.errcount += 1
-                self.lasterrs.append(str(e))
-                logger.exception('Trigger encountered exception running storm query %s', storm)
+        except Exception as e:
+            self.errcount += 1
+            self.lasterrs.append(str(e))
+            logger.exception('Trigger encountered exception running storm query %s', storm)
 
     def pack(self):
         tdef = self.tdef.copy()
@@ -594,6 +584,7 @@ class Trigger:
             'storm': self.tdef.get('storm'),
             'enabled': self.tdef.get('enabled'),
             'user': self.tdef.get('user'),
+            '.created': self.tdef.get('created')
         }
 
         tag = self.tdef.get('tag')

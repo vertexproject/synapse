@@ -76,7 +76,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:mitre:attack:technique=T0100
-                    :name=lockpicking
+                    :name="   LockPicking   "
                     :desc=speedhackers
                     :url=https://locksrus.link
                     :tag=cno.mitre.t0100
@@ -127,7 +127,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:mitre:attack:mitigation=M0100
-                    :name=patchstuff
+                    :name="   PatchStuff   "
                     :desc=patchyourstuff
                     :url=https://wsus.com
                     :tag=cno.mitre.m0100

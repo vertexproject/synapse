@@ -28,6 +28,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('help storm')
             outp.expect(help_msg)
+            outp.expect('WARNING: "cmdr" is deprecated in 2.164.0 and will be removed in 3.0.0')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)

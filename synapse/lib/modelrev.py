@@ -736,8 +736,6 @@ class ModelRev:
     async def revModel_0_2_23(self, layers):
         await self._normFormSubs(layers, 'inet:ipv6')
 
-    async def revModel_0_2_24(self, layers: list[s_layer.Layer]):
-
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         nodeedits = []
@@ -851,6 +849,29 @@ class ModelRev:
             if nodeedits:
                 await save()
 
+    async def revModel_0_2_24(self, layers):
+        await self._normPropValu(layers, 'risk:mitigation:name')
+        await self._normPropValu(layers, 'it:mitre:attack:technique:name')
+        await self._normPropValu(layers, 'it:mitre:attack:mitigation:name')
+
+        formprops = {}
+        for prop in self.core.model.getPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for prop in self.core.model.getArrayPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for form, props in formprops.items():
+            await self._normVelocityProps(layers, form, props)
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -862,6 +883,12 @@ class ModelRev:
         Returns:
             None
         '''
+        if opts is None:
+            opts = {}
+
+        # Migrations only run on leaders
+        opts['mirror'] = False
+
         async def _runStorm():
             async for mesgtype, mesginfo in self.core.storm(text, opts=opts):
                 if mesgtype == 'print':
@@ -877,52 +904,50 @@ class ModelRev:
 
     async def revCoreLayers(self):
 
-        async with self.core.enterMigrationMode():
+        version = self.revs[-1][0] if self.revs else maxvers
 
-            version = self.revs[-1][0] if self.revs else maxvers
+        # do a first pass to detect layers at the wrong version
+        # that we are not able to rev ourselves and bail...
 
-            # do a first pass to detect layers at the wrong version
-            # that we are not able to rev ourselves and bail...
+        layers = []
+        for layr in self.core.layers.values():
 
-            layers = []
-            for layr in self.core.layers.values():
+            if layr.fresh:
+                await layr.setModelVers(version)
+                continue
 
-                if layr.fresh:
-                    await layr.setModelVers(version)
-                    continue
+            vers = await layr.getModelVers()
+            if vers == version:
+                continue
 
-                vers = await layr.getModelVers()
-                if vers == version:
-                    continue
+            if not layr.canrev and vers != version:
+                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
+                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-                if not layr.canrev and vers != version:
-                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
-                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+            if vers > version:
+                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
+                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-                if vers > version:
-                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
-                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+            # realistically all layers are probably at the same version... but...
+            layers.append(layr)
 
-                # realistically all layers are probably at the same version... but...
-                layers.append(layr)
+        # got anything to do?
+        if not layers:
+            return
 
-            # got anything to do?
-            if not layers:
-                return
+        for revvers, revmeth in self.revs:
 
-            for revvers, revmeth in self.revs:
+            todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
+            if not todo:
+                continue
 
-                todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
-                if not todo:
-                    continue
+            logger.warning(f'beginning model migration -> {revvers}')
 
-                logger.warning(f'beginning model migration -> {revvers}')
+            await revmeth(todo)
 
-                await revmeth(todo)
+            [await lyr.setModelVers(revvers) for lyr in todo]
 
-                [await lyr.setModelVers(revvers) for lyr in todo]
-
-            logger.warning('...model migrations complete!')
+        logger.warning('...model migrations complete!')
 
     async def _normPropValu(self, layers, propfull):
 
@@ -964,6 +989,72 @@ class ModelRev:
 
                 if len(nodeedits) >= 1000:  # pragma: no cover
                     await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normVelocityProps(self, layers, form, props):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for buid, formvalu in layr.iterFormRows(form):
+                sode = layr._getStorNode(buid)
+                if (nodeprops := sode.get('props')) is None:
+                    continue
+
+                for prop in props:
+                    if (curv := nodeprops.get(prop.name)) is None:
+                        continue
+
+                    propvalu = curv[0]
+                    if prop.type.isarray:
+                        hasfloat = False
+                        strvalu = []
+                        for valu in propvalu:
+                            if isinstance(valu, float):
+                                strvalu.append(str(valu))
+                                hasfloat = True
+
+                        if not hasfloat:
+                            continue
+                    else:
+                        if not isinstance(propvalu, float):
+                            continue
+                        strvalu = str(propvalu)
+
+                    nodeprops.pop(prop.name)
+
+                    try:
+                        norm, info = prop.type.norm(strvalu)
+                    except s_exc.BadTypeValu as e:
+                        nodeedits.append(
+                            (buid, form, (
+                                (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
+                                (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                            )),
+                        )
+
+                        oldm = e.errinfo.get('mesg')
+                        iden = s_common.ehex(buid)
+                        logger.warning(f'error re-norming {prop.full}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                       extra={'synapse': {'node': iden, 'layer': layr.iden}})
+                        continue
+
+                    nodeedits.append(
+                        (buid, form, (
+                            (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
 
             if nodeedits:
                 await save()

@@ -10,7 +10,7 @@ class MathLib(s_stormtypes.Lib):
          'desc': '''
             Convert a value to a Storm Number object.
 
-            Storm Numbers are high precision fixed point decimals corresponding to the
+            Storm Numbers are high precision fixed point decimals corresponding to
             the hugenum storage type.
 
             This is not to be used for converting a string to an integer.

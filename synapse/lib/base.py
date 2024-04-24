@@ -143,6 +143,7 @@ class Base:
         self._fini_atexit = False
         self._active_tasks = None       # the set of free running tasks associated with me
         self._context_managers = None   # the set of context managers i must fini
+        self._syn_signal_tasks = None   # initialized as a Set when addSignalHandlers is called.
 
     async def postAnit(self):
         '''
@@ -477,8 +478,6 @@ class Base:
             asyncio.Task: An asyncio.Task object.
 
         '''
-        import synapse.lib.provenance as s_provenance  # avoid import cycle
-
         if __debug__:
             assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
@@ -490,10 +489,6 @@ class Base:
         task = self.loop.create_task(coro)
 
         s_scope.clone(task)
-
-        # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
-        if asyncio.current_task():
-            s_provenance.dupstack(task)
 
         def taskDone(task):
             self._active_tasks.remove(task)
@@ -565,14 +560,20 @@ class Base:
         '''
         Register SIGTERM/SIGINT signal handlers with the ioloop to fini this object.
         '''
+        if self._syn_signal_tasks is None:
+            self._syn_signal_tasks = set()
 
         def sigterm():
-            print('Caught SIGTERM, shutting down.')
-            asyncio.create_task(self.fini())
+            logger.warning('Caught SIGTERM, shutting down.')
+            task = asyncio.create_task(self.fini())
+            self._syn_signal_tasks.add(task)
+            task.add_done_callback(self._syn_signal_tasks.discard)
 
         def sigint():
-            print('Caught SIGINT, shutting down.')
-            asyncio.create_task(self.fini())
+            logger.warning('Caught SIGINT, shutting down.')
+            task = asyncio.create_task(self.fini())
+            self._syn_signal_tasks.add(task)
+            task.add_done_callback(self._syn_signal_tasks.discard)
 
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGINT, sigint)

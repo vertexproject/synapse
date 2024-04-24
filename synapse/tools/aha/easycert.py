@@ -2,11 +2,9 @@ import sys
 import asyncio
 import logging
 import argparse
-import contextlib
 
-from OpenSSL import crypto
+import cryptography.x509 as c_x509
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -32,21 +30,21 @@ async def _main(argv, outp):
             certbyts = await prox.getCaCert(name)
             if not certbyts:
                 certbyts = await prox.genCaCert(name)
-            cert = crypto.load_certificate(crypto.FILETYPE_PEM, certbyts)
+            cert = c_x509.load_pem_x509_certificate(certbyts.encode())
             path = cdir._saveCertTo(cert, 'cas', f'{name}.crt')
             outp.printf(f'Saved CA cert to {path}')
             return 0
         elif opts.server:
             csr = cdir.genHostCsr(name, outp=outp)
             certbyts = await prox.signHostCsr(csr.decode(), signas=opts.network, sans=opts.server_sans)
-            cert = crypto.load_certificate(crypto.FILETYPE_PEM, certbyts)
+            cert = c_x509.load_pem_x509_certificate(certbyts.encode())
             path = cdir._saveCertTo(cert, 'hosts', f'{name}.crt')
             outp.printf(f'crt saved: {path}')
             return 0
         else:
             csr = cdir.genUserCsr(name, outp=outp)
             certbyts = await prox.signUserCsr(csr.decode(), signas=opts.network)
-            cert = crypto.load_certificate(crypto.FILETYPE_PEM, certbyts)
+            cert = c_x509.load_pem_x509_certificate(certbyts.encode())
             path = cdir._saveCertTo(cert, 'users', f'{name}.crt')
             outp.printf(f'crt saved: {path}')
             return 0

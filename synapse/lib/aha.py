@@ -5,6 +5,8 @@ import asyncio
 import logging
 import collections
 
+import cryptography.x509 as c_x509
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.daemon as s_daemon
@@ -192,7 +194,7 @@ class AhaApi(s_cell.CellApi):
                 logger.warning(mesg, await self.cell.getLogExtra(name=svcname, netw=svcnetw))
                 return
 
-            logger.debug(f'AhaCellApi fini, tearing down [{name}]',
+            logger.info(f'AhaCellApi fini, setting service offline [{name}]',
                          extra=await self.cell.getLogExtra(name=svcname, netw=svcnetw))
             coro = self.cell.setAhaSvcDown(name, sess, network=network)
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
@@ -325,6 +327,20 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.delAhaUserEnroll(iden)
 
+    @s_cell.adminapi()
+    async def clearAhaSvcProvs(self):
+        '''
+        Remove all unused service provisioning values.
+        '''
+        return await self.cell.clearAhaSvcProvs()
+
+    @s_cell.adminapi()
+    async def clearAhaUserEnrolls(self):
+        '''
+        Remove all unused user enrollment provisioning values.
+        '''
+        return await self.cell.clearAhaUserEnrolls()
+
 class ProvDmon(s_daemon.Daemon):
 
     async def __anit__(self, aha):
@@ -379,9 +395,13 @@ class EnrollApi:
         username = f'{ahauser}@{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != username:
-            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != username:
+            mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
+
+        logger.info(f'Signing user CSR for [{username}], signas={ahanetw}',
+                   extra=await self.aha.getLogExtra(name=username, signas=ahanetw))
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -407,9 +427,13 @@ class ProvApi:
         hostname = f'{ahaname}.{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != hostname:
-            mesg = f'Invalid host CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != hostname:
+            mesg = f'Invalid host CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
+
+        logger.info(f'Signing host CSR for [{hostname}], signas={ahanetw}',
+                    extra=await self.aha.getLogExtra(name=hostname, signas=ahanetw))
 
         pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -422,9 +446,13 @@ class ProvApi:
         username = f'{ahauser}@{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
-        if xcsr.get_subject().CN != username:
-            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+        name = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
+        if name != username:
+            mesg = f'Invalid user CSR CN={name}.'
             raise s_exc.BadArg(mesg=mesg)
+
+        logger.info(f'Signing user CSR for [{username}], signas={ahanetw}',
+                    extra=await self.aha.getLogExtra(name=username, signas=ahanetw))
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -555,7 +583,7 @@ class AhaCell(s_cell.Cell):
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                logger.debug(f'AhaCell activecoro tearing down [{svcname}.{network}]',
+                logger.info(f'AhaCell activecoro setting service offline [{svcname}.{network}]',
                              extra=await self.getLogExtra(name=svcname, netw=network))
                 await self.setAhaSvcDown(svcname, linkiden, network=network)
 
@@ -611,7 +639,7 @@ class AhaCell(s_cell.Cell):
         path = ('aha', 'services', svcnetw, svcname)
 
         unfo = info.get('urlinfo')
-        logger.debug(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
+        logger.info(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
                      extra=await self.getLogExtra(name=svcname, netw=svcnetw))
 
         svcinfo = {
@@ -754,6 +782,8 @@ class AhaCell(s_cell.Cell):
 
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
 
+        logger.info(f'Deleting service [{svcfull}].', extra=await self.getLogExtra(name=svcname, netw=svcnetw))
+
         full = ('aha', 'svcfull', svcfull)
         path = ('aha', 'services', svcnetw, svcname)
 
@@ -788,7 +818,7 @@ class AhaCell(s_cell.Cell):
 
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
-        logger.debug(f'Set [{svcfull}] offline.',
+        logger.info(f'Set [{svcfull}] offline.',
                         extra=await self.getLogExtra(name=svcname, netw=svcnetw))
 
     async def getAhaSvc(self, name, filters=None):
@@ -938,7 +968,7 @@ class AhaCell(s_cell.Cell):
     async def signHostCsr(self, csrtext, signas=None, sans=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
-        hostname = xcsr.get_subject().CN
+        hostname = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         hostpath = s_common.genpath(self.dirn, 'certs', 'hosts', f'{hostname}.crt')
         if os.path.isfile(hostpath):
@@ -957,7 +987,7 @@ class AhaCell(s_cell.Cell):
     async def signUserCsr(self, csrtext, signas=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
 
-        username = xcsr.get_subject().CN
+        username = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         userpath = s_common.genpath(self.dirn, 'certs', 'users', f'{username}.crt')
         if os.path.isfile(userpath):
@@ -1005,6 +1035,9 @@ class AhaCell(s_cell.Cell):
             mesg = 'The AHA server does not have a provision:listen URL!'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if not name:
+            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+
         if provinfo is None:
             provinfo = {}
 
@@ -1033,6 +1066,10 @@ class AhaCell(s_cell.Cell):
             raise s_exc.BadConfValu(mesg=mesg, name='aha:network', expected=mynetw, got=netw)
 
         hostname = f'{name}.{netw}'
+
+        if len(hostname) > 64:
+            mesg = f'Hostname value must not exceed 64 characters in length. {hostname=}, len={len(hostname)}'
+            raise s_exc.BadArg(mesg=mesg)
 
         conf.setdefault('aha:name', name)
         dmon_port = provinfo.get('dmon:port', 0)
@@ -1119,6 +1156,20 @@ class AhaCell(s_cell.Cell):
         self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
         return iden
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:prov:clear')
+    async def clearAhaSvcProvs(self):
+        for iden, byts in self.slab.scanByFull(db='aha:provs'):
+            self.slab.delete(iden, db='aha:provs')
+            provinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted service provisioning service={provinfo.get("conf").get("aha:name")}, iden={iden.decode()}')
+
+    @s_nexus.Pusher.onPushAuto('aha:enroll:clear')
+    async def clearAhaUserEnrolls(self):
+        for iden, byts in self.slab.scanByFull(db='aha:enrolls'):
+            self.slab.delete(iden, db='aha:enrolls')
+            userinfo = s_msgpack.un(byts)
+            logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
+
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):
         self.slab.delete(iden.encode(), db='aha:provs')
@@ -1135,7 +1186,14 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server requires aha:network configuration.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if not name:
+            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+
         username = f'{name}@{ahanetw}'
+
+        if len(username) > 64:
+            mesg = f'Username value must not exceed 64 characters in length. username={username}, len={len(username)}'
+            raise s_exc.BadArg(mesg=mesg)
 
         user = await self.auth.getUserByName(username)
 

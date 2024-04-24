@@ -209,6 +209,27 @@ class ProtoNode:
         if tagnode is not s_common.novalu:
             return self.ctx.loadNode(tagnode)
 
+        # check for an :isnow tag redirection in our hierarchy...
+        toks = info.get('toks')
+        for i in range(len(toks)):
+
+            toktag = '.'.join(toks[:i + 1])
+            toknode = await self.ctx.snap.getTagNode(toktag)
+            if toknode is s_common.novalu:
+                continue
+
+            tokvalu = toknode.ndef[1]
+            if tokvalu == toktag:
+                continue
+
+            realnow = tokvalu + norm[len(toktag):]
+            tagnode = await self.ctx.snap.getTagNode(realnow)
+            if tagnode is not s_common.novalu:
+                return self.ctx.loadNode(tagnode)
+
+            norm, info = await self.ctx.snap.getTagNorm(realnow)
+            break
+
         return await self.ctx.addNode('syn:tag', norm, norminfo=info)
 
     def getTag(self, tag):
@@ -619,10 +640,6 @@ class Snap(s_base.Base):
 
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
-        self.trigson = self.core.trigson
-
-    def disableTriggers(self):
-        self.trigson = False
 
     async def getSnapMeta(self):
         '''
@@ -660,6 +677,33 @@ class Snap(s_base.Base):
         runt = await s_storm.Runtime.anit(query, self, opts=opts, user=user)
         self.onfini(runt)
         return runt
+
+    async def _joinEmbedStor(self, storage, embeds):
+        for nodePath, relProps in embeds.items():
+            await asyncio.sleep(0)
+            iden = relProps.get('*')
+            if not iden:
+                continue
+
+            stor = await self.view.getStorNodes(s_common.uhex(iden))
+            for relProp in relProps.keys():
+                await asyncio.sleep(0)
+                if relProp == '*':
+                    continue
+
+                for idx, layrstor in enumerate(stor):
+                    await asyncio.sleep(0)
+                    props = layrstor.get('props')
+                    if not props:
+                        continue
+
+                    if relProp not in props:
+                        continue
+
+                    if 'embeds' not in storage[idx]:
+                        storage[idx]['embeds'] = {}
+
+                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
 
     async def iterStormPodes(self, text, opts, user=None):
         '''
@@ -703,6 +747,8 @@ class Snap(s_base.Base):
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
                     pode[1]['embeds'] = await node.getEmbeds(embdef)
+                    if show_storage:
+                        await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'])
 
             yield pode
 
@@ -1085,7 +1131,8 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
@@ -1096,18 +1143,20 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            nodecache = {proto.buid: proto.node for proto in editor.protonodes.values()}
+            await self.applyNodeEdits(nodeedits, nodecache=nodecache)
 
-    async def applyNodeEdit(self, edit):
-        nodes = await self.applyNodeEdits((edit,))
-        return nodes[0]
+    async def applyNodeEdit(self, edit, nodecache=None):
+        nodes = await self.applyNodeEdits((edit,), nodecache=nodecache)
+        if nodes:
+            return nodes[0]
 
-    async def applyNodeEdits(self, edits):
+    async def applyNodeEdits(self, edits, nodecache=None):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
         meta = await self.getSnapMeta()
-        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
+        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta, nodecache=nodecache)
         return nodes
 
     async def saveNodeEdits(self, edits, meta):
@@ -1124,7 +1173,7 @@ class Snap(s_base.Base):
 
         return saveoff, changes
 
-    async def _applyNodeEdits(self, edits, meta):
+    async def _applyNodeEdits(self, edits, meta, nodecache=None):
 
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
@@ -1145,11 +1194,17 @@ class Snap(s_base.Base):
 
             cache = {wlyr.iden: sode}
 
-            node = await self._joinStorNode(buid, cache)
+            node = None
+            if nodecache is not None:
+                node = nodecache.get(buid)
 
             if node is None:
-                # We got part of a node but no ndef
-                continue
+                node = await self._joinStorNode(buid, cache)
+                if node is None:
+                    # We got part of a node but no ndef
+                    continue
+            else:
+                await asyncio.sleep(0)
 
             nodes.append(node)
 

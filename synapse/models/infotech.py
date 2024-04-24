@@ -601,7 +601,7 @@ class ItModule(s_module.CoreModule):
                     'doc': "A vulnerability scan result for an asset."}),
 
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
-                    'doc': 'A Mitre ATT&CK element status.',
+                    'doc': 'A MITRE ATT&CK element status.',
                     'ex': 'current',
                 }),
                 ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
@@ -609,31 +609,31 @@ class ItModule(s_module.CoreModule):
                     'ex': 'enterprise',
                 }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Group ID.',
+                    'doc': 'A MITRE ATT&CK Group ID.',
                     'ex': 'G0100',
                 }),
                 ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Tactic ID.',
+                    'doc': 'A MITRE ATT&CK Tactic ID.',
                     'ex': 'TA0040',
                 }),
                 ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
-                    'doc': 'A Mitre ATT&CK Technique ID.',
+                    'doc': 'A MITRE ATT&CK Technique ID.',
                     'ex': 'T1548',
                 }),
                 ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Mitigation ID.',
+                    'doc': 'A MITRE ATT&CK Mitigation ID.',
                     'ex': 'M1036',
                 }),
                 ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Software ID.',
+                    'doc': 'A MITRE ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
                 ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
-                    'doc': 'A Mitre ATT&CK Campaign ID.',
+                    'doc': 'A MITRE ATT&CK Campaign ID.',
                     'ex': 'C0028',
                 }),
                 ('it:mitre:attack:flow', ('guid', {}), {
-                    'doc': 'A Mitre ATT&CK Flow diagram.',
+                    'doc': 'A MITRE ATT&CK Flow diagram.',
                 }),
                 ('it:dev:str', ('str', {}), {
                     'doc': 'A developer selected string.'
@@ -1363,10 +1363,11 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK group.',
                     }),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK group ID.',
-                        'ex': 'cno.mitre.g0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use a risk:threat:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK group.',
                     }),
@@ -1391,18 +1392,18 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK tactic.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK tactic.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK tactic.',
-                        'ex': 'cno.mitre.ta0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
                     }),
                 )),
                 ('it:mitre:attack:technique', {}, (
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The primary name for the ATT&CK technique.',
                     }),
                     ('matrix', ('it:mitre:attack:matrix', {}), {
@@ -1419,12 +1420,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK technique.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK technique.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK technique.',
-                        'ex': 'cno.mitre.t0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:technique:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK technique.',
                     }),
@@ -1454,12 +1455,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'If deprecated, this field may contain the current value for the software.',
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK software.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK software.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK software.',
-                        'ex': 'cno.mitre.s0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:tool:software:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK software.',
                     }),
@@ -1470,7 +1471,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:mitre:attack:mitigation', {}, (
                     # TODO map to an eventual risk:mitigation
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The primary name for the ATT&CK mitigation.',
                     }),
                     ('matrix', ('it:mitre:attack:matrix', {}), {
@@ -1481,12 +1482,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK mitigation.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK mitigation.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK mitigation.',
-                        'ex': 'cno.mitre.m0100',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation:tag.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK mitigation.',
                     }),
@@ -1531,13 +1532,14 @@ class ItModule(s_module.CoreModule):
                     ('period', ('ival', {}), {
                         'doc': 'The time interval when the campaign was active.'}),
                     ('created', ('time', {}), {
-                        'doc': 'The time that the campaign was created by Mitre.'}),
+                        'doc': 'The time that the campaign was created by MITRE.'}),
                     ('updated', ('time', {}), {
-                        'doc': 'The time that the campaign was last updated by Mitre.'}),
+                        'doc': 'The time that the campaign was last updated by MITRE.'}),
+
                     ('tag', ('syn:tag', {}), {
-                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK campaign.',
-                        'ex': 'cno.mitre.c0028',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:campaign:tag.'}),
+
                 )),
                 ('it:mitre:attack:flow', {}, (
                     ('name', ('str', {}), {

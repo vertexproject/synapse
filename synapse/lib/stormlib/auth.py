@@ -1192,7 +1192,8 @@ class User(s_stormtypes.Prim):
 
         perm = tuple(permname.split('.'))
         user = await self.runt.snap.core.auth.reqUser(self.valu)
-        return user.getAllowedReason(perm, gateiden=gateiden, default=default)
+        reason = user.getAllowedReason(perm, gateiden=gateiden, default=default)
+        return reason.value, reason.mesg
 
     async def _methUserGrant(self, iden, indx=None):
         self.runt.confirm(('auth', 'user', 'grant'))
@@ -1226,6 +1227,11 @@ class User(s_stormtypes.Prim):
         indx = await s_stormtypes.toint(indx, noneok=True)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+        # TODO: Remove me in 3.0.0
+        if gateiden == 'cortex':
+            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
@@ -1479,6 +1485,11 @@ class Role(s_stormtypes.Prim):
         indx = await s_stormtypes.toint(indx, noneok=True)
         gateiden = await s_stormtypes.tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
+        # TODO: Remove me in 3.0.0
+        if gateiden == 'cortex':
+            mesg = f'Adding rule on the "cortex" authgate. This authgate is not used ' \
+                   f'for permission checks and will be removed in Synapse v3.0.0.'
+            await self.runt.snap.warn(mesg, log=False)
         await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
@@ -1557,10 +1568,7 @@ class LibAuth(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def textFromRule(self, rule):
         rule = await s_stormtypes.toprim(rule)
-        text = '.'.join(rule[1])
-        if not rule[0]:
-            text = '!' + text
-        return text
+        return s_common.reprauthrule(rule)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getPermDefs(self):

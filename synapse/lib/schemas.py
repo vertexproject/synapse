@@ -40,6 +40,7 @@ _HttpExtAPIConfSchema = {
         'name': {'type': 'string', 'default': ''},
         'desc': {'type': 'string', 'default': ''},
         'path': {'type': 'string', 'minlen': 1},
+        'pool': {'type': 'boolean', 'default': False},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'runas': {'type': 'string', 'pattern': '^(owner|user)$'},
         'owner': {'type': 'string', 'pattern': s_config.re_iden},
@@ -93,6 +94,7 @@ _CronJobSchema = {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
+        'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
         'incunit': {
             'oneOf': [
@@ -169,7 +171,8 @@ reqValidView = s_config.getJsValidator({
         'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'nomerge': {'type': 'boolean'},
+        'created': {'type': 'integer', 'minimum': 0},
+        'protected': {'type': 'boolean', 'default': False},
         'merging': {'type': 'boolean'},
         'layers': {
             'type': 'array',
@@ -202,6 +205,7 @@ reqValidMerge = s_config.getJsValidator({
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'number', 'minval': 0},
         'comment': {'type': 'string'},
+        'updated': {'type': 'number', 'minval': 0},
     },
     'required': ['iden', 'creator', 'created'],
     'additionalProperties': False,
@@ -215,6 +219,7 @@ reqValidVote = s_config.getJsValidator({
         'created': {'type': 'number', 'minval': 0},
         'approved': {'type': 'boolean'},
         'comment': {'type': 'string'},
+        'updated': {'type': 'number', 'minval': 0},
     },
     'required': ['user', 'offset', 'created', 'approved'],
     'additionalProperties': False,
@@ -262,3 +267,23 @@ _cellUserApiKeySchema = {
     ],
 }
 reqValidUserApiKeyDef = s_config.getJsValidator(_cellUserApiKeySchema)
+
+reqValidSslCtxOpts = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'verify': {'type': 'boolean', 'default': True},
+        'client_cert': {'type': ['string', 'null'], 'default': None},
+        'client_key': {'type': ['string', 'null'], 'default': None},
+    },
+    'additionalProperties': False,
+})
+
+_stormPoolOptsSchema = {
+    'type': 'object',
+    'properties': {
+        'timeout:sync': {'type': 'integer', 'minimum': 1},
+        'timeout:connection': {'type': 'integer', 'minimum': 1},
+    },
+    'additionalProperties': False,
+}
+reqValidStormPoolOpts = s_config.getJsValidator(_stormPoolOptsSchema)

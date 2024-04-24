@@ -46,12 +46,14 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An it:prod:soft node with the given name.'}}},
-        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE, adding the node if it does not exist.',
+        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE and reporter, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                      {'name': 'reporter', 'type': 'str', 'default': None,
+                       'desc': 'The name of the organization which reported the vulnerability.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A risk:vuln node with the given CVE.'}}},
 
@@ -105,10 +107,46 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A lang:language node with the given code.'}}},
+        {'name': 'campaign',
+         'desc': 'Returns an ou:campaign node based on the campaign and reporter names, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The reported name of the campaign.'},
+                      {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the campaign.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'An ou:campaign node.'}}},
+        {'name': 'itAvScanResultByTarget',
+         'desc': 'Returns an it:av:scan:result node by deconflicting with a target and signature name, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'form', 'type': 'str', 'desc': 'The target form.'},
+                      {'name': 'value', 'type': 'str', 'desc': 'The target value.'},
+                      {'name': 'signame', 'type': 'str', 'desc': 'The signature name.'},
+                      {'name': 'scanner', 'type': 'str', 'default': None,
+                       'desc': 'An optional scanner software name to include in deconfliction.'},
+                      {'name': 'time', 'type': 'time', 'default': None,
+                       'desc': 'An optional time when the scan was run to include in the deconfliction.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'An it:av:scan:result node.'}}},
+        {'name': 'geoPlaceByName', 'desc': 'Returns a geo:place node by name, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the place.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'A geo:place node with the given name.'}}},
     )
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
+        function __maybeCast(try, type, valu) {
+            if $try {
+                return($lib.trycast($type, $valu))
+            }
+            return(($lib.true, $lib.cast($type, $valu)))
+        }
+
         function orgIdType(name) {
             ou:id:type:name=$name
             return($node)
@@ -128,12 +166,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByName(name, try=$lib.false) {
-            if $try {
-                ($ok, $name) = $lib.trycast(ou:name, $name)
-                if (not $ok) { return() }
-            } else {
-                $name = $lib.cast(ou:name, $name)
-            }
+            ($ok, $name) = $__maybeCast($try, ou:name, $name)
+            if (not $ok) { return() }
 
             ou:name=$name -> ou:org
             return($node)
@@ -143,12 +177,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByFqdn(fqdn, try=$lib.false) {
-            if $try {
-                ($ok, $fqdn) = $lib.trycast("inet:fqdn", $fqdn)
-                if (not $ok) { return() }
-            } else {
-                $fqdn = $lib.cast(inet:fqdn, $fqdn)
-            }
+            ($ok, $fqdn) = $__maybeCast($try, inet:fqdn, $fqdn)
+            if (not $ok) { return() }
 
             inet:fqdn=$fqdn -> ou:org
             return($node)
@@ -180,12 +210,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function newsByUrl(url, try=$lib.false) {
-            if $try {
-                ($ok, $url) = $lib.trycast(inet:url, $url)
-                if (not $ok) { return() }
-            } else {
-                $url = $lib.cast(inet:url, $url)
-            }
+            ($ok, $url) = $__maybeCast($try, inet:url, $url)
+            if (not $ok) { return() }
 
             media:news:url=$url
             return($node)
@@ -204,18 +230,27 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function vulnByCve(cve, try=$lib.false) {
-            if $try {
-                ($ok, $cve) = $lib.trycast("it:sec:cve", $cve)
-                if (not $ok) { return() }
-            } else {
-                $cve = $lib.cast(it:sec:cve, $cve)
-            }
+        function vulnByCve(cve, try=$lib.false, reporter=$lib.null) {
+            ($ok, $cve) = $__maybeCast($try, it:sec:cve, $cve)
+            if (not $ok) { return() }
 
             risk:vuln:cve=$cve
+            if $reporter {
+                +:reporter:name=$reporter
+                { -:reporter [ :reporter=$orgByName($reporter) ] }
+            }
             return($node)
 
-            [ risk:vuln=(gen, cve, $cve) :cve=$cve ]
+            $guid = (gen, cve, $cve)
+            if $reporter {
+                $reporter = $lib.cast(ou:name, $reporter)
+                $guid.append($reporter)
+            }
+
+            [ risk:vuln=$guid :cve=$cve ]
+            if $reporter {
+                [ :reporter:name=$reporter :reporter=$orgByName($reporter) ]
+            }
             return($node)
         }
 
@@ -258,14 +293,11 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function psContactByEmail(type, email, try=$lib.false) {
+            ($ok, $email) = $__maybeCast($try, inet:email, $email)
+            if (not $ok) { return() }
 
-            if $try {
-                ($ok, $email) = $lib.trycast("inet:email", $email)
-                if (not $ok) { return() }
-            } else {
-                $type = $lib.cast(ps:contact:type:taxonomy, $type)
-                $email = $lib.cast(inet:email, $email)
-            }
+            ($ok, $type) = $__maybeCast($try, ps:contact:type:taxonomy, $type)
+            if (not $ok) { return() }
 
             ps:contact:email = $email
             +:type = $type
@@ -279,12 +311,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function polCountryByIso2(iso2, try=$lib.false) {
-            if $try {
-                ($ok, $iso2) = $lib.trycast("pol:iso2", $iso2)
-                if (not $ok) { return() }
-            } else {
-                $iso2 = $lib.cast(pol:iso2, $iso2)
-            }
+            ($ok, $iso2) = $__maybeCast($try, pol:iso2, $iso2)
+            if (not $ok) { return() }
 
             pol:country:iso2=$iso2
             return($node)
@@ -313,13 +341,8 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function langByCode(code, try=$lib.false) {
-
-            if $try {
-                ($ok, $code) = $lib.trycast(lang:code, $code)
-                if (not $ok) { return() }
-            } else {
-                $code = $lib.cast(lang:code, $code)
-            }
+            ($ok, $code) = $__maybeCast($try, lang:code, $code)
+            if (not $ok) { return() }
 
             lang:language:code=$code
             return($node)
@@ -331,12 +354,75 @@ class LibGen(s_stormtypes.Lib):
         function campaign(name, reporter) {
 
             ou:campname = $name -> ou:campaign +:reporter:name=$reporter
+            { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
             $name = $lib.cast(ou:campname, $name)
             $reporter = $lib.cast(ou:name, $reporter)
 
-            [ ou:campaign=(gen, name, reporter, $name, $reporter) :name=$name :reporter:name=$reporter ]
+            [ ou:campaign=(gen, name, reporter, $name, $reporter)
+                :name=$name
+                :reporter:name=$reporter
+                :reporter=$orgByName($reporter)
+            ]
+            return($node)
+        }
+
+        function itAvScanResultByTarget(form, value, signame, scanner=$lib.null, time=$lib.null, try=$lib.false) {
+
+            ($ok, $value) = $__maybeCast($try, $form, $value)
+            if (not $ok) { return() }
+
+            switch $form {
+                "file:bytes":   { $tprop = target:file }
+                "inet:fqdn":    { $tprop = target:fqdn }
+                "inet:ipv4":    { $tprop = target:ipv4 }
+                "inet:ipv6":    { $tprop = target:ipv6 }
+                "inet:url":     { $tprop = target:url  }
+                "it:exec:proc": { $tprop = target:proc }
+                "it:host":      { $tprop = target:host }
+                *: {
+                    $lib.raise(BadArg, `Unsupported target form {$form}`)
+                }
+            }
+
+            ($ok, $signame) = $__maybeCast($try, it:av:signame, $signame)
+            if (not $ok) { return() }
+
+            if ($scanner != $lib.null) {
+                ($ok, $scanner) = $__maybeCast($try, it:prod:softname, $scanner)
+                if (not $ok) { return() }
+            }
+
+            if ($time != $lib.null) {
+                ($ok, $time) = $__maybeCast($try, time, $time)
+                if (not $ok) { return() }
+            }
+
+            $tlift = `it:av:scan:result:{$tprop}`
+
+            *$tlift=$value +:signame=$signame
+            if ($time != $lib.null) { +:time=$time }
+            if ($scanner != $lib.null) { +:scanner:name=$scanner }
+            return($node)
+
+            [ it:av:scan:result=(gen, target, $form, $value, $signame, $scanner, $time)
+                :signame=$signame
+                :$tprop=$value
+                :scanner:name?=$scanner
+                :time?=$time
+            ]
+
+            return($node)
+        }
+
+        function geoPlaceByName(name) {
+            $geoname = $lib.cast(geo:name, $name)
+
+            geo:name=$geoname -> geo:place
+            return($node)
+
+            [ geo:place=(gen, name, $geoname) :name=$geoname ]
             return($node)
         }
     '''
@@ -378,7 +464,7 @@ stormcmds = (
     },
     {
         'name': 'gen.ou.campaign',
-        'descr': 'Lift or create an ou:campaign based on the name and reporting organization.',
+        'descr': 'Lift (or create) an ou:campaign based on the name and reporting organization.',
         'cmdargs': (
             ('name', {'help': 'The name of the campaign.'}),
             ('reporter', {'help': 'The name of the reporting organization.'}),
@@ -428,14 +514,20 @@ stormcmds = (
     {
         'name': 'gen.risk.vuln',
         'descr': '''
-            Lift (or create) a risk:vuln node based on the CVE.
+            Lift (or create) a risk:vuln node based on the CVE and reporter name.
+
+            Examples:
+
+                // Yield a risk:vuln node for CVE-2012-0157 reported by Mandiant.
+                gen.risk.vuln CVE-2012-0157 Mandiant
         ''',
         'cmdargs': (
             ('cve', {'help': 'The CVE identifier.'}),
+            ('reporter', {'help': 'The name of the reporting organization.', 'nargs': '?'}),
             ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
                        'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try)',
+        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try, reporter=$cmdopts.reporter)',
     },
     {
         'name': 'gen.ou.industry',
@@ -506,5 +598,48 @@ stormcmds = (
             ('name', {'help': 'The name of the language.'}),
         ),
         'storm': 'yield $lib.gen.langByName($cmdopts.name)',
+    },
+    # todo: remove it:av:filehit example in 3.x.x
+    {
+        'name': 'gen.it.av.scan.result',
+        'descr': '''
+            Lift (or create) the it:av:scan:result node by deconflicting the target and signature time.
+
+            The scan time and scanner name may also optionally be provided for deconfliction.
+
+            Examples:
+
+                // Yield the it:av:scan:result node for an FQDN and signature name
+                gen.it.av.scan.result inet:fqdn vertex.link foosig
+
+                // Also deconflict by scanner name and scan time
+                gen.it.av.scan.result inet:fqdn fqdn vertex.link foosig --scanner-name barscanner --time 2022-11-03
+
+                // Generate an it:av:scan:result node from an it:av:filehit node
+                it:av:filehit#foo | gen.it.av.scan.result file:bytes :file :sig:name
+        ''',
+        'cmdargs': (
+            ('form', {'help': 'The target form.'}),
+            ('value', {'help': 'The target value.'}),
+            ('signame', {'help': 'The signature name.'}),
+            ('--scanner-name', {'help': 'An optional scanner software name to include in deconfliction.'}),
+            ('--time', {'help': 'An optional time when the scan was run to include in the deconfliction.'}),
+            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
+                       'action': 'store_true'}),
+        ),
+        'storm': '''
+            yield $lib.gen.itAvScanResultByTarget($cmdopts.form, $cmdopts.value, $cmdopts.signame,
+                                                  scanner=$cmdopts.scanner_name, time=$cmdopts.time, try=$cmdopts.try)
+        ''',
+    },
+    {
+        'name': 'gen.geo.place',
+        'descr': '''
+            Lift (or create) a geo:place node based on the name.
+        ''',
+        'cmdargs': (
+            ('name', {'help': 'The name of the place.'}),
+        ),
+        'storm': 'yield $lib.gen.geoPlaceByName($cmdopts.name)',
     },
 )

@@ -570,7 +570,7 @@ See :ref:`data-light-edge` for details on light edges.
 .. CAUTION::
   
   The minus sign ( ``-`` ) used with a light edge **outside** any edit brackets simply instructs Storm to traverse ("walk")
-  the specified light edge (see :ref:`walk-light-edge`). The minus sign used with a light edge **inside** edit brackets
+  the specified light edge (see :ref:`storm-traverse`). The minus sign used with a light edge **inside** edit brackets
   instructs Storm to **delete** the specified edges.
 
 **Examples:**
@@ -691,7 +691,7 @@ Add tag property:
 
 *Add tag with custom tag property and value:*
 
-.. storm-pre:: $tagpropinfo = $lib.dict(doc="A risk tagprop.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
+.. storm-pre:: $tagpropinfo = ({"doc": "A risk tagprop."}) $lib.model.ext.addTagProp(risk, (int, ({})), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=87]
 ::
 
     <inet:fqdn> [ +#rep.symantec:risk = 87 ]

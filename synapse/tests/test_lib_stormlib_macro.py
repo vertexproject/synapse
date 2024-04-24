@@ -53,6 +53,27 @@ class MacroTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.macro.del(hehe)', opts=asvisi)
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.macro.set("", ${ inet:ipv4 })')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.macro.get("")')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.macro.del("")')
+
+            with self.raises(s_exc.BadArg):
+                await core.delStormMacro('', user=None)
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.macro.grant("", users, hehe, 3)')
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.nodes('$lib.macro.mod("hehe", ({"name": ""}))')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.macro.mod("", ({"name": "foobar"}))')
+
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.macro.set(hehe, ${ inet:ipv6 })', opts=asvisi)
 
@@ -118,6 +139,14 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist('macro.del print', opts={'readonly': True})
             self.stormIsInErr('not marked readonly safe', msgs)
 
+            msgs = await core.stormlist('macro.set blorpblorp "+#foo"', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            await core.auth.delUser(visi.iden)
+            msgs = await core.stormlist('macro.list')
+            self.stormIsInPrint("User not found", msgs)
+            self.stormIsInPrint(visi.iden, msgs)
+
     async def test_stormlib_macro_vars(self):
 
         async with self.getTestCore() as core:
@@ -152,7 +181,7 @@ class MacroTest(s_test.SynTest):
             self.eq([('test:str', 'cooler')], [n.ndef for n in nodes])
 
             # Inner vars win on conflict
-            q = 'macro.set data2 ${ $data=$lib.dict(value=beef) [test:str=$data.value +#cool.story] }'
+            q = 'macro.set data2 ${ $data=({"value": "beef"}) [test:str=$data.value +#cool.story] }'
             msgs = await core.stormlist(q)
             self.stormIsInPrint('Set macro: data2', msgs)
 
@@ -319,3 +348,68 @@ class MacroTest(s_test.SynTest):
             await visi.addRule((True, ('storm', 'macro', 'admin')))
             msgs = await core.stormlist('macro.del asdf', opts={'user': visi.iden})
             self.stormHasNoWarnErr(msgs)
+
+    async def test_stormlib_behold_macro(self):
+        self.skipIfNexusReplay()
+        async with self.getTestCore() as core:
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+            await visi.setAdmin(True)
+
+            async with self.getHttpSess() as sess:
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('visi', retn['result']['name'])
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'call:init'})
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'init')
+
+                    await core.callStorm('''
+                        $lib.macro.set('foobar', ${ file:bytes | [+#neato] })
+                        $lib.macro.set('foobar', ${ inet:ipv4 | [+#burrito] })
+                        $lib.macro.mod('foobar', ({'name': 'bizbaz'}))
+                        $lib.macro.grant('bizbaz', users, $visi, 3)
+                        $lib.macro.del('bizbaz')
+                    ''', opts={'vars': {'visi': visi.iden}})
+
+                    addmesg = await sock.receive_json()
+                    self.eq('storm:macro:add', addmesg['data']['event'])
+                    macro = addmesg['data']['info']['macro']
+                    self.eq(macro['name'], 'foobar')
+                    self.eq(macro['storm'], 'file:bytes | [+#neato]')
+                    self.ne(visi.iden, macro['user'])
+                    self.ne(visi.iden, macro['creator'])
+                    self.nn(macro['iden'])
+
+                    setmesg = await sock.receive_json()
+                    self.eq('storm:macro:mod', setmesg['data']['event'])
+                    event = setmesg['data']['info']
+                    self.nn(event['macro'])
+                    self.eq(event['info']['storm'], 'inet:ipv4 | [+#burrito]')
+                    self.nn(event['info']['updated'])
+
+                    modmesg = await sock.receive_json()
+                    self.eq('storm:macro:mod', modmesg['data']['event'])
+                    event = modmesg['data']['info']
+                    self.nn(event['macro'])
+                    self.eq(event['info']['name'], 'bizbaz')
+                    self.nn(event['info']['updated'])
+
+                    grantmesg = await sock.receive_json()
+                    self.eq('storm:macro:set:perm', grantmesg['data']['event'])
+                    event = grantmesg['data']['info']
+                    self.nn(event['macro'])
+                    self.eq(event['info']['level'], 3)
+                    self.eq(event['info']['scope'], 'users')
+                    self.eq(event['info']['iden'], visi.iden)
+
+                    delmesg = await sock.receive_json()
+                    self.eq('storm:macro:del', delmesg['data']['event'])
+                    event = delmesg['data']['info']
+                    self.nn(event['iden'])
+                    self.eq(event['name'], 'bizbaz')

@@ -735,9 +735,9 @@ class StormTest(s_t_utils.SynTest):
             # check that the feed API uses toprim
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = $lib.dict(email=visi@vertex.link)
+                $props = ({"email": "visi@vertex.link"})
                 $lib.feed.ingest(syn.nodes, (
-                    ( (ps:contact, $iden), $lib.dict(props=$props)),
+                    ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 ps:contact=$iden
                 return(:email)
@@ -746,9 +746,9 @@ class StormTest(s_t_utils.SynTest):
 
             email = await core.callStorm('''
                 $iden = $lib.guid()
-                $props = $lib.dict(email=visi@vertex.link)
+                $props = ({"email": "visi@vertex.link"})
                 yield $lib.feed.genr(syn.nodes, (
-                    ( (ps:contact, $iden), $lib.dict(props=$props)),
+                    ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 return(:email)
             ''')
@@ -777,7 +777,7 @@ class StormTest(s_t_utils.SynTest):
             # and again to test *not* creating it...
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
 
-            self.eq({'foo': 'bar'}, await core.callStorm('return($lib.dict(    foo    =    bar   ))'))
+            self.eq({'foo': 'bar'}, await core.callStorm('return(({    "foo"    :    "bar"   }))'))
 
             ddef0 = await core.callStorm('return($lib.dmon.add(${ $lib.queue.gen(hehedmon).put(lolz) $lib.time.sleep(10) }, name=hehedmon))')
             ddef1 = await core.callStorm('return($lib.dmon.get($iden))', opts={'vars': {'iden': ddef0.get('iden')}})
@@ -1226,12 +1226,12 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('cron.list')
 
             self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('''
-                return($lib.dict( // do foo thing
-                    foo /* hehe */ = /* haha */ bar, //lol
-                    baz // hehe
-                    = // haha
-                    faz // hehe
-                ))
+                return(({ // do foo thing
+                    "foo" /* hehe */ : /* haha */ "bar", //lol
+                    "baz" // hehe
+                    : // haha
+                    "faz" // hehe
+                }))
             '''))
 
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('''
@@ -1262,7 +1262,7 @@ class StormTest(s_t_utils.SynTest):
                 query = await core.getStormQuery('')
                 async with snap.getStormRuntime(query) as runt:
                     with self.raises(s_exc.AuthDeny):
-                        runt.reqAdmin(gateiden='cortex')
+                        runt.reqAdmin(gateiden=layr)
 
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -1772,12 +1772,91 @@ class StormTest(s_t_utils.SynTest):
             self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['*'])
 
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
-            msgs = await core.stormlist('[ ou:org=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
+            msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
-
             node = nodes[0]
+
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
             self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            opts['vars'] = {
+                'md5': '12345a5758eea935f817dd1490a322a5',
+                'sha1': '40b8e76cff472e593bd0ba148c09fec66ae72362'
+            }
+            opts['view'] = fork
+            opts['show:storage'] = True
+            opts['embeds']['ou:org']['lol::nope'] = ('notreal',)
+            opts['embeds']['ou:org']['country::flag'] = ('md5', 'sha1')
+            opts['embeds']['ou:org']['country::tld'] = ('domain',)
+
+            await core.stormlist('pol:country [ :flag={[ file:bytes=* :md5=fa818a259cbed7ce8bc2a22d35a464fc ]} ]')
+
+            msgs = await core.stormlist('''
+                ou:org {
+                    -> pol:country
+                    [ :tld=co.uk ]
+                    {
+                        :flag -> file:bytes [ :md5=$md5 :sha1=$sha1 ]
+                    }
+                }
+            ''', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            node = nodes[0]
+
+            storage = node[1]['storage']
+            self.len(2, storage)
+            top = storage[0].get('embeds')
+            bot = storage[1].get('embeds')
+            self.nn(top)
+            self.nn(bot)
+
+            self.nn(top.get('country::flag::md5'))
+            self.eq(top['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+
+            self.nn(top.get('country::flag::sha1'))
+            self.eq(top['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+
+            self.nn(top.get('country::tld::domain'))
+            self.eq(top['country::tld::domain'][0], 'uk')
+
+            self.nn(bot.get('hq::email::user'))
+            self.eq(bot['hq::email::user'][0], 'visi')
+
+            self.nn(bot.get('country::flag::md5'))
+            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+
+            empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
+            opts['view'] = empty
+
+            msgs = await core.stormlist('ou:org', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            node = nodes[0]
+            storage = node[1]['storage']
+            self.len(3, storage)
+            top = storage[0].get('embeds')
+            mid = storage[1].get('embeds')
+            bot = storage[2].get('embeds')
+            self.none(top)
+
+            self.nn(mid)
+            self.nn(bot)
+
+            self.nn(mid.get('country::flag::md5'))
+            self.eq(mid['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+
+            self.nn(mid.get('country::flag::sha1'))
+            self.eq(mid['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+
+            self.nn(mid.get('country::tld::domain'))
+            self.eq(mid['country::tld::domain'][0], 'uk')
+
+            self.nn(bot.get('hq::email::user'))
+            self.eq(bot['hq::email::user'][0], 'visi')
+
+            self.nn(bot.get('country::flag::md5'))
+            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
     async def test_storm_wget(self):
 
@@ -1805,7 +1884,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Headers as list of tuples, params as dict
             q = '''
-            $params=$lib.dict(key=valu, foo=bar)
+            $params=({"key": "valu", "foo": "bar"})
             $hdr = (
                     ("User-Agent", "my fav ua"),
             )|
@@ -1936,6 +2015,32 @@ class StormTest(s_t_utils.SynTest):
                     await core.setUserLocked(visi.iden, False)
                     self.true(await stream.wait(2))
 
+    async def test_storm_dmon_caching(self):
+
+        async with self.getTestCore() as core:
+
+            q = f'''
+            $lib.dmon.add(${{
+                for $x in $lib.range(2) {{
+                    inet:ipv4=1.2.3.4
+                    if $node {{
+                        $lib.queue.gen(foo).put($node.props.asn)
+                        $lib.queue.gen(bar).get(1)
+                    }}
+                    [ inet:ipv4=1.2.3.4 :asn=5 ]
+                    $lib.queue.gen(foo).put($node.props.asn)
+                    $lib.queue.gen(bar).get(0)
+                }}
+                | spin
+            }}, name=foo)'''
+            await core.nodes(q)
+
+            self.eq((0, 5), await core.callStorm('return($lib.queue.gen(foo).get(0))'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ :asn=6 ] $lib.queue.gen(bar).put(0)')
+
+            self.eq((1, 6), await core.callStorm('return($lib.queue.gen(foo).get(1))'))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
@@ -2019,7 +2124,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(await core.callStorm('''
                 [ ps:contact = * ]
                 if $node {
-                    $foo = $lib.dict()
+                    $foo = ({})
                     $foo.bar = $lib.undef
                     return($foo.bar)
                 }
@@ -2038,7 +2143,7 @@ class StormTest(s_t_utils.SynTest):
             # runtsafe variants
             self.eq(('foo', 'baz'), await core.callStorm('$foo = (foo, bar, baz) $foo.1 = $lib.undef return($foo)'))
             self.eq(('foo', 'bar'), await core.callStorm('$foo = (foo, bar, baz) $foo."-1" = $lib.undef return($foo)'))
-            self.none(await core.callStorm('$foo = $lib.dict() $foo.bar = 10 $foo.bar = $lib.undef return($foo.bar)'))
+            self.none(await core.callStorm('$foo = ({}) $foo.bar = 10 $foo.bar = $lib.undef return($foo.bar)'))
             self.eq(('woot',), await core.callStorm('''
                 $foo = (foo, bar, baz)
                 $foo.0 = $lib.undef
@@ -2092,7 +2197,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
-            waiter = core.waiter(2, 'core:pkg:onload:complete')
+            replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
+            nevents = 4 if replay else 2
+            waiter = core.waiter(nevents, 'core:pkg:onload:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
@@ -2109,10 +2216,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(f'ps:contact={cont}'))
 
             evnts = await waiter.wait(timeout=2)
-            self.eq([
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-                ('core:pkg:onload:complete', {'pkg': 'testload'}),
-            ], evnts)
+            exp = []
+            for _ in range(nevents):
+                exp.append(('core:pkg:onload:complete', {'pkg': 'testload'}))
+            self.eq(exp, evnts)
 
     async def test_storm_tree(self):
 
@@ -2123,7 +2230,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Max recursion fail
             q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            await self.asyncraises(s_exc.RecursionLimitHit, core.nodes(q))
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
@@ -2331,6 +2438,18 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag this is')
 
+        async with self.getTestCore() as core:
+            await core.nodes('[ syn:tag=hehe :isnow=haha ]')
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('haha.qwer'))
+            self.none(nodes[0].getTag('hehe.qwer'))
+            self.len(1, await core.nodes('syn:tag=haha.qwer'))
+
+            # this should hit the already existing redirected tag now...
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
+
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
@@ -2386,9 +2505,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:comp $valu=({"foo": :hehe}) | uniq $valu')
             self.len(1, nodes)
             q = '''
-                [(graph:node=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
-                 (graph:node=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
-                 (graph:node=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
+                [(tel:mob:telem=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
+                 (tel:mob:telem=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
+                 (tel:mob:telem=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
                 uniq :data
             '''
             nodes = await core.nodes(q)
@@ -3303,7 +3422,6 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=2.8.0,<3.0.0',
                 'commands': ({
                                  'name': 'testcmd',
@@ -4485,7 +4603,7 @@ class StormTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('node',)))
 
-            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+            size, sha256 = await core.callStorm('return($lib.axon.put($buf))', {'vars': {'buf': b'asdfasdf'}})
 
             self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
 

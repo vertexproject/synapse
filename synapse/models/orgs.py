@@ -24,14 +24,27 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:isic', ('str', {'regex': r'^[A-Z]([0-9]{2}[0-9]{0,2})?$'}), {
                     'doc': 'An International Standard Industrial Classification of All Economic Activities (ISIC) code.',
-                    'ex': 'C1393',
-                }),
+                    'ex': 'C1393'}),
+
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'names'}},
+                            {'type': 'prop', 'opts': {'name': 'country:code'}},
+                        ),
+                    }}),
+
                 ('ou:team', ('guid', {}), {
                     'doc': 'A GUID for a team within an organization.',
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'org::name'}},
+                        ),
+                    }}),
+
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
@@ -49,6 +62,11 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                        ),
+                    },
                 }),
                 ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
@@ -113,6 +131,12 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'start'}},
+                        ),
+                    },
                 }),
                 ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
                     'deprecated': True,
@@ -133,6 +157,11 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                        ),
+                    },
                 }),
                 ('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A goal name.',
@@ -154,16 +183,31 @@ class OuModule(s_module.CoreModule):
 
                 ('ou:campaign', ('guid', {}), {
                     'doc': "Represents an org's activity in pursuit of a goal.",
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'names'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    }}),
+
                 ('ou:conflict', ('guid', {}), {
                     'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
                 }),
                 ('ou:contribution', ('guid', {}), {
-                    'doc': 'Represents a specific instance of contributing material support to a campaign.',
-                }),
+                    'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
+
                 ('ou:technique', ('guid', {}), {
                     'doc': 'A specific technique used to achieve a goal.',
-                }),
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'tag'}},
+                        ),
+                    }}),
+
                 ('ou:technique:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
@@ -223,6 +267,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The contribution includes the specific node.'}),
                 ((None, 'meets', 'ou:requirement'), {
                     'doc': 'The requirement is met by the source node.'}),
+                (('ou:org', 'has', None), {
+                    'doc': 'The organization is or was in possession of the target node.'}),
+                (('ou:org', 'owns', None), {
+                    'doc': 'The organization owns or owned the target node.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -346,23 +394,29 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'The friendly name of the id number type.',
                     }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The official URL of the issuer.',
+                    }),
                 )),
                 ('ou:id:number', {}, (
+
                     ('type', ('ou:id:type', {}), {
-                        'doc': 'The type of org id', 'ro': True,
-                    }),
+                        'doc': 'The type of org id', 'ro': True}),
+
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The value of org id', 'ro': True,
-                    }),
+                        'doc': 'The value of org id', 'ro': True}),
+
                     ('status', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A freeform status such as valid, suspended, expired.',
-                    }),
+                        'doc': 'A freeform status such as valid, suspended, expired.'}),
+
                     ('issued', ('time', {}), {
-                        'doc': 'The time at which the org issued the ID number.',
-                    }),
+                        'doc': 'The time at which the org issued the ID number.'}),
+
                     ('expires', ('time', {}), {
-                        'doc': 'The time at which the ID number expires.',
-                    }),
+                        'doc': 'The time at which the ID number expires.'}),
+
+                    ('issuer', ('ps:contact', {}), {
+                        'doc': 'The contact information of the office which issued the ID number.'}),
                 )),
                 ('ou:id:update', {}, (
                     ('number', ('ou:id:number', {}), {
@@ -505,7 +559,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
 
                     ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
-                        'doc': 'A mapping to a Mitre ATT&CK campaign if applicable.'}),
+                        'doc': 'A mapping to a MITRE ATT&CK campaign if applicable.'}),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {
@@ -552,7 +606,7 @@ class OuModule(s_module.CoreModule):
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes where the technique was employed.'}),
                     ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
-                        'doc': 'A mapping to a Mitre ATT&CK technique if applicable.'}),
+                        'doc': 'A mapping to a MITRE ATT&CK technique if applicable.'}),
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the technique.'}),
                     ('reporter:name', ('ou:name', {}), {
@@ -711,7 +765,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The name of the industry.'}),
 
                     ('type', ('ou:industry:type:taxonomy', {}), {
-                        'doc': 'An taxonomy entry for the industry.'}),
+                        'doc': 'A taxonomy entry for the industry.'}),
 
                     ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),

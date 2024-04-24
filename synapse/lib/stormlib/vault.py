@@ -279,7 +279,7 @@ stormcmds = (
             }
 
             if $cmdopts.role {
-                $iden = $lib.auth.roles.byname($cmdopts.user).iden
+                $iden = $lib.auth.roles.byname($cmdopts.role).iden
                 $type = "Role"
             } else {
                 $iden = $lib.auth.users.byname($cmdopts.user).iden

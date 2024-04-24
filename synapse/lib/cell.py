@@ -1,5 +1,6 @@
 import gc
 import os
+import ssl
 import copy
 import time
 import fcntl
@@ -12,6 +13,7 @@ import tarfile
 import argparse
 import datetime
 import platform
+import tempfile
 import functools
 import contextlib
 import multiprocessing
@@ -32,6 +34,7 @@ import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
@@ -58,6 +61,7 @@ import synapse.tools.backup as s_t_backup
 logger = logging.getLogger(__name__)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
+SSLCTX_CACHE_SIZE = 64
 
 '''
 Base classes for the synapse "cell" microservice architecture.
@@ -74,6 +78,8 @@ permnames = {
     PERM_EDIT: 'edit',
     PERM_ADMIN: 'admin',
 }
+
+diskspace = "Insufficient free space on disk."
 
 def adminapi(log=False):
     '''
@@ -117,7 +123,8 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
+        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
+        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -337,7 +344,7 @@ class CellApi(s_base.Base):
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
 
-    @adminapi()
+    @adminapi(log=True)
     async def handoff(self, turl, timeout=30):
         return await self.cell.handoff(turl, timeout=timeout)
 
@@ -661,26 +668,32 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def listHiveKey(self, path=None):
+        s_common.deprecated('CellApi.listHiveKey', curv='2.167.0')
         return await self.cell.listHiveKey(path=path)
 
     @adminapi(log=True)
     async def getHiveKeys(self, path):
+        s_common.deprecated('CellApi.getHiveKeys', curv='2.167.0')
         return await self.cell.getHiveKeys(path)
 
     @adminapi(log=True)
     async def getHiveKey(self, path):
+        s_common.deprecated('CellApi.getHiveKey', curv='2.167.0')
         return await self.cell.getHiveKey(path)
 
     @adminapi(log=True)
     async def setHiveKey(self, path, valu):
+        s_common.deprecated('CellApi.setHiveKey', curv='2.167.0')
         return await self.cell.setHiveKey(path, valu)
 
     @adminapi(log=True)
     async def popHiveKey(self, path):
+        s_common.deprecated('CellApi.popHiveKey', curv='2.167.0')
         return await self.cell.popHiveKey(path)
 
     @adminapi(log=True)
     async def saveHiveTree(self, path=()):
+        s_common.deprecated('CellApi.saveHiveTree', curv='2.167.0')
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
@@ -1053,6 +1066,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellparent = parent
         self.sessions = {}
         self.isactive = False
+        self.activebase = None
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
@@ -1150,6 +1164,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
+
+        # for runtime cell configuration values
+        self.slab.initdb('cell:conf')
+
+        self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
         self.hive = await self._initCellHive()
 
@@ -1379,31 +1398,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if (disk.free / disk.total) <= self.minfree:
 
-                reason = "Insufficient free space on disk."
-
-                await self._setReadOnly(True, reason=reason)
-                nexsroot.setReadOnly(True, reason=reason)
+                await nexsroot.addWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             elif nexsroot.readonly:
 
-                await self._setReadOnly(False)
-                nexsroot.setReadOnly(False)
-
-                await self.nexsroot.startup()
+                await nexsroot.delWriteHold(diskspace)
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
-                logger.warning(mesg)
+                logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
-
-    async def _setReadOnly(self, valu, reason=None):
-        # implement any behavior necessary to change the cell read-only status
-        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1416,7 +1425,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahaurl is not None:
 
             info = await s_telepath.addAhaUrl(ahaurl)
-            self.ahaclient = info.get('client')
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
@@ -1557,32 +1565,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
-        async def onlink(proxy):
-            while not proxy.isfini:
-                info = await self.getAhaInfo()
+        async def _runAhaRegLoop():
+
+            while not self.isfini:
                 try:
+                    proxy = await self.ahaclient.proxy()
+                    info = await self.getAhaInfo()
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+                except Exception as e:
+                    logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
+                    await self.waitfini(1)
+                else:
+                    await proxy.waitfini()
 
-                    return
-
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-
-                except Exception:
-                    logger.exception('Error in _initAhaService() onlink')
-
-                await proxy.waitfini(1)
-
-        async def fini():
-            await self.ahaclient.offlink(onlink)
-
-        async def init():
-            await self.ahaclient.onlink(onlink)
-            self.onfini(fini)
-
-        self.schedCoro(init())
+        self.schedCoro(_runAhaRegLoop())
 
     async def initServiceRuntime(self):
         pass
@@ -1669,9 +1667,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        ahaname = self.conf.get('aha:name')
+        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful} ahaname={ahaname}')
+
         if graceful:
 
-            ahaname = self.conf.get('aha:name')
             if ahaname is None: # pragma: no cover
                 mesg = 'Cannot gracefully promote without aha:name configured.'
                 raise s_exc.BadArg(mesg=mesg)
@@ -1682,20 +1682,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.BadArg(mesg=mesg)
 
             myurl = f'aha://{ahaname}.{ahanetw}'
+            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff to ahaname={ahaname}')
             async with await s_telepath.openurl(mirurl) as lead:
+                logger.debug(f'PROMOTION: Requesting leadership handoff to ahaname={ahaname}')
                 await lead.handoff(myurl)
+                logger.warning(f'PROMOTION: Completed leadership handoff to ahaname={ahaname}')
                 return
 
+        logger.debug(f'PROMOTION: Clearing mirror configuration for ahaname={ahaname}')
         self.modCellConf({'mirror': None})
 
+        logger.debug(f'PROMOTION: Promoting the nexus root for ahaname={ahaname}')
         await self.nexsroot.promote()
+
+        logger.debug(f'PROMOTION: Setting the cell as active ahaname={ahaname}')
         await self.setCellActive(True)
+
+        logger.warning(f'PROMOTION: Finished leadership promotion ahaname={ahaname}')
 
     async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
+        ahaname = self.conf.get("aha:name")
+        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
         async with await s_telepath.openurl(turl) as cell:
+
+            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
 
             if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
@@ -1705,19 +1718,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
+            logger.debug(f'HANDOFF: Obtaining nexus applylock ahaname={ahaname}')
+
             async with self.nexsroot.applylock:
 
+                logger.debug(f'HANDOFF: Obtained nexus applylock ahaname={ahaname}')
                 indx = await self.getNexsIndx()
+
+                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}, ahaname={ahaname}')
                 if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)
 
+                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion ahaname={ahaname}')
                 await cell.promote()
+
+                logger.debug(f'HANDOFF: Setting the service as inactive ahaname={ahaname}')
                 await self.setCellActive(False)
 
+                logger.debug(f'HANDOFF: Configuring service to use the new leader as its mirror ahaname={ahaname}')
                 self.modCellConf({'mirror': turl})
+
+                logger.debug(f'HANDOFF: Restarting the nexus ahaname={ahaname}')
                 await self.nexsroot.startup()
+
+            logger.debug(f'HANDOFF: Released nexus applylock ahaname={ahaname}')
+        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)} ahaname={self.conf.get("aha:name")}')
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
@@ -1849,17 +1876,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.isactive
 
     async def setCellActive(self, active):
+
+        if active == self.isactive:
+            return
+
         self.isactive = active
 
         if self.isactive:
+            self.activebase = await s_base.Base.anit()
+            self.onfini(self.activebase)
             self._fireActiveCoros()
             await self._execCellUpdates()
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
+            await self.activebase.fini()
+            self.activebase = None
             await self.initServicePassive()
 
         await self._setAhaActive()
+
+    def runActiveTask(self, coro):
+        # an API for active coroutines to use when running an
+        # ephemeral task which should be automatically torn down
+        # if the cell becomes inactive
+        return self.activebase.schedCoro(coro)
 
     async def initServiceActive(self):  # pragma: no cover
         pass
@@ -2640,6 +2681,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
+    @s_nexus.Pusher.onPushAuto('http:sess:update')
+    async def updateHttpSessInfo(self, iden, vals: dict):
+        for name, valu in vals.items():
+            s_msgpack.isok(valu)
+        for name, valu in vals.items():
+            self.sessstor.set(iden, name, valu)
+        sess = self.sessions.get(iden)
+        if sess is not None:
+            sess.info.update(vals)
+
     @contextlib.contextmanager
     def getTempDir(self):
         tdir = s_common.gendir(self.dirn, 'tmp')
@@ -2830,7 +2881,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellDmon(self):
 
-        self.dmon = await s_daemon.Daemon.anit()
+        ahainfo = {
+            'name': self.ahasvcname
+        }
+
+        self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
         self.dmon.share('*', self)
 
         self.onfini(self.dmon.fini)
@@ -2845,6 +2900,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if isnew:
             path = os.path.join(self.dirn, 'hiveboot.yaml')
             if os.path.isfile(path):
+                s_common.deprdate('Initial hive config from hiveboot.yaml', '2024-05-05')
                 logger.debug(f'Loading cell hive from {path}')
                 tree = s_common.yamlload(path)
                 if tree is not None:
@@ -3634,7 +3690,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.ahaclient.waitready()
 
-        mirrors = await self.ahaclient.getAhaSvcMirrors(self.ahasvcname)
+        proxy = await self.ahaclient.proxy(timeout=5)
+        mirrors = await proxy.getAhaSvcMirrors(self.ahasvcname)
         if mirrors is None:
             mesg = 'Service must be configured with AHA to enumerate mirror URLs'
             raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
@@ -3948,6 +4005,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'aha': {
+                    'name': self.conf.get('aha:name'),
+                    'leader': self.conf.get('aha:leader'),
+                    'network': self.conf.get('aha:network'),
+                }
             },
             'features': {
                 'tellready': True,
@@ -3975,6 +4037,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - totalmem - Total memory in the system
                 - availmem - Available memory in the system
                 - cpucount - Number of CPUs on system
+                - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
         uptime = int((time.monotonic() - self.starttime) * 1000)
         disk = shutil.disk_usage(self.dirn)
@@ -3991,6 +4054,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
         sysctls = s_thisplat.getSysctls()
+        tmpdir = s_thisplat.getTempDir()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -4006,7 +4070,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
-            'sysctls': sysctls                 # Performance related sysctls
+            'sysctls': sysctls,                # Performance related sysctls
+            'tmpdir': tmpdir,                  # Temporary File / Folder Directory
         }
 
         return retn
@@ -4020,7 +4085,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await s_base.Base.addSignalHandlers(self)
 
         def sighup():
-            asyncio.create_task(self.reload())
+            logger.info('Caught SIGHUP, running reloadable subsystems.')
+            task = asyncio.create_task(self.reload())
+            self._syn_signal_tasks.add(task)
+            task.add_done_callback(self._syn_signal_tasks.discard)
 
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGHUP, sighup)
@@ -4323,3 +4391,60 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.slab.delete(key_iden, db=self.apikeydb)
             self.slab.delete(lkey, db=self.usermetadb)
             await asyncio.sleep(0)
+
+    def _makeCachedSslCtx(self, opts):
+
+        opts = dict(opts)
+
+        cadir = self.conf.get('tls:ca:dir')
+
+        if cadir is not None:
+            sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
+        else:
+            sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+
+        if not opts['verify']:
+            sslctx.check_hostname = False
+            sslctx.verify_mode = ssl.CERT_NONE
+
+        if not opts['client_cert']:
+            return sslctx
+
+        client_cert = opts['client_cert'].encode()
+
+        if opts['client_key']:
+            client_key = opts['client_key'].encode()
+        else:
+            client_key = None
+            client_key_path = None
+
+        with self.getTempDir() as tmpdir:
+
+            with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                fh.write(client_cert)
+                client_cert_path = fh.name
+
+            if client_key:
+                with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                    fh.write(client_key)
+                    client_key_path = fh.name
+
+            try:
+                sslctx.load_cert_chain(client_cert_path, keyfile=client_key_path)
+            except ssl.SSLError as e:
+                raise s_exc.BadArg(mesg=f'Error loading client cert: {str(e)}') from None
+
+        return sslctx
+
+    def getCachedSslCtx(self, opts=None, verify=None):
+
+        if opts is None:
+            opts = {}
+
+        if verify is not None:
+            opts['verify'] = verify
+
+        opts = s_schemas.reqValidSslCtxOpts(opts)
+
+        key = tuple(sorted(opts.items()))
+        return self._sslctx_cache.get(key)

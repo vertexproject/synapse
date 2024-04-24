@@ -450,22 +450,32 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('departed'), 1519945200000)
             self.eq(node.get('roles'), ('speaker', 'staff'))
 
-            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar ]')
+            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :url="http://foobar.com/ids"]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
             self.eq('foobar', nodes[0].get('name'))
+            self.eq('http://foobar.com/ids', nodes[0].get('url'))
 
             iden = await core.callStorm('ou:id:type return($node.value())')
 
             opts = {'vars': {'type': iden}}
-            nodes = await core.nodes('[ ou:id:number=($type, visi) :status=woot :issued=202002 :expires=2021 ]', opts=opts)
+            nodes = await core.nodes('''
+                [ ou:id:number=($type, visi)
+                    :status=woot
+                    :issued=202002
+                    :expires=2021
+                    :issuer={[ ps:contact=* :name=visi ]}
+                ]
+            ''', opts=opts)
             self.len(1, nodes)
+            self.nn(nodes[0].get('issuer'))
             self.eq(('ou:id:number', (iden, 'visi')), nodes[0].ndef)
             self.eq(iden, nodes[0].get('type'))
             self.eq('visi', nodes[0].get('value'))
             self.eq('woot', nodes[0].get('status'))
             self.eq(1580515200000, nodes[0].get('issued'))
             self.eq(1609459200000, nodes[0].get('expires'))
+            self.len(1, await core.nodes('ou:id:number -> ps:contact +:name=visi'))
 
             opts = {'vars': {'type': iden}}
             nodes = await core.nodes('[ ou:id:update=* :number=($type, visi) :status=revoked :time=202003]', opts=opts)

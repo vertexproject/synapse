@@ -3084,7 +3084,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 144, 0),
                 'synapse_version': '>=2.8.0,<3.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
@@ -3138,17 +3137,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': (1337, 0, 0),
-                'commands': ()
-            }
-
-            with self.raises(s_exc.BadVersion):
-                await core.addStormPkg(oldverpkg)
-
-            oldverpkg = {
-                'name': 'versionfail',
-                'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=1337.0.0,<2000.0.0',
                 'commands': ()
             }
@@ -3159,7 +3147,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             oldverpkg = {
                 'name': 'versionfail',
                 'version': (0, 0, 1),
-                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
                 'synapse_version': '>=0.0.1,<2.0.0',
                 'commands': ()
             }
@@ -3173,7 +3170,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'commands': ()
             }
 
-            # Package with no synapse_minversion shouldn't raise
             await core.addStormPkg(noverpkg)
 
             badcmdpkg = {
@@ -3224,83 +3220,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(node.get('hehe'))
             self.eq(node, arg_hit['hit'][0])
             self.eq(arg_hit['hit'][1], 'weee')
-
-    async def test_cortex_onofftag(self):
-
-        async with self.getTestCore() as core:
-
-            tags = {}
-
-            def onadd(node, tag, valu):
-                tags[tag] = valu
-
-            def ondel(node, tag, valu):
-                self.none(node.getTag(tag))
-                self.false(node.hasTag(tag))
-                tags.pop(tag)
-
-            core.onTagAdd('foo', onadd)
-            core.onTagAdd('foo.bar', onadd)
-            core.onTagAdd('foo.bar.baz', onadd)
-
-            core.onTagDel('foo', ondel)
-            core.onTagDel('foo.bar', ondel)
-            core.onTagDel('foo.bar.baz', ondel)
-
-            core.onTagAdd('glob.*', onadd)
-            core.onTagDel('glob.*', ondel)
-
-            nodes = await core.nodes('[test:str=hehe]')
-            self.len(1, nodes)
-            node = nodes[0]
-            await node.addTag('foo.bar.baz', valu=(200, 300))
-
-            self.eq(tags.get('foo'), (None, None))
-            self.eq(tags.get('foo.bar'), (None, None))
-            self.eq(tags.get('foo.bar.baz'), (200, 300))
-
-            await node.delTag('foo.bar')
-
-            self.eq(tags.get('foo'), (None, None))
-
-            self.none(tags.get('foo.bar'))
-            self.none(tags.get('foo.bar.baz'))
-
-            core.offTagAdd('foo.bar', onadd)
-            core.offTagDel('foo.bar', ondel)
-            core.offTagAdd('foo.bar', lambda x: 0)
-            core.offTagDel('foo.bar', lambda x: 0)
-
-            await node.addTag('foo.bar', valu=(200, 300))
-            self.none(tags.get('foo.bar'))
-
-            tags['foo.bar'] = 'fake'
-            await node.delTag('foo.bar')
-            self.eq(tags.get('foo.bar'), 'fake')
-
-            # Coverage for removing something from a
-            # tag we never added a handler for.
-            core.offTagAdd('test.newp', lambda x: 0)
-            core.offTagDel('test.newp', lambda x: 0)
-
-            # Test tag glob handlers
-            await node.addTag('glob.foo', valu=(200, 300))
-            self.eq(tags.get('glob.foo'), (200, 300))
-
-            await node.delTag('glob.foo')
-            self.none(tags.get('glob.foo'))
-
-            await node.addTag('glob.foo.bar', valu=(200, 300))
-            self.none(tags.get('glob.foo.bar'))
-
-            # Test handlers don't run after removed
-            core.offTagAdd('glob.*', onadd)
-            core.offTagDel('glob.*', ondel)
-            await node.addTag('glob.faz', valu=(200, 300))
-            self.none(tags.get('glob.faz'))
-            tags['glob.faz'] = (1, 2)
-            await node.delTag('glob.faz')
-            self.eq(tags['glob.faz'], (1, 2))
 
     async def test_storm_logging(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -4028,7 +3947,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('baz', nodes[0].ndef[1])
 
-            q = '$d = $lib.dict("field 1"=foo, "field 2"=bar) [test:str=$d.\'field 1\']'
+            q = '$d = ({"field 1": "foo", "field 2": "bar"}) [test:str=$d.\'field 1\']'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('foo', nodes[0].ndef[1])
@@ -4645,10 +4564,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
-            # This tag does match regex
             data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
             await core1.addFeedData('syn.nodes', data)
-            self.len(0, await core1.nodes('test:int=8 -#test.1234'))
+            self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
@@ -4906,7 +4824,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#foo'))
 
-            nodes = await core.nodes('$d = $lib.dict(foo=bar) [test:str=yop +#$d.foo]')
+            nodes = await core.nodes('$d = ({"foo": "bar"}) [test:str=yop +#$d.foo]')
             self.len(1, nodes)
             self.nn(nodes[0].getTag('bar'))
 
@@ -4952,7 +4870,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#timetag'))
 
-            nodes = await core.nodes('$d = $lib.dict(foo="") [test:str=yop +?#$d.foo +#tag1]')
+            nodes = await core.nodes('$d = ({"foo": ""}) [test:str=yop +?#$d.foo +#tag1]')
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo.*'))
             self.nn(nodes[0].getTag('tag1'))
@@ -4991,7 +4909,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq([n.ndef[0] for n in nodes], [*['test:str', 'inet:ipv4'] * 3])
 
             # non-runsafe iteration over a dictionary
-            q = '''$dict=$lib.dict(key1=valu1, key2=valu2) [(test:str=test1) (test:str=test2)]
+            q = '''$dict=({"key1": "valu1", "key2": "valu2"}) [(test:str=test1) (test:str=test2)]
             for ($key, $valu) in $dict {
                 [:hehe=$valu]
             }
@@ -5004,14 +4922,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(node.get('hehe'), 'valu2')
 
             # None values don't yield anything
-            q = '''$foo = $lib.dict()
+            q = '''$foo = ({})
             for $name in $foo.bar { [ test:str=$name ] }
             '''
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
             # Even with a inbound node, zero loop iterations will not yield inbound nodes.
-            q = '''test:str=test1 $foo = $lib.dict()
+            q = '''test:str=test1 $foo = ({})
             for $name in $foo.bar { [ test:str=$name ] }
             '''
             nodes = await core.nodes(q)
@@ -6312,11 +6230,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     # Use dyncalls, not direct object access.
                     asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
-                    size, sha2 = await core.callStorm('return( $lib.bytes.put($buf) )',
+                    size, sha2 = await core.callStorm('return( $lib.axon.put($buf) )',
                                                       {'vars': {'buf': b'asdfasdf'}})
                     self.eq(size, 8)
                     self.eq(sha2, asdfhash_h)
-                    self.true(await core.callStorm('return( $lib.bytes.has($hash) )',
+                    self.true(await core.callStorm('return( $lib.axon.has($hash) )',
                                                    {'vars': {'hash': asdfhash_h}}))
 
                 unset = False
@@ -6400,66 +6318,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('cron.list')
             self.stormIsInPrint('$lib.print(woot)', msgs)
 
-    async def test_cortex_migrationmode(self):
-        async with self.getTestCore() as core:
-            async with core.getLocalProxy(user='root') as prox:
-
-                await prox.addUser('fred', passwd='secret')
-
-                self.true(core.agenda.enabled)
-                self.true(core.trigson)
-                async with await core.snap() as snap:
-                    self.true(snap.trigson)
-
-                # add triggers
-                # node:add case
-                tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:int=1 ]'}
-                await core.view.addTrigger(tdef)
-                await core.nodes('[ test:str=foo ]')
-                self.len(1, await core.nodes('test:int'))
-
-                # node:del case
-                tdef = {'cond': 'node:del', 'storm': '[ test:int=2 ]', 'form': 'test:str'}
-                await core.view.addTrigger(tdef)
-                await core.nodes('test:str=foo | delnode')
-                self.len(2, await core.nodes('test:int'))
-
-                # tag:add case
-                tdef = {'cond': 'tag:add', 'storm': '[ test:int=3 ]', 'tag': 'footag'}
-                await core.view.addTrigger(tdef)
-                await core.nodes('[ test:str=foo +#footag ]')
-                self.len(3, await core.nodes('test:int'))
-
-                # enable migration mode
-                await prox.enableMigrationMode()
-
-                self.false(core.agenda.enabled)
-                self.false(core.trigson)
-                async with await core.snap() as snap:
-                    self.false(snap.trigson)
-
-                # check that triggers don't fire
-                await core.nodes('test:int | delnode')
-                await core.nodes('[test:str=foo] [+#footag] | delnode')
-                self.len(0, await core.nodes('test:int'))
-
-                # disable migration mode
-                await prox.disableMigrationMode()
-
-                self.true(core.agenda.enabled)
-                self.true(core.trigson)
-                async with await core.snap() as snap:
-                    self.true(snap.trigson)
-
-                # check that triggers fire
-                await core.nodes('[test:str=foo] [+#footag] | delnode')
-                self.len(3, await core.nodes('test:int'))
-
-            async with core.getLocalProxy(user='fred') as prox:
-                # non-admin cannot enable/disable migration mode
-                await self.asyncraises(s_exc.AuthDeny, prox.enableMigrationMode())
-                await self.asyncraises(s_exc.AuthDeny, prox.disableMigrationMode())
-
     async def test_cortex_behold(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy() as prox:
@@ -6470,7 +6328,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         {  # type: ignore
                             'name': 'foo',
                             'version': (0, 0, 1),
-                            'synapse_minversion': [2, 144, 0],
                             'synapse_version': '>=2.100.0,<3.0.0',
                             'modules': [],
                             'commands': []
@@ -6480,7 +6337,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async def action():
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
-                    await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30).pack())')
                     tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
                     opts = {'vars': {'tdef': tdef}}
                     trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
@@ -6578,7 +6435,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -6650,6 +6507,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "Storm package boom has unknown config var type newp.")
+
+                # Check no synapse_version and synapse_minversion > cortex version
+                minver = list(s_version.version)
+                minver[1] += 1
+                minver = tuple(minver)
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg.pop('synapse_version')
+                pkg['synapse_minversion'] = minver
+                pkgname = pkg.get('name')
+
+                with self.raises(s_exc.BadVersion) as cm:
+                    await core.addStormPkg(pkg)
+                mesg = f'Storm package {pkgname} requires Synapse {minver} but Cortex is running {s_version.version}'
+                self.eq(cm.exception.errinfo.get('mesg'), mesg)
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
@@ -7135,11 +7007,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             # clear out the #cno.cve tags and test prune behavior.
             await core.nodes('#cno.cve [ -#cno.cve ]')
 
-            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345.foo +#cno.cve.2021.55555 ]')
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345.foo +#cno.cve.2021.55555.bar ]')
 
             await core.nodes('$lib.model.tags.set(cno.cve, prune, (2))')
 
             # test that the pruning behavior detects non-leaf boundaries
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.55555 ]')
+            self.sorteq(('cno', 'cno.cve', 'cno.cve.2021', 'cno.cve.2021.12345', 'cno.cve.2021.12345.foo'), [t[0] for t in nodes[0].getTags()])
+
+            # double delete shouldn't prune
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.55555 ]')
             self.sorteq(('cno', 'cno.cve', 'cno.cve.2021', 'cno.cve.2021.12345', 'cno.cve.2021.12345.foo'), [t[0] for t in nodes[0].getTags()])
 
@@ -7916,11 +7792,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     dirn00 = s_common.genpath(dirn, 'cell00')
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
-                    conf = {
-                        'storm:pool': 'aha://pool00...',
-                        'storm:pool:timeout:sync': 1,
-                        'storm:pool:timeout:connection': 1
-                    }
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
                     provinfo = {'mirror': '00.core'}
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
@@ -7928,6 +7799,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core00.nodes('[inet:asn=0]'))
                     await core01.sync()
                     self.len(1, await core01.nodes('inet:asn=0'))
+
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
@@ -7937,9 +7812,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
 
+                    msgs = await core00.stormlist('cortex.storm.pool.set newp')
+                    self.stormIsInErr(':// not found in [newp]', msgs)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration set.', msgs)
+
                     await core00.fini()
 
-                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00, conf=conf))
+                    core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
+
+                    await core00.stormpool.waitready(timeout=12)
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
@@ -8030,51 +7914,53 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.len(1, await alist(core00.exportStorm('inet:asn=0')))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.eq(1, await core00.count('inet:asn=0'))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Unable to get proxy', data)
+                    self.isin('Storm query mirror pool is empty, running query locally.', data)
 
-                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf=conf))
+                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01))
                     await core01.promote(graceful=True)
 
                     self.true(core01.isactive)
                     self.false(core00.isactive)
 
                     # Let the mirror reconnect
-                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), 12))
+                    self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), timeout=12))
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core01.callStorm('inet:asn=0 return($lib.true)'))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    # test that it reverts to local when referencing self
+                    self.notin('Offloading Storm query', data)
                     self.notin('Timeout waiting for query mirror', data)
 
-                    waiter = core01.stormpool.waiter('svc:del', 1)
+                    waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
 
+                    # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core01.storm('inet:asn=0'))
@@ -8091,3 +7977,81 @@ class CortexBasicTest(s_t_utils.SynTest):
                     stream.seek(0)
                     data = stream.read()
                     self.notin('Storm query mirror pool is empty', data)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm Pool URL: aha://pool00...', msgs)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.del')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration removed.', msgs)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.get')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('No Storm pool configuration found.', msgs)
+
+                    msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
+                    self.len(1, [m for m in msgs if m[0] == 'node'])
+
+    async def test_cortex_authgate(self):
+        # TODO - Remove this in 3.0.0
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
+
+                unfo = await core.addUser('lowuser')
+                lowuser = unfo.get('iden')
+
+                msgs = await core.stormlist('auth.user.addrule lowuser --gate cortex node')
+                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
+                msgs = await core.stormlist('auth.role.addrule all --gate cortex hehe')
+                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
+
+                aslow = {'user': lowuser}
+
+                # The cortex authgate does nothing
+                with self.raises(s_exc.AuthDeny) as cm:
+                    await core.nodes('[test:str=hello]', opts=aslow)
+
+            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+                async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
+                    # The cortex authgate still does nothing
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await core.nodes('[test:str=hello]', opts=aslow)
+            stream.seek(0)
+            buf = stream.read()
+            self.isin('(lowuser) has a rule on the "cortex" authgate', buf)
+            self.isin('(all) has a rule on the "cortex" authgate', buf)
+
+    async def test_cortex_check_nexus_init(self):
+        # This test is a simple safety net for making sure no nexus events
+        # happen before the nexus subsystem is initialized (initNexusSubsystem).
+        # It's possible for code which calls nexus APIs to run but not do
+        # anything which wouldn't be caught here. I don't think there's a good
+        # way to check for that condition though.
+
+        class Cortex(s_cortex.Cortex):
+            async def initServiceStorage(self):
+                self._test_pre_service_storage_index = await self.nexsroot.index()
+                ret = await super().initServiceStorage()
+                self._test_post_service_storage_index = await self.nexsroot.index()
+                return ret
+
+            async def initNexusSubsystem(self):
+                self._test_pre_nexus_index = await self.nexsroot.index()
+                ret = await super().initNexusSubsystem()
+                self._test_post_nexus_index = await self.nexsroot.index()
+                return ret
+
+        conf = {
+            'layer:lmdb:map_async': True,
+            'nexslog:en': True,
+            'layers:logedits': True,
+        }
+
+        with self.getTestDir() as dirn:
+            async with await Cortex.anit(dirn, conf=conf) as core:
+                offs = core._test_pre_service_storage_index
+                self.eq(core._test_post_service_storage_index, offs)
+                self.eq(core._test_pre_nexus_index, offs)
+                self.ge(core._test_post_nexus_index, core._test_pre_nexus_index)

@@ -1,5 +1,7 @@
 import json
 
+import unittest.mock as mock
+
 import aiohttp
 
 import synapse.common as s_common
@@ -393,6 +395,9 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             return ( $api.iden )
             '''
             iden0 = await core.callStorm(q)
+            msgs = await core.stormlist('$lib.print($lib.cortex.httpapi.get($iden))', opts={'vars': {'iden': iden0}})
+            mesg = 'http:api: the hehe wildcard handler (********************************), path=hehe/([a-z0-9]*)'
+            self.stormIsInPrint(mesg, msgs, deguid=True)
 
             q = '''
             $api = $lib.cortex.httpapi.add('hehe/haha')
@@ -401,6 +406,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             $api.name = 'the hehe/haha handler'
             $api.desc = 'beep boop zoop robot captain'
             $api.runas = user
+            $api.pool = (true)
             $api.perms = (
                 ({"perm": ["hehe", "haha"]}),
                 ({"perm": ["some", "thing"], "default": $lib.true}),
@@ -428,12 +434,62 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             return ( $api.iden )
             '''
             iden3 = await core.callStorm(q)
+            msgs = await core.stormlist('$lib.print($lib.cortex.httpapi.get($iden))', opts={'vars': {'iden': iden3}})
+            mesg = 'http:api: <no name> (********************************), path=wow'
+            self.stormIsInPrint(mesg, msgs, deguid=True)
+
+            # $lib.dict accessor methods
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.keys($api.vars))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, ('hehe', 'items'))
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.values($api.vars))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, ('wow', ('1', '2', 3)))
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.has($api.vars, anotherKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.false(valu)
+
+            q = '''$api=$lib.cortex.httpapi.get($iden)
+            return ($lib.dict.update($api.vars, ({"hehe": "haha", "anotherKey": "anotherValu"}) ))'''
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.none(valu)
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.has($api.vars, anotherKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.true(valu)
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.values($api.vars))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, ('haha', ('1', '2', 3), 'anotherValu'))
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.pop($api.vars, anotherKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, 'anotherValu')
+
+            q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.pop($api.vars, anotherKey, missingKey))'
+            valu = await core.callStorm(q, opts={'vars': {'iden': iden3}})
+            self.eq(valu, 'missingKey')
+
+            with self.raises(s_exc.BadArg):
+                q = '$api=$lib.cortex.httpapi.get($iden) return ($lib.dict.pop($api.vars, anotherKey))'
+                await core.callStorm(q, opts={'vars': {'iden': iden3}})
 
             msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     {iden0}', msgs)
             self.stormIsInPrint(f'1     {iden1}', msgs)
             self.stormIsInPrint(f'2     {iden2}', msgs)
             self.stormIsInPrint(f'3     {iden3}', msgs)
+
+            q = '''
+            $ret = $lib.null $api = $lib.cortex.httpapi.getByPath($path)
+            if $api { $ret = $api.iden}
+            return ( $ret )
+            '''
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/haha'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/ohmy'}}))
+            self.none(await core.callStorm(q, opts={'vars': {'path': 'newpnewpnewp'}}))
 
             # Order matters. The hehe/haha path occurs after the wildcard.
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
@@ -455,6 +511,9 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             # Move the wildcard handler after the more specific handler
             msgs = await core.stormlist('cortex.httpapi.index $iden 1', opts={'vars': {'iden': iden0}})
             self.stormIsInPrint(f'Set HTTP API {iden0} to index 1', msgs)
+
+            self.eq(iden1, await core.callStorm(q, opts={'vars': {'path': 'hehe/haha'}}))
+            self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/ohmy'}}))
 
             msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     {iden1}', msgs)
@@ -524,6 +583,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: owner', msgs)
             self.stormIsInPrint('Readonly: false', msgs)
+            self.stormIsInPrint('Pool enabled: false', msgs)
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe wildcard handler', msgs)
             self.stormIsInPrint('Description: wildcard words', msgs)
@@ -558,6 +618,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: user', msgs)
             self.stormIsInPrint('Readonly: false', msgs)
+            self.stormIsInPrint('Pool enabled: true', msgs)
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe/haha handler', msgs)
             self.stormIsInPrint('Description: beep boop zoop robot captain', msgs)
@@ -569,7 +630,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden3}})
             self.stormIsInPrint(f'Iden: {iden3}', msgs)
             self.stormIsInPrint('The handler has the following runtime variables set:', msgs)
-            self.stormIsInPrint('hehe             => wow', msgs)
+            self.stormIsInPrint('hehe             => haha', msgs)
             self.stormIsInPrint("items            => ('1', '2', 3)", msgs)
 
             # Remove a user + view and stat the handler
@@ -999,7 +1060,11 @@ for $i in $values {
             }
             // Cannot modify request headers
             $api.methods.post = ${
-                $request.headers.newp = haha
+                if $request.headers.dictmethod {
+                    $lib.dict.update($request.headers, ({"newp": "haha"}))
+                } else {
+                    $request.headers.newp = haha
+                }
             }
             return ( ($api.iden, $api.owner.name) )
             '''
@@ -1024,6 +1089,12 @@ for $i in $values {
                 self.eq(data.get('secret-key'), 'myluggagecombination')
 
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'StormRuntimeError')
+                self.eq(data.get('mesg'), 'http:api:request:headers may not be modified by the runtime.')
+
+                resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', headers={'dictmethod': '1'})
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')
@@ -1325,3 +1396,51 @@ for $i in $values {
                 self.none(resp.headers.get('X-Content-Type-Options'))
                 # Server is still omitted though
                 self.none(resp.headers.get('Server'))
+
+    async def test_cortex_httpapi_pool(self):
+
+        # Test if we pass the mirror value in opts or not.
+        async with self.getTestCore(conf={'https:headers': {'Key1': 'Valu1'}}) as core:
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$api = $lib.cortex.httpapi.add(stuff)
+            $api.methods.get =  ${
+                $request.reply(200, headers=({"Weee": "valu"}) )
+            }
+            return ( ($api.iden) )'''
+            iden00 = await core.callStorm(q)
+            opts_iden00 = {'vars': {'iden': iden00}}
+
+            data = {}
+
+            oldstorm = core.storm
+            async def storm(self, text, opts=None):
+                data['opts'] = opts
+                async for mesg in oldstorm(text, opts=opts):
+                    yield mesg
+
+            with mock.patch('synapse.cortex.Cortex.storm', new=storm) as patch:
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
+                    self.eq(resp.status, 200)
+                    self.false(data['opts'].get('mirror'))
+                    data.clear()
+
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api.pack() ) '
+                    adef = await core.callStorm(q, opts=opts_iden00)
+                    self.true(adef.get('pool'))
+
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
+                    self.eq(resp.status, 200)
+                    self.true(data['opts'].get('mirror'))
+                    data.clear()
+
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api.pack() ) '
+                    adef = await core.callStorm(q, opts=opts_iden00)
+                    self.false(adef.get('pool'))
+
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
+                    self.eq(resp.status, 200)
+                    self.false(data['opts'].get('mirror'))
+                    data.clear()

@@ -1,3 +1,5 @@
+import synapse.exc as s_exc
+
 import synapse.tests.utils as s_test
 
 class StormLibGenTest(s_test.SynTest):
@@ -68,6 +70,23 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
+            self.len(1, await core.nodes('risk:vuln:cve=cve-2022-00001 [ :reporter:name=foo ]'))
+            nodes02 = await core.nodes('gen.risk.vuln CVE-2022-00001')
+            self.eq(nodes00[0].ndef, nodes02[0].ndef)
+
+            nodes03 = await core.nodes('gen.risk.vuln CVE-2022-00001 foo')
+            self.eq(nodes00[0].ndef, nodes03[0].ndef)
+            self.nn(nodes03[0].get('reporter'))
+
+            nodes04 = await core.nodes('gen.risk.vuln CVE-2022-00001 bar')
+            nodes05 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001, reporter=bar)')
+            self.eq(nodes04[0].ndef, nodes05[0].ndef)
+            self.ne(nodes00[0].ndef, nodes05[0].ndef)
+            self.eq('bar', nodes05[0].get('reporter:name'))
+            self.nn(nodes05[0].get('reporter'))
+
+            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
+
             nodes00 = await core.nodes('yield $lib.gen.orgIdType(barcode)')
             nodes01 = await core.nodes('gen.ou.id.type barcode')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
@@ -77,8 +96,6 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.ou.id.number barcode 12345')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].get('type'), barcode)
-
-            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
 
             nodes00 = await core.nodes('yield $lib.gen.polCountryByIso2(UA)')
             nodes01 = await core.nodes('gen.pol.country ua')
@@ -111,6 +128,84 @@ class StormLibGenTest(s_test.SynTest):
             nodes02 = await core.nodes('gen.ou.campaign d-day otherorg')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.ne(nodes01[0].ndef, nodes02[0].ndef)
+            self.nn(nodes00[0].get('reporter'))
+            self.nn(nodes01[0].get('reporter'))
+            self.nn(nodes02[0].get('reporter'))
+
+            q = 'gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn --time 2022'
+            nodes00 = await core.nodes(q)
+            self.len(1, nodes00)
+            self.eq('vertex.link', nodes00[0].get('target:fqdn'))
+            self.eq('foosig', nodes00[0].get('signame'))
+            self.eq('barscn', nodes00[0].get('scanner:name'))
+            self.eq('2022/01/01 00:00:00.000', nodes00[0].repr('time'))
+            nodes01 = await core.nodes(q)
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            nodes02 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn')
+            self.eq(nodes00[0].ndef, nodes02[0].ndef)
+            self.eq('2022/01/01 00:00:00.000', nodes02[0].repr('time'))
+
+            nodes03 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name bazscn')
+            self.ne(nodes00[0].ndef, nodes03[0].ndef)
+
+            nodes04 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --time 2022')
+            self.eq(nodes00[0].ndef, nodes04[0].ndef)
+
+            nodes05 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --time 2023')
+            self.ne(nodes00[0].ndef, nodes05[0].ndef)
+
+            opts = {
+                'vars': {
+                    'guid': '28c5902d115f29f1fcb818c0abeaa491',
+                    'ip': '1.2.3.4',
+                    'fqdn': 'vtk.lk',
+                }
+            }
+
+            self.len(1, await core.nodes('gen.it.av.scan.result file:bytes `guid:{$guid}` foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:fqdn $fqdn foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:ipv4 $ip  foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:ipv6 $ip foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:url `http://{$fqdn}` foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result it:exec:proc $guid foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result it:host $guid foosig', opts=opts))
+
+            self.len(7, await core.nodes('''
+                file:bytes=`guid:{$guid}`
+                inet:fqdn=$fqdn
+                it:host=$guid
+                inet:ipv4=$ip
+                inet:ipv6:ipv4=$ip
+                it:exec:proc=$guid
+                inet:url=`http://{$fqdn}`
+                +{
+                    ($form, $valu) = $node.ndef()
+                    -> { gen.it.av.scan.result $form $valu foosig }
+                }=1
+                -> it:av:scan:result
+            ''', opts=opts))
+
+            nodes = await core.nodes('''
+                [ it:av:filehit=(`guid:{$lib.guid()}`, ($lib.guid(), fsig)) :sig:name=fsig ]
+                gen.it.av.scan.result file:bytes :file :sig:name
+            ''')
+            self.sorteq(['it:av:filehit', 'it:av:scan:result'], [n.ndef[0] for n in nodes])
+
+            with self.raises(s_exc.NoSuchType) as cm:
+                await core.nodes('gen.it.av.scan.result newp vertex.link foosig --try')
+            self.eq('No type or prop found for name newp.', cm.exception.errinfo['mesg'])
+
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes('gen.it.av.scan.result ps:name nah foosig --try')
+            self.eq('Unsupported target form ps:name', cm.exception.errinfo['mesg'])
+
+            self.len(0, await core.nodes('gen.it.av.scan.result file:bytes newp foosig --try'))
+
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, $lib.null, try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, "..", barsig, try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, barsig, scanner=$lib.set(), try=$lib.true))'))
+            self.none(await core.callStorm('return($lib.gen.itAvScanResultByTarget(inet:fqdn, vertex.link, barsig, time=newp, try=$lib.true))'))
 
             # Stable guid test
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
@@ -130,3 +225,23 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, await core.nodes('ou:org:name=forkorg'))
             self.len(1, await core.nodes('ou:org:name=anotherforkorg'))
+
+            nodes = await core.nodes('geo:place')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('gen.geo.place Zimbabwe')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'zimbabwe')
+            self.none(nodes[0].get('names'))
+
+            iden = nodes[0].iden()
+
+            msgs = await core.stormlist('geo:place:name=zimbabwe [ :names+=Rhodesia ]')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('gen.geo.place Rhodesia')
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), iden)
+            names = nodes[0].get('names')
+            self.len(1, names)
+            self.isin('rhodesia', names)

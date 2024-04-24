@@ -34,12 +34,16 @@ import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
+AXON_MINVERS_PROXY = (2, 97, 0)
+AXON_MINVERS_SSLOPTS = '>=2.162.0'
+
 class Undef:
+    _storm_typename = 'undef'
     async def stormrepr(self):
         return '$lib.undef'
 
@@ -902,6 +906,18 @@ class LibService(Lib):
                   'returns': {'type': 'boolean', 'desc': 'Returns true if the service is available, false on a '
                                                          'timeout waiting for the service to be ready.', }}},
     )
+    _storm_lib_perms = (
+        {'perm': ('service', 'add'), 'gate': 'cortex',
+            'desc': 'Controls the ability to add a Storm Service to the Cortex.'},
+        {'perm': ('service', 'del'), 'gate': 'cortex',
+            'desc': 'Controls the ability to delete a Storm Service from the Cortex'},
+        {'perm': ('service', 'get'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the Service object for any Storm Service.'},
+        {'perm': ('service', 'get', '<iden>'), 'gate': 'cortex',
+            'desc': 'Controls the ability to get the Service object for a Storm Service by iden.'},
+        {'perm': ('service', 'list'), 'gate': 'cortex',
+         'desc': 'Controls the ability to list all available Storm Services and their service definitions.'},
+    )
     _storm_lib_path = ('service',)
 
     def getObjLocals(self):
@@ -926,6 +942,7 @@ class LibService(Lib):
             except s_exc.AuthDeny:
                 raise e from None
             else:
+                # TODO: Remove support for this permission in 3.0.0
                 mesg = 'Use of service.get.<servicename> permissions are deprecated.'
                 await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
 
@@ -1085,13 +1102,6 @@ class LibBase(Lib):
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the set.', },
                   ),
                   'returns': {'type': 'set', 'desc': 'The new set.', }}},
-        {'name': 'dict', 'desc': 'Get a Storm Dict object.',
-         'type': {'type': 'function', '_funcname': '_dict',
-                  'args': (
-                      {'name': '**kwargs', 'type': 'any',
-                       'desc': 'Initial set of keyword argumetns to place into the dict.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary object.', }}},
         {'name': 'exit', 'desc': 'Cause a Storm Runtime to stop running.',
          'type': {'type': 'function', '_funcname': '_exit',
                   'args': (
@@ -1103,6 +1113,8 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_guid',
                   'args': (
                       {'name': '*args', 'type': 'prim', 'desc': 'Arguments which are hashed to create a guid.', },
+                      {'name': 'valu', 'type': 'prim', 'default': '$lib.undef',
+                       'desc': 'Create a guid from a single value (no positional arguments can be specified).', },
                   ),
                   'returns': {'type': 'str', 'desc': 'A guid.', }}},
         {'name': 'fire', 'desc': '''
@@ -1147,7 +1159,7 @@ class LibBase(Lib):
             Examples:
                 Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
 
-                    cli> storm $d=$lib.dict(key=$lib.null) $lib.fire('demo', d=$d)
+                    cli> storm $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
                     ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
             ''',
             'type': 'null', },
@@ -1227,7 +1239,7 @@ class LibBase(Lib):
 
                 Format and print string based on variables::
 
-                    cli> storm $d=$lib.dict(key1=(1), key2="two")
+                    cli> storm $d=({"key1": (1), "key2": "two"})
                          for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
                     key1 => 1
                     key2 => two
@@ -1377,7 +1389,6 @@ class LibBase(Lib):
             'max': self._max,
             'set': self._set,
             'copy': self._copy,
-            'dict': self._dict,
             'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
@@ -1550,10 +1561,17 @@ class LibBase(Lib):
         return Text(valu)
 
     @stormfunc(readonly=True)
-    async def _guid(self, *args):
+    async def _guid(self, *args, valu=undef):
         if args:
+            if valu is not undef:
+                raise s_exc.BadArg(mesg='Valu cannot be specified if positional arguments are provided')
             args = await toprim(args)
             return s_common.guid(args)
+
+        if valu is not undef:
+            valu = await toprim(valu)
+            return s_common.guid(valu)
+
         return s_common.guid()
 
     @stormfunc(readonly=True)
@@ -1678,14 +1696,123 @@ class LibBase(Lib):
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
-    async def _dict(self, **kwargs):
-        return Dict(kwargs)
-
-    @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
+
+@registry.registerLib
+class LibDict(Lib):
+    '''
+    A Storm Library for interacting with dictionaries.
+    '''
+    _storm_locals = (
+        {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
+         'type': {'type': 'function', '_funcname': '_keys',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'List of keys in the specified dictionary.', }}},
+        {'name': 'pop', 'desc': 'Remove specified key and return the corresponding value.',
+         'type': {'type': 'function', '_funcname': '_pop',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                      {'name': 'key', 'type': 'str', 'desc': 'The key name of the value to pop.'},
+                      {'name': 'default', 'type': 'any', 'default': '$lib.undef',
+                       'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The popped value.', }}},
+        {'name': 'update', 'desc': 'Update the specified dictionary with keys/values from another dictionary.',
+         'type': {'type': 'function', '_funcname': '_update',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The target dictionary (update to).'},
+                      {'name': 'other', 'type': 'dict', 'desc': 'The source dictionary (update from).'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'values', 'desc': 'Retrieve a list of values in the specified dictionary.',
+         'type': {'type': 'function', '_funcname': '_values',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'List of values in the specified dictionary.', }}},
+    )
+    _storm_lib_path = ('dict',)
+
+    def getObjLocals(self):
+        return {
+            'has': self._has,
+            'keys': self._keys,
+            'pop': self._pop,
+            'update': self._update,
+            'values': self._values,
+        }
+
+    async def _check_type(self, valu, name='valu'):
+        if isinstance(valu, (dict, Dict)):
+            return
+
+        typ = getattr(valu, '_storm_typename', None)
+        if typ is None:
+            prim = await toprim(valu)
+            typ = type(prim).__name__
+
+        mesg = f'{name} argument must be a dict, not {typ}.'
+        raise s_exc.BadArg(mesg=mesg)
+
+    @stormfunc(readonly=True)
+    async def _has(self, valu, name):
+        await self._check_type(valu)
+        valu = await toprim(valu)
+        return name in valu
+
+    @stormfunc(readonly=True)
+    async def _keys(self, valu):
+        await self._check_type(valu)
+        valu = await toprim(valu)
+        return list(valu.keys())
+
+    @stormfunc(readonly=True)
+    async def _pop(self, valu, key, default=undef):
+        await self._check_type(valu)
+
+        real = await toprim(valu)
+        key = await tostr(key)
+
+        if key not in real:
+            if default == undef:
+                mesg = f'Key {key} does not exist in dictionary.'
+                raise s_exc.BadArg(mesg=mesg)
+            return await toprim(default)
+
+        # Make sure we have a storm Dict
+        valu = fromprim(valu)
+
+        ret = await valu.deref(key)
+        await valu.setitem(key, undef)
+        return ret
+
+    @stormfunc(readonly=True)
+    async def _update(self, valu, other):
+        await self._check_type(valu)
+        await self._check_type(other, name='other')
+
+        valu = fromprim(valu)
+        other = await toprim(other)
+
+        for k, v in other.items():
+            await valu.setitem(k, v)
+
+    @stormfunc(readonly=True)
+    async def _values(self, valu):
+        await self._check_type(valu)
+
+        valu = await toprim(valu)
+        return list(valu.values())
+
+    async def __call__(self, **kwargs):
+        s_common.deprecated('$lib.dict()', curv='2.161.0')
+        await self.runt.snap.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
+        return Dict(kwargs)
 
 @registry.registerLib
 class LibPs(Lib):
@@ -1700,7 +1827,7 @@ class LibPs(Lib):
                        'desc': 'The prefix of the task to stop. '
                                'Tasks will only be stopped if there is a single prefix match.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': ' True if the task was cancelled, False otherwise.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'True if the task was cancelled, False otherwise.', }}},
         {'name': 'list', 'desc': 'List tasks the current user can access.',
          'type': {'type': 'function', '_funcname': '_list',
                   'returns': {'type': 'list', 'desc': 'A list of task definitions.', }}},
@@ -1814,6 +1941,14 @@ class LibStr(Lib):
 class LibAxon(Lib):
     '''
     A Storm library for interacting with the Cortex's Axon.
+
+    For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
+
+        {
+            'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
+            'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
+            'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+        }
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
@@ -1826,7 +1961,7 @@ class LibAxon(Lib):
             Example:
                 Get the Vertex Project website::
 
-                    $headers = $lib.dict()
+                    $headers = ({})
                     $headers."User-Agent" = Foo/Bar
 
                     $resp = $lib.axon.wget("http://vertex.link", method=GET, headers=$headers)
@@ -1849,6 +1984,9 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
@@ -1869,10 +2007,13 @@ class LibAxon(Lib):
                        'default': None},
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'ssl_opts', 'type': 'dict',
+                       'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
+                       'default': None},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
-            Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
+            Retrieve the target URL using the wget() function and construct an inet:urlfile node from the response.
 
             Notes:
                 This accepts the same arguments as ``$lib.axon.wget()``.
@@ -2019,6 +2160,82 @@ class LibAxon(Lib):
         ''',
         'type': {'type': 'function', '_funcname': 'metrics',
                  'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
+        {'name': 'put', 'desc': '''
+            Save the given bytes variable to the Axon the Cortex is configured to use.
+
+            Examples:
+                Save a base64 encoded buffer to the Axon::
+
+                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
+                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
+
+                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
+         'type': {'type': 'function', '_funcname': 'put',
+                  'args': (
+                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
+        {'name': 'has', 'desc': '''
+            Check if the Axon the Cortex is configured to use has a given sha256 value.
+
+            Examples:
+                Check if the Axon has a given file::
+
+                    # This example assumes the Axon does have the bytes
+                    cli> storm if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
+                            $lib.print("Has bytes")
+                        } else {
+                            $lib.print("Does not have bytes")
+                        }
+
+                    Has bytes
+            ''',
+         'type': {'type': 'function', '_funcname': 'has',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the Axon has the file, false if it does not.', }}},
+        {'name': 'size', 'desc': '''
+            Return the size of the bytes stored in the Axon for the given sha256.
+
+            Examples:
+                Get the size for a file given a variable named ``$sha256``::
+
+                    $size = $lib.axon.size($sha256)
+            ''',
+         'type': {'type': 'function', '_funcname': 'size',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
+                  ),
+                  'returns': {'type': ['int', 'null'],
+                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
+        {'name': 'hashset', 'desc': '''
+            Return additional hashes of the bytes stored in the Axon for the given sha256.
+
+            Examples:
+                Get the md5 hash for a file given a variable named ``$sha256``::
+
+                    $hashset = $lib.axon.hashset($sha256)
+                    $md5 = $hashset.md5
+            ''',
+         'type': {'type': 'function', '_funcname': 'hashset',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
+        {'name': 'upload', 'desc': '''
+            Upload a stream of bytes to the Axon as a file.
+
+            Examples:
+                Upload bytes from a generator::
+
+                    ($size, $sha256) = $lib.axon.upload($getBytesChunks())
+            ''',
+         'type': {'type': 'function', '_funcname': 'upload',
+                  'args': (
+                      {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('axon',)
     _storm_lib_perms = (
@@ -2046,6 +2263,11 @@ class LibAxon(Lib):
             'jsonlines': self.jsonlines,
             'csvrows': self.csvrows,
             'metrics': self.metrics,
+            'put': self.put,
+            'has': self.has,
+            'size': self.size,
+            'upload': self.upload,
+            'hashset': self.hashset,
         }
 
     def strify(self, item):
@@ -2105,7 +2327,8 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.del_(sha256b)
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
@@ -2120,6 +2343,7 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
+        ssl_opts = await toprim(ssl_opts)
 
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
@@ -2131,8 +2355,14 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
+
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
 
         axon = self.runt.snap.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
@@ -2140,7 +2370,8 @@ class LibAxon(Lib):
         resp['original_url'] = url
         return resp
 
-    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
+    async def wput(self, sha256, url, headers=None, params=None, method='PUT',
+                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
@@ -2154,6 +2385,7 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+        ssl_opts = await toprim(ssl_opts)
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2166,10 +2398,17 @@ class LibAxon(Lib):
 
         kwargs = {}
         axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= (2, 97, 0):
+        if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
 
-        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, **kwargs)
+        if ssl_opts is not None:
+            mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
+                   f'but the Axon is running {axonvers}'
+            s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
+            kwargs['ssl_opts'] = ssl_opts
+
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
+                               ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
         gateiden = self.runt.snap.wlyr.iden
@@ -2270,10 +2509,62 @@ class LibAxon(Lib):
             self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
+    async def upload(self, genr):
+
+        self.runt.confirm(('axon', 'upload'))
+
+        await self.runt.snap.core.getAxon()
+        async with await self.runt.snap.core.axon.upload() as upload:
+            async for byts in s_coro.agen(genr):
+                await upload.write(byts)
+            size, sha256 = await upload.save()
+            return size, s_common.ehex(sha256)
+
+    @stormfunc(readonly=True)
+    async def has(self, sha256):
+        sha256 = await tostr(sha256, noneok=True)
+        if sha256 is None:
+            return None
+
+        self.runt.confirm(('axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.has(s_common.uhex(sha256))
+
+    @stormfunc(readonly=True)
+    async def size(self, sha256):
+        sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.size(s_common.uhex(sha256))
+
+    async def put(self, byts):
+        if not isinstance(byts, bytes):
+            mesg = '$lib.axon.put() requires a bytes argument'
+            raise s_exc.BadArg(mesg=mesg)
+
+        self.runt.confirm(('axon', 'upload'))
+
+        await self.runt.snap.core.getAxon()
+        size, sha256 = await self.runt.snap.core.axon.put(byts)
+
+        return (size, s_common.ehex(sha256))
+
+    @stormfunc(readonly=True)
+    async def hashset(self, sha256):
+        sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
+
 @registry.registerLib
 class LibBytes(Lib):
     '''
-    A Storm Library for interacting with bytes storage.
+    A Storm Library for interacting with bytes storage. This Library is deprecated; use ``$lib.axon.*`` instead.
     '''
     _storm_locals = (
         {'name': 'put', 'desc': '''
@@ -2365,6 +2656,9 @@ class LibBytes(Lib):
         }
 
     async def _libBytesUpload(self, genr):
+
+        self.runt.confirm(('axon', 'upload'), default=True)
+
         await self.runt.snap.core.getAxon()
         async with await self.runt.snap.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
@@ -2374,9 +2668,12 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesHas(self, sha256):
+
         sha256 = await tostr(sha256, noneok=True)
         if sha256 is None:
             return None
+
+        self.runt.confirm(('axon', 'has'), default=True)
 
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
@@ -2385,16 +2682,23 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesSize(self, sha256):
+
         sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'), default=True)
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
 
     async def _libBytesPut(self, byts):
+
         if not isinstance(byts, bytes):
             mesg = '$lib.bytes.put() requires a bytes argument'
             raise s_exc.BadArg(mesg=mesg)
+
+        self.runt.confirm(('axon', 'upload'), default=True)
 
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('put', byts)
@@ -2404,7 +2708,11 @@ class LibBytes(Lib):
 
     @stormfunc(readonly=True)
     async def _libBytesHashset(self, sha256):
+
         sha256 = await tostr(sha256)
+
+        self.runt.confirm(('axon', 'has'), default=True)
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('hashset', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -2896,6 +3204,26 @@ class LibRegx(Lib):
                        'default': 0, },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string with matches replaced.', }}},
+        {'name': 'escape', 'desc': '''
+            Escape arbitrary strings for use in a regular expression pattern.
+
+            Example:
+
+                Escape node values for use in a regex pattern::
+
+                    for $match in $lib.regex.findall($lib.regex.escape($node.repr()), $mydocument) {
+                        // do something with $match
+                    }
+
+                Escape node values for use in regular expression filters::
+
+                    it:dev:str~=$lib.regex.escape($node.repr())
+                    ''',
+         'type': {'type': 'function', '_funcname': 'escape',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to escape.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'Input string with special characters escaped.', }}},
         {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
          'type': 'int', },
         {'name': 'flags.m', 'desc': 'Regex flag to indicate that multiline matches are allowed.', 'type': 'int', },
@@ -2912,6 +3240,7 @@ class LibRegx(Lib):
             'matches': self.matches,
             'findall': self.findall,
             'replace': self.replace,
+            'escape': self.escape,
             'flags': {'i': regex.IGNORECASE,
                       'm': regex.MULTILINE,
                       },
@@ -2961,6 +3290,11 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         regx = await self._getRegx(pattern, flags)
         return regx.findall(text)
+
+    @stormfunc(readonly=True)
+    async def escape(self, text):
+        text = await tostr(text)
+        return regex.escape(text)
 
 @registry.registerLib
 class LibCsv(Lib):
@@ -3103,13 +3437,14 @@ class LibFeed(Lib):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
-        with s_provenance.claim('feed:data', name=name):
-            #  small work around for the feed API consistency
-            if name == 'syn.nodes':
-                async for node in self.runt.snap.addNodes(data):
-                    yield node
-                return
-            await self.runt.snap.addFeedData(name, data)
+
+        #  small work around for the feed API consistency
+        if name == 'syn.nodes':
+            async for node in self.runt.snap.addNodes(data):
+                yield node
+            return
+
+        await self.runt.snap.addFeedData(name, data)
 
     @stormfunc(readonly=True)
     async def _libList(self):
@@ -3121,11 +3456,12 @@ class LibFeed(Lib):
         data = await toprim(data)
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
-        with s_provenance.claim('feed:data', name=name):
-            strict = self.runt.snap.strict
-            self.runt.snap.strict = False
-            await self.runt.snap.addFeedData(name, data)
-            self.runt.snap.strict = strict
+
+        # TODO this should be a reentrent safe with block
+        strict = self.runt.snap.strict
+        self.runt.snap.strict = False
+        await self.runt.snap.addFeedData(name, data)
+        self.runt.snap.strict = strict
 
 @registry.registerLib
 class LibPipe(Lib):
@@ -3207,7 +3543,7 @@ class Pipe(StormType):
         {'name': 'put', 'desc': 'Add a single item to the Pipe.',
          'type': {'type': 'function', '_funcname': '_methPipePut',
                   'args': (
-                      {'name': 'item', 'type': 'any', 'desc': ' An object to add to the Pipe.', },
+                      {'name': 'item', 'type': 'any', 'desc': 'An object to add to the Pipe.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'puts', 'desc': 'Add a list of items to the Pipe.',
@@ -3600,7 +3936,13 @@ class LibTelepath(Lib):
         scheme = url.split('://')[0]
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
             self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
-        return Proxy(self.runt, await self.runt.getTeleProxy(url))
+        try:
+            return Proxy(self.runt, await self.runt.getTeleProxy(url))
+        except s_exc.SynErr:
+            raise
+        except Exception as e:
+            mesg = f'Failed to connect to Telepath service: "{s_urlhelp.sanitizeUrl(url)}" error: {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 @registry.registerType
 class Proxy(StormType):
@@ -4056,6 +4398,9 @@ class Str(Prim):
                        'desc': 'Keyword values which are substituted into the string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string.', }}},
+        {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
+         'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
+                  'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -4085,6 +4430,7 @@ class Str(Prim):
             'slice': self._methStrSlice,
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
+            'json': self._methStrJson,
         }
 
     def __int__(self):
@@ -4199,6 +4545,14 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methStrReverse(self):
         return self.valu[::-1]
+
+    @stormfunc(readonly=True)
+    async def _methStrJson(self):
+        try:
+            return json.loads(self.valu, strict=True)
+        except Exception as e:
+            mesg = f'Text is not valid JSON: {self.valu}'
+            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Bytes(Prim):
@@ -5536,7 +5890,7 @@ class NodeData(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the data to get.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The stored node data.', }}},
-        {'name': 'pop', 'desc': ' Pop (remove) a the Node data from the Node.',
+        {'name': 'pop', 'desc': 'Pop (remove) a the Node data from the Node.',
          'type': {'type': 'function', '_funcname': '_popNodeData',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the data to remove from the node.', },
@@ -5739,6 +6093,8 @@ class Node(Prim):
                        'desc': 'An optional prefix to match tags under.', },
                       {'name': 'apply', 'type': 'boolean', 'desc': 'If true, apply the diff.',
                        'default': False, },
+                      {'name': 'norm', 'type': 'boolean', 'default': False,
+                       'desc': 'Optionally norm the list of tags. If a prefix is provided, it will not be normed.'},
                   ),
                   'returns':
                       {'type': 'dict',
@@ -5890,8 +6246,23 @@ class Node(Prim):
                     ret.append(groups)
         return ret
 
-    async def _methNodeDiffTags(self, tags, prefix=None, apply=False):
-        tags = set(await toprim(tags))
+    async def _methNodeDiffTags(self, tags, prefix=None, apply=False, norm=False):
+        norm = await tobool(norm)
+        apply = await tobool(apply)
+
+        if norm:
+            normtags = set()
+            tagpart = self.valu.snap.core.model.type('syn:tag:part')
+
+            async for part in toiter(tags):
+                try:
+                    normtags.add(tagpart.norm(part)[0])
+                except s_exc.BadTypeValu:
+                    pass
+
+            tags = normtags
+        else:
+            tags = set(await toprim(tags))
 
         if prefix:
             prefix = tuple((await tostr(prefix)).split('.'))
@@ -7017,7 +7388,11 @@ class View(Prim):
                     The parent View iden.
 
                 nomerge (bool)
-                    Setting to $lib.true will prevent the layer from being merged.
+                    Deprecated - use protected. Updates to this option will be redirected to
+                    the protected option (below) until this option is removed.
+
+                protected (bool)
+                    Setting to $lib.true will prevent the layer from being merged or deleted.
 
                 layers (list(str))
                     Set the list of layer idens for a non-forked view. Layers are specified
@@ -7135,7 +7510,7 @@ class View(Prim):
 
         {'name': 'getPropArrayCount',
          'desc': '''
-            Get the number of invidivual array property values in the View for the given array property name.
+            Get the number of individual array property values in the View for the given array property name.
 
             Notes:
                This is a fast approximate count calculated by summing the number of
@@ -7177,6 +7552,17 @@ class View(Prim):
                   'args': (),
                   'returns': {'type': 'null', }}},
 
+        {'name': 'getMergeRequestSummary',
+         'desc': 'Return the merge request, votes, parent quorum definition, and current layer offset.',
+         'type': {'type': 'function', '_funcname': 'getMergeRequestSummary',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The summary info.'}}},
+
+        {'name': 'getMergeRequest', 'desc': 'Return the existing merge request or null.',
+         'type': {'type': 'function', '_funcname': 'getMergeRequest',
+                  'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The merge request.'}}},
+
         {'name': 'setMergeRequest', 'desc': 'Setup a merge request for the view in the current state.',
          'type': {'type': 'function', '_funcname': 'setMergeRequest',
                   'args': (
@@ -7188,6 +7574,7 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': 'delMergeRequest',
                   'args': (),
                   'returns': {'type': 'dict', 'desc': 'The deleted merge request.'}}},
+
         {'name': 'setMergeVote', 'desc': 'Register a vote for or against the current merge request.',
          'type': {'type': 'function', '_funcname': 'setMergeVote',
                   'args': (
@@ -7197,6 +7584,7 @@ class View(Prim):
                        'desc': 'A comment attached to the vote.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The vote record that was created.'}}},
+
         {'name': 'delMergeVote', 'desc': '''
             Remove a previously created merge vote.
 
@@ -7216,6 +7604,18 @@ class View(Prim):
                   'args': (),
                   'returns': {'name': 'Yields', 'type': 'dict',
                               'desc': 'Yields previously successful merges into the view.'}}},
+        {'name': 'getMergingViews', 'desc': 'Get a list of idens of Views that have open merge requests to this View.',
+         'type': {'type': 'function', '_funcname': 'getMergingViews',
+                  'args': (),
+                  'returns': {'name': 'idens', 'type': 'list', 'desc': 'The list of View idens that have an open merge request into this View.'}}},
+        {'name': 'setMergeVoteComment', 'desc': 'Set the comment associated with your vote on a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeVoteComment',
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge vote'},),
+                  'returns': {'type': 'dict', 'desc': 'The fully updated vote record.'}}},
+        {'name': 'setMergeComment', 'desc': 'Set the main comment/description of a merge request.',
+         'type': {'type': 'function', '_funcname': 'setMergeComment',
+                  'args': ({'name': 'comment', 'type': 'str', 'desc': 'The text comment to set for the merge request'}, ),
+                  'returns': {'type': 'dict', 'desc': 'The updated merge request.'}}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7256,8 +7656,13 @@ class View(Prim):
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
             'setMergeVote': self.setMergeVote,
+            'setMergeVoteComment': self.setMergeVoteComment,
+            'getMergeRequest': self.getMergeRequest,
+            'getMergeRequestSummary': self.getMergeRequestSummary,
             'delMergeRequest': self.delMergeRequest,
             'setMergeRequest': self.setMergeRequest,
+            'setMergeComment': self.setMergeComment,
+            'getMergingViews': self.getMergingViews,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7386,6 +7791,8 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
+        if name == 'nomerge':
+            name = 'protected'
         return self.valu.get(name, defv)
 
     def _reqView(self):
@@ -7412,6 +7819,10 @@ class View(Prim):
             valu = await toprim(valu)
 
         elif name == 'nomerge':
+            name = 'protected'
+            valu = await tobool(valu)
+
+        elif name == 'protected':
             valu = await tobool(valu)
 
         elif name == 'layers':
@@ -7516,6 +7927,28 @@ class View(Prim):
         async for merge in view.getMerges():
             yield merge
 
+    async def getMergeRequestSummary(self):
+
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        retn = {
+            'quorum': view.reqParentQuorum(),
+            'merge': view.getMergeRequest(),
+            'merging': view.merging,
+            'votes': [vote async for vote in view.getMergeVotes()],
+            'offset': await view.layers[0].getEditIndx(),
+        }
+        return retn
+
+    async def getMergeRequest(self):
+
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        quorum = view.reqParentQuorum()
+        return view.getMergeRequest()
+
     async def delMergeRequest(self):
 
         view = self._reqView()
@@ -7543,6 +7976,22 @@ class View(Prim):
 
         return await view.setMergeRequest(mreq)
 
+    async def setMergeComment(self, comment):
+        view = self._reqView()
+        quorum = view.reqParentQuorum()
+
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'Editing a merge request requires admin permissions on the view.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        return await view.setMergeComment((await tostr(comment)))
+
+    async def getMergingViews(self):
+        view = self._reqView()
+        self.runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        return await view.getMergingViews()
+
     async def setMergeVote(self, approved=True, comment=None):
         view = self._reqView()
         quorum = view.reqParentQuorum()
@@ -7554,12 +8003,19 @@ class View(Prim):
             mesg = 'You are not a member of a role with voting privileges for this merge request.'
             raise s_exc.AuthDeny(mesg=mesg)
 
+        view.reqValidVoter(self.runt.user.iden)
+
         vote = {'user': self.runt.user.iden, 'approved': await tobool(approved)}
 
         if comment is not None:
             vote['comment'] = await tostr(comment)
 
         return await view.setMergeVote(vote)
+
+    async def setMergeVoteComment(self, comment):
+        view = self._reqView()
+
+        return await view.setMergeVoteComment(self.runt.user.iden, (await tostr(comment)))
 
     async def delMergeVote(self, useriden=None):
         view = self._reqView()
@@ -8249,7 +8705,7 @@ class LibCron(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects..', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects.', }}},
         {'name': 'enable', 'desc': 'Enable a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronEnable',
                   'args': (
@@ -8440,6 +8896,7 @@ class LibCron(Lib):
         incunit = None
         incval = None
         reqdict = {}
+        pool = await tobool(kwargs.get('pool', False))
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'dayofmonth': (1, 'month'),
@@ -8545,6 +9002,7 @@ class LibCron(Lib):
 
         cdef = {'storm': query,
                 'reqs': reqdict,
+                'pool': pool,
                 'incunit': incunit,
                 'incvals': incval,
                 'creator': self.runt.user.iden
@@ -8793,6 +9251,7 @@ class CronJob(Prim):
             'view': view,
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
+            'pool': self.valu.get('pool', False),
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
@@ -9102,3 +9561,9 @@ async def totype(valu, basetypes=False) -> str:
         return fp._storm_typename
 
     return valu.__class__.__name__
+
+async def typeerr(name, reqt):
+    if not isinstance(name, reqt):
+        styp = await totype(name, basetypes=True)
+        mesg = f"Expected value of type '{reqt}', got '{styp}' with value {name}."
+        return s_exc.StormRuntimeError(mesg=mesg, name=name, type=styp)
