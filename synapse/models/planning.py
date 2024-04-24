@@ -61,7 +61,7 @@ class PlanModule(s_module.CoreModule):
                 ('plan:procedure', {}, (
 
                     ('title', ('str', {}), {
-                        'ex': 'Network Reconisence Procedure'
+                        'ex': 'Network Reconnaissance Procedure'
                         'doc': 'The name of the procedure.'}),
 
                     ('summary', ('str', {}), {
@@ -79,7 +79,7 @@ class PlanModule(s_module.CoreModule):
                     ('type', ('plan:procedure:type:taxonomy', {}), {
                         'doc': 'A type classification for the procedure.'}),
 
-                    ('inputs', ('array', {'type': 'plan:procedure:variable'}), {
+                    ('inputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of inputs required to execute the procedure.'}),
 
                     ('firststep', ('plan:procedure:step', {}), {
@@ -105,7 +105,7 @@ class PlanModule(s_module.CoreModule):
                         'doc': 'The phase that the step belongs within.'}),
 
                     ('procedure', ('plan:procedure', {}), {
-                        'doc': 'The procedure which includes the step.'}),
+                        'doc': 'The procedure which defines the step.'}),
 
                     ('title', ('str', {}), {
                         'ex': 'Scan the IPv4 address range for open ports'
@@ -114,17 +114,15 @@ class PlanModule(s_module.CoreModule):
                     ('summary', ('str', {}), {
                         'doc': 'A summary of the tasks executed within the step.'}),
 
-                    ('outputs', ('array', {'type': 'plan:procedure:variable'}), {
+                    ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of variables defined in this step.'}),
 
-                    ('techniques', ('array', {'type': 'ou:technique'}), {
+                    ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of techniques used when executing this step.'}),
 
                     ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {
                         'doc': 'An array of links to subsequent steps.'}),
 
-                    ('procedure', ('plan:procedure', {}), {
-                        'doc': 'The procedure which defines the step.'}),
                 )),
                 ('plan:procedure:link', {}, (
 
