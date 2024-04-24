@@ -37,7 +37,7 @@ def cpesplit(text):
     except StopIteration:
         parts.append(part)
 
-    return parts
+    return [part.strip() for part in parts]
 
 # Formatted String Binding characters that need to be escaped
 FSB_ESCAPE_CHARS = [
@@ -116,13 +116,19 @@ def cpe_escape(text):
 def cpe_unescape(text):
     ret = ''
     textlen = len(text)
+
+    # Add a dash (-) to the escaped characters list so we can unescape it. Note
+    # that dashes are NOT supposed to be escaped per the specification but here
+    # we are.
+    _FSB_ESCAPE_CHARS = FSB_ESCAPE_CHARS + ['-']
+
     for idx, char in enumerate(text):
         # The last character so we can't look ahead
         if idx == textlen - 1:
             ret += char
             continue
 
-        if char == '\\' and text[idx + 1] in FSB_ESCAPE_CHARS:
+        if char == '\\' and text[idx + 1] in _FSB_ESCAPE_CHARS:
             continue
 
         ret += char
