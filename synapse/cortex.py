@@ -883,7 +883,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.nodecount = 0
 
         self.migration = False
-        self.migration_lock = asyncio.Semaphore()
+        self.migration_lock = asyncio.Lock()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
