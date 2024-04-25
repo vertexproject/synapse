@@ -383,7 +383,7 @@ class CortexTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
-                self.nn(await core.cellinfo.pop('cortex:version'))
+                self.nn(core.cellinfo.pop('cortex:version'))
 
             with self.raises(s_exc.BadStorageVersion):
                 async with self.getTestCore(dirn=dirn) as core:

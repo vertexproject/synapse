@@ -399,7 +399,7 @@ class CryoCell(s_cell.Cell):
         if tank is None:
             return False
 
-        iden, _ = await self.names.pop(name)
+        iden, _ = self.names.pop(name)
         await tank.fini()
         shutil.rmtree(tank.dirn, ignore_errors=True)
 
