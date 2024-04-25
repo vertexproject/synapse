@@ -369,7 +369,7 @@ class TrigTest(s_t_utils.SynTest):
 
             # coverage for migration mode
             await core.nodes('[inet:fqdn=vertex.link +#foo]') # for additional migration mode trigger tests below
-            async with core.enterMigrationMode():
+            with core.enterMigrationMode():
                 await core.nodes('inet:fqdn=vertex.link [ +#bar -#foo ]')
 
     async def test_trigger_delete(self):
@@ -774,7 +774,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('trigger.add edge:add --verb r* --n2form test:int --query { [ +#n2 ] }')
             await core.nodes('trigger.add edge:add --verb no** --form test:int --n2form test:str --query { [ +#both ] }')
 
-            async with core.enterMigrationMode():
+            with core.enterMigrationMode():
                 nodes = await core.nodes('[test:int=123 +(foo:beep:boop)> { [test:str=neato] }]')
                 self.len(1, nodes)
                 self.notin('foo', nodes[0].tags)
@@ -834,7 +834,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('trigger.add edge:del --verb r* --n2form test:int --query { [ +#del.two ] }')
             await core.nodes('trigger.add edge:del --verb no** --form test:int --n2form test:str --query { [ +#del.all ] }')
 
-            async with core.enterMigrationMode():
+            with core.enterMigrationMode():
                 nodes = await core.nodes('test:int=123 | [ -(foo:beep:boop)> { test:str=neato } ]')
                 self.len(1, nodes)
                 self.notin('del.none', nodes[0].tags)
