@@ -881,7 +881,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
+
         self.migration = False
+        self._migration_lock = asyncio.Lock()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1462,6 +1464,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._checkNexsIndx()
 
         await self._initCoreMods()
+
+        if self.active:
+            await self._checkLayerModels()
 
         self.addActiveCoro(self.agenda.runloop)
 
@@ -4369,7 +4374,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return ret
 
     async def _checkLayerModels(self):
-        with self.enterMigrationMode():
+        async with self.enterMigrationMode():
             mrev = s_modelrev.ModelRev(self)
             await mrev.revCoreLayers()
 
@@ -6104,11 +6109,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
         await appt.edits(edits)
 
-    @contextlib.contextmanager
-    def enterMigrationMode(self):
-        self.migration = True
-        yield
-        self.migration = False
+    @contextlib.asynccontextmanager
+    async def enterMigrationMode(self):
+        async with self._migration_lock:
+            self.migration = True
+            yield
+            self.migration = False
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''
