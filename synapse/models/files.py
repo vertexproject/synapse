@@ -408,6 +408,9 @@ class FileModule(s_module.CoreModule):
                     'doc': 'A section inside a Mach-O binary denoting a named region of bytes inside a segment.',
                 }),
 
+                ('file:mime:lnk', ('guid', {}), {
+                    'doc': 'The GUID of the metadata pulled from a windows shortcut or LNK file.',
+                }),
             ),
 
             'forms': (
@@ -699,6 +702,44 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The file offset to the beginning of the section'}),
                 )),
 
+                ('file:mime:lnk', {}, (
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The actual file that this shortcut file executed.'}),
+                    ('entry:primary', ('file:path', {}), {
+                        'doc': "The reconstructed primary path of the file this shortcut's FileEntry structure  points to."}),
+                    ('entry:secondary', ('file:path', {}), {
+                        'doc': "The reconstructed secondary path of the file this shortcut's FileEntry structure points to."}),
+                    ('entry:extended', ('file:path', {}), {
+                        'doc': "The target file path from the extended FileEntry structure."}),
+                    ('entry:localized', ('file:path', {}), {
+                        'doc': "The localized target file path from the extended FileEntry structure."}),
+                    ('entry:icon', ('file:path', {}), {
+                        'doc': 'The path to the icon file used when displaying a shortcut file to a user.'}),
+                    ('environment:path', ('file:path', {}), {
+                        'doc': 'The path to the target file when the LNK says to prefer environment variables.'}),
+                    ('environment:icon', ('file:path', {}), {
+                        'doc': 'The path to the icon file displayed when the LNK flags says to prefer environment variables.'}),
+                    ('working', ('file:path', {}), {
+                        'doc': 'The working directory used when activating the link target.'}),
+                    ('relative', ('file:path', {}), {
+                        'doc': 'The path to the target file used when the LNK flags say to use a relative path.'}),
+                    ('arguments', ('it:cmd', {}), {
+                        'doc': 'The command line arguments passed to the target file when the shortcut is activated.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'The description of the shortcut from the StringData section of the LNK file.'}),
+                    ('link:flags', ('int', {}), {
+                        'doc': 'The flags specified by the LNK header that control what paths to prefer.'}),
+                    ('target:flags', ('int', {}), {
+                        'doc': 'The attributes of the target file according to the LNK header.'}),
+                    ('target:size', ('int', {}), {
+                        'doc': 'The size of the target file according to the LNK header. The LNK format specifies that this is only the lower 32 bits of the target file size.'}),
+                    ('target:created', ('time', {}), {
+                        'doc': 'The creation time of the target file according to the LNK header.'}),
+                    ('target:accessed', ('time', {}), {
+                        'doc': 'The access time of the target file according to the LNK header.'}),
+                    ('target:written', ('time', {}), {
+                        'doc': 'The write time of the target file according to the LNK header.'}),
+                )),
             ),
 
         }

@@ -576,3 +576,56 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:archive:entry :user -> inet:user'))
             self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
+
+    async def test_model_file_archive_entry(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes(r'''[
+                file:mime:lnk=*
+                    :file=*
+                    :entry:primary="c:\\some\\stuff\\prog~2\\cmd.exe"
+                    :entry:secondary="c:\\some\\stuff\program files\\cmd.exe"
+                    :entry:extended="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
+                    :entry:localized="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
+                    :entry:icon="%windir%\\system32\\notepad.exe"
+
+                    :environment:path="%windir%\\system32\\cmd.exe"
+                    :environment:icon="%some%%envvar%"
+                    :working="%HOMEDRIVE%%HOMEPATH%"
+                    :relative="..\\..\\..\\some\\foo.bar.txt"
+                    :arguments="/q /c copy %systemroot%\\system32\\msh*.exe"
+                    :desc="I've been here the whole time."
+
+                    :link:flags=0x40df
+                    :target:flags=0x20
+                    :target:size=12345
+                    :target:created="2023/01/25 18:57:45.284"
+                    :target:accessed="2023/01/25 18:57:45.284"
+                    :target:written="2023/01/25 18:57:45.284"
+            ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+
+            self.nn(node.get('file'))
+            self.eq(node.get('entry:primary'), 'c:/some/stuff/prog~2/cmd.exe')
+            self.eq(node.get('entry:secondary'), 'c:/some/stuff/program files/cmd.exe')
+            self.eq(node.get('entry:extended'), 'c:/some/actual/stuff/i/swear/cmd.exe')
+            self.eq(node.get('entry:localized'), 'c:/some/actual/stuff/i/swear/cmd.exe')
+
+            self.eq(node.get('entry:icon'), '%windir%/system32/notepad.exe')
+            self.eq(node.get('environment:path'), '%windir%/system32/cmd.exe')
+            self.eq(node.get('environment:icon'), '%some%%envvar%')
+
+            self.eq(node.get('working'), '%homedrive%%homepath%')
+            self.eq(node.get('relative'), 'some/foo.bar.txt')
+            self.eq(node.get('arguments'), '/q /c copy %systemroot%\\system32\\msh*.exe')
+            self.eq(node.get('desc'), "I've been here the whole time.")
+
+            self.eq(node.get('link:flags'), 0x40df)
+            self.eq(node.get('target:flags'), 0x20)
+            self.eq(node.get('target:size'), 12345)
+
+            time = 1674673065284
+            self.eq(node.get('target:created'), time)
+            self.eq(node.get('target:accessed'), time)
+            self.eq(node.get('target:written'), time)
