@@ -8022,3 +8022,36 @@ class CortexBasicTest(s_t_utils.SynTest):
             buf = stream.read()
             self.isin('(lowuser) has a rule on the "cortex" authgate', buf)
             self.isin('(all) has a rule on the "cortex" authgate', buf)
+
+    async def test_cortex_check_nexus_init(self):
+        # This test is a simple safety net for making sure no nexus events
+        # happen before the nexus subsystem is initialized (initNexusSubsystem).
+        # It's possible for code which calls nexus APIs to run but not do
+        # anything which wouldn't be caught here. I don't think there's a good
+        # way to check for that condition though.
+
+        class Cortex(s_cortex.Cortex):
+            async def initServiceStorage(self):
+                self._test_pre_service_storage_index = await self.nexsroot.index()
+                ret = await super().initServiceStorage()
+                self._test_post_service_storage_index = await self.nexsroot.index()
+                return ret
+
+            async def initNexusSubsystem(self):
+                self._test_pre_nexus_index = await self.nexsroot.index()
+                ret = await super().initNexusSubsystem()
+                self._test_post_nexus_index = await self.nexsroot.index()
+                return ret
+
+        conf = {
+            'layer:lmdb:map_async': True,
+            'nexslog:en': True,
+            'layers:logedits': True,
+        }
+
+        with self.getTestDir() as dirn:
+            async with await Cortex.anit(dirn, conf=conf) as core:
+                offs = core._test_pre_service_storage_index
+                self.eq(core._test_post_service_storage_index, offs)
+                self.eq(core._test_pre_nexus_index, offs)
+                self.ge(core._test_post_nexus_index, core._test_pre_nexus_index)

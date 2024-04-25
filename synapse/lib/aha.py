@@ -782,6 +782,8 @@ class AhaCell(s_cell.Cell):
 
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
 
+        logger.info(f'Deleting service [{svcfull}].', extra=await self.getLogExtra(name=svcname, netw=svcnetw))
+
         full = ('aha', 'svcfull', svcfull)
         path = ('aha', 'services', svcnetw, svcname)
 

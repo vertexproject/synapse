@@ -145,6 +145,7 @@ class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantDelType(SynErr): pass
 class CantDelUniv(SynErr): pass
+class CantDelView(SynErr): pass
 class CantMergeView(SynErr): pass
 class CantRevLayer(SynErr): pass
 class CliFini(SynErr):
