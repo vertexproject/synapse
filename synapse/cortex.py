@@ -1021,7 +1021,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             vdict = await node.dict()
             viewkv.set(iden, vdict.pack())
 
-            trigdict = self.cortexkv.getSubKeyVal(f'view:{self.iden}:trigger:')
+            trigdict = self.cortexkv.getSubKeyVal(f'view:{iden}:trigger:')
             trignode = await node.open(('triggers',))
             for iden, trig in trignode:
                 trigdict.set(iden, trig.valu)
