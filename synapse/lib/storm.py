@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
+import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
@@ -27,7 +28,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
-import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -1830,7 +1830,7 @@ class Runtime(s_base.Base):
 
     '''
 
-    _admin_reason = s_hiveauth._allowedReason(True, isadmin=True)
+    _admin_reason = s_auth._allowedReason(True, isadmin=True)
     async def __anit__(self, query, snap, opts=None, user=None, root=None):
 
         await s_base.Base.__anit__(self)

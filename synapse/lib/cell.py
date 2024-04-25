@@ -29,6 +29,7 @@ import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
@@ -50,7 +51,6 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
-import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
@@ -59,6 +59,8 @@ import synapse.lib.crypto.passwd as s_passwd
 import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
+
+NEXUS_VERSION = 1
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -1172,21 +1174,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.hive = await self._initCellHive()
 
-        # self.cellinfo, a HiveDict for general purpose persistent storage
-        node = await self.hive.open(('cellinfo',))
-        self.cellinfo = await node.dict()
-        self.onfini(node)
+        self.cellinfo = self.slab.getSafeKeyVal('cell:info')
+        self.cellvers = self.slab.getSafeKeyVal('cell:vers')
 
-        node = await self.hive.open(('cellvers',))
-        self.cellvers = await node.dict(nexs=True)
+        await self._bumpCellVers('cell:storage', (
+            (1, self._storCellHiveMigration),
+        ), nexs=False)
 
         if self.inaugural:
-            await self.cellinfo.set('synapse:version', s_version.version)
+            self.cellinfo.set('synapse:version', s_version.version)
+            self.cellinfo.set('nexus:version', NEXUS_VERSION)
 
         synvers = self.cellinfo.get('synapse:version')
+        self.nexsvers = self.cellinfo.get('nexus:version', 0)
+        self.nexspatches = ()
 
         if synvers is None or synvers < s_version.version:
-            await self.cellinfo.set('synapse:version', s_version.version)
+            self.cellinfo.set('synapse:version', s_version.version)
+
+        await self._bumpCellVers('cell:storage', (
+            (2, self._storCellAuthMigration),
+        ), nexs=False)
 
         self.auth = await self._initCellAuth()
 
@@ -1204,11 +1212,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'auth': self.auth,
             'cell': self
         }
-
-        # a tuple of (vers, func) tuples
-        # it is expected that this is set by
-        # initServiceStorage
-        self.cellupdaters = ()
 
         self.permdefs = None
         self.permlook = None
@@ -1231,6 +1234,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
 
+        await self.configNexsVers()
+
         # We can now do nexus-safe operations
         await self._initInauguralConfig()
 
@@ -1238,6 +1243,90 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def _storCellHiveMigration(self):
+        versnode = await self.hive.open(('cellvers',))
+        versdict = await versnode.dict()
+        for key, valu in versdict.items():
+            self.cellvers.set(key, valu)
+
+        await versnode.fini()
+
+        infonode = await self.hive.open(('cellinfo',))
+        infodict = await infonode.dict()
+        for key, valu in infodict.items():
+            self.cellinfo.set(key, valu)
+
+        await infonode.fini()
+
+    async def _storCellAuthMigration(self):
+        if self.conf.get('auth:ctor') is not None:
+            return
+
+        authkv = self.slab.getSafeKeyVal('auth')
+
+        rootnode = await self.hive.open(('auth',))
+
+        rolekv = authkv.getSubKeyVal('role:info:')
+        roles = await rootnode.open(('roles',))
+        for iden, node in roles:
+            roledict = await node.dict()
+            roleinfo = roledict.pack()
+
+            roleinfo['iden'] = iden
+            roleinfo['name'] = node.valu
+            roleinfo.setdefault('admin', False)
+            roleinfo.setdefault('rules', ())
+
+            rolekv.set(iden, roleinfo)
+
+        userkv = authkv.getSubKeyVal('user:info:')
+        users = await rootnode.open(('users',))
+        for iden, node in users:
+            userdict = await node.dict()
+            userinfo = userdict.pack()
+
+            userinfo['iden'] = iden
+            userinfo['name'] = node.valu
+            userinfo.setdefault('admin', False)
+            userinfo.setdefault('roles', ())
+            userinfo.setdefault('ruler', ())
+            userinfo.setdefault('locked', False)
+            userinfo.setdefault('passwd', None)
+            userinfo.setdefault('archived', False)
+
+            userkv.set(iden, userinfo)
+
+            varskv = authkv.getSubKeyVal(f'user:{iden}:vars:')
+            for name, varnode in await node.open(('vars',)):
+                varskv.set(name, varnode.valu)
+
+            profkv = authkv.getSubKeyVal(f'user:{iden}:profile:')
+            for name, profnode in await node.open(('profile',)):
+                profkv.set(name, profnode.valu)
+
+        gatekv = authkv.getSubKeyVal('gate:info:')
+        authgates = await rootnode.open(('authgates',))
+        for gateiden, node in authgates:
+            gateinfo = {
+                'iden': gateiden,
+                'type': node.valu
+            }
+            gatekv.set(gateiden, gateinfo)
+
+            for useriden, usernode in await node.open(('users',)):
+                userinfo = await usernode.dict()
+                userdict = userinfo.pack()
+                userdict[iden] = useriden
+                authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
+
+            for roleiden, rolenode in await node.open(('roles',)):
+                roleinfo = await rolenode.dict()
+                roledict = roleinfo.pack()
+                roledict[iden] = roleiden
+                authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
+
+        await rootnode.fini()
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -1364,13 +1453,55 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # ( and do so using _bumpCellVers )
         pass
 
+    async def setNexsVers(self, vers):
+        if self.nexsvers < NEXUS_VERSION:
+            await self._push('nexs:vers:set', NEXUS_VERSION)
+
+    @s_nexus.Pusher.onPush('nexs:vers:set')
+    async def _setNexsVers(self, vers):
+        if vers > self.nexsvers:
+            self.cellvers.set('nexus:version', vers)
+            self.nexsvers = vers
+            await self.configNexsVers()
+
+    async def configNexsVers(self):
+        for meth, orig in self.nexspatches:
+            setattr(self, meth, orig)
+
+        if self.nexsvers == NEXUS_VERSION:
+            return
+
+        patches = []
+        if self.nexsvers < 1:
+            patches.extend([
+                ('popUserVarValu', self._popUserVarValuV0),
+                ('setUserVarValu', self._setUserVarValuV0),
+                ('popUserProfInfo', self._popUserProfInfoV0),
+                ('setUserProfInfo', self._setUserProfInfoV0),
+            ])
+
+        self.nexspatches = []
+        for meth, repl in patches:
+            self.nexspatches.append((meth, getattr(self, meth)))
+            setattr(self, meth, repl)
+
+    async def setCellVers(self, name, vers, nexs=True):
+        if nexs:
+            await self._push('cell:vers:set', name, vers)
+        else:
+            await self._setCellVers(name, vers)
+
+    @s_nexus.Pusher.onPush('cell:vers:set')
+    async def _setCellVers(self, name, vers):
+        self.cellvers.set(name, vers)
+
     async def _bumpCellVers(self, name, updates, nexs=True):
 
         if self.inaugural:
-            await self.cellvers.set(name, updates[-1][0], nexs=nexs)
+            await self.setCellVers(name, updates[-1][0], nexs=nexs)
             return
 
-        curv = self.cellvers.get(name, 0)
+        curv = await self.cellvers.aget(name, 0)
 
         for vers, callback in updates:
 
@@ -1379,7 +1510,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await callback()
 
-            await self.cellvers.set(name, vers, nexs=nexs)
+            await self.setCellVers(name, vers, nexs=nexs)
 
             curv = vers
 
@@ -1887,11 +2018,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.onfini(self.activebase)
             self._fireActiveCoros()
             await self._execCellUpdates()
+            await self.setNexsVers(NEXUS_VERSION)
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
             await self.activebase.fini()
             self.activebase = None
+            await self.configNexsVers()
             await self.initServicePassive()
 
         await self._setAhaActive()
@@ -2289,7 +2422,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.backupstreaming = False
 
     async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
-        user = self.auth.user(iden)  # type: s_hiveauth.HiveUser
+        user = self.auth.user(iden)  # type: s_auth.User
         if user is None:
             return False
 
@@ -2314,36 +2447,53 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getUserProfile(self, iden):
         user = await self.auth.reqUser(iden)
-        return user.profile.pack()
+        return dict(user.profile.items())
 
-    async def getUserProfInfo(self, iden, name):
+    async def getUserProfInfo(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return user.profile.get(name)
+        return await user.profile.aget(name, defv=default)
+
+    async def _setUserProfInfoV0(self, iden, name, valu):
+        path = ('auth', 'users', iden, 'profile', name)
+        return await self.hive._push('hive:set', path, valu)
 
     async def setUserProfInfo(self, iden, name, valu):
         user = await self.auth.reqUser(iden)
-        return await user.profile.set(name, valu)
+        return await user.setProfileValu(name, valu)
+
+    async def _popUserProfInfoV0(self, iden, name, default=None):
+        path = ('auth', 'users', iden, 'profile', name)
+        return await self.hive._push('hive:pop', path)
 
     async def popUserProfInfo(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return await user.profile.pop(name, default=default)
+        return await user.popProfileValu(name, default=default)
 
     async def iterUserVars(self, iden):
         user = await self.auth.reqUser(iden)
         for item in user.vars.items():
             yield item
+            await asyncio.sleep(0)
 
-    async def getUserVarValu(self, iden, name):
+    async def getUserVarValu(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return user.vars.get(name)
+        return await user.vars.aget(name, defv=default)
+
+    async def _setUserVarValuV0(self, iden, name, valu):
+        path = ('auth', 'users', iden, 'vars', name)
+        return await self.hive._push('hive:set', path, valu)
 
     async def setUserVarValu(self, iden, name, valu):
         user = await self.auth.reqUser(iden)
-        return await user.vars.set(name, valu)
+        return await user.setVarValu(name, valu)
+
+    async def _popUserVarValuV0(self, iden, name, default=None):
+        path = ('auth', 'users', iden, 'vars', name)
+        return await self.hive._push('hive:pop', path)
 
     async def popUserVarValu(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return await user.vars.pop(name, default=default)
+        return await user.popVarValu(name, default=default)
 
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
@@ -2894,7 +3044,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         isnew = not self.slab.dbexists('hive')
 
         db = self.slab.initdb('hive')
-        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot())
+        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot(), cell=self)
         self.onfini(hive)
 
         if isnew:
@@ -2954,9 +3104,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
-        node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(
-            node,
+        auth = await s_auth.Auth.anit(
+            self.slab,
+            'auth',
             seed=seed,
             nexsroot=self.getCellNexsRoot(),
             maxusers=maxusers
@@ -2981,7 +3131,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     name = rnfo.get('name')
                     logger.debug(f'Adding inaugural role {name}')
                     iden = s_common.guid((self.iden, 'auth', 'role', name))
-                    role = await self.auth.addRole(name, iden)  # type: s_hiveauth.HiveRole
+                    role = await self.auth.addRole(name, iden)  # type: s_auth.Role
 
                     for rule in rnfo.get('rules', ()):
                         await role.addRule(rule)
@@ -2991,7 +3141,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     email = unfo.get('email')
                     iden = s_common.guid((self.iden, 'auth', 'user', name))
                     logger.debug(f'Adding inaugural user {name}')
-                    user = await self.auth.addUser(name, email=email, iden=iden)  # type: s_hiveauth.HiveUser
+                    user = await self.auth.addUser(name, email=email, iden=iden)  # type: s_auth.User
 
                     if unfo.get('admin'):
                         await user.setAdmin(True)
@@ -3158,7 +3308,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Args:
             link (s_link.Link): The link object.
-            user (s_hive.HiveUser): The heavy user object.
+            user (s_auth.User): The heavy user object.
             path (str): The path requested.
 
         Notes:
@@ -3182,7 +3332,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         extra = {**kwargs}
         sess = s_scope.get('sess')  # type: s_daemon.Sess
-        user = s_scope.get('user')  # type: s_hiveauth.HiveUser
+        user = s_scope.get('user')  # type: s_auth.User
         if user:
             extra['user'] = user.iden
             extra['username'] = user.name

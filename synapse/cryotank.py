@@ -226,14 +226,19 @@ class CryoCell(s_cell.Cell):
 
         self.dmon.share('cryotank', self)
 
-        self.names = await self.hive.open(('cryo', 'names'))
+    async def initServiceStorage(self):
+
+        self.names = self.slab.getSafeKeyVal('cryo:names')
+
+        await self._bumpCellVers('cryotank', (
+            (2, self._migrateToV2),
+            (3, self._migrateToV3),
+        ), nexs=False)
 
         self.tanks = await s_base.BaseRef.anit()
         self.onfini(self.tanks.fini)
 
-        for name, node in self.names:
-
-            iden, conf = node.valu
+        for name, (iden, conf) in self.names.items():
 
             logger.info('Bringing tank [%s][%s] online', name, iden)
 
@@ -245,18 +250,13 @@ class CryoCell(s_cell.Cell):
 
             await self.auth.addAuthGate(iden, 'tank')
 
-    async def _execCellUpdates(self):
-        await self._bumpCellVers('cryotank', (
-            (2, self._migrateToV2),
-        ))
-
     async def _migrateToV2(self):
 
         logger.warning('Beginning migration to V2')
 
-        self.names = await self.hive.open(('cryo', 'names'))
+        names = await self.hive.open(('cryo', 'names'))
 
-        for name, node in self.names:
+        for name, node in names:
 
             iden, conf = node.valu
             if conf is None:
@@ -286,6 +286,19 @@ class CryoCell(s_cell.Cell):
             async with await s_lmdbslab.Slab.anit(slabpath, **conf) as slab:
                 offs = s_slaboffs.SlabOffs(slab, 'offsets')
                 slab.dropdb(offs.db)
+
+        logger.warning('...migration complete')
+
+    async def _migrateToV3(self):
+
+        logger.warning('Beginning migration to V2')
+
+        hivenames = await self.hive.open(('cryo', 'names'))
+        for name, node in hivenames:
+            iden, conf = node.valu
+            self.names.set(name, (iden, conf))
+
+        await hivenames.fini()
 
         logger.warning('...migration complete')
 
@@ -329,7 +342,7 @@ class CryoCell(s_cell.Cell):
 
         Args:
             name (str): Name of the CryoTank.
-            user (HiveUser): The Telepath user.
+            user (User): The Telepath user.
 
         Returns:
             CryoTank: A CryoTank instance.
@@ -349,8 +362,7 @@ class CryoCell(s_cell.Cell):
 
         tank = await CryoTank.anit(path, iden, conf)
 
-        node = await self.names.open((name,))
-        await node.set((iden, conf))
+        self.names.set(name, (iden, conf))
 
         self.tanks.put(name, tank)
 
@@ -367,7 +379,7 @@ class CryoCell(s_cell.Cell):
 
         Returns:
             list: A list of tufos.
-            user (HiveUser): The Telepath user.
+            user (User): The Telepath user.
         '''
 
         infos = []
@@ -387,7 +399,7 @@ class CryoCell(s_cell.Cell):
         if tank is None:
             return False
 
-        iden, _ = await self.names.pop((name,))
+        iden, _ = await self.names.pop(name)
         await tank.fini()
         shutil.rmtree(tank.dirn, ignore_errors=True)
 

@@ -119,14 +119,14 @@ class CryoTest(s_t_utils.SynTest):
                 # test passing conf data in through init directly
                 tank = await cryo.init('conftest', conf={'map_size': s_const.mebibyte * 64})
                 self.eq(tank.slab.mapsize, s_const.mebibyte * 64)
-                _, conf = await cryo.hive.get(('cryo', 'names', 'conftest'))
+                _, conf = cryo.names.get('conftest')
                 self.eq(conf, {'map_size': s_const.mebibyte * 64})
 
             # And the data was persisted
             async with self.getTestCryo(dirn) as cryo:
                 tank = cryo.tanks.get('conftest')
                 self.eq(tank.slab.mapsize, s_const.mebibyte * 64)
-                _, conf = await cryo.hive.get(('cryo', 'names', 'conftest'))
+                _, conf = cryo.names.get('conftest')
                 self.eq(conf, {'map_size': s_const.mebibyte * 64})
 
     async def test_cryo_perms(self):

@@ -792,10 +792,15 @@ class Axon(s_cell.Cell):
         self.axonhist = s_lmdbslab.Hist(self.axonslab, 'history')
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
-        node = await self.hive.open(('axon', 'metrics'))
-        self.axonmetrics = await node.dict()
-        self.axonmetrics.setdefault('size:bytes', 0)
-        self.axonmetrics.setdefault('file:count', 0)
+        self.axonmetrics = await self.axonslab.getHotCount('metrics')
+
+        if self.inaugural:
+            self.axonmetrics.set('size:bytes', 0)
+            self.axonmetrics.set('file:count', 0)
+
+        await self._bumpCellVers('axon:metrics', (
+            (1, self._migrateAxonMetrics),
+        ), nexs=False)
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -855,6 +860,15 @@ class Axon(s_cell.Cell):
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
+
+    async def _migrateAxonMetrics(self):
+        node = await self.hive.open(('axon', 'metrics'))
+
+        axonmetrics = await node.dict()
+        self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
+        self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
+
+        await axonmetrics.fini()
 
     async def _initBlobStor(self):
 
@@ -1151,7 +1165,7 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A dictionary of runtime data about the Axon.
         '''
-        return dict(self.axonmetrics.items())
+        return self.axonmetrics.pack()
 
     async def save(self, sha256, genr, size):
         '''
@@ -1200,8 +1214,8 @@ class Axon(s_cell.Cell):
         tick = info.get('tick')
         self._addSyncItem((sha256, size), tick=tick)
 
-        await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') + 1)
-        await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') + size)
+        self.axonmetrics.inc('file:count')
+        self.axonmetrics.inc('size:bytes', valu=size)
 
         self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
@@ -1312,8 +1326,8 @@ class Axon(s_cell.Cell):
             logger.debug(f'Deleting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
             size = int.from_bytes(byts, 'big')
-            await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') - 1)
-            await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') - size)
+            self.axonmetrics.inc('file:count', valu=-1)
+            self.axonmetrics.inc('size:bytes', valu=-size)
 
             await self._delBlobByts(sha256)
             return True

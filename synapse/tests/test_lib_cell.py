@@ -30,7 +30,6 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
 
@@ -415,8 +414,6 @@ class CellTest(s_t_utils.SynTest):
         # Ensure the cell and its auth have been fini'd
         self.true(echo.isfini)
         self.true(echo.auth.isfini)
-        root = await echo.auth.getUserByName('root')
-        self.true(root.isfini)
 
     async def test_cell_userapi(self):
 
@@ -1630,7 +1627,7 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
             iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            user = cell.auth.user(iden)  # type: s_auth.User
             self.eq(user.name, 'foo@bar.mynet.com')
             self.eq(user.pack().get('email'), 'foo@barcorp.com')
             self.false(user.isAdmin())
@@ -1640,7 +1637,7 @@ class CellTest(s_t_utils.SynTest):
             self.false(user.allowed(('newp', 'secret')))
 
             iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            user = cell.auth.user(iden)  # type: s_auth.User
             self.eq(user.name, 'sally@bar.mynet.com')
             self.true(user.isAdmin())
 

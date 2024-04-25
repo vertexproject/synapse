@@ -5,9 +5,9 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
+import synapse.lib.auth as s_auth
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
-import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tests.utils as s_t_utils
 
@@ -208,7 +208,7 @@ class NexusTest(s_t_utils.SynTest):
 
     async def test_nexus_safety(self):
 
-        orig = s_hiveauth.Auth.reqUser
+        orig = s_auth.Auth.reqUser
         async def slowReq(self, iden):
             await asyncio.sleep(0.2)
             return await orig(self, iden)
@@ -216,7 +216,7 @@ class NexusTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
 
-                with mock.patch('synapse.lib.hiveauth.Auth.reqUser', slowReq):
+                with mock.patch('synapse.lib.auth.Auth.reqUser', slowReq):
 
                     vcnt = len(core.views)
                     deflayr = (await core.getLayerDef()).get('iden')
@@ -246,7 +246,7 @@ class NexusTest(s_t_utils.SynTest):
                 vcnt = len(core.views)
                 strt = await core.nexsroot.index()
 
-                with mock.patch('synapse.lib.hiveauth.Auth.reqUser', slowReq):
+                with mock.patch('synapse.lib.auth.Auth.reqUser', slowReq):
                     for x in range(3):
                         vdef = {'layers': (deflayr,), 'name': f'someview{x}'}
                         with self.raises(TimeoutError):

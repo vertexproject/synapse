@@ -166,6 +166,229 @@ class SlabDict:
         self.set(name, curv)
         return curv
 
+class SafeKeyVal:
+    '''
+    Key/value storage that does not store items in memory and safely handles large keys.
+    '''
+    def __init__(self, slab, name, prefix=None):
+
+        self.name = name
+        self.slab = slab
+        self.valudb = slab.initdb(name)
+        self.abrvdb = slab.initdb(f'{name}:abrv2key')
+
+        self.prefix = prefix
+        if prefix is not None:
+            self.preflen = len(prefix)
+
+        self.offs = 0
+
+        item = self.slab.last(db=self.abrvdb)
+        if item is not None:
+            self.offs = s_common.int64un(item[0]) + 1
+
+    def getSubKeyVal(self, prefix):
+
+        if self.prefix is not None:
+            prefix = self.prefix + prefix
+
+        return SafeKeyVal(self.slab, self.name, prefix=prefix)
+
+    def get(self, name, defv=None):
+        '''
+        Get the value for a key.
+
+        Note:
+            This may only be used for keys < 503 characters in length. Use aget()
+            for keys above this limit or of unknown length.
+        '''
+        if self.prefix is not None:
+            name = self.prefix + name
+
+        lkey = name.encode('utf8')
+
+        if len(lkey) > 502:
+            raise s_exc.BadArg('SafeKeyVal.get() may only be used with keys < 503 characters in length.')
+
+        if (byts := self.slab.get(lkey, db=self.valudb)) is None:
+            return defv
+        return s_msgpack.un(byts)
+
+    async def aget(self, name, defv=None):
+        '''
+        Get the value for a key.
+
+        Note:
+            This may be used for keys of any length. The sync get() method may be
+            used for keys which have a known length < 503 characters.
+        '''
+        if self.prefix is not None:
+            name = self.prefix + name
+
+        lkey = name.encode('utf8')
+
+        if len(lkey) <= 502:
+            if (byts := self.slab.get(lkey, db=self.valudb)) is None:
+                return defv
+            return s_msgpack.un(byts)
+
+        for (abrv, realkey) in self.slab.scanByPref(lkey[:502], db=self.abrvdb):
+            if lkey == realkey:
+                if (byts := self.slab.get(lkey, db=self.valudb)) is None:
+                    return defv
+                return s_msgpack.un(byts)
+
+            await asyncio.sleep(0)
+
+        return defv
+
+    def set(self, name, valu):
+
+        if self.prefix is not None:
+            name = self.prefix + name
+
+        byts = s_msgpack.en(valu)
+        name = name.encode('utf8')
+
+        if len(name) <= 502:
+            self.slab.put(name, byts, db=self.valudb)
+            return
+
+        abrv = s_common.int64en(self.offs)
+
+        self.offs += 1
+
+        lkey = name[:502] + abrv
+        self.slab.put(lkey, name, db=self.abrvdb)
+        self.slab.put(lkey, byts, db=self.valudb)
+
+        return valu
+
+    async def pop(self, name, defv=None):
+
+        if self.prefix is not None:
+            name = self.prefix + name
+
+        lkey = name.encode('utf8')
+
+        if len(lkey) <= 502:
+            if (byts := self.slab.pop(lkey, db=self.valudb)) is not None:
+                return s_msgpack.un(byts)
+            return defv
+
+        for (abrv, realkey) in self.slab.scanByPref(lkey[:502], db=self.abrvdb):
+            if lkey == realkey:
+                self.slab.delete(abrv, db=self.abrvdb)
+                if (byts := self.slab.pop(lkey, db=self.valudb)) is not None:
+                    return s_msgpack.un(byts)
+                return defv
+
+            await asyncio.sleep(0)
+
+        return defv
+
+    async def delete(self, name):
+        '''
+        Delete a key.
+        '''
+        if self.prefix is not None:
+            name = self.prefix + name
+
+        lkey = name.encode('utf8')
+
+        if len(lkey) <= 502:
+            return self.slab.delete(lkey, db=self.valudb)
+
+        for (abrv, realkey) in self.slab.scanByPref(lkey[:502], db=self.abrvdb):
+            if lkey == realkey:
+                self.slab.delete(abrv, db=self.abrvdb)
+                return self.slab.delete(lkey, db=self.valudb)
+
+            await asyncio.sleep(0)
+
+        return False
+
+    async def truncate(self, pref=''):
+        '''
+        Delete all keys.
+        '''
+        if self.prefix is not None:
+            pref = self.prefix + pref
+
+        if len(pref) <= 502:
+            if not pref:
+                genr = self.slab.scanKeysByFull(db=self.valudb)
+            else:
+                genr = self.slab.scanKeysByPref(pref.encode('utf8'), db=self.valudb)
+
+            for lkey in genr:
+                self.slab.delete(lkey, db=self.valudb)
+                if len(lkey) > 502:
+                    self.slab.delete(lkey, db=self.abrvdb)
+                await asyncio.sleep(0)
+            return
+
+        pkey = pref[:502].encode('utf8')
+        for lkey, realkey in self.slab.scanByPref(pkey, db=self.abrvdb):
+            realkey = realkey.decode('utf8')
+            if realkey.startswith(pref):
+                self.slab.delete(lkey, db=self.valudb)
+                self.slab.delete(lkey, db=self.abrvdb)
+            await asyncio.sleep(0)
+
+    def items(self, pref=''):
+
+        if self.prefix is not None:
+            pref = self.prefix + pref
+
+        if len(pref) <= 502:
+            if not pref:
+                genr = self.slab.scanByFull(db=self.valudb)
+            else:
+                genr = self.slab.scanByPref(pref.encode('utf8'), db=self.valudb)
+
+            for lkey, byts in genr:
+                valu = s_msgpack.un(byts)
+
+                if len(lkey) > 502:
+                    lkey = self.slab.get(lkey, db=self.abrvdb)
+
+                if self.prefix is not None:
+                    yield lkey[self.preflen:].decode('utf8'), valu
+                    continue
+
+                yield lkey.decode('utf8'), valu
+            return
+
+        pkey = pref[:502].encode('utf8')
+        for lkey, realkey in self.slab.scanByPref(pkey, db=self.abrvdb):
+            realkey = realkey.decode('utf8')
+            if realkey.startswith(pref):
+                if (byts := self.slab.get(lkey, db=self.valudb)) is not None:
+                    yield realkey[self.preflen:], s_msgpack.un(byts)
+
+    def values(self, pref=''):
+
+        if self.prefix is not None:
+            pref = self.prefix + pref
+
+        if not pref:
+            for lkey, byts in self.slab.scanByFull(db=self.valudb):
+                yield s_msgpack.un(byts)
+            return
+
+        if len(pref) <= 502:
+            for lkey, byts in self.slab.scanByPref(pref.encode('utf8'), db=self.valudb):
+                yield s_msgpack.un(byts)
+            return
+
+        pkey = pref[:502].encode('utf8')
+        for lkey, realkey in self.slab.scanByPref(pkey, db=self.abrvdb):
+            realkey = realkey.decode('utf8')
+            if realkey.startswith(pref):
+                if (byts := self.slab.get(lkey, db=self.valudb)) is not None:
+                    yield s_msgpack.un(byts)
+
 class SlabAbrv:
     '''
     A utility for translating arbitrary bytes into fixed with id bytes
@@ -844,6 +1067,9 @@ class Slab(s_base.Base):
         mq = await MultiQueue.anit(self, name, nexsroot=None)
         self.onfini(mq)
         return mq
+
+    def getSafeKeyVal(self, name, prefix=None):
+        return SafeKeyVal(self, name, prefix=prefix)
 
     def statinfo(self):
         return {

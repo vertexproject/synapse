@@ -1396,7 +1396,7 @@ class Snap(s_base.Base):
 
     async def _getTagNorm(self, tagname):
 
-        if not self.core.isTagValid(tagname):
+        if not await self.core.isTagValid(tagname):
             mesg = f'The tag ({tagname}) does not meet the regex for the tree.'
             await self._raiseOnStrict(s_exc.BadTag, mesg)
             return None

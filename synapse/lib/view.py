@@ -78,18 +78,17 @@ class View(s_nexus.Pusher):  # type: ignore
     '''
     snapctor = s_snap.Snap.anit
 
-    async def __anit__(self, core, node):
+    async def __anit__(self, core, info):
         '''
         Async init the view.
 
         Args:
             core (Cortex):  The cortex that owns the view.
-            node (HiveNode): The hive node containing the view info.
+            info (dict): The dictionary containing the view info.
         '''
-        self.node = node
-        self.iden = node.name()
+        self.iden = info.get('iden')
         self.bidn = s_common.uhex(self.iden)
-        self.info = await node.dict()
+        self.info = info
 
         self.core = core
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
@@ -100,11 +99,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
-        trignode = await node.open(('triggers',))
-        self.trigdict = await trignode.dict()
+        self.trigdict = self.core.cortexkv.getSubKeyVal(f'view:{self.iden}:trigger:')
 
         self.triggers = s_trigger.Triggers(self)
-        for _, tdef in self.trigdict.items():
+        for tdef in self.trigdict.values():
             try:
                 await self.triggers.load(tdef)
 
@@ -271,12 +269,14 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         self.merging = True
-        await self.info.set('merging', True)
+        self.info['merging'] = True
+        self.core.viewkv.set(self.iden, self.info)
 
         layr = self.layers[0]
 
         layr.readonly = True
-        await layr.layrinfo.set('readonly', True)
+        layr.layrinfo['readonly'] = True
+        self.core.layerkv.set(layr.iden, layr.layrinfo)
 
         merge = self.getMergeRequest()
         votes = [vote async for vote in self.getMergeVotes()]
@@ -494,10 +494,11 @@ class View(s_nexus.Pusher):  # type: ignore
         await self._delMergeMeta()
 
         self.parent = None
-        await self.info.pop('parent')
+        if self.info.pop('parent', None) is not None:
+            self.core.viewkv.set(self.iden, self.info)
 
-        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
-                                     gates=[self.iden, self.layers[0].iden])
+            await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
+                                         gates=[self.iden, self.layers[0].iden])
 
     async def mergeStormIface(self, name, todo):
         '''
@@ -712,11 +713,12 @@ class View(s_nexus.Pusher):  # type: ignore
         layers.extend(view.layers)
 
         self.layers = layers
-        await self.info.set('layers', [layr.iden for layr in layers])
+        self.info['layers'] = [layr.iden for layr in layers]
+        self.core.viewkv.set(self.iden, self.info)
 
     async def pack(self):
         d = {'iden': self.iden}
-        d.update(self.info.pack())
+        d.update(self.info)
 
         layrinfo = [await lyr.pack() for lyr in self.layers]
         d['layers'] = layrinfo
@@ -1128,7 +1130,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise s_exc.BadArg(mesg=mesg)
 
             self.parent = parent
-            await self.info.set(name, valu)
+            self.info[name] = valu
+            self.core.viewkv.set(self.iden, self.info)
 
             await self._calcForkLayers()
 
@@ -1144,7 +1147,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 # enforce ( which will need to be done very carefully to prevent
                 # existing non-compliant values from causing issues with existing views )
                 if valu is not None:
-                    vdef = self.info.pack()
+                    vdef = s_msgpack.deepcopy(self.info)
                     vdef['quorum'] = s_msgpack.deepcopy(valu)
                     s_schemas.reqValidView(vdef)
                 else:
@@ -1155,9 +1158,11 @@ class View(s_nexus.Pusher):  # type: ignore
                             await view._delMergeRequest()
 
             if valu is None:
-                await self.info.pop(name)
+                self.info.pop(name, None)
             else:
-                await self.info.set(name, valu)
+                self.info[name] = valu
+
+            self.core.viewkv.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
                                      gates=[self.iden, self.layers[0].iden])
@@ -1191,7 +1196,9 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             self.layers.insert(indx, layr)
 
-        await self.info.set('layers', [lyr.iden for lyr in self.layers])
+        self.info['layers'] = [lyr.iden for lyr in self.layers]
+        self.core.viewkv.set(self.iden, self.info)
+
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
         self.core._calcViewsByLayer()
 
@@ -1219,7 +1226,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.invalid = None
         self.layers = layrs
 
-        await self.info.set('layers', layers)
+        self.info['layers'] = layers
+        self.core.viewkv.set(self.iden, self.info)
+
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
 
         await self._calcChildViews()
@@ -1249,7 +1258,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 # convert layers to a list of idens...
                 lids = [layr.iden for layr in layers]
-                await child.info.set('layers', lids)
+                child.info['layers'] = lids
+                self.core.viewkv.set(child.iden, child.info)
 
                 await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
 
@@ -1475,7 +1485,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         trig = await self.triggers.load(tdef)
 
-        await self.trigdict.set(trig.iden, tdef)
+        self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
         await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
@@ -1533,7 +1543,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Note: this does not delete any layer storage.
         '''
         await self.fini()
-        await self.node.pop()
+        await self.trigdict.truncate()
+        await self.core.viewkv.delete(self.iden)
         await self._wipeViewMeta()
         shutil.rmtree(self.dirn, ignore_errors=True)
 

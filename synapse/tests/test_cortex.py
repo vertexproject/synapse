@@ -5857,7 +5857,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # nexus recover() previously failed on adding to the hive
                 # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
-                self.nn(core.stormdmonhive.get(iden))
+                self.nn(core.stormdmonkv.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -5900,7 +5900,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)
-                await visi.profile.set('cortex:view', view2_iden)
+                await visi.setProfileValu('cortex:view', view2_iden)
 
                 await core.nodes('$q=$lib.queue.add(dmon2)')
                 q = '''
@@ -6068,7 +6068,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
                 # manually edit in a borked form entry
-                await core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
 
             async with self.getTestCore(dirn=dirn) as core:
 

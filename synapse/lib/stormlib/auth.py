@@ -633,7 +633,7 @@ class UserProfile(s_stormtypes.Prim):
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         self.runt.confirm(('auth', 'user', 'get', 'profile', name))
-        return copy.deepcopy(await self.runt.snap.core.getUserProfInfo(self.valu, name))
+        return await self.runt.snap.core.getUserProfInfo(self.valu, name)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -654,7 +654,7 @@ class UserProfile(s_stormtypes.Prim):
 
     async def value(self):
         self.runt.confirm(('auth', 'user', 'get', 'profile'))
-        return copy.deepcopy(await self.runt.snap.core.getUserProfile(self.valu))
+        return await self.runt.snap.core.getUserProfile(self.valu)
 
 @s_stormtypes.registry.registerType
 class UserJson(s_stormtypes.Prim):
@@ -807,7 +807,7 @@ class UserVars(s_stormtypes.Prim):
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
+        return await self.runt.snap.core.getUserVarValu(self.valu, name)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -821,7 +821,7 @@ class UserVars(s_stormtypes.Prim):
 
     async def iter(self):
         async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
-            yield name, copy.deepcopy(valu)
+            yield name, valu
             await asyncio.sleep(0)
 
 @s_stormtypes.registry.registerType
@@ -1579,6 +1579,181 @@ class LibAuth(s_stormtypes.Lib):
         perm = await s_stormtypes.toprim(perm)
         return self.runt.snap.core.getPermDef(perm)
 
+@s_stormtypes.registry.registerType
+class StormUserVarsDict(s_stormtypes.Prim):
+    '''
+    A Storm Primitive that maps the HiveDict interface to a user vars dictionary.
+    '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Get the value for a user var.',
+         'type': {'type': 'function', '_funcname': '_get',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the var.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'The default value to return if not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'pop', 'desc': 'Remove a user var value.',
+         'type': {'type': 'function', '_funcname': '_pop',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the var.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'The default value to return if not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'set', 'desc': 'Set a user var value.',
+         'type': {'type': 'function', '_funcname': '_set',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the var to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to store.', },
+                  ),
+                  'returns': {'type': ['null', 'prim'],
+                              'desc': 'Old value of the var if it was previously set, or none.', }}},
+        {'name': 'list', 'desc': 'List the vars and their values.',
+         'type': {'type': 'function', '_funcname': '_list',
+                  'returns': {'type': 'list', 'desc': 'A list of tuples containing var, value pairs.', }}},
+    )
+    _storm_typename = 'user:vars:dict'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        s_stormtypes.Prim.__init__(self, valu, path=path)
+        self.runt = runt
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'get': self._get,
+            'pop': self._pop,
+            'set': self._set,
+            'list': self._list,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _get(self, name, default=None):
+        name = await s_stormtypes.tostr(name)
+        return await self.runt.snap.core.getUserVarValu(self.valu, name, default=default)
+
+    async def _pop(self, name, default=None):
+        name = await s_stormtypes.tostr(name)
+        return await self.runt.snap.core.popUserVarValu(self.valu, name, default=default)
+
+    async def _set(self, name, valu):
+        if not isinstance(name, str):
+            mesg = 'The name of a variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+        name = await s_stormtypes.tostr(name)
+        oldv = await self.runt.snap.core.getUserVarValu(self.valu, name)
+
+        valu = await s_stormtypes.toprim(valu)
+
+        await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
+        return oldv
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _list(self):
+        valu = await self.value()
+        return list(valu.items())
+
+    async def iter(self):
+        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+            yield name, valu
+            await asyncio.sleep(0)
+
+    async def value(self):
+        varz = {}
+        async for key, valu in self.runt.snap.core.iterUserVars(self.valu):
+            varz[key] = valu
+            await asyncio.sleep(0)
+
+        return varz
+
+@s_stormtypes.registry.registerType
+class StormUserProfileDict(s_stormtypes.Prim):
+    '''
+    A Storm Primitive that maps the HiveDict interface to a user profile dictionary.
+    '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Get a user profile value.',
+         'type': {'type': 'function', '_funcname': '_get',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user profile value.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'The default value to return if not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'pop', 'desc': 'Remove a user profile value.',
+         'type': {'type': 'function', '_funcname': '_pop',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user profile value.', },
+                      {'name': 'default', 'type': 'prim', 'default': None,
+                       'desc': 'The default value to return if not set.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'set', 'desc': 'Set a user profile value.',
+         'type': {'type': 'function', '_funcname': '_set',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the user profile value to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to store.', },
+                  ),
+                  'returns': {'type': ['null', 'prim'],
+                              'desc': 'Old value if it was previously set, or none.', }}},
+        {'name': 'list', 'desc': 'List the user profile vars and their values.',
+         'type': {'type': 'function', '_funcname': '_list',
+                  'returns': {'type': 'list', 'desc': 'A list of tuples containing var, value pairs.', }}},
+    )
+    _storm_typename = 'user:profile:dict'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        s_stormtypes.Prim.__init__(self, valu, path=path)
+        self.runt = runt
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'get': self._get,
+            'pop': self._pop,
+            'set': self._set,
+            'list': self._list,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _get(self, name, default=None):
+        name = await s_stormtypes.tostr(name)
+        return await self.runt.snap.core.getUserProfInfo(self.valu, name, default=default)
+
+    async def _pop(self, name, default=None):
+        name = await s_stormtypes.tostr(name)
+        return await self.runt.snap.core.popUserProfInfo(self.valu, name, default=default)
+
+    async def _set(self, name, valu):
+        if not isinstance(name, str):
+            mesg = 'The name of a variable must be a string.'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+        name = await s_stormtypes.tostr(name)
+        oldv = await self.runt.snap.core.getUserProfInfo(self.valu, name)
+
+        valu = await s_stormtypes.toprim(valu)
+
+        await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
+        return oldv
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _list(self):
+        valu = await self.value()
+        return list(valu.items())
+
+    async def iter(self):
+        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+            yield name, valu
+            await asyncio.sleep(0)
+
+    async def value(self):
+        return await self.runt.snap.core.getUserProfile(self.valu)
+
 @s_stormtypes.registry.registerLib
 class LibUser(s_stormtypes.Lib):
     '''
@@ -1597,10 +1772,10 @@ class LibUser(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
-        {'name': 'vars', 'desc': "Get a Hive dictionary representing the current user's persistent variables.",
-         'type': 'hive:dict', },
-        {'name': 'profile', 'desc': "Get a Hive dictionary representing the current user's profile information.",
-         'type': 'hive:dict', },
+        {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
+         'type': 'auth:user:vars', },
+        {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
+         'type': 'auth:user:profile', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )
@@ -1615,9 +1790,9 @@ class LibUser(s_stormtypes.Lib):
     def addLibFuncs(self):
         super().addLibFuncs()
         self.locls.update({
-            'vars': s_stormtypes.StormHiveDict(self.runt, self.runt.user.vars),
+            'vars': StormUserVarsDict(self.runt, self.runt.user.iden),
             'json': UserJson(self.runt, self.runt.user.iden),
-            'profile': s_stormtypes.StormHiveDict(self.runt, self.runt.user.profile),
+            'profile': StormUserProfileDict(self.runt, self.runt.user.iden),
         })
 
     @s_stormtypes.stormfunc(readonly=True)
