@@ -2024,7 +2024,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self._killActiveCoros()
             await self.activebase.fini()
             self.activebase = None
-            await self.configNexsVers()
             await self.initServicePassive()
 
         await self._setAhaActive()

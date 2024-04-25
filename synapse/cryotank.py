@@ -291,7 +291,7 @@ class CryoCell(s_cell.Cell):
 
     async def _migrateToV3(self):
 
-        logger.warning('Beginning migration to V2')
+        logger.warning('Beginning migration to V3')
 
         hivenames = await self.hive.open(('cryo', 'names'))
         for name, node in hivenames:
