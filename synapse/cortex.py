@@ -1465,7 +1465,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initCoreMods()
 
-        if self.active:
+        if self.isactive:
             await self._checkLayerModels()
 
         self.addActiveCoro(self.agenda.runloop)
