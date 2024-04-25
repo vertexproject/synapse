@@ -78,17 +78,17 @@ class View(s_nexus.Pusher):  # type: ignore
     '''
     snapctor = s_snap.Snap.anit
 
-    async def __anit__(self, core, info):
+    async def __anit__(self, core, vdef):
         '''
         Async init the view.
 
         Args:
             core (Cortex):  The cortex that owns the view.
-            info (dict): The dictionary containing the view info.
+            vdef (dict): The dictionary containing the view definition.
         '''
-        self.iden = info.get('iden')
+        self.iden = vdef.get('iden')
         self.bidn = s_common.uhex(self.iden)
-        self.info = info
+        self.info = vdef
 
         self.core = core
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)

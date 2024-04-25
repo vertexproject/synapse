@@ -264,14 +264,14 @@ class CryoTest(s_t_utils.SynTest):
                     )
 
                     tank00 = await cryo.init('tank00')
-                    self.true(tank00iden == cryo.names.get('tank00').valu[0] == tank00.iden())
+                    self.true(tank00iden == cryo.names.get('tank00')[0] == tank00.iden())
                     self.false(os.path.exists(os.path.join(tank00.dirn, 'guid')))
                     self.false(os.path.exists(os.path.join(tank00.dirn, 'cell.guid')))
                     self.false(os.path.exists(os.path.join(tank00.dirn, 'slabs', 'cell.lmdb')))
                     self.eq(0, s_slaboffs.SlabOffs(tank00.slab, 'offsets').get(seqniden))
 
                     tank01 = await cryo.init('tank01')
-                    self.true(tank01iden == cryo.names.get('tank01').valu[0] == tank01.iden())
+                    self.true(tank01iden == cryo.names.get('tank01')[0] == tank01.iden())
                     self.false(os.path.exists(os.path.join(tank01.dirn, 'guid')))
                     self.false(os.path.exists(os.path.join(tank01.dirn, 'cell.guid')))
                     self.false(os.path.exists(os.path.join(tank01.dirn, 'slabs', 'cell.lmdb')))

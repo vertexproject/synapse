@@ -951,7 +951,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
-            (2, self._storLayrFeedDefaults),
             (3, self._storCortexHiveMigration),
         ), nexs=False)
 
@@ -1018,8 +1017,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         viewkv = self.cortexkv.getSubKeyVal('view:info:')
         viewnode = await self.hive.open(('cortex', 'views'))
         for iden, node in viewnode:
-            vdict = await node.dict()
-            viewkv.set(iden, vdict.pack())
+            viewdict = await node.dict()
+            viewinfo = viewdict.pack()
+            viewinfo.setdefault('iden', iden)
+            viewkv.set(iden, viewinfo)
 
             trigdict = self.cortexkv.getSubKeyVal(f'view:{iden}:trigger:')
             trignode = await node.open(('triggers',))
@@ -1031,8 +1032,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layrkv = self.cortexkv.getSubKeyVal('layer:info:')
         layrnode = await self.hive.open(('cortex', 'layers'))
         for iden, node in layrnode:
-            ldict = await node.dict()
-            layrkv.set(iden, ldict.pack())
+            layrdict = await node.dict()
+            layrinfo = layrdict.pack()
+            pushs = layrinfo.get('pushs', {})
+            if pushs:
+                for pdef in pushs.values():
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+
+            pulls = layrinfo.get('pulls', {})
+            if pulls:
+                pulls = layrinfo.get('pulls', {})
+                for pdef in pulls.values():
+                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+
+            layrkv.set(iden, layrinfo)
 
         await layrnode.fini()
 
@@ -1448,26 +1463,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layriden = self.getView().layers[0].iden
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
-
-    async def _storLayrFeedDefaults(self):
-
-        for layer in list(self.layers.values()):
-            layrinfo = layer.layrinfo  # type: s_lmdbslab.SafeKeyVal
-
-            pushs = layrinfo.get('pushs', {})
-            if pushs:
-                for pdef in pushs.values():
-                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
-                await layrinfo.set('pushs', pushs, nexs=False)
-
-            pulls = layrinfo.get('pulls', {})
-            if pulls:
-                pulls = layrinfo.get('pulls', {})
-                for pdef in pulls.values():
-                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
-                await layrinfo.set('pulls', pulls, nexs=False)
 
     async def initServiceRuntime(self):
 
@@ -4380,9 +4375,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mrev = s_modelrev.ModelRev(self)
             await mrev.revCoreLayers()
 
-    async def _loadView(self, node):
+    async def _loadView(self, vdef):
 
-        view = await self.viewctor(self, node)
+        view = await self.viewctor(self, vdef)
 
         self.views[view.iden] = view
         self.dynitems[view.iden] = view
@@ -4408,8 +4403,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.viewkv = self.cortexkv.getSubKeyVal('view:info:')
 
-        for iden, info in self.viewkv.items():
-            view = await self._loadView(info)
+        for iden, vdef in self.viewkv.items():
+            view = await self._loadView(vdef)
             if iden == defiden:
                 self.view = view
 
