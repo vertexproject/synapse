@@ -1518,7 +1518,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         await self.core.feedBeholder('trigger:del', {'iden': trig.iden, 'view': trig.view.iden}, gates=[trig.iden])
-        await self.trigdict.pop(trig.iden)
+        self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
@@ -1545,7 +1545,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.trigdict.truncate()
-        await self.core.viewkv.delete(self.iden)
+        self.core.viewkv.delete(self.iden)
         await self._wipeViewMeta()
         shutil.rmtree(self.dirn, ignore_errors=True)
 

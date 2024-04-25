@@ -1918,7 +1918,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await core.setTagModel("cno.cve", "regex", (None, None, "[0-9]{4}", "[0-9]{5}"))
 
         '''
-        meta = await self.tagkv.aget(tagname)
+        meta = self.tagkv.get(tagname)
         if meta is None:
             meta = {}
 
@@ -1941,7 +1941,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Arguments:
             tagname (str): The name of the tag.
         '''
-        await self.tagkv.pop(tagname)
+        self.tagkv.pop(tagname)
         self.tagvalid.clear()
         self.tagprune.clear()
 
@@ -1958,7 +1958,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (object): The current value of the property.
         '''
 
-        meta = await self.tagkv.aget(tagname)
+        meta = self.tagkv.get(tagname)
         if meta is None:
             return None
 
@@ -1972,21 +1972,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return retn
 
-    async def isTagValid(self, tagname):
+    def isTagValid(self, tagname):
         '''
         Check if a tag name is valid according to tag model regular expressions.
 
         Returns:
             (bool): True if the tag is valid.
         '''
-        return await self.tagvalid.aget(tagname)
+        return self.tagvalid.get(tagname)
 
-    async def _isTagValid(self, tagname):
+    def _isTagValid(self, tagname):
 
         parts = s_chop.tagpath(tagname)
         for tag in s_chop.tags(tagname):
 
-            meta = await self.tagkv.aget(tag)
+            meta = self.tagkv.get(tag)
             if meta is None:
                 continue
 
@@ -2005,9 +2005,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return True
 
     async def getTagPrune(self, tagname):
-        return await self.tagprune.aget(tagname)
+        return self.tagprune.get(tagname)
 
-    async def _getTagPrune(self, tagname):
+    def _getTagPrune(self, tagname):
 
         prune = []
 
@@ -2019,7 +2019,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 prune.append(tag)
                 continue
 
-            meta = await self.tagkv.aget(tag)
+            meta = self.tagkv.get(tag)
             if meta is None:
                 continue
 
@@ -2041,7 +2041,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns:
             (dict): The tag model specification or None.
         '''
-        retn = await self.tagkv.aget(tagname)
+        retn = self.tagkv.get(tagname)
         if retn is not None:
             return dict(retn)
 
@@ -2509,12 +2509,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ctor is None:
             return
 
-        cdef = await self.cmdkv.aget(name)
+        cdef = self.cmdkv.get(name)
         if cdef is None:
             mesg = f'The storm command ({name}) is not dynamic.'
             raise s_exc.CantDelCmd(mesg=mesg)
 
-        await self.cmdkv.pop(name)
+        self.cmdkv.pop(name)
         self.stormcmds.pop(name, None)
 
         await self.fire('core:cmd:change', cmd=name, act='del')
@@ -2569,7 +2569,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('pkg:add')
     async def _addStormPkg(self, pkgdef):
         name = pkgdef.get('name')
-        olddef = await self.pkgkv.aget(name, None)
+        olddef = self.pkgkv.get(name, None)
         if olddef is not None:
             await self._dropStormPkg(olddef)
 
@@ -2587,7 +2587,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('pkg:add', pkgdef, gates=gates, perms=perms)
 
     async def delStormPkg(self, name):
-        pkgdef = await self.pkgkv.aget(name)
+        pkgdef = self.pkgkv.get(name)
         if pkgdef is None:
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
@@ -2599,7 +2599,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete a storm package by name.
         '''
-        pkgdef = await self.pkgkv.pop(name, None)
+        pkgdef = self.pkgkv.pop(name, None)
         if pkgdef is None:
             return
 
@@ -2967,7 +2967,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
-        sdef = await self.svckv.pop(iden)
+        sdef = self.svckv.pop(iden)
 
         await self._delStormSvcPkgs(iden)
 
@@ -3093,11 +3093,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     # Global stormvars APIs
 
     async def getStormVar(self, name, default=None):
-        return await self.stormvars.aget(name, defv=default)
+        return self.stormvars.get(name, defv=default)
 
     @s_nexus.Pusher.onPushAuto('stormvar:pop')
     async def popStormVar(self, name, default=None):
-        return await self.stormvars.pop(name, defv=default)
+        return self.stormvars.pop(name, defv=default)
 
     @s_nexus.Pusher.onPushAuto('stormvar:set')
     async def setStormVar(self, name, valu):
@@ -3387,7 +3387,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.model.delForm(formname)
         self.model.delType(formname)
 
-        await self.extforms.pop(formname, None)
+        self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
 
@@ -3431,7 +3431,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def delFormProp(self, form, prop):
         full = f'{form}:{prop}'
-        pdef = await self.extprops.aget(full)
+        pdef = self.extprops.get(full)
 
         if pdef is None:
             mesg = f'No ext prop named {full}'
@@ -3446,7 +3446,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         full = f'{form}:{prop}'
 
-        pdef = await self.extprops.aget(full)
+        pdef = self.extprops.get(full)
         if pdef is None:
             return
 
@@ -3456,14 +3456,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
-        await self.extprops.pop(full, None)
+        self.extprops.pop(full, None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
 
         await self.feedBeholder('model:prop:del', {'form': form, 'prop': prop})
 
     async def delUnivProp(self, prop):
-        udef = await self.extunivs.aget(prop)
+        udef = self.extunivs.get(prop)
         if udef is None:
             mesg = f'No ext univ named {prop}'
             raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
@@ -3475,7 +3475,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Remove an extended universal property from the cortex.
         '''
-        udef = await self.extunivs.aget(prop)
+        udef = self.extunivs.get(prop)
         if udef is None:
             return
 
@@ -3486,7 +3486,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.CantDelUniv(mesg=mesg)
 
         self.model.delUnivProp(prop)
-        await self.extunivs.pop(prop, None)
+        self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.feedBeholder('model:univ:del', {'prop': univname})
 
@@ -3499,14 +3499,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'Tag property definitions should be a dict.'
             raise s_exc.BadArg(name=name, mesg=mesg)
 
-        if (await self.exttagprops.aget(name)) is not None:
+        if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
 
         return await self._push('model:tagprop:add', name, tdef, info)
 
     @s_nexus.Pusher.onPush('model:tagprop:add')
     async def _addTagProp(self, name, tdef, info):
-        if (await self.exttagprops.aget(name)) is not None:
+        if self.exttagprops.get(name) is not None:
             return
 
         self.model.addTagProp(name, tdef, info)
@@ -3518,7 +3518,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.feedBeholder('model:tagprop:add', tagp.pack())
 
     async def delTagProp(self, name):
-        pdef = await self.exttagprops.aget(name)
+        pdef = self.exttagprops.get(name)
         if pdef is None:
             mesg = f'No tag prop named {name}'
             raise s_exc.NoSuchProp(mesg=mesg, name=name)
@@ -3527,7 +3527,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('model:tagprop:del')
     async def _delTagProp(self, name):
-        pdef = await self.exttagprops.aget(name)
+        pdef = self.exttagprops.get(name)
         if pdef is None:
             return
 
@@ -3538,7 +3538,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delTagProp(name)
 
-        await self.exttagprops.pop(name, None)
+        self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
@@ -4073,7 +4073,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for name in oldcmds:
             logger.warning(f'Removing old command: [{name}]')
-            await self.cmdkv.pop(name)
+            self.cmdkv.pop(name)
 
         for pkgdef in self.pkgkv.values():
             await self._tryLoadStormPkg(pkgdef)
@@ -4541,7 +4541,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if cview.parent is not None and cview.parent.iden == iden:
                 raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
-        await self.viewkv.pop(iden)
+        self.viewkv.pop(iden)
         await view.delete()
 
         self._calcViewsByLayer()
@@ -4577,7 +4577,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
 
-        await self.layerkv.delete(iden)
+        self.layerkv.delete(iden)
 
         await layr.delete()
 
@@ -5146,7 +5146,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
-        ddef = await self.stormdmonkv.pop(iden)
+        ddef = self.stormdmonkv.pop(iden)
         if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)

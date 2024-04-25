@@ -1501,7 +1501,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.setCellVers(name, updates[-1][0], nexs=nexs)
             return
 
-        curv = await self.cellvers.aget(name, 0)
+        curv = self.cellvers.get(name, 0)
 
         for vers, callback in updates:
 
@@ -2450,7 +2450,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getUserProfInfo(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return await user.profile.aget(name, defv=default)
+        return user.profile.get(name, defv=default)
 
     async def _setUserProfInfoV0(self, iden, name, valu):
         path = ('auth', 'users', iden, 'profile', name)
@@ -2476,7 +2476,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getUserVarValu(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return await user.vars.aget(name, defv=default)
+        return user.vars.get(name, defv=default)
 
     async def _setUserVarValuV0(self, iden, name, valu):
         path = ('auth', 'users', iden, 'vars', name)

@@ -477,7 +477,7 @@ class Agenda(s_base.Base):
                 continue
 
         for iden in to_delete:
-            await self.apptkv.pop(iden)
+            self.apptkv.pop(iden)
 
         # Make sure we don't assign the same index to 2 appointments
         if self.appts:
@@ -688,7 +688,7 @@ class Agenda(s_base.Base):
                 heapq.heapify(self.apptheap)
 
         del self.appts[iden]
-        await self.apptkv.delete(iden)
+        self.apptkv.delete(iden)
 
     def _getNowTick(self):
         return time.time() + self.tickoff

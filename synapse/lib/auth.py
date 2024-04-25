@@ -10,23 +10,11 @@ import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 
 import synapse.lib.crypto.passwd as s_passwd
 
 logger = logging.getLogger(__name__)
-
-reqValidRules = s_config.getJsValidator({
-    'type': 'array',
-    'items': {
-        'type': 'array',
-        'items': [
-            {'type': 'boolean'},
-            {'type': 'array', 'items': {'type': 'string'}},
-        ],
-        'minItems': 2,
-        'maxItems': 2,
-    }
-})
 
 def getShadow(passwd):  # pragma: no cover
     '''This API is deprecated.'''
@@ -278,7 +266,7 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('user:profile:pop')
     async def popUserProfileValu(self, iden, name, default=None):
         user = await self.reqUser(iden)
-        return await user.profile.pop(name, defv=default)
+        return user.profile.pop(name, defv=default)
 
     @s_nexus.Pusher.onPushAuto('user:var:set')
     async def setUserVarValu(self, iden, name, valu):
@@ -288,7 +276,7 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('user:var:pop')
     async def popUserVarValu(self, iden, name, default=None):
         user = await self.reqUser(iden)
-        return await user.vars.pop(name, defv=default)
+        return user.vars.pop(name, defv=default)
 
     @s_nexus.Pusher.onPushAuto('user:name')
     async def setUserName(self, iden, name):
@@ -631,7 +619,7 @@ class Auth(s_nexus.Pusher):
 
         await user.vars.truncate()
         await user.profile.truncate()
-        await self.userkv.delete(iden)
+        self.userkv.delete(iden)
 
         await self.fire('user:del', udef=udef)
         await self.feedBeholder('user:del', {'iden': iden})
@@ -665,7 +653,7 @@ class Auth(s_nexus.Pusher):
         self.rolesbyiden.pop(role.iden)
         self.rolesbyname.pop(role.name)
 
-        await self.rolekv.delete(iden)
+        self.rolekv.delete(iden)
         await self.feedBeholder('role:del', {'iden': iden})
 
 class AuthGate():
@@ -728,11 +716,11 @@ class AuthGate():
 
     async def _delGateUser(self, iden):
         self.gateusers.pop(iden, None)
-        await self.users.delete(iden)
+        self.users.delete(iden)
 
     async def _delGateRole(self, iden):
         self.gateroles.pop(iden, None)
-        await self.roles.delete(iden)
+        self.roles.delete(iden)
 
     async def delete(self):
 
@@ -744,7 +732,7 @@ class AuthGate():
             role.authgates.pop(self.iden, None)
             role.clearAuthCache()
 
-        await self.auth.gatekv.delete(self.iden)
+        self.auth.gatekv.delete(self.iden)
         await self.auth.stor.truncate(f'gate:{self.iden}:')
 
     def pack(self):
@@ -811,11 +799,11 @@ class Ruler():
         return list(gateinfo.get('rules', ()))
 
     async def setRules(self, rules, gateiden=None, nexs=True, mesg=None):
-        reqValidRules(rules)
+        s_schemas.reqValidRules(rules)
         return await self._setRulrInfo('rules', rules, gateiden=gateiden, nexs=nexs, mesg=mesg)
 
     async def addRule(self, rule, indx=None, gateiden=None, nexs=True):
-        reqValidRules((rule,))
+        s_schemas.reqValidRules((rule,))
         rules = self.getRules(gateiden=gateiden)
 
         mesg = {
@@ -832,7 +820,7 @@ class Ruler():
         await self.setRules(rules, gateiden=gateiden, nexs=nexs, mesg=mesg)
 
     async def delRule(self, rule, gateiden=None):
-        reqValidRules((rule,))
+        s_schemas.reqValidRules((rule,))
         rules = self.getRules(gateiden=gateiden)
         if rule not in rules:
             return False

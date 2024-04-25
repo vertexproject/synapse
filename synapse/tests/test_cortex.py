@@ -6554,7 +6554,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await proxy.popStormVar('hehe')
 
             async with core.getLocalProxy() as proxy:
-                self.none(await proxy.setStormVar('hehe', 'haha'))
+                self.eq('haha', await proxy.setStormVar('hehe', 'haha'))
                 self.eq('haha', await proxy.getStormVar('hehe'))
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))

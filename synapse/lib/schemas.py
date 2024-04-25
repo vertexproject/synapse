@@ -287,3 +287,17 @@ _stormPoolOptsSchema = {
     'additionalProperties': False,
 }
 reqValidStormPoolOpts = s_config.getJsValidator(_stormPoolOptsSchema)
+
+_authRulesSchema = {
+    'type': 'array',
+    'items': {
+        'type': 'array',
+        'items': [
+            {'type': 'boolean'},
+            {'type': 'array', 'items': {'type': 'string'}},
+        ],
+        'minItems': 2,
+        'maxItems': 2,
+    }
+}
+reqValidRules = s_config.getJsValidator(_authRulesSchema)
