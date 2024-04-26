@@ -1827,7 +1827,7 @@ class Runtime(s_base.Base):
             opts = {}
 
         if bus is None:
-            bus = await s_base.Base.anit()
+            bus = self
             bus.viewiden = view.iden
             bus._warnonce_keys = set()
             self.onfini(bus)

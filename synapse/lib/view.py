@@ -2387,8 +2387,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.saveNodeEdits(edits, meta=meta)
 
     async def storNodeEdits(self, edits, meta):
-        return await self.addNodeEdits(edits, meta)
-        # TODO remove addNodeEdits?
+        return await self.saveNodeEdits(edits, meta=meta)
 
     async def delTombstone(self, nid, tombtype, tombinfo, runt=None):
 
