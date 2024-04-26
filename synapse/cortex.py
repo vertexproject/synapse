@@ -3597,6 +3597,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         break
 
                     yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
+                    await asyncio.sleep(0)
 
             if layr.isdeleted:
                 yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
@@ -3718,7 +3719,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
             async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
                 yield item
-                await asyncio.sleep(0)
 
             catchingup = False
 
@@ -3768,7 +3768,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         result = donetask.result()
 
                         yield result
-                        await asyncio.sleep(0)
 
                         lastoffs[layriden] = result[0]
 
