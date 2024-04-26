@@ -2383,7 +2383,7 @@ class LibAxon(Lib):
                                ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
-        gateiden = self.runt.view.layers[0].iden
+        gateiden = self.runt.view.wlyr.iden
         self.runt.confirm(('node', 'add', 'file:bytes'), gateiden=gateiden)
         self.runt.confirm(('node', 'add', 'inet:urlfile'), gateiden=gateiden)
 
@@ -5632,7 +5632,7 @@ class NodeProps(Prim):
             mesg = f'No prop {self.valu.form.name}:{name}'
             raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
 
-        gateiden = self.valu.view.layers[0].iden
+        gateiden = self.valu.view.wlyr.iden
 
         if valu is undef:
             confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
@@ -5772,7 +5772,7 @@ class NodeData(Prim):
 
     async def _setNodeData(self, name, valu):
         name = await tostr(name)
-        gateiden = self.valu.view.layers[0].iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
@@ -5780,7 +5780,7 @@ class NodeData(Prim):
 
     async def _popNodeData(self, name):
         name = await tostr(name)
-        gateiden = self.valu.view.layers[0].iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'data', 'pop', name), gateiden=gateiden)
 
         if self.path is not None:
@@ -5983,7 +5983,7 @@ class Node(Prim):
         verb = await tostr(verb)
         iden = await tobuidhex(iden)
 
-        gateiden = self.valu.view.layers[0].iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
         nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
@@ -5997,7 +5997,7 @@ class Node(Prim):
         verb = await tostr(verb)
         iden = await tobuidhex(iden)
 
-        gateiden = self.valu.view.layers[0].iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
         nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
@@ -6358,7 +6358,7 @@ class LibLayer(Lib):
 
         iden = await tostr(iden, noneok=True)
         if iden is None:
-            iden = self.runt.view.layers[0].iden
+            iden = self.runt.view.wlyr.iden
 
         ldef = await self.runt.view.core.getLayerDef(iden=iden)
         if ldef is None:
@@ -7542,7 +7542,7 @@ class View(Prim):
         viewiden = self.valu.get('iden')
 
         view = self.runt.view.core.getView(viewiden)
-        layriden = view.layers[0].iden
+        layriden = view.wlyr.iden
 
         # check that the user can read from the view
         # ( to emulate perms check for being able to run storm at all )
@@ -7807,7 +7807,7 @@ class View(Prim):
             'merge': view.getMergeRequest(),
             'merging': view.merging,
             'votes': [vote async for vote in view.getMergeVotes()],
-            'offset': await view.layers[0].getEditIndx(),
+            'offset': await view.wlyr.getEditIndx(),
         }
         return retn
 

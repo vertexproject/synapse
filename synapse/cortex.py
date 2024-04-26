@@ -277,8 +277,7 @@ class CoreApi(s_cell.CellApi):
 
     async def _reqDefLayerAllowed(self, perms):
         view = self.cell.getView()
-        wlyr = view.layers[0]
-        self.user.confirm(perms, gateiden=wlyr.iden)
+        self.user.confirm(perms, gateiden=view.wlyr.iden)
 
     async def getFeedFuncs(self):
         '''
@@ -300,10 +299,9 @@ class CoreApi(s_cell.CellApi):
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-        wlyr = view.layers[0]
         parts = name.split('.')
 
-        self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
+        self.user.confirm(('feed:data', *parts), gateiden=view.wlyr.iden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
@@ -1325,7 +1323,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ))
 
     async def _addAllLayrRead(self):
-        layriden = self.getView().layers[0].iden
+        layriden = self.getView().wlyr.iden
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
 
@@ -3179,50 +3177,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
-    async def addNodeTag(self, user, iden, tag, valu=(None, None)):
-        '''
-        Add a tag to a node specified by iden.
-
-        Args:
-            iden (str): A hex encoded node BUID.
-            tag (str):  A tag string.
-            valu (tuple):  A time interval tuple or (None, None).
-        '''
-
-        buid = s_common.uhex(iden)
-        node = await self.view.getNodeByBuid(buid)
-        if node is None:
-            raise s_exc.NoSuchIden(iden=iden)
-
-        await node.addTag(tag, valu=valu)
-
-        return node.pack()
-
-    async def addNode(self, user, form, valu, props=None):
-
-        async with self.view.getEditor(user=user) as editor:
-            node = await editor.addNode(form, valu, props=props)
-
-        realnode = await self.getNodeByNdef((form, valu))
-        if realnode is not None:
-            return realnode.pack()
-
-    async def delNodeTag(self, user, iden, tag):
-        '''
-        Delete a tag from the node specified by iden.
-
-        Args:
-            iden (str): A hex encoded node BUID.
-            tag (str):  A tag string.
-        '''
-        buid = s_common.uhex(iden)
-        node = await self.view.getNodeByBuid(buid)
-        if node is None:
-            raise s_exc.NoSuchIden(iden=iden)
-
-        await node.delTag(tag)
-        return node.pack()
-
     async def _onCoreFini(self):
         '''
         Generic fini handler for cortex components which may change or vary at runtime.
@@ -4225,7 +4179,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             Layer: A Layer object.
         '''
         if iden is None:
-            return self.view.layers[0]
+            return self.view.wlyr
 
         return self.layers.get(iden)
 
@@ -5159,7 +5113,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
         # ensure that the user can make all node edits in the layer
-        user.confirm(('node',), gateiden=view.layers[0].iden)
+        user.confirm(('node',), gateiden=view.wlyr.iden)
 
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
@@ -5277,25 +5231,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra={'synapse': info})
 
-    async def getNodeByNdef(self, ndef, view=None):
-        '''
-        Return a single Node() instance by (form,valu) tuple.
-        '''
-        name, valu = ndef
-
-        form = self.model.forms.get(name)
-        if form is None:
-            raise s_exc.NoSuchForm.init(name)
-
-        norm, info = form.type.norm(valu)
-
-        buid = s_common.buid((form.name, norm))
-
-        if view is None:
-            view = self.view
-
-        return await view.getNodeByBuid(buid)
-
     def getCoreInfo(self):
         '''This API is deprecated.'''
         s_common.deprecated('Cortex.getCoreInfo')
@@ -5343,29 +5278,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # 'packages': ...  # TODO - Support inline information for packages?
         }
         return ret
-
-    async def addNodes(self, nodedefs, view=None):
-        '''
-        Quickly add/modify a list of nodes from node definition tuples.
-        This API is the simplest/fastest way to add nodes, set node props,
-        and add tags to nodes remotely.
-
-        Args:
-
-            nodedefs (list): A list of node definition tuples. See below.
-
-        A node definition tuple is defined as:
-
-            ( (form, valu), {'props':{}, 'tags':{})
-
-        The "props" or "tags" keys may be omitted.
-
-        '''
-        if view is None:
-            view = self.view
-
-        async for node in view.addNodes(nodedefs):
-            yield node
 
     async def addFeedData(self, name, items, *, user=None, viewiden=None):
         '''

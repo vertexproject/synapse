@@ -38,8 +38,7 @@ class ViewApi(s_cell.CellApi):
 
         await s_cell.CellApi.__anit__(self, core, link, user)
         self.view = view
-        layriden = view.layers[0].iden
-        self.allowedits = user.allowed(('node',), gateiden=layriden)
+        self.allowedits = user.allowed(('node',), gateiden=view.wlyr.iden)
 
     async def storNodeEdits(self, edits, meta):
 
@@ -58,8 +57,7 @@ class ViewApi(s_cell.CellApi):
     async def syncNodeEdits2(self, offs, wait=True, compat=False):
         await self._reqUserAllowed(('view', 'read'))
         # present a layer compatible API to remote callers
-        layr = self.view.layers[0]
-        async for item in layr.syncNodeEdits2(offs, wait=wait, compat=compat):
+        async for item in self.view.wlyr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item
 
     @s_cell.adminapi()
@@ -70,7 +68,7 @@ class ViewApi(s_cell.CellApi):
 
     async def getEditSize(self):
         await self._reqUserAllowed(('view', 'read'))
-        return await self.view.layers[0].getEditSize()
+        return await self.view.wlyr.getEditSize()
 
     async def getCellIden(self):
         return self.view.iden
@@ -132,7 +130,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # isolate some initialization to easily override.
         await self._initViewLayers()
 
-        self.readonly = self.layers[0].readonly
+        self.readonly = self.wlyr.readonly
 
         self.trigtask = None
         await self.initTrigTask()
@@ -396,7 +394,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'Parent view of ({self.iden}) does not require quorum voting.'
             raise s_exc.BadState(mesg=mesg)
 
-        if self.parent.layers[0].readonly:
+        if self.parent.wlyr.readonly:
             mesg = f'Parent view of ({self.iden}) has a read-only top layer.'
             raise s_exc.BadState(mesg=mesg)
 
@@ -528,10 +526,8 @@ class View(s_nexus.Pusher):  # type: ignore
         self.merging = True
         await self.info.set('merging', True)
 
-        layr = self.layers[0]
-
-        layr.readonly = True
-        await layr.layrinfo.set('readonly', True)
+        self.wlyr.readonly = True
+        await self.wlyr.layrinfo.set('readonly', True)
 
         merge = self.getMergeRequest()
         votes = [vote async for vote in self.getMergeVotes()]
@@ -555,7 +551,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def setMergeVote(self, vote):
         self.reqParentQuorum()
         vote['created'] = s_common.now()
-        vote['offset'] = await self.layers[0].getEditIndx()
+        vote['offset'] = await self.wlyr.getEditIndx()
         return await self._push('merge:vote:set', vote)
 
     def reqValidVoter(self, useriden):
@@ -654,7 +650,7 @@ class View(s_nexus.Pusher):  # type: ignore
         try:
 
             # ensure there are none marked dirty
-            await self.layers[0]._saveDirtySodes()
+            await self.wlyr._saveDirtySodes()
 
             merge = self.getMergeRequest()
             votes = [vote async for vote in self.getMergeVotes()]
@@ -669,7 +665,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 nodeedits = []
                 editor = s_editor.NodeEditor(self.parent, merge.get('creator'))
 
-                async for (nid, form, edits) in self.layers[0].iterLayerNodeEdits():
+                async for (nid, form, edits) in self.wlyr.iterLayerNodeEdits():
 
                     if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
                         protonode = await editor.getNodeByNid(nid)
@@ -752,7 +748,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 if nodeedits:
                     yield nodeedits
 
-            total = self.layers[0].getStorNodeCount()
+            total = self.wlyr.getStorNodeCount()
 
             count = 0
             nextprog = 1000
@@ -776,7 +772,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             # remove the view and top layer
             await self.core.delView(self.iden)
-            await self.core.delLayer(self.layers[0].iden)
+            await self.core.delLayer(self.wlyr.iden)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')
@@ -784,7 +780,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def isMergeReady(self):
         # count the current votes and potentially trigger a merge
 
-        offset = await self.layers[0].getEditIndx()
+        offset = await self.wlyr.getEditIndx()
 
         quorum = self.reqParentQuorum()
 
@@ -823,7 +819,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.info.pop('parent')
 
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
-                                     gates=[self.iden, self.layers[0].iden])
+                                     gates=[self.iden, self.wlyr.iden])
 
     async def mergeStormIface(self, name, todo):
         '''
@@ -1040,13 +1036,14 @@ class View(s_nexus.Pusher):  # type: ignore
         # This is the view's original layer.
         view = self
         while view.parent is not None:
-            layers.append(view.layers[0])
+            layers.append(view.wlyr)
             view = view.parent
 
         # Add all of the bottom view's layers.
         layers.extend(view.layers)
 
         self.layers = layers
+        self.wlyr = layers[0]
         self.clearCache()
         await self.info.set('layers', [layr.iden for layr in layers])
 
@@ -1376,6 +1373,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 continue
 
             self.layers.append(layr)
+
+        self.wlyr = self.layers[0]
 
     async def reqValid(self):
         if self.invalid is not None:
@@ -1710,6 +1709,8 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             self.layers.insert(indx, layr)
 
+        self.wlyr = self.layers[0]
+
         await self.info.set('layers', [lyr.iden for lyr in self.layers])
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
         self.core._calcViewsByLayer()
@@ -1737,6 +1738,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.invalid = None
         self.layers = layrs
+        self.wlyr = layrs[0]
         self.clearCache()
 
         await self.info.set('layers', layers)
@@ -1766,6 +1768,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 layers.extend(view.layers)
 
                 child.layers = layers
+                child.wlyr = layers[0]
                 self.clearCache()
 
                 # convert layers to a list of idens...
@@ -1811,8 +1814,6 @@ class View(s_nexus.Pusher):  # type: ignore
         Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
         triggers will be run.
         '''
-        fromlayr = self.layers[0]
-
         if useriden is None:
             user = await self.core.auth.getUserByName('root')
         else:
@@ -1830,7 +1831,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         editor = s_editor.NodeEditor(self.parent, user)
 
-        async for (nid, form, edits) in fromlayr.iterLayerNodeEdits():
+        async for (nid, form, edits) in self.wlyr.iterLayerNodeEdits():
 
             if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
                 protonode = await editor.getNodeByNid(nid)
@@ -1947,7 +1948,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         NOTE: This API may not be used to check for merges based on quorum votes.
         '''
-        fromlayr = self.layers[0]
         if self.parent is None:
             raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has not been forked.')
 
@@ -1971,7 +1971,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
-        async for nodeedit in fromlayr.iterLayerNodeEdits():
+        async for nodeedit in self.wlyr.iterLayerNodeEdits():
             for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
                 self.parent._confirm(user, perm)
                 await asyncio.sleep(0)
@@ -1983,7 +1983,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin():
             return
 
-        async for nodeedit in self.layers[0].iterWipeNodeEdits():
+        async for nodeedit in self.wlyr.iterWipeNodeEdits():
             for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
                 self._confirm(user, perm)
                 await asyncio.sleep(0)
@@ -2559,7 +2559,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByProp(self, form, prop, reverse=False, indx=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByProp(form, prop, reverse=reverse, indx=indx):
+            async for _, nid, sref in self.wlyr.liftByProp(form, prop, reverse=reverse, indx=indx):
                 yield nid, [sref]
             return
 
@@ -2579,7 +2579,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByFormValu(self, form, cmprvals, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByFormValu(form, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByFormValu(form, cmprvals, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -2591,7 +2591,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByPropValu(form, prop, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByPropValu(form, prop, cmprvals, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -2612,7 +2612,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByTag(self, tag, form=None, reverse=False, indx=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByTag(tag, form=form, reverse=reverse, indx=indx):
+            async for _, nid, sref in self.wlyr.liftByTag(tag, form=form, reverse=reverse, indx=indx):
                 yield nid, [sref]
             return
 
@@ -2632,7 +2632,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByTagValu(self, tag, cmprvals, form=None, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByTagValu(tag, cmprvals, form=form, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByTagValu(tag, cmprvals, form=form, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -2653,7 +2653,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByTagProp(self, form, tag, prop, reverse=False, indx=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByTagProp(form, tag, prop, reverse=reverse, indx=indx):
+            async for _, nid, sref in self.wlyr.liftByTagProp(form, tag, prop, reverse=reverse, indx=indx):
                 yield nid, [sref]
             return
 
@@ -2677,7 +2677,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -2702,7 +2702,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByPropArray(form, prop, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByPropArray(form, prop, cmprvals, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -2726,7 +2726,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def liftByDataName(self, name):
 
         if len(self.layers) == 1:
-            async for nid, sref, tomb in self.layers[0].liftByDataName(name):
+            async for nid, sref, tomb in self.wlyr.liftByDataName(name):
                 if not tomb:
                     yield nid, [sref]
             return

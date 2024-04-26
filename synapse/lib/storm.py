@@ -1851,7 +1851,7 @@ class Runtime(s_base.Base):
 
         self.spawn_log_conf = await self.view.core._getSpawnLogConf()
 
-        self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
+        self.readonly = opts.get('readonly', False)
         self.model = view.core.getDataModel()
 
         self.task = asyncio.current_task()
@@ -2134,8 +2134,7 @@ class Runtime(s_base.Base):
     def layerConfirm(self, perms):
         if self.asroot:
             return
-        iden = self.view.layers[0].iden
-        return self.user.confirm(perms, gateiden=iden)
+        return self.user.confirm(perms, gateiden=self.view.wlyr.iden)
 
     def isAdmin(self, gateiden=None):
         if self.asroot:
@@ -2209,7 +2208,7 @@ class Runtime(s_base.Base):
     def confirmPropSet(self, prop, layriden=None):
 
         if layriden is None:
-            layriden = self.view.layers[0].iden
+            layriden = self.view.wlyr.iden
 
         meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
 
@@ -2245,7 +2244,7 @@ class Runtime(s_base.Base):
     def confirmPropDel(self, prop, layriden=None):
 
         if layriden is None:
-            layriden = self.view.layers[0].iden
+            layriden = self.view.wlyr.iden
 
         meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
 
@@ -3637,7 +3636,7 @@ class DiffCmd(Cmd):
 
             tagname = await s_stormtypes.tostr(self.opts.tag)
 
-            layr = runt.view.layers[0]
+            layr = runt.view.wlyr
             async for _, nid, sode in layr.liftByTag(tagname):
                 node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
@@ -3664,7 +3663,7 @@ class DiffCmd(Cmd):
                 liftform = prop.form.name
                 liftprop = prop.name
 
-            layr = runt.view.layers[0]
+            layr = runt.view.wlyr
             async for _, nid, sode in layr.liftByProp(liftform, liftprop):
                 node = await self.runt.view._joinStorNode(nid)
                 if node is not None:
@@ -3677,7 +3676,7 @@ class DiffCmd(Cmd):
 
             return
 
-        async for nid, sode in runt.view.layers[0].getStorNodes():
+        async for nid, sode in runt.view.wlyr.getStorNodes():
             if sode.get('antivalu') is not None:
                 continue
 
@@ -3718,7 +3717,7 @@ class CopyToCmd(Cmd):
 
         runt.confirm(('view', 'read'), gateiden=view.iden)
 
-        layriden = view.layers[0].iden
+        layriden = view.wlyr.iden
 
         async for node, path in genr:
 
@@ -3907,7 +3906,7 @@ class MergeCmd(Cmd):
     async def _checkNodePerms(self, node, sode, runt):
 
         core = runt.view.core
-        layr0 = runt.view.layers[0].iden
+        layr0 = runt.view.wlyr.iden
         layr1 = runt.view.layers[1].iden
 
         if sode.get('antivalu') is not None:
@@ -3963,14 +3962,14 @@ class MergeCmd(Cmd):
                 tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr1)
 
-        async for name, tomb in runt.view.layers[0].iterNodeDataKeys(node.nid):
+        async for name, tomb in runt.view.wlyr.iterNodeDataKeys(node.nid):
             if tomb:
                 runt.confirm(('node', 'data', 'pop', name), gateiden=layr1)
             else:
                 runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
                 runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-        async for abrv, n2nid, tomb in runt.view.layers[0].iterNodeEdgesN1(node.nid):
+        async for abrv, n2nid, tomb in runt.view.wlyr.iterNodeEdgesN1(node.nid):
             verb = core.getAbrvIndx(abrv)[0]
 
             if tomb:
@@ -3992,7 +3991,7 @@ class MergeCmd(Cmd):
         propfilter = self._getPropFilter()
 
         core = runt.view.core
-        layr0 = runt.view.layers[0].iden
+        layr0 = runt.view.wlyr.iden
         layr1 = runt.view.layers[1].iden
 
         if self.opts.diff:
@@ -4001,7 +4000,7 @@ class MergeCmd(Cmd):
                 yield node, path
 
             async def diffgenr():
-                async for nid, sode in runt.view.layers[0].getStorNodes():
+                async for nid, sode in runt.view.wlyr.getStorNodes():
                     node = await runt.view.getNodeByNid(nid, tombs=True)
                     if node is not None:
                         yield node, runt.initPath(node)
@@ -4202,7 +4201,7 @@ class MergeCmd(Cmd):
 
             if not onlytags or form == 'syn:tag':
 
-                layr = runt.view.layers[0]
+                layr = runt.view.wlyr
                 async for abrv, valu, tomb in layr.iterNodeData(node.nid):
                     name = core.getAbrvIndx(abrv)[0]
                     if tomb:
@@ -4394,7 +4393,7 @@ class MoveNodesCmd(Cmd):
                 mesg = f'No layer with iden {self.destlayr} in this view, cannot move nodes.'
                 raise s_exc.BadOperArg(mesg=mesg, layr=self.destlayr)
         else:
-            self.destlayr = runt.view.layers[0].iden
+            self.destlayr = runt.view.wlyr.iden
 
         if self.destlayr in srclayrs:
             mesg = f'Source layer {self.destlayr} cannot also be the destination layer.'

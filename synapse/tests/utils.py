@@ -506,7 +506,8 @@ class TestModule(s_module.CoreModule):
 
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
 
-        await self.core.addNode(self.core.auth.rootuser, 'meta:source', self.testguid, {'name': 'test'})
+        data = [(('meta:source', self.testguid), {'props': {'name': 'test'}})]
+        await self.core.addFeedData('syn.nodes', data)
 
         self.core.addStormLib(('test',), LibTst)
 

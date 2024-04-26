@@ -1207,12 +1207,11 @@ class FeedV1(Handler):
         if view is None:
             return self.sendRestErr('NoSuchView', 'The specified view does not exist.')
 
-        wlyr = view.layers[0]
         perm = ('feed:data', *name.split('.'))
 
-        if not user.allowed(perm, gateiden=wlyr.iden):
+        if not user.allowed(perm, gateiden=view.wlyr.iden):
             permtext = '.'.join(perm)
-            mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
+            mesg = f'User does not have {permtext} permission on gate: {view.wlyr.iden}.'
             return self.sendRestErr('AuthDeny', mesg)
 
         try:

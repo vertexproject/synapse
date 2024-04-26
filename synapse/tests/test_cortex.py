@@ -2602,7 +2602,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(1, (await core.getFormCounts())['test:int'])
                 self.eq(2, (await core.getFormCounts())['test:str'])
 
-                node = await core.getNodeByNdef(('test:str', 'foo'))
+                node = await core.getView().getNodeByNdef(('test:str', 'foo'))
                 await node.delete()
 
                 self.eq(1, (await core.getFormCounts())['test:str'])
@@ -4143,15 +4143,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq('1.2.3.4', node.repr('ipv4'))
-
-    async def test_coverage(self):
-
-        # misc tests to increase code coverage
-        async with self.getTestCore() as core:
-            await core.nodes('[ test:str=foo ]')
-            self.nn(await core.getNodeByNdef(('test:str', 'foo')))
-            with self.raises(s_exc.NoSuchForm):
-                await core.getNodeByNdef(('test:newp', 'hehe'))
 
     async def test_cortex_storm_vars(self):
 

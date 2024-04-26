@@ -214,7 +214,7 @@ class ProtoNode(s_node.NodeBase):
             self.edgetombs.remove(tupl)
             return True
 
-        toplayr = await self.editor.view.layers[0].hasNodeEdge(self.nid, verb, n2nid)
+        toplayr = await self.editor.view.wlyr.hasNodeEdge(self.nid, verb, n2nid)
         if toplayr is True:
             return False
 
@@ -262,7 +262,7 @@ class ProtoNode(s_node.NodeBase):
                 return True
             return False
 
-        toplayr = await self.editor.view.layers[0].hasNodeEdge(self.nid, verb, n2nid)
+        toplayr = await self.editor.view.wlyr.hasNodeEdge(self.nid, verb, n2nid)
         if toplayr is False:
             return False
 
@@ -289,7 +289,7 @@ class ProtoNode(s_node.NodeBase):
         if meta is None:
             meta = self.editor.getEditorMeta()
 
-        async for abrv, n1nid, tomb in self.editor.view.layers[0].iterNodeEdgesN2(self.nid):
+        async for abrv, n1nid, tomb in self.editor.view.wlyr.iterNodeEdgesN2(self.nid):
             verb = self.editor.view.core.getAbrvIndx(abrv)[0]
             n1ndef = self.editor.view.core.getNidNdef(n1nid)
 
@@ -341,7 +341,7 @@ class ProtoNode(s_node.NodeBase):
                 return valu
             return None
 
-        (ok, valu, tomb) = await self.editor.view.layers[0].getNodeData(self.nid, name)
+        (ok, valu, tomb) = await self.editor.view.wlyr.getNodeData(self.nid, name)
         if (ok and not tomb):
             self.nodedatadels.add(name)
 
