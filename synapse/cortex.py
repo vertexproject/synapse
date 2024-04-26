@@ -3768,6 +3768,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         result = donetask.result()
 
                         yield result
+                        await asyncio.sleep(0)
 
                         lastoffs[layriden] = result[0]
 
@@ -3776,8 +3777,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         task = base.schedCoro(genr.__anext__())
                         task.iden = layriden
                         todo.add(task)
-
-                        await asyncio.sleep(0)
 
                     except StopAsyncIteration:
 
