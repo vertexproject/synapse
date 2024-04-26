@@ -3718,6 +3718,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
             async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
                 yield item
+                await asyncio.sleep(0)
 
             catchingup = False
 
@@ -3775,6 +3776,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         task = base.schedCoro(genr.__anext__())
                         task.iden = layriden
                         todo.add(task)
+
+                        await asyncio.sleep(0)
 
                     except StopAsyncIteration:
 
