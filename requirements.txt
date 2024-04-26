@@ -24,7 +24,7 @@ scalecodec>=1.0.2,<1.3.0  # synapse.vendor.substrateinterface req
 cbor2>=5.4.1,<5.7.0
 bech32==1.2.0
 oauthlib>=3.2.1,<4.0.0
-idna>=3.6,<3.7
+idna>=3.6,<3.8
 python-dateutil>=2.8,<3.0
 pytz>=2023.3,<2024.1
 beautifulsoup4[html5lib]>=4.11.1,<5.0.0

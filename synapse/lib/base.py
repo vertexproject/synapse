@@ -143,6 +143,7 @@ class Base:
         self._fini_atexit = False
         self._active_tasks = None       # the set of free running tasks associated with me
         self._context_managers = None   # the set of context managers i must fini
+        self._syn_signal_tasks = None   # initialized as a Set when addSignalHandlers is called.
 
     async def postAnit(self):
         '''
@@ -559,14 +560,20 @@ class Base:
         '''
         Register SIGTERM/SIGINT signal handlers with the ioloop to fini this object.
         '''
+        if self._syn_signal_tasks is None:
+            self._syn_signal_tasks = set()
 
         def sigterm():
-            print('Caught SIGTERM, shutting down.')
-            asyncio.create_task(self.fini())
+            logger.warning('Caught SIGTERM, shutting down.')
+            task = asyncio.create_task(self.fini())
+            self._syn_signal_tasks.add(task)
+            task.add_done_callback(self._syn_signal_tasks.discard)
 
         def sigint():
-            print('Caught SIGINT, shutting down.')
-            asyncio.create_task(self.fini())
+            logger.warning('Caught SIGINT, shutting down.')
+            task = asyncio.create_task(self.fini())
+            self._syn_signal_tasks.add(task)
+            task.add_done_callback(self._syn_signal_tasks.discard)
 
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGINT, sigint)
