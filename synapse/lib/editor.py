@@ -402,7 +402,7 @@ class ProtoNode(s_node.NodeBase):
             return curv
 
         if self.node is not None:
-            return self.node.getTag(tag)
+            return self.node.getTag(tag, defval=defval)
 
     async def addTag(self, tag, valu=(None, None), tagnode=None):
 
@@ -484,8 +484,9 @@ class ProtoNode(s_node.NodeBase):
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
+        exists = self.getTag(name, defval=s_common.novalu) is not s_common.novalu
 
-        if len(path) > 1:
+        if len(path) > 1 and exists:
 
             parent = '.'.join(path[:-1])
 
@@ -515,7 +516,7 @@ class ProtoNode(s_node.NodeBase):
             if tname.startswith(pref):
                 self._delTag(tname)
 
-        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+        if exists:
             self._delTag(name)
 
         return True
