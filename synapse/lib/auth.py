@@ -169,11 +169,13 @@ class Auth(s_nexus.Pusher):
         await self.rootuser.setLocked(False, logged=False)
 
     def users(self):
-        for userinfo in self.userkv.values():
+        for useriden in self.usernamekv.values():
+            userinfo = self.userkv.get(useriden)
             yield User(userinfo, self)
 
     def roles(self):
-        for roleinfo in self.rolekv.values():
+        for roleiden in self.rolenamekv.values():
+            roleinfo = self.rolekv.get(roleiden)
             yield Role(roleinfo, self)
 
     def role(self, iden):
@@ -851,7 +853,7 @@ class Role(Ruler):
 
     def clearAuthCache(self):
         for user in self.auth.usersbyiden.cache.values():
-            if user.hasRole(self.iden):
+            if user is not None and user.hasRole(self.iden):
                 user.clearAuthCache()
 
     def genGateInfo(self, gateiden):

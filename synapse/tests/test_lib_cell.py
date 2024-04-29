@@ -22,6 +22,7 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
@@ -130,7 +131,27 @@ async def altAuthCtor(cell):
     authconf = cell.conf.get('auth:conf')
     assert authconf['foo'] == 'bar'
     authconf['baz'] = 'faz'
-    return await s_cell.Cell._initCellHiveAuth(cell)
+
+    maxusers = cell.conf.get('max:users')
+
+    seed = s_common.guid((cell.iden, 'hive', 'auth'))
+
+    auth = await s_auth.Auth.anit(
+        cell.slab,
+        'auth',
+        seed=seed,
+        nexsroot=cell.getCellNexsRoot(),
+        maxusers=maxusers
+    )
+
+    auth.link(cell.dist)
+
+    def finilink():
+        auth.unlink(cell.dist)
+
+    cell.onfini(finilink)
+    cell.onfini(auth.fini)
+    return auth
 
 class CellTest(s_t_utils.SynTest):
 

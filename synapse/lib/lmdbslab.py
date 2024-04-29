@@ -169,23 +169,27 @@ class SlabDict:
 class SafeKeyVal:
     '''
     Key/value storage that does not store items in memory and ensures keys are < 512 characters in length.
+
+        Note:
+            The key size limitation includes the length of any prefixes added by
+            using getSubKeyVal().
     '''
-    def __init__(self, slab, name, prefix=None):
+    def __init__(self, slab, name, prefix=''):
 
         self.name = name
         self.slab = slab
         self.valudb = slab.initdb(name)
 
         self.prefix = prefix
-        if prefix is not None:
-            self.preflen = len(prefix)
+        self.preflen = len(prefix)
 
     def getSubKeyVal(self, prefix):
 
         if not prefix or not isinstance(prefix, str):
-            raise s_exc.BadArg('SafeKeyVal.getSubKeyVal() requires a string prefix of at least one character.')
+            mesg = 'SafeKeyVal.getSubKeyVal() requires a string prefix of at least one character.'
+            raise s_exc.BadArg(mesg, prefix=prefix)
 
-        if self.prefix is not None:
+        if self.prefix:
             prefix = self.prefix + prefix
 
         return SafeKeyVal(self.slab, self.name, prefix=prefix)
@@ -197,11 +201,12 @@ class SafeKeyVal:
         Note:
             This may only be used for keys < 512 characters in length.
         '''
-        if self.prefix is not None:
+        if self.prefix:
             name = self.prefix + name
 
         if len(name) > 511:
-            raise s_exc.BadArg('SafeKeyVal.get() may only be used with keys < 512 characters in length.')
+            mesg = 'SafeKeyVal.get() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
 
         if (byts := self.slab.get(name.encode('utf8'), db=self.valudb)) is None:
             return defv
@@ -209,22 +214,24 @@ class SafeKeyVal:
 
     def set(self, name, valu):
 
-        if self.prefix is not None:
+        if self.prefix:
             name = self.prefix + name
 
         if len(name) > 511:
-            raise s_exc.BadArg('SafeKeyVal.set() may only be used with keys < 512 characters in length.')
+            mesg = 'SafeKeyVal.set() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
 
         self.slab.put(name.encode('utf8'), s_msgpack.en(valu), db=self.valudb)
         return valu
 
     def pop(self, name, defv=None):
 
-        if self.prefix is not None:
+        if self.prefix:
             name = self.prefix + name
 
         if len(name) > 511:
-            raise s_exc.BadArg('SafeKeyVal.pop() may only be used with keys < 512 characters in length.')
+            mesg = 'SafeKeyVal.pop() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
 
         if (byts := self.slab.pop(name.encode('utf8'), db=self.valudb)) is not None:
             return s_msgpack.un(byts)
@@ -234,11 +241,12 @@ class SafeKeyVal:
         '''
         Delete a key.
         '''
-        if self.prefix is not None:
+        if self.prefix:
             name = self.prefix + name
 
         if len(name) > 511:
-            raise s_exc.BadArg('SafeKeyVal.delete() may only be used with keys < 512 characters in length.')
+            mesg = 'SafeKeyVal.delete() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
 
         return self.slab.delete(name.encode('utf8'), db=self.valudb)
 
@@ -246,11 +254,12 @@ class SafeKeyVal:
         '''
         Delete all keys.
         '''
-        if self.prefix is not None:
+        if self.prefix:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            raise s_exc.BadArg('SafeKeyVal.truncate() may only be used with keys < 512 characters in length.')
+            mesg = 'SafeKeyVal.truncate() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
 
         if not pref:
             genr = self.slab.scanKeysByFull(db=self.valudb)
@@ -263,18 +272,19 @@ class SafeKeyVal:
 
     def items(self, pref=''):
 
-        if self.prefix is not None:
+        if self.prefix:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            raise s_exc.BadArg('SafeKeyVal.items() may only be used with keys < 512 characters in length.'
-)
+            mesg = 'SafeKeyVal.items() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
+
         if not pref:
             genr = self.slab.scanByFull(db=self.valudb)
         else:
             genr = self.slab.scanByPref(pref.encode('utf8'), db=self.valudb)
 
-        if self.prefix is not None:
+        if self.prefix:
             for lkey, byts in genr:
                 yield lkey[self.preflen:].decode('utf8'), s_msgpack.un(byts)
             return
@@ -284,18 +294,19 @@ class SafeKeyVal:
 
     def keys(self, pref=''):
 
-        if self.prefix is not None:
+        if self.prefix:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            raise s_exc.BadArg('SafeKeyVal.keys() may only be used with keys < 512 characters in length.'
-)
+            mesg = 'SafeKeyVal.keys() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
+
         if not pref:
             genr = self.slab.scanKeysByFull(db=self.valudb)
         else:
             genr = self.slab.scanKeysByPref(pref.encode('utf8'), db=self.valudb)
 
-        if self.prefix is not None:
+        if self.prefix:
             for lkey in genr:
                 yield lkey[self.preflen:].decode('utf8')
             return
@@ -305,12 +316,13 @@ class SafeKeyVal:
 
     def values(self, pref=''):
 
-        if self.prefix is not None:
+        if self.prefix:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            raise s_exc.BadArg('SafeKeyVal.values() may only be used with keys < 512 characters in length.'
-)
+            mesg = 'SafeKeyVal.values() may only be used with keys < 512 characters in length.'
+            raise s_exc.BadArg(mesg, name=name[:1024])
+
         if not pref:
             genr = self.slab.scanByFull(db=self.valudb)
         else:
@@ -998,7 +1010,7 @@ class Slab(s_base.Base):
         self.onfini(mq)
         return mq
 
-    def getSafeKeyVal(self, name, prefix=None):
+    def getSafeKeyVal(self, name, prefix=''):
         return SafeKeyVal(self, name, prefix=prefix)
 
     def statinfo(self):
