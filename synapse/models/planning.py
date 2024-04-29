@@ -30,19 +30,29 @@ class PlanModule(s_module.CoreModule):
 
             'forms': (
                 ('plan:system', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'ex': 'mitre att&ck flow'
+                        'ex': 'mitre att&ck flow',
                         'doc': 'The name of the planning system.'}),
-                    ('author' ('ps:contact', {}), {
-                        'doc': 'The contact of the authoring person or organization.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact of the person or organization which authored the system.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time the planning system was first created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the planning system was last updated.'}),
+
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The version of the planning system.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary URL which documents the planning system.'}),
                 )),
                 ('plan:phase', {}, (
                     ('title', ('str', {}), {
-                        'ex': 'Reconisence Phase'
+                        'ex': 'Reconisence Phase',
                         'doc': 'The title of the phase.'}),
 
                     ('summary', ('str', {}), {
@@ -57,24 +67,30 @@ class PlanModule(s_module.CoreModule):
                     ('system', ('plan:system', {}), {
                         'doc': 'The planning system which defines this phase.'}),
                 )),
-                ('plan:procedure:type:taxonomy', {}, {}),
+                ('plan:procedure:type:taxonomy', {}, ()),
                 ('plan:procedure', {}, (
 
                     ('title', ('str', {}), {
-                        'ex': 'Network Reconnaissance Procedure'
+                        'ex': 'Network Reconnaissance Procedure',
                         'doc': 'The name of the procedure.'}),
 
                     ('summary', ('str', {}), {
                         'doc': 'A summary of the purpose and use cases for the procedure.'}),
 
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact of the person or organization which authored the procedure.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time the procedure was created.'}),
 
-                    ('updated', ('time', {}), {}),
+                    ('updated', ('time', {}), {
                         'doc': 'The time the procedure was last updated.'}),
 
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the procedure.'}),
+
+                    ('system', ('plan:system', {}), {
+                        'doc': 'The planning system which defines this procedure.'}),
 
                     ('type', ('plan:procedure:type:taxonomy', {}), {
                         'doc': 'A type classification for the procedure.'}),
@@ -108,7 +124,7 @@ class PlanModule(s_module.CoreModule):
                         'doc': 'The procedure which defines the step.'}),
 
                     ('title', ('str', {}), {
-                        'ex': 'Scan the IPv4 address range for open ports'
+                        'ex': 'Scan the IPv4 address range for open ports',
                         'doc': 'The title of the step.'}),
 
                     ('summary', ('str', {}), {
