@@ -881,7 +881,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
+
         self.migration = False
+        self._migration_lock = asyncio.Lock()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1480,12 +1482,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
         await self.agenda.clearRunningStatus()
 
-        for view in self.views.values():
-            await view.initTrigTask()
-            await view.initMergeTask()
+        async def _runMigrations():
+            # Run migrations when this cortex becomes active. This is to prevent
+            # migrations getting skipped in a zero-downtime upgrade path
+            # (upgrade mirror, promote mirror).
+            await self._checkLayerModels()
 
-        for layer in self.layers.values():
-            await layer.initLayerActive()
+            # Once migrations are complete, start the view and layer tasks.
+            for view in self.views.values():
+                await view.initTrigTask()
+                await view.initMergeTask()
+
+            for layer in self.layers.values():
+                await layer.initLayerActive()
+
+        self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
 
@@ -3597,6 +3608,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         break
 
                     yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
+                    await asyncio.sleep(0)
 
             if layr.isdeleted:
                 yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
@@ -4363,7 +4375,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return ret
 
     async def _checkLayerModels(self):
-        with self.enterMigrationMode():
+        async with self.enterMigrationMode():
             mrev = s_modelrev.ModelRev(self)
             await mrev.revCoreLayers()
 
@@ -6098,11 +6110,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
         await appt.edits(edits)
 
-    @contextlib.contextmanager
-    def enterMigrationMode(self):
-        self.migration = True
-        yield
-        self.migration = False
+    @contextlib.asynccontextmanager
+    async def enterMigrationMode(self):
+        async with self._migration_lock:
+            self.migration = True
+            yield
+            self.migration = False
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''
