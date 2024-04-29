@@ -701,7 +701,7 @@ class LibModelMigration(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'copyData', 'desc': 'Copy node data from one node to the write layer for another node.',
-         'type': {'type': 'function', '_funcname': 'copyData',
+         'type': {'type': 'function', '_funcname': '_methCopyData',
                   'args': (
                       {'name': 'src', 'type': 'node', 'desc': 'The node to copy data from.', },
                       {'name': 'dst', 'type': 'node', 'desc': 'The node to copy data to.', },
@@ -710,14 +710,14 @@ class LibModelMigration(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'copyEdges', 'desc': 'Copy edges from one node to the write layer for another node.',
-         'type': {'type': 'function', '_funcname': 'copyEdges',
+         'type': {'type': 'function', '_funcname': '_methCopyEdges',
                   'args': (
                       {'name': 'src', 'type': 'node', 'desc': 'The node to copy edges from.', },
                       {'name': 'dst', 'type': 'node', 'desc': 'The node to copy edgse to.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'copyTags', 'desc': 'Copy tags, tag timestamps, and tag props from one node to the write layer for another node.',
-         'type': {'type': 'function', '_funcname': 'copyTags',
+         'type': {'type': 'function', '_funcname': '_methCopyTags',
                   'args': (
                       {'name': 'src', 'type': 'node', 'desc': 'The node to copy tags from.', },
                       {'name': 'dst', 'type': 'node', 'desc': 'The node to copy tags to.', },
