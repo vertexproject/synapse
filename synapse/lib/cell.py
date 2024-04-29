@@ -1245,19 +1245,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceNetwork()
 
     async def _storCellHiveMigration(self):
-        versnode = await self.hive.open(('cellvers',))
-        versdict = await versnode.dict()
-        for key, valu in versdict.items():
-            self.cellvers.set(key, valu)
+        async with await self.hive.open(('cellvers',)) as versnode:
+            versdict = await versnode.dict()
+            for key, valu in versdict.items():
+                self.cellvers.set(key, valu)
 
-        await versnode.fini()
-
-        infonode = await self.hive.open(('cellinfo',))
-        infodict = await infonode.dict()
-        for key, valu in infodict.items():
-            self.cellinfo.set(key, valu)
-
-        await infonode.fini()
+        async with await self.hive.open(('cellinfo',)) as infonode:
+            infodict = await infonode.dict()
+            for key, valu in infodict.items():
+                self.cellinfo.set(key, valu)
 
     async def _storCellAuthMigration(self):
         if self.conf.get('auth:ctor') is not None:
@@ -1265,87 +1261,89 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         authkv = self.slab.getSafeKeyVal('auth')
 
-        rootnode = await self.hive.open(('auth',))
+        async with await self.hive.open(('auth',)) as rootnode:
 
-        gateroles = {}
-        gateusers = {}
+            gateroles = {}
+            gateusers = {}
 
-        gatekv = authkv.getSubKeyVal('gate:info:')
-        authgates = await rootnode.open(('authgates',))
-        for gateiden, node in authgates:
-            gateinfo = {
-                'iden': gateiden,
-                'type': node.valu
-            }
-            gatekv.set(gateiden, gateinfo)
+            gatekv = authkv.getSubKeyVal('gate:info:')
+            async with await rootnode.open(('authgates',)) as authgates:
+                for gateiden, node in authgates:
+                    gateinfo = {
+                        'iden': gateiden,
+                        'type': node.valu
+                    }
+                    gatekv.set(gateiden, gateinfo)
 
-            for useriden, usernode in await node.open(('users',)):
-                userinfo = await usernode.dict()
-                userdict = userinfo.pack()
-                userdict['iden'] = useriden
-                userdict.setdefault('admin', False)
-                authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
+                    async with await node.open(('users',)) as usernodes:
+                        for useriden, usernode in usernodes:
+                            userinfo = await usernode.dict()
+                            userdict = userinfo.pack()
+                            userdict['iden'] = useriden
+                            userdict.setdefault('admin', False)
+                            authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
 
-                gateusers.setdefault(useriden, {})
-                gateusers[useriden][gateiden] = userdict
+                            gateusers.setdefault(useriden, {})
+                            gateusers[useriden][gateiden] = userdict
 
-            for roleiden, rolenode in await node.open(('roles',)):
-                roleinfo = await rolenode.dict()
-                roledict = roleinfo.pack()
-                roledict['iden'] = roleiden
-                roledict.setdefault('admin', False)
-                authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
+                    async with await node.open(('roles',)) as rolenodes:
+                        for roleiden, rolenode in rolenodes:
+                            roleinfo = await rolenode.dict()
+                            roledict = roleinfo.pack()
+                            roledict['iden'] = roleiden
+                            roledict.setdefault('admin', False)
+                            authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
 
-                gateroles.setdefault(roleiden, {})
-                gateroles[roleiden][gateiden] = roledict
+                            gateroles.setdefault(roleiden, {})
+                            gateroles[roleiden][gateiden] = roledict
 
-        rolekv = authkv.getSubKeyVal('role:info:')
-        rolenamekv = authkv.getSubKeyVal('role:name:')
+            rolekv = authkv.getSubKeyVal('role:info:')
+            rolenamekv = authkv.getSubKeyVal('role:name:')
 
-        roles = await rootnode.open(('roles',))
-        for iden, node in roles:
-            roledict = await node.dict()
-            roleinfo = roledict.pack()
+            async with await rootnode.open(('roles',)) as roles:
+                for iden, node in roles:
+                    roledict = await node.dict()
+                    roleinfo = roledict.pack()
 
-            roleinfo['iden'] = iden
-            roleinfo['name'] = node.valu
-            roleinfo['authgates'] = gateroles.get(iden, {})
-            roleinfo.setdefault('admin', False)
-            roleinfo.setdefault('rules', ())
+                    roleinfo['iden'] = iden
+                    roleinfo['name'] = node.valu
+                    roleinfo['authgates'] = gateroles.get(iden, {})
+                    roleinfo.setdefault('admin', False)
+                    roleinfo.setdefault('rules', ())
 
-            rolekv.set(iden, roleinfo)
-            rolenamekv.set(node.valu, iden)
+                    rolekv.set(iden, roleinfo)
+                    rolenamekv.set(node.valu, iden)
 
-        userkv = authkv.getSubKeyVal('user:info:')
-        usernamekv = authkv.getSubKeyVal('user:name:')
+            userkv = authkv.getSubKeyVal('user:info:')
+            usernamekv = authkv.getSubKeyVal('user:name:')
 
-        users = await rootnode.open(('users',))
-        for iden, node in users:
-            userdict = await node.dict()
-            userinfo = userdict.pack()
+            async with await rootnode.open(('users',)) as users:
+                for iden, node in users:
+                    userdict = await node.dict()
+                    userinfo = userdict.pack()
 
-            userinfo['iden'] = iden
-            userinfo['name'] = node.valu
-            userinfo['authgates'] = gateusers.get(iden, {})
-            userinfo.setdefault('admin', False)
-            userinfo.setdefault('roles', ())
-            userinfo.setdefault('ruler', ())
-            userinfo.setdefault('locked', False)
-            userinfo.setdefault('passwd', None)
-            userinfo.setdefault('archived', False)
+                    userinfo['iden'] = iden
+                    userinfo['name'] = node.valu
+                    userinfo['authgates'] = gateusers.get(iden, {})
+                    userinfo.setdefault('admin', False)
+                    userinfo.setdefault('roles', ())
+                    userinfo.setdefault('ruler', ())
+                    userinfo.setdefault('locked', False)
+                    userinfo.setdefault('passwd', None)
+                    userinfo.setdefault('archived', False)
 
-            userkv.set(iden, userinfo)
-            usernamekv.set(node.valu, iden)
+                    userkv.set(iden, userinfo)
+                    usernamekv.set(node.valu, iden)
 
-            varskv = authkv.getSubKeyVal(f'user:{iden}:vars:')
-            for name, varnode in await node.open(('vars',)):
-                varskv.set(name, varnode.valu)
+                    varskv = authkv.getSubKeyVal(f'user:{iden}:vars:')
+                    async with await node.open(('vars',)) as varnodes:
+                        for name, varnode in varnodes:
+                            varskv.set(name, varnode.valu)
 
-            profkv = authkv.getSubKeyVal(f'user:{iden}:profile:')
-            for name, profnode in await node.open(('profile',)):
-                profkv.set(name, profnode.valu)
-
-        await rootnode.fini()
+                    profkv = authkv.getSubKeyVal(f'user:{iden}:profile:')
+                    async with await node.open(('profile',)) as profnodes:
+                        for name, profnode in profnodes:
+                            profkv.set(name, profnode.valu)
 
     def getPermDef(self, perm):
         perm = tuple(perm)

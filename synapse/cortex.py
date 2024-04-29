@@ -1025,41 +1025,37 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _storCortexHiveMigration(self):
 
         viewkv = self.cortexkv.getSubKeyVal('view:info:')
-        viewnode = await self.hive.open(('cortex', 'views'))
-        for iden, node in viewnode:
-            viewdict = await node.dict()
-            viewinfo = viewdict.pack()
-            viewinfo.setdefault('iden', iden)
-            viewkv.set(iden, viewinfo)
+        async with await self.hive.open(('cortex', 'views')) as viewnodes:
+            for iden, node in viewnodes:
+                viewdict = await node.dict()
+                viewinfo = viewdict.pack()
+                viewinfo.setdefault('iden', iden)
+                viewkv.set(iden, viewinfo)
 
-            trigdict = self.cortexkv.getSubKeyVal(f'view:{iden}:trigger:')
-            trignode = await node.open(('triggers',))
-            for iden, trig in trignode:
-                trigdict.set(iden, trig.valu)
-
-        await viewnode.fini()
+                trigdict = self.cortexkv.getSubKeyVal(f'view:{iden}:trigger:')
+                async with await node.open(('triggers',)) as trignodes:
+                    for iden, trig in trignodes:
+                        trigdict.set(iden, trig.valu)
 
         layrkv = self.cortexkv.getSubKeyVal('layer:info:')
-        layrnode = await self.hive.open(('cortex', 'layers'))
-        for iden, node in layrnode:
-            layrdict = await node.dict()
-            layrinfo = layrdict.pack()
-            pushs = layrinfo.get('pushs', {})
-            if pushs:
-                for pdef in pushs.values():
-                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+        async with await self.hive.open(('cortex', 'layers')) as layrnodes:
+            for iden, node in layrnodes:
+                layrdict = await node.dict()
+                layrinfo = layrdict.pack()
+                pushs = layrinfo.get('pushs', {})
+                if pushs:
+                    for pdef in pushs.values():
+                        pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                        pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
 
-            pulls = layrinfo.get('pulls', {})
-            if pulls:
                 pulls = layrinfo.get('pulls', {})
-                for pdef in pulls.values():
-                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+                if pulls:
+                    pulls = layrinfo.get('pulls', {})
+                    for pdef in pulls.values():
+                        pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                        pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
 
-            layrkv.set(iden, layrinfo)
-
-        await layrnode.fini()
+                layrkv.set(iden, layrinfo)
 
         migrs = (
             (('agenda', 'appts'), 'agenda:appt:'),
@@ -1078,10 +1074,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for hivepath, kvpref in migrs:
             subkv = self.cortexkv.getSubKeyVal(kvpref)
-            hivenode = await self.hive.open(hivepath)
-            for name, node in hivenode:
-                subkv.set(name, node.valu)
-            await hivenode.fini()
+            async with await self.hive.open(hivepath) as hivenode:
+                for name, node in hivenode:
+                    subkv.set(name, node.valu)
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():

@@ -254,38 +254,37 @@ class CryoCell(s_cell.Cell):
 
         logger.warning('Beginning migration to V2')
 
-        names = await self.hive.open(('cryo', 'names'))
+        async with await self.hive.open(('cryo', 'names')) as names:
+            for name, node in names:
 
-        for name, node in names:
+                iden, conf = node.valu
+                if conf is None:
+                    conf = {}
 
-            iden, conf = node.valu
-            if conf is None:
-                conf = {}
+                logger.info(f'Migrating tank {name=} {iden=}')
 
-            logger.info(f'Migrating tank {name=} {iden=}')
+                path = s_common.genpath(self.dirn, 'tanks', iden)
 
-            path = s_common.genpath(self.dirn, 'tanks', iden)
+                # remove old guid file
+                guidpath = s_common.genpath(path, 'guid')
+                if os.path.isfile(guidpath):
+                    os.unlink(guidpath)
 
-            # remove old guid file
-            guidpath = s_common.genpath(path, 'guid')
-            if os.path.isfile(guidpath):
-                os.unlink(guidpath)
+                # if its a legacy cell remove that too
+                cellpath = s_common.genpath(path, 'cell.guid')
+                if os.path.isfile(cellpath):
 
-            # if its a legacy cell remove that too
-            cellpath = s_common.genpath(path, 'cell.guid')
-            if os.path.isfile(cellpath):
+                    os.unlink(cellpath)
 
-                os.unlink(cellpath)
+                    cellslabpath = s_common.genpath(path, 'slabs', 'cell.lmdb')
+                    if os.path.isdir(cellslabpath):
+                        shutil.rmtree(cellslabpath, ignore_errors=True)
 
-                cellslabpath = s_common.genpath(path, 'slabs', 'cell.lmdb')
-                if os.path.isdir(cellslabpath):
-                    shutil.rmtree(cellslabpath, ignore_errors=True)
-
-            # drop offsets
-            slabpath = s_common.genpath(path, 'tank.lmdb')
-            async with await s_lmdbslab.Slab.anit(slabpath, **conf) as slab:
-                offs = s_slaboffs.SlabOffs(slab, 'offsets')
-                slab.dropdb(offs.db)
+                # drop offsets
+                slabpath = s_common.genpath(path, 'tank.lmdb')
+                async with await s_lmdbslab.Slab.anit(slabpath, **conf) as slab:
+                    offs = s_slaboffs.SlabOffs(slab, 'offsets')
+                    slab.dropdb(offs.db)
 
         logger.warning('...migration complete')
 
@@ -293,12 +292,10 @@ class CryoCell(s_cell.Cell):
 
         logger.warning('Beginning migration to V3')
 
-        hivenames = await self.hive.open(('cryo', 'names'))
-        for name, node in hivenames:
-            iden, conf = node.valu
-            self.names.set(name, (iden, conf))
-
-        await hivenames.fini()
+        async with await self.hive.open(('cryo', 'names')) as hivenames:
+            for name, node in hivenames:
+                iden, conf = node.valu
+                self.names.set(name, (iden, conf))
 
         logger.warning('...migration complete')
 

@@ -862,13 +862,10 @@ class Axon(s_cell.Cell):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
     async def _migrateAxonMetrics(self):
-        node = await self.hive.open(('axon', 'metrics'))
-
-        axonmetrics = await node.dict()
-        self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
-        self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
-
-        await axonmetrics.fini()
+        async with await self.hive.open(('axon', 'metrics')) as hivenode:
+            axonmetrics = await hivenode.dict()
+            self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
+            self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
 
     async def _initBlobStor(self):
 
