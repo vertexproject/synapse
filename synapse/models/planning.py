@@ -9,7 +9,7 @@ class PlanModule(s_module.CoreModule):
                     'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 
                 ('plan:phase', ('guid', {}), {
-                    'doc': 'A phase within a planning system which may be used to group steps.'}),
+                    'doc': 'A phase within a planning system which may be used to group steps within a procedure.'}),
 
                 ('plan:procedure', ('guid', {}), {
                     'doc': 'A procedure consisting of steps.'}),
@@ -19,7 +19,7 @@ class PlanModule(s_module.CoreModule):
                     'doc': 'A taxonomy of procedure types.'}),
 
                 ('plan:procedure:variable', ('guid', {}), {
-                    'doc': 'A variable used as input/output by a procedure.'}),
+                    'doc': 'A variable used by a procedure.'}),
 
                 ('plan:procedure:step', ('guid', {}), {
                     'doc': 'A step within a procedure.'}),
