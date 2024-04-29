@@ -2491,6 +2491,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield item
             await asyncio.sleep(0)
 
+    async def iterUserProfInfo(self, iden):
+        user = await self.auth.reqUser(iden)
+        for item in user.profile.items():
+            yield item
+            await asyncio.sleep(0)
+
     async def getUserVarValu(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
         return user.vars.get(name, defv=default)

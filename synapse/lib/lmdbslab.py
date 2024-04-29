@@ -258,11 +258,11 @@ class SafeKeyVal:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            mesg = 'SafeKeyVal.truncate() may only be used with keys < 512 characters in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
+            mesg = 'SafeKeyVal.truncate() may only be used with prefixes < 512 characters in length.'
+            raise s_exc.BadArg(mesg, prefix=pref[:1024])
 
         if not pref:
-            genr = self.slab.scanKeysByFull(db=self.valudb)
+            genr = self.slab.scanKeys(db=self.valudb)
         else:
             genr = self.slab.scanKeysByPref(pref.encode('utf8'), db=self.valudb)
 
@@ -276,8 +276,8 @@ class SafeKeyVal:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            mesg = 'SafeKeyVal.items() may only be used with keys < 512 characters in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
+            mesg = 'SafeKeyVal.items() may only be used with prefixes < 512 characters in length.'
+            raise s_exc.BadArg(mesg, prefix=pref[:1024])
 
         if not pref:
             genr = self.slab.scanByFull(db=self.valudb)
@@ -298,11 +298,11 @@ class SafeKeyVal:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            mesg = 'SafeKeyVal.keys() may only be used with keys < 512 characters in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
+            mesg = 'SafeKeyVal.keys() may only be used with prefixes < 512 characters in length.'
+            raise s_exc.BadArg(mesg, prefix=pref[:1024])
 
         if not pref:
-            genr = self.slab.scanKeysByFull(db=self.valudb)
+            genr = self.slab.scanKeys(db=self.valudb)
         else:
             genr = self.slab.scanKeysByPref(pref.encode('utf8'), db=self.valudb)
 
@@ -320,8 +320,8 @@ class SafeKeyVal:
             pref = self.prefix + pref
 
         if len(pref) > 511:
-            mesg = 'SafeKeyVal.values() may only be used with keys < 512 characters in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
+            mesg = 'SafeKeyVal.values() may only be used with prefixes < 512 characters in length.'
+            raise s_exc.BadArg(mesg, prefix=pref[:1024])
 
         if not pref:
             genr = self.slab.scanByFull(db=self.valudb)

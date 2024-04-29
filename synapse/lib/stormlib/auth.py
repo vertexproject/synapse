@@ -1747,7 +1747,7 @@ class StormUserProfileDict(s_stormtypes.Prim):
         return list(valu.items())
 
     async def iter(self):
-        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+        async for name, valu in self.runt.snap.core.iterUserProfInfo(self.valu):
             yield name, valu
             await asyncio.sleep(0)
 
