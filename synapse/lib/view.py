@@ -55,6 +55,7 @@ class ViewApi(s_cell.CellApi):
         layr = self.view.layers[0]
         async for item in layr.syncNodeEdits2(offs, wait=wait):
             yield item
+            await asyncio.sleep(0)
 
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
