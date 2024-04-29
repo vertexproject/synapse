@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -694,66 +695,155 @@ class LibModelDeprecated(s_stormtypes.Lib):
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
 @s_stormtypes.registry.registerLib
+class LibModelMigration(s_stormtypes.Lib):
+    '''
+    A Storm library containing migration tools.
+    '''
+    _storm_locals = (
+        {'name': 'copyData', 'desc': 'Copy node data from one node to the write layer for another node.',
+         'type': {'type': 'function', '_funcname': 'copyData',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy data from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy data to.', },
+                      {'name': 'overwrite', 'type': 'boolean', 'default': False,
+                       'desc': 'Copy data even if the key exists on the destination node.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'copyEdges', 'desc': 'Copy edges from one node to the write layer for another node.',
+         'type': {'type': 'function', '_funcname': 'copyEdges',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy edges from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy edgse to.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'copyTags', 'desc': 'Copy tags, tag timestamps, and tag props from one node to the write layer for another node.',
+         'type': {'type': 'function', '_funcname': 'copyTags',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy tags from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy tags to.', },
+                      {'name': 'overwrite', 'type': 'boolean', 'default': False,
+                       'desc': 'Copy tag property value even if the property exists on the destination node.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+    )
+    _storm_lib_path = ('model', 'migration')
+
+    def getObjLocals(self):
+        return {
+            'copyData': self._methCopyData,
+            'copyEdges': self._methCopyEdges,
+            'copyTags': self._methCopyTags,
+        }
+
+    async def _methCopyData(self, src, dst, overwrite=False):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyData() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyData() dest argument must be a node.')
+
+        overwrite = await s_stormtypes.tobool(overwrite)
+
+        async with self.runt.snap.getEditor() as editor:
+
+            proto = editor.loadNode(dst)
+
+            async for name in src.iterDataKeys():
+                if overwrite or not await dst.hasData(name):
+                    self.runt.layerConfirm(('node', 'data', 'set', name))
+                    valu = await src.getData(name)
+                    await proto.setData(name, valu)
+
+    async def _methCopyEdges(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() dest argument must be a node.')
+
+        snap = self.runt.snap
+
+        async with snap.getEditor() as editor:
+
+            proto = editor.loadNode(dst)
+            verbs = set()
+
+            async for (verb, n2iden) in src.iterEdgesN1():
+
+                if verb not in verbs:
+                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                    verbs.add(verb)
+
+                if await snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
+                    await proto.addEdge(verb, n2iden)
+
+            dstiden = s_common.ehex(dst.buid)
+
+            async for (verb, n1iden) in src.iterEdgesN2():
+
+                if verb not in verbs:
+                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                    verbs.add(verb)
+
+                n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+                if n1proto is not None:
+                    await n1proto.addEdge(verb, dstiden)
+
+    async def _methCopyTags(self, src, dst, overwrite=False):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyTags() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyTags() dest argument must be a node.')
+
+        overwrite = await s_stormtypes.tobool(overwrite)
+
+        snap = self.runt.snap
+
+        async with snap.getEditor() as editor:
+
+            proto = editor.loadNode(dst)
+
+            for name, valu in src.tags.items():
+                self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
+                await proto.addTag(name, valu=valu)
+
+            for tagname, tagprops in src.tagprops.items():
+                for propname, valu in tagprops.items():
+                    if overwrite or not dst.hasTagProp(tagname, propname):
+                        await proto.setTagProp(tagname, propname, valu) # use tag perms
+
+@s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib):
     '''
     A Storm library for selectively migrating nodes.
     '''
     _storm_locals = (
-        {'name': 'riskHasVuln',
-         'desc': 'Returns a list of risk:vulnerable nodes created from the provided risk:hasvuln node.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
+        {'name': 'riskHasVulnToVulnerable', 'desc': '''
+            Create a risk:vulnerable node from the provided risk:hasvuln node.
+
+            If multiple vulnerable properties are set on the risk:hasvuln node
+            multiple risk:vulnerable nodes will be created (each with a unique guid).
+            Otherwise, a single risk:vulnerable will be created with the same guid
+            as the provided risk:hasvuln node.
+
+            Tags, tag properties, edges, and node data will be copied
+            to the risk:vulnerable node. However, existing tag properties and
+            node data will not be overwritten.
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A list of risk:vulnerable nodes.'}}},
+                 ),
+                 'returns': {'type': 'list', 'desc': 'A list of risk:vulnerable nodes.'}}},
     )
-    _storm_lib_path = ('model', 'migrations')
+    _storm_lib_path = ('model', 'migration', 's')
 
     _storm_query = '''
-        function __copyTags(src, dst) {
-            $srcdata = $src.pack().1
-
-            yield $dst
-
-            { for ($tag, $valu) in $srcdata.tags {
-                [ +#$tag=$valu ]
-            }}
-
-            { for ($tag, $tagprops) in $srcdata.tagprops {
-                for ($tagprop, $valu) in $tagprops {
-                    [ +#$tag:$tagprop=$valu ]
-                }
-            }}
-
-            return()
-        }
-
-        function __copyEdges(src, dst) {
-            yield $dst
-
-            { for ($verb, $iden) in $src.edges() {
-                [ +($verb)> { yield $iden } ]
-            }}
-
-            { for ($verb, $iden) in $src.edges(reverse=$lib.true) {
-                [ <($verb)+ { yield $iden } ]
-            }}
-
-            return()
-        }
-
-        function __copyNodeData(src, dst) {
-            for ($k, $v) in $src.data.list() {
-                if $dst.data.has($k) { continue }
-                $dst.data.set($k, $v)
-            }
-            return()
-        }
-
-        function riskHasVuln(n) {
+        function riskHasVulnToVulnerable(n) {
 
             if (not $n.isform(risk:hasvuln)) {
-                $lib.raise(BadArg, `riskHasVuln() only accepts risk:hasvuln nodes, not {$n.form()}.`)
+                $lib.raise(BadArg, `riskHasVulnToVulnerable() only accepts risk:hasvuln nodes, not {$n.form()}.`)
             }
 
             $ret = ([])
@@ -791,12 +881,11 @@ class LibModelMigrations(s_stormtypes.Lib):
                     .seen?=$n.props.".seen"
                 ]
 
-                $__copyTags($n, $node)
-                $__copyEdges($n, $node)
-                $__copyNodeData($n, $node)
+                $lib.model.migration.copyData($n, $node)
+                $lib.model.migration.copyEdges($n, $node)
+                $lib.model.migration.copyTags($n, $node)
 
                 $ret.append($node)
-
             }
 
             fini { return($ret) }

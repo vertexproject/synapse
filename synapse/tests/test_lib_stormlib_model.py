@@ -297,7 +297,105 @@ class StormlibModelTest(s_test.SynTest):
                 self.stormIsInWarn('.pdep is not yet locked', mesgs)
                 self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
 
-    async def test_stormlib_model_migrations_risk_hasvuln(self):
+    async def test_stormlib_model_migration(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=src test:str=dst test:str=deny test:str=other ]')
+            otheriden = nodes[3].iden()
+
+            lowuser = await core.auth.addUser('lowuser')
+            aslow = {'user': lowuser.iden}
+
+            # copy node data
+
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyData($node, newp)'))
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyData(newp, $node)'))
+
+            nodes = await core.nodes('''
+                test:str=src
+                $node.data.set(a, a-src)
+                $node.data.set(b, b-src)
+                $n=$node -> {
+                    test:str=dst
+                    $node.data.set(a, a-dst)
+                    $lib.model.migration.copyData($n, $node)
+                }
+            ''')
+            self.len(1, nodes)
+            self.sorteq(
+                [('a', 'a-dst'), ('b', 'b-src')],
+                [data async for data in nodes[0].iterData()]
+            )
+
+            nodes = await core.nodes('''
+                test:str=src $n=$node -> {
+                    test:str=dst
+                    $lib.model.migration.copyData($n, $node, overwrite=$lib.true)
+                }
+            ''')
+            self.len(1, nodes)
+            self.sorteq(
+                [('a', 'a-src'), ('b', 'b-src')],
+                [data async for data in nodes[0].iterData()]
+            )
+
+            q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyData($n, $node) }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+
+            # copy edges
+
+            nodes = await core.nodes('''
+                test:str=src
+                [ <(foo)+ { test:str=other } +(bar)> { test:str=other } ]
+                $n=$node -> {
+                    test:str=dst
+                    $lib.model.migration.copyEdges($n, $node)
+                }
+            ''')
+            self.len(1, nodes)
+            self.eq([('bar', otheriden)], [edge async for edge in nodes[0].iterEdgesN1()])
+            self.eq([('foo', otheriden)], [edge async for edge in nodes[0].iterEdgesN2()])
+
+            q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyEdges($n, $node) }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+
+            # copy tags
+
+            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+
+            nodes = await core.nodes('''
+                test:str=src
+                [ +#foo=(2010, 2012) +#foo.bar +#baz:test=src ]
+                $n=$node -> {
+                    test:str=dst
+                    [ +#foo=(2010, 2011) +#baz:test=dst ]
+                    $lib.model.migration.copyTags($n, $node)
+                }
+            ''')
+            self.len(1, nodes)
+            self.sorteq([
+                ('baz', (None, None)),
+                ('foo', (s_time.parse('2010'), s_time.parse('2012'))),
+                ('foo.bar', (None, None))
+            ], nodes[0].getTags())
+            self.eq([], nodes[0].getTagProps('foo'))
+            self.eq([], nodes[0].getTagProps('foo.bar'))
+            self.eq([('test', 'dst')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
+
+            nodes = await core.nodes('''
+                test:str=src $n=$node -> {
+                    test:str=dst
+                    $lib.model.migration.copyTags($n, $node, overwrite=$lib.true)
+                }
+            ''')
+            self.len(1, nodes)
+            self.eq([('test', 'src')], [(k, nodes[0].getTagProp('baz', k)) for k in nodes[0].getTagProps('baz')])
+
+            q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+
+    async def test_stormlib_model_migrations_risk_hasvuln_vulnerable(self):
 
         async with self.getTestCore() as core:
 
@@ -329,7 +427,7 @@ class StormlibModelTest(s_test.SynTest):
                     +(refs)> {[ ps:contact=* :name=bar ]}
                 ]
                 $node.data.set(baz, bam)
-                $n=$node -> { yield $lib.model.migrations.riskHasVuln($n) }
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
             ''', opts=opts)
             self.len(1, nodes)
             self.eq(guid00, nodes[0].ndef[1])
@@ -352,7 +450,7 @@ class StormlibModelTest(s_test.SynTest):
                     :software=$lib.guid()
                     :vuln=$lib.guid()
                 ]
-                $n=$node -> { yield $lib.model.migrations.riskHasVuln($n) }
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
             ''', opts=opts)
             self.len(1, nodes)
             self.eq(guid01, nodes[0].ndef[1])
@@ -374,7 +472,7 @@ class StormlibModelTest(s_test.SynTest):
                     :vuln={ risk:vuln#test }
                     +#test2
                 ]
-                $n=$node -> { yield $lib.model.migrations.riskHasVuln($n) }
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
             ''', opts=opts)
             self.len(8, nodes)
             self.false(any(n.ndef[1] == guid02 for n in nodes))
@@ -392,19 +490,19 @@ class StormlibModelTest(s_test.SynTest):
 
             self.len(0, await core.nodes('''
                 [ risk:hasvuln=* ]
-                $n=$node -> { yield $lib.model.migrations.riskHasVuln($n) }
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
             '''))
 
             self.len(0, await core.nodes('''
                 [ risk:hasvuln=* :vuln={[ risk:vuln=* ]} ]
-                $n=$node -> { yield $lib.model.migrations.riskHasVuln($n) }
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
             '''))
 
             self.len(0, await core.nodes('''
                 [ risk:hasvuln=* :host={[ it:host=* ]} ]
-                $n=$node -> { yield $lib.model.migrations.riskHasVuln($n) }
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
             '''))
 
             # bad inputs
 
-            await self.asyncraises(s_exc.BadArg, core.nodes('[ it:host=* ] $lib.model.migrations.riskHasVuln($node)'))
+            await self.asyncraises(s_exc.BadArg, core.nodes('[ it:host=* ] $lib.model.migration.s.riskHasVulnToVulnerable($node)'))
