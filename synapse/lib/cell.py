@@ -3095,26 +3095,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellAuth(self):
 
+        # Add callbacks
+        self.on('user:del', self._onUserDelEvnt)
+
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
             s_common.deprecated('auth:ctor cell config option', curv='2.157.0')
             ctor = s_dyndeps.getDynLocal(authctor)
-            auth = await ctor(self)
-        else:
-            auth = await self._initCellHiveAuth()
-
-        # Add callbacks
-        self.on('user:del', self._onUserDelEvnt)
-
-        return auth
-
-    def getCellNexsRoot(self):
-        # the "cell scope" nexusroot only exists if we are *not* embedded
-        # (aka we dont have a self.cellparent)
-        if self.cellparent is None:
-            return self.nexsroot
-
-    async def _initCellHiveAuth(self):
+            return await ctor(self)
 
         maxusers = self.conf.get('max:users')
 
@@ -3137,6 +3125,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(auth.fini)
         return auth
+
+    def getCellNexsRoot(self):
+        # the "cell scope" nexusroot only exists if we are *not* embedded
+        # (aka we dont have a self.cellparent)
+        if self.cellparent is None:
+            return self.nexsroot
 
     async def _initInauguralConfig(self):
         if self.inaugural:

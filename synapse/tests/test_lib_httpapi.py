@@ -1897,7 +1897,10 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(roles, {'all', 'ninjas'})
 
             # Remove the role from the Auth subsystem.
+            core.auth.rolekv.delete(ninjas.get('iden'))
+            core.auth.rolenamekv.delete('ninjas')
             core.auth.rolesbyiden.pop(ninjas.get('iden'))
+            core.auth.roleidenbyname.pop('ninjas')
 
             async with self.getHttpSess() as sess:
                 async with sess.post(f'https://localhost:{port}/api/v1/login',

@@ -168,7 +168,7 @@ class SlabDict:
 
 class SafeKeyVal:
     '''
-    Key/value storage that does not store items in memory and safely handles large keys.
+    Key/value storage that does not store items in memory and ensures keys are < 512 characters in length.
     '''
     def __init__(self, slab, name, prefix=None):
 
@@ -181,6 +181,9 @@ class SafeKeyVal:
             self.preflen = len(prefix)
 
     def getSubKeyVal(self, prefix):
+
+        if not prefix or not isinstance(prefix, str):
+            raise s_exc.BadArg('SafeKeyVal.getSubKeyVal() requires a string prefix of at least one character.')
 
         if self.prefix is not None:
             prefix = self.prefix + prefix
