@@ -3597,6 +3597,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         break
 
                     yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
+                    await asyncio.sleep(0)
 
             if layr.isdeleted:
                 yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
