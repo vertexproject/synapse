@@ -138,22 +138,20 @@ class Auth(s_nexus.Pusher):
 
         self.maxusers = maxusers
 
-        self.usersbyiden = {}
-        self.rolesbyiden = {}
-        self.usersbyname = {}
-        self.rolesbyname = {}
+        self.userkv = self.stor.getSubKeyVal('user:info:')
+        self.usernamekv = self.stor.getSubKeyVal('user:name:')
+        self.usersbyiden = s_cache.FixedCache(self._getUser, size=1000)
+        self.useridenbyname = s_cache.FixedCache(self._getUserIden, size=1000)
+
+        self.rolekv = self.stor.getSubKeyVal('role:info:')
+        self.rolenamekv = self.stor.getSubKeyVal('role:name:')
+        self.rolesbyiden = s_cache.FixedCache(self._getRole, size=1000)
+        self.roleidenbyname = s_cache.FixedCache(self._getRoleIden, size=1000)
+
         self.authgates = {}
 
         self.allrole = None
         self.rootuser = None
-
-        self.rolekv = self.stor.getSubKeyVal('role:info:')
-        for roleinfo in self.rolekv.values():
-            self._initRole(roleinfo)
-
-        self.userkv = self.stor.getSubKeyVal('user:info:')
-        for userinfo in self.userkv.values():
-            self._initUser(userinfo)
 
         self.gatekv = self.stor.getSubKeyVal('gate:info:')
         for gateinfo in self.gatekv.values():
@@ -180,16 +178,28 @@ class Auth(s_nexus.Pusher):
         await self.rootuser.setLocked(False, logged=False)
 
     def users(self):
-        return self.usersbyiden.values()
+        for userinfo in self.userkv.values():
+            yield User(userinfo, self)
 
     def roles(self):
-        return self.rolesbyiden.values()
+        for roleinfo in self.rolekv.values():
+            yield Role(roleinfo, self)
 
     def role(self, iden):
         return self.rolesbyiden.get(iden)
 
+    def _getRole(self, iden):
+        roleinfo = self.rolekv.get(iden)
+        if roleinfo is not None:
+            return Role(roleinfo, self)
+
     def user(self, iden):
         return self.usersbyiden.get(iden)
+
+    def _getUser(self, iden):
+        userinfo = self.userkv.get(iden)
+        if userinfo is not None:
+            return User(userinfo, self)
 
     async def reqUser(self, iden):
         user = self.user(iden)
@@ -240,23 +250,23 @@ class Auth(s_nexus.Pusher):
         Returns:
             User: A User.  May return None if there is no user by the requested name.
         '''
-        return self.usersbyname.get(name)
+        useriden = self.useridenbyname.get(name)
+        if useriden is not None:
+            return self.user(useriden)
 
     async def getUserIdenByName(self, name):
-        user = await self.getUserByName(name)
-        return None if user is None else user.iden
+        return self.useridenbyname.get(name)
+
+    def _getUserIden(self, name):
+        return self.usernamekv.get(name)
 
     async def getRoleByName(self, name):
-        return self.rolesbyname.get(name)
+        roleiden = self.roleidenbyname.get(name)
+        if roleiden is not None:
+            return self.role(roleiden)
 
-    def _initUser(self, info):
-
-        user = User(info, self)
-
-        self.usersbyiden[user.iden] = user
-        self.usersbyname[user.name] = user
-
-        return user
+    def _getRoleIden(self, name):
+        return self.rolenamekv.get(name)
 
     @s_nexus.Pusher.onPushAuto('user:profile:set')
     async def setUserProfileValu(self, iden, name, valu):
@@ -283,7 +293,7 @@ class Auth(s_nexus.Pusher):
         if not isinstance(name, str):
             raise s_exc.BadArg(mesg='setUserName() name must be a string')
 
-        user = self.usersbyname.get(name)
+        user = await self.getUserByName(name)
         if user is not None:
             if user.iden == iden:
                 return
@@ -291,8 +301,8 @@ class Auth(s_nexus.Pusher):
 
         user = await self.reqUser(iden)
 
-        self.usersbyname.pop(user.name, None)
-        self.usersbyname[name] = user
+        self.usernamekv.set(name, iden)
+        self.useridenbyname.pop(user.name)
 
         user.name = name
         user.info['name'] = name
@@ -309,7 +319,7 @@ class Auth(s_nexus.Pusher):
         if not isinstance(name, str):
             raise s_exc.BadArg(mesg='setRoleName() name must be a string')
 
-        role = self.rolesbyname.get(name)
+        role = await self.getRoleByName(name)
         if role is not None:
             if role.iden == iden:
                 return
@@ -321,8 +331,8 @@ class Auth(s_nexus.Pusher):
             mesg = 'Role "all" may not be renamed.'
             raise s_exc.BadArg(mesg=mesg)
 
-        self.rolesbyname.pop(role.name, None)
-        self.rolesbyname[name] = role
+        self.rolenamekv.set(name, iden)
+        self.roleidenbyname.pop(role.name)
 
         role.name = name
         role.info['name'] = name
@@ -359,6 +369,9 @@ class Auth(s_nexus.Pusher):
             info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
             gate.users.set(iden, info)
+
+            user.info['authgates'][gateiden] = info
+            self.userkv.set(iden, user.info)
         else:
             user.info[name] = s_msgpack.deepcopy(valu)
             self.userkv.set(iden, user.info)
@@ -388,6 +401,9 @@ class Auth(s_nexus.Pusher):
             info[name] = s_msgpack.deepcopy(valu)
             gate = self.reqAuthGate(gateiden)
             gate.roles.set(iden, info)
+
+            role.info['authgates'][gateiden] = info
+            self.rolekv.set(iden, role.info)
         else:
             role.info[name] = s_msgpack.deepcopy(valu)
             self.rolekv.set(iden, role.info)
@@ -401,15 +417,6 @@ class Auth(s_nexus.Pusher):
         await self.feedBeholder('role:info', mesg, gateiden=gateiden, logged=logged)
 
         role.clearAuthCache()
-
-    def _initRole(self, info):
-
-        role = Role(info, self)
-
-        self.rolesbyiden[role.iden] = role
-        self.rolesbyname[role.name] = role
-
-        return role
 
     def _initAuthGate(self, info):
         gate = AuthGate(info, self)
@@ -509,7 +516,7 @@ class Auth(s_nexus.Pusher):
 
         self.checkUserLimit()
 
-        if self.usersbyname.get(name) is not None:
+        if self.useridenbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
 
         if iden is None:
@@ -540,7 +547,7 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPush('user:add')
     async def _addUser(self, iden, name):
 
-        user = self.usersbyname.get(name)
+        user = self.useridenbyname.get(name)
         if user is not None:
             return
 
@@ -553,17 +560,20 @@ class Auth(s_nexus.Pusher):
             'passwd': None,
             'locked': False,
             'archived': False,
+            'authgates': {},
         }
 
         self.userkv.set(iden, info)
+        self.usernamekv.set(name, iden)
 
-        self._initUser(info)
+        user = User(info, self)
+        self.usersbyiden.put(iden, user)
+        self.useridenbyname.put(name, iden)
 
-        user = self.usersbyname.get(name)
         await self.feedBeholder('user:add', user.pack())
 
     async def addRole(self, name, iden=None):
-        if self.rolesbyname.get(name) is not None:
+        if self.roleidenbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
 
         if iden is None:
@@ -576,7 +586,7 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPush('role:add')
     async def _addRole(self, iden, name):
 
-        role = self.rolesbyname.get(name)
+        role = self.roleidenbyname.get(name)
         if role is not None:
             return
 
@@ -585,13 +595,16 @@ class Auth(s_nexus.Pusher):
             'name': name,
             'admin': False,
             'rules': (),
+            'authgates': {},
         }
 
         self.rolekv.set(iden, info)
+        self.rolenamekv.set(name, iden)
 
-        self._initRole(info)
+        role = Role(info, self)
+        self.rolesbyiden.put(iden, role)
+        self.roleidenbyname.put(name, iden)
 
-        role = self.rolesbyname.get(name)
         await self.feedBeholder('role:add', role.pack())
 
     async def delUser(self, iden):
@@ -612,7 +625,7 @@ class Auth(s_nexus.Pusher):
 
         udef = user.pack()
         self.usersbyiden.pop(user.iden)
-        self.usersbyname.pop(user.name)
+        self.useridenbyname.pop(user.name)
 
         for gate in self.authgates.values():
             await gate._delGateUser(user.iden)
@@ -620,6 +633,7 @@ class Auth(s_nexus.Pusher):
         await user.vars.truncate()
         await user.profile.truncate()
         self.userkv.delete(iden)
+        self.usernamekv.delete(user.name)
 
         await self.fire('user:del', udef=udef)
         await self.feedBeholder('user:del', {'iden': iden})
@@ -651,9 +665,10 @@ class Auth(s_nexus.Pusher):
             await gate._delGateRole(role.iden)
 
         self.rolesbyiden.pop(role.iden)
-        self.rolesbyname.pop(role.name)
+        self.roleidenbyname.pop(role.name)
 
         self.rolekv.delete(iden)
+        self.rolenamekv.delete(role.name)
         await self.feedBeholder('role:del', {'iden': iden})
 
 class AuthGate():
@@ -667,50 +682,37 @@ class AuthGate():
         self.iden = info.get('iden')
         self.type = info.get('type')
 
-        self.gateroles = {}  # iden -> Role
-        self.gateusers = {}  # iden -> User
+        self.gateroles = {}  # iden -> role info
+        self.gateusers = {}  # iden -> user info
 
         self.users = auth.stor.getSubKeyVal(f'gate:{self.iden}:user:')
         self.roles = auth.stor.getSubKeyVal(f'gate:{self.iden}:role:')
 
         for useriden, userinfo in self.users.items():
-            user = self.auth.user(useriden)
-            if user is None:  # pragma: no cover
-                logger.warning(f'AuthGate {self.iden} user {useriden} refers to unknown user')
-                continue
-
-            self.gateusers[user.iden] = user
-            user.authgates[self.iden] = userinfo
-            user.clearAuthCache()
+            self.gateusers[useriden] = userinfo
 
         for roleiden, roleinfo in self.roles.items():
-            role = self.auth.role(roleiden)
-            if role is None:  # pragma: no cover
-                logger.warning(f'AuthGate {self.iden} role {roleiden} refers to unknown role')
-                continue
-
-            self.gateroles[role.iden] = role
-            role.authgates[self.iden] = roleinfo
+            self.gateroles[roleiden] = roleinfo
 
     def genUserInfo(self, iden):
-        userinfo = self.users.get(iden)
-        if userinfo is None:
-            userinfo = {'iden': iden}
+        userinfo = self.gateusers.get(iden)
+        if userinfo is not None:
+            return userinfo
 
-        user = self.auth.user(iden)
-        self.gateusers[iden] = user
-        user.authgates[self.iden] = userinfo
+        userinfo = {'iden': iden}
+
+        self.gateusers[iden] = userinfo
 
         return userinfo
 
     def genRoleInfo(self, iden):
-        roleinfo = self.roles.get('iden')
-        if roleinfo is None:
-            roleinfo = {'iden': iden}
+        roleinfo = self.gateroles.get(iden)
+        if roleinfo is not None:
+            return roleinfo
 
-        role = self.auth.role(iden)
-        self.gateroles[iden] = role
-        role.authgates[self.iden] = roleinfo
+        roleinfo = {'iden': iden}
+
+        self.gateroles[iden] = roleinfo
 
         return roleinfo
 
@@ -724,50 +726,27 @@ class AuthGate():
 
     async def delete(self):
 
-        for _, user in list(self.gateusers.items()):
-            user.authgates.pop(self.iden, None)
-            user.clearAuthCache()
+        for useriden in self.gateusers.keys():
+            user = self.auth.user(useriden)
+            if user.authgates.pop(self.iden) is not None:
+                self.auth.userkv.set(useriden, user.info)
+                user.clearAuthCache()
 
-        for _, role in list(self.gateroles.items()):
-            role.authgates.pop(self.iden, None)
-            role.clearAuthCache()
+        for roleiden in self.gateroles.keys():
+            role = self.auth.role(roleiden)
+            if role.authgates.pop(self.iden) is not None:
+                self.auth.rolekv.set(roleiden, role.info)
+                role.clearAuthCache()
 
         self.auth.gatekv.delete(self.iden)
         await self.auth.stor.truncate(f'gate:{self.iden}:')
 
     def pack(self):
-
-        users = []
-        for user in self.gateusers.values():
-
-            gateinfo = user.authgates.get(self.iden)
-            if gateinfo is None:
-                continue
-
-            users.append({
-                'iden': user.iden,
-                'rules': gateinfo.get('rules', ()),
-                'admin': gateinfo.get('admin', False),
-            })
-
-        roles = []
-        for role in self.gateroles.values():
-
-            gateinfo = role.authgates.get(self.iden)
-            if gateinfo is None:
-                continue
-
-            roles.append({
-                'iden': role.iden,
-                'rules': gateinfo.get('rules', ()),
-                'admin': gateinfo.get('admin', False),
-            })
-
         return {
             'iden': self.iden,
             'type': self.type,
-            'users': users,
-            'roles': roles,
+            'users': list(self.gateusers.values()),
+            'roles': list(self.gateroles.values()),
         }
 
 class Ruler():
@@ -782,7 +761,7 @@ class Ruler():
         self.name = info.get('name')
         self.iden = info.get('iden')
 
-        self.authgates = {}
+        self.authgates = info.get('authgates')
 
     async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True, mesg=None):  # pragma: no cover
         raise s_exc.NoSuchImpl(mesg='Subclass must implement _setRulrInfo')

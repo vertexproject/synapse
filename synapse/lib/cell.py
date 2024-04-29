@@ -1267,43 +1267,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         rootnode = await self.hive.open(('auth',))
 
-        rolekv = authkv.getSubKeyVal('role:info:')
-        roles = await rootnode.open(('roles',))
-        for iden, node in roles:
-            roledict = await node.dict()
-            roleinfo = roledict.pack()
-
-            roleinfo['iden'] = iden
-            roleinfo['name'] = node.valu
-            roleinfo.setdefault('admin', False)
-            roleinfo.setdefault('rules', ())
-
-            rolekv.set(iden, roleinfo)
-
-        userkv = authkv.getSubKeyVal('user:info:')
-        users = await rootnode.open(('users',))
-        for iden, node in users:
-            userdict = await node.dict()
-            userinfo = userdict.pack()
-
-            userinfo['iden'] = iden
-            userinfo['name'] = node.valu
-            userinfo.setdefault('admin', False)
-            userinfo.setdefault('roles', ())
-            userinfo.setdefault('ruler', ())
-            userinfo.setdefault('locked', False)
-            userinfo.setdefault('passwd', None)
-            userinfo.setdefault('archived', False)
-
-            userkv.set(iden, userinfo)
-
-            varskv = authkv.getSubKeyVal(f'user:{iden}:vars:')
-            for name, varnode in await node.open(('vars',)):
-                varskv.set(name, varnode.valu)
-
-            profkv = authkv.getSubKeyVal(f'user:{iden}:profile:')
-            for name, profnode in await node.open(('profile',)):
-                profkv.set(name, profnode.valu)
+        gateroles = {}
+        gateusers = {}
 
         gatekv = authkv.getSubKeyVal('gate:info:')
         authgates = await rootnode.open(('authgates',))
@@ -1317,14 +1282,66 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for useriden, usernode in await node.open(('users',)):
                 userinfo = await usernode.dict()
                 userdict = userinfo.pack()
-                userdict[iden] = useriden
+                userdict['iden'] = useriden
                 authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
+
+                gateusers.setdefault(useriden, {})
+                gateusers[useriden][gateiden] = userdict
 
             for roleiden, rolenode in await node.open(('roles',)):
                 roleinfo = await rolenode.dict()
                 roledict = roleinfo.pack()
-                roledict[iden] = roleiden
+                roledict['iden'] = roleiden
                 authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
+
+                gateroles.setdefault(roleiden, {})
+                gateroles[roleiden][gateiden] = roledict
+
+        rolekv = authkv.getSubKeyVal('role:info:')
+        rolenamekv = authkv.getSubKeyVal('role:name:')
+
+        roles = await rootnode.open(('roles',))
+        for iden, node in roles:
+            roledict = await node.dict()
+            roleinfo = roledict.pack()
+
+            roleinfo['iden'] = iden
+            roleinfo['name'] = node.valu
+            roleinfo['authgates'] = gateroles.get(iden, {})
+            roleinfo.setdefault('admin', False)
+            roleinfo.setdefault('rules', ())
+
+            rolekv.set(iden, roleinfo)
+            rolenamekv.set(node.valu, iden)
+
+        userkv = authkv.getSubKeyVal('user:info:')
+        usernamekv = authkv.getSubKeyVal('user:name:')
+
+        users = await rootnode.open(('users',))
+        for iden, node in users:
+            userdict = await node.dict()
+            userinfo = userdict.pack()
+
+            userinfo['iden'] = iden
+            userinfo['name'] = node.valu
+            userinfo['authgates'] = gateusers.get(iden, {})
+            userinfo.setdefault('admin', False)
+            userinfo.setdefault('roles', ())
+            userinfo.setdefault('ruler', ())
+            userinfo.setdefault('locked', False)
+            userinfo.setdefault('passwd', None)
+            userinfo.setdefault('archived', False)
+
+            userkv.set(iden, userinfo)
+            usernamekv.set(node.valu, iden)
+
+            varskv = authkv.getSubKeyVal(f'user:{iden}:vars:')
+            for name, varnode in await node.open(('vars',)):
+                varskv.set(name, varnode.valu)
+
+            profkv = authkv.getSubKeyVal(f'user:{iden}:profile:')
+            for name, profnode in await node.open(('profile',)):
+                profkv.set(name, profnode.valu)
 
         await rootnode.fini()
 

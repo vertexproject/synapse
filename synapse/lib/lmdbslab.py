@@ -279,6 +279,27 @@ class SafeKeyVal:
         for lkey, byts in genr:
             yield lkey.decode('utf8'), s_msgpack.un(byts)
 
+    def keys(self, pref=''):
+
+        if self.prefix is not None:
+            pref = self.prefix + pref
+
+        if len(pref) > 511:
+            raise s_exc.BadArg('SafeKeyVal.keys() may only be used with keys < 512 characters in length.'
+)
+        if not pref:
+            genr = self.slab.scanKeysByFull(db=self.valudb)
+        else:
+            genr = self.slab.scanKeysByPref(pref.encode('utf8'), db=self.valudb)
+
+        if self.prefix is not None:
+            for lkey in genr:
+                yield lkey[self.preflen:].decode('utf8')
+            return
+
+        for lkey in genr:
+            yield lkey.decode('utf8')
+
     def values(self, pref=''):
 
         if self.prefix is not None:

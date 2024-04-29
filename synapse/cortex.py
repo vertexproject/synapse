@@ -1001,11 +1001,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # TODO - Remove this in 3.0.0
         ag = await self.auth.addAuthGate('cortex', 'cortex')
-        for (useriden, user) in ag.gateusers.items():
+        for useriden in ag.gateusers.keys():
+            user = self.auth.user(useriden)
+            if user is None:
+                continue
+
             mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
             logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
-        for (roleiden, role) in ag.gateroles.items():
+        for roleiden in ag.gateroles.keys():
+            role = self.auth.role(roleiden)
+            if role is None:
+                continue
+
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
             logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
