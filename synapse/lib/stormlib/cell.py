@@ -2,11 +2,16 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
-import synapse.lib.const as s_const
+import synapse.lib.autodoc as s_autodoc
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+def prepHotfixDesc(txt):
+    lines = txt.split('\n')
+    lines = s_autodoc.scrubLines(lines)
+    lines = s_autodoc.ljuster(lines)
+    return lines
 
 storm_missing_autoadds = '''
 $absoluteOrder = $lib.view.list(deporder=$lib.true)
@@ -68,7 +73,7 @@ storm_migrate_riskhasvuln = '''
 for $view in $lib.view.list(deporder=$lib.true) {
     view.exec $view.iden {
         risk:hasvuln
-        $lib.model.migrations.riskHasVuln($node)
+        $lib.model.migration.s.riskHasVulnToVulnerable($node)
     }
 }
 '''
@@ -87,7 +92,17 @@ hotfixes = (
         'query': storm_missing_cpe22,
     }),
     ((4, 0, 0), {
-        'desc': 'Create risk:vulnerable nodes from existing risk:hasvuln nodes.',
+        'desc': '''
+            Create risk:vulnerable nodes from existing risk:hasvuln nodes.
+
+            This hotfix should only be applied after all logic that would create
+            risk:hasvuln nodes has been updated. The hotfix uses the
+            $lib.model.migration.s.riskHasVulnToVulnerable() function,
+            which can be used directly for testing.
+
+            Tags, tag properties, edges, and node data will all be copied
+            to the risk:vulnerable nodes.
+        ''',
         'query': storm_migrate_riskhasvuln,
     }),
 )
@@ -186,7 +201,9 @@ class CellLib(s_stormtypes.Lib):
             assert desc is not None
             assert vars is not None
 
-            await self.runt.printf(f'Applying hotfix {vers} for [{desc}]')
+            title = prepHotfixDesc(desc)[0]
+            await self.runt.printf(f'Applying hotfix {vers} for [{title}]')
+
             try:
                 query = await self.runt.getStormQuery(text)
                 async with self.runt.getSubRuntime(query, opts={'vars': vars}) as runt:
@@ -218,8 +235,15 @@ class CellLib(s_stormtypes.Lib):
                 continue
 
             dowork = True
-            desc = info.get('desc')
-            await self.runt.printf(f'Would apply fix {vers} for [{desc}]')
+
+            desclines = prepHotfixDesc(info.get('desc'))
+            await self.runt.printf(f'Would apply fix {vers} for [{desclines[0]}]')
+            if lines := desclines[1:]:
+                for line in lines:
+                    line = f'    {line}' if line else ''
+                    await self.runt.printf(line)
+            else:
+                await self.runt.printf('')
 
         return dowork
 

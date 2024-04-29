@@ -822,6 +822,8 @@ class LibModelMigrations(s_stormtypes.Lib):
         {'name': 'riskHasVulnToVulnerable', 'desc': '''
             Create a risk:vulnerable node from the provided risk:hasvuln node.
 
+            Edits will be made to the risk:vulnerable node in the current write layer.
+
             If multiple vulnerable properties are set on the risk:hasvuln node
             multiple risk:vulnerable nodes will be created (each with a unique guid).
             Otherwise, a single risk:vulnerable will be created with the same guid

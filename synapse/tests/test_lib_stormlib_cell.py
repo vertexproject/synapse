@@ -340,8 +340,17 @@ class StormCellTest(s_test.SynTest):
                 ]
             ''', opts={'view': view2}))
 
-            opts = {'vars': {'key': s_stormlib_cell.runtime_fixes_key, 'valu': (3, 0, 0)}}
+            opts = {'vars': {'key': s_stormlib_cell.runtime_fixes_key, 'valu': (2, 0, 0)}}
             await core.callStorm('$lib.globals.set($key, $valu)', opts)
+
+            msgs = await core.stormlist('$lib.cell.hotFixesCheck()')
+            printmesgs = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.isin('Would apply fix (3, 0, 0)', printmesgs[0])
+            self.eq('', printmesgs[1])
+            self.isin('Would apply fix (4, 0, 0)', printmesgs[2])
+            self.eq('', printmesgs[3])
+            self.isin('This hotfix should', printmesgs[4])
+            self.eq('', printmesgs[-1])
 
             msgs = await core.stormlist('$lib.cell.hotFixesApply()')
             self.stormIsInPrint('Applying hotfix (4, 0, 0) for [Create risk:vulnerable nodes', msgs)
