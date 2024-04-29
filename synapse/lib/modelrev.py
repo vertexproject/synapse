@@ -736,6 +736,31 @@ class ModelRev:
     async def revModel_0_2_23(self, layers):
         await self._normFormSubs(layers, 'inet:ipv6')
 
+    async def revModel_0_2_24(self, layers):
+        await self._normPropValu(layers, 'risk:mitigation:name')
+        await self._normPropValu(layers, 'it:mitre:attack:technique:name')
+        await self._normPropValu(layers, 'it:mitre:attack:mitigation:name')
+
+        formprops = {}
+        for prop in self.core.model.getPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for prop in self.core.model.getArrayPropsByType('velocity'):
+            formname = prop.form.name
+            if formname not in formprops:
+                formprops[formname] = []
+
+            formprops[formname].append(prop)
+
+        for form, props in formprops.items():
+            await self._normVelocityProps(layers, form, props)
+
+    async def revModel_0_2_25(self, layers):
+
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         nodeedits = []
@@ -849,28 +874,6 @@ class ModelRev:
             if nodeedits:
                 await save()
 
-    async def revModel_0_2_24(self, layers):
-        await self._normPropValu(layers, 'risk:mitigation:name')
-        await self._normPropValu(layers, 'it:mitre:attack:technique:name')
-        await self._normPropValu(layers, 'it:mitre:attack:mitigation:name')
-
-        formprops = {}
-        for prop in self.core.model.getPropsByType('velocity'):
-            formname = prop.form.name
-            if formname not in formprops:
-                formprops[formname] = []
-
-            formprops[formname].append(prop)
-
-        for prop in self.core.model.getArrayPropsByType('velocity'):
-            formname = prop.form.name
-            if formname not in formprops:
-                formprops[formname] = []
-
-            formprops[formname].append(prop)
-
-        for form, props in formprops.items():
-            await self._normVelocityProps(layers, form, props)
 
     async def runStorm(self, text, opts=None):
         '''
@@ -1259,3 +1262,105 @@ class ModelRev:
         }
         '''
         await self.runStorm(storm, opts=opts)
+
+# The several functions below this comment are the old norm functions for CPE.
+# They are here to support migrations from the old parsing to the new parsing.
+def cpesplit(text):
+    part = ''
+    parts = []
+
+    genr = iter(text)
+    try:
+        while True:
+
+            c = next(genr)
+
+            if c == '\\':
+                c += next(genr)
+
+            if c == ':':
+                parts.append(part)
+                part = ''
+                continue
+
+            part += c
+
+    except StopIteration:
+        parts.append(part)
+
+    return parts
+
+def _zipCpe22(parts):
+    parts = list(parts)
+    while parts and parts[-1] in ('', '*'):
+        parts.pop()
+    text = ':'.join(parts[:7])
+    return f'cpe:/{text}'
+
+def cpe22_norm(valu):
+    if isinstance(valu, (list, tuple)):
+        return _zipCpe22(valu), {}
+
+    text = valu.lower()
+    if text.startswith('cpe:/'):
+        parts = _chopCpe22(text)
+    elif text.startswith('cpe:2.3:'):
+        parts = cpesplit(text[8:])
+    else:
+        mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+        raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+    return _zipCpe22(parts), {}
+
+def _chopCpe22(text):
+    '''
+    CPE 2.2 Formatted String
+    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+    '''
+    if not text.startswith('cpe:/'):
+        mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+    _, text = text.split(':/', 1)
+    parts = cpesplit(text)
+    if len(parts) > 7:
+        mesg = f'CPE 2.2 string has {len(parts)} parts, expected <= 7.'
+        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+    return parts
+
+def cpe23_norm(valu):
+    text = valu.lower()
+    if text.startswith('cpe:2.3:'):
+        parts = cpesplit(text[8:])
+        if len(parts) > 11:
+            mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        extsize = 11 - len(parts)
+        parts.extend(['*' for _ in range(extsize)])
+    elif text.startswith('cpe:/'):
+        # automatically normalize CPE 2.2 format to CPE 2.3
+        parts = _chopCpe22(text)
+        extsize = 11 - len(parts)
+        parts.extend(['*' for _ in range(extsize)])
+    else:
+        mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
+        raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+    subs = {
+        'v2_2': _zipCpe22(parts),
+        'part': parts[0],
+        'vendor': parts[1],
+        'product': parts[2],
+        'version': parts[3],
+        'update': parts[4],
+        'edition': parts[5],
+        'language': parts[6],
+        'sw_edition': parts[7],
+        'target_sw': parts[8],
+        'target_hw': parts[9],
+        'other': parts[10],
+    }
+
+    return 'cpe:2.3:' + ':'.join(parts), {'subs': subs}

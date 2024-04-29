@@ -433,6 +433,50 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.23') as core:
             self.len(1, await core.nodes('inet:ipv6="ff01::1" +:type=multicast +:scope=interface-local'))
 
+    async def test_modelrev_0_2_24(self):
+        async with self.getRegrCore('model-0.2.24') as core:
+
+            self.len(2, await core.nodes('transport:sea:telem:speed'))
+
+            self.len(1, await core.nodes('transport:air:telem:speed'))
+            self.len(1, await core.nodes('transport:air:telem:airspeed'))
+            self.len(1, await core.nodes('transport:air:telem:verticalspeed'))
+
+            self.len(2, await core.nodes('mat:item:_multispeed'))
+            nodes = await core.nodes('mat:item:_multispeed*[=5]')
+            self.len(1, nodes)
+            self.eq((5, 6), nodes[0].get('_multispeed'))
+
+            nodes = await core.nodes('transport:sea:telem:speed=4')
+            self.len(1, nodes)
+            self.eq(4, nodes[0].get('speed'))
+
+            nodes = await core.nodes('transport:air:telem')
+            node = nodes[0]
+            self.eq(1, node.get('speed'))
+            self.eq(2, node.get('airspeed'))
+            self.eq(3, node.get('verticalspeed'))
+
+            q = 'transport:sea:telem=(badvalu,) $node.data.load(_migrated:transport:sea:telem:speed)'
+            nodes = await core.nodes(q)
+            self.eq(-1.0, await nodes[0].getData('_migrated:transport:sea:telem:speed'))
+
+            nodes = await core.nodes('risk:mitigation=(foo,)')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].get('name'))
+            self.len(1, await core.nodes('risk:mitigation:name="  Foo Bar  "'))
+
+            nodes = await core.nodes('it:mitre:attack:mitigation=M0100')
+            self.len(1, nodes)
+            self.eq('patchstuff', nodes[0].get('name'))
+
+            nodes = await core.nodes('it:mitre:attack:technique=T0100')
+            self.len(1, nodes)
+            self.eq('lockpicking', nodes[0].get('name'))
+
+    async def test_modelrev_0_2_25(self):
+        async with self.getRegrCore('model-0.2.25') as core:
+
             nodes = await core.nodes('it:sec:cpe:vendor=zyxel')
             self.len(1, nodes)
             self.eq(nodes[0].get('version'), '5.21(aazf.14)c0')
@@ -488,44 +532,3 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:sec:cpe:vendor=vendor2')
             self.len(1, nodes)
             self.eq(nodes[0].get('product'), 'product%23')
-
-    async def test_modelrev_0_2_24(self):
-        async with self.getRegrCore('model-0.2.24') as core:
-
-            self.len(2, await core.nodes('transport:sea:telem:speed'))
-
-            self.len(1, await core.nodes('transport:air:telem:speed'))
-            self.len(1, await core.nodes('transport:air:telem:airspeed'))
-            self.len(1, await core.nodes('transport:air:telem:verticalspeed'))
-
-            self.len(2, await core.nodes('mat:item:_multispeed'))
-            nodes = await core.nodes('mat:item:_multispeed*[=5]')
-            self.len(1, nodes)
-            self.eq((5, 6), nodes[0].get('_multispeed'))
-
-            nodes = await core.nodes('transport:sea:telem:speed=4')
-            self.len(1, nodes)
-            self.eq(4, nodes[0].get('speed'))
-
-            nodes = await core.nodes('transport:air:telem')
-            node = nodes[0]
-            self.eq(1, node.get('speed'))
-            self.eq(2, node.get('airspeed'))
-            self.eq(3, node.get('verticalspeed'))
-
-            q = 'transport:sea:telem=(badvalu,) $node.data.load(_migrated:transport:sea:telem:speed)'
-            nodes = await core.nodes(q)
-            self.eq(-1.0, await nodes[0].getData('_migrated:transport:sea:telem:speed'))
-
-            nodes = await core.nodes('risk:mitigation=(foo,)')
-            self.len(1, nodes)
-            self.eq('foo bar', nodes[0].get('name'))
-            self.len(1, await core.nodes('risk:mitigation:name="  Foo Bar  "'))
-
-            nodes = await core.nodes('it:mitre:attack:mitigation=M0100')
-            self.len(1, nodes)
-            self.eq('patchstuff', nodes[0].get('name'))
-
-            nodes = await core.nodes('it:mitre:attack:technique=T0100')
-            self.len(1, nodes)
-            self.eq('lockpicking', nodes[0].get('name'))

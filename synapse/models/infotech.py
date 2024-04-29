@@ -55,6 +55,11 @@ def cpe_escape(text):
     textlen = len(text)
 
     for idx, char in enumerate(text):
+        # Spaces are NOT valid in CPE strings. We've had some customers report
+        if char == ' ' and idx != 0 and idx != textlen - 1:
+            ret += '_'
+            continue
+
         if char not in FSB_ESCAPE_CHARS:
             ret += char
             continue
@@ -118,8 +123,8 @@ def cpe_unescape(text):
     textlen = len(text)
 
     # Add a dash (-) to the escaped characters list so we can unescape it. Note
-    # that dashes are NOT supposed to be escaped per the specification but here
-    # we are.
+    # that dashes are NOT supposed to be escaped per the specification but some
+    # customers have reported CPE strings from data vendors with escaped dashes.
     _FSB_ESCAPE_CHARS = FSB_ESCAPE_CHARS + ['-']
 
     for idx, char in enumerate(text):
