@@ -1199,7 +1199,7 @@ range of individual values (such as ``time`` or ``int``).
 
 .. TIP::
   
-  By definition, an ``ival`` is a **pair** of date/time values treated as a single cobmined value. This means that
+  By definition, an ``ival`` is a **pair** of date/time values treated as a single combined value. This means that
   when using variables_ to work with ``ival`` types, the full value of the property is assigned to the variable by
   default. For example, given a node (such as an ``inet:dns:a`` node) with a ``.seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
   the variable assignment ``$time = .seen`` will assign the **pair** of date/times to ``$time``.
