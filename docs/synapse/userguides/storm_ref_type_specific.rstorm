@@ -1446,7 +1446,7 @@ Synapse will automatically normalize the value by:
 
 In the above example:
 
-- the dash in ``us-cisa`` is convereted to an underscore;
+- the dash in ``us-cisa`` is converted to an underscore;
 - ``LAPSUS`` is lowercased to ``lapsus``; and
 - the dollar sign ( ``$`` ) is ignored.
 
