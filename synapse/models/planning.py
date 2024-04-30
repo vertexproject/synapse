@@ -52,7 +52,7 @@ class PlanModule(s_module.CoreModule):
                 )),
                 ('plan:phase', {}, (
                     ('title', ('str', {}), {
-                        'ex': 'Reconisence Phase',
+                        'ex': 'Reconnaissance Phase',
                         'doc': 'The title of the phase.'}),
 
                     ('summary', ('str', {}), {
