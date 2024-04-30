@@ -200,6 +200,19 @@ class SafeKeyVal:
 
         return SafeKeyVal(self.slab, self.name, prefix=prefix)
 
+    def reqValidName(self, name):
+
+        _name = name.encode('utf-8')
+
+        if self._prefix:
+            _name = self._prefix + _name
+
+        if len(_name) > 511:
+            maxlen = 511 - self.preflen
+            mesg = 'SafeKeyVal keys with prefix {self.prefix} must be less < {maxlen} bytes in length.'
+            raise s_exc.BadArg(mesg, prefix=self.prefix, name=name[:1024])
+        return _name
+
     def get(self, name, defv=None):
         '''
         Get the value for a key.
@@ -207,11 +220,7 @@ class SafeKeyVal:
         Note:
             This may only be used for keys < 512 characters in length.
         '''
-        name = self._prefix + name.encode('utf8')
-
-        if len(name) > 511:
-            mesg = 'SafeKeyVal.get() may only be used with keys < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
+        name = self.reqValidName(name)
 
         if (byts := self.slab.get(name, db=self.valudb)) is None:
             return defv
@@ -219,22 +228,14 @@ class SafeKeyVal:
 
     def set(self, name, valu):
 
-        name = self._prefix + name.encode('utf8')
-
-        if len(name) > 511:
-            mesg = 'SafeKeyVal.set() may only be used with keys < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
+        name = self.reqValidName(name)
 
         self.slab.put(name, s_msgpack.en(valu), db=self.valudb)
         return valu
 
     def pop(self, name, defv=None):
 
-        name = self._prefix + name.encode('utf8')
-
-        if len(name) > 511:
-            mesg = 'SafeKeyVal.pop() may only be used with keys < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
+        name = self.reqValidName(name)
 
         if (byts := self.slab.pop(name, db=self.valudb)) is not None:
             return s_msgpack.un(byts)
@@ -244,23 +245,14 @@ class SafeKeyVal:
         '''
         Delete a key.
         '''
-        name = self._prefix + name.encode('utf8')
-
-        if len(name) > 511:
-            mesg = 'SafeKeyVal.delete() may only be used with keys < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, name=name[:1024])
-
+        name = self.reqValidName(name)
         return self.slab.delete(name, db=self.valudb)
 
     async def truncate(self, pref=''):
         '''
         Delete all keys.
         '''
-        pref = self._prefix + pref.encode('utf8')
-
-        if len(pref) > 511:
-            mesg = 'SafeKeyVal.truncate() may only be used with prefixes < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, prefix=pref[:1024])
+        pref = self.reqValidName(pref)
 
         if not pref:
             genr = self.slab.scanKeys(db=self.valudb)
@@ -273,11 +265,7 @@ class SafeKeyVal:
 
     def items(self, pref=''):
 
-        pref = self._prefix + pref.encode('utf8')
-
-        if len(pref) > 511:
-            mesg = 'SafeKeyVal.items() may only be used with prefixes < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, prefix=pref[:1024])
+        pref = self.reqValidName(pref)
 
         if not pref:
             genr = self.slab.scanByFull(db=self.valudb)
@@ -294,11 +282,7 @@ class SafeKeyVal:
 
     def keys(self, pref=''):
 
-        pref = self._prefix + pref.encode('utf8')
-
-        if len(pref) > 511:
-            mesg = 'SafeKeyVal.keys() may only be used with prefixes < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, prefix=pref[:1024])
+        pref = self.reqValidName(pref)
 
         if not pref:
             genr = self.slab.scanKeys(db=self.valudb)
@@ -315,11 +299,7 @@ class SafeKeyVal:
 
     def values(self, pref=''):
 
-        pref = self._prefix + pref.encode('utf8')
-
-        if len(pref) > 511:
-            mesg = 'SafeKeyVal.values() may only be used with prefixes < 512 bytes in length.'
-            raise s_exc.BadArg(mesg, prefix=pref[:1024])
+        pref = self.reqValidName(pref)
 
         if not pref:
             genr = self.slab.scanByFull(db=self.valudb)
