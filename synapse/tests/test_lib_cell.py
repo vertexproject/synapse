@@ -2660,3 +2660,81 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)
+
+    async def test_cell_nexus_compat(self):
+        with mock.patch('synapse.lib.cell.NEXUS_VERSION', 0):
+            async with self.getRegrCore('hive-migration') as core0:
+                with mock.patch('synapse.lib.cell.NEXUS_VERSION', 1):
+                    conf = {'mirror': core0.getLocalUrl()}
+                    async with self.getRegrCore('hive-migration', conf=conf) as core1:
+                        await core1.sync()
+
+                        await core1.nodes('$lib.user.vars.set(foo, bar)')
+                        self.eq('bar', await core0.callStorm('return($lib.user.vars.get(foo))'))
+
+                        await core1.nodes('$lib.user.vars.pop(foo)')
+                        self.none(await core0.callStorm('return($lib.user.vars.get(foo))'))
+
+                        await core1.nodes('$lib.user.profile.set(bar, baz)')
+                        self.eq('baz', await core0.callStorm('return($lib.user.profile.get(bar))'))
+
+                        await core1.nodes('$lib.user.profile.pop(bar)')
+                        self.none(await core0.callStorm('return($lib.user.profile.get(bar))'))
+
+                        self.eq(0, core1.nexsvers)
+                        await core0.setNexsVers(1)
+                        await core1.sync()
+                        self.eq(1, core1.nexsvers)
+
+                        await core1.nodes('$lib.user.vars.set(foo, bar)')
+                        self.eq('bar', await core0.callStorm('return($lib.user.vars.get(foo))'))
+
+                        await core1.nodes('$lib.user.vars.pop(foo)')
+                        self.none(await core0.callStorm('return($lib.user.vars.get(foo))'))
+
+                        await core1.nodes('$lib.user.profile.set(bar, baz)')
+                        self.eq('baz', await core0.callStorm('return($lib.user.profile.get(bar))'))
+
+                        await core1.nodes('$lib.user.profile.pop(bar)')
+                        self.none(await core0.callStorm('return($lib.user.profile.get(bar))'))
+
+    async def test_cell_hive_migration(self):
+        async with self.getRegrCore('hive-migration') as core:
+            visi = await core.auth.getUserByName('visi')
+            asvisi = {'user': visi.iden}
+
+            valu = await core.callStorm('return($lib.user.vars.get(foovar))', opts=asvisi)
+            self.eq('barvalu', valu)
+
+            valu = await core.callStorm('return($lib.user.profile.get(fooprof))', opts=asvisi)
+            self.eq('barprof', valu)
+
+            msgs = await core.stormlist('cron.list')
+            self.stormIsInPrint('visi       4f179a4e', msgs)
+            self.stormIsInPrint('[tel:mob:telem=*]', msgs)
+
+            msgs = await core.stormlist('dmon.list')
+            self.stormIsInPrint('5baea074cdab6631a86787faa2ca6586:  (foodmon             ): running', msgs)
+
+            msgs = await core.stormlist('trigger.list')
+            self.stormIsInPrint('visi       64e59ed3aa2eff46325972f636cc26a1', msgs)
+            self.stormIsInPrint('[ +#count test:str=$tag ]', msgs)
+
+            msgs = await core.stormlist('testcmd0 foo')
+            self.stormIsInPrint('foo haha', msgs)
+
+            msgs = await core.stormlist('testcmd1')
+            self.stormIsInPrint('hello', msgs)
+
+            msgs = await core.stormlist('model.deprecated.locks')
+            self.stormIsInPrint('ou:hasalias', msgs)
+
+            nodes = await core.nodes('_visi:int')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('tick'), 1577836800000,)
+            self.eq(node.get('._woot'), 5)
+            self.nn(node.getTagProp('test', 'score'), 6)
+
+            with self.raises(s_exc.BadTag):
+                await core.nodes('[ it:dev:str=foo +#test.newp ]')
