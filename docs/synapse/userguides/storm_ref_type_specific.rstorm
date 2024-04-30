@@ -247,7 +247,8 @@ The literal uppercase letter "D" is used to represent the number of days. When e
 string, single or double quotes are required in accordance with the standard rules for using
 :ref:`storm-whitespace-literals`.
   
-A ``duration`` can also be specified as the number of milliseconds expressed as an integer value enclosed in parentheses:
+A ``duration`` can also be specified as the number of milliseconds expressed as an integer value
+enclosed in parentheses:
   
   ``(218262777)``
 
@@ -256,6 +257,10 @@ A ``duration`` can also be specified as the number of milliseconds expressed as 
   Similar to :ref:`type-time` types, Synapse expects that users will generally enter duration values using
   "human friendly" strings, and will attempt to parse the input as such. Using parentheses tells Synapse
   to interpret the value as a raw integer.
+  
+  Note that this parentheses syntax only applies when setting or updating a ``duration`` property using
+  Storm. When setting or updating a property in the `Optic UI`_ by editing a field, you must enter a
+  duration string value.
 
 
 Insertion
@@ -304,13 +309,14 @@ values to millisecond resolution.
 Operations
 ++++++++++
 
-As ``duration`` types are stored as integers and support any operations suitable for those types. This
-includes:
+As ``duration`` types are stored as integers, they support any operations suitable for integer values.
+This includes:
 
 - comparison using mathematical operators (such as greater than ( ``>``));
 - finding low or high values using the :ref:`storm-min` or :ref:`storm-max` commands;
 - use of the range ( ``*range=`` ) comparison operator;
-- etc.
+
+...etc.
 
 
 .. _type-file:
@@ -432,7 +438,7 @@ Creating ``file:bytes`` nodes in this manner is often done programmatically (suc
 :ref:`gloss-power-up`) that can download or ingest files. Other options include:
 
 - the built-in Synapse :ref:`storm-wget` command;
-- the  **Upload File** menu option available from the Synapse UI (`Optic`_), which allows you to either
+- the  **Upload File** menu option available from the `Optic UI`_, which allows you to either
   upload a file from local disk, or download a file from a specified URL; or
 - the ``pushfile`` tool, available from the CLI in the community version of Synapse (see :ref:`syn-tools-pushfile`).
 
@@ -1701,12 +1707,14 @@ Parsing
     
     ``(1544953072324)``
     
-    .. NOTE::
-      
-      Synapse expects time values to be entered as parseable time **strings** (such as 2018/12/16 09:37:52.324,
-      which Synapse internally converts to a millis integer for storage). To enter a time in raw epoch millis
-      format, you must enclose it in parentheses so that Synapse interprets the value as a raw integer.
-      (Otherwise, Synapse will attempt to interpret the value as a "no formatting" string, and throw an error.)
+    .. TIP::
+    
+    Synapse expects that users will generally enter time values using "human friendly" strings, and will attempt
+    to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
+    
+    Note that this parentheses syntax only applies when setting or updating a ``time`` property using Storm.
+    When setting or updating a property in the `Optic UI`_ by editing a field, you must enter a time string value.
+
 
 - **Relative** (offset) time values in the format:
   
@@ -1944,7 +1952,7 @@ See the Storm documents referenced above for additional examples using the inter
 
 .. _documentation: ../autodocs/datamodel_types.html
 .. _code: https://github.com/vertexproject/synapse
-.. _Optic: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _Optic UI: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 .. _Microsoft: https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
 .. _variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
