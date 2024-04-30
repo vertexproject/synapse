@@ -7958,7 +7958,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)', msgs)
 
                     # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
