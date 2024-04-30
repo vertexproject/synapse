@@ -1708,12 +1708,12 @@ Parsing
     ``(1544953072324)``
     
     .. TIP::
-    
-    Synapse expects that users will generally enter time values using "human friendly" strings, and will attempt
-    to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
-    
-    Note that this parentheses syntax only applies when setting or updating a ``time`` property using Storm.
-    When setting or updating a property in the `Optic UI`_ by editing a field, you must enter a time string value.
+      
+      Synapse expects that users will generally enter time values using "human friendly" strings, and will attempt
+      to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
+      
+      Note that this parentheses syntax only applies when setting or updating a ``time`` property using Storm.
+      When setting or updating a property in the `Optic UI`_ by editing a field, you must enter a time string value.
 
 
 - **Relative** (offset) time values in the format:
