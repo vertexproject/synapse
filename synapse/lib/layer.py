@@ -167,11 +167,13 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait, compat=compat):
             yield item
+            await asyncio.sleep(0)
 
     async def syncNodeEdits2(self, offs, wait=True, compat=False):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item
+            await asyncio.sleep(0)
 
     async def getEditIndx(self):
         '''
