@@ -179,19 +179,13 @@ class ProtoNode(s_node.NodeBase):
     async def addEdge(self, verb, n2nid):
 
         if not isinstance(verb, str):
-            mesg = f'addEdge() got an invalid type for verb: {verb}'
-            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
-            return False
+            raise s_exc.BadArg(f'addEdge() got an invalid type for verb: {verb}')
 
         if not isinstance(n2nid, bytes):
-            mesg = f'addEdge() got an invalid type for n2nid: {n2nid}'
-            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
-            return False
+            raise s_exc.BadArg(f'addEdge() got an invalid type for n2nid: {n2nid}')
 
         if len(n2nid) != 8:
-            mesg = f'addEdge() got an invalid node id: {n2nid}'
-            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
-            return False
+            raise s_exc.BadArg(f'addEdge() got an invalid node id: {n2nid}')
 
         tupl = (verb, n2nid)
         if tupl in self.edges:
@@ -231,19 +225,13 @@ class ProtoNode(s_node.NodeBase):
     async def delEdge(self, verb, n2nid):
 
         if not isinstance(verb, str):
-            mesg = f'delEdge() got an invalid type for verb: {verb}'
-            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
-            return False
+            raise s_exc.BadArg(f'delEdge() got an invalid type for verb: {verb}')
 
         if not isinstance(n2nid, bytes):
-            mesg = f'delEdge() got an invalid type for n2nid: {n2nid}'
-            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
-            return False
+            raise s_exc.BadArg(f'delEdge() got an invalid type for n2nid: {n2nid}')
 
         if len(n2nid) != 8:
-            mesg = f'delEdge() got an invalid node id: {n2nid}'
-            await self.editor._raiseOnStrict(s_exc.BadArg, mesg)
-            return False
+            raise s_exc.BadArg(f'delEdge() got an invalid node id: {n2nid}')
 
         tupl = (verb, n2nid)
         if tupl in self.edgedels or tupl in self.edgetombs:
@@ -323,12 +311,7 @@ class ProtoNode(s_node.NodeBase):
         if await self.getData(name) == valu:
             return
 
-        try:
-            s_common.reqjsonsafe(valu)
-        except s_exc.MustBeJsonSafe as e:
-            if self.editor.strict:
-                raise e
-            return await self.editor.warn(str(e))
+        s_common.reqjsonsafe(valu)
 
         self.nodedata[name] = valu
 
@@ -356,15 +339,7 @@ class ProtoNode(s_node.NodeBase):
 
     async def _getRealTag(self, tag):
 
-        try:
-            normtupl = self.editor.view.core.getTagNorm(tag)
-        except (s_exc.BadTag, s_exc.BadTypeValu) as e:
-            if self.editor.strict:
-                raise e
-            await self.editor.warn(e.errinfo.get('mesg'))
-            return None
-
-        norm, info = normtupl
+        norm, info = self.editor.view.core.getTagNorm(tag)
         tagnode = await self.editor.view.getTagNode(norm)
         if tagnode is not s_common.novalu:
             return self.editor.loadNode(tagnode)
@@ -409,9 +384,6 @@ class ProtoNode(s_node.NodeBase):
         if tagnode is None:
             tagnode = await self._getRealTag(tag)
 
-        if tagnode is None:
-            return
-
         if isinstance(valu, list):
             valu = tuple(valu)
 
@@ -419,10 +391,8 @@ class ProtoNode(s_node.NodeBase):
             try:
                 valu, _ = self.editor.view.core.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
-                if self.editor.strict:
-                    e.set('tag', tagnode.valu)
-                    raise e
-                return await self.editor.warn(f'Invalid Tag Value: {tagnode.valu}={valu}.')
+                e.errinfo['tag'] = tagnode.valu
+                raise e
 
         tagup = tagnode.get('up')
         if tagup:
@@ -583,16 +553,9 @@ class ProtoNode(s_node.NodeBase):
 
         prop = self.editor.view.core.model.getTagProp(name)
         if prop is None:
-            mesg = f'Tagprop {name} does not exist in this Cortex.'
-            return await self.editor._raiseOnStrict(s_exc.NoSuchTagProp, mesg)
+            raise s_exc.NoSuchTagProp(f'Tagprop {name} does not exist in this Cortex.')
 
-        try:
-            norm, info = prop.type.norm(valu)
-        except s_exc.BadTypeValu as e:
-            if self.editor.strict:
-                raise e
-            await self.editor.warn(f'Bad property value: #{tagnode.valu}:{prop.name}={valu!r}')
-            return False
+        norm, info = prop.type.norm(valu)
 
         curv = self.getTagProp(tagnode.valu, name)
         if curv == norm:
@@ -608,8 +571,7 @@ class ProtoNode(s_node.NodeBase):
 
         prop = self.editor.view.core.model.getTagProp(name)
         if prop is None:
-            mesg = f'Tagprop {name} does not exist in this Cortex.'
-            return await self.editor._raiseOnStrict(s_exc.NoSuchTagProp, mesg, name=name)
+            raise s_exc.NoSuchTagProp(f'Tagprop {name} does not exist in this Cortex.', name=name)
 
         (curv, layr) = self.getTagPropWithLayer(tag, name)
         if curv is None:
@@ -659,16 +621,12 @@ class ProtoNode(s_node.NodeBase):
     async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
-            mesg = f'Prop {prop.full} is locked due to deprecation.'
-            await self.editor._raiseOnStrict(s_exc.IsDeprLocked, mesg)
-            return False
+            raise s_exc.IsDeprLocked(f'Prop {prop.full} is locked due to deprecation.')
 
         if isinstance(prop.type, s_types.Array):
             arrayform = self.editor.view.core.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
-                mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.editor._raiseOnStrict(s_exc.IsDeprLocked, mesg)
-                return False
+                raise s_exc.IsDeprLocked(f'Prop {prop.full} is locked due to deprecation.')
 
         if norminfo is None:
             try:
@@ -678,26 +636,19 @@ class ProtoNode(s_node.NodeBase):
                 e.errinfo['prop'] = prop.name
                 e.errinfo['form'] = prop.form.name
                 e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
-                if self.editor.strict:
-                    raise e
-                await self.editor.warn(e)
-                return False
+                raise e
 
         if isinstance(prop.type, s_types.Ndef):
             ndefform = self.editor.view.core.model.form(valu[0])
             if ndefform.locked:
-                mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.editor._raiseOnStrict(s_exc.IsDeprLocked, mesg)
-                return False
+                raise s_exc.IsDeprLocked(f'Prop {prop.full} is locked due to deprecation.')
 
         curv = self.get(prop.name)
         if curv == valu:
             return False
 
         if prop.info.get('ro') and curv is not None:
-            mesg = f'Property is read only: {prop.full}.'
-            await self.editor._raiseOnStrict(s_exc.ReadOnlyProp, mesg)
-            return False
+            raise s_exc.ReadOnlyProp(f'Property is read only: {prop.full}.')
 
         if self.node is not None:
             await self.editor.view.core._callPropSetHook(self.node, prop, valu)
@@ -711,9 +662,7 @@ class ProtoNode(s_node.NodeBase):
     async def set(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
         if prop is None:
-            mesg = f'No property named {name} on form {self.form.name}.'
-            await self.editor._raiseOnStrict(s_exc.NoSuchProp, mesg)
-            return False
+            raise s_exc.NoSuchProp(f'No property named {name} on form {self.form.name}.')
 
         retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
@@ -744,18 +693,14 @@ class ProtoNode(s_node.NodeBase):
 
         prop = self.form.prop(name)
         if prop is None:
-            mesg = f'No property named {name}.'
-            await self.editor._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name, form=self.form.name)
-            return False
+            raise s_exc.NoSuchProp(f'No property named {name}.', name=name, form=self.form.name)
 
         (valu, layr) = self.getWithLayer(name, defv=s_common.novalu)
         if valu is s_common.novalu:
             return False
 
         if prop.info.get('ro'):
-            mesg = f'Property is read only: {prop.full}.'
-            await self.editor._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
-            return False
+            raise s_exc.ReadOnlyProp(f'Property is read only: {prop.full}.', name=prop.full)
 
         self.props.pop(name, None)
 
@@ -817,38 +762,17 @@ class NodeEditor:
     '''
     A NodeEditor allows tracking node edits with subs/deps as a transaction.
     '''
-    def __init__(self, view, user, runt=None, strict=True):
-        self.runt = runt
+    def __init__(self, view, user):
         self.user = user
         self.view = view
         self.protonodes = {}
         self.maxnodes = view.core.maxnodes
-        self.strict = strict
 
     def getEditorMeta(self):
         return {
             'time': s_common.now(),
             'user': self.user.iden
         }
-
-    async def _raiseOnStrict(self, ctor, mesg, **info):
-        if self.strict:
-            raise ctor(mesg=mesg, **info)
-
-        if self.runt is not None:
-            await self.runt.warn(mesg)
-        else:
-            logger.warning(mesg)
-
-        return None
-
-    async def warn(self, mesg, **info):
-        if self.runt is not None:
-            await self.runt.warn(mesg, **info)
-
-    async def warnonce(self, mesg, **info):
-        if self.runt is not None:
-            await self.runt.warnonce(mesg, **info)
 
     async def getNodeByBuid(self, buid):
         node = await self.view.getNodeByBuid(buid)
@@ -873,22 +797,17 @@ class NodeEditor:
         self.view.core._checkMaxNodes()
 
         if form.isrunt:
-            mesg = f'Cannot make runt nodes: {form.name}.'
-            return await self._raiseOnStrict(s_exc.IsRuntForm, mesg)
+            raise s_exc.IsRuntForm(f'Cannot make runt nodes: {form.name}.')
 
         if form.locked:
-            mesg = f'Form {form.full} is locked due to deprecation for valu={valu}.'
-            return await self._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            raise s_exc.IsDeprLocked(f'Form {form.full} is locked due to deprecation for valu={valu}.')
 
         if norminfo is None:
             try:
                 valu, norminfo = form.type.norm(valu)
             except s_exc.BadTypeValu as e:
                 e.errinfo['form'] = form.name
-                if self.strict: raise e
-                if self.runt is not None:
-                    await self.runt.warn(f'addNode() BadTypeValu {form.name}={valu} {e}')
-                return None
+                raise e
 
         return valu, norminfo
 
@@ -896,8 +815,7 @@ class NodeEditor:
 
         form = self.view.core.model.form(formname)
         if form is None:
-            mesg = f'No form named {formname} for valu={valu}.'
-            return await self._raiseOnStrict(s_exc.NoSuchForm, mesg)
+            raise s_exc.NoSuchForm(f'No form named {formname} for valu={valu}.')
 
         retn = await self._addNode(form, valu, props=props, norminfo=norminfo)
         if retn is None:
@@ -915,9 +833,7 @@ class NodeEditor:
 
         form = self.view.core.model.form(formname)
         if form is None:
-            mesg = f'No form named {formname} for valu={valu}.'
-            await self._raiseOnStrict(s_exc.NoSuchForm, mesg)
-            return()
+            raise s_exc.NoSuchForm(f'No form named {formname} for valu={valu}.')
 
         retn = await self._addNode(form, valu, props=props, norminfo=norminfo)
         if retn is None:

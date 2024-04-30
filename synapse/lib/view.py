@@ -313,7 +313,7 @@ class View(s_nexus.Pusher):  # type: ignore
         return saveoff, nodeedits
 
     @contextlib.asynccontextmanager
-    async def getNodeEditor(self, node, runt=None, transaction=False, user=None, strict=True):
+    async def getNodeEditor(self, node, runt=None, transaction=False, user=None):
 
         if node.form.isrunt:
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
@@ -329,7 +329,7 @@ class View(s_nexus.Pusher):  # type: ignore
             user = self.core.auth.rootuser
 
         errs = False
-        editor = s_editor.NodeEditor(self, user, runt=runt, strict=strict)
+        editor = s_editor.NodeEditor(self, user)
         protonode = editor.loadNode(node)
 
         try:
@@ -351,7 +351,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     await self.saveNodeEdits(nodeedits, meta, bus=bus)
 
     @contextlib.asynccontextmanager
-    async def getEditor(self, runt=None, transaction=False, user=None, strict=True):
+    async def getEditor(self, runt=None, transaction=False, user=None):
 
         if runt is None:
             runt = s_scope.get('runt')
@@ -363,7 +363,7 @@ class View(s_nexus.Pusher):  # type: ignore
             user = self.core.auth.rootuser
 
         errs = False
-        editor = s_editor.NodeEditor(self, user, runt=runt, strict=strict)
+        editor = s_editor.NodeEditor(self, user)
 
         try:
             yield editor
@@ -2204,29 +2204,46 @@ class View(s_nexus.Pusher):  # type: ignore
         if props is not None:
             props.pop('.created', None)
 
-        async with self.getEditor(strict=False, user=user) as editor:
+        async with self.getEditor(user=user) as editor:
 
-            protonode = await editor.addNode(formname, formvalu, props=props)
-            if protonode is None:
+            try:
+                protonode = await editor.addNode(formname, formvalu, props=props)
+            except Exception:
+                logger.exception(f'Error adding node {formname}={formvalu}')
                 return
 
             tags = forminfo.get('tags')
             if tags is not None:
                 for tagname, tagvalu in tags.items():
-                    await protonode.addTag(tagname, tagvalu)
+                    try:
+                        await protonode.addTag(tagname, tagvalu)
+                    except Exception:
+                        mesg = f'Error adding tag {tagname}'
+                        if tagvalu is not None:
+                            mesg += f'={tagvalu}'
+                        mesg += f' to node {formname}={formvalu}'
+                        logger.exception(mesg)
 
             nodedata = forminfo.get('nodedata')
             if isinstance(nodedata, dict):
                 for dataname, datavalu in nodedata.items():
                     if not isinstance(dataname, str):
                         continue
-                    await protonode.setData(dataname, datavalu)
+
+                    try:
+                        await protonode.setData(dataname, datavalu)
+                    except Exception:
+                        logger.exception(f'Error adding nodedata {dataname} to node {formname}={formvalu}')
 
             tagprops = forminfo.get('tagprops')
             if tagprops is not None:
                 for tag, props in tagprops.items():
                     for name, valu in props.items():
-                        await protonode.setTagProp(tag, name, valu)
+                        try:
+                            await protonode.setTagProp(tag, name, valu)
+                        except Exception:
+                            mesg = f'Error adding tagprop {tag}:{name}={valu} to node {formname}={formvalu}'
+                            logger.exception(mesg)
 
             if (edges := forminfo.get('edges')) is not None:
                 n2adds = []
@@ -2255,18 +2272,26 @@ class View(s_nexus.Pusher):  # type: ignore
                     else:
                         continue
 
-                    await protonode.addEdge(verb, n2nid)
+                    try:
+                        await protonode.addEdge(verb, n2nid)
+                    except Exception:
+                        logger.exception(f'Error adding edge -(verb)> {n2iden} to node {formname}={formvalu}')
 
                 if n2adds:
-                    async with self.getEditor(strict=False) as n2editor:
+                    async with self.getEditor() as n2editor:
                         for (n2ndef, verb, n2buid) in n2adds:
-                            await n2editor.addNode(*n2ndef)
-                            break
+                            try:
+                                await n2editor.addNode(*n2ndef)
+                            except Exception:
+                                n2form, n2valu = n2ndef
+                                logger.exception(f'Error adding node {n2form}={n2valu}')
 
                     for (n2ndef, verb, n2buid) in n2adds:
                         if (nid := self.core.getNidByBuid(n2buid)) is not None:
-                            await protonode.addEdge(verb, nid)
-                        break
+                            try:
+                                await protonode.addEdge(verb, nid)
+                            except Exception:
+                                logger.exception(f'Error adding edge -(verb)> {n2iden} to node {formname}={formvalu}')
 
         return await self.getNodeByBuid(protonode.buid)
 

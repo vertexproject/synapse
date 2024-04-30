@@ -3045,23 +3045,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             mesg = json.loads(buf.split('\n')[0])
             self.eq(mesg.get('view'), view)
 
-    async def test_strict(self):
-
-        async with self.getTestCore() as core:
-
-            async with core.view.getEditor() as editor:
-
-                node = await editor.addNode('test:str', 'foo')
-
-                await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
-                await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
-
-                editor.strict = False
-                self.none(await editor.addNode('test:str', s_common.novalu))
-
-                self.false(await node.set('newpnewp', 10))
-                self.false(await node.set('tick', (20, 30)))
-
     async def test_getcoremods(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

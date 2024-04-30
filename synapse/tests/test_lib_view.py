@@ -1230,20 +1230,6 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchTagProp):
                     await news.delTagProp('newp', 'newp')
 
-                editor.strict = False
-                self.false(await news.addEdge(1, fqdn.nid))
-                self.false(await news.addEdge('pwns', 1))
-                self.false(await news.addEdge('pwns', 'bar'))
-                self.false(await news.addEdge('pwns', fqdn.nid[:7]))
-                self.false(await news.delEdge(1, fqdn.nid))
-                self.false(await news.delEdge('pwns', 1))
-                self.false(await news.delEdge('pwns', 'bar'))
-                self.false(await news.delEdge('pwns', fqdn.nid[:7]))
-
-                tstr = await editor.addNode('test:str', 'foo')
-                self.false(await tstr.delEdge('pwns', news.nid))
-                self.eq((None, None), tstr.getWithLayer('.seen'))
-
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 
             self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))

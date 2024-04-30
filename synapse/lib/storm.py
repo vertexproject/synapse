@@ -4017,7 +4017,7 @@ class MergeCmd(Cmd):
             sode = sodes[0]
 
             if self.opts.apply:
-                editor = s_editor.NodeEditor(runt.view.parent, user=runt.user, strict=False)
+                editor = s_editor.NodeEditor(runt.view.parent, user=runt.user)
 
             subs = []
 
