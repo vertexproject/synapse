@@ -1563,7 +1563,7 @@ For example, you can construct a taxonomy (set of categories) to help subdivide 
   
   For example, the Synapse-Mandiant commercial Power-Up may create industries (``ou:industry`` nodes)
   whose ``:type`` value will be set to ``mandiant``. Similarly, Mandiant categorizes threat actor tools
-  and malware, so ``risk:tool:software`` nodes created by the Power-Up will have their ``:taxonomy``
+  and malware, so ``risk:tool:software`` nodes created by the Power-Up will have their ``:type``
   property set to values such as ``mandiant.backdoor`` or ``mandiant.utility``.
   
   Organizations can choose to leave these forms and values as they are, or can overwrite the taxonomy
