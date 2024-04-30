@@ -1975,30 +1975,28 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_push_pull_default_migration(self):
         async with self.getRegrCore('2.159.0-layr-pdefs') as core:
-            def_tree = await core.saveHiveTree(('cortex', 'layers', '507ebf7e6ec7aadc47ace6f1f8f77954'))
-            dst_tree = await core.saveHiveTree(('cortex', 'layers', '9bf7a3adbf69bd16832529ab1fcd1c83'))
+            def_tree = core.getLayer('507ebf7e6ec7aadc47ace6f1f8f77954').layrinfo
+            dst_tree = core.getLayer('9bf7a3adbf69bd16832529ab1fcd1c83').layrinfo
 
-            epulls = {'value':
-                          {'28cb757e9e390a234822f55b922f3295':
-                               {'chunk:size': 1000,
-                                'iden': '28cb757e9e390a234822f55b922f3295',
-                                'offs': 0,
-                                'queue:size': 10000,
-                                'time': 1703781215891,
-                                'url': 'cell://./cells/pdefmigr00:*/layer/9bf7a3adbf69bd16832529ab1fcd1c83',
-                                'user': '1d8e6e87a2931f8d27690ff408debdab'}}}
-            epushs = {'value':
-                          {'e112f93f09e43f3a10ae945b84721778':
-                               {'chunk:size': 1000,
-                                'iden': 'e112f93f09e43f3a10ae945b84721778',
-                                'offs': 0,
-                                'queue:size': 10000,
-                                'time': 1703781208684,
-                                'url': 'cell://./cells/pdefmigr00:*/layer/9bf7a3adbf69bd16832529ab1fcd1c83',
-                                'user': '1d8e6e87a2931f8d27690ff408debdab'}}}
+            epulls = {'28cb757e9e390a234822f55b922f3295':
+                           {'chunk:size': 1000,
+                            'iden': '28cb757e9e390a234822f55b922f3295',
+                            'offs': 0,
+                            'queue:size': 10000,
+                            'time': 1703781215891,
+                            'url': 'cell://./cells/pdefmigr00:*/layer/9bf7a3adbf69bd16832529ab1fcd1c83',
+                            'user': '1d8e6e87a2931f8d27690ff408debdab'}}
+            epushs = {'e112f93f09e43f3a10ae945b84721778':
+                           {'chunk:size': 1000,
+                            'iden': 'e112f93f09e43f3a10ae945b84721778',
+                            'offs': 0,
+                            'queue:size': 10000,
+                            'time': 1703781208684,
+                            'url': 'cell://./cells/pdefmigr00:*/layer/9bf7a3adbf69bd16832529ab1fcd1c83',
+                            'user': '1d8e6e87a2931f8d27690ff408debdab'}}
 
-            self.eq(def_tree.get('kids').get('pulls'), epulls)
-            self.eq(def_tree.get('kids').get('pushs'), epushs)
+            self.eq(def_tree.get('pulls'), epulls)
+            self.eq(def_tree.get('pushs'), epushs)
 
-            self.notin('pulls', dst_tree.get('kids'))
-            self.notin('pushs', dst_tree.get('kids'))
+            self.notin('pulls', dst_tree)
+            self.notin('pushs', dst_tree)

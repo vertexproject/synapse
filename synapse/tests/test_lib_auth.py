@@ -8,7 +8,7 @@ from synapse.tests.utils import alist
 
 class AuthTest(s_test.SynTest):
 
-    async def test_hive_auth(self):
+    async def test_auth(self):
 
         async with self.getTestCore() as core:
 
@@ -132,6 +132,12 @@ class AuthTest(s_test.SynTest):
             self.nn(await auth.getUserByName('user2'))
             self.none(await auth.getUserByName('user1'))
 
+            with self.raises(s_exc.NoSuchRole):
+                await auth.reqRoleByName('newp')
+
+            with self.raises(s_exc.NoSuchAuthGate):
+                await auth.delAuthGate('newp')
+
     async def test_hive_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs
@@ -184,11 +190,11 @@ class AuthTest(s_test.SynTest):
             async with await s_telepath.openurl(turl, user='root', passwd='secret') as proxy:
                 await proxy.getCellInfo()
 
-    async def test_hive_authgate_perms(self):
+    async def test_authgate_perms(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            # We can retrieve the hivegate information
+            # We can retrieve the authgate information
             gate = await prox.getAuthGate(core.view.iden)
             self.eq(gate['users'][0], {
                 'iden': core.auth.rootuser.iden,
@@ -285,14 +291,23 @@ class AuthTest(s_test.SynTest):
                 await prox.delRole(friends['iden'])
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
 
+                friends = await prox.addRole('friends')
+                await prox.addRoleRule(friends['iden'], rule, gateiden=layriden)
+
+                friends = await prox.getRoleInfo('friends')
+                self.isin(layriden, friends['authgates'])
+
                 wlyr = view2.layers[0]
 
                 await core.delView(view2.iden)
                 await core.delLayer(wlyr.iden)
 
-                # Verify that trashing the layer and view deletes the authgate from the hive
+                # Verify that trashing the layer and view deletes the authgate
                 self.none(core.auth.getAuthGate(wlyr.iden))
                 self.none(core.auth.getAuthGate(view2.iden))
+
+                friends = await prox.getRoleInfo('friends')
+                self.notin(layriden, friends['authgates'])
 
                 # Verify that trashing the write layer deletes the remaining rules and backing store
                 self.false(pathlib.Path(wlyr.dirn).exists())
@@ -301,7 +316,7 @@ class AuthTest(s_test.SynTest):
                 self.len(0, fred.getRules(gateiden=wlyr.iden))
                 self.len(0, fred.getRules(gateiden=view2.iden))
 
-    async def test_hive_auth_persistence(self):
+    async def test_auth_persistence(self):
 
         with self.getTestDir() as fdir:
 
@@ -344,7 +359,7 @@ class AuthTest(s_test.SynTest):
                 self.none(await core.auth.getUserByName('fred'))
                 self.none(await core.auth.getRoleByName('friends'))
 
-    async def test_hive_auth_invalid(self):
+    async def test_auth_invalid(self):
 
         async with self.getTestCore() as core:
             with self.raises(s_exc.BadArg):

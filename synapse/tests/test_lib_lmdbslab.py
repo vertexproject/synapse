@@ -1491,6 +1491,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 newp = 'a' * 512
 
                 with self.raises(s_exc.BadArg):
+                    safekv.getSubKeyVal(newp)
+
+                with self.raises(s_exc.BadArg):
                     safekv.get(newp)
 
                 with self.raises(s_exc.BadArg):
