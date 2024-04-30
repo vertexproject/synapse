@@ -233,7 +233,7 @@ duration
 Indexing
 ++++++++
 
-A ``duration`` is stored as an integer value representing the number of epoch milliseconds (epoch millis).
+A ``duration`` is stored as an integer value representing the number of milliseconds.
 
 Parsing
 +++++++
@@ -247,7 +247,7 @@ The literal uppercase letter "D" is used to represent the number of days. When e
 string, single or double quotes are required in accordance with the standard rules for using
 :ref:`storm-whitespace-literals`.
   
-A ``duration`` can also be specified as the number of epoch milliseconds, enclosed in parentheses:
+A ``duration`` can also be specified as the number of milliseconds expressed as an integer value enclosed in parentheses:
   
   ``(218262777)``
 
@@ -1201,7 +1201,7 @@ range of individual values (such as ``time`` or ``int``).
   
   By definition, an ``ival`` is a **pair** of date/time values treated as a single cobmined value. This means that
   when using variables_ to work with ``ival`` types, the full value of the property is assigned to the variable by
-  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``.seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47.612)``,
+  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``.seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
   the variable assignment ``$time = .seen`` will assign the **pair** of date/times to ``$time``.
   
   You can access each date/time of an ``ival`` independently by assigning the value to a **pair** of variables
@@ -1209,7 +1209,7 @@ range of individual values (such as ``time`` or ``int``).
   
   ``( $min, $max ) = .seen``
   
-  ``$min`` will represent the value ``2023/07/08 11:19:02`` and ``$max`` will represent the value ``2023/12/14 21:18:47.612``.
+  ``$min`` will represent the value ``2023/07/08 11:19:02`` and ``$max`` will represent the value ``2023/12/14 21:18:47``.
 
 
 .. _type-loc:
@@ -1527,14 +1527,14 @@ taxonomy
 --------
 
 A ``taxonomy`` in Synapse is used to represent a hierarchical set of categories that can be used to classify
-objects (forms). Many forms in Synapse include ``taxonomy`` properties (such as ``ou:camptype`` or ``risk:tool:software:taxonomy``).
+objects (forms). Many forms in Synapse include ``taxonomy`` properties (such as ``risk:tool:software:type`` or ``ps:contact:type``).
 
 .. TIP::
 
    ``taxonomy`` is a base type that is commonly extended to define form-specific taxonomies. That is, a
-   campaign (``ou:campaign``) has a ``:camptype`` property that can represent a set of campaign types or
-   categories. Similarly, a tool (``risk:tool:software``) has a ``:type`` property that can represent
-   a set of categories for tools/malware. Each of these taxonomy properties is its own type.
+   tool (``risk:tool:software``) has a ``:type`` property that can represent a set of tool/malware types
+   or categories. The ``risk:tool:software:type`` property has a form-specific taxonomy type of
+   ``risk:tool:software:taxonomy``.
    
    While this section describes the behavior of taxonomies generally, keep in mind that each form can
    have its own taxonomy / set of categories independent of other taxonomies.
@@ -1616,11 +1616,11 @@ Operations
 Like strings and other string-derived types, ``taxonomy`` types are **prefix-indexed**. This means that
 ``taxonomy`` values can be lifted and filtered using the prefix comparison operator ( ``^=`` ).
 
-When lifting and filtering ``taxonomy`` types by prefix, the expression to match is not constrained by the dot
-( ``.`` ) boundary that separates taxonomy elements.
+When lifting and filtering ``taxonomy`` types by prefix, the expression to match is **not** constrained by
+the dot ( ``.`` ) boundary that separates taxonomy elements.
 
 Prefix comparison for ``taxonomy`` types is useful because it allows you to easily identify a subset of
-forms based on lifting or filtering those forms using any appropriate level of resolution within a the
+forms based on lifting or filtering those forms using any appropriate level of resolution within the
 form's taxonomy.
 
 **Examples:**
