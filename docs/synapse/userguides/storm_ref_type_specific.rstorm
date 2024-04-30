@@ -60,7 +60,7 @@ You can view all secondary properties that are ``array`` types using the followi
 
 .. TIP::
   
-  Some forms includue both a singluar and an array property for the same type. This allows you to record a
+  Some forms include both a singular and an array property for the same type. This allows you to record a
   primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``),
   or a primary and optional secondary values (e.g., such as  ``ou:campaign:goal`` and ``ou:campaign:goals``).
 
@@ -275,7 +275,7 @@ Or:
 .. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
 
 Values can be set at any level of granularity; e.g., ``[ :duration = 19D ]`` is acceptable, as are
-values to milisecond resolution.
+values to millisecond resolution.
 
 .. NOTE::
 
@@ -293,7 +293,7 @@ values to milisecond resolution.
   
   That said, in cases where a node has start, end, and duration properties and you have two of the
   three values, you can use variables_ to calculate and set the third value. For example, given a
-  ``risk:compromise:name = 'my compromise``  with ``:time = '2023/09/22 10:40'`` and
+  ``risk:compromise:name = 'my compromise'``  with ``:time = '2023/09/22 10:40'`` and
   ``:lasttime = '2023/10/06 14:00'`` you could set the ``:duration`` value using the following Storm query:
   
   ``risk:compromise:name='my compromise' $min=:time $max=:lasttime [ :duration=( $max - $min ) ]``
@@ -1527,14 +1527,15 @@ taxonomy
 --------
 
 A ``taxonomy`` in Synapse is used to represent a hierarchical set of categories that can be used to classify
-objects (forms). Many forms in Synapse include ``taxonomy`` properties (such as ``risk:tool:software:type`` or ``ps:contact:type``).
+objects (forms). Many forms in Synapse include ``taxonomy`` properties (such as ``risk:tool:software:type``
+or ``ps:contact:type``).
 
 .. TIP::
 
    ``taxonomy`` is a base type that is commonly extended to define form-specific taxonomies. That is, a
    tool (``risk:tool:software``) has a ``:type`` property that can represent a set of tool/malware types
    or categories. The ``risk:tool:software:type`` property has a form-specific taxonomy type of
-   ``risk:tool:software:taxonomy``.
+   ``risk:tool:software:taxonomy`` (which is also its own form).
    
    While this section describes the behavior of taxonomies generally, keep in mind that each form can
    have its own taxonomy / set of categories independent of other taxonomies.
