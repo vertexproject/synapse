@@ -190,7 +190,7 @@ class AhaPool(s_stormtypes.StormType):
                        'desc': 'The name of the AHA service to add. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'add', 'desc': '''Remove a service from the AHA pool.
+        {'name': 'del', 'desc': '''Remove a service from the AHA pool.
 
         Examples:
             Remove a service from a pool with its relative name::
@@ -203,7 +203,7 @@ class AhaPool(s_stormtypes.StormType):
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to remove. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'list', 'desc': 'The services removed from the pool.'}}},
     )
     _storm_typename = 'aha:pool'
 
@@ -243,9 +243,16 @@ class AhaPool(s_stormtypes.StormType):
         proxy = await self.runt.snap.core.reqAhaProxy()
 
         poolname = self.poolinfo.get('name')
-        await proxy.delAhaPoolSvc(poolname, svcname)
+        newinfo = await proxy.delAhaPoolSvc(poolname, svcname)
 
-        self.poolinfo = await proxy.getAhaPool(poolname)
+        tname = svcname
+        if tname.endswith('...'):
+            tname = tname[:-2]
+        deleted_services = [svc for svc in self.poolinfo.get('services').keys() if svc not in newinfo.get('services') and svc.startswith(tname)]
+
+        self.poolinfo = newinfo
+
+        return deleted_services
 
 stormcmds = (
     {
@@ -319,8 +326,12 @@ stormcmds = (
             $pool = $lib.aha.pool.get($cmdopts.poolname)
             if (not $pool) { $lib.exit(`No AHA service pool named: {$cmdopts.poolname}`) }
 
-            $pool.del($cmdopts.svcname)
-            $lib.print(`AHA service ({$cmdopts.svcname}) removed from service pool ({$pool.name})`)
+            $svcs = $pool.del($cmdopts.svcname)
+            if $svcs {
+                $lib.print(`AHA service ({$svcs.0}) removed from service pool ({$pool.name})`)
+            } else {
+                $lib.print(`Did not remove ({$cmdopts.svcname}) from the service pool.`)
+            }
         ''',
     },
     {
