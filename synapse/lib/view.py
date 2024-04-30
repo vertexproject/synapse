@@ -2175,8 +2175,10 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.reqValid()
 
+        runt = s_scope.get('runt')
+
         if user is None:
-            if (runt := s_scope.get('runt')) is not None:
+            if runt is not None:
                 user = runt.user
             else:
                 user = self.core.auth.rootuser
@@ -2186,13 +2188,13 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.IsReadOnly(mesg=mesg)
 
         for nodedefn in nodedefs:
-            node = await self._addNodeDef(nodedefn, user=user)
+            node = await self._addNodeDef(nodedefn, user=user, runt=runt)
             if node is not None:
                 yield node
 
             await asyncio.sleep(0)
 
-    async def _addNodeDef(self, nodedefn, user):
+    async def _addNodeDef(self, nodedefn, user, runt=None):
 
         n2buids = set()
 
@@ -2207,17 +2209,34 @@ class View(s_nexus.Pusher):  # type: ignore
         async with self.getEditor(user=user) as editor:
 
             try:
-                protonode = await editor.addNode(formname, formvalu, props=props)
-            except Exception:
+                protonode = await editor.addNode(formname, formvalu)
+            except Exception as e:
+                if runt is not None:
+                    await runt.warn(str(e))
+
                 logger.exception(f'Error adding node {formname}={formvalu}')
                 return
+
+            if props is not None:
+                for propname, propvalu in props.items():
+                    try:
+                        await protonode.set(propname, propvalu)
+                    except Exception as e:
+                        if runt is not None:
+                            await runt.warn(str(e))
+
+                        mesg = f'Error adding prop {propname}={propvalu} to node {formname}={formvalu}'
+                        logger.exception(mesg)
 
             tags = forminfo.get('tags')
             if tags is not None:
                 for tagname, tagvalu in tags.items():
                     try:
                         await protonode.addTag(tagname, tagvalu)
-                    except Exception:
+                    except Exception as e:
+                        if runt is not None:
+                            await runt.warn(str(e))
+
                         mesg = f'Error adding tag {tagname}'
                         if tagvalu is not None:
                             mesg += f'={tagvalu}'
@@ -2232,7 +2251,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     try:
                         await protonode.setData(dataname, datavalu)
-                    except Exception:
+                    except Exception as e:
+                        if runt is not None:
+                            await runt.warn(str(e))
+
                         logger.exception(f'Error adding nodedata {dataname} to node {formname}={formvalu}')
 
             tagprops = forminfo.get('tagprops')
@@ -2241,7 +2263,10 @@ class View(s_nexus.Pusher):  # type: ignore
                     for name, valu in props.items():
                         try:
                             await protonode.setTagProp(tag, name, valu)
-                        except Exception:
+                        except Exception as e:
+                            if runt is not None:
+                                await runt.warn(str(e))
+
                             mesg = f'Error adding tagprop {tag}:{name}={valu} to node {formname}={formvalu}'
                             logger.exception(mesg)
 
@@ -2274,7 +2299,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     try:
                         await protonode.addEdge(verb, n2nid)
-                    except Exception:
+                    except Exception as e:
+                        if runt is not None:
+                            await runt.warn(str(e))
+
                         logger.exception(f'Error adding edge -(verb)> {n2iden} to node {formname}={formvalu}')
 
                 if n2adds:
@@ -2282,7 +2310,10 @@ class View(s_nexus.Pusher):  # type: ignore
                         for (n2ndef, verb, n2buid) in n2adds:
                             try:
                                 await n2editor.addNode(*n2ndef)
-                            except Exception:
+                            except Exception as e:
+                                if runt is not None:
+                                    await runt.warn(str(e))
+
                                 n2form, n2valu = n2ndef
                                 logger.exception(f'Error adding node {n2form}={n2valu}')
 
@@ -2290,7 +2321,10 @@ class View(s_nexus.Pusher):  # type: ignore
                         if (nid := self.core.getNidByBuid(n2buid)) is not None:
                             try:
                                 await protonode.addEdge(verb, nid)
-                            except Exception:
+                            except Exception as e:
+                                if runt is not None:
+                                    await runt.warn(str(e))
+
                                 logger.exception(f'Error adding edge -(verb)> {n2iden} to node {formname}={formvalu}')
 
         return await self.getNodeByBuid(protonode.buid)
