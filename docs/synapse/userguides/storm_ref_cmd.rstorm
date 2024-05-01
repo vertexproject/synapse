@@ -2729,20 +2729,17 @@ specified value or combination of values.
   
   inet:flow | uniq (:src:ipv4, :dst:ipv4)
 
-- Alerts (``risk:alert``) nodes can be categorized in various ways. This includes ``:priority`` and ``:severity``
-  properties, both of which use a set of fixed text values (e.g., "low" vs. "highest") that correspond to integers
-  (e.g., 20 vs. 50). These integer values could be summed to provide a relative "urgency" metric based on the combined
-  priority and severity values. You want to lift a set of alerts (``risk:alert`` nodes) representing the unique set of
-  total values as a sampling of this data:
+- Nodes can be uniqued based on variables. Alert (``risk:alert``) nodes can be categorized in various ways. This
+  includes ``:priority`` and ``:severity`` properties, both of which use a set of fixed text values (e.g., "low" vs.
+  "highest") that  correspond to integers (e.g., 20 vs. 50). These integer values could be joined together in a
+  variable to provide a sample of alerts which have unique combinations of those values:
 
-.. storm-pre:: [ (risk:alert=* :name='Cat sitting in front of monitor' :priority=20 :severity=20) (risk:alert=* :name='Out of coffee' :priority=10 :severity=50) (risk:alert=* :name='Laptop BIOS update bricked system' :priority=50 :severity=50) (risk:alert=* :name='New version of favorite Power-Up released' :priority=30 :severity=30) ]
-.. storm-pre:: risk:alert:priority +:severity $pri=:priority $sev=:severity $urgency=($pri + $sev) | uniq $urgency
+.. storm-pre:: [ (risk:alert=* :name='Cat sitting in front of monitor' :priority=20 :severity=20) (risk:alert=* :name='Out of coffee' :priority=10 :severity=50) (risk:alert=* :name='Laptop BIOS update bricked system' :priority=50 :severity=50) (risk:alert=* :name='New version of favorite Power-Up released' :priority=50 :severity=50) ]
+.. storm-pre:: risk:alert:priority +:severity $pri=:priority $sev=:severity $value=($pri, $sev) | uniq $value
 ::
   
-  risk:alert:priority +:severity $pri=:priority $sev=:severity $urgency=($pri + $sev) | uniq $urgency
+  risk:alert:priority +:severity $pri=:priority $sev=:severity $value=($pri, $sev) | uniq $value
 
-
-.. storm
 
 .. _storm-uptime:
 
