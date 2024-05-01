@@ -203,7 +203,7 @@ class AhaPool(s_stormtypes.StormType):
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to remove. It is easiest to use the relative name of a service, ending with "...".', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'The services removed from the pool.'}}},
+                  'returns': {'type': ['null', 'str'], 'desc': 'The service removed from the pool or null if a service was not removed.'}}},
     )
     _storm_typename = 'aha:pool'
 
@@ -248,11 +248,15 @@ class AhaPool(s_stormtypes.StormType):
         tname = svcname
         if tname.endswith('...'):
             tname = tname[:-2]
-        deleted_services = [svc for svc in self.poolinfo.get('services').keys() if svc not in newinfo.get('services') and svc.startswith(tname)]
+        deleted_service = None
+        deleted_services = [svc for svc in self.poolinfo.get('services').keys()
+                            if svc not in newinfo.get('services') and svc.startswith(tname)]
+        if deleted_services:
+            deleted_service = deleted_services[0]
 
         self.poolinfo = newinfo
 
-        return deleted_services
+        return deleted_service
 
 stormcmds = (
     {
@@ -326,9 +330,9 @@ stormcmds = (
             $pool = $lib.aha.pool.get($cmdopts.poolname)
             if (not $pool) { $lib.exit(`No AHA service pool named: {$cmdopts.poolname}`) }
 
-            $svcs = $pool.del($cmdopts.svcname)
-            if $svcs {
-                $lib.print(`AHA service ({$svcs.0}) removed from service pool ({$pool.name})`)
+            $svc = $pool.del($cmdopts.svcname)
+            if $svc {
+                $lib.print(`AHA service ({$svc}) removed from service pool ({$pool.name})`)
             } else {
                 $lib.print(`Did not remove ({$cmdopts.svcname}) from the service pool.`)
             }
