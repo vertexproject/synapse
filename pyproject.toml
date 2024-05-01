@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.166.0'
+version = '2.167.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -40,7 +40,7 @@ dependencies = [
     'Pygments>=2.7.4,<2.18.0',
     'packaging>=20.0,<24.0',
     'fastjsonschema>=2.18.0,<2.20.0',
-    'stix2-validator>=3.0.0,<3.2.0',
+    'stix2-validator>=3.2.0,<4.0.0',
     'vcrpy>=4.3.1,<5.2.0',
     'base58>=2.1.0,<2.2.0',
     'python-bitcoinlib>=0.11.0,<0.13.0',
@@ -50,7 +50,7 @@ dependencies = [
     'cbor2>=5.4.1,<5.7.0',
     'bech32==1.2.0',
     'oauthlib>=3.2.1,<4.0.0',
-    'idna>=3.6,<3.7',
+    'idna>=3.6,<3.8',
     'python-dateutil>=2.8,<3.0',
     'pytz>=2023.3,<2024.1',
     'beautifulsoup4[html5lib]>=4.11.1,<5.0',

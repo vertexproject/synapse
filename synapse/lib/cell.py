@@ -1425,7 +1425,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahaurl is not None:
 
             info = await s_telepath.addAhaUrl(ahaurl)
-            self.ahaclient = info.get('client')
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
@@ -4086,7 +4085,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await s_base.Base.addSignalHandlers(self)
 
         def sighup():
-            asyncio.create_task(self.reload())
+            logger.info('Caught SIGHUP, running reloadable subsystems.')
+            task = asyncio.create_task(self.reload())
+            self._syn_signal_tasks.add(task)
+            task.add_done_callback(self._syn_signal_tasks.discard)
 
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGHUP, sighup)

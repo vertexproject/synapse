@@ -881,7 +881,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
+
         self.migration = False
+        self._migration_lock = asyncio.Lock()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1016,6 +1018,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (2, self._storLayrFeedDefaults),
         ), nexs=False)
 
+    async def _viewNomergeToProtected(self):
+        for view in self.views.values():
+            nomerge = view.info.get('nomerge', False)
+            await view.setViewInfo('protected', nomerge)
+            await view.setViewInfo('nomerge', None)
+
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
 
@@ -1049,6 +1057,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 logger.exception(f'Macro migration error for macro: {name} (skipped).')
 
     def getStormMacro(self, name, user=None):
+
+        if not name:
+            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
 
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
@@ -1140,6 +1151,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg(mesg=f'Duplicate macro name: {name}')
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        await self.feedBeholder('storm:macro:add', {'macro': mdef})
         return mdef
 
     async def delStormMacro(self, name, user=None):
@@ -1151,9 +1163,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:macro:del')
     async def _delStormMacro(self, name):
+        if not name:
+            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+
         byts = self.slab.pop(name.encode(), db=self.macrodb)
+
         if byts is not None:
-            return s_msgpack.un(byts)
+            macro = s_msgpack.un(byts)
+            await self.feedBeholder('storm:macro:del', {'name': name, 'iden': macro.get('iden')})
+            return macro
 
     async def modStormMacro(self, name, info, user=None):
         if user is not None:
@@ -1183,6 +1201,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
+        await self.feedBeholder('storm:macro:mod', {'macro': mdef, 'info': info})
         return mdef
 
     async def setStormMacroPerm(self, name, scope, iden, level, user=None):
@@ -1201,6 +1220,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         reqValidStormMacro(mdef)
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+
+        info = {
+            'scope': scope,
+            'iden': iden,
+            'level': level
+        }
+
+        await self.feedBeholder('storm:macro:set:perm', {'macro': mdef, 'info': info})
         return mdef
 
     async def getStormMacros(self, user=None):
@@ -1400,6 +1427,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
+            (2, self._viewNomergeToProtected),
         ))
 
     async def _addAllLayrRead(self):
@@ -1454,12 +1482,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
         await self.agenda.clearRunningStatus()
 
-        for view in self.views.values():
-            await view.initTrigTask()
-            await view.initMergeTask()
+        async def _runMigrations():
+            # Run migrations when this cortex becomes active. This is to prevent
+            # migrations getting skipped in a zero-downtime upgrade path
+            # (upgrade mirror, promote mirror).
+            await self._checkLayerModels()
 
-        for layer in self.layers.values():
-            await layer.initLayerActive()
+            # Once migrations are complete, start the view and layer tasks.
+            for view in self.views.values():
+                await view.initTrigTask()
+                await view.initMergeTask()
+
+            for layer in self.layers.values():
+                await layer.initLayerActive()
+
+        self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
 
@@ -3571,6 +3608,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         break
 
                     yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
+                    await asyncio.sleep(0)
 
             if layr.isdeleted:
                 yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
@@ -4337,7 +4375,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return ret
 
     async def _checkLayerModels(self):
-        with self.enterMigrationMode():
+        async with self.enterMigrationMode():
             mrev = s_modelrev.ModelRev(self)
             await mrev.revCoreLayers()
 
@@ -4457,6 +4495,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self.views.get(iden)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
+
+        if view.info.get('protected'):
+            mesg = f'Cannot delete view ({iden}) that has protected set.'
+            raise s_exc.CantDelView(mesg=mesg)
 
         return await self._push('view:del', iden)
 
@@ -6068,11 +6110,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
         await appt.edits(edits)
 
-    @contextlib.contextmanager
-    def enterMigrationMode(self):
-        self.migration = True
-        yield
-        self.migration = False
+    @contextlib.asynccontextmanager
+    async def enterMigrationMode(self):
+        async with self._migration_lock:
+            self.migration = True
+            yield
+            self.migration = False
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

@@ -7007,11 +7007,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             # clear out the #cno.cve tags and test prune behavior.
             await core.nodes('#cno.cve [ -#cno.cve ]')
 
-            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345.foo +#cno.cve.2021.55555 ]')
+            await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345.foo +#cno.cve.2021.55555.bar ]')
 
             await core.nodes('$lib.model.tags.set(cno.cve, prune, (2))')
 
             # test that the pruning behavior detects non-leaf boundaries
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.55555 ]')
+            self.sorteq(('cno', 'cno.cve', 'cno.cve.2021', 'cno.cve.2021.12345', 'cno.cve.2021.12345.foo'), [t[0] for t in nodes[0].getTags()])
+
+            # double delete shouldn't prune
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -#cno.cve.2021.55555 ]')
             self.sorteq(('cno', 'cno.cve', 'cno.cve.2021', 'cno.cve.2021.12345', 'cno.cve.2021.12345.foo'), [t[0] for t in nodes[0].getTags()])
 
@@ -8018,3 +8022,36 @@ class CortexBasicTest(s_t_utils.SynTest):
             buf = stream.read()
             self.isin('(lowuser) has a rule on the "cortex" authgate', buf)
             self.isin('(all) has a rule on the "cortex" authgate', buf)
+
+    async def test_cortex_check_nexus_init(self):
+        # This test is a simple safety net for making sure no nexus events
+        # happen before the nexus subsystem is initialized (initNexusSubsystem).
+        # It's possible for code which calls nexus APIs to run but not do
+        # anything which wouldn't be caught here. I don't think there's a good
+        # way to check for that condition though.
+
+        class Cortex(s_cortex.Cortex):
+            async def initServiceStorage(self):
+                self._test_pre_service_storage_index = await self.nexsroot.index()
+                ret = await super().initServiceStorage()
+                self._test_post_service_storage_index = await self.nexsroot.index()
+                return ret
+
+            async def initNexusSubsystem(self):
+                self._test_pre_nexus_index = await self.nexsroot.index()
+                ret = await super().initNexusSubsystem()
+                self._test_post_nexus_index = await self.nexsroot.index()
+                return ret
+
+        conf = {
+            'layer:lmdb:map_async': True,
+            'nexslog:en': True,
+            'layers:logedits': True,
+        }
+
+        with self.getTestDir() as dirn:
+            async with await Cortex.anit(dirn, conf=conf) as core:
+                offs = core._test_pre_service_storage_index
+                self.eq(core._test_post_service_storage_index, offs)
+                self.eq(core._test_pre_nexus_index, offs)
+                self.ge(core._test_post_nexus_index, core._test_pre_nexus_index)

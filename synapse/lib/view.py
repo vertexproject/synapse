@@ -55,6 +55,7 @@ class ViewApi(s_cell.CellApi):
         layr = self.view.layers[0]
         async for item in layr.syncNodeEdits2(offs, wait=wait):
             yield item
+            await asyncio.sleep(0)
 
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
@@ -1098,7 +1099,8 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name', 'desc', 'parent', 'nomerge', 'quorum'):
+        if name not in ('name', 'desc', 'parent', 'nomerge', 'protected', 'quorum'):
+            # TODO: Remove nomerge after Synapse 3.x.x
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
@@ -1346,8 +1348,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.parent is None:
             raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has not been forked.')
 
-        if self.info.get('nomerge'):
-            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has nomerge set.')
+        if self.info.get('protected'):
+            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has protected set.')
 
         if self.parent.info.get('quorum') is not None:
             raise s_exc.CantMergeView(mesg=f'Cannot merge view({self.iden}). Parent view requires quorum voting.')
