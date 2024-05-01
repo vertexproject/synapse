@@ -700,7 +700,7 @@ class LibModelMigration(s_stormtypes.Lib):
     A Storm library containing migration tools.
     '''
     _storm_locals = (
-        {'name': 'copyData', 'desc': 'Copy node data from one node to the write layer for another node.',
+        {'name': 'copyData', 'desc': 'Copy node data from the src node to the dst node.',
          'type': {'type': 'function', '_funcname': '_methCopyData',
                   'args': (
                       {'name': 'src', 'type': 'node', 'desc': 'The node to copy data from.', },
@@ -709,14 +709,14 @@ class LibModelMigration(s_stormtypes.Lib):
                        'desc': 'Copy data even if the key exists on the destination node.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'copyEdges', 'desc': 'Copy edges from one node to the write layer for another node.',
+        {'name': 'copyEdges', 'desc': 'Copy edges from the src node to the dst node.',
          'type': {'type': 'function', '_funcname': '_methCopyEdges',
                   'args': (
                       {'name': 'src', 'type': 'node', 'desc': 'The node to copy edges from.', },
                       {'name': 'dst', 'type': 'node', 'desc': 'The node to copy edgse to.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'copyTags', 'desc': 'Copy tags, tag timestamps, and tag props from one node to the write layer for another node.',
+        {'name': 'copyTags', 'desc': 'Copy tags, tag timestamps, and tag props from the src node to the dst node.',
          'type': {'type': 'function', '_funcname': '_methCopyTags',
                   'args': (
                       {'name': 'src', 'type': 'node', 'desc': 'The node to copy tags from.', },
@@ -816,7 +816,7 @@ class LibModelMigration(s_stormtypes.Lib):
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib):
     '''
-    A Storm library for selectively migrating nodes.
+    A Storm library for selectively migrating nodes in the current view.
     '''
     _storm_locals = (
         {'name': 'riskHasVulnToVulnerable', 'desc': '''
@@ -827,7 +827,7 @@ class LibModelMigrations(s_stormtypes.Lib):
             If multiple vulnerable properties are set on the risk:hasvuln node
             multiple risk:vulnerable nodes will be created (each with a unique guid).
             Otherwise, a single risk:vulnerable will be created with the same guid
-            as the provided risk:hasvuln node.
+            as the provided risk:hasvuln node. Extended properties will not be migrated.
 
             Tags, tag properties, edges, and node data will be copied
             to the risk:vulnerable node. However, existing tag properties and
