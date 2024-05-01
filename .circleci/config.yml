@@ -121,7 +121,7 @@ commands:
       - run:
           name: checkout regression repo
           command: |
-            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
+            git clone https://github.com/vertexproject/synapse-regression -b blackout/model-0.2.25 ~/git/synapse-regression
 
       - restore_cache:
           keys:

@@ -56,6 +56,8 @@ def cpe_escape(text):
 
     for idx, char in enumerate(text):
         # Spaces are NOT valid in CPE strings. We've had some customers report
+        # seeing strings from data vendors with spaces in them. Try to handle
+        # that here by replacing the space with an underscore.
         if char == ' ' and idx != 0 and idx != textlen - 1:
             ret += '_'
             continue

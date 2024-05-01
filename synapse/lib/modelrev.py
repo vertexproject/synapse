@@ -765,6 +765,8 @@ class ModelRev:
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         nodeedits = []
+        modl = self.core.model.type('it:sec:cpe')
+
         for layr in layers:
 
             async def save():
@@ -774,95 +776,51 @@ class ModelRev:
             async for _, buid, sode in layr.liftByProp('it:sec:cpe', None):
 
                 edits = []
+
+                valu = sode.get('valu')
+
+                # Check the primary property. If it is valid, there's nothing to do here.
+                cpe23 = cpe23_regex.match(valu[0])
+                if cpe23 is not None and cpe23.group() == valu:
+                    continue
+
+                # Grab the props for this node
                 props = sode.get('props')
                 if props is None:
                     continue
 
-                editprops = (
-                    'edition', 'language', 'other', 'part',
-                    'product', 'sw_edition', 'target_hw',
-                    'target_sw', 'update', 'vendor', 'version'
-                )
+                # Get the cpe2.2 string from the node
+                v2_2 = props.get('v2_2')
+                if v2_2 is None:
+                    continue
 
-                seen = []
+                # If the cpe2.2 string is also invalid, log a message and skip it
+                if cpe22_regex.match(v2_2[0]) is None:
+                    iden = s_common.ehex(buid)
+                    mesg = f'Unable to migrate it:sec:cpe={valu} ({iden}) due to invalid data.'
+                    logger.warning(mesg)
+
+                    # TODO: Mark the node somehow to indicate that it's invalid?
+                    continue
+
+                # Re-normalize the data from the cpe2.2 string
+                norm, info = modl.norm(v2_2[0])
+                subs = info.get('subs')
+
+                # Iterate over the existing properties
                 for propname, propcurv in props.items():
-
-                    if propname not in editprops:
-                        continue
-
-                    if propname in seen:
+                    subscurv = subs.get(propname)
+                    if subscurv is None:
                         continue
 
                     propcurv, stortype = propcurv
 
-                    # Try to unpack the edition prop
-                    if propname == 'edition' and (unpacked := s_infotech.cpe_unpack(propcurv)) is not None:
-                        (edition_valu, sw_edition_valu, target_sw_valu, target_hw_valu, other_valu) = unpacked
-
-                        if not edition_valu:
-                            edition_valu = '*'
-
-                        edits.append((s_layer.EDIT_PROP_SET, ('edition', edition_valu, propcurv, stortype), ()))
-                        seen.append('edition')
-
-                        if sw_edition_valu:
-                            valu = props.get('sw_edition')
-                            if valu is not None:
-                                (sw_edition_curv, sw_edition_stortype) = valu
-                            else:
-                                sw_edition_curv = None
-                                sw_edition_stortype = self.core.model.prop(f'it:sec:cpe:sw_edition').type.stortype
-
-                            edits.append((s_layer.EDIT_PROP_SET, ('sw_edition', sw_edition_valu, sw_edition_curv, sw_edition_stortype), ()))
-                            seen.append('sw_edition')
-
-                        if target_sw_valu:
-                            valu = props.get('target_sw')
-                            if valu is not None:
-                                (target_sw_curv, target_sw_stortype) = valu
-                            else:
-                                target_sw_curv = None
-                                target_sw_stortype = self.core.model.prop(f'it:sec:cpe:target_sw').type.stortype
-
-                            edits.append((s_layer.EDIT_PROP_SET, ('target_sw', target_sw_valu, target_sw_curv, target_sw_stortype), ()))
-                            seen.append('target_sw')
-
-                        if target_hw_valu:
-                            valu = props.get('target_hw')
-                            if valu is not None:
-                                (target_hw_curv, target_hw_stortype) = valu
-                            else:
-                                target_hw_curv = None
-                                target_hw_stortype = self.core.model.prop(f'it:sec:cpe:target_hw').type.stortype
-
-                            edits.append((s_layer.EDIT_PROP_SET, ('target_hw', target_hw_valu, target_hw_curv, target_hw_stortype), ()))
-                            seen.append('target_hw')
-
-                        if other_valu:
-                            valu = props.get('other')
-                            if valu is not None:
-                                (other_curv, other_stortype) = valu
-                            else:
-                                other_curv = None
-                                other_stortype = self.core.model.prop(f'it:sec:cpe:other').type.stortype
-
-                            edits.append((s_layer.EDIT_PROP_SET, ('other', other_valu, other_curv, other_stortype), ()))
-                            seen.append('other')
-
+                    # Values are the same, go around
+                    if propcurv == subscurv:
                         continue
 
-                    else:
-                        valu = s_infotech.cpe_unquote(propcurv)
-                        valu = s_infotech.cpe_unescape(valu)
-
-                        if valu == propcurv:
-                            continue
-
-                        edits.append((s_layer.EDIT_PROP_SET, (propname, valu, propcurv, stortype), ()))
-
-                        seen.append(propname)
-
-                seen.clear()
+                    # Update the existing property with the re-normalized property value
+                    edits.append((s_layer.EDIT_PROP_SET, (propname, subscurv, propcurv, stortype), ()))
 
                 if not edits: # pragma: no cover
                     continue
@@ -874,7 +832,6 @@ class ModelRev:
 
             if nodeedits:
                 await save()
-
 
     async def runStorm(self, text, opts=None):
         '''
@@ -1264,104 +1221,96 @@ class ModelRev:
         '''
         await self.runStorm(storm, opts=opts)
 
-# The several functions below this comment are the old norm functions for CPE.
-# They are here to support migrations from the old parsing to the new parsing.
-def cpesplit(text):
-    part = ''
-    parts = []
+_cpe23_regex = r'''
+(?(DEFINE)
+  (?<ALPHA>[A-Za-z])
+  (?<DIGIT>[0-9])
+  (?<UNRESERVED>[A-Za-z0-9-._])
+  (?<SPEC1>\?)
+  (?<SPEC2>\*)
+  (?<SPECIAL>(?&SPEC1)|(?&SPEC2))
+  (?<SPEC_CHRS>(?&SPEC1)+|(?&SPEC2))
+  (?<AVSTRING>(?:(?&SPEC1)? (?:(?&UNRESERVED)|(?&QUOTED))+ (?&SPEC1)?|(?&LOGICAL)))
 
-    genr = iter(text)
-    try:
-        while True:
+  (?<LOGICAL>[*-])
 
-            c = next(genr)
+  (?<VENDOR>(?&AVSTRING))
+  (?<PRODUCT>(?&AVSTRING))
+  (?<VERSION>(?&AVSTRING))
+  (?<UPDATE>(?&AVSTRING))
+  (?<EDITION>(?&AVSTRING))
+  (?<SW_EDITION>(?&AVSTRING))
+  (?<TARGET_SW>(?&AVSTRING))
+  (?<TARGET_HW>(?&AVSTRING))
+  (?<OTHER>(?&AVSTRING))
+  (?<PUNC>[!"#$%&'()+,/:;<=>@\[\]^`{|}~])
+  (?<ESCAPE>\\)
+  (?<QUOTED>(?&ESCAPE)(?:(?&ESCAPE)|(?&SPECIAL)|(?&PUNC)))
 
-            if c == '\\':
-                c += next(genr)
+  (?<REGION>(?&ALPHA){2}|(?&DIGIT){3})
+  (?<LANGTAG>(?&ALPHA){2,3}(?:-(?&REGION)))
+  (?<LANG>(?&LANGTAG)|(?&LOGICAL))
 
-            if c == ':':
-                parts.append(part)
-                part = ''
-                continue
+  (?<PART>[hoa]|(?&LOGICAL))
+  (?<COMPONENT_LIST>
+    (?&PART):
+    (?&VENDOR):
+    (?&PRODUCT):
+    (?&VERSION):
+    (?&UPDATE):
+    (?&EDITION):
+    (?&LANG):
+    (?&SW_EDITION):
+    (?&TARGET_SW):
+    (?&TARGET_HW):
+    (?&OTHER)
+  )
+)
 
-            part += c
+(?<CPE>cpe:2\.3:(?&COMPONENT_LIST))
+'''
+cpe23_regex = regex.compile(_cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
 
-    except StopIteration:
-        parts.append(part)
+_cpe22_regex = r'''
+(?(DEFINE)
+  (?<ALPHA>[A-Za-z])
+  (?<DIGIT>[0-9])
+  (?<UNRESERVED>[A-Za-z0-9\-\.\_])
 
-    return parts
+  (?<SPEC1>%01)
+  (?<SPEC2>%02)
+  (?<SPECIAL>(?&SPEC1)|(?&SPEC2))
+  (?<SPEC_CHRS>(?&SPEC1)+|(?&SPEC2))
+  (?<PCT_ENCODED>\%(21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e))
 
-def _zipCpe22(parts):
-    parts = list(parts)
-    while parts and parts[-1] in ('', '*'):
-        parts.pop()
-    text = ':'.join(parts[:7])
-    return f'cpe:/{text}'
+  (?<STR_WO_SPECIAL>(?:(?&UNRESERVED)|(?&PCT_ENCODED))*)
+  (?<STR_W_SPECIAL>(?&SPEC_CHRS)? (?:(?&UNRESERVED)|(?&PCT_ENCODED))+ (?&SPEC_CHRS)?)
 
-def cpe22_norm(valu):
-    if isinstance(valu, (list, tuple)):
-        return _zipCpe22(valu), {}
+  (?<STRING>(?&STR_W_SPECIAL)|(?&STR_WO_SPECIAL))
+  (?<PACKED>\~(?&STRING)?\~(?&STRING)?\~(?&STRING)?\~(?&STRING)?\~(?&STRING)?)
 
-    text = valu.lower()
-    if text.startswith('cpe:/'):
-        parts = _chopCpe22(text)
-    elif text.startswith('cpe:2.3:'):
-        parts = cpesplit(text[8:])
-    else:
-        mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
-        raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+  (?<REGION>(?&ALPHA){2}|(?&DIGIT){3})
+  (?<LANGTAG>(?&ALPHA){2,3}(?:\-(?&REGION)))
 
-    return _zipCpe22(parts), {}
+  (?<PART>[hoa]?)
+  (?<VENDOR>(?&STRING))
+  (?<PRODUCT>(?&STRING))
+  (?<VERSION>(?&STRING))
+  (?<UPDATE>(?&STRING))
+  (?<EDITION>(?&PACKED)|(?&STRING))
+  (?<LANG>(?&LANGTAG)?)
 
-def _chopCpe22(text):
-    '''
-    CPE 2.2 Formatted String
-    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
-    '''
-    if not text.startswith('cpe:/'):
-        mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
-        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+  (?<COMPONENT_LIST>
+    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION):(?&UPDATE):(?&EDITION):(?&LANG) |
+    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION):(?&UPDATE):(?&EDITION) |
+    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION):(?&UPDATE) |
+    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION) |
+    (?&PART):(?&VENDOR):(?&PRODUCT) |
+    (?&PART):(?&VENDOR) |
+    (?&PART)
+  )
+)
 
-    _, text = text.split(':/', 1)
-    parts = cpesplit(text)
-    if len(parts) > 7:
-        mesg = f'CPE 2.2 string has {len(parts)} parts, expected <= 7.'
-        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
-
-    return parts
-
-def cpe23_norm(valu):
-    text = valu.lower()
-    if text.startswith('cpe:2.3:'):
-        parts = cpesplit(text[8:])
-        if len(parts) > 11:
-            mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
-            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
-
-        extsize = 11 - len(parts)
-        parts.extend(['*' for _ in range(extsize)])
-    elif text.startswith('cpe:/'):
-        # automatically normalize CPE 2.2 format to CPE 2.3
-        parts = _chopCpe22(text)
-        extsize = 11 - len(parts)
-        parts.extend(['*' for _ in range(extsize)])
-    else:
-        mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
-        raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
-
-    subs = {
-        'v2_2': _zipCpe22(parts),
-        'part': parts[0],
-        'vendor': parts[1],
-        'product': parts[2],
-        'version': parts[3],
-        'update': parts[4],
-        'edition': parts[5],
-        'language': parts[6],
-        'sw_edition': parts[7],
-        'target_sw': parts[8],
-        'target_hw': parts[9],
-        'other': parts[10],
-    }
-
-    return 'cpe:2.3:' + ':'.join(parts), {'subs': subs}
+(?<CPE>cpe:/(?&COMPONENT_LIST)?)
+'''
+cpe22_regex = regex.compile(_cpe22_regex, regex.VERBOSE | regex.IGNORECASE)
