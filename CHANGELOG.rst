@@ -6,6 +6,85 @@
 Synapse Changelog
 *****************
 
+v2.168.0 - 2024-05-03
+=====================
+
+Model Changes
+-------------
+- Add a new model, ``plan``, for modeling elements of plannings systems.
+  models.
+  (`#3697 <https://github.com/vertexproject/synapse/pull/3697>`_)
+
+  **New Forms**
+
+  ``plan:system``
+    A planning or behavioral analysis system that defines phases and
+    procedures.
+
+  ``plan:phase``
+    A phase within a planning system which may be used to group steps
+    within a procedure.
+
+  ``plan:procedure``
+    A procedure consisting of steps.
+
+  ``plan:procedure:type:taxonomy``
+    A taxonomy of procedure types.
+
+  ``plan:procedure:variable``
+    A variable used by a procedure.
+
+  ``plan:procedure:step``
+    A step within a procedure.
+
+  ``plan:procedure:link``
+    A link between steps in a procedure.
+
+Features and Enhancements
+-------------------------
+- Cortex data model migrations will now be checked and executed when the
+  service is promoted to being a leader. This allows for Cortex updates
+  which use mirrors to have minimal downtime. Cortex model migrations which
+  are executed using Storm will always run directly on the Cortex leader.
+  (`#3694 <https://github.com/vertexproject/synapse/pull/3694>`_)
+  (`#3695 <https://github.com/vertexproject/synapse/pull/3695>`_)
+- Add a data migration helper library,  ``$lib.model.migration``. This
+  contains functions to help with migrating data. Add a
+  ``$lib.model.migrations.s`` library, containing functions for selectively
+  migrating nodes in the current view. Add an optional hotfix for migrating
+  ``risk:hasvuln`` nodes to ``risk:vulnerable`` nodes.
+  (`#3696 <https://github.com/vertexproject/synapse/pull/3696>`_)
+- The Storm ``aha:pool.del()`` method now returns the full name of the
+  service that was removed.
+  (`#3704 <https://github.com/vertexproject/synapse/pull/3704>`_)
+
+Bugfixes
+--------
+- The Storm command  ``aha.pool.svc.del`` now prints out the name of the
+  service that was removed from the pool or notes that there were no
+  services removed.
+  (`#3704 <https://github.com/vertexproject/synapse/pull/3704>`_)
+- When setting a service "down" with AHA, conditionally clear the ``ready``
+  flag as well. Previously this flag was not cleared, and offline services
+  could still report as ``ready``.
+  (`#3705 <https://github.com/vertexproject/synapse/pull/3705>`_)
+- Add misisng sleep statements to callers of ``Layer.syncNodeEdits2()``.
+  (`#3700 <https://github.com/vertexproject/synapse/pull/3700>`_)
+
+Improved Documentation
+----------------------
+- Update Storm command reference documentation to add additional examples
+  for the ``uniq`` command. Update Storm command reference documentation to
+  add ``gen.geo.place`` and ``gen.it.av.scan.result`` commands.
+  (`#3699 <https://github.com/vertexproject/synapse/pull/3699>`_)
+- Update type specific documentation. Add additional information about ``loc``
+  and ``syn:tag`` behavior with prefixes and wlidcards. Add a section on the
+  ``duration`` and ``taxonomy`` types.
+  (`#3703 <https://github.com/vertexproject/synapse/pull/3703>`_)
+- Add documentation for ``$lib.auth.easyperm.level`` constatns and the
+  ``$lib.dict.has()`` function.
+  (`#3706 <https://github.com/vertexproject/synapse/pull/3706>`_)
+
 v2.167.0 - 2024-04-19
 =====================
 
