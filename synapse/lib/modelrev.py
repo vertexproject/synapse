@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
+import synapse.lib.scrape as s_scrape
 
 import synapse.models.infotech as s_infotech
 
@@ -776,36 +777,53 @@ class ModelRev:
             async for _, buid, sode in layr.liftByProp('it:sec:cpe', None):
 
                 edits = []
+                valu = None
 
-                valu = sode.get('valu')
-
-                # Check the primary property. If it is valid, there's nothing to do here.
-                cpe23 = cpe23_regex.match(valu[0])
-                if cpe23 is not None and cpe23.group() == valu:
-                    continue
+                curv = sode.get('valu')
 
                 # Grab the props for this node
                 props = sode.get('props')
                 if props is None:
                     continue
 
-                # Get the cpe2.2 string from the node
-                v2_2 = props.get('v2_2')
-                if v2_2 is None:
-                    continue
+                # Check the primary property for validity.
+                cpe23 = cpe23_regex.match(curv[0])
+                if cpe23 is not None and cpe23.group() == curv[0]:
+                    valu = curv[0]
 
-                # If the cpe2.2 string is also invalid, log a message and skip it
-                if cpe22_regex.match(v2_2[0]) is None:
-                    iden = s_common.ehex(buid)
-                    mesg = f'Unable to migrate it:sec:cpe={valu} ({iden}) due to invalid data.'
-                    logger.warning(mesg)
+                else:
+                    # Primary property doesn't appear valid, try the v2_2 prop.
 
-                    # TODO: Mark the node somehow to indicate that it's invalid?
-                    continue
+                    # Get the cpe2.2 string from the node
+                    v2_2 = props.get('v2_2')
+                    if v2_2 is not None and cpe22_regex.match(v2_2[0]).group() == v2_2[0]:
+                        # The v2_2 prop is a valid CPE2.2 string.
+                        valu = v2_2[0]
+                    else:
+                        # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
+                        # we can do here so log, mark, and go around.
+                        iden = s_common.ehex(buid)
+                        mesg = f'Unable to migrate it:sec:cpe={curv[0]} ({iden}) due to invalid data.'
+                        logger.warning(mesg)
 
-                # Re-normalize the data from the cpe2.2 string
-                norm, info = modl.norm(v2_2[0])
+                        nodeedits.append(
+                            (buid, 'it:sec:cpe', (
+                                (s_layer.EDIT_NODEDATA_SET, ('migration:0.2.25:failed', True, None), ()),
+                            ))
+                        )
+                        continue
+
+                # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
+                norm, info = modl.norm(valu)
                 subs = info.get('subs')
+
+                if norm != curv[0]:
+                    # The re-normed value is not the same as the current value.
+                    # Since we can't change the primary property, store the
+                    # updated value in nodedata.
+                    edits.append(
+                        (s_layer.EDIT_NODEDATA_SET, ('migration:0.2.25:valu', norm, None), ()),
+                    )
 
                 # Iterate over the existing properties
                 for propname, propcurv in props.items():
@@ -815,12 +833,16 @@ class ModelRev:
 
                     propcurv, stortype = propcurv
 
+                    if propname == 'v2_2':
+                        subscurv = s_infotech.zipCpe22(subscurv)
+
                     # Values are the same, go around
                     if propcurv == subscurv:
                         continue
 
                     # Update the existing property with the re-normalized property value
                     edits.append((s_layer.EDIT_PROP_SET, (propname, subscurv, propcurv, stortype), ()))
+                    edits.append((s_layer.EDIT_NODEDATA_SET, (f'migration:0.2.25:subs:{propname}', 'updated', None), ()))
 
                 if not edits: # pragma: no cover
                     continue
@@ -1221,96 +1243,41 @@ class ModelRev:
         '''
         await self.runStorm(storm, opts=opts)
 
-_cpe23_regex = r'''
-(?(DEFINE)
-  (?<ALPHA>[A-Za-z])
-  (?<DIGIT>[0-9])
-  (?<UNRESERVED>[A-Za-z0-9-._])
-  (?<SPEC1>\?)
-  (?<SPEC2>\*)
-  (?<SPECIAL>(?&SPEC1)|(?&SPEC2))
-  (?<SPEC_CHRS>(?&SPEC1)+|(?&SPEC2))
-  (?<AVSTRING>(?:(?&SPEC1)? (?:(?&UNRESERVED)|(?&QUOTED))+ (?&SPEC1)?|(?&LOGICAL)))
+def cpe22_pattern():
+    ALPHA = '[A-Za-z]'
+    DIGIT = '[0-9]'
+    UNRESERVED = r'[A-Za-z0-9\-\.\_]'
+    SPEC1 = '%01'
+    SPEC2 = '%02'
+    # This is defined in the ABNF but not actually referenced
+    # SPECIAL = f'(?:{SPEC1}|{SPEC2})'
+    SPEC_CHRS = f'(?:{SPEC1}+|{SPEC2})'
+    PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e)'
+    STR_WO_SPECIAL = f'(?:{UNRESERVED}|{PCT_ENCODED})*'
+    STR_W_SPECIAL = f'{SPEC_CHRS}? (?:{UNRESERVED}|{PCT_ENCODED})+ {SPEC_CHRS}?'
+    STRING = f'(?:{STR_W_SPECIAL}|{STR_WO_SPECIAL})'
+    PACKED = rf'\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?'
+    REGION = f'(?:{ALPHA}{{2}}|{DIGIT}{{3}})'
+    LANGTAG = rf'(?:{ALPHA}{{2,3}}(?:\-{REGION})?)'
+    PART = '[hoa]?'
+    VENDOR = STRING
+    PRODUCT = STRING
+    VERSION = STRING
+    UPDATE = STRING
+    EDITION = f'(?:{PACKED}|{STRING})'
+    LANG = f'{LANGTAG}?'
+    COMPONENT_LIST = f'''
+        (?:
+            {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION}:{LANG} |
+            {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION} |
+            {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE} |
+            {PART}:{VENDOR}:{PRODUCT}:{VERSION} |
+            {PART}:{VENDOR}:{PRODUCT} |
+            {PART}:{VENDOR} |
+            {PART}
+        )
+    '''
+    return f'cpe:/{COMPONENT_LIST}'
 
-  (?<LOGICAL>[*-])
-
-  (?<VENDOR>(?&AVSTRING))
-  (?<PRODUCT>(?&AVSTRING))
-  (?<VERSION>(?&AVSTRING))
-  (?<UPDATE>(?&AVSTRING))
-  (?<EDITION>(?&AVSTRING))
-  (?<SW_EDITION>(?&AVSTRING))
-  (?<TARGET_SW>(?&AVSTRING))
-  (?<TARGET_HW>(?&AVSTRING))
-  (?<OTHER>(?&AVSTRING))
-  (?<PUNC>[!"#$%&'()+,/:;<=>@\[\]^`{|}~])
-  (?<ESCAPE>\\)
-  (?<QUOTED>(?&ESCAPE)(?:(?&ESCAPE)|(?&SPECIAL)|(?&PUNC)))
-
-  (?<REGION>(?&ALPHA){2}|(?&DIGIT){3})
-  (?<LANGTAG>(?&ALPHA){2,3}(?:-(?&REGION)))
-  (?<LANG>(?&LANGTAG)|(?&LOGICAL))
-
-  (?<PART>[hoa]|(?&LOGICAL))
-  (?<COMPONENT_LIST>
-    (?&PART):
-    (?&VENDOR):
-    (?&PRODUCT):
-    (?&VERSION):
-    (?&UPDATE):
-    (?&EDITION):
-    (?&LANG):
-    (?&SW_EDITION):
-    (?&TARGET_SW):
-    (?&TARGET_HW):
-    (?&OTHER)
-  )
-)
-
-(?<CPE>cpe:2\.3:(?&COMPONENT_LIST))
-'''
-cpe23_regex = regex.compile(_cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
-
-_cpe22_regex = r'''
-(?(DEFINE)
-  (?<ALPHA>[A-Za-z])
-  (?<DIGIT>[0-9])
-  (?<UNRESERVED>[A-Za-z0-9\-\.\_])
-
-  (?<SPEC1>%01)
-  (?<SPEC2>%02)
-  (?<SPECIAL>(?&SPEC1)|(?&SPEC2))
-  (?<SPEC_CHRS>(?&SPEC1)+|(?&SPEC2))
-  (?<PCT_ENCODED>\%(21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e))
-
-  (?<STR_WO_SPECIAL>(?:(?&UNRESERVED)|(?&PCT_ENCODED))*)
-  (?<STR_W_SPECIAL>(?&SPEC_CHRS)? (?:(?&UNRESERVED)|(?&PCT_ENCODED))+ (?&SPEC_CHRS)?)
-
-  (?<STRING>(?&STR_W_SPECIAL)|(?&STR_WO_SPECIAL))
-  (?<PACKED>\~(?&STRING)?\~(?&STRING)?\~(?&STRING)?\~(?&STRING)?\~(?&STRING)?)
-
-  (?<REGION>(?&ALPHA){2}|(?&DIGIT){3})
-  (?<LANGTAG>(?&ALPHA){2,3}(?:\-(?&REGION)))
-
-  (?<PART>[hoa]?)
-  (?<VENDOR>(?&STRING))
-  (?<PRODUCT>(?&STRING))
-  (?<VERSION>(?&STRING))
-  (?<UPDATE>(?&STRING))
-  (?<EDITION>(?&PACKED)|(?&STRING))
-  (?<LANG>(?&LANGTAG)?)
-
-  (?<COMPONENT_LIST>
-    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION):(?&UPDATE):(?&EDITION):(?&LANG) |
-    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION):(?&UPDATE):(?&EDITION) |
-    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION):(?&UPDATE) |
-    (?&PART):(?&VENDOR):(?&PRODUCT):(?&VERSION) |
-    (?&PART):(?&VENDOR):(?&PRODUCT) |
-    (?&PART):(?&VENDOR) |
-    (?&PART)
-  )
-)
-
-(?<CPE>cpe:/(?&COMPONENT_LIST)?)
-'''
-cpe22_regex = regex.compile(_cpe22_regex, regex.VERBOSE | regex.IGNORECASE)
+cpe22_regex = regex.compile(cpe22_pattern(), regex.VERBOSE | regex.IGNORECASE)
+cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE)

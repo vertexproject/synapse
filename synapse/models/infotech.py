@@ -1,5 +1,5 @@
 import copy
-import asyncio
+import string
 import logging
 
 import synapse.exc as s_exc
@@ -47,21 +47,25 @@ FSB_ESCAPE_CHARS = [
     '\\', '?', '*'
 ]
 
+FSB_VALID_CHARS = ['-', '.', '_']
+FSB_VALID_CHARS.extend(string.ascii_letters)
+FSB_VALID_CHARS.extend(string.digits)
+FSB_VALID_CHARS.extend(FSB_ESCAPE_CHARS)
+
 def cpe_escape(text):
     ret = ''
     if text in ('*', '-'):
         return text
 
+    # Check validity of text first
+    if (invalid := [char for char in text if char not in FSB_VALID_CHARS]):
+        badchars = ', '.join(invalid)
+        mesg = f'Invalid CPE 2.3 character(s) ({badchars}) detected.'
+        raise s_exc.BadTypeValu(mesg=mesg, valu=text)
+
     textlen = len(text)
 
     for idx, char in enumerate(text):
-        # Spaces are NOT valid in CPE strings. We've had some customers report
-        # seeing strings from data vendors with spaces in them. Try to handle
-        # that here by replacing the space with an underscore.
-        if char == ' ' and idx != 0 and idx != textlen - 1:
-            ret += '_'
-            continue
-
         if char not in FSB_ESCAPE_CHARS:
             ret += char
             continue

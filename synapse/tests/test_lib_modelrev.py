@@ -532,3 +532,32 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:sec:cpe:vendor=vendor2')
             self.len(1, nodes)
             self.eq(nodes[0].get('product'), 'product%23')
+
+    async def test_lib_modelrev_cpe_regex(self):
+        # The CPE2.2 and CPE2.3 example strings are all from the spec, NIST 7695
+        cpe22s = [
+            'cpe:/a:microsoft:internet_explorer:8.0.6001:beta',
+            'cpe:/a:microsoft:internet_explorer:8.%02:sp%01',
+            'cpe:/a:hp:insight_diagnostics:7.4.0.1570:-:~~online~win2003~x64~',
+            'cpe:/a:hp:openview_network_manager:7.51::~~~linux~~',
+            'cpe:/a:foo%5cbar:big%24money_manager_2010:::~~special~ipod_touch~80gb~',
+        ]
+
+        cpe23s = [
+            'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*',
+            'cpe:2.3:a:microsoft:internet_explorer:8.*:sp?:*:*:*:*:*:*',
+            r'cpe:2.3:a:microsoft:internet_explorer:8.\*:sp?:*:*:*:*:*:*',
+            'cpe:2.3:a:hp:insight:7.4.0.1570:-:*:*:online:win2003:x64:*',
+            'cpe:2.3:a:hp:openview_network_manager:7.51:*:*:*:*:linux:*:*',
+            r'cpe:2.3:a:foo\\bar:big\$money_2010:*:*:*:*:special:ipod_touch:80gb:*',
+        ]
+
+        for cpe in cpe22s:
+            m = s_modelrev.cpe22_regex.match(cpe)
+            self.nn(m, msg=cpe)
+            self.eq(cpe, m.group(), msg=cpe)
+
+        for cpe in cpe23s:
+            m = s_modelrev.cpe23_regex.match(cpe)
+            self.nn(m, msg=cpe)
+            self.eq(cpe, m.group(), msg=cpe)
