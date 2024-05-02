@@ -1,5 +1,6 @@
 import copy
 import string
+import asyncio
 import logging
 
 import synapse.exc as s_exc
