@@ -1710,7 +1710,7 @@ class LibDict(Lib):
         {'name': 'has', 'desc': 'Check a dictionary has a specific key.',
          'type': {'type': 'function', '_funcname': '_has',
                   'args': (
-                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary being checked..'},
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary being checked.'},
                       {'name': 'name', 'type': 'str', 'desc': 'The key name to check.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the key is present, false if the key is not present.'}}},
