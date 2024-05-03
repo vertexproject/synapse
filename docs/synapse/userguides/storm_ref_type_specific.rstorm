@@ -23,6 +23,7 @@ a given type (such as via a constructor (``ctor``)). For details on available ty
 enforcement, see the online documentation_ or the Synapse source code_.
 
 - `array`_ (array)
+- `duration`_ (duration)
 - `file:bytes`_ (file)
 - `guid`_ (globally unique identifier)
 - `inet:fqdn`_ (FQDN)
@@ -32,6 +33,7 @@ enforcement, see the online documentation_ or the Synapse source code_.
 - `loc`_ (location)
 - `str`_ (string)
 - `syn:tag`_ (tag)
+- `taxonomy`_ (taxonomy)
 - `time`_ (date/time)
 
 .. _type-array:
@@ -48,13 +50,19 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **set** consists of a unique group of entries.
 
 ``Array`` types can be used for properties where that property is likely to have multiple values, but it is
-undesirable to represent those values using multiple :ref:`node-relationship` nodes. Examples of array
-secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``.
+undesirable to represent those values using light edges or multiple :ref:`node-relationship` nodes. Examples
+of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``.
 You can view all secondary properties that are ``array`` types using the following Storm query:
 
 ::
   
   syn:prop:type=array
+
+.. TIP::
+  
+  Some forms include both a singular and an array property for the same type. This allows you to record a
+  primary value along with optional variations (e.g., such as ``ou:org:name`` and ``ou:org:names``),
+  or a primary and optional secondary values (e.g., such as  ``ou:campaign:goal`` and ``ou:campaign:goals``).
 
 Indexing
 ++++++++
@@ -215,6 +223,102 @@ nodes where the ``ou:name`` is present in the ``:name`` property or as an elemen
 .. storm-cli:: ou:name^=acme <- *
 
 
+.. _type-duration:
+
+duration
+--------
+
+``duration`` is a type that represents a period (length) of time.
+
+Indexing
+++++++++
+
+A ``duration`` is stored as an integer value representing the number of milliseconds.
+
+Parsing
++++++++
+
+A ``duration`` is commonly specified using a string value (days / hours / minutes / seconds / milliseconds
+as appropriate) with the following notation:
+  
+  ``##D hh:mm:ss.mmm``
+
+The literal uppercase letter "D" is used to represent the number of days. When entering a duration value as a
+string, single or double quotes are required in accordance with the standard rules for using
+:ref:`storm-whitespace-literals`.
+  
+A ``duration`` can also be specified as the number of milliseconds expressed as an integer value
+enclosed in parentheses:
+  
+  ``(218262777)``
+
+.. TIP::
+  
+  Similar to :ref:`type-time` types, Synapse expects that users will generally enter duration values using
+  "human friendly" strings, and will attempt to parse the input as such. Using parentheses tells Synapse
+  to interpret the value as a raw integer.
+  
+  Note that this parentheses syntax only applies when setting or updating a ``duration`` property using
+  Storm. When setting or updating a property in the `Optic UI`_ by editing a field, you must enter a
+  duration string value.
+
+
+Insertion
++++++++++
+
+When setting a ``duration`` value, enter the value using either format above.
+
+**Examples:**
+
+Set the duration of a compromise (``risk:compromise`` node) to six days, six hours, 46 minutes, and
+23 seconds:
+
+.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = '6D 06:46:23' ]
+
+Or:
+
+.. storm-cli:: [ risk:compromise = * :name = 'example compromise' :duration = (542783000) ]
+
+Values can be set at any level of granularity; e.g., ``[ :duration = 19D ]`` is acceptable, as are
+values to millisecond resolution.
+
+.. NOTE::
+
+  Forms that have ``duration`` properties may have related :ref:`type-time` properties as appropriate
+  for the form, such as a start time or end time or both. A compromise (``risk:compromise`` node) is
+  one example and includes start time (``:time``), end time (``:lasttime``), and duration (``:duration``).
+  This allows you to set any or all properties, depending on the information available. For example,
+  you may know when a compromise was fully remediated (ended), but not when it began or how long it lasted.
+  
+  While start, end, and duration values are related, Synapse does **not** currently calculate values
+  for these properties. That is, entering a start time and a duration will not automatically calculate
+  and set the ending time. Similarly, if all three values are set and you modify one of the values,
+  the other value(s) are not updated to reflect the change (e.g., changing the duration will not
+  automatically update the ending time).
+  
+  That said, in cases where a node has start, end, and duration properties and you have two of the
+  three values, you can use variables_ to calculate and set the third value. For example, given a
+  ``risk:compromise:name = 'my compromise'``  with ``:time = '2023/09/22 10:40'`` and
+  ``:lasttime = '2023/10/06 14:00'`` you could set the ``:duration`` value using the following Storm query:
+  
+  ``risk:compromise:name='my compromise' $min=:time $max=:lasttime [ :duration=( $max - $min ) ]``
+  
+  This will set ``:duration = 14D 03:20:00.000``.
+
+
+Operations
+++++++++++
+
+As ``duration`` types are stored as integers, they support any operations suitable for integer values.
+This includes:
+
+- comparison using mathematical operators (such as greater than ( ``>``));
+- finding low or high values using the :ref:`storm-min` or :ref:`storm-max` commands;
+- use of the range ( ``*range=`` ) comparison operator;
+
+...etc.
+
+
 .. _type-file:
 
 file\:bytes
@@ -334,7 +438,7 @@ Creating ``file:bytes`` nodes in this manner is often done programmatically (suc
 :ref:`gloss-power-up`) that can download or ingest files. Other options include:
 
 - the built-in Synapse :ref:`storm-wget` command;
-- the  **Upload File** menu option available from the Synapse UI (`Optic`_), which allows you to either
+- the  **Upload File** menu option available from the `Optic UI`_, which allows you to either
   upload a file from local disk, or download a file from a specified URL; or
 - the ``pushfile`` tool, available from the CLI in the community version of Synapse (see :ref:`syn-tools-pushfile`).
 
@@ -965,9 +1069,9 @@ Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` value
 ival
 ----
 
-``ival`` is a specialized type consisting of two ``time`` types in a paired ``(<min>, <max>)`` relationship.
-As such, the individual values in an ``ival`` are subject to the same specialized handling as individual 
-:ref:`type-time` values.
+``ival`` ("interval") is a specialized type consisting of two ``time`` types in a paired ``(<min>, <max>)``
+relationship. As such, the individual values in an ``ival`` are subject to the same specialized handling as
+individual :ref:`type-time` values.
 
 ``ival`` types have their own optimizations in addition to those related to ``time`` types.
 
@@ -1099,6 +1203,21 @@ Lift all the DNS A nodes whose observation window overlaps with the interval of 
 ``ival`` types cannot be used with the ``*range=`` custom comparator. ``*range=`` can only be used to specify a
 range of individual values (such as ``time`` or ``int``).
 
+.. TIP::
+  
+  By definition, an ``ival`` is a **pair** of date/time values treated as a single combined value. This means that
+  when using variables_ to work with ``ival`` types, the full value of the property is assigned to the variable by
+  default. For example, given a node (such as an ``inet:dns:a`` node) with a ``.seen`` value of ``(2023/07/08 11:19:02, 2023/12/14 21:18:47)``,
+  the variable assignment ``$time = .seen`` will assign the **pair** of date/times to ``$time``.
+  
+  You can access each date/time of an ``ival`` independently by assigning the value to a **pair** of variables
+  as follows:
+  
+  ``( $min, $max ) = .seen``
+  
+  ``$min`` will represent the value ``2023/07/08 11:19:02`` and ``$max`` will represent the value ``2023/12/14 21:18:47``.
+
+
 .. _type-loc:
 
 loc
@@ -1106,7 +1225,7 @@ loc
 
 ``Loc`` is a specialized type used to represent geopolitical locations (i.e., locations within geopolitical
 boundaries) as a series of user-defined dot-separated hierarchical strings - for example, 
-*<country>.<state / province>.<city>*. This allows specifying locations such as ``us.fl.miami``, ``gb.london``,
+*<country>.<region>.<city>*. This allows specifying locations such as ``us.fl.miami``, ``gb.london``,
 and ``ca.on.toronto``.
 
 ``Loc`` is an extension of the :ref:`type-str` type. However, because ``loc`` types use strings that comprise a
@@ -1115,7 +1234,7 @@ dot-separated hierarchy, they exhibit slightly modified behavior from standard s
 Indexing
 ++++++++
 
-The ``loc`` type is an extension of the :ref:`type-str` type and so is **prefix-indexed** like other strings.
+The ``loc`` type is an extension of the :ref:`type-str` type and is **prefix-indexed** like other strings.
 However, the use of dot-separated boundaries impacts operations using ``loc`` values.
 
 ``loc`` values are normalized to lowercase.
@@ -1125,18 +1244,21 @@ Parsing
 
 ``loc`` values can be input using any case (uppercase, lowercase, mixed case) but will normalized to lowercase. 
 
-Components of a ``loc`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved character
-for the ``loc`` type and is used to separate string elements along hierarchical boundaries. The use of the dot
-as a reserved boundary marker impacts operations using the ``loc`` type. Note that this means the dot cannot be
-used as part of a location string. For example, the following location value would be interpreted as a hierarchical
-location with four elements (``us``, ``fl``, ``st``, and ``petersburg``):
+Components of a ``loc`` value must be separated by the dot ( ``.`` ) character. A ``loc`` value that
+consists of a single element does not require a trailing dot.
+
+The dot is a reserved character for the ``loc`` type and is used to separate string elements along hierarchical
+boundaries. The use of the dot as a reserved boundary marker impacts some operations using the ``loc`` type. Note
+that this means the dot cannot be used as part of a location string. For example, the following location value
+would be interpreted as a hierarchical location with four elements (``us``, ``fl``, ``st``, and ``petersburg``):
 
 - ``:loc = us.fl.st.petersburg``
 
 To appropriately represent the "city" element of the above location, an alternate syntax must be used. For example:
 
 - ``:loc = us.fl.stpetersburg``
-- ``:loc = "us.fl.saint petersburg"``
+- ``:loc = "us.fl.st petersburg"``
+- ``:loc = us.fl.st_petersburg``
 - ...etc.
 
 As an extension of the ``str`` type, ``loc`` types are subject to Synapse’s restrictions regarding using
@@ -1153,56 +1275,79 @@ geolocation values and hierarchies is an implementation decision.
 Operations
 ++++++++++
 
-The use of the dot character ( ``.`` ) as a reserved boundary marker impacts prefix (``^=``) and equivalent
-(``=``) operations using the ``loc`` type.
+The use of the dot character ( ``.`` ) as a reserved boundary marker impacts prefix ( ``^=`` ) and equivalent
+( ``=`` ) operations using the ``loc`` type.
+
+Prefix Operator
+~~~~~~~~~~~~~~~
+
+When **lifting** or **filtering** on ``loc`` property values using the prefix comparison operator ( ``^=`` ), the
+specified value must fall on a dot boundary.
 
 String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start
-with a given substring using the prefix (``^=``) extended comparator. For standard strings, the prefix
-comparator can be used with strings of arbitrary length. However, for string-derived types (including ``loc``)
-that use dotted hierarchical notation, **the prefix comparator operates along dot boundaries.**
-
-This is because the analytical significance of a location string is likely to fall on these hierarchical
-boundaries as opposed to an arbitrary substring prefix match. That is, it is more likely to be analytically
-meaningful to lift all locations within the US (``^=us``) or within Florida (``^=us.fl``) than it is to lift
-all locations in the US within states that start with “V” (``^=us.v``).
+with a given substring. For standard strings, the prefix operator can be used with strings of arbitrary length.
+However, for ``loc`` types, the prefix operator works along dot boundaries. This is because it is generally more
+analytically meaningful to lift all locations within the US (``^= us``) or within Florida (``^= us.fl``) than
+it is to lift all locations in the US within states that start with "V" (``^= us.v``).
 
 Prefix comparison for ``loc`` types is useful because it easily allows lifting or filtering at any appropriate
 level of resolution within the dotted hierarchy:
 
 **Examples:**
 
-Lift all organizations with locations in Turkey:
-
+Lift all organizations located in Turkey (``tr``):
 
 .. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
-.. storm-cli:: ou:org:loc^=tr
+.. storm-cli:: ou:org:loc ^= tr
 
 
-Lift all IP addresses geolocated in the province of Ontario, Canada:
+Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
 
 
 .. storm-pre:: [ ( inet:ipv4=149.248.52.240 :loc=ca.on ) ( inet:ipv4=49.51.12.195 :loc=ca.on.barrie ) ( inet:ipv4=199.201.123.200 :loc=ca.on.keswick ) ]
-.. storm-cli:: inet:ipv4:loc^=ca.on
+.. storm-cli:: inet:ipv4:loc ^= ca.on
 
 .. NOTE::
   
-  Specifying a more granular prefix value will **not** match values that are less granular. That is ``:loc^=ca.on``
-  will fail to match ``:loc=ca``.
+  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ipv4:loc ^= ca.on``
+  will fail to match ``inet:ipv4:loc = ca``.
 
-Lift all places in the city of Seattle:
+
+Equals Operator
+~~~~~~~~~~~~~~~
+
+When **lifting** or **filtering** on ``loc`` property values using the equals operator ( ``=`` ), Synapse will return **exact** matches for
+the specified value. The query below will only lift ``geo:place`` nodes with ``:loc = us.wa.seattle``; it will not lift nodes with ``:loc = us.wa``
+or ``:loc = us.washington.seattle``:
+
+Lift all places in the city of Seattle, Washington:
 
 .. storm-pre:: [ ( geo:place=* :name='space needle' :loc=us.wa.seattle :latlong=(47.6205099,-122.3514714) ) ( geo:place=* :name='seattle-tacoma international airport' :loc=us.wa.seattle :latlong=(47.4502535,-122.3110105) ) ]
-.. storm-cli:: geo:place:loc=us.wa.seattle
+.. storm-cli:: geo:place:loc = us.wa.seattle
 
+When **lifting** on ``:loc`` property values using the equals operator ( ``=`` ), a single asterisk ( ``*`` ) can be used
+as a "wildcard" to represent any trailing string following a dot boundary (including no trailing string  - ``:loc = us.*``
+will match ``:loc = us`` as well as ``:loc = us.tx.austin``). The asterisk must immediately follow a dot boundary and must
+be the final character in the expression (e.g., expressions such as ``:loc = us.*.rochester`` and ``:loc = us.m*`` are
+invalid; the expressions will not generate an error but will fail to return any nodes).
 
-**Usage Notes**
+Lift all organizations located in Turkey:
 
-- Use of the equals comparator (``=``) with ``loc`` types will match the **exact value only.** So ``:loc = us``
-  will match **only** ``:loc = us`` but not ``:loc = us.ca`` or ``:loc = us.il.chicago``.
-- Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match
-  that does **not** fall on a dot boundary will not return any nodes. For example, the filter syntax 
-  ``+:loc^=us.v`` will fail to return any nodes even if nodes with ``:loc = us.vt`` or ``:loc = us.va`` exist.
-  (However, it would return nodes with ``:loc = us.v`` or ``:loc = us.v.foo`` if such nodes exist.)
+.. storm-cli:: ou:org:loc = tr.*
+
+Lift all IP addresses geolocated in the province of Ontario, Canada:
+
+.. storm-cli:: inet:ipv4:loc = ca.on.*
+
+.. NOTE::
+
+  Lifting by ``loc`` property value using the wildcard is equivalent to a prefix lift. The following queries will
+  return the same results:
+  
+  Wildcard: ``ou:org:loc = de.*``
+  
+  Prefix match: ``ou:org:loc ^= de``
+
 
 .. _type-str:
 
@@ -1262,123 +1407,252 @@ Strings and string-derived types can also be lifted or filtered using the regula
 syn:\tag
 --------
 
-``syn:tag`` is a specialized type used for :ref:`data-tag` nodes within Synapse. Tags represent domain-specific,
-analytically relevant observations or assessments. They support a hierarchical namespace based on user-defined
-dot-separated strings. This hierarchy allows recording classes or categories of analytical observations that can
-be defined with increasing specificity. (See :ref:`analytical-model` for more information.)
+``syn:tag`` is a specialized type used for :ref:`data-tag` nodes and properties within Synapse. Tags are used
+to group related nodes; provide context to nodes; and often represent domain-specific, analytically relevant
+observations or assessments. Tags support a hierarchical namespace based on user-defined dot-separated strings.
+This hierarchy allows recording classes or categories of observations that can be defined with increasing specificity.
+(See :ref:`analytical-model` for more information.)
 
-``syn:tag`` is an extension of the :ref:`type-str` type. However, because ``syn:tag`` types use strings that
-comprise a dot-separated hierarchy, they exhibit slightly modified behavior from standard string types for
-certain operations.
 
 Indexing
 ++++++++
 
-The ``syn:tag`` type is an extension of the :ref:`type-str` type and so is **prefix-indexed** like other strings.
-However, the use of dot-separated boundaries impacts some operations using ``syn:tag`` values.
+The ``syn:tag`` type is an extension of the :ref:`type-str` type and is **prefix-indexed** like other strings.
 
 ``syn:tag`` values are normalized to lowercase.
 
 Parsing
 +++++++
 
-``syn:tag`` values can contain lowercase characters, numerals, and underscores. Spaces and ASCII symbols (other
-than the underscore) are not allowed. If you attempt to create a tag name that includes a dash character
-( ``-`` ) it will automatically be converted to an underscore ( ``_``).
+Components of a ``syn:tag`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved character
+for the ``syn:tag`` type and is used to separate string elements along hierarchical boundaries. A ``syn:tag`` value
+that consists of a single element does not require a trailing dot.
+
+``syn:tag`` values can contain ASCII lowercase characters, numerals, and underscores, as well as Unicode words
+(including most characters that can be part of a word in any language). Spaces and ASCII symbols (other than the
+underscore) are not allowed.
+
+The following are all acceptable ``syn:tag`` values:
+
+- ``syn:tag = cno``
+- ``syn:tag = rep.vt.exploit``
+- ``syn:tag = rep.microsoft.forest_blizzard``
+- ``syn:tag = 总参.三部``
+
+When creating a ``syn:tag`` node or setting a property whose type is ``syn:tag`` (such as ``risk:threat:tag``),
+Synapse will automatically normalize the value by:
+
+- converting uppercase letters to lowercase;
+- converting dashes ( ``-`` ) or spaces to underscores ( ``_`` ).
+- ignoring any disallowed characters.
+
+**Examples:**
+
+.. storm-cli:: [ syn:tag = rep.us-cisa.LAPSUS$ ]
+
+In the above example:
+
+- the dash in ``us-cisa`` is converted to an underscore;
+- ``LAPSUS`` is lowercased to ``lapsus``; and
+- the dollar sign ( ``$`` ) is ignored.
 
 .. NOTE::
-  
-  Synapse includes support for Unicode words in tag strings; this includes most characters that can be part of a
-  word in any language.
+   
+   If you attempt to **apply** a tag that contains invalid characters to a node, Synapse will throw a Storm syntax
+   error. The only normalization Synapse performs in this situation is to gracefully convert any uppercase letters
+   to lowercase. The following Storm query will throw an error:
+   
+   ``[ inet:fqdn = woot.com +#rep.us-cisa.LAPSUS$ ]``
 
-Components of a ``syn:tag`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved
-character for the ``syn:tag`` type and is used to separate string elements along hierarchical boundaries. The
-use of the dot as a reserved boundary marker impacts some operations using the ``syn:tag`` type.
-
-``syn:tag`` values can be input using any case (uppercase, lowercase, mixed case) but will be normalized to
-lowercase. As noted above, dashes are automatically converted to underscores.
-
-As ``syn:tag`` values cannot contain whitespace (spaces) or escaped characters, the Synapse restrictions
-regarding using :ref:`storm-whitespace-literals` do **not** apply.
-
-**Examples**
-
-The following are all allowed ``syn:tag`` values:
-
-- ``syn:tag = rep.vt.exploit``
-- ``syn:tag = aka.kaspersky.mal.shamoon.2``
-- ``syn:tag = cno.tgt.cn_mil_pla``
-
-The following ``syn:tag`` values are not allowed and will generate ``BadTypeValu`` errors:
-
-- ``syn:tag = this.is.my.@#$*(.tag`` (contains disallowed characters)
-- ``syn:tag = "some.threat group.tag"`` (contains whitespace)
 
 Insertion
 +++++++++
 
-A ``syn:tag`` node does not have to be created before the equivalent tag can be applied to another node. That
-is, applying a tag to a node will result in the automatic creation of the corresponding ``syn:tag`` node or
-nodes (assuming the appropriate user permissions). For example:
+``syn:tag`` are unique in that they are a type that can also be applied as a label to other nodes.
 
+A ``syn:tag`` (as a node) does not have to be created before the equivalent tag (label) can be applied to another
+node. That is, applying a tag to a node will result in the automatic creation of the corresponding ``syn:tag``
+node or nodes (assuming the appropriate user permissions). For example:
 
-.. storm-cli:: [inet:fqdn=woot.com +#some.new.tag ]
+.. storm-cli:: [ inet:fqdn = woot.com +#some.new.tag ]
 
-The above Storm syntax will both apply the tag ``#some.new.tag`` to the node ``inet:fqdn = woot.com`` and
-automatically create the node ``syn:tag = some.new.tag`` if it does not already exist (as well as ``syn:tag = some``
-and ``syn:tag = some.new``). This behavior (based on creating the FQDN ``woot.com`` and applying the tag
-``#some.new.tag`` in the previous example) is shown below by lifting tags that begin with 'some':
+The Storm syntax above will apply the tag ``#some.new.tag`` to the node ``inet:fqdn = woot.com`` and automatically
+create the node ``syn:tag = some.new.tag`` if it does not already exist (as well as ``syn:tag = some`` and
+``syn:tag = some.new``).
 
-.. storm-cli:: syn:tag^=some
 
 Operations
 +++++++++++
 
-The use of the dot character ( ``.`` ) as a reserved boundary marker impacts prefix (``^=``) and equivalent
-(``=``) operations using the ``syn:tag`` type.
+Like strings and other string-derived types, ``syn:tag`` types are **prefix-indexed**. This means that ``syn:tag``
+values can be lifted and filtered using the prefix comparison operator ( ``^=`` ).
 
-String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with
-a given substring using the prefix (``^=``) extended comparator. For standard strings, the prefix comparator can
-be used with strings of arbitrary length. However, for string-derived types (including ``syn:tag``) that use
-dotted hierarchical notation, **the prefix comparator operates along dot boundaries.**
+When lifting and filtering ``syn:tag`` types by prefix, the expression to match is **not** constrained by the
+dot ( ``.`` ) boundary that separates tag elements.
 
-This is because the analytical significance of a tag is likely to fall on these hierarchical boundaries as
-opposed to an arbitrary substring prefix match. That is, it is more likely to be analytically meaningful to lift
-all nodes with that are related to sinkhole infrastructure (``syn:tag^=cno.infra.anon.sink``) than it is to lift
-all nodes with infrastructure tags that begin with "s" (``syn:tag^=cno.infra.anon.s``).
+Prefix comparison for ``syn:tag`` types is useful because it allows you to easily identify a subset of tags
+or to lift / filter tags at any appropriate level of resolution within a tag hierarchy.
 
-Prefix comparison for ``syn:tag`` types is useful because it easily allows lifting or filtering at any appropriate
-level of resolution within a tag hierarchy:
+**Examples:**
 
-Lift all tags in the computer network operations (``cno``)tree:
-
+Lift all tags in the computer network operations (``cno``) tree:
 
 .. storm-pre:: [ syn:tag=cno.threat.t27 syn:tag=cno.mal.redtree ]
-.. storm-cli:: syn:tag^=cno
+.. storm-cli:: syn:tag ^= cno
+
+Lift all threats (``risk:threat`` nodes) whose ``:tag`` value is associated with Dell Secureworks threats
+whose name begins with "br":
+
+.. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
+.. storm-cli:: risk:threat:tag ^=rep.secureworks.br
+
+**Usage notes:**
+
+- Specifying a more granular prefix value will **not** match values that are less granular. That is, ``syn:tag^=cno.infra``
+  will fail to match ``syn:tag = cno``.
+
+- Use of the equals comparator ( ``=`` ) with ``syn:tag`` types will match the **exact value only.** So
+  ``syn:tag = rep`` will **only** match that tag and will not match ``syn:tag = rep.symantec`` or
+  ``syn:tag = rep.trend.pawnstorm``.
+
+- When lifting or filtering ``syn:tag`` types, use of the wildcard ( ``*`` ) is not allowed. For example,
+  the following Storm expression is invalid and will throw a syntax error: ``syn:tag = rep.*.cobalt_strike``
+
+.. NOTE::
+  
+  Working with (lifting, filtering, etc.) ``syn:tag`` **types** (``syn:tag`` forms or property values)
+  is different from working with **tags** applied to nodes. In particular, when filtering based on the
+  tag(s) applied to a set of nodes, you can filter using single or double asterisks ( ``*`` or ``**``).
+  See :ref:`filter-tag-globs` or the general :ref:`tag-filter` or :ref:`tag-lifts` sections for details
+  on working with tags applied to nodes.
 
 
-Lift all tags representing aliases (e.g., names of malware, threat groups, etc.) reported by Symantec:
+.. _type-taxoxnomy:
 
-.. storm-pre:: [ syn:tag=aka.symantec.mal.bifrose syn:tag=aka.symantec.thr.cadelle ]
-.. storm-cli:: syn:tag^=aka.symantec
+taxonomy
+--------
+
+A ``taxonomy`` in Synapse is used to represent a hierarchical set of categories that can be used to classify
+objects (forms). Many forms in Synapse include ``taxonomy`` properties (such as ``risk:tool:software:type``
+or ``ps:contact:type``).
+
+.. TIP::
+
+   ``taxonomy`` is a base type that is commonly extended to define form-specific taxonomies. That is, a
+   tool (``risk:tool:software``) has a ``:type`` property that can represent a set of tool/malware types
+   or categories. The ``risk:tool:software:type`` property has a form-specific taxonomy type of
+   ``risk:tool:software:taxonomy`` (which is also its own form).
+   
+   While this section describes the behavior of taxonomies generally, keep in mind that each form can
+   have its own taxonomy / set of categories independent of other taxonomies.
+
+Synapse users can define their own taxonomies to group forms in ways that are meaningful for their analysis.
+For example, you can construct a taxonomy (set of categories) to help subdivide and organize industries:
+
+- ``ou:industry:type = education``
+- ``ou:industry:type = education.colleges``
+- ``ou:industry:type = education.colleges.universities``
+- ``ou:industry:type = education.colleges.junior``
+- ``ou:industry:type = finance``
+- ``ou:industry:type = finance.banking``
+- ``ou:industry:type = finance.defi``
+
+...etc.
+
+.. NOTE::
+  
+  Some Synapse `Power-Ups`_ that create forms with ``taxonomy`` properties may set the property value to
+  identify the **source** of the form itself, along with any relevant category provided by the source.
+  This is done in order to distinguish categorizable objects from third-parties from similar objects
+  that may be defined by your organization, in case your internal categories differ from those used by
+  others.
+  
+  For example, the Synapse-Mandiant commercial Power-Up may create industries (``ou:industry`` nodes)
+  whose ``:type`` value will be set to ``mandiant``. Similarly, Mandiant categorizes threat actor tools
+  and malware, so ``risk:tool:software`` nodes created by the Power-Up will have their ``:type``
+  property set to values such as ``mandiant.backdoor`` or ``mandiant.utility``.
+  
+  Organizations can choose to leave these forms and values as they are, or can overwrite the taxonomy
+  values to create a consistent internal taxonomy.
 
 
-Lift all tags representing anonymous VPN infrastructure:
+Indexing
+++++++++
 
-.. storm-pre:: [ syn:tag=cno.infra.anon.vpn.airvpn syn:tag=cno.infra.anon.vpn.nordvpn ]
-.. storm-cli:: syn:tag^=cno.infra.anon.vpn
+The ``taxonomy`` type is an extension of the :ref:`type-str` type and is **prefix-indexed** like other strings.
+
+``taxonomy`` values are normalized to lowercase. A ``taxonomy`` value always includes a trailing dot ( ``.`` ),
+regardless of the number of elements (taxons) in the value.
+
+The trailing dot is masked / omitted when displaying the taxonomy value. This difference can be seen when
+displaying the value's representation (display value, using the method ``$node.repr()``) as opposed to its actual
+value (using the method ``$node.value()``):
+
+.. storm-pre:: [ ou:goal:type:taxonomy=financial_gain ]
+.. storm-cli:: ou:goal:type:taxonomy=financial_gain $lib.print($node.repr()) $lib.print($node.value())
 
 
-Note that specifying a more granular prefix value will **not** match values that are less granular. That is,
-``syn:tag^=cno.infra`` will fail to match ``syn:tag = cno``.
+Parsing
++++++++
 
-Similarly, use of the equals comparator (``=``) with ``syn:tag`` types will match the **exact value only.** So
-``syn:tag = aka`` will match **only** that tag but not ``syn:tag = aka.symantec`` or ``syn:tag = aka.trend.thr.pawnstorm``.
+Components of a ``taxonomy`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved character
+for the ``taxonomy`` type and is used to separate elements (taxons) along hierarchical boundaries. All ``taxonomy``
+values end in a trailing dot.
 
-Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match
-that does **not** fall on a dot boundary will not return any nodes. For example, the syntax ``syn:tag^=aka.t`` 
-will fail to return any nodes even if nodes ``syn:tag = aka.talos`` or ``syn:tag = aka.trend`` exist. (However, 
-it would return nodes ``syn:tag = aka.t`` or ``syn:tag = aka.t.foo`` if such nodes exist.)
+``taxonomy`` values can contain ASCII lowercase characters, numerals, and underscores, as well as Unicode words
+(including most characters that can be part of a word in any language). Spaces and ASCII symbols (other than the
+underscore) are not allowed.
+
+When creating a ``taxonomy`` node or setting a ``taxonomy`` property, Synapse will automatically normalize the value by:
+
+- converting uppercase letters to lowercase;
+- converting dashes ( ``-`` ) or spaces to underscores ( ``_`` );
+- ignoring any disallowed characters; and
+- adding the trailing dot (  ``.`` ) to the stored value if not specified.
+
+
+Insertion
++++++++++
+
+N/A - no special behavior when working with ``taxonomy`` nodes or properties other than as specified above.
+
+
+Operations
+++++++++++
+
+Like strings and other string-derived types, ``taxonomy`` types are **prefix-indexed**. This means that
+``taxonomy`` values can be lifted and filtered using the prefix comparison operator ( ``^=`` ).
+
+When lifting and filtering ``taxonomy`` types by prefix, the expression to match is **not** constrained by
+the dot ( ``.`` ) boundary that separates taxonomy elements.
+
+Prefix comparison for ``taxonomy`` types is useful because it allows you to easily identify a subset of
+forms based on lifting or filtering those forms using any appropriate level of resolution within the
+form's taxonomy.
+
+**Examples:**
+
+Lift all industries (``ou:industry`` nodes) within the "media" catetgory / taxonomy:
+
+.. storm-pre:: [ (ou:industry=* :name=media :type=media) (ou:industry=* :name='journalism and news media' :type=media.journalism) (ou:industry=* :name='journalists and reporters' :type=media.journalism.reporters) ]
+.. storm-cli:: ou:industry:type ^= media
+
+Lift all tools (``risk:tool:software`` nodes) whose sub-category name begins with "d" as reported by Mandiant:
+
+.. storm-pre:: [ (risk:tool:software=* :soft:name=pumpkinbar :type=mandiant.dropper ) (risk:tool:software=* :soft:name=spicytuna :type=mandiant.downloader ) (risk:tool:software=* :soft:name=lateop :type=mandiant.dataminer ) :reporter:name=mandiant ]
+.. storm-cli:: risk:tool:software:type ^= mandiant.d
+
+**Usage notes:**
+
+- Specifying a more granular prefix value will not match values that are less granular. That is,
+  ``risk:tool:software:availability ^= public.commercial`` will fail to match ``risk:tool:software:availability = public``
+
+- Use of the equals comparator ( ``=`` ) with ``taxonomy`` types will match the exact value only. So
+  ``ou:industry:type = energy`` will only match that taxonomy and will not match ``ou:industry:type = energy.electricity``
+  or ``ou:industry:type = energy.electricity.distribution``.
+
+- When lifting or filtering ``taxonomy`` types, use of the wildcard ( ``*`` ) is not allowed. For example, the following
+  Storm expression is invalid and will throw a syntax error: ``risk:attacktype = phishing.*``.
 
 
 .. _type-time:
@@ -1433,12 +1707,14 @@ Parsing
     
     ``(1544953072324)``
     
-    .. NOTE::
+    .. TIP::
       
-      Synapse expects time values to be entered as parseable time **strings** (such as 2018/12/16 09:37:52.324,
-      which Synapse internally converts to a millis integer for storage). To enter a time in raw epoch millis
-      format, you must enclose it in parentheses so that Synapse interprets the value as a raw integer.
-      (Otherwise, Synapse will attempt to interpret the value as a "no formatting" string, and throw an error.)
+      Synapse expects that users will generally enter time values using "human friendly" strings, and will attempt
+      to parse the input as such. Using parentheses tells Synapse to interpret the value as a raw integer.
+      
+      Note that this parentheses syntax only applies when setting or updating a ``time`` property using Storm.
+      When setting or updating a property in the `Optic UI`_ by editing a field, you must enter a time string value.
+
 
 - **Relative** (offset) time values in the format:
   
@@ -1676,5 +1952,8 @@ See the Storm documents referenced above for additional examples using the inter
 
 .. _documentation: ../autodocs/datamodel_types.html
 .. _code: https://github.com/vertexproject/synapse
-.. _Optic: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _Optic UI: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 .. _Microsoft: https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
+.. _variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
+.. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
+
