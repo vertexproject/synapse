@@ -12,7 +12,6 @@ v2.168.0 - 2024-05-03
 Model Changes
 -------------
 - Add a new model, ``plan``, for modeling elements of plannings systems.
-  models.
   (`#3697 <https://github.com/vertexproject/synapse/pull/3697>`_)
 
   **New Forms**
@@ -48,7 +47,7 @@ Features and Enhancements
   are executed using Storm will always run directly on the Cortex leader.
   (`#3694 <https://github.com/vertexproject/synapse/pull/3694>`_)
   (`#3695 <https://github.com/vertexproject/synapse/pull/3695>`_)
-- Add a data migration helper library,  ``$lib.model.migration``. This
+- Add a data migration helper library, ``$lib.model.migration``. This
   contains functions to help with migrating data. Add a
   ``$lib.model.migrations.s`` library, containing functions for selectively
   migrating nodes in the current view. Add an optional hotfix for migrating
