@@ -81,7 +81,7 @@ Improved Documentation
   and ``syn:tag`` behavior with prefixes and wlidcards. Add a section on the
   ``duration`` and ``taxonomy`` types.
   (`#3703 <https://github.com/vertexproject/synapse/pull/3703>`_)
-- Add documentation for ``$lib.auth.easyperm.level`` constatns and the
+- Add documentation for ``$lib.auth.easyperm.level`` constants and the
   ``$lib.dict.has()`` function.
   (`#3706 <https://github.com/vertexproject/synapse/pull/3706>`_)
 
