@@ -475,32 +475,222 @@ class ModelRevTest(s_tests.SynTest):
             self.eq('lockpicking', nodes[0].get('name'))
 
     async def test_modelrev_0_2_25(self):
+
+        with self.getLoggerStream('synapse.lib.modelrev') as stream:
+
+            async with self.getRegrCore('model-0.2.25') as core:
+                pass
+
+            stream.seek(0)
+            data = stream.read()
+
+            mesg = ''.join((
+                'Unable to migrate it:sec:cpe=cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:* ',
+               '(122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac) due to invalid data.'
+            ))
+            self.isin(mesg, data)
+
+            mesg = ''.join((
+                'Unable to migrate it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:* ',
+                '(89f1fbd62a04867405169fd8eb38758372e3a6ed170536b439d957abecf6c449) due to invalid data.'
+            ))
+            self.isin(mesg, data)
+
         async with self.getRegrCore('model-0.2.25') as core:
+            q = 'it:sec:cpe +#test.cpe.23valid +#test.cpe.22valid $node.data.load(migration:0_2_25)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(
+                nodes[0].ndef,
+                ('it:sec:cpe', 'cpe:2.3:a:abine:donottrackme_-_mobile_privacy:1.1.8:*:*:*:*:android:*:*')
+            )
+            props = nodes[0].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'a',
+                'product': 'donottrackme_-_mobile_privacy',
+                'sw_edition': '*',
+                'target_hw': '*',
+                'target_sw': 'android',
+                'update': '*',
+                'v2_2': 'cpe:/a:abine:donottrackme_-_mobile_privacy:1.1.8::~~~android~~',
+                'vendor': 'abine',
+                'version': '1.1.8'
+            })
+            self.eq(nodes[0].nodedata, {'migration:0_2_25': None})
 
-            nodes = await core.nodes('it:sec:cpe:vendor=zyxel')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('version'), '5.21(aazf.14)c0')
+            self.eq(nodes[1].ndef, ('it:sec:cpe', 'cpe:2.3:a:01generator:pireospay:-:*:*:*:*:prestashop:*:*'))
+            props = nodes[1].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'a',
+                'product': 'pireospay',
+                'sw_edition': '*',
+                'target_hw': '*',
+                'target_sw': 'prestashop',
+                'update': '*',
+                'v2_2': 'cpe:/a:01generator:pireospay:-::~~~prestashop~~',
+                'vendor': '01generator',
+                'version': '-'
+            })
+            self.eq(nodes[1].nodedata, {'migration:0_2_25': None})
 
-            nodes = await core.nodes('it:sec:cpe:vendor=acurax')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('product'), 'under_construction_/_maintenance_mode')
-            self.eq(nodes[0].get('edition'), '*')
-            self.eq(nodes[0].get('sw_edition'), '*')
-            self.eq(nodes[0].get('target_hw'), '*')
-            self.eq(nodes[0].get('target_sw'), 'wordpress')
-            self.eq(nodes[0].get('other'), '*')
+            q = 'it:sec:cpe +#test.cpe.23valid +#test.cpe.22invalid $node.data.load(migration:0_2_25)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
 
-            nodes = await core.nodes('it:sec:cpe:vendor=1c')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('product'), '1c:enterprise')
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:1c:1c\\:enterprise:-:*:*:*:*:*:*:*'))
+            props = nodes[0].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'a',
+                'product': '1c:enterprise',
+                'sw_edition': '*',
+                'target_hw': '*',
+                'target_sw': '*',
+                'update': '*',
+                'v2_2': 'cpe:/a:1c:1c%3aenterprise:-',
+                'vendor': '1c',
+                'version': '-'
+            })
+            self.eq(nodes[0].nodedata['migration:0_2_25'], {
+                'status': 'success',
+                'updated': ['v2_2', 'product'],
+            })
 
-            nodes = await core.nodes('it:sec:cpe:vendor=10web')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('edition'), '*')
-            self.eq(nodes[0].get('sw_edition'), 'premium')
-            self.eq(nodes[0].get('target_hw'), '*')
-            self.eq(nodes[0].get('target_sw'), 'wordpress')
-            self.eq(nodes[0].get('other'), '*')
+            self.eq(nodes[1].ndef, ('it:sec:cpe', 'cpe:2.3:a:abinitio:control\\>center:-:*:*:*:*:*:*:*'))
+            props = nodes[1].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'a',
+                'product': 'control>center',
+                'sw_edition': '*',
+                'target_hw': '*',
+                'target_sw': '*',
+                'update': '*',
+                'v2_2': 'cpe:/a:abinitio:control%3ecenter:-',
+                'vendor': 'abinitio',
+                'version': '-'
+            })
+            self.eq(nodes[1].nodedata['migration:0_2_25'], {
+                'status': 'success',
+                'updated': ['v2_2', 'product'],
+            })
+
+            q = 'it:sec:cpe +#test.cpe.23invalid +#test.cpe.22valid $node.data.load(migration:0_2_25)'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*'))
+            props = nodes[0].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'a',
+                'product': 'under_construction_/_maintenance_mode',
+                'sw_edition': '*',
+                'target_hw': '*',
+                'target_sw': 'wordpress',
+                'update': '*',
+                'v2_2': 'cpe:/a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~',
+                'vendor': 'acurax',
+                'version': '-',
+            })
+            self.eq(nodes[0].nodedata['migration:0_2_25'], {
+                'status': 'success',
+                'updated': ['product', 'update', 'edition', 'target_sw'],
+                'valu': 'cpe:2.3:a:acurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*',
+            })
+
+            self.eq(nodes[1].ndef, ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\%28aazf.15\\%29co:*:*:*:*:*:*:*'))
+            props = nodes[1].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'o',
+                'product': 'nas542_firmware',
+                'sw_edition': '*',
+                'target_hw': '*',
+                'target_sw': '*',
+                'update': '*',
+                'v2_2': 'cpe:/o:zyxel:nas542_firmware:5.21%2528aazf.15%2529co',
+                'vendor': 'zyxel',
+                'version': '5.21(aazf.15)co'
+            })
+            self.eq(nodes[1].nodedata['migration:0_2_25'], {
+                'status': 'success',
+                'updated': ['v2_2', 'version'],
+                'valu': 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\(aazf.15\\)co:*:*:*:*:*:*:*',
+            })
+
+            self.eq(nodes[2].ndef, ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*'))
+            props = nodes[2].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'a',
+                'product': 'social_feed_for_instagram',
+                'sw_edition': 'premium',
+                'target_hw': '*',
+                'target_sw': 'wordpress',
+                'update': '*',
+                'v2_2': 'cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~',
+                'vendor': '10web',
+                'version': '1.0.0'
+            })
+            self.eq(nodes[2].nodedata['migration:0_2_25'], {
+                'status': 'success',
+                'updated': ['update', 'edition', 'sw_edition', 'target_sw'],
+                'valu': 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*'
+            })
+
+            self.eq(nodes[3].ndef, ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*'))
+            props = nodes[3].props
+            props.pop('.created')
+            self.eq(props, {
+                'edition': '*',
+                'language': '*',
+                'other': '*',
+                'part': 'o',
+                'product': 'nas326_firmware',
+                'sw_edition': '*',
+                'target_hw': '*',
+                'target_sw': '*',
+                'update': '*',
+                'v2_2': 'cpe:/o:zyxel:nas326_firmware:5.21%28aazf.14%29c0',
+                'vendor': 'zyxel',
+                'version': '5.21(aazf.14)c0'
+            })
+            self.eq(nodes[3].nodedata['migration:0_2_25'], {
+                'status': 'success',
+                'updated': ['version'],
+                'valu': 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*'
+            })
+
+            q = 'it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid $node.data.load(migration:0_2_25)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            for node in nodes:
+                nodedata = node.nodedata['migration:0_2_25']
+                self.eq(nodedata, {'status': 'invalid data'})
 
             q = '''
             [

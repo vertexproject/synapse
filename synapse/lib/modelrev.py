@@ -786,44 +786,59 @@ class ModelRev:
                 if props is None:
                     continue
 
+                valu23 = None
+                valu22 = None
+                invalid = False
+
                 # Check the primary property for validity.
                 cpe23 = cpe23_regex.match(curv[0])
                 if cpe23 is not None and cpe23.group() == curv[0]:
-                    valu = curv[0]
+                    valu23 = curv[0]
 
+                # Check the v2_2 property for validity.
+                v2_2 = props.get('v2_2')
+                if v2_2 is not None and cpe22_regex.match(v2_2[0]).group() == v2_2[0]:
+                    valu22 = v2_2[0]
+
+                if valu23 is None and valu22 is None:
+                    invalid = True
+
+                if valu22 is not None and '\\' in valu22:
+                    invalid = True
+
+                if valu22 is None and v2_2 is not None and '\\' in v2_2[0]:
+                    invalid = True
+
+                if invalid:
+                    # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
+                    # we can do here so log, mark, and go around.
+                    iden = s_common.ehex(buid)
+                    mesg = f'Unable to migrate it:sec:cpe={curv[0]} ({iden}) due to invalid data.'
+                    logger.warning(mesg)
+
+                    nodeedits.append(
+                        (buid, 'it:sec:cpe', (
+                            (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_25', {'status': 'invalid data'}, None), ()),
+                        ))
+                    )
+                    continue
+
+                if valu23 is not None:
+                    valu = valu23
                 else:
-                    # Primary property doesn't appear valid, try the v2_2 prop.
-
-                    # Get the cpe2.2 string from the node
-                    v2_2 = props.get('v2_2')
-                    if v2_2 is not None and cpe22_regex.match(v2_2[0]).group() == v2_2[0]:
-                        # The v2_2 prop is a valid CPE2.2 string.
-                        valu = v2_2[0]
-                    else:
-                        # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
-                        # we can do here so log, mark, and go around.
-                        iden = s_common.ehex(buid)
-                        mesg = f'Unable to migrate it:sec:cpe={curv[0]} ({iden}) due to invalid data.'
-                        logger.warning(mesg)
-
-                        nodeedits.append(
-                            (buid, 'it:sec:cpe', (
-                                (s_layer.EDIT_NODEDATA_SET, ('migration:0.2.25:failed', True, None), ()),
-                            ))
-                        )
-                        continue
+                    valu = valu22
 
                 # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
                 norm, info = modl.norm(valu)
                 subs = info.get('subs')
 
+                nodedata = {}
+
                 if norm != curv[0]:
                     # The re-normed value is not the same as the current value.
                     # Since we can't change the primary property, store the
                     # updated value in nodedata.
-                    edits.append(
-                        (s_layer.EDIT_NODEDATA_SET, ('migration:0.2.25:valu', norm, None), ()),
-                    )
+                    nodedata['valu'] = norm
 
                 # Iterate over the existing properties
                 for propname, propcurv in props.items():
@@ -833,7 +848,7 @@ class ModelRev:
 
                     propcurv, stortype = propcurv
 
-                    if propname == 'v2_2':
+                    if propname == 'v2_2' and isinstance(subscurv, list):
                         subscurv = s_infotech.zipCpe22(subscurv)
 
                     # Values are the same, go around
@@ -842,7 +857,13 @@ class ModelRev:
 
                     # Update the existing property with the re-normalized property value
                     edits.append((s_layer.EDIT_PROP_SET, (propname, subscurv, propcurv, stortype), ()))
-                    edits.append((s_layer.EDIT_NODEDATA_SET, (f'migration:0.2.25:subs:{propname}', 'updated', None), ()))
+
+                    nodedata.setdefault('updated', [])
+                    nodedata['updated'].append(propname)
+
+                if nodedata:
+                    nodedata['status'] = 'success'
+                    edits.append((s_layer.EDIT_NODEDATA_SET, (f'migration:0_2_25', nodedata, None), ()))
 
                 if not edits: # pragma: no cover
                     continue
