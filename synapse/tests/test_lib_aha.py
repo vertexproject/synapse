@@ -1126,7 +1126,7 @@ class AhaTest(s_test.SynTest):
                     ready = svcinfo.get('ready')
                     online = svcinfo.get('online')
                     self.none(online)
-                    self.true(ready)  # Ready is not cleared upon restart
+                    self.false(ready)  # Ready is cleared upon restart / setting service down.
 
                     n = 3
                     if len(stack._exit_callbacks) > 0:
