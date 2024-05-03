@@ -345,6 +345,9 @@ class StormlibModelTest(s_test.SynTest):
 
             # copy edges
 
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyEdges($node, newp)'))
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyEdges(newp, $node)'))
+
             nodes = await core.nodes('''
                 test:str=src
                 [ <(foo)+ { test:str=other } +(bar)> { test:str=other } ]
@@ -361,6 +364,9 @@ class StormlibModelTest(s_test.SynTest):
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
 
             # copy tags
+
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyTags($node, newp)'))
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyTags(newp, $node)'))
 
             await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
 
