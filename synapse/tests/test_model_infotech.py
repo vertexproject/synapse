@@ -1507,8 +1507,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
 
-            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
 
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
@@ -1523,7 +1523,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ it:sec:cpe="cpe:2.3:h:d\\-link:dir\\-850l:*:*:*:*:*:*:*:*" ]')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:h:d\\-link:dir\\-850l:*:*:*:*:*:*:*:*'))
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*'))
             self.eq(nodes[0].get('part'), 'h')
             self.eq(nodes[0].get('product'), 'dir-850l')
             self.eq(nodes[0].get('vendor'), 'd-link')
@@ -1540,7 +1540,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes(r'[ it:sec:cpe="cpe:2.3:o:*:linux:3.10.0\-229.14.1.el7.centos.plus.x86_64:*:*:*:*:*:x86_64:*" ]')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:sec:cpe', r'cpe:2.3:o:*:linux:3.10.0\-229.14.1.el7.centos.plus.x86_64:*:*:*:*:*:x86_64:*'))
+            self.eq(nodes[0].ndef, ('it:sec:cpe', r'cpe:2.3:o:*:linux:3.10.0-229.14.1.el7.centos.plus.x86_64:*:*:*:*:*:x86_64:*'))
             self.eq(nodes[0].get('part'), 'o')
             self.eq(nodes[0].get('product'), 'linux')
             self.eq(nodes[0].get('target_hw'), 'x86_64')

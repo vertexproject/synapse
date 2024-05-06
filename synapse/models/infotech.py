@@ -11,7 +11,9 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+import synapse.lib.scrape as s_scrape
 import synapse.lib.version as s_version
+import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +222,14 @@ class Cpe22Str(s_types.Str):
             mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
-        return zipCpe22(parts), {}
+        v2_2 = zipCpe22(parts)
+
+        rgx = s_modelrev.cpe22_regex.match(v2_2)
+        if rgx is None or rgx.group() != v2_2:
+            mesg = 'Error processing CPE string.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=v2_2)
+
+        return v2_2, {}
 
     def _normPyList(self, parts):
         return zipCpe22(parts), {}
@@ -284,7 +293,6 @@ class Cpe23Str(s_types.Str):
     def _normPyStr(self, valu):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
-
             parts = cpesplit(text[8:])
             if len(parts) > 11:
                 mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
@@ -292,6 +300,8 @@ class Cpe23Str(s_types.Str):
 
             extsize = 11 - len(parts)
             parts.extend(['*' for _ in range(extsize)])
+
+            parts = [cpe_escape(cpe_unescape(k)) for k in parts]
 
             v2_3 = 'cpe:2.3:' + ':'.join(parts)
 
@@ -317,6 +327,7 @@ class Cpe23Str(s_types.Str):
             parts = [cpe_unescape(k) for k in parts]
 
         elif text.startswith('cpe:/'):
+
             v2_2 = text
             # automatically normalize CPE 2.2 format to CPE 2.3
             parts = chopCpe22(text)
@@ -365,6 +376,20 @@ class Cpe23Str(s_types.Str):
         else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        rgx = s_modelrev.cpe23_regex.match(v2_3)
+        if rgx is None or rgx.group() != v2_3:
+            mesg = 'Error creating CPE 2.3 string.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=v2_3)
+
+        if isinstance(v2_2, list):
+            cpe22 = zipCpe22(v2_2)
+        else:
+            cpe22 = v2_2
+        rgx = s_modelrev.cpe22_regex.match(cpe22)
+        if rgx is None or rgx.group() != cpe22:
+            mesg = 'Error creating CPE 2.2 string.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=cpe22)
 
         subs = {
             'v2_2': v2_2,
