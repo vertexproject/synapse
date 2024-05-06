@@ -3,6 +3,8 @@ import string
 import asyncio
 import logging
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.data as s_data
 
@@ -13,9 +15,11 @@ import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.scrape as s_scrape
 import synapse.lib.version as s_version
-import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
+
+cpe22_regex = regex.compile(s_scrape._cpe22_regex, regex.VERBOSE | regex.IGNORECASE)
+cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
 
 def cpesplit(text):
     part = ''
@@ -224,7 +228,7 @@ class Cpe22Str(s_types.Str):
 
         v2_2 = zipCpe22(parts)
 
-        rgx = s_modelrev.cpe22_regex.match(v2_2)
+        rgx = cpe22_regex.match(v2_2)
         if rgx is None or rgx.group() != v2_2:
             mesg = 'Error processing CPE string.'
             raise s_exc.BadTypeValu(mesg=mesg, valu=v2_2)
@@ -377,7 +381,7 @@ class Cpe23Str(s_types.Str):
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
-        rgx = s_modelrev.cpe23_regex.match(v2_3)
+        rgx = cpe23_regex.match(v2_3)
         if rgx is None or rgx.group() != v2_3:
             mesg = 'Error creating CPE 2.3 string.'
             raise s_exc.BadTypeValu(mesg=mesg, valu=v2_3)
@@ -386,7 +390,7 @@ class Cpe23Str(s_types.Str):
             cpe22 = zipCpe22(v2_2)
         else:
             cpe22 = v2_2
-        rgx = s_modelrev.cpe22_regex.match(cpe22)
+        rgx = cpe22_regex.match(cpe22)
         if rgx is None or rgx.group() != cpe22:
             mesg = 'Error creating CPE 2.2 string.'
             raise s_exc.BadTypeValu(mesg=mesg, valu=cpe22)

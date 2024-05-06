@@ -5,7 +5,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
-import synapse.lib.scrape as s_scrape
 
 import synapse.models.infotech as s_infotech
 
@@ -791,22 +790,19 @@ class ModelRev:
                 invalid = False
 
                 # Check the primary property for validity.
-                cpe23 = cpe23_regex.match(curv[0])
+                cpe23 = s_infotech.cpe23_regex.match(curv[0])
                 if cpe23 is not None and cpe23.group() == curv[0]:
                     valu23 = curv[0]
 
                 # Check the v2_2 property for validity.
                 v2_2 = props.get('v2_2')
-                if v2_2 is not None and cpe22_regex.match(v2_2[0]).group() == v2_2[0]:
+                if v2_2 is not None and s_infotech.cpe22_regex.match(v2_2[0]).group() == v2_2[0]:
                     valu22 = v2_2[0]
 
                 if valu23 is None and valu22 is None:
                     invalid = True
 
                 if valu22 is not None and '\\' in valu22:
-                    invalid = True
-
-                if valu22 is None and v2_2 is not None and '\\' in v2_2[0]:
                     invalid = True
 
                 if invalid:
@@ -1263,42 +1259,3 @@ class ModelRev:
         }
         '''
         await self.runStorm(storm, opts=opts)
-
-def cpe22_pattern():
-    ALPHA = '[A-Za-z]'
-    DIGIT = '[0-9]'
-    UNRESERVED = r'[A-Za-z0-9\-\.\_]'
-    SPEC1 = '%01'
-    SPEC2 = '%02'
-    # This is defined in the ABNF but not actually referenced
-    # SPECIAL = f'(?:{SPEC1}|{SPEC2})'
-    SPEC_CHRS = f'(?:{SPEC1}+|{SPEC2})'
-    PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e)'
-    STR_WO_SPECIAL = f'(?:{UNRESERVED}|{PCT_ENCODED})*'
-    STR_W_SPECIAL = f'{SPEC_CHRS}? (?:{UNRESERVED}|{PCT_ENCODED})+ {SPEC_CHRS}?'
-    STRING = f'(?:{STR_W_SPECIAL}|{STR_WO_SPECIAL})'
-    PACKED = rf'\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?'
-    REGION = f'(?:{ALPHA}{{2}}|{DIGIT}{{3}})'
-    LANGTAG = rf'(?:{ALPHA}{{2,3}}(?:\-{REGION})?)'
-    PART = '[hoa]?'
-    VENDOR = STRING
-    PRODUCT = STRING
-    VERSION = STRING
-    UPDATE = STRING
-    EDITION = f'(?:{PACKED}|{STRING})'
-    LANG = f'{LANGTAG}?'
-    COMPONENT_LIST = f'''
-        (?:
-            {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION}:{LANG} |
-            {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION} |
-            {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE} |
-            {PART}:{VENDOR}:{PRODUCT}:{VERSION} |
-            {PART}:{VENDOR}:{PRODUCT} |
-            {PART}:{VENDOR} |
-            {PART}
-        )
-    '''
-    return f'cpe:/{COMPONENT_LIST}'
-
-cpe22_regex = regex.compile(cpe22_pattern(), regex.VERBOSE | regex.IGNORECASE)
-cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE)
