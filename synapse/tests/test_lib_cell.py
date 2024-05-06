@@ -2243,8 +2243,8 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
                     pass
 
-                stream.seek(0)
-                self.isin('onboot optimization complete!', stream.read())
+            stream.seek(0)
+            self.isin('onboot optimization complete!', stream.read())
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
@@ -2266,10 +2266,24 @@ class CellTest(s_t_utils.SynTest):
                     async with self.getTestCore(dirn=dirn, conf=conf) as core:
                         pass
 
-                    stream.seek(0)
-                    buf = stream.read()
-                    self.notin('onboot optimization complete!', buf)
-                    self.isin('not on the same volume', buf)
+                stream.seek(0)
+                buf = stream.read()
+                self.notin('onboot optimization complete!', buf)
+                self.isin('not on the same volume', buf)
+
+            # Local backup files are skipped
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.runBackup()
+
+            with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                conf = {'onboot:optimize': True}
+                async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                    pass
+
+            stream.seek(0)
+            self.isin('Skipping backup file', stream.read())
+            self.isin('onboot optimization complete!', stream.read())
 
     async def test_cell_gc(self):
         async with self.getTestCore() as core:
