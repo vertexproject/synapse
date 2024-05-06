@@ -2282,8 +2282,9 @@ class CellTest(s_t_utils.SynTest):
                     pass
 
             stream.seek(0)
-            self.isin('Skipping backup file', stream.read())
-            self.isin('onboot optimization complete!', stream.read())
+            buf = stream.read()
+            self.isin('Skipping backup file', buf)
+            self.isin('onboot optimization complete!', buf)
 
     async def test_cell_gc(self):
         async with self.getTestCore() as core:
