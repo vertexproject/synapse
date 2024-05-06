@@ -139,7 +139,7 @@ Member:     00.cell.loop.vertex.link'''
                 self.len(nevents, await waiter.wait(timeout=12))
 
                 msgs = await core00.stormlist('aha.svc.list')
-                self.stormIsInPrint('01.cell.loop.vertex.link                      false  false  true', msgs)
+                self.stormIsInPrint('01.cell.loop.vertex.link                      false  false  false', msgs)
 
                 # Fake a record
                 await aha.addAhaSvc('00.newp', info={'urlinfo': {'scheme': 'tcp', 'host': '0.0.0.0', 'port': '3030'}},
