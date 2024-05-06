@@ -1240,6 +1240,7 @@ class CellTest(s_t_utils.SynTest):
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
                 self.eq('faz', cell.conf.get('auth:conf')['baz'])
                 await cell.auth.addUser('visi')
+                await cell._storCellAuthMigration()
 
     async def test_cell_auth_userlimit(self):
         maxusers = 3

@@ -461,6 +461,13 @@ class AgendaTest(s_t_utils.SynTest):
 
                 await core.updateCronJob(guid3, '#bahhumbug')
 
+                # Add a job with invalid storage version
+                cdef = (await core.listCronJobs())[0]
+                guid = s_common.guid()
+                cdef['ver'] = 0
+                cdef['iden'] = guid
+                core.agenda.apptkv.set(guid, cdef)
+
             async with self.getTestCore(dirn=dirn) as core:
 
                 appts = await core.listCronJobs()

@@ -4001,6 +4001,15 @@ class StormTest(s_t_utils.SynTest):
                 msgs = await core.stormlist(pushq, opts={'user': visi.iden, 'vars': varz})
                 self.stormHasNoWarnErr(msgs)
 
+                l1iden = l1.get('iden')
+                pdef = list(core.getLayer(l1iden).layrinfo['pushs'].values())[0]
+                self.none(await core.addLayrPush(l1iden, pdef))
+                self.len(1, list(core.getLayer(l1iden).layrinfo['pushs'].values()))
+
+                pdef = list(core.getLayer(l1iden).layrinfo['pulls'].values())[0]
+                self.none(await core.addLayrPull(l1iden, pdef))
+                self.len(1, list(core.getLayer(l1iden).layrinfo['pulls'].values()))
+
     async def test_storm_tagprune(self):
 
         async with self.getTestCore() as core:

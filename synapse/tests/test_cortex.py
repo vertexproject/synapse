@@ -2645,6 +2645,8 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('.hehe [ -.hehe ]'))
             self.len(0, await core.nodes('.hehe'))
 
+            self.none(await core._addUnivProp('hehe', None, None))
+
         # ensure that we can delete univ props in a authenticated setting
         async with self.getTestCoreAndProxy() as (realcore, core):
 
@@ -3096,6 +3098,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pkgs = await proxy.getStormPkgs()
             self.len(0, pkgs)
             await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
+
+            self.none(await core._delStormPkg('foosball'))
 
             # This segfaults in regex < 2022.9.11
             query = '''test:str~="(?(?<=A)|(?(?![^B])C|D))"'''
@@ -5952,6 +5956,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantDelCmd):
                 await core.delStormCmd('sleep')
 
+            self.none(await core._delStormCmd('newp'))
+
     async def test_cortex_storm_lib_dmon_cmds(self):
         async with self.getTestCore() as core:
             await core.nodes('''
@@ -8012,6 +8018,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # The cortex authgate does nothing
                 with self.raises(s_exc.AuthDeny) as cm:
                     await core.nodes('[test:str=hello]', opts=aslow)
+
+                # Coverage for nonexistent users/roles
+                core.auth.stor.set('gate:cortex:user:newp', {'iden': 'newp'})
+                core.auth.stor.set('gate:cortex:role:newp', {'iden': 'newp'})
 
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex

@@ -29,6 +29,9 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.DupRoleName):
                 await auth.addRole('ninjas')
 
+            self.none(await auth._addUser(user.iden, 'visi@vertex.link'))
+            self.none(await auth._addRole(user.iden, 'ninjas'))
+
             self.nn(user)
 
             with self.raises(s_exc.AuthDeny):
@@ -105,6 +108,8 @@ class AuthTest(s_test.SynTest):
             await auth.delUser(user.iden)
             self.false(user.allowed(('baz', 'faz')))
 
+            self.none(await auth._delUser(user.iden))
+
             role = await auth.addRole('lolusers')
             role2 = await auth.addRole('lolusers2')
 
@@ -137,6 +142,9 @@ class AuthTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchAuthGate):
                 await auth.delAuthGate('newp')
+
+            with self.raises(s_exc.InconsistentStorage):
+                await auth.addAuthGate(core.view.iden, 'newp')
 
     async def test_hive_tele_auth(self):
 

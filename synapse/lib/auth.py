@@ -700,7 +700,7 @@ class AuthGate():
 
     def genUserInfo(self, iden):
         userinfo = self.gateusers.get(iden)
-        if userinfo is not None:
+        if userinfo is not None:  # pragma: no cover
             return userinfo
 
         userinfo = {
@@ -715,7 +715,7 @@ class AuthGate():
 
     def genRoleInfo(self, iden):
         roleinfo = self.gateroles.get(iden)
-        if roleinfo is not None:
+        if roleinfo is not None:  # pragma: no cover
             return roleinfo
 
         roleinfo = {
