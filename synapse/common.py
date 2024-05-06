@@ -750,20 +750,6 @@ def signedint64un(b):
     '''
     return _SignedInt64be.unpack(b)[0]
 
-_Int64no = struct.Struct('Q')
-
-def int64en_native(i):
-    '''
-    Encode an unsigned 64-bit int into 8 native order bytes
-    '''
-    return _Int64no.pack(i)
-
-def int64un_native(b):
-    '''
-    Decode an unsigned 64-bit int from 8 native order bytes
-    '''
-    return _Int64no.unpack(b)[0]
-
 def enbase64(b):
     return base64.b64encode(b).decode('utf8')
 

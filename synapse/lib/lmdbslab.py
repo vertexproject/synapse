@@ -1,5 +1,4 @@
 import os
-import sys
 import shutil
 import asyncio
 import threading
@@ -176,14 +175,14 @@ class SlabAbrv:
     def __init__(self, slab, name):
 
         self.slab = slab
-        self.name2abrv = slab.initdb(f'{name}:byts2abrv', dupsort=True, dupfixed=True, integerdup=True)
-        self.abrv2name = slab.initdb(f'{name}:abrv2byts', integerkey=True)
+        self.name2abrv = slab.initdb(f'{name}:byts2abrv', dupsort=True, dupfixed=True)
+        self.abrv2name = slab.initdb(f'{name}:abrv2byts')
 
         self.offs = 0
 
         item = self.slab.last(db=self.abrv2name)
         if item is not None:
-            self.offs = s_common.int64un_native(item[0]) + 1
+            self.offs = s_common.int64un(item[0]) + 1
 
     @s_cache.memoizemethod()
     def abrvToByts(self, abrv):
@@ -218,7 +217,7 @@ class SlabAbrv:
         if len(byts) > 255:
             byts = byts[:248] + xxhash.xxh64_digest(byts)
 
-        abrv = s_common.int64en_native(self.offs)
+        abrv = s_common.int64en(self.offs)
 
         self.offs += 1
 
@@ -813,10 +812,6 @@ class Slab(s_base.Base):
             if isinstance(_opts, dict):
                 opts.update(_opts)
 
-        if (endi := opts.pop('arch_endian', None)) is not None:
-            if endi != sys.byteorder:
-                raise s_exc.BadState('Slab was created on an arch with different byte order!')
-
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
             raise s_exc.BadArg('Slab requires map_size')
@@ -976,8 +971,7 @@ class Slab(s_base.Base):
         if self.readonly:
             return
 
-        opts = {'arch_endian': sys.byteorder}
-
+        opts = {}
         if self.growsize is not None:
             opts['growsize'] = self.growsize
         if self.maxsize is not None:

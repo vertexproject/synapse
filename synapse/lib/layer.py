@@ -2148,9 +2148,9 @@ class Layer(s_nexus.Pusher):
 
         self.offsets = await self.layrslab.getHotCount('offsets')
 
-        self.bynid = self.layrslab.initdb('bynid', integerkey=True)
+        self.bynid = self.layrslab.initdb('bynid')
 
-        self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True, integerdup=True)
+        self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True)
 
         self.edgen1abrv = self.core.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.core.setIndxAbrv(INDX_EDGE_N2)
@@ -2159,7 +2159,7 @@ class Layer(s_nexus.Pusher):
         self.indxcounts = await self.layrslab.getLruHotCount('indxcounts')
 
         self.nodedata = self.dataslab.initdb('nodedata')
-        self.dataname = self.dataslab.initdb('dataname', dupsort=True, dupfixed=True, integerdup=True)
+        self.dataname = self.dataslab.initdb('dataname', dupsort=True, dupfixed=True)
 
         self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
 

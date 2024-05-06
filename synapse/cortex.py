@@ -1409,9 +1409,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await view.initTrigTask()
                 await view.initMergeTask()
 
-            for layer in self.layers.values():
-                await layer.initLayerActive()
-
         self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
@@ -1998,14 +1995,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
 
-        self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
-        self.nid2buid = self.v3stor.initdb('nid2buid', integerkey=True)
+        self.nid2ndef = self.v3stor.initdb('nid2ndef')
+        self.nid2buid = self.v3stor.initdb('nid2buid')
         self.buid2nid = self.v3stor.initdb('buid2nid')
 
         self.nextnid = 0
         byts = self.v3stor.lastkey(db=self.nid2buid)
         if byts is not None:
-            self.nextnid = s_common.int64un_native(byts) + 1
+            self.nextnid = s_common.int64un(byts) + 1
 
     def getNidNdef(self, nid):
         byts = self.v3stor.get(nid, db=self.nid2ndef)
@@ -2018,7 +2015,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.v3stor.put(buid, nid, db=self.buid2nid)
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
-        if (nid := s_common.int64un_native(nid)) >= self.nextnid:
+        if (nid := s_common.int64un(nid)) >= self.nextnid:
             self.nextnid = nid + 1
 
     def getBuidByNid(self, nid):
@@ -2041,7 +2038,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if nid is not None:
             return nid
 
-        nid = s_common.int64en_native(self.nextnid)
+        nid = s_common.int64en(self.nextnid)
         self.nextnid += 1
 
         self.v3stor.put(nid, buid, db=self.nid2buid)

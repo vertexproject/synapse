@@ -1226,12 +1226,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 valu = abrv.setBytsToAbrv('hehe'.encode())
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
                 valu = abrv.setBytsToAbrv('haha'.encode())
-                self.eq(valu, b'\x01\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
-                name = abrv.abrvToByts(b'\x01\x00\x00\x00\x00\x00\x00\x00')
+                name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
                 self.eq(name, b'haha')
 
-                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x02\x00\x00\x00\x00\x00\x00\x00')
+                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
             # And persistence
             async with await s_lmdbslab.Slab.anit(path) as slab:
@@ -1240,36 +1240,36 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x00')
                 self.eq(name, b'hehe')
 
-                name = abrv.abrvToByts(b'\x01\x00\x00\x00\x00\x00\x00\x00')
+                name = abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x01')
                 self.eq(name, b'haha')
                 # Remaking them makes the values we already had
                 valu = abrv.nameToAbrv('hehe')
                 self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x00')
 
                 valu = abrv.nameToAbrv('haha')
-                self.eq(valu, b'\x01\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
-                self.eq('haha', abrv.abrvToName(b'\x01\x00\x00\x00\x00\x00\x00\x00'))
+                self.eq('haha', abrv.abrvToName(b'\x00\x00\x00\x00\x00\x00\x00\x01'))
 
                 # And we still have no valu for 02
-                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x02\x00\x00\x00\x00\x00\x00\x00')
+                self.raises(s_exc.NoSuchAbrv, abrv.abrvToByts, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
                 # And we don't overwrite existing values on restart
                 valu = abrv.setBytsToAbrv('hoho'.encode())
-                self.eq(valu, b'\x02\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x02')
 
                 valu = abrv.nameToAbrv('haha')
-                self.eq(valu, b'\x01\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x01')
 
                 long1 = b'\x00' * 1024
 
                 valu = abrv.setBytsToAbrv(long1)
-                self.eq(valu, b'\x03\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x03')
 
                 valu = abrv.bytsToAbrv(long1)
-                self.eq(valu, b'\x03\x00\x00\x00\x00\x00\x00\x00')
+                self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x03')
 
-                self.eq(long1, abrv.abrvToByts(b'\x03\x00\x00\x00\x00\x00\x00\x00'))
+                self.eq(long1, abrv.abrvToByts(b'\x00\x00\x00\x00\x00\x00\x00\x03'))
 
                 # Fake a hash collision
                 long2 = b'\x00' * 1023 + b'\x01'
@@ -1280,20 +1280,20 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 with patch('xxhash.xxh64_digest', badhash):
                     valu = abrv.setBytsToAbrv(long2)
-                    self.eq(valu, b'\x04\x00\x00\x00\x00\x00\x00\x00')
+                    self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x04')
 
                     valu = abrv.setBytsToAbrv(long3)
-                    self.eq(valu, b'\x05\x00\x00\x00\x00\x00\x00\x00')
+                    self.eq(valu, b'\x00\x00\x00\x00\x00\x00\x00\x05')
 
                     self.eq(2, abrv.slab.count(b'\x00' * 256, db=abrv.name2abrv))
 
                     allitems = [
-                        (long2, b'\x04\x00\x00\x00\x00\x00\x00\x00'),
-                        (long3, b'\x05\x00\x00\x00\x00\x00\x00\x00'),
-                        (long1, b'\x03\x00\x00\x00\x00\x00\x00\x00'),
-                        (b'haha', b'\x01\x00\x00\x00\x00\x00\x00\x00'),
+                        (long2, b'\x00\x00\x00\x00\x00\x00\x00\x04'),
+                        (long3, b'\x00\x00\x00\x00\x00\x00\x00\x05'),
+                        (long1, b'\x00\x00\x00\x00\x00\x00\x00\x03'),
+                        (b'haha', b'\x00\x00\x00\x00\x00\x00\x00\x01'),
                         (b'hehe', b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                        (b'hoho', b'\x02\x00\x00\x00\x00\x00\x00\x00'),
+                        (b'hoho', b'\x00\x00\x00\x00\x00\x00\x00\x02'),
                     ]
                     self.eq(allitems, list(abrv.items()))
 
@@ -1417,26 +1417,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     self.eq(b'hehe', slabcopy.get(b'\x00\x01', db=foo))
 
                 await self.asyncraises(s_exc.DataAlreadyExists, slab.copyslab(copypath))
-
-    async def test_lmdbslab_diffarch(self):
-
-        with self.getTestDir() as dirn:
-
-            path = os.path.join(dirn, 'test.lmdb')
-
-            async with await s_lmdbslab.Slab.anit(path) as slab:
-                foo = slab.initdb('foo')
-                slab.put(b'\x00\x01', b'hehe', db=foo)
-
-                optspath = slab.optspath
-
-            opts = s_common.yamlload(optspath)
-            opts['arch_endian'] = 'other'
-
-            s_common.yamlmod(opts, optspath)
-
-            with self.raises(s_exc.BadState):
-                await s_lmdbslab.Slab.anit(path)
 
     async def test_lmdbslab_statinfo(self):
 
