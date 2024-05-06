@@ -1440,13 +1440,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if fixvals:
                 mesg = []
                 mesg.append('*' * 64)
-                mesg.append('The following sysctl values are not configured with the recommended values:')
+                mesg.append('The following sysctl parameters are not configured with the recommended values:')
 
                 for fixval in fixvals:
                     mesg.append(f'  - {fixval["name"]}: Expected {fixval["expected"]}, got {fixval["curval"]}.')
 
                 mesg.append('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning')
-                mesg.append('for additional information on each of these sysctl values and their recommended values.')
+                mesg.append('for additional information on each of these sysctl parameters and their recommended values.')
                 mesg.append('*' * 64)
 
                 extra = await self.getLogExtra(
