@@ -33,6 +33,7 @@ import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
+import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.backup as s_tools_backup
 
@@ -2642,3 +2643,31 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)
+
+    async def test_cell_check_sysctl(self):
+        sysvals = s_linux.getSysctls()
+
+        # Bump each of the values
+        for name in sysvals:
+            sysvals[name] += 1
+
+        with self.getLoggerStream('synapse.lib.cell') as stream:
+            with mock.patch.object(s_cell.Cell, 'SYSCTL_RECC_VALS', sysvals):
+                async with self.getTestCell(s_cell.Cell):
+                    pass
+
+        stream.seek(0)
+        data = stream.read()
+        self.isin('The following sysctl values are not configured with the recommended values:', data)
+        for name, valu in sysvals.items():
+            self.isin(f'  - {name}: Expected {valu}, got {valu - 1}.', data)
+        self.isin('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning', data)
+        self.isin('for additional information on each of these sysctl values and their recommended values.', data)
+
+        with self.getLoggerStream('synapse.lib.cell') as stream:
+            async with self.getTestCell(s_cell.Cell):
+                pass
+
+        stream.seek(0)
+        data = stream.read()
+        self.notin('The following sysctl values are not configured with the recommended values:', data)

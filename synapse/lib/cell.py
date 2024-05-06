@@ -55,6 +55,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.lib.crypto.passwd as s_passwd
+import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.backup as s_t_backup
 
@@ -1049,6 +1050,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSION = s_version.version
     VERSTRING = s_version.verstring
 
+    SYSCTL_RECC_VALS = {
+        'vm.swappiness': 10,
+        'vm.dirty_expire_centisecs': 20,
+        'vm.dirty_writeback_centisecs': 20,
+        'vm.dirty_background_ratio': 2,
+        'vm.dirty_ratio': 4,
+    }
+    SYSCTL_CHECK_FREQ = 60.0
+    _SYSCTL_CHECK_TASK = None # Limit one task per process
+
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
         # phase 1
@@ -1216,6 +1227,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
+
+        if Cell._SYSCTL_CHECK_TASK is None:
+            Cell._SYSCTL_CHECK_TASK = self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
         await self._initAhaRegistry()
@@ -1413,6 +1427,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
+
+    async def _runSysctlLoop(self):
+        while not self.isfini:
+            fixvals = []
+            sysctls = s_linux.getSysctls()
+
+            for name, valu in self.SYSCTL_RECC_VALS.items():
+                if (curv := sysctls.get(name)) != valu:
+                    fixvals.append({'name': name, 'curval': curv, 'expected': valu})
+
+            if fixvals:
+                mesg = []
+                mesg.append('*' * 64)
+                mesg.append('The following sysctl values are not configured with the recommended values:')
+
+                for fixval in fixvals:
+                    mesg.append(f'  - {fixval["name"]}: Expected {fixval["expected"]}, got {fixval["curval"]}.')
+
+                mesg.append('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning')
+                mesg.append('for additional information on each of these sysctl values and their recommended values.')
+                mesg.append('*' * 64)
+
+                extra = await self.getLogExtra(
+                    sysctls=fixvals
+                )
+                logger.warning('\n'.join(mesg), extra=extra)
+
+            await asyncio.sleep(self.SYSCTL_CHECK_FREQ)
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
