@@ -717,9 +717,7 @@ class Snap(s_base.Base):
 
         show_storage = False
 
-        info = opts.get('_loginfo')
-        if info is None:
-            info = {}
+        info = opts.get('_loginfo', {})
         info.update({'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
         self.core._logStormQuery(text, user, info=info)
 

@@ -875,9 +875,7 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        info = opts.get('_loginfo')
-        if info is None:
-            info = {}
+        info = opts.get('_loginfo', {})
         info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
         self.core._logStormQuery(text, user, info=info)
 
@@ -995,9 +993,7 @@ class View(s_nexus.Pusher):  # type: ignore
                                 count += 1
 
                         else:
-                            info = opts.get('_loginfo')
-                            if info is None:
-                                info = {}
+                            info = opts.get('_loginfo', {})
                             info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
                             self.core._logStormQuery(text, user, info=info)
                             async for item in snap.storm(text, opts=opts, user=user):
