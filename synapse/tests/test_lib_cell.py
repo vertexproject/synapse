@@ -2651,6 +2651,8 @@ class CellTest(s_t_utils.SynTest):
         for name in sysvals:
             sysvals[name] += 1
 
+        print(f'{sysvals=}')
+
         with self.getLoggerStream('synapse.lib.cell') as stream:
             with mock.patch.object(s_cell.Cell, 'SYSCTL_RECC_VALS', sysvals):
                 async with self.getTestCell(s_cell.Cell):
