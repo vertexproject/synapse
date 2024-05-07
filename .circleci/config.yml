@@ -141,16 +141,6 @@ commands:
             if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
             if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
 
-      - run:
-          name: Update sysctl parameters
-          command: |
-            sysctl -w \
-              vm.swappiness=10 \
-              vm.dirty_expire_centisecs=20 \
-              vm.dirty_writeback_centisecs=10 \
-              vm.dirty_background_ratio=25 \
-              vm.dirty_ratio=50
-
       - do_test_execution
       - do_report_coverage
 
