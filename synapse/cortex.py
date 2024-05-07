@@ -573,14 +573,6 @@ class CoreApi(s_cell.CellApi):
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
-    @s_cell.adminapi(log=True)
-    async def enableMigrationMode(self): # pragma: no cover
-        s_common.deprdate('CoreApi.enableMigrationMode', '2024-05-05')
-
-    @s_cell.adminapi(log=True)
-    async def disableMigrationMode(self): # pragma: no cover
-        s_common.deprdate('CoreApi.disableMigrationMode', '2024-05-05')
-
     @s_cell.adminapi()
     async def cloneLayer(self, iden, ldef=None):
 

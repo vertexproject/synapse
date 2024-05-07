@@ -496,52 +496,6 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await prox.setCellUser(visiiden)
 
-    async def test_cell_hiveboot(self):
-
-        with self.getTestDir() as dirn:
-
-            tree = {
-                'kids': {
-                    'hehe': {'value': 'haha'},
-                }
-            }
-
-            bootpath = os.path.join(dirn, 'hiveboot.yaml')
-
-            s_common.yamlsave(tree, bootpath)
-
-            with warnings.catch_warnings(record=True) as warns:
-                async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
-                    self.eq('haha', await cell.hive.get(('hehe',)))
-
-                self.isin('Initial hive config from hiveboot.yaml', str(warns[0].message))
-
-            # test that the file does not load again
-            tree['kids']['redballoons'] = {'value': 99}
-            s_common.yamlsave(tree, bootpath)
-
-            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
-                self.none(await cell.hive.get(('redballoons',)))
-
-        # Do a full hive dump/load
-        with self.getTestDir() as dirn:
-            dir0 = s_common.genpath(dirn, 'cell00')
-            dir1 = s_common.genpath(dirn, 'cell01')
-            async with self.getTestCell(s_cell.Cell, dirn=dir0, conf={'auth:passwd': 'root'}) as cell00:
-                await cell00.hive.set(('beeps',), [1, 2, 'three'])
-
-                tree = await cell00.saveHiveTree()
-                s_common.yamlsave(tree, dir1, 'hiveboot.yaml')
-                with s_common.genfile(dir1, 'cell.guid') as fd:
-                    _ = fd.write(cell00.iden.encode())
-
-            async with self.getTestCell(s_cell.Cell, dirn=dir1) as cell01:
-                resp = await cell01.hive.get(('beeps',))
-                self.isinstance(resp, tuple)
-                self.eq(resp, (1, 2, 'three'))
-
-            self.eq(cell00.iden, cell01.iden)
-
     async def test_cell_getinfo(self):
         async with self.getTestCore() as cell:
             cell.COMMIT = 'mycommit'
