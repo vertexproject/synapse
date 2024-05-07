@@ -1050,13 +1050,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSION = s_version.version
     VERSTRING = s_version.verstring
 
-    # From: https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning
-    SYSCTL_RECC_VALS = {
-        'vm.swappiness': 10,
-        'vm.dirty_expire_centisecs': 20,
-        'vm.dirty_writeback_centisecs': 20,
-        'vm.dirty_background_ratio': 2,
-        'vm.dirty_ratio': 4,
+    SYSCTL_DEFAULT_VALS = {
+        'vm.swappiness': 60,
+        'vm.dirty_expire_centisecs': 3000,
+        'vm.dirty_writeback_centisecs': 500,
+        'vm.dirty_background_ratio': 10,
+        'vm.dirty_ratio': 20,
     }
     SYSCTL_CHECK_FREQ = 60.0
     _SYSCTL_CHECK_TASK = None # Limit one task per process
@@ -1434,26 +1433,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             fixvals = []
             sysctls = s_linux.getSysctls()
 
-            for name, valu in self.SYSCTL_RECC_VALS.items():
-                if (curv := sysctls.get(name)) != valu:
-                    fixvals.append({'name': name, 'curval': curv, 'expected': valu})
+            for name, valu in self.SYSCTL_DEFAULT_VALS.items():
+                if sysctls.get(name) == valu:
+                    fixvals.append(name)
 
-            if fixvals:
-                mesg = []
-                mesg.append('*' * 64)
-                mesg.append('The following sysctl parameters are not configured with the recommended values:')
+            if not fixvals:
+                # All sysctl parameters have been updated away from default values. No need to keep checking
+                Cell._SYSCTL_CHECK_TASK = None
+                break
 
-                for fixval in fixvals:
-                    mesg.append(f'  - {fixval["name"]}: Expected {fixval["expected"]}, got {fixval["curval"]}.')
+            mesg = []
+            mesg.append('*' * 64)
+            mesg.append('The following sysctl parameters are configured with the default values:')
 
-                mesg.append('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning')
-                mesg.append('for additional information on each of these sysctl parameters and their recommended values.')
-                mesg.append('*' * 64)
+            for fixval in fixvals:
+                mesg.append(f'  - {fixval}')
 
-                extra = await self.getLogExtra(
-                    sysctls=fixvals
-                )
-                logger.warning('\n'.join(mesg), extra=extra)
+            mesg.append('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning')
+            mesg.append('for additional information on tuning each of these sysctl parameters and their recommended values.')
+            mesg.append('*' * 64)
+
+            extra = await self.getLogExtra(sysctls=fixvals)
+            logger.warning('\n'.join(mesg), extra=extra)
 
             await asyncio.sleep(self.SYSCTL_CHECK_FREQ)
 

@@ -2647,29 +2647,28 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_check_sysctl(self):
         sysvals = s_linux.getSysctls()
 
-        # Bump each of the values
-        for name in sysvals:
-            sysvals[name] += 1
-
-        print(f'{sysvals=}')
-
         with self.getLoggerStream('synapse.lib.cell') as stream:
-            with mock.patch.object(s_cell.Cell, 'SYSCTL_RECC_VALS', sysvals):
+            with mock.patch.object(s_cell.Cell, 'SYSCTL_DEFAULT_VALS', sysvals):
                 async with self.getTestCell(s_cell.Cell):
                     pass
 
-            stream.seek(0)
-            data = stream.read()
-            self.isin('The following sysctl parameters are not configured with the recommended values:', data)
-            for name, valu in sysvals.items():
-                self.isin(f'  - {name}: Expected {valu}, got {valu - 1}.', data)
-            self.isin('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning', data)
-            self.isin('for additional information on each of these sysctl parameters and their recommended values.', data)
+        stream.seek(0)
+        data = stream.read()
+        self.isin('The following sysctl parameters are configured with the default values:', data)
+        for name, valu in sysvals.items():
+            self.isin(f'  - {name}', data)
+        self.isin('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning', data)
+        self.isin('for additional information on tuning each of these sysctl parameters and their recommended values.', data)
+
+        # Bump the current values so we can patch the default values differently than the current values
+        for name in sysvals:
+            sysvals[name] += 1
 
         with self.getLoggerStream('synapse.lib.cell') as stream:
-            async with self.getTestCell(s_cell.Cell):
-                pass
+            with mock.patch.object(s_cell.Cell, 'SYSCTL_DEFAULT_VALS', sysvals):
+                async with self.getTestCell(s_cell.Cell):
+                    pass
 
-            stream.seek(0)
-            data = stream.read()
-            self.notin('The following sysctl parameters are not configured with the recommended values:', data)
+        stream.seek(0)
+        data = stream.read()
+        self.notin('The following sysctl parameters are configured with the default values:', data)
