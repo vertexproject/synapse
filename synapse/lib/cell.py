@@ -1050,6 +1050,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSION = s_version.version
     VERSTRING = s_version.verstring
 
+    # From: https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning
     SYSCTL_RECC_VALS = {
         'vm.swappiness': 10,
         'vm.dirty_expire_centisecs': 20,

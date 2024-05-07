@@ -2658,18 +2658,18 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCell(s_cell.Cell):
                     pass
 
-        stream.seek(0)
-        data = stream.read()
-        self.isin('The following sysctl parameters are not configured with the recommended values:', data)
-        for name, valu in sysvals.items():
-            self.isin(f'  - {name}: Expected {valu}, got {valu - 1}.', data)
-        self.isin('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning', data)
-        self.isin('for additional information on each of these sysctl parameters and their recommended values.', data)
+            stream.seek(0)
+            data = stream.read()
+            self.isin('The following sysctl parameters are not configured with the recommended values:', data)
+            for name, valu in sysvals.items():
+                self.isin(f'  - {name}: Expected {valu}, got {valu - 1}.', data)
+            self.isin('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning', data)
+            self.isin('for additional information on each of these sysctl parameters and their recommended values.', data)
 
         with self.getLoggerStream('synapse.lib.cell') as stream:
             async with self.getTestCell(s_cell.Cell):
                 pass
 
-        stream.seek(0)
-        data = stream.read()
-        self.notin('The following sysctl parameters are not configured with the recommended values:', data)
+            stream.seek(0)
+            data = stream.read()
+            self.notin('The following sysctl parameters are not configured with the recommended values:', data)
