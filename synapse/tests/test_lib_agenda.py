@@ -1,3 +1,4 @@
+import json
 import asyncio
 import hashlib
 import datetime
@@ -156,7 +157,7 @@ class AgendaTest(s_t_utils.SynTest):
         newts = ar.nexttime(now)
         self.eq(newts, datetime.datetime(year=2018, month=12, day=5, hour=7, minute=2, tzinfo=tz.utc).timestamp())
 
-    async def test_agenda(self):
+    async def test_agenda_base(self):
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
 
@@ -382,8 +383,21 @@ class AgendaTest(s_t_utils.SynTest):
                 self.true(appt.enabled)
                 self.eq(0, appt.startcount)
 
-                unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                # Ensure structured logging captures the cron iden value
+                core.stormlog = True
+                with self.getStructuredAsyncLoggerStream('synapse.storm') as stream:
+                    unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16,
+                                                 tzinfo=tz.utc).timestamp()
+                    self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                core.stormlog = False
+
+                data = stream.getvalue()
+                raw_mesgs = [m for m in data.split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = [m for m in msgs if m['text'] == '$lib.queue.gen(visi).put(bar)']
+                self.gt(len(msgs), 0)
+                for m in msgs:
+                    self.eq(m.get('cron'), appt.iden)
 
                 self.eq(1, appt.startcount)
 

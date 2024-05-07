@@ -1401,14 +1401,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _onBootOptimize(self):
 
+        bdir = s_common.genpath(self.dirn, 'backups')
         tdir = s_common.gendir(self.dirn, 'tmp')
         tdev = os.stat(tdir).st_dev
+
+        logger.warning('Collecting LMDB files for onboot optimization.')
 
         lmdbs = []
         for (root, dirs, files) in os.walk(self.dirn):
             for dirname in dirs:
                 filepath = os.path.join(root, dirname, 'data.mdb')
                 if os.path.isfile(filepath):
+                    if filepath.startswith(bdir):
+                        logger.debug(f'Skipping backup file {filepath}')
+                        continue
                     if os.stat(filepath).st_dev != tdev:
                         logger.warning(f'Unable to run onboot:optimize, {filepath} is not on the same volume as {tdir}')
                         return
