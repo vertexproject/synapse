@@ -2655,11 +2655,10 @@ class CellTest(s_t_utils.SynTest):
 
         stream.seek(0)
         data = stream.read()
-        self.isin('The following sysctl parameters are configured with the default values:', data)
-        for name, valu in sysvals.items():
-            self.isin(f'  - {name}', data)
-        self.isin('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning', data)
-        self.isin('for additional information on tuning each of these sysctl parameters and their recommended values.', data)
+        mesg = f'Linux default sysctl values detected: {", ".join(sysvals)}. '
+        mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
+        mesg += 'for information about these sysctl parameters.'
+        self.isin(mesg, data)
 
         # Bump the current values so we can patch the default values differently than the current values
         for name in sysvals:
@@ -2673,4 +2672,4 @@ class CellTest(s_t_utils.SynTest):
 
         stream.seek(0)
         data = stream.read()
-        self.notin('The following sysctl parameters are configured with the default values:', data)
+        self.notin('Linux default sysctl values detected: ', data)

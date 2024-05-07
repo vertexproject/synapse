@@ -1442,19 +1442,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 Cell._SYSCTL_CHECK_TASK = None
                 break
 
-            mesg = []
-            mesg.append('*' * 64)
-            mesg.append('The following sysctl parameters are configured with the default values:')
-
-            for fixval in fixvals:
-                mesg.append(f'  - {fixval}')
-
-            mesg.append('See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning')
-            mesg.append('for additional information on tuning each of these sysctl parameters and their recommended values.')
-            mesg.append('*' * 64)
+            mesg = f'Linux default sysctl values detected: {", ".join(fixvals)}. '
+            mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
+            mesg += 'for information about these sysctl parameters.'
 
             extra = await self.getLogExtra(sysctls=fixvals)
-            logger.warning('\n'.join(mesg), extra=extra)
+            logger.warning(mesg, extra=extra)
 
             await asyncio.sleep(self.SYSCTL_CHECK_FREQ)
 
