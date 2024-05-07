@@ -1126,7 +1126,7 @@ class AhaTest(s_test.SynTest):
                     ready = svcinfo.get('ready')
                     online = svcinfo.get('online')
                     self.none(online)
-                    self.true(ready)  # Ready is not cleared upon restart
+                    self.false(ready)  # Ready is cleared upon restart / setting service down.
 
                     n = 3
                     if len(stack._exit_callbacks) > 0:
@@ -1245,7 +1245,12 @@ class AhaTest(s_test.SynTest):
 
                         msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
                         self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (00...) removed from service pool (pool00.loop.vertex.link)', msgs)
+                        self.stormIsInPrint('AHA service (00.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)',
+                                            msgs)
+
+                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('Did not remove (00...) from the service pool.', msgs)
 
                         await waiter.wait(timeout=3)
                         run00 = await (await pool.proxy(timeout=3)).getCellRunId()
