@@ -1186,7 +1186,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.cellinfo.set('nexus:version', NEXUS_VERSION)
 
         synvers = self.cellinfo.get('synapse:version')
-        self.nexsvers = self.cellinfo.get('nexus:version', 0)
+        self.nexsvers = self.cellinfo.get('nexus:version', (0, 0))
         self.nexspatches = ()
 
         if synvers is None or synvers < s_version.version:
@@ -1489,7 +1489,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         patches = []
-        if self.nexsvers < 1:
+        if self.nexsvers < (2, 169):
             patches.extend([
                 ('popUserVarValu', self._popUserVarValuV0),
                 ('setUserVarValu', self._setUserVarValuV0),
