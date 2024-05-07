@@ -2647,6 +2647,7 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_check_sysctl(self):
         sysvals = s_linux.getSysctls()
 
+        s_cell.Cell._SYSCTL_CHECK_TASK = None
         with self.getLoggerStream('synapse.lib.cell') as stream:
             with mock.patch.object(s_cell.Cell, 'SYSCTL_DEFAULT_VALS', sysvals):
                 async with self.getTestCell(s_cell.Cell):
@@ -2664,6 +2665,7 @@ class CellTest(s_t_utils.SynTest):
         for name in sysvals:
             sysvals[name] += 1
 
+        s_cell.Cell._SYSCTL_CHECK_TASK = None
         with self.getLoggerStream('synapse.lib.cell') as stream:
             with mock.patch.object(s_cell.Cell, 'SYSCTL_DEFAULT_VALS', sysvals):
                 async with self.getTestCell(s_cell.Cell):
