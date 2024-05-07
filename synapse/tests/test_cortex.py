@@ -2442,19 +2442,26 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=ndefpivsrc -> test:str')
             self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
 
+            nodes = await core.nodes('test:str=ndefpivsrc -> test:str:bar')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:str=ndefpivdst -> test:str:bar')
+            self.sorteq(['ndefpivprp', 'ndefpivsrc'], [n.ndef[1] for n in nodes])
+
             nodes = await core.nodes('test:str=ndefpivsrc :bar -> * +test:str')
             self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
 
-            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:str')
-            print('foo') # fixme
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:str:bar')
+            self.sorteq(['ndefpivprp', 'ndefpivsrc'], [n.ndef[1] for n in nodes])
 
-            # todo: pivot out to list?
-            # todo: pivot out to variable?
-            # todo: pivout out to prop
-            # todo: pivout out to non-ndef prop
-            # todo: delete dst node
-            # todo: pivot in?
-            # todo: src/dst arrays of ndefs?
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:str')
+            self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:int')
+            self.len(0, nodes)
+
+            await core.nodes('test:str=ndefpivdst delnode')
+            self.len(0, await core.nodes('test:str=ndefpivsrc :bar -> test:str'))
 
             # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',

@@ -2449,6 +2449,18 @@ class PropPivot(PivotOper):
 
                 return
 
+            if isinstance(srcprop.type, s_types.Ndef) and prop.isform:
+                if valu[0] != prop.form.name:
+                    return
+
+                pivo = await runt.snap.getNodeByNdef(valu)
+                if pivo is None:
+                    logger.warning(f'Missing node corresponding to ndef {valu}')
+                    return
+                yield pivo
+
+                return
+
             if prop.type.isarray and not srcprop.type.isarray:
                 genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
             else:
