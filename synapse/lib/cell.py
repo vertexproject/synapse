@@ -60,7 +60,7 @@ import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = 1
+NEXUS_VERSION = (2, 169)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -4095,6 +4095,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPush('hive:loadtree')
     async def _onLoadHiveTree(self, tree, path, trim):
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)
+
+    async def iterSlabData(self, prefix=''):
+        slabkv = self.slab.getSafeKeyVal(prefix)
+        for key, valu in slabkv.items():
+            yield key, valu
+            await asyncio.sleep(0)
 
     @s_nexus.Pusher.onPushAuto('sync')
     async def sync(self):

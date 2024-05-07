@@ -176,24 +176,23 @@ class SafeKeyVal:
     '''
     def __init__(self, slab, name, prefix=''):
 
-        self.name = name
-        self.slab = slab
-        self.valudb = slab.initdb(name)
-
         self.prefix = prefix
         self._prefix = prefix.encode('utf8')
         self.preflen = len(self._prefix)
+
+        if self.preflen > 510:
+            mesg = 'SafeKeyVal prefix lengths must be < 511 bytes.'
+            raise s_exc.BadArg(mesg, prefix=self._prefix[:1024])
+
+        self.name = name
+        self.slab = slab
+        self.valudb = slab.initdb(name)
 
     def getSubKeyVal(self, prefix):
 
         if not prefix or not isinstance(prefix, str):
             mesg = 'SafeKeyVal.getSubKeyVal() requires a string prefix of at least one character.'
             raise s_exc.BadArg(mesg, prefix=prefix)
-
-        fullprefix = self._prefix + prefix.encode('utf8')
-        if len(fullprefix) > 510:
-            mesg = 'SafeKeyVal.getSubKeyVal() total prefix length must be < 511 bytes.'
-            raise s_exc.BadArg(mesg, prefix=fullprefix[:1024])
 
         if self.prefix:
             prefix = self.prefix + prefix

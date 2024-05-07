@@ -2662,6 +2662,14 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)
 
+    async def test_cell_iter_slab_data(self):
+        async with self.getTestCell(s_cell.Cell) as cell:
+            data = await s_t_utils.alist(cell.iterSlabData('cell:info'))
+            self.eq(data, (
+                ('nexus:version', s_cell.NEXUS_VERSION),
+                ('synapse:version', s_version.version)
+            ))
+
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', 0):
             async with self.getRegrCore('hive-migration') as core0:
