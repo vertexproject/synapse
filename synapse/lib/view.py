@@ -868,20 +868,16 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.layers.append(layr)
 
-    async def eval(self, text, opts=None, log_info=None):
+    async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        if log_info is None:
-            log_info = {}
-
-        log_info['mode'] = opts.get('mode', 'storm')
-        log_info['view'] = self.iden
-
-        self.core._logStormQuery(text, user, info=log_info)
+        info = opts.get('_loginfo', {})
+        info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+        self.core._logStormQuery(text, user, info=info)
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
@@ -997,8 +993,9 @@ class View(s_nexus.Pusher):  # type: ignore
                                 count += 1
 
                         else:
-                            self.core._logStormQuery(text, user,
-                                                     info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            info = opts.get('_loginfo', {})
+                            info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            self.core._logStormQuery(text, user, info=info)
                             async for item in snap.storm(text, opts=opts, user=user):
                                 count += 1
 
