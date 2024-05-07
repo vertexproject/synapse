@@ -1350,6 +1350,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'ex': 'node.prop.del.inet:ipv4.asn',
              'desc': 'Controls removing a specific property from a form of node in a layer.'},
 
+            {'perm': ('node', 'data', 'set'), 'gate': 'layer',
+             'desc': 'Permits a user to set node data in a given layer.'},
+            {'perm': ('node', 'data', 'set', '<key>'), 'gate': 'layer',
+              'ex': 'node.data.set.hehe',
+             'desc': 'Permits a user to set node data in a given layer for a specific key.'},
+            {'perm': ('node', 'data', 'pop'), 'gate': 'layer',
+             'desc': 'Permits a user to remove node data in a given layer.'},
+            {'perm': ('node', 'data', 'pop', '<key>'), 'gate': 'layer',
+             'ex': 'node.data.pop.hehe',
+             'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
+
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
