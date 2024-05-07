@@ -713,7 +713,7 @@ class LibModelMigration(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methCopyEdges',
                   'args': (
                       {'name': 'src', 'type': 'node', 'desc': 'The node to copy edges from.', },
-                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy edgse to.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy edges to.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'copyTags', 'desc': 'Copy tags, tag timestamps, and tag props from the src node to the dst node.',
