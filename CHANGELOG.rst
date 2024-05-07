@@ -6,6 +6,41 @@
 Synapse Changelog
 *****************
 
+
+v2.169.0 - TBD
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a data migration helper library, ``$lib.model.migration``. This
+  contains functions to help with migrating data via Storm.
+  (`#3714 <https://github.com/vertexproject/synapse/pull/3710>`_)
+- Add Extended HTTP API iden values to structured Storm query logs.
+  (`#3710 <https://github.com/vertexproject/synapse/pull/3710>`_)
+- Add ``node.data.set`` and ``node.data.pop`` to the list of declared
+  Cortex permisions.
+  (`#3716 <https://github.com/vertexproject/synapse/pull/3716>`_)
+
+Bugfixes
+--------
+- Restore cron iden values in structured Storm query logs.
+  (`#3710 <https://github.com/vertexproject/synapse/pull/3710>`_)
+- The Storm APIs ``$lib.min()`` and ``$lib.max()`` now handle a single
+  input. The Storm APIs ``$lib.min()`` and ``$lib.max()`` now raise a
+  ``StormRuntimeError`` when there is no input provided to them. Previously
+  these conditions caused a Python exception in the Storm runtime.
+  (`#3711 <https://github.com/vertexproject/synapse/pull/3711>`_)
+- The ``onboot:optimize`` configuraiton now skips optimizing any LMDB files
+  found in the Cell local backup storage.
+  (`#3713 <https://github.com/vertexproject/synapse/pull/3713>`_)
+
+Deprecations
+------------
+- Removed the Telepath ``CoreApi.enableMigrationMode`` and
+  ``CoreApi.disableMigrationMode``.  Remove support for the Cell\
+  ``hiveboot.yaml`` file. These had a removal date of 2025-05-05.
+  (`#3717 <https://github.com/vertexproject/synapse/pull/3717>`_)
+
 v2.168.0 - 2024-05-03
 =====================
 
