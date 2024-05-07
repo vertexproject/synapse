@@ -2897,8 +2897,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
-        isnew = not self.slab.dbexists('hive')
-
         db = self.slab.initdb('hive')
         hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot())
         self.onfini(hive)
