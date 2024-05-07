@@ -2430,6 +2430,32 @@ class CortexTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:int :loc -> test:newp')
             self.stormIsInErr('No property named test:newp', msgs)
 
+            # ndef pivots
+            await core.nodes('''
+                [
+                    ( test:str=ndefpivdst )
+                    ( test:str=ndefpivsrc :bar=(test:str, ndefpivdst) )
+                    ( test:str=ndefpivprp :bar=(test:str, ndefpivdst) )
+                ]
+            ''')
+
+            nodes = await core.nodes('test:str=ndefpivsrc -> test:str')
+            self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> * +test:str')
+            self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:str')
+            print('foo') # fixme
+
+            # todo: pivot out to list?
+            # todo: pivot out to variable?
+            # todo: pivout out to prop
+            # todo: pivout out to non-ndef prop
+            # todo: delete dst node
+            # todo: pivot in?
+            # todo: src/dst arrays of ndefs?
+
             # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
                       'test:pivcomp :lulz <+- *',

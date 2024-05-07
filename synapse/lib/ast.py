@@ -2463,7 +2463,6 @@ class PropPivot(PivotOper):
 
         if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
 
-            proplist = None
             if isinstance(name, list):
                 proplist = name
             else:
@@ -2485,7 +2484,7 @@ class PropPivot(PivotOper):
                     async for pivo in pgenr(node, srcprop, valu, strict=False):
                         yield pivo
 
-            return(listpivot)
+            return listpivot
 
         return self.pivogenr(runt, prop)
 
