@@ -1604,8 +1604,12 @@ class LibBase(Lib):
                 continue
             vals.append(arg)
 
+        if len(vals) < 1:
+            mesg = '$lib.min() must have at least one argument or a list containing at least one value.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         ints = [await toint(x) for x in vals]
-        return min(*ints)
+        return min(ints)
 
     @stormfunc(readonly=True)
     async def _max(self, *args):
@@ -1618,8 +1622,12 @@ class LibBase(Lib):
                 continue
             vals.append(arg)
 
+        if len(vals) < 1:
+            mesg = '$lib.max() must have at least one argument or a list containing at least one value.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         ints = [await toint(x) for x in vals]
-        return max(*ints)
+        return max(ints)
 
     @staticmethod
     async def _get_mesg(mesg, **kwargs):
@@ -1707,6 +1715,13 @@ class LibDict(Lib):
     A Storm Library for interacting with dictionaries.
     '''
     _storm_locals = (
+        {'name': 'has', 'desc': 'Check a dictionary has a specific key.',
+         'type': {'type': 'function', '_funcname': '_has',
+                  'args': (
+                      {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary being checked.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The key name to check.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the key is present, false if the key is not present.'}}},
         {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
          'type': {'type': 'function', '_funcname': '_keys',
                   'args': (

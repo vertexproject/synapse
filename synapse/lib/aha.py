@@ -807,7 +807,8 @@ class AhaCell(s_cell.Cell):
     async def _setAhaSvcDown(self, name, linkiden, network=None):
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
-        await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+        if await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden):
+            await self.jsonstor.setPathObjProp(path, 'svcinfo/ready', False)
 
         # Check if we have any links which may need to be removed
         current_sessions = {s_common.guid(iden): sess for iden, sess in self.dmon.sessions.items()}
