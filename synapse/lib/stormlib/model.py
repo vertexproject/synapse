@@ -833,6 +833,8 @@ class LibModelMigrations(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_itSecCpeFixup',
                   'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
+                      {'name': 'dryrun', 'type': 'bool', 'default': False,
+                       'desc': 'Enable debug prints and do not make any changes.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
     )
@@ -843,18 +845,32 @@ class LibModelMigrations(s_stormtypes.Lib):
             'itSecCpeFixup': self._itSecCpeFixup,
         }
 
-    async def _itSecCpeFixup(self, n):
+    async def _itSecCpeFixup(self, n, dryrun=False):
+
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.s.itSecCpeFixup() argument must be a node.')
 
         if n.form.name != 'it:sec:cpe':
             raise s_exc.BadArg(f'itSecCpeFix only accepts it:sec:cpe nodes, not {n.form.name}')
 
-        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
-
-        modl = self.runt.model.type('it:sec:cpe')
+        dryrun = await s_stormtypes.tobool(dryrun)
 
         layr = self.runt.snap.wlyr
+        self.runt.confirm(('node', 'prop', 'set', 'it:sec:cpe'), gateiden=layr.iden)
+        self.runt.confirm(('node', 'data', 'set', 'migration.s.itSecCpeFixup'), gateiden=layr.iden)
 
         curv = n.repr()
+        reprvalu = f'it:sec:cpe={curv}'
+
+        nodedata = await n.getData('migration.s.itSecCpeFixup', {})
+        if nodedata.get('status') == 'success' and self.runt.debug:
+            mesg = f'DBG: itSecCpeFixup({reprvalu}): Node already migrated.'
+            await self.runt.printf(mesg)
+            return True
+
+        now = s_common.now()
+
+        modl = self.runt.model.type('it:sec:cpe')
 
         valu23 = None
         valu22 = None
@@ -872,15 +888,17 @@ class LibModelMigrations(s_stormtypes.Lib):
             if rgx is not None and rgx.group() == v2_2:
                 valu22 = v2_2
 
+        # If both values are populated, this node is valid
         if valu23 is not None and valu22 is not None:
-            # Node is valid
             if self.runt.debug:
-                mesg = 'Node is valid.'
+                mesg = f'DBG: itSecCpeFixup({reprvalu}): Node is valid, no migration necessary.'
                 await self.runt.printf(mesg)
 
-            await n.setData('migration.s.itSecCpeFixup', {
-                'status': 'success',
-            })
+            if not dryrun:
+                await n.setData('migration.s.itSecCpeFixup', {
+                    'status': 'success',
+                })
+
             return True
 
         if valu23 is None and valu22 is None:
@@ -893,14 +911,15 @@ class LibModelMigrations(s_stormtypes.Lib):
         if invalid:
             # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
             # we can do here so log, mark, and go around.
-            iden = s_common.ehex(n.buid)
-            mesg = f'Unable to migrate it:sec:cpe={curv} ({iden}) due to invalid data. {invalid}'
+            mesg = f'DBG: itSecCpeFixup({reprvalu}): Unable to migrate due to invalid data. {invalid}'
             self.runt.warn(mesg)
 
-            await n.setData('migration.s.itSecCpeFixup', {
-                'status': 'failed',
-                'reason': invalid,
-            })
+            if not dryrun:
+                await n.setData('migration.s.itSecCpeFixup', {
+                    'status': 'failed',
+                    'reason': invalid,
+                })
+
             return False
 
         valu = valu23 or valu22
@@ -916,9 +935,10 @@ class LibModelMigrations(s_stormtypes.Lib):
             # The re-normed value is not the same as the current value.
             # Since we can't change the primary property, store the
             # updated value in nodedata.
-            if self.runt.debug:
-                mesg = f'Primary property renormed: {curv} -> {norm}.'
+            if self.runt.debug or dryrun:
+                mesg = f'DBG: itSecCpeFixup({reprvalu}): Stored updated primary property value to nodedata: {curv} -> {norm}.'
                 await self.runt.printf(mesg)
+
             nodedata['valu'] = norm
 
         @s_cache.memoize(size=32)
@@ -940,22 +960,31 @@ class LibModelMigrations(s_stormtypes.Lib):
 
             stortype = getStorType(propname)
 
+            nodedata.setdefault('updated', [])
+            nodedata['updated'].append(propname)
+
             # Update the existing property with the re-normalized property value. We have to do
             # it with node edits directly because most of these properties are readonly.
             edits.append((s_layer.EDIT_PROP_SET, (propname, subscurv, propcurv, stortype), ()))
 
-            nodedata.setdefault('updated', [])
-            nodedata['updated'].append(propname)
+        nodedata['status'] = 'success'
 
-        if nodedata:
-            nodedata['status'] = 'success'
+        if not dryrun:
             await n.setData('migration.s.itSecCpeFixup', nodedata)
 
         if not edits: # pragma: no cover
-            if self.runt.debug:
-                mesg = 'No edits needed.'
+            if self.runt.debug or dryrun:
+                mesg = f'DBG: itSecCpeFixup({reprvalu}): No properties updates required.'
                 await self.runt.printf(mesg)
+
             return True
 
-        await layr.storNodeEdits([(n.buid, 'it:sec:cpe', edits)], meta)
+        if self.runt.debug or dryrun:
+            mesg = f'DBG: itSecCpeFixup({reprvalu}): Updated properties: {", ".join(nodedata["updated"])}.'
+            await self.runt.printf(mesg)
+
+        if not dryrun:
+            meta = {'time': now, 'user': self.runt.user.iden}
+            await layr.storNodeEdits([(n.buid, 'it:sec:cpe', edits)], meta)
+
         return True
