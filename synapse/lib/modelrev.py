@@ -10,7 +10,7 @@ import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 25)
+maxvers = (0, 2, 24)
 
 class ModelRev:
 
@@ -40,7 +40,7 @@ class ModelRev:
             ((0, 2, 22), self.revModel_0_2_22),
             ((0, 2, 23), self.revModel_0_2_23),
             ((0, 2, 24), self.revModel_0_2_24),
-            ((0, 2, 25), self.revModel_0_2_25),
+            # ((0, 2, 25), self.revModel_0_2_25),
         )
 
     async def _uniqSortArray(self, todoprops, layers):

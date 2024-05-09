@@ -3,7 +3,10 @@ import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
+
+import synapse.models.infotech as s_infotech
 
 stormcmds = [
     {
@@ -812,3 +815,147 @@ class LibModelMigration(s_stormtypes.Lib):
                 for propname, valu in tagprops.items():
                     if overwrite or not dst.hasTagProp(tagname, propname):
                         await proto.setTagProp(tagname, propname, valu) # use tag perms
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations(s_stormtypes.Lib):
+    '''
+    A Storm library for selectively migrating nodes in the current view.
+    '''
+    _storm_locals = (
+        {'name': 'itSecCpeFixup',
+         'desc': '''
+            Versions of Synapse prior to v2.169.0 did not correctly parse and
+            convert CPE strings from 2.2 -> 2.3 or 2.3 -> 2.2. This migration
+            attempts to re-normalize it:sec:cpe nodes that may be fixable.
+
+            FIXME: Add info about nodedata.
+         ''',
+         'type': {'type': 'function', '_funcname': '_itSecCpeFixup',
+                  'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
+    )
+    _storm_lib_path = ('model', 'migration', 's')
+
+    def getObjLocals(self):
+        return {
+            'itSecCpeFixup': self._itSecCpeFixup,
+        }
+
+    async def _itSecCpeFixup(self, n):
+
+        if n.form.name != 'it:sec:cpe':
+            raise s_exc.BadArg(f'itSecCpeFix only accepts it:sec:cpe nodes, not {n.form.name}')
+
+        meta = {'time': s_common.now(), 'user': self.runt.user.iden}
+
+        modl = self.runt.model.type('it:sec:cpe')
+
+        layr = self.runt.snap.wlyr
+
+        curv = n.repr()
+
+        valu23 = None
+        valu22 = None
+        invalid = ''
+
+        # Check the primary property for validity.
+        cpe23 = s_infotech.cpe23_regex.match(curv)
+        if cpe23 is not None and cpe23.group() == curv:
+            valu23 = curv
+
+        # Check the v2_2 property for validity.
+        v2_2 = n.props.get('v2_2')
+        if v2_2 is not None:
+            rgx = s_infotech.cpe22_regex.match(v2_2)
+            if rgx is not None and rgx.group() == v2_2:
+                valu22 = v2_2
+
+        if valu23 is not None and valu22 is not None:
+            # Node is valid
+            if self.runt.debug:
+                mesg = 'Node is valid.'
+                await self.runt.printf(mesg)
+
+            await n.setData('migration.s.itSecCpeFixup', {
+                'status': 'success',
+            })
+            return True
+
+        if valu23 is None and valu22 is None:
+            invalid = 'Primary property and :v2_2 are both invalid.'
+
+        # FIXME: Re-evalute me.
+        # if valu22 is not None and '\\' in valu22:
+        #     invalid = 'Backslashes are not valid in a CPE2.2 string (:v2_2).'
+
+        if invalid:
+            # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
+            # we can do here so log, mark, and go around.
+            iden = s_common.ehex(n.buid)
+            mesg = f'Unable to migrate it:sec:cpe={curv} ({iden}) due to invalid data. {invalid}'
+            self.runt.warn(mesg)
+
+            await n.setData('migration.s.itSecCpeFixup', {
+                'status': 'failed',
+                'reason': invalid,
+            })
+            return False
+
+        valu = valu23 or valu22
+
+        # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
+        norm, info = modl.norm(valu)
+        subs = info.get('subs')
+
+        edits = []
+        nodedata = {}
+
+        if norm != curv:
+            # The re-normed value is not the same as the current value.
+            # Since we can't change the primary property, store the
+            # updated value in nodedata.
+            if self.runt.debug:
+                mesg = f'Primary property renormed: {curv} -> {norm}.'
+                await self.runt.printf(mesg)
+            nodedata['valu'] = norm
+
+        @s_cache.memoize(size=32)
+        def getStorType(propname):
+            return n.form.props.get(propname).type.stortype
+
+        # Iterate over the existing properties
+        for propname, propcurv in n.props.items():
+            subscurv = subs.get(propname)
+            if subscurv is None:
+                continue
+
+            if propname == 'v2_2' and isinstance(subscurv, list):
+                subscurv = s_infotech.zipCpe22(subscurv)
+
+            # Values are the same, go around
+            if propcurv == subscurv:
+                continue
+
+            stortype = getStorType(propname)
+
+            # Update the existing property with the re-normalized property value. We have to do
+            # it with node edits directly because most of these properties are readonly.
+            edits.append((s_layer.EDIT_PROP_SET, (propname, subscurv, propcurv, stortype), ()))
+
+            nodedata.setdefault('updated', [])
+            nodedata['updated'].append(propname)
+
+        if nodedata:
+            nodedata['status'] = 'success'
+            await n.setData('migration.s.itSecCpeFixup', nodedata)
+
+        if not edits: # pragma: no cover
+            if self.runt.debug:
+                mesg = 'No edits needed.'
+                await self.runt.printf(mesg)
+            return True
+
+        await layr.storNodeEdits([(n.buid, 'it:sec:cpe', edits)], meta)
+        return True
