@@ -444,8 +444,8 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(
                 [
                     ('it:sec:cpe', 'cpe:2.3:a:1c:1c\\:enterprise:-:*:*:*:*:*:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\%28aazf.15\\%29co:*:*:*:*:*:*:*'),
                     ('it:sec:cpe', 'cpe:2.3:a:abinitio:control\\>center:-:*:*:*:*:*:*:*'),
-                    ('it:sec:cpe', 'cpe:/o:zyxel:nas542_firmware:5.21\%28aazf.15\%29co'),
                 ],
                 [node.ndef for node in nodes]
             )
@@ -467,17 +467,17 @@ class StormlibModelTest(s_test.SynTest):
             data = nodes[1].nodedata['migration.s.itSecCpeFixup']
             self.nn(data)
             self.eq(data['status'], 'success')
-            self.eq(data['updated'], ['v2_2', 'product'])
-            self.eq(nodes[1].get('v2_2'), 'cpe:/a:abinitio:control%3ecenter:-')
-            self.eq(nodes[1].get('product'), 'control>center')
+            self.none(data.get('valu'))
+            self.eq(data['updated'], ['v2_2', 'version'])
+            self.eq(nodes[1].get('v2_2'), 'cpe:/o:zyxel:nas542_firmware:5.21%2528aazf.15%2529co')
+            self.eq(nodes[1].get('version'), '5.21%28aazf.15%29co')
 
             data = nodes[2].nodedata['migration.s.itSecCpeFixup']
             self.nn(data)
             self.eq(data['status'], 'success')
-            self.none(data.get('valu'))
-            self.eq(data['updated'], ['v2_2', 'version'])
-            self.eq(nodes[2].get('v2_2'), 'cpe:/o:zyxel:nas542_firmware:5.21%2528aazf.15%2529co')
-            self.eq(nodes[2].get('version'), '5.21%28aazf.15%29co')
+            self.eq(data['updated'], ['v2_2', 'product'])
+            self.eq(nodes[2].get('v2_2'), 'cpe:/a:abinitio:control%3ecenter:-')
+            self.eq(nodes[2].get('product'), 'control>center')
 
             # The migration of this node was not correct because the CPE2.3 string (primary property) is valid but was
             # not created correctly due to a bad CPE2.2 input value. Now we update :v2_2 to be correct, and re-run the
@@ -514,11 +514,10 @@ class StormlibModelTest(s_test.SynTest):
             $lib.model.migration.s.itSecCpeFixup($node)
             '''
             nodes = await core.nodes(q)
-            self.len(4, nodes)
+            self.len(3, nodes)
             self.eq(
                 [
                     ('it:sec:cpe', 'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*'),
-                    ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\%28aazf.15\\%29co:*:*:*:*:*:*:*'),
                     ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*'),
                     ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*'),
                 ],
