@@ -4,6 +4,8 @@ import hashlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.scrape as s_scrape
+
 import synapse.models.crypto as s_m_crypto
 
 import synapse.tests.files as s_t_files
@@ -978,14 +980,14 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :type=pc.laptop
                     :desc=WootWoot
                     :released=20220202
-                    :cpe=cpe:2.3:h:dell:xps13::::::::
+                    :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
                     :parts = (*, *)
             ]''')
             self.eq('WootWoot', nodes[0].props['desc'])
             self.eq('dell', nodes[0].props['make'])
             self.eq('xps13', nodes[0].props['model'])
             self.eq('alpha', nodes[0].props['version'])
-            self.eq('cpe:2.3:h:dell:xps13::::::::', nodes[0].props['cpe'])
+            self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].props['cpe'])
             self.eq(1643760000000, nodes[0].props['released'])
             self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
             self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
@@ -1632,7 +1634,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             q = '[it:sec:cpe=$valu]'
-            for _, valu in s_t_scrape.s_scrape.scrape(s_t_scrape.cpedata, ptype='it:sec:cpe'):
+            for _, valu in s_scrape.scrape(s_t_scrape.cpedata, ptype='it:sec:cpe'):
                 nodes = await core.nodes(q, opts={'vars': {'valu': valu}})
                 self.len(1, nodes)
                 node = nodes[0]

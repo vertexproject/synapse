@@ -827,7 +827,30 @@ class LibModelMigrations(s_stormtypes.Lib):
             convert CPE strings from 2.2 -> 2.3 or 2.3 -> 2.2. This migration
             attempts to re-normalize it:sec:cpe nodes that may be fixable.
 
-            FIXME: Add info about nodedata.
+            NOTE: It is highly recommended it:sec:cpe migrations occur in a
+            forked view so any modifications made by the migration can be
+            reviewed before being merged.
+
+            Upon completion of the migration, nodedata will contain a
+            'migration.s.itSecCpeFixup` dict with information about the
+            migration status. This dict may contain the following:
+
+                - status: (required str) "success" or "failed"
+                - reason: (optional str) if "status" is "failed", this key will
+                  explain why the migration failed.
+                - valu: (optional str) if this key is present, it will contain
+                  an updated CPE2.3 string since the primary property cannot be
+                  changed.
+                - updated: (optional list[str]) A list of properties that were
+                  updated by the migration.
+
+            Failed or incorrect migrations may be helped by updating the :v2_2
+            property to be a valid CPE2.2 string and then re-running the
+            migration with `force=$lib.true`. If the primary property (CPE2.3)
+            is valid but incorrect, users may update the :v2_2 property and then
+            run the migration with `prefer_v22=$lib.true` to make the migration
+            use the :v2_2 string instead of the primary property for the
+            migration process.
          ''',
          'type': {'type': 'function', '_funcname': '_itSecCpeFixup',
                   'args': (

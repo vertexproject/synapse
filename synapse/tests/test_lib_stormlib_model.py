@@ -592,6 +592,28 @@ class StormlibModelTest(s_test.SynTest):
                     'reason': 'Primary property and :v2_2 are both invalid.'
                 })
 
+            # Now update the :v2_2 on one of the nodes and migrate again
+            q = '''
+            it:sec:cpe:version^=8.2p1 [ :v2_2="cpe:/a:openbsd:openssh:8.2p1_ubuntu-4ubuntu0.2" ]
+            $lib.model.migration.s.itSecCpeFixup($node)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            q = '''
+            it:sec:cpe:version^=8.2p1
+            $node.data.load(migration.s.itSecCpeFixup)
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            data = nodes[0].nodedata['migration.s.itSecCpeFixup']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['version'])
+            self.eq(data['valu'], 'cpe:2.3:a:openbsd:openssh:8.2p1_ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
+            self.eq(nodes[0].get('version'), '8.2p1_ubuntu-4ubuntu0.2')
+
         async with self.getTestCore() as core:
             # Test creating it:sec:cpe nodes
             q = '''

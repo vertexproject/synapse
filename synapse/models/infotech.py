@@ -341,8 +341,6 @@ class Cpe23Str(s_types.Str):
             extsize = 11 - len(parts)
             parts.extend(['*' for _ in range(extsize)])
 
-            parts = [cpe_escape(cpe_unescape(k)) for k in parts]
-
             v2_3 = 'cpe:2.3:' + ':'.join(parts)
 
             v2_2 = copy.copy(parts)
