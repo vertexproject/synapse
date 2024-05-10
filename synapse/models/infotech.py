@@ -281,7 +281,7 @@ def chopCpe22(text):
     CPE 2.2 Formatted String
     https://cpe.mitre.org/files/cpe-specification_2.2.pdf
     '''
-    if not text.startswith('cpe:/'):
+    if not text.startswith('cpe:/'): # pragma: no cover
         mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
         raise s_exc.BadTypeValu(valu=text, mesg=mesg)
 

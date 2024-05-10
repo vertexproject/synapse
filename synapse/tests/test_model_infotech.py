@@ -1507,7 +1507,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('[ it:sec:cpe="cpe:2.3:adf`" ]')
+                await core.callStorm('[ it:sec:cpe="cpe:2.3:a:vendor001:product-foo" :v2_2="cpe:/a:vendor:product\\foo" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('[ it:sec:cpe="cpe:/a:vendor001:product`foo" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('[ it:sec:cpe="cpe:/a:vend🙃:prod:vers" ]')
 
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
