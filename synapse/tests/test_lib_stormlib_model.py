@@ -559,6 +559,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[2].get('version'), '5.21(aazf.14)c0')
 
         async with self.getRegrCore('itSecCpeFixup') as core:
+            # Migrate it:sec:cpe nodes with a invalid CPE2.3, invalid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid
             $lib.model.migration.s.itSecCpeFixup($node)
@@ -592,6 +593,7 @@ class StormlibModelTest(s_test.SynTest):
                 })
 
         async with self.getTestCore() as core:
+            # Test creating it:sec:cpe nodes
             q = '''
             [
                 it:sec:cpe="cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~"

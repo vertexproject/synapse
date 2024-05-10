@@ -18,7 +18,43 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-cpe22_regex = regex.compile(s_scrape._cpe22_regex, regex.VERBOSE | regex.IGNORECASE)
+# The CPE2.2 regex is not used in scrape but is used elsewhere. This seems like
+# the logical location for it since the CPE2.3 regex is here too.
+ALPHA = '[A-Za-z]'
+DIGIT = '[0-9]'
+UNRESERVED = r'[A-Za-z0-9\-\.\_]'
+SPEC1 = '%01'
+SPEC2 = '%02'
+# This is defined in the ABNF but not actually referenced
+# SPECIAL = f'(?:{SPEC1}|{SPEC2})'
+SPEC_CHRS = f'(?:{SPEC1}+|{SPEC2})'
+PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e)'
+STR_WO_SPECIAL = f'(?:{UNRESERVED}|{PCT_ENCODED})*'
+STR_W_SPECIAL = f'{SPEC_CHRS}? (?:{UNRESERVED}|{PCT_ENCODED})+ {SPEC_CHRS}?'
+STRING = f'(?:{STR_W_SPECIAL}|{STR_WO_SPECIAL})'
+PACKED = rf'\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?'
+REGION = f'(?:{ALPHA}{{2}}|{DIGIT}{{3}})'
+LANGTAG = rf'(?:{ALPHA}{{2,3}}(?:\-{REGION})?)'
+PART = '[hoa]?'
+VENDOR = STRING
+PRODUCT = STRING
+VERSION = STRING
+UPDATE = STRING
+EDITION = f'(?:{PACKED}|{STRING})'
+LANG = f'{LANGTAG}?'
+COMPONENT_LIST = f'''
+    (?:
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION}:{LANG} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION} |
+        {PART}:{VENDOR}:{PRODUCT} |
+        {PART}:{VENDOR} |
+        {PART}
+    )
+'''
+
+cpe22_regex = regex.compile(f'cpe:/{COMPONENT_LIST}', regex.VERBOSE | regex.IGNORECASE)
 cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
 
 def cpesplit(text):

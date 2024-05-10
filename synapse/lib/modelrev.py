@@ -6,8 +6,6 @@ import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
 
-import synapse.models.infotech as s_infotech
-
 logger = logging.getLogger(__name__)
 
 maxvers = (0, 2, 24)

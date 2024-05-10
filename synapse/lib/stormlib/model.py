@@ -3,7 +3,6 @@ import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.models.infotech as s_infotech
