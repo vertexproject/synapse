@@ -349,6 +349,12 @@ class Cpe23Str(s_types.Str):
                     v2_2[idx] = ''
                     continue
 
+                # CPE2.3 says these components can be logical but CPE2.2 says
+                # they can be values or empty, so make them empty
+                if idx in (PART_IDX_PART, PART_IDX_LANG) and part == '-':
+                    v2_2[idx] = ''
+                    continue
+
                 part = cpe_unescape(part)
                 v2_2[idx] = cpe_quote(part)
 
