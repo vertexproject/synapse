@@ -292,7 +292,7 @@ class CoreApi(s_cell.CellApi):
 
         logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
 
-        async for node in view.addNodes(items, user=user):
+        async for node in view.addNodes(items, user=self.user):
             await asyncio.sleep(0)
 
     async def count(self, text, opts=None):
