@@ -577,12 +577,11 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
             self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
 
-    async def test_model_file_archive_entry(self):
+    async def test_model_file_lnk(self):
 
         async with self.getTestCore() as core:
             nodes = await core.nodes(r'''[
                 file:mime:lnk=*
-                    :file=*
                     :entry:primary="c:\\some\\stuff\\prog~2\\cmd.exe"
                     :entry:secondary="c:\\some\\stuff\program files\\cmd.exe"
                     :entry:extended="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
@@ -596,8 +595,8 @@ class FileTest(s_t_utils.SynTest):
                     :arguments="/q /c copy %systemroot%\\system32\\msh*.exe"
                     :desc="I've been here the whole time."
 
-                    :link:flags=0x40df
-                    :target:flags=0x20
+                    :flags=0x40df
+                    :target:attrs=0x20
                     :target:size=12345
                     :target:created="2023/01/25 18:57:45.284"
                     :target:accessed="2023/01/25 18:57:45.284"
@@ -606,7 +605,6 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
 
-            self.nn(node.get('file'))
             self.eq(node.get('entry:primary'), 'c:/some/stuff/prog~2/cmd.exe')
             self.eq(node.get('entry:secondary'), 'c:/some/stuff/program files/cmd.exe')
             self.eq(node.get('entry:extended'), 'c:/some/actual/stuff/i/swear/cmd.exe')
@@ -617,12 +615,12 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('environment:icon'), '%some%%envvar%')
 
             self.eq(node.get('working'), '%homedrive%%homepath%')
-            self.eq(node.get('relative'), 'some/foo.bar.txt')
+            self.eq(node.get('relative'), '..\\..\\..\\some\\foo.bar.txt')
             self.eq(node.get('arguments'), '/q /c copy %systemroot%\\system32\\msh*.exe')
             self.eq(node.get('desc'), "I've been here the whole time.")
 
-            self.eq(node.get('link:flags'), 0x40df)
-            self.eq(node.get('target:flags'), 0x20)
+            self.eq(node.get('flags'), 0x40df)
+            self.eq(node.get('target:attrs'), 0x20)
             self.eq(node.get('target:size'), 12345)
 
             time = 1674673065284

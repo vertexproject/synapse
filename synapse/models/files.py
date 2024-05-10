@@ -703,33 +703,31 @@ class FileModule(s_module.CoreModule):
                 )),
 
                 ('file:mime:lnk', {}, (
-                    ('file', ('file:bytes', {}), {
-                        'doc': 'The actual file that this shortcut file executed.'}),
+                    ('flags', ('int', {}), {
+                        'doc': 'The flags specified by the LNK header that control the structure of the LNK file.'}),
                     ('entry:primary', ('file:path', {}), {
                         'doc': "The primary file path contained within the FileEntry structure of the LNK file."}),
                     ('entry:secondary', ('file:path', {}), {
                         'doc': "The secondary file path contained within the FileEntry structure of the LNK file."}),
                     ('entry:extended', ('file:path', {}), {
-                        'doc': "The target file path from the extended FileEntry structure."}),
+                        'doc': "The extended file path contained within the extended FileEntry structure of the LNK file."}),
                     ('entry:localized', ('file:path', {}), {
-                        'doc': "The localized target file path from the extended FileEntry structure."}),
+                        'doc': "The localized file path contained within the extended FileEntry structure of the LNK file."}),
                     ('entry:icon', ('file:path', {}), {
-                        'doc': 'The path to the icon file used when displaying a shortcut file to a user.'}),
+                        'doc': 'The icon file path contained within the StringData structure of the LNK file.'}),
                     ('environment:path', ('file:path', {}), {
-                        'doc': 'The path to the target file when the LNK says to prefer environment variables.'}),
+                        'doc': "The target file path contained within the EnvironmentVariableDataBlock structure of the LNK file."}),
                     ('environment:icon', ('file:path', {}), {
-                        'doc': 'The path to the icon file displayed when the LNK flags says to prefer environment variables.'}),
+                        'doc': "The icon file path contained within the IconEnvironmentDataBlock structure of the LNK file."}),
                     ('working', ('file:path', {}), {
                         'doc': 'The working directory used when activating the link target.'}),
-                    ('relative', ('file:path', {}), {
-                        'doc': 'The path to the target file used when the LNK flags say to use a relative path.'}),
+                    ('relative', ('str', {}), {
+                        'doc': 'The relative target path string contained within the StringData structure of the LNK file.'}),
                     ('arguments', ('it:cmd', {}), {
-                        'doc': 'The command line arguments passed to the target file when the shortcut is activated.'}),
+                        'doc': 'The command line arguments passed to the target file when the LNK file is activated.'}),
                     ('desc', ('str', {}), {
-                        'doc': 'The description of the shortcut from the StringData section of the LNK file.'}),
-                    ('link:flags', ('int', {}), {
-                        'doc': 'The flags specified by the LNK header that control what paths to prefer.'}),
-                    ('target:flags', ('int', {}), {
+                        'doc': 'The description of the LNK file contained within the StringData section of the LNK file.'}),
+                    ('target:attrs', ('int', {}), {
                         'doc': 'The attributes of the target file according to the LNK header.'}),
                     ('target:size', ('int', {}), {
                         'doc': 'The size of the target file according to the LNK header. The LNK format specifies that this is only the lower 32 bits of the target file size.'}),
