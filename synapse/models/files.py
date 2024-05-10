@@ -706,7 +706,7 @@ class FileModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The actual file that this shortcut file executed.'}),
                     ('entry:primary', ('file:path', {}), {
-                        'doc': "The reconstructed primary path of the file this shortcut's FileEntry structure  points to."}),
+                        'doc': "The primary file path contained within the FileEntry structure of the LNK file."}),
                     ('entry:secondary', ('file:path', {}), {
                         'doc': "The reconstructed secondary path of the file this shortcut's FileEntry structure points to."}),
                     ('entry:extended', ('file:path', {}), {
