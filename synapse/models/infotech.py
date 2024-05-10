@@ -344,12 +344,6 @@ class Cpe23Str(s_types.Str):
                     v2_2[idx] = ''
                     continue
 
-                # CPE2.3 says these components can be logical but CPE2.2 says
-                # they can be values or empty, so make them empty
-                if idx in (PART_IDX_PART, PART_IDX_LANG) and part == '-':
-                    v2_2[idx] = ''
-                    continue
-
                 part = cpe_unescape(part)
                 v2_2[idx] = cpe_quote(part)
 
@@ -425,13 +419,12 @@ class Cpe23Str(s_types.Str):
             cpe22 = zipCpe22(v2_2)
         else:
             cpe22 = v2_2
+
         rgx = cpe22_regex.match(cpe22)
         if rgx is None or rgx.group() != cpe22:
-            mesg = 'Error creating CPE 2.2 string.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=cpe22)
+            v2_2 = None
 
         subs = {
-            'v2_2': v2_2,
             'part': parts[PART_IDX_PART],
             'vendor': parts[PART_IDX_VENDOR],
             'product': parts[PART_IDX_PRODUCT],
@@ -444,6 +437,9 @@ class Cpe23Str(s_types.Str):
             'target_hw': parts[PART_IDX_TARGET_HW],
             'other': parts[PART_IDX_OTHER],
         }
+
+        if v2_2 is not None:
+            subs['v2_2'] = v2_2
 
         return v2_3, {'subs': subs}
 
