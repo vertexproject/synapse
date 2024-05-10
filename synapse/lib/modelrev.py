@@ -40,7 +40,6 @@ class ModelRev:
             ((0, 2, 22), self.revModel_0_2_22),
             ((0, 2, 23), self.revModel_0_2_23),
             ((0, 2, 24), self.revModel_0_2_24),
-            # ((0, 2, 25), self.revModel_0_2_25),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -759,118 +758,6 @@ class ModelRev:
 
         for form, props in formprops.items():
             await self._normVelocityProps(layers, form, props)
-
-    async def revModel_0_2_25(self, layers):
-
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-        nodeedits = []
-        modl = self.core.model.type('it:sec:cpe')
-
-        for layr in layers:
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            async for _, buid, sode in layr.liftByProp('it:sec:cpe', None):
-
-                edits = []
-                valu = None
-
-                curv = sode.get('valu')
-
-                # Grab the props for this node
-                props = sode.get('props')
-                if props is None:
-                    continue
-
-                valu23 = None
-                valu22 = None
-                invalid = False
-
-                # Check the primary property for validity.
-                cpe23 = s_infotech.cpe23_regex.match(curv[0])
-                if cpe23 is not None and cpe23.group() == curv[0]:
-                    valu23 = curv[0]
-
-                # Check the v2_2 property for validity.
-                v2_2 = props.get('v2_2')
-                if v2_2 is not None and s_infotech.cpe22_regex.match(v2_2[0]).group() == v2_2[0]:
-                    valu22 = v2_2[0]
-
-                if valu23 is None and valu22 is None:
-                    invalid = True
-
-                if valu22 is not None and '\\' in valu22:
-                    invalid = True
-
-                if invalid:
-                    # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
-                    # we can do here so log, mark, and go around.
-                    iden = s_common.ehex(buid)
-                    mesg = f'Unable to migrate it:sec:cpe={curv[0]} ({iden}) due to invalid data.'
-                    logger.warning(mesg)
-
-                    nodeedits.append(
-                        (buid, 'it:sec:cpe', (
-                            (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_25', {'status': 'invalid data'}, None), ()),
-                        ))
-                    )
-                    continue
-
-                if valu23 is not None:
-                    valu = valu23
-                else:
-                    valu = valu22
-
-                # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
-                norm, info = modl.norm(valu)
-                subs = info.get('subs')
-
-                nodedata = {}
-
-                if norm != curv[0]:
-                    # The re-normed value is not the same as the current value.
-                    # Since we can't change the primary property, store the
-                    # updated value in nodedata.
-                    nodedata['valu'] = norm
-
-                # Iterate over the existing properties
-                for propname, propcurv in props.items():
-                    subscurv = subs.get(propname)
-                    if subscurv is None:
-                        continue
-
-                    propcurv, stortype = propcurv
-
-                    if propname == 'v2_2' and isinstance(subscurv, list):
-                        subscurv = s_infotech.zipCpe22(subscurv)
-
-                    # Values are the same, go around
-                    if propcurv == subscurv:
-                        continue
-
-                    # Update the existing property with the re-normalized property value
-                    edits.append((s_layer.EDIT_PROP_SET, (propname, subscurv, propcurv, stortype), ()))
-
-                    nodedata.setdefault('updated', [])
-                    nodedata['updated'].append(propname)
-
-                if nodedata:
-                    nodedata['status'] = 'success'
-                    edits.append((s_layer.EDIT_NODEDATA_SET, (f'migration:0_2_25', nodedata, None), ()))
-
-                if not edits: # pragma: no cover
-                    continue
-
-                nodeedits.append((buid, 'it:sec:cpe', edits))
-
-                if len(nodeedits) >= 1000:  # pragma: no cover
-                    await save()
-
-            if nodeedits:
-                await save()
 
     async def runStorm(self, text, opts=None):
         '''

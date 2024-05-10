@@ -833,8 +833,14 @@ class LibModelMigrations(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_itSecCpeFixup',
                   'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
-                      {'name': 'dryrun', 'type': 'bool', 'default': False,
-                       'desc': 'Enable debug prints and do not make any changes.'},
+                      {'name': 'prefer_v22', 'type': 'bool', 'default': False,
+                       'desc': '''
+                        Try to renormalize using the :v2_2 prop instead of the
+                        primary property. This can be especially useful when the
+                        primary property is a valid but incorrect CPE string.
+                        '''},
+                      {'name': 'force', 'type': 'bool', 'default': False,
+                       'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
     )
@@ -845,7 +851,7 @@ class LibModelMigrations(s_stormtypes.Lib):
             'itSecCpeFixup': self._itSecCpeFixup,
         }
 
-    async def _itSecCpeFixup(self, n, dryrun=False):
+    async def _itSecCpeFixup(self, n, prefer_v22=False, force=False):
 
         if not isinstance(n, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.s.itSecCpeFixup() argument must be a node.')
@@ -853,7 +859,8 @@ class LibModelMigrations(s_stormtypes.Lib):
         if n.form.name != 'it:sec:cpe':
             raise s_exc.BadArg(f'itSecCpeFix only accepts it:sec:cpe nodes, not {n.form.name}')
 
-        dryrun = await s_stormtypes.tobool(dryrun)
+        prefer_v22 = await s_stormtypes.tobool(prefer_v22)
+        force = await s_stormtypes.tobool(force)
 
         layr = self.runt.snap.wlyr
         self.runt.confirm(('node', 'prop', 'set', 'it:sec:cpe'), gateiden=layr.iden)
@@ -867,8 +874,6 @@ class LibModelMigrations(s_stormtypes.Lib):
             mesg = f'DBG: itSecCpeFixup({reprvalu}): Node already migrated.'
             await self.runt.printf(mesg)
             return True
-
-        now = s_common.now()
 
         modl = self.runt.model.type('it:sec:cpe')
 
@@ -888,103 +893,87 @@ class LibModelMigrations(s_stormtypes.Lib):
             if rgx is not None and rgx.group() == v2_2:
                 valu22 = v2_2
 
-        # If both values are populated, this node is valid
-        if valu23 is not None and valu22 is not None:
-            if self.runt.debug:
-                mesg = f'DBG: itSecCpeFixup({reprvalu}): Node is valid, no migration necessary.'
-                await self.runt.printf(mesg)
+        async with self.runt.snap.getNodeEditor(n) as proto:
 
-            if not dryrun:
-                await n.setData('migration.s.itSecCpeFixup', {
+            # If both values are populated, this node is valid
+            if valu23 is not None and valu22 is not None and not force:
+                if self.runt.debug:
+                    mesg = f'DBG: itSecCpeFixup({reprvalu}): Node is valid, no migration necessary.'
+                    await self.runt.printf(mesg)
+
+                await proto.setData('migration.s.itSecCpeFixup', {
                     'status': 'success',
                 })
 
-            return True
+                return True
 
-        if valu23 is None and valu22 is None:
-            invalid = 'Primary property and :v2_2 are both invalid.'
+            if valu23 is None and valu22 is None:
+                invalid = 'Primary property and :v2_2 are both invalid.'
 
-        # FIXME: Re-evalute me.
-        # if valu22 is not None and '\\' in valu22:
-        #     invalid = 'Backslashes are not valid in a CPE2.2 string (:v2_2).'
+            if invalid:
+                # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
+                # we can do here so log, mark, and go around.
+                mesg = f'itSecCpeFixup({reprvalu}): Unable to migrate due to invalid data. {invalid}'
+                await self.runt.warn(mesg)
 
-        if invalid:
-            # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
-            # we can do here so log, mark, and go around.
-            mesg = f'DBG: itSecCpeFixup({reprvalu}): Unable to migrate due to invalid data. {invalid}'
-            self.runt.warn(mesg)
-
-            if not dryrun:
-                await n.setData('migration.s.itSecCpeFixup', {
+                await proto.setData('migration.s.itSecCpeFixup', {
                     'status': 'failed',
                     'reason': invalid,
                 })
 
-            return False
+                return False
 
-        valu = valu23 or valu22
+            if prefer_v22:
+                valu = valu22 or valu23
+            else:
+                valu = valu23 or valu22
 
-        # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
-        norm, info = modl.norm(valu)
-        subs = info.get('subs')
+            # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
+            norm, info = modl.norm(valu)
+            subs = info.get('subs')
 
-        edits = []
-        nodedata = {}
+            edits = []
+            nodedata = {}
 
-        if norm != curv:
-            # The re-normed value is not the same as the current value.
-            # Since we can't change the primary property, store the
-            # updated value in nodedata.
-            if self.runt.debug or dryrun:
-                mesg = f'DBG: itSecCpeFixup({reprvalu}): Stored updated primary property value to nodedata: {curv} -> {norm}.'
-                await self.runt.printf(mesg)
+            if norm != curv:
+                # The re-normed value is not the same as the current value.
+                # Since we can't change the primary property, store the
+                # updated value in nodedata.
+                if self.runt.debug:
+                    mesg = f'DBG: itSecCpeFixup({reprvalu}): Stored updated primary property value to nodedata: {curv} -> {norm}.'
+                    await self.runt.printf(mesg)
 
-            nodedata['valu'] = norm
+                nodedata['valu'] = norm
 
-        @s_cache.memoize(size=32)
-        def getStorType(propname):
-            return n.form.props.get(propname).type.stortype
+            # Iterate over the existing properties
+            for propname, propcurv in n.props.items():
+                subscurv = subs.get(propname)
+                if subscurv is None:
+                    continue
 
-        # Iterate over the existing properties
-        for propname, propcurv in n.props.items():
-            subscurv = subs.get(propname)
-            if subscurv is None:
-                continue
+                if propname == 'v2_2' and isinstance(subscurv, list):
+                    subscurv = s_infotech.zipCpe22(subscurv)
 
-            if propname == 'v2_2' and isinstance(subscurv, list):
-                subscurv = s_infotech.zipCpe22(subscurv)
+                # Values are the same, go around
+                if propcurv == subscurv:
+                    continue
 
-            # Values are the same, go around
-            if propcurv == subscurv:
-                continue
+                nodedata.setdefault('updated', [])
+                nodedata['updated'].append(propname)
 
-            stortype = getStorType(propname)
+                # Update the existing property with the re-normalized property value.
+                await proto.set(propname, subscurv, ignore_ro=True)
 
-            nodedata.setdefault('updated', [])
-            nodedata['updated'].append(propname)
+            nodedata['status'] = 'success'
 
-            # Update the existing property with the re-normalized property value. We have to do
-            # it with node edits directly because most of these properties are readonly.
-            edits.append((s_layer.EDIT_PROP_SET, (propname, subscurv, propcurv, stortype), ()))
+            await proto.setData('migration.s.itSecCpeFixup', nodedata)
 
-        nodedata['status'] = 'success'
-
-        if not dryrun:
-            await n.setData('migration.s.itSecCpeFixup', nodedata)
-
-        if not edits: # pragma: no cover
-            if self.runt.debug or dryrun:
-                mesg = f'DBG: itSecCpeFixup({reprvalu}): No properties updates required.'
-                await self.runt.printf(mesg)
+            if self.runt.debug:
+                if nodedata.get('updated'):
+                    mesg = f'DBG: itSecCpeFixup({reprvalu}): Updated properties: {", ".join(nodedata["updated"])}.'
+                    await self.runt.printf(mesg)
+                else:
+                    mesg = f'DBG: itSecCpeFixup({reprvalu}): No properties updates required.'
+                    await self.runt.printf(mesg)
 
             return True
-
-        if self.runt.debug or dryrun:
-            mesg = f'DBG: itSecCpeFixup({reprvalu}): Updated properties: {", ".join(nodedata["updated"])}.'
-            await self.runt.printf(mesg)
-
-        if not dryrun:
-            meta = {'time': now, 'user': self.runt.user.iden}
-            await layr.storNodeEdits([(n.buid, 'it:sec:cpe', edits)], meta)
-
-        return True
