@@ -7,7 +7,7 @@ Synapse Changelog
 *****************
 
 
-v2.169.0 - TBD
+v2.169.0 - 2024-05-10
 =====================
 
 Features and Enhancements
