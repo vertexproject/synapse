@@ -624,34 +624,8 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].get('version'), '8.2p1_ubuntu-4ubuntu0.2')
 
         async with self.getTestCore() as core:
-            # Test creating it:sec:cpe nodes
-            q = '''
-            [
-                it:sec:cpe="cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~"
-                it:sec:cpe="cpe:/a:1c:1c%3aenterprise:-"
-                it:sec:cpe="cpe:/a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~"
-                it:sec:cpe="cpe:/o:zyxel:nas326_firmware:5.21%28aazf.14%29c0"
-            ]
-            '''
-            msgs = await core.stormlist(q)
-            self.stormHasNoWarnErr(msgs)
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.model.migration.s.itSecCpeFixup(newp)')
 
-            q = '''
-            [
-                it:sec:cpe="cpe:2.3:a:x1c:1c\\:enterprise:-:*:*:*:*:*:*:*"
-                it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"
-                it:sec:cpe="cpe:2.3:o:xzyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*"
-                it:sec:cpe="cpe:2.3:a:vendor:product\\%45:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
-                it:sec:cpe="cpe:2.3:a:vendor2:product\\%23:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
-            ]
-            '''
-            msgs = await core.stormlist(q)
-            self.stormHasNoWarnErr(msgs)
-
-            nodes = await core.nodes('it:sec:cpe:vendor=vendor')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('product'), 'product%45')
-
-            nodes = await core.nodes('it:sec:cpe:vendor=vendor2')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('product'), 'product%23')
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('[ inet:fqdn=vertex.link ] $lib.model.migration.s.itSecCpeFixup($node)')

@@ -892,9 +892,10 @@ class LibModelMigrations(s_stormtypes.Lib):
         reprvalu = f'it:sec:cpe={curv}'
 
         nodedata = await n.getData('migration.s.itSecCpeFixup', {})
-        if nodedata.get('status') == 'success' and self.runt.debug:
-            mesg = f'DBG: itSecCpeFixup({reprvalu}): Node already migrated.'
-            await self.runt.printf(mesg)
+        if nodedata.get('status') == 'success' and not force:
+            if self.runt.debug: # pragma: no cover
+                mesg = f'DBG: itSecCpeFixup({reprvalu}): Node already migrated.'
+                await self.runt.printf(mesg)
             return True
 
         modl = self.runt.model.type('it:sec:cpe')
@@ -919,7 +920,7 @@ class LibModelMigrations(s_stormtypes.Lib):
 
             # If both values are populated, this node is valid
             if valu23 is not None and valu22 is not None and not force:
-                if self.runt.debug:
+                if self.runt.debug: # pragma: no cover
                     mesg = f'DBG: itSecCpeFixup({reprvalu}): Node is valid, no migration necessary.'
                     await self.runt.printf(mesg)
 
@@ -961,7 +962,7 @@ class LibModelMigrations(s_stormtypes.Lib):
                 # The re-normed value is not the same as the current value.
                 # Since we can't change the primary property, store the
                 # updated value in nodedata.
-                if self.runt.debug:
+                if self.runt.debug: # pragma: no cover
                     mesg = f'DBG: itSecCpeFixup({reprvalu}): Stored updated primary property value to nodedata: {curv} -> {norm}.'
                     await self.runt.printf(mesg)
 
@@ -990,7 +991,7 @@ class LibModelMigrations(s_stormtypes.Lib):
 
             await proto.setData('migration.s.itSecCpeFixup', nodedata)
 
-            if self.runt.debug:
+            if self.runt.debug: # pragma: no cover
                 if nodedata.get('updated'):
                     mesg = f'DBG: itSecCpeFixup({reprvalu}): Updated properties: {", ".join(nodedata["updated"])}.'
                     await self.runt.printf(mesg)

@@ -1507,6 +1507,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
 
             with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('[ it:sec:cpe="cpe:2.3:adf`" ]')
+
+            with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
 
             nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
@@ -1585,6 +1588,39 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             norm, info = cpe23.norm('cpe:/a:b%5c%5cb')
             self.eq(norm, 'cpe:2.3:a:b\\\\b:*:*:*:*:*:*:*:*:*')
+
+            # Examples based on customer reports
+            q = '''
+            [
+                it:sec:cpe="cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~"
+                it:sec:cpe="cpe:/a:1c:1c%3aenterprise:-"
+                it:sec:cpe="cpe:/a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~"
+                it:sec:cpe="cpe:/o:zyxel:nas326_firmware:5.21%28aazf.14%29c0"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            # Examples based on customer reports
+            q = '''
+            [
+                it:sec:cpe="cpe:2.3:a:x1c:1c\\:enterprise:-:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"
+                it:sec:cpe="cpe:2.3:o:xzyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:vendor:product\\%45:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+                it:sec:cpe="cpe:2.3:a:vendor2:product\\%23:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), 'product%45')
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor2')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), 'product%23')
 
             # Test 2.2->2.3 and 2.3->2.2 conversions
             filename = s_t_files.getAssetPath('cpedata.json')

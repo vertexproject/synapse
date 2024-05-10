@@ -261,8 +261,8 @@ class Cpe22Str(s_types.Str):
 
         rgx = cpe22_regex.match(v2_2)
         if rgx is None or rgx.group() != v2_2:
-            mesg = 'Error processing CPE string.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=v2_2)
+            mesg = 'CPE 2.2 string appears to be invalid.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
         return v2_2, {}
 
@@ -412,8 +412,8 @@ class Cpe23Str(s_types.Str):
 
         rgx = cpe23_regex.match(v2_3)
         if rgx is None or rgx.group() != v2_3:
-            mesg = 'Error creating CPE 2.3 string.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=v2_3)
+            mesg = 'CPE 2.3 string appears to be invalid.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
         if isinstance(v2_2, list):
             cpe22 = zipCpe22(v2_2)
