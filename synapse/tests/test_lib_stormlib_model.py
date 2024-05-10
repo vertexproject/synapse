@@ -514,9 +514,10 @@ class StormlibModelTest(s_test.SynTest):
             $lib.model.migration.s.itSecCpeFixup($node)
             '''
             nodes = await core.nodes(q)
-            self.len(3, nodes)
+            self.len(4, nodes)
             self.eq(
                 [
+                    ('it:sec:cpe', 'cpe:2.3:h:d\\-link:dir\\-850l:*:*:*:*:*:*:*:*'),
                     ('it:sec:cpe', 'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*'),
                     ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*'),
                     ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*'),
@@ -529,34 +530,42 @@ class StormlibModelTest(s_test.SynTest):
             $node.data.load(migration.s.itSecCpeFixup)
             '''
             nodes = await core.nodes(q)
-            self.len(3, nodes)
+            self.len(4, nodes)
 
             data = nodes[0].nodedata['migration.s.itSecCpeFixup']
             self.nn(data)
             self.eq(data['status'], 'success')
-            self.eq(data['updated'], ['product', 'update', 'edition', 'target_sw'])
-            self.eq(data['valu'], 'cpe:2.3:a:acurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*')
-            self.eq(nodes[0].get('product'), 'under_construction_/_maintenance_mode')
-            self.eq(nodes[0].get('update'), '*')
-            self.eq(nodes[0].get('edition'), '*')
-            self.eq(nodes[0].get('target_sw'), 'wordpress')
+            self.eq(data['updated'], ['vendor', 'product'])
+            self.eq(data['valu'], 'cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*')
+            self.eq(nodes[0].get('vendor'), 'd-link')
+            self.eq(nodes[0].get('product'), 'dir-850l')
 
             data = nodes[1].nodedata['migration.s.itSecCpeFixup']
             self.nn(data)
             self.eq(data['status'], 'success')
-            self.eq(data['updated'], ['update', 'edition', 'sw_edition', 'target_sw'])
-            self.eq(data['valu'], 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*')
+            self.eq(data['updated'], ['product', 'update', 'edition', 'target_sw'])
+            self.eq(data['valu'], 'cpe:2.3:a:acurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*')
+            self.eq(nodes[1].get('product'), 'under_construction_/_maintenance_mode')
             self.eq(nodes[1].get('update'), '*')
             self.eq(nodes[1].get('edition'), '*')
-            self.eq(nodes[1].get('sw_edition'), 'premium')
             self.eq(nodes[1].get('target_sw'), 'wordpress')
 
             data = nodes[2].nodedata['migration.s.itSecCpeFixup']
             self.nn(data)
             self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['update', 'edition', 'sw_edition', 'target_sw'])
+            self.eq(data['valu'], 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*')
+            self.eq(nodes[2].get('update'), '*')
+            self.eq(nodes[2].get('edition'), '*')
+            self.eq(nodes[2].get('sw_edition'), 'premium')
+            self.eq(nodes[2].get('target_sw'), 'wordpress')
+
+            data = nodes[3].nodedata['migration.s.itSecCpeFixup']
+            self.nn(data)
+            self.eq(data['status'], 'success')
             self.eq(data['updated'], ['version'])
             self.eq(data['valu'], 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*')
-            self.eq(nodes[2].get('version'), '5.21(aazf.14)c0')
+            self.eq(nodes[3].get('version'), '5.21(aazf.14)c0')
 
         async with self.getRegrCore('itSecCpeFixup') as core:
             # Migrate it:sec:cpe nodes with a invalid CPE2.3, invalid CPE2.2
