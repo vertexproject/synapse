@@ -227,6 +227,7 @@ STOR_TYPE_FLOAT64 = 22
 STOR_TYPE_HUGENUM = 23
 
 STOR_TYPE_MAXTIME = 24
+STOR_TYPE_NDEF = 25
 
 STOR_FLAG_ARRAY = 0x8000
 
@@ -280,6 +281,8 @@ INDX_IVAL_DURATION = b'\x00\x0b'
 INDX_NODEDATA = b'\x00\x0c'
 
 INDX_TOMB = b'\x00\x0d'
+
+INDX_NDEF = b'\x00\x0e'
 
 FLAG_TOMB = b'\x00'
 FLAG_NORM = b'\x01'
@@ -1357,8 +1360,10 @@ class StorTypeIval(StorType):
 
 class StorTypeMsgp(StorType):
 
+    stortype = STOR_TYPE_MSGP
+
     def __init__(self, layr):
-        StorType.__init__(self, layr, STOR_TYPE_MSGP)
+        StorType.__init__(self, layr, self.stortype)
         self.lifters.update({
             '=': self._liftMsgpEq,
             '~=': self._liftRegx,
@@ -1371,6 +1376,9 @@ class StorTypeMsgp(StorType):
 
     def indx(self, valu):
         return (s_common.buid(valu),)
+
+class StorTypeNdef(StorTypeMsgp):
+    stortype = STOR_TYPE_NDEF
 
 class StorTypeLatLon(StorType):
 
@@ -1528,6 +1536,7 @@ class Layer(s_nexus.Pusher):
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
 
             StorTypeTime(self),  # STOR_TYPE_MAXTIME
+            StorTypeNdef(self),
         ]
 
         self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
@@ -2152,6 +2161,7 @@ class Layer(s_nexus.Pusher):
 
         self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True)
 
+        self.ndefabrv = self.core.setIndxAbrv(INDX_NDEF)
         self.edgen1abrv = self.core.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.core.setIndxAbrv(INDX_EDGE_N2)
         self.edgen1n2abrv = self.core.setIndxAbrv(INDX_EDGE_N1N2)
@@ -2840,6 +2850,12 @@ class Layer(s_nexus.Pusher):
                 if valu == oldv and stortype == oldt:
                     return
 
+        if stortype == STOR_TYPE_NDEF:
+            await self.core._genNdefNid(valu)
+        elif stortype & STOR_FLAG_ARRAY:
+            for aval in valu:
+                await self.core._genNdefNid(aval)
+
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype)),
         )
@@ -3323,6 +3339,9 @@ class Layer(s_nexus.Pusher):
         if oldv is not None:
 
             if oldt & STOR_FLAG_ARRAY:
+
+                realtype = oldt & 0x7fff
+
                 arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
                 self.indxcounts.inc(arryabrv, len(oldv) * -1)
 
@@ -3334,6 +3353,10 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
                     if univabrv is not None:
                         self.layrslab.delete(univarryabrv + oldi, nid, db=self.indxdb)
+
+                    if realtype == STOR_TYPE_NDEF:
+                        if (oldnid := self.core.getNidByBuid(oldi)) is not None:
+                            self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
 
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
                     self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
@@ -3352,6 +3375,10 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.indxdb)
                         self.indxcounts.inc(univabrv, -1)
+
+                    if oldt == STOR_TYPE_NDEF:
+                        if (oldnid := self.core.getNidByBuid(oldi)) is not None:
+                            self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
 
                 if oldt == STOR_TYPE_IVAL:
                     if oldv[1] == self.ivaltimetype.futsize:
@@ -3389,6 +3416,8 @@ class Layer(s_nexus.Pusher):
 
         if stortype & STOR_FLAG_ARRAY:
 
+            realtype = stortype & 0x7fff
+
             arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
             if univabrv is not None:
                 univarryabrv = self.core.setIndxAbrv(INDX_ARRAY, None, prop)
@@ -3407,6 +3436,11 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((univabrv + indx, nid))
                     self.indxcounts.inc(univabrv)
 
+            if realtype == STOR_TYPE_NDEF:
+                for aval in valu:
+                    ndefnid = await self.core._genNdefNid(aval)
+                    kvpairs.append((self.ndefabrv + ndefnid, nid + abrv))
+
         else:
 
             for indx in self.getStorIndx(stortype, valu):
@@ -3416,7 +3450,11 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((univabrv + indx, nid))
                     self.indxcounts.inc(univabrv)
 
-            if stortype == STOR_TYPE_IVAL:
+            if stortype == STOR_TYPE_NDEF:
+                ndefnid = await self.core._genNdefNid(valu)
+                kvpairs.append((self.ndefabrv + ndefnid, nid + abrv))
+
+            elif stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
                     dura = self.stortypes[STOR_TYPE_IVAL].maxdura
                 else:
@@ -3473,6 +3511,10 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univarryabrv + indx, nid, db=self.indxdb)
 
+                    if realtype == STOR_TYPE_NDEF:
+                        if (oldnid := self.core.getNidByBuid(indx)) is not None:
+                            self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
+
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
@@ -3488,6 +3530,10 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
                     self.indxcounts.inc(univabrv, -1)
+
+                if stortype == STOR_TYPE_NDEF:
+                    if (oldnid := self.core.getNidByBuid(indx)) is not None:
+                        self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
 
             if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
@@ -4227,6 +4273,10 @@ class Layer(s_nexus.Pusher):
 
         elif self.layrslab.hasdup(self.edgen1abrv + n1nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb):
             return False
+
+    async def getNdefRefs(self, nid):
+        for _, byts in self.layrslab.scanByDups(self.ndefabrv + nid, db=self.indxdb):
+            yield byts[:8], byts[8:]
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''
