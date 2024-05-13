@@ -670,6 +670,18 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('geo:nloc', nodes[0].ndef[0])
 
+            q = "$lib.model.ext.addFormProp(it:dev:str, _ndefs, (array, ({'type': 'ndef'})), ({}))"
+            await core.nodes(q)
+            await core.nodes('[ it:dev:str=ndefs :_ndefs=((it:dev:str, foo), (it:dev:str, bar)) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:str=foo -> it:dev:str:_ndefs')
+            self.len(1, nodes)
+            self.eq('ndefs', nodes[0].ndef[1])
+
+            self.len(2, await core.nodes('it:dev:str=ndefs -> *'))
+            self.len(2, await core.nodes('it:dev:str=ndefs :_ndefs -> *'))
+
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!
         async with self.getTestCore() as core:

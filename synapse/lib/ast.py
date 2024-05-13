@@ -1943,6 +1943,12 @@ class PivotOut(PivotOper):
                 continue
 
             if isinstance(prop.type, s_types.Array):
+                if isinstance(prop.type.arraytype, s_types.Ndef):
+                    for item in valu:
+                        if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
+                            yield pivo, path.fork(pivo)
+                    continue
+
                 typename = prop.type.opts.get('type')
                 if runt.model.forms.get(typename) is not None:
                     for item in valu:
@@ -2177,13 +2183,13 @@ class FormPivot(PivotOper):
 
             # plain old pivot...
             async def pgenr(node, strict=True):
-
-                valu = node.ndef[1]
-
                 if isarray:
-                    ngenr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                    if isinstance(prop.type.arraytype, s_types.Ndef):
+                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef)
+                    else:
+                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef[1])
                 else:
-                    ngenr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+                    ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1])
 
                 # TODO cache/bypass normalization in loop!
                 async for pivo in ngenr:
@@ -2389,6 +2395,12 @@ class PropPivotOut(PivotOper):
                 continue
 
             if prop.type.isarray:
+                if isinstance(prop.type.arraytype, s_types.Ndef):
+                    for item in valu:
+                        if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
+                            yield pivo, path.fork(pivo)
+                    continue
+
                 fname = prop.type.arraytype.name
                 if runt.model.forms.get(fname) is None:
                     if not warned:
