@@ -2272,6 +2272,17 @@ class FormPivot(PivotOper):
                         if pivo is not None:
                             yield pivo
 
+                for refsname in refs.get('ndefarray'):
+
+                    found = True
+
+                    refsvalu = node.get(refsname)
+                    if refsvalu is not None:
+                        for aval in refsvalu:
+                            if aval[0] == destform.name:
+                                if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
+                                    yield pivo
+
                 #########################################################################
                 # reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
                 refs = destform.getRefsOut()
@@ -2307,6 +2318,14 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef):
+                        yield pivo
+
+                for refsname in refs.get('ndefarray'):
+
+                    found = True
+
+                    refsprop = destform.props.get(refsname)
+                    async for pivo in runt.snap.nodesByPropArray(refsprop.full, '=', node.ndef):
                         yield pivo
 
                 if strict and not found:
