@@ -673,19 +673,26 @@ class AstTest(s_test.SynTest):
             q = "$lib.model.ext.addFormProp(it:dev:str, _ndefs, (array, ({'type': 'ndef'})), ({}))"
             await core.nodes(q)
             await core.nodes('[ it:dev:str=ndefs :_ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
+            await core.nodes('it:dev:str=ndefs [ :_ndefs += (inet:fqdn, woot.com) ]')
             self.len(1, nodes)
 
             nodes = await core.nodes('it:dev:int=1 -> it:dev:str:_ndefs')
             self.len(1, nodes)
             self.eq('ndefs', nodes[0].ndef[1])
+            self.eq(nodes[0].getNodeRefs(), [
+                ('_ndefs', ('it:dev:int', 1)),
+                ('_ndefs', ('it:dev:int', 2)),
+                ('_ndefs', ('inet:fqdn', 'woot.com'))
+            ])
 
-            self.len(2, await core.nodes('it:dev:str=ndefs -> *'))
-            self.len(2, await core.nodes('it:dev:str=ndefs -> it:dev:int'))
-            self.len(0, await core.nodes('it:dev:str=ndefs -> inet:fqdn'))
-            self.len(2, await core.nodes('it:dev:str=ndefs :_ndefs -> *'))
-            self.len(2, await core.nodes('it:dev:str=ndefs :_ndefs -> it:dev:int'))
+            nodes = await core.nodes('[ it:dev:str = norefs ]')
+            self.eq(nodes[0].getNodeRefs(), [])
 
             self.len(1, await core.nodes('it:dev:int=1 -> it:dev:str'))
+            self.len(3, await core.nodes('it:dev:str=ndefs -> *'))
+            self.len(2, await core.nodes('it:dev:str=ndefs -> it:dev:int'))
+            self.len(3, await core.nodes('it:dev:str=ndefs :_ndefs -> *'))
+            self.len(2, await core.nodes('it:dev:str=ndefs :_ndefs -> it:dev:int'))
 
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!

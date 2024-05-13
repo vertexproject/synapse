@@ -242,7 +242,7 @@ class Node:
                 continue
 
             for item in valu:
-                retn.append((name, valu))
+                retn.append((name, item))
 
         return retn
 
