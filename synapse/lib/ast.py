@@ -2276,8 +2276,7 @@ class FormPivot(PivotOper):
 
                     found = True
 
-                    refsvalu = node.get(refsname)
-                    if refsvalu is not None:
+                    if (refsvalu := node.get(refsname)) is not None:
                         for aval in refsvalu:
                             if aval[0] == destform.name:
                                 if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
@@ -2477,6 +2476,7 @@ class PropPivot(PivotOper):
                     for aval in valu:
                         if aval[0] != prop.form.name:
                             continue
+
                         if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
                             yield pivo
                     return
