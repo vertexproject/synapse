@@ -681,6 +681,7 @@ class AstTest(s_test.SynTest):
 
             self.len(2, await core.nodes('it:dev:str=ndefs -> *'))
             self.len(2, await core.nodes('it:dev:str=ndefs :_ndefs -> *'))
+            self.len(2, await core.nodes('it:dev:str=ndefs :_ndefs -> it:dev:str'))
 
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!

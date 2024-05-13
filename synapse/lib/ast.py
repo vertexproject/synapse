@@ -2454,6 +2454,13 @@ class PropPivot(PivotOper):
 
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srcprop.type.isarray and not prop.type.isarray:
+                if isinstance(srcprop.type.arraytype, s_types.Ndef) and prop.isform:
+                    for aval in valu:
+                        if aval[0] != prop.form.name:
+                            continue
+                        if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
+                            yield pivo
+                    return
 
                 for arrayval in valu:
                     async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
