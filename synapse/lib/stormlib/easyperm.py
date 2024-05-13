@@ -51,6 +51,14 @@ class LibEasyPerm(s_stormtypes.Lib):
                        'desc': 'Optional error message to present if user does not have required permission level.'},
                   ),
                   'returns': {'type': 'null'}}},
+        {'name': 'level.admin', 'desc': 'Constant for admin permission.',
+         'type': 'int', },
+        {'name': 'level.deny', 'desc': 'Constant for deny permission.',
+         'type': 'int', },
+        {'name': 'level.edit', 'desc': 'Constant for edit permission.',
+         'type': 'int', },
+        {'name': 'level.read', 'desc': 'Constant for read permission.',
+         'type': 'int', },
     )
     _storm_lib_path = ('auth', 'easyperm')
 

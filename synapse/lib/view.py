@@ -59,6 +59,7 @@ class ViewApi(s_cell.CellApi):
         # present a layer compatible API to remote callers
         async for item in self.view.wlyr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item
+            await asyncio.sleep(0)
 
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):

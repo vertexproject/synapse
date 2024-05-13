@@ -809,7 +809,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
+
         self.migration = False
+        self._migration_lock = asyncio.Lock()
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1394,9 +1396,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.stormdmons.start()
         await self.agenda.clearRunningStatus()
 
-        for view in self.views.values():
-            await view.initTrigTask()
-            await view.initMergeTask()
+        async def _runMigrations():
+            # Run migrations when this cortex becomes active. This is to prevent
+            # migrations getting skipped in a zero-downtime upgrade path
+            # (upgrade mirror, promote mirror).
+            await self._checkLayerModels()
+
+            # Once migrations are complete, start the view and layer tasks.
+            for view in self.views.values():
+                await view.initTrigTask()
+                await view.initMergeTask()
+
+        self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
 
@@ -1992,14 +2003,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
 
-        self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
-        self.nid2buid = self.v3stor.initdb('nid2buid', integerkey=True)
+        self.nid2ndef = self.v3stor.initdb('nid2ndef')
+        self.nid2buid = self.v3stor.initdb('nid2buid')
         self.buid2nid = self.v3stor.initdb('buid2nid')
 
         self.nextnid = 0
         byts = self.v3stor.lastkey(db=self.nid2buid)
         if byts is not None:
-            self.nextnid = s_common.int64un_native(byts) + 1
+            self.nextnid = s_common.int64un(byts) + 1
 
     def getNidNdef(self, nid):
         byts = self.v3stor.get(nid, db=self.nid2ndef)
@@ -2012,7 +2023,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.v3stor.put(buid, nid, db=self.buid2nid)
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
-        if (nid := s_common.int64un_native(nid)) >= self.nextnid:
+        if (nid := s_common.int64un(nid)) >= self.nextnid:
             self.nextnid = nid + 1
 
     def getBuidByNid(self, nid):
@@ -2035,7 +2046,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if nid is not None:
             return nid
 
-        nid = s_common.int64en_native(self.nextnid)
+        nid = s_common.int64en(self.nextnid)
         self.nextnid += 1
 
         self.v3stor.put(nid, buid, db=self.nid2buid)
@@ -3243,6 +3254,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         break
 
                     yield ioff, layr.iden, SYNC_NODEEDITS, item, meta
+                    await asyncio.sleep(0)
 
             if layr.isdeleted:
                 yield layr.deloffs, layr.iden, SYNC_LAYR_DEL, (), {}
@@ -3991,7 +4003,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await s_coro.ornot(func, node, prop)
 
     async def _checkLayerModels(self):
-        with self.enterMigrationMode():
+        async with self.enterMigrationMode():
             mrev = s_modelrev.ModelRev(self)
             await mrev.revCoreLayers()
 
@@ -5700,11 +5712,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
         await appt.edits(edits)
 
-    @contextlib.contextmanager
-    def enterMigrationMode(self):
-        self.migration = True
-        yield
-        self.migration = False
+    @contextlib.asynccontextmanager
+    async def enterMigrationMode(self):
+        async with self._migration_lock:
+            self.migration = True
+            yield
+            self.migration = False
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''

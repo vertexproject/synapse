@@ -7526,19 +7526,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.eq(b'\x07\x00\x00\x00\x00\x00\x00\x00',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
             # another to check the cache...
-            self.eq(b'\x07\x00\x00\x00\x00\x00\x00\x00',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
                     core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            self.eq(b'\x08\x00\x00\x00\x00\x00\x00\x00',
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
                     core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
             self.eq(('visi', 'foo'),
-                    core.getAbrvIndx(b'\x07\x00\x00\x00\x00\x00\x00\x00'))
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x07'))
             self.eq(('whip', None),
-                    core.getAbrvIndx(b'\x08\x00\x00\x00\x00\x00\x00\x00'))
+                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
             self.raises(s_exc.NoSuchAbrv,
-                        core.getAbrvIndx, b'\x09\x00\x00\x00\x00\x00\x00\x00')
+                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x09')
 
     async def test_cortex_query_offload(self):
         async with self.getTestAhaProv() as aha:
@@ -7716,7 +7716,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) removed from service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)', msgs)
 
                     # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
