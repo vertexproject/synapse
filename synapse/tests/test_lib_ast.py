@@ -686,7 +686,7 @@ class AstTest(s_test.SynTest):
             self.eq('it:dev:str', nodes[0].ndef[0])
             self.eq('risk:technique:masquerade', nodes[1].ndef[0])
 
-            await core.nodes('risk:technique:masquerade [ -:target ]')
+            await core.nodes('risk:technique:masquerade [ :target=(it:dev:int, 2) ]')
             nodes = await core.nodes('it:dev:int=1 <- *')
             self.len(2, nodes)
             self.eq('it:dev:str', nodes[0].ndef[0])
@@ -697,9 +697,17 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('it:dev:str', nodes[0].ndef[0])
 
+            await core.nodes('it:dev:str=ndefs [ :_ndefs-=(it:dev:int, 1) ]')
+            self.len(0, await core.nodes('it:dev:int=1 <- *'))
+            nodes = await core.nodes('it:dev:int=2 <- *')
+            self.len(2, nodes)
+            self.eq('it:dev:str', nodes[0].ndef[0])
+            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
+
+            await core.nodes('risk:technique:masquerade [ -:target ]')
             await core.nodes('it:dev:str=ndefs [ -:_ndefs ]')
-            nodes = await core.nodes('it:dev:int=1 <- *')
-            self.len(0, nodes)
+            self.len(0, await core.nodes('it:dev:int=1 <- *'))
+            self.len(0, await core.nodes('it:dev:int=2 <- *'))
 
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!
