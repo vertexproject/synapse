@@ -45,7 +45,7 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0, viewiden=None):
+async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0, viewiden=None):
 
     items = getItems(*paths)
     for path, item in items:
@@ -65,7 +65,7 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
                 foff += clen
                 continue
 
-            await core.addFeedData(feedformat, chunk, viewiden=viewiden)
+            await core.addFeedData(chunk, viewiden=viewiden)
 
             foff += clen
             outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
@@ -96,7 +96,7 @@ async def main(argv, outp=None):
 
     if opts.test:
         async with s_cortex.getTempCortex(mods=opts.modules) as prox:
-            await addFeedData(prox, outp, opts.format, opts.debug,
+            await addFeedData(prox, outp, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
                         *opts.files)
@@ -112,7 +112,7 @@ async def main(argv, outp=None):
                     outp.printf(f'Please use a version of Synapse which supports {valu}; '
                           f'current version is {s_version.verstring}.')
                     return 1
-                await addFeedData(core, outp, opts.format, opts.debug,
+                await addFeedData(core, outp, opts.debug,
                                   chunksize=opts.chunksize,
                                   offset=opts.offset, viewiden=opts.view,
                                   *opts.files)
@@ -135,8 +135,6 @@ def makeargparser():
 
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
-    pars.add_argument('--format', '-f', type=str, action='store', default='syn.nodes',
-                      help='Feed format to use for the ingested data.')
     pars.add_argument('--modules', '-m', type=str, action='append', default=[],
                       help='Additional modules to load locally with a test Cortex.')
     pars.add_argument('--chunksize', type=int, action='store', default=1000,

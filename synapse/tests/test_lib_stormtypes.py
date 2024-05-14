@@ -3299,20 +3299,12 @@ class StormTypesTest(s_test.SynTest):
             ]
             svars = {'data': data}
             opts = {'vars': svars}
-            q = '$lib.feed.ingest("syn.nodes", $data)'
+            q = '$lib.feed.ingest($data)'
             nodes = await core.nodes(q, opts)
             self.eq(nodes, [])
             self.len(2, await core.nodes('test:str'))
             self.len(1, await core.nodes('test:str#test'))
             self.len(1, await core.nodes('test:str:tick=3001'))
-
-            q = 'feed.list'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('Storm feed list', mesgs)
-            self.stormIsInPrint('com.test.record', mesgs)
-            self.stormIsInPrint('No feed docstring', mesgs)
-            self.stormIsInPrint('syn.nodes', mesgs)
-            self.stormIsInPrint('Add nodes to the Cortex via the packed node format', mesgs)
 
             data = [
                 (('test:str', 'sup!'), {'props': {'tick': '2001'},
@@ -3321,7 +3313,7 @@ class StormTypesTest(s_test.SynTest):
                                         'tags': {}}),
             ]
             svars['data'] = data
-            q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr'
+            q = '$genr=$lib.feed.genr($data) $lib.print($genr) yield $genr'
             nodes = await core.nodes(q, opts=opts)
             self.len(2, nodes)
             self.eq({'sup!', 'dawg'},
@@ -3332,7 +3324,7 @@ class StormTypesTest(s_test.SynTest):
                 (('test:int', 'newp'), {}),
             ]
             svars['data'] = data
-            q = '$lib.feed.ingest("syn.nodes", $data)'
+            q = '$lib.feed.ingest($data)'
             msgs = await core.stormlist(q, opts)
             self.stormIsInWarn("BadTypeValu", msgs)
             errs = [m for m in msgs if m[0] == 'err']

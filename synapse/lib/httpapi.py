@@ -1195,11 +1195,6 @@ class FeedV1(Handler):
             return
 
         items = body.get('items')
-        name = body.get('name', 'syn.nodes')
-
-        func = self.cell.getFeedFunc(name)
-        if func is None:
-            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.')
 
         user = self.cell.auth.user(self.web_useriden)
 
@@ -1207,7 +1202,7 @@ class FeedV1(Handler):
         if view is None:
             return self.sendRestErr('NoSuchView', 'The specified view does not exist.')
 
-        perm = ('feed:data', *name.split('.'))
+        perm = ('feed:data',)
 
         if not user.allowed(perm, gateiden=view.wlyr.iden):
             permtext = '.'.join(perm)
@@ -1216,10 +1211,10 @@ class FeedV1(Handler):
 
         try:
 
-            info = {'name': name, 'view': view.iden, 'nitems': len(items)}
+            info = {'view': view.iden, 'nitems': len(items)}
             await self.cell.boss.promote('feeddata', user=user, info=info)
 
-            await self.cell.addFeedData(name, items, user=user, viewiden=view.iden)
+            await self.cell.addFeedData(items, user=user, viewiden=view.iden)
 
             return self.sendRestRetn(None)
 
