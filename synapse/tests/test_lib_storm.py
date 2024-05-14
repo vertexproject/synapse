@@ -3091,6 +3091,43 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
+    async def test_storm_filtered_bus(self):
+
+        async with self.getTestCore() as core:
+
+            view = await core.callStorm('return( $lib.view.get().iden )')
+            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
+
+            q = '''view.exec $view {
+                $lib.print(foo)
+                $lib.warn(bar)
+                $lib.fire(cool, some=event)
+                $lib.csv.emit(item1, item2, item3)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
+            self.len(1, [m for m in msgs if m[0] == 'csv:row'])
+            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
+
+            visi = await core.auth.addUser('visi')
+
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                $lib.fire(cool, some=event)
+                $lib.csv.emit(item1, item2, item3)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
+            self.len(1, [m for m in msgs if m[0] == 'csv:row'])
+            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
+
     async def test_storm_argv_parser(self):
 
         pars = s_storm.Parser(prog='hehe')

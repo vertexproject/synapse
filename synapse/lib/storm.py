@@ -1828,7 +1828,6 @@ class Runtime(s_base.Base):
 
         if bus is None:
             bus = self
-            bus.viewiden = view.iden
             bus._warnonce_keys = set()
             self.onfini(bus)
 
@@ -2424,14 +2423,28 @@ class Runtime(s_base.Base):
         async with await self.initSubRuntime(query, opts=opts) as runt:
             yield runt
 
-    async def initSubRuntime(self, query, opts=None):
+    @contextlib.asynccontextmanager
+    async def getFilteredSubRuntime(self, query, opts=None, events=None):
+        '''
+        Yield a sub-runtime with a separate bus which will only link specific events.
+        '''
+        async with await self.initSubRuntime(query, opts=opts) as runt:
+            runt.bus = runt
+            runt._warnonce_keys = self.bus._warnonce_keys
+            with runt.onWithMulti(self.bus.dist, *events) as filtrunt:
+                yield filtrunt
+
+    async def initSubRuntime(self, query, opts=None, bus=None):
         '''
         Construct and return sub-runtime with a shared scope.
         ( caller must fini )
         '''
         view = await self._viewFromOpts(opts)
 
-        runt = await Runtime.anit(query, view, user=self.user, opts=opts, root=self, bus=self.bus)
+        if bus is None:
+            bus = self.bus
+
+        runt = await Runtime.anit(query, view, user=self.user, opts=opts, root=self, bus=bus)
         if self.debug:
             runt.debug = True
         runt.asroot = self.asroot
@@ -5576,6 +5589,12 @@ class ViewExecCmd(Cmd):
 
     name = 'view.exec'
     readonly = True
+    events = (
+        'print',
+        'warn',
+        'storm:fire',
+        'csv:row',
+    )
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -5598,7 +5617,7 @@ class ViewExecCmd(Cmd):
             }
 
             query = await runt.getStormQuery(text)
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getFilteredSubRuntime(query, opts=opts, events=self.events) as subr:
                 async for item in subr.execute():
                     await asyncio.sleep(0)
 
@@ -5610,7 +5629,7 @@ class ViewExecCmd(Cmd):
             query = await runt.getStormQuery(text)
 
             opts = {'view': view}
-            async with runt.getSubRuntime(query, opts=opts) as subr:
+            async with runt.getFilteredSubRuntime(query, opts=opts, events=self.events) as subr:
                 async for item in subr.execute():
                     await asyncio.sleep(0)
 
@@ -6361,6 +6380,12 @@ class RunAsCmd(Cmd):
     '''
 
     name = 'runas'
+    events = (
+        'print',
+        'warn',
+        'storm:fire',
+        'csv:row',
+    )
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -6396,8 +6421,11 @@ class RunAsCmd(Cmd):
                 if self.opts.asroot:
                     subr.asroot = runt.asroot
 
-                async for item in subr.execute():
-                    await asyncio.sleep(0)
+                subr.bus = subr
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(runt.bus.dist, *self.events) as filtsubr:
+                    async for item in filtsubr.execute():
+                        await asyncio.sleep(0)
 
             yield node, path
 
@@ -6417,8 +6445,11 @@ class RunAsCmd(Cmd):
                 if self.opts.asroot:
                     subr.asroot = runt.asroot
 
-                async for item in subr.execute():
-                    await asyncio.sleep(0)
+                subr.bus = subr
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(runt.bus.dist, *self.events) as filtsubr:
+                    async for item in filtsubr.execute():
+                        await asyncio.sleep(0)
 
 class IntersectCmd(Cmd):
     '''

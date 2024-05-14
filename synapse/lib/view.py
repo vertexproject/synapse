@@ -169,7 +169,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
-        fireedit = (bus is not None and bus.viewiden == self.iden)
+        fireedit = (bus is not None and bus.view.iden == self.iden)
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
