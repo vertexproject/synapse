@@ -5598,7 +5598,7 @@ class ViewExecCmd(Cmd):
             async with runt.getSubRuntime(query, opts=opts) as subr:
                 subr.bus = subr
                 subr._warnonce_keys = runt.bus._warnonce_keys
-                with subr.onWithMulti(runt.bus.dist, *self.events) as filtrunt:
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtrunt:
                     async for item in filtrunt.execute():
                         await asyncio.sleep(0)
 
@@ -5613,7 +5613,7 @@ class ViewExecCmd(Cmd):
             async with runt.getSubRuntime(query, opts=opts) as subr:
                 subr.bus = subr
                 subr._warnonce_keys = runt.bus._warnonce_keys
-                with subr.onWithMulti(runt.bus.dist, *self.events) as filtrunt:
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtrunt:
                     async for item in filtrunt.execute():
                         await asyncio.sleep(0)
 
@@ -6406,7 +6406,7 @@ class RunAsCmd(Cmd):
                     subr.asroot = runt.asroot
 
                 subr._warnonce_keys = runt.bus._warnonce_keys
-                with subr.onWithMulti(runt.bus.dist, *self.events) as filtsubr:
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtsubr:
                     async for item in filtsubr.execute():
                         await asyncio.sleep(0)
 
@@ -6429,7 +6429,7 @@ class RunAsCmd(Cmd):
                     subr.asroot = runt.asroot
 
                 subr._warnonce_keys = runt.bus._warnonce_keys
-                with subr.onWithMulti(runt.bus.dist, *self.events) as filtsubr:
+                with subr.onWithMulti(self.events, runt.bus.dist) as filtsubr:
                     async for item in filtsubr.execute():
                         await asyncio.sleep(0)
 

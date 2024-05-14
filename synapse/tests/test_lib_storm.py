@@ -3091,7 +3091,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
-    async def test_storm_filtered_bus(self):
+    async def test_storm_viewexec(self):
 
         async with self.getTestCore() as core:
 
@@ -3106,22 +3106,6 @@ class StormTest(s_t_utils.SynTest):
                 [ it:dev:str=nomsg ]
              }'''
             msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
-            self.stormIsInPrint('foo', msgs)
-            self.stormIsInWarn('bar', msgs)
-            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
-            self.len(1, [m for m in msgs if m[0] == 'csv:row'])
-            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
-
-            visi = await core.auth.addUser('visi')
-
-            q = '''runas visi {
-                $lib.print(foo)
-                $lib.warn(bar)
-                $lib.fire(cool, some=event)
-                $lib.csv.emit(item1, item2, item3)
-                [ it:dev:str=nomsg ]
-             }'''
-            msgs = await core.stormlist(q)
             self.stormIsInPrint('foo', msgs)
             self.stormIsInWarn('bar', msgs)
             self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
@@ -4270,6 +4254,20 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.get('#btag'))
+
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                $lib.fire(cool, some=event)
+                $lib.csv.emit(item1, item2, item3)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
+            self.len(1, [m for m in msgs if m[0] == 'csv:row'])
+            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:
