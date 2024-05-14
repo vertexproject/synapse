@@ -45,17 +45,12 @@ class ProtoNode(s_node.NodeBase):
         self.nodedatadels = set()
         self.nodedatatombs = set()
 
-        if self.node is not None:
-            self.nid = self.node.nid
-        else:
-            self.nid = None
-
-        self.multilayer = len(self.editor.view.layers) > 1
-
         if node is not None:
             self.nid = node.nid
         else:
             self.nid = self.editor.view.core.getNidByBuid(buid)
+
+        self.multilayer = len(self.editor.view.layers) > 1
 
     def iden(self):
         return s_common.ehex(self.buid)
