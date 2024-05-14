@@ -2412,17 +2412,6 @@ class Runtime(s_base.Base):
         async with await self.initSubRuntime(query, opts=opts) as runt:
             yield runt
 
-    @contextlib.asynccontextmanager
-    async def getFilteredSubRuntime(self, query, opts=None, events=None):
-        '''
-        Yield a sub-runtime with a separate bus which will only link specific events.
-        '''
-        async with await self.initSubRuntime(query, opts=opts) as runt:
-            runt.bus = runt
-            runt._warnonce_keys = self.bus._warnonce_keys
-            with runt.onWithMulti(self.bus.dist, *events) as filtrunt:
-                yield filtrunt
-
     async def initSubRuntime(self, query, opts=None, bus=None):
         '''
         Construct and return sub-runtime with a shared scope.
@@ -5606,9 +5595,12 @@ class ViewExecCmd(Cmd):
             }
 
             query = await runt.getStormQuery(text)
-            async with runt.getFilteredSubRuntime(query, opts=opts, events=self.events) as subr:
-                async for item in subr.execute():
-                    await asyncio.sleep(0)
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                subr.bus = subr
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(runt.bus.dist, *self.events) as filtrunt:
+                    async for item in filtrunt.execute():
+                        await asyncio.sleep(0)
 
             yield node, path
 
@@ -5618,9 +5610,12 @@ class ViewExecCmd(Cmd):
             query = await runt.getStormQuery(text)
 
             opts = {'view': view}
-            async with runt.getFilteredSubRuntime(query, opts=opts, events=self.events) as subr:
-                async for item in subr.execute():
-                    await asyncio.sleep(0)
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                subr.bus = subr
+                subr._warnonce_keys = runt.bus._warnonce_keys
+                with subr.onWithMulti(runt.bus.dist, *self.events) as filtrunt:
+                    async for item in filtrunt.execute():
+                        await asyncio.sleep(0)
 
 class BackgroundCmd(Cmd):
     '''
