@@ -2455,7 +2455,7 @@ class PropPivot(PivotOper):
 
                 pivo = await runt.snap.getNodeByNdef(valu)
                 if pivo is None:
-                    logger.warning(f'Missing node corresponding to ndef {valu}')
+                    await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
                     return
                 yield pivo
 

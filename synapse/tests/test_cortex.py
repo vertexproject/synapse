@@ -2461,7 +2461,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             await core.nodes('test:str=ndefpivdst delnode')
-            self.len(0, await core.nodes('test:str=ndefpivsrc :bar -> test:str'))
+            msgs = await core.stormlist('test:str=ndefpivsrc :bar -> test:str')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInWarn("Missing node corresponding to ndef ('test:str', 'ndefpivdst')", msgs)
 
             # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
