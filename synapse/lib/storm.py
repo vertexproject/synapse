@@ -6398,14 +6398,13 @@ class RunAsCmd(Cmd):
 
             opts = {'vars': path.vars}
 
-            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt, bus=runt.bus) as subr:
+            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt) as subr:
                 subr.debug = runt.debug
                 subr.readonly = runt.readonly
 
                 if self.opts.asroot:
                     subr.asroot = runt.asroot
 
-                subr.bus = subr
                 subr._warnonce_keys = runt.bus._warnonce_keys
                 with subr.onWithMulti(runt.bus.dist, *self.events) as filtsubr:
                     async for item in filtsubr.execute():
@@ -6422,14 +6421,13 @@ class RunAsCmd(Cmd):
 
             opts = {'user': user}
 
-            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt, bus=runt.bus) as subr:
+            async with await Runtime.anit(query, runt.view, user=user, opts=opts, root=runt) as subr:
                 subr.debug = runt.debug
                 subr.readonly = runt.readonly
 
                 if self.opts.asroot:
                     subr.asroot = runt.asroot
 
-                subr.bus = subr
                 subr._warnonce_keys = runt.bus._warnonce_keys
                 with subr.onWithMulti(runt.bus.dist, *self.events) as filtsubr:
                     async for item in filtsubr.execute():
