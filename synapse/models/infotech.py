@@ -95,7 +95,7 @@ FSB_VALID_CHARS.extend(string.ascii_letters)
 FSB_VALID_CHARS.extend(string.digits)
 FSB_VALID_CHARS.extend(FSB_ESCAPE_CHARS)
 
-def cpe_escape(text):
+def fsb_escape(text):
     ret = ''
     if text in ('*', '-'):
         return text
@@ -167,7 +167,7 @@ def cpe_escape(text):
 
     return ret
 
-def cpe_unescape(text):
+def fsb_unescape(text):
     ret = ''
     textlen = len(text)
 
@@ -195,13 +195,13 @@ URI_PERCENT_CHARS = [
     ('%7e', '~'),
 ]
 
-def cpe_quote(text):
+def uri_quote(text):
     ret = ''
     for (pct, char) in URI_PERCENT_CHARS:
         text = text.replace(char, pct)
     return text
 
-def cpe_unquote(text):
+def uri_unquote(text):
     # iterate backwards so we do the % last to avoid double unquoting
     # example: "%2521" would turn into "%21" which would then replace into "!"
     for (pct, char) in URI_PERCENT_CHARS[::-1]:
@@ -209,7 +209,7 @@ def cpe_unquote(text):
     return text
 
 UNSPECIFIED = ('', '*')
-def cpe_pack(edition, sw_edition, target_sw, target_hw, other):
+def uri_pack(edition, sw_edition, target_sw, target_hw, other):
     # If the four extended attributes are unspecified, only return the edition value
     if (sw_edition in UNSPECIFIED and target_sw in UNSPECIFIED and target_hw in UNSPECIFIED and other in UNSPECIFIED):
         return edition
@@ -230,7 +230,7 @@ def cpe_pack(edition, sw_edition, target_sw, target_hw, other):
 
     return '~' + '~'.join(ret)
 
-def cpe_unpack(edition):
+def uri_unpack(edition):
     if edition.startswith('~') and edition.count('~') == 5:
         return edition[1:].split('~', 5)
     return None
@@ -344,10 +344,10 @@ class Cpe23Str(s_types.Str):
                     v2_2[idx] = ''
                     continue
 
-                part = cpe_unescape(part)
-                v2_2[idx] = cpe_quote(part)
+                part = fsb_unescape(part)
+                v2_2[idx] = uri_quote(part)
 
-            v2_2[PART_IDX_EDITION] = cpe_pack(
+            v2_2[PART_IDX_EDITION] = uri_pack(
                 v2_2[PART_IDX_EDITION],
                 v2_2[PART_IDX_SW_EDITION],
                 v2_2[PART_IDX_TARGET_SW],
@@ -357,7 +357,7 @@ class Cpe23Str(s_types.Str):
 
             v2_2 = v2_2[:7]
 
-            parts = [cpe_unescape(k) for k in parts]
+            parts = [fsb_unescape(k) for k in parts]
 
         elif text.startswith('cpe:/'):
 
@@ -375,7 +375,7 @@ class Cpe23Str(s_types.Str):
 
             # URI bindings can pack extended attributes into the
             # edition field, handle that here.
-            unpacked = cpe_unpack(parts[PART_IDX_EDITION])
+            unpacked = uri_unpack(parts[PART_IDX_EDITION])
             if unpacked:
                 (edition, sw_edition, target_sw, target_hw, other) = unpacked
 
@@ -396,13 +396,13 @@ class Cpe23Str(s_types.Str):
                 if other:
                     parts[PART_IDX_OTHER] = other
 
-            parts = [cpe_unquote(part) for part in parts]
+            parts = [uri_unquote(part) for part in parts]
 
             # This feels a little uninuitive to escape parts for "escaped" and
             # unescape parts for "parts" but values in parts could be incorrectly
             # escaped or incorrectly unescaped so just do both.
-            escaped = [cpe_escape(part) for part in parts]
-            parts = [cpe_unescape(part) for part in parts]
+            escaped = [fsb_escape(part) for part in parts]
+            parts = [fsb_unescape(part) for part in parts]
 
             v2_3 = 'cpe:2.3:' + ':'.join(escaped)
 

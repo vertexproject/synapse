@@ -418,6 +418,7 @@ class StormlibModelTest(s_test.SynTest):
 
             q = '''
             it:sec:cpe +#test.cpe.23valid +#test.cpe.22valid
+            $lib.debug=$lib.true
             $lib.model.migration.s.itSecCpeFixup($node)
             $node.data.load(migration.s.itSecCpeFixup)
             '''
@@ -437,6 +438,7 @@ class StormlibModelTest(s_test.SynTest):
             # Migrate it:sec:cpe nodes with a valid CPE2.3, invalid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23valid +#test.cpe.22invalid
+            $lib.debug=$lib.true
             $lib.model.migration.s.itSecCpeFixup($node)
             '''
             nodes = await core.nodes(q)
@@ -486,6 +488,7 @@ class StormlibModelTest(s_test.SynTest):
             # the primary property and :v2_2 are valid.
             q = '''
             it:sec:cpe:product=nas542_firmware [ :v2_2="cpe:/o:zyxel:nas542_firmware:5.21%28aazf.15%29co" ]
+            $lib.debug=$lib.true
             $lib.model.migration.s.itSecCpeFixup($node, prefer_v22=$lib.true, force=$lib.true)
             '''
             nodes = await core.nodes(q)
@@ -511,6 +514,7 @@ class StormlibModelTest(s_test.SynTest):
             # Migrate it:sec:cpe nodes with a invalid CPE2.3, valid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22valid
+            $lib.debug=$lib.true
             $lib.model.migration.s.itSecCpeFixup($node)
             '''
             nodes = await core.nodes(q)
@@ -571,6 +575,7 @@ class StormlibModelTest(s_test.SynTest):
             # Migrate it:sec:cpe nodes with a invalid CPE2.3, invalid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid
+            $lib.debug=$lib.true
             $lib.model.migration.s.itSecCpeFixup($node)
             '''
             msgs = await core.stormlist(q)
@@ -604,6 +609,7 @@ class StormlibModelTest(s_test.SynTest):
             # Now update the :v2_2 on one of the nodes and migrate again
             q = '''
             it:sec:cpe:version^=8.2p1 [ :v2_2="cpe:/a:openbsd:openssh:8.2p1_ubuntu-4ubuntu0.2" ]
+            $lib.debug=$lib.true
             $lib.model.migration.s.itSecCpeFixup($node)
             '''
             msgs = await core.stormlist(q)
