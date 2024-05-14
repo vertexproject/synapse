@@ -2897,23 +2897,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
-        isnew = not self.slab.dbexists('hive')
-
         db = self.slab.initdb('hive')
         hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot())
         self.onfini(hive)
-
-        if isnew:
-            path = os.path.join(self.dirn, 'hiveboot.yaml')
-            if os.path.isfile(path):
-                s_common.deprdate('Initial hive config from hiveboot.yaml', '2024-05-05')
-                logger.debug(f'Loading cell hive from {path}')
-                tree = s_common.yamlload(path)
-                if tree is not None:
-                    # Pack and unpack the tree to avoid tuple/list issues
-                    # for in-memory structures.
-                    tree = s_common.tuplify(tree)
-                    await hive.loadHiveTree(tree)
 
         return hive
 
