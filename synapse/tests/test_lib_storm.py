@@ -648,7 +648,7 @@ class StormTest(s_t_utils.SynTest):
                                 return($node.iden())
                             }
                             function dyncall() {
-                                return($lib.feed.list())
+                                return($lib.queue.list())
                             }
                             function dyniter() {
                                 for $item in $lib.queue.add(dyniter).gets(wait=$lib.false) {}
@@ -736,7 +736,7 @@ class StormTest(s_t_utils.SynTest):
             email = await core.callStorm('''
                 $iden = $lib.guid()
                 $props = ({"email": "visi@vertex.link"})
-                $lib.feed.ingest(syn.nodes, (
+                $lib.feed.ingest((
                     ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 ps:contact=$iden
@@ -747,7 +747,7 @@ class StormTest(s_t_utils.SynTest):
             email = await core.callStorm('''
                 $iden = $lib.guid()
                 $props = ({"email": "visi@vertex.link"})
-                yield $lib.feed.genr(syn.nodes, (
+                yield $lib.feed.genr((
                     ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 return(:email)

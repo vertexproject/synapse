@@ -191,11 +191,11 @@ class StormCore(s_base.Base):
         with suppress_logging(suppress):
             yield None
 
-    async def addFeedData(self, name, items, *, viewiden=None):
+    async def addFeedData(self, items, *, viewiden=None):
         '''
         Add feed data to the cortex.
         '''
-        return await self.core.addFeedData(name, items, viewiden=viewiden)
+        return await self.core.addFeedData(items, viewiden=viewiden)
 
     async def runCmdLine(self, text, opts=None):
         '''

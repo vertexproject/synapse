@@ -227,7 +227,7 @@ class StormlibModelTest(s_test.SynTest):
                     data = (
                         (('ou:org', ('t0',)), {'props': {'sic': '5678'}}),
                     )
-                    await core.addFeedData('syn.nodes', data)
+                    await core.addFeedData(data)
                     self.true(await stream.wait(1))
                     nodes = await core.nodes('ou:org=(t0,)')
                     self.none(nodes[0].get('sic'))

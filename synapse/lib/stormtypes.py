@@ -3177,31 +3177,26 @@ class LibExport(Lib):
 @registry.registerLib
 class LibFeed(Lib):
     '''
-    A Storm Library for interacting with Cortex feed functions.
+    A Storm Library for feeding bulk nodes into a Cortex.
     '''
     _storm_locals = (
         {'name': 'genr', 'desc': '''
-            Yield nodes being added to the graph by adding data with a given ingest type.
+            Yield nodes being added to the graph by adding data in nodes format.
 
             Notes:
-                This is using the Runtimes's View to call addFeedNodes().
-                This only yields nodes if the feed function yields nodes.
+                This is using the Runtimes's View to call addNodes().
                 If the generator is not entirely consumed there is no guarantee
                 that all of the nodes which should be made by the feed function
                 will be made.
             ''',
          'type': {'type': 'function', '_funcname': '_libGenr',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
-                      {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
+                      {'name': 'data', 'type': 'prim', 'desc': 'Nodes data to ingest', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields Nodes as they are created by the ingest function.', }}},
-        {'name': 'list', 'desc': 'Get a list of feed functions.',
-         'type': {'type': 'function', '_funcname': '_libList',
-                  'returns': {'type': 'list', 'desc': 'A list of feed functions.', }}},
+                              'desc': 'Yields Nodes as they are created.', }}},
         {'name': 'ingest', 'desc': '''
-            Add nodes to the graph with a given ingest type.
+            Add nodes to the graph.
 
             Notes:
                 This API will cause errors during node creation and property setting
@@ -3209,7 +3204,6 @@ class LibFeed(Lib):
                 to be torn down.''',
          'type': {'type': 'function', '_funcname': '_libIngest',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data to.', },
                       {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -3219,7 +3213,6 @@ class LibFeed(Lib):
     def getObjLocals(self):
         return {
             'genr': self._libGenr,
-            'list': self._libList,
             'ingest': self._libIngest,
             'fromAxon': self._fromAxon,
         }
@@ -3241,32 +3234,21 @@ class LibFeed(Lib):
         }
         return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
-    async def _libGenr(self, name, data):
-        name = await tostr(name)
+    async def _libGenr(self, data):
         data = await toprim(data)
 
-        self.runt.layerConfirm(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data',))
 
-        #  small work around for the feed API consistency
-        if name == 'syn.nodes':
-            async for node in self.runt.view.addNodes(data, user=self.runt.user):
-                yield node
-            return
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            yield node
 
-        await self.runt.view.core.addFeedData(name, data, user=self.runt.user, viewiden=self.runt.view.iden)
-
-    @stormfunc(readonly=True)
-    async def _libList(self):
-        todo = ('getFeedFuncs', (), {})
-        return await self.runt.dyncall('cortex', todo)
-
-    async def _libIngest(self, name, data):
-        name = await tostr(name)
+    async def _libIngest(self, data):
         data = await toprim(data)
 
-        self.runt.layerConfirm(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data',))
 
-        await self.runt.view.core.addFeedData(name, data, user=self.runt.user, viewiden=self.runt.view.iden)
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            await asyncio.sleep(0)
 
 @registry.registerLib
 class LibPipe(Lib):

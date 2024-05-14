@@ -593,17 +593,6 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'feed.list',
-        'descr': 'List the feed functions available in the Cortex',
-        'storm': '''
-            $lib.print('Storm feed list:')
-            for $flinfo in $lib.feed.list() {
-                $flname = $flinfo.name.ljust(30)
-                $lib.print("    ({name}): {desc}", name=$flname, desc=$flinfo.desc)
-            }
-        '''
-    },
-    {
         'name': 'layer.add',
         'descr': 'Add a layer to the cortex.',
         'cmdargs': (
@@ -1530,7 +1519,7 @@ stormcmds = (
                     for $valu in $resp.msgpack() {
                         $nodes.append($valu)
                     }
-                    yield $lib.feed.genr("syn.nodes", $nodes)
+                    yield $lib.feed.genr($nodes)
                 } else {
                     $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
                 }
