@@ -1364,6 +1364,7 @@ class StorTypeMsgp(StorType):
         StorType.__init__(self, layr, STOR_TYPE_MSGP)
         self.lifters.update({
             '=': self._liftMsgpEq,
+            '~=': self._liftRegx,
         })
 
     async def _liftMsgpEq(self, liftby, valu, reverse=False):
@@ -1383,20 +1384,21 @@ class StorTypeNdef(StorType):
             'form=': self._liftNdefFormEq,
         }
 
-    async def _liftNdefEq(self, liftby, valu, reverse=False):
+    def getNdefIndx(self, valu):
         formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
-        indx = formabrv + s_common.buid(valu)
-        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+        return formabrv + s_common.buid(valu)
+
+    def indx(self, valu):
+        return (self.getNdefIndx(valu),)
+
+    async def _liftNdefEq(self, liftby, valu, reverse=False):
+        for item in liftby.keyNidsByDups(self.getNdefIndx(valu), reverse=reverse):
             yield item
 
     async def _liftNdefFormEq(self, liftby, valu, reverse=False):
         formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu, None)
         for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
             yield item
-
-    def indx(self, valu):
-        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
-        return (formabrv + s_common.buid(valu),)
 
 class StorTypeLatLon(StorType):
 
