@@ -409,7 +409,7 @@ class FileModule(s_module.CoreModule):
                 }),
 
                 ('file:mime:lnk', ('guid', {}), {
-                    'doc': 'The GUID of the metadata pulled from a windows shortcut or LNK file.',
+                    'doc': 'The GUID of the metadata pulled from a Windows shortcut or LNK file.',
                 }),
             ),
 
@@ -721,11 +721,12 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The icon file path contained within the IconEnvironmentDataBlock structure of the LNK file.'}),
                     ('working', ('file:path', {}), {
                         'doc': 'The working directory used when activating the link target.'}),
-                    ('relative', ('str', {}), {
+                    ('relative', ('str', {'strip': True}), {
                         'doc': 'The relative target path string contained within the StringData structure of the LNK file.'}),
                     ('arguments', ('it:cmd', {}), {
                         'doc': 'The command line arguments passed to the target file when the LNK file is activated.'}),
                     ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'The description of the LNK file contained within the StringData section of the LNK file.'}),
                     ('target:attrs', ('int', {}), {
                         'doc': 'The attributes of the target file according to the LNK header.'}),
