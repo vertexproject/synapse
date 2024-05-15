@@ -2487,6 +2487,18 @@ class PropPivot(PivotOper):
 
                 return
 
+            if isinstance(srcprop.type, s_types.Ndef) and prop.isform:
+                if valu[0] != prop.form.name:
+                    return
+
+                pivo = await runt.snap.getNodeByNdef(valu)
+                if pivo is None:
+                    await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
+                    return
+                yield pivo
+
+                return
+
             if prop.type.isarray and not srcprop.type.isarray:
                 genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
             else:
@@ -2501,7 +2513,6 @@ class PropPivot(PivotOper):
 
         if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
 
-            proplist = None
             if isinstance(name, list):
                 proplist = name
             else:
@@ -2523,7 +2534,7 @@ class PropPivot(PivotOper):
                     async for pivo in pgenr(node, srcprop, valu, strict=False):
                         yield pivo
 
-            return(listpivot)
+            return listpivot
 
         return self.pivogenr(runt, prop)
 
