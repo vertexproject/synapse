@@ -1594,8 +1594,12 @@ class LibBase(Lib):
                 continue
             vals.append(arg)
 
+        if len(vals) < 1:
+            mesg = '$lib.min() must have at least one argument or a list containing at least one value.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         ints = [await toint(x) for x in vals]
-        return min(*ints)
+        return min(ints)
 
     @stormfunc(readonly=True)
     async def _max(self, *args):
@@ -1608,8 +1612,12 @@ class LibBase(Lib):
                 continue
             vals.append(arg)
 
+        if len(vals) < 1:
+            mesg = '$lib.max() must have at least one argument or a list containing at least one value.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         ints = [await toint(x) for x in vals]
-        return max(*ints)
+        return max(ints)
 
     @staticmethod
     async def _get_mesg(mesg, **kwargs):

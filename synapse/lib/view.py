@@ -1381,7 +1381,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.invalid is not None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {self.invalid}', iden=self.invalid)
 
-    async def eval(self, text, opts=None, log_info=None):
+    async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
@@ -1390,13 +1390,9 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        if log_info is None:
-            log_info = {}
-
-        log_info['mode'] = opts.get('mode', 'storm')
-        log_info['view'] = self.iden
-
-        self.core._logStormQuery(text, user, info=log_info)
+        info = opts.get('_loginfo', {})
+        info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+        self.core._logStormQuery(text, user, info=info)
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
@@ -1517,7 +1513,9 @@ class View(s_nexus.Pusher):  # type: ignore
                                 count += 1
 
                         else:
-                            self.core._logStormQuery(text, user, info={'mode': mode, 'view': self.iden})
+                            info = opts.get('_loginfo', {})
+                            info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            self.core._logStormQuery(text, user, info=info)
                             async for item in runt.execute():
                                 count += 1
 

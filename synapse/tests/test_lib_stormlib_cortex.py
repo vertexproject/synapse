@@ -281,6 +281,18 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(data.get('json'), 'err')
                 self.eq(data.get('path'), 'echo/words/wOw')
 
+                # Storm query logging includes the httpapi iden in structlog data
+                core.stormlog = True
+                with self.getStructuredAsyncLoggerStream('synapse.storm', 'Executing storm query') as stream:
+                    resp = await sess.get(url)
+                    self.eq(resp.status, 200)
+                    self.true(await stream.wait(timeout=12))
+                data = stream.getvalue()
+                raw_mesgs = [m for m in data.split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                self.eq(msgs[0].get('httpapi'), echoiden)
+                core.stormlog = False
+
                 # Sad paths on the $request methods
                 q = '''$api = $lib.cortex.httpapi.add(testpath02)
                 $api.methods.get = ${ $request.sendcode(200) $request.sendheaders('beep beep') }

@@ -1942,6 +1942,12 @@ class PivotOut(PivotOper):
                 continue
 
             if isinstance(prop.type, s_types.Array):
+                if isinstance(prop.type.arraytype, s_types.Ndef):
+                    for item in valu:
+                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
+                            yield pivo, path.fork(pivo)
+                    continue
+
                 typename = prop.type.opts.get('type')
                 if runt.model.forms.get(typename) is not None:
                     for item in valu:
@@ -2115,13 +2121,13 @@ class FormPivot(PivotOper):
 
             # plain old pivot...
             async def pgenr(node, strict=True):
-
-                valu = node.ndef[1]
-
                 if isarray:
-                    ngenr = runt.view.nodesByPropArray(prop.full, '=', valu)
+                    if isinstance(prop.type.arraytype, s_types.Ndef):
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef)
+                    else:
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1])
                 else:
-                    ngenr = runt.view.nodesByPropValu(prop.full, '=', valu)
+                    ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1])
 
                 # TODO cache/bypass normalization in loop!
                 async for pivo in ngenr:
@@ -2182,6 +2188,16 @@ class FormPivot(PivotOper):
                         if pivo is not None:
                             yield pivo
 
+                for refsname in refs.get('ndefarray'):
+
+                    found = True
+
+                    if (refsvalu := node.get(refsname)) is not None:
+                        for aval in refsvalu:
+                            if aval[0] == destform.name:
+                                if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
+                                    yield pivo
+
                 #########################################################################
                 # reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
                 refs = destform.getRefsOut()
@@ -2217,6 +2233,14 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node.ndef):
+                        yield pivo
+
+                for refsname in refs.get('ndefarray'):
+
+                    found = True
+
+                    refsprop = destform.props.get(refsname)
+                    async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node.ndef):
                         yield pivo
 
                 if strict and not found:
@@ -2305,6 +2329,12 @@ class PropPivotOut(PivotOper):
                 continue
 
             if prop.type.isarray:
+                if isinstance(prop.type.arraytype, s_types.Ndef):
+                    for item in valu:
+                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
+                            yield pivo, path.fork(pivo)
+                    continue
+
                 fname = prop.type.arraytype.name
                 if runt.model.forms.get(fname) is None:
                     if not warned:
@@ -2358,10 +2388,30 @@ class PropPivot(PivotOper):
 
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
+                if isinstance(srctype.arraytype, s_types.Ndef) and prop.isform:
+                    for aval in valu:
+                        if aval[0] != prop.form.name:
+                            continue
+
+                        if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
+                            yield pivo
+                    return
 
                 for arrayval in valu:
                     async for pivo in runt.view.nodesByPropValu(prop.full, '=', arrayval):
                         yield pivo
+
+                return
+
+            if isinstance(srctype, s_types.Ndef) and prop.isform:
+                if valu[0] != prop.form.name:
+                    return
+
+                pivo = await runt.view.getNodeByNdef(valu)
+                if pivo is None:
+                    await runt.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
+                    return
+                yield pivo
 
                 return
 
@@ -2379,7 +2429,6 @@ class PropPivot(PivotOper):
 
         if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
 
-            proplist = None
             if isinstance(name, list):
                 proplist = name
             else:
@@ -2401,7 +2450,7 @@ class PropPivot(PivotOper):
                     async for pivo in pgenr(node, srctype, valu, strict=False):
                         yield pivo
 
-            return(listpivot)
+            return listpivot
 
         return self.pivogenr(runt, prop)
 

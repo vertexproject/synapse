@@ -390,6 +390,7 @@ testmodel = {
             ('baz', ('nodeprop', {}), {}),
             ('tick', ('test:time', {}), {}),
             ('hehe', ('str', {}), {}),
+            ('ndefs', ('array', {'type': 'ndef'}), {}),
         )),
 
         ('test:migr', {}, (

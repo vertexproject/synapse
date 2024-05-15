@@ -354,6 +354,13 @@ class Node(NodeBase):
             for item in valu:
                 retn.append((name, (dest, item)))
 
+        for name in refs.get('ndefarray', ()):
+            if (valu := self.get(name)) is None:
+                continue
+
+            for item in valu:
+                retn.append((name, item))
+
         return retn
 
     async def set(self, name, valu, init=False):
