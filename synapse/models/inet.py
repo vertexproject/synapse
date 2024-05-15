@@ -2141,8 +2141,12 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:iface', {}, (
                         ('host', ('it:host', {}), {
-                            'doc': 'The guid of the host the interface is associated with.'
-                        }),
+                            'doc': 'The guid of the host the interface is associated with.'}),
+
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'eth0',
+                            'doc': 'The interface name.'}),
+
                         ('network', ('it:network', {}), {
                             'doc': 'The guid of the it:network the interface connected to.'
                         }),

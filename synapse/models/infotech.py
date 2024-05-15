@@ -336,8 +336,11 @@ class ItModule(s_module.CoreModule):
                     'interfaces': ('it:host:activity',),
                 }),
                 ('it:network', ('guid', {}), {
-                    'doc': 'A GUID that represents a logical network.'
-                }),
+                    'doc': 'A GUID that represents a logical network.'}),
+
+                ('it:network:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of network types.'}),
+
                 ('it:domain', ('guid', {}), {
                     'doc': 'A logical boundary of authentication and configuration such as a windows domain.'
                 }),
@@ -864,6 +867,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The org that operates the given domain.',
                     }),
                 )),
+                ('it:network:type:taxonomy', {}, ()),
                 ('it:network', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -871,6 +875,9 @@ class ItModule(s_module.CoreModule):
 
                     ('desc', ('str', {}), {
                         'doc': 'A brief description of the network.'}),
+
+                    ('type', ('it:network:type:taxonomy', {}), {
+                        'doc': 'The type if network.'}),
 
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that owns/operates the network.'}),
