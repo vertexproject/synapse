@@ -3266,11 +3266,6 @@ class FiltOper(Oper):
                 # all filters must sleep
                 await asyncio.sleep(0)
 
-class FiltByArray(FiltOper):
-    '''
-    +:foo*[^=visi]
-    '''
-
 class ArgvQuery(Value):
 
     runtopaque = True
