@@ -574,6 +574,32 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(30, nodes[0].ndef[1])
 
+            # $lib.min / $lib.max behavior with 1 item
+            ret = await core.callStorm('$x = ([(1234)]) return ( $lib.min($x) )')
+            self.eq(ret, 1234)
+
+            ret = await core.callStorm('return ( $lib.min(1234) )')
+            self.eq(ret, 1234)
+
+            ret = await core.callStorm('$x = ([(1234)]) return ( $lib.max($x) )')
+            self.eq(ret, 1234)
+
+            ret = await core.callStorm('return ( $lib.max(1234) )')
+            self.eq(ret, 1234)
+
+            # $lib.min / $lib.max behavior with 0 items
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$lib.max()')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$l=() $lib.max($l)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$lib.min()')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$l=() $lib.min($l)')
+
             nodes = await core.nodes('[ inet:asn=$lib.len(asdf) ]')
             self.len(1, nodes)
             self.eq(4, nodes[0].ndef[1])

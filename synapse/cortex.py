@@ -507,14 +507,6 @@ class CoreApi(s_cell.CellApi):
     async def delStormDmon(self, iden):
         return await self.cell.delStormDmon(iden)
 
-    @s_cell.adminapi(log=True)
-    async def enableMigrationMode(self): # pragma: no cover
-        s_common.deprdate('CoreApi.enableMigrationMode', '2024-05-05')
-
-    @s_cell.adminapi(log=True)
-    async def disableMigrationMode(self): # pragma: no cover
-        s_common.deprdate('CoreApi.disableMigrationMode', '2024-05-05')
-
     @s_cell.adminapi()
     async def cloneLayer(self, iden, ldef=None):
 
@@ -1241,6 +1233,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'prop', 'del', '<form>', '<prop>'), 'gate': 'layer',
              'ex': 'node.prop.del.inet:ipv4.asn',
              'desc': 'Controls removing a specific property from a form of node in a layer.'},
+
+            {'perm': ('node', 'data', 'set'), 'gate': 'layer',
+             'desc': 'Permits a user to set node data in a given layer.'},
+            {'perm': ('node', 'data', 'set', '<key>'), 'gate': 'layer',
+              'ex': 'node.data.set.hehe',
+             'desc': 'Permits a user to set node data in a given layer for a specific key.'},
+            {'perm': ('node', 'data', 'pop'), 'gate': 'layer',
+             'desc': 'Permits a user to remove node data in a given layer.'},
+            {'perm': ('node', 'data', 'pop', '<key>'), 'gate': 'layer',
+             'ex': 'node.data.pop.hehe',
+             'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding storm packages.'},
