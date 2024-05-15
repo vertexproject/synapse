@@ -2954,9 +2954,9 @@ class ArrayCond(Cond):
                 (ptyp, getr) = subtype
                 propcmpr = realcmpr
 
-            ctor = ptyp.getCmprCtor(realcmpr)
+            ctor = ptyp.getCmprCtor(propcmpr)
             if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=realcmpr, name=ptyp.name))
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=propcmpr, name=ptyp.name))
 
             items = node.get(name)
             if items is None:
