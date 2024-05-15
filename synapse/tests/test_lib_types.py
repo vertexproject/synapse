@@ -988,6 +988,11 @@ class TypesTest(s_t_utils.SynTest):
 
             self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node*form)'))
 
+            self.none(await core.callStorm('[ risk:vulnerable=* ] return(:node*form)'))
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str.created +:ndefs*[form>it:dev:str]')
+
     async def test_nodeprop(self):
         async with self.getTestCore() as core:
             t = core.model.type('nodeprop')
