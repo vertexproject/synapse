@@ -1495,6 +1495,12 @@ class Ndef(Type):
             'form=': self._storLiftForm
         }
 
+        nameopts = {'lower': True, 'strip': True}
+        self.formnametype = Str(self.modl, 'formname', {}, nameopts)
+        self.subtypes |= {
+            'form': (self.formnametype, self._getForm),
+        }
+
     def _storLiftForm(self, cmpr, valu):
         valu = valu.lower().strip()
         if self.modl.form(valu) is None:
@@ -1503,6 +1509,11 @@ class Ndef(Type):
         return (
             (cmpr, valu, self.stortype),
         )
+
+    def _getForm(self, valu):
+        if valu is None:
+            return None
+        return valu[0]
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)

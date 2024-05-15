@@ -975,6 +975,19 @@ class TypesTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
             self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
+            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
+            await core.nodes('[ risk:vulnerable=(foo,) :node=(it:dev:int, 1) ]')
+            await core.nodes('[ risk:vulnerable=(bar,) :node=(inet:fqdn, foo.com) ]')
+
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=it:dev:int'))
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=inet:fqdn'))
+            self.len(0, await core.nodes('risk:vulnerable.created +:node*form=it:dev:str'))
+
+            self.len(1, await core.nodes('test:str.created +:ndefs*[form=it:dev:int]'))
+            self.len(0, await core.nodes('test:str.created +:ndefs*[form=it:dev:str]'))
+
+            self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node*form)'))
+
     async def test_nodeprop(self):
         async with self.getTestCore() as core:
             t = core.model.type('nodeprop')

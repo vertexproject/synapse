@@ -2932,6 +2932,11 @@ class ArrayCond(Cond):
         name = await self.kids[0].compute(runt, None)
         cmpr = await self.kids[1].compute(runt, None)
 
+        cmprname = None
+        if isinstance(self.kids[1], ByNameCmpr):
+            cmprname = self.kids[1].getName()
+            realcmpr = self.kids[1].getCmpr()
+
         async def cond(node, path):
 
             prop = node.form.props.get(name)
@@ -2942,17 +2947,32 @@ class ArrayCond(Cond):
                 mesg = f'Array filter syntax is invalid for non-array prop {name}.'
                 raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
 
-            ctor = prop.type.arraytype.getCmprCtor(cmpr)
+            ptyp = prop.type.arraytype
+
+            propcmpr = cmpr
+            if (subtype := ptyp.subtypes.get(cmprname)) is not None:
+                (ptyp, getr) = subtype
+                propcmpr = realcmpr
+
+            ctor = ptyp.getCmprCtor(realcmpr)
+            if ctor is None:
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=realcmpr, name=ptyp.name))
 
             items = node.get(name)
             if items is None:
                 return False
 
             val2 = await self.kids[2].compute(runt, path)
-            for item in items:
-                if ctor(val2)(item):
-                    return True
 
+            if subtype is not None:
+                for item in items:
+                    item = getr(item)
+                    if ctor(val2)(item):
+                        return True
+            else:
+                for item in items:
+                    if ctor(val2)(item):
+                        return True
             return False
 
         return cond
