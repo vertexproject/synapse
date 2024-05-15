@@ -1354,6 +1354,9 @@ class ExtApiHandler(StormHandler):
             'user': useriden,
             'vars': varz,
             'view': adef.get('view'),
+            '_loginfo': {
+                'httpapi': iden
+            }
         }
 
         query = '\n'.join((self.storm_prefix, storm))

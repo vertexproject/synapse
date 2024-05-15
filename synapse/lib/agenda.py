@@ -831,6 +831,9 @@ class Agenda(s_base.Base):
                 'view': appt.view,
                 'mirror': appt.pool,
                 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
+                '_loginfo': {
+                    'cron': appt.iden
+                }
             }
             opts = self.core._initStormOpts(opts)
 
