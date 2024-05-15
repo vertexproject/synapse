@@ -165,11 +165,13 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait):
             yield item
+            await asyncio.sleep(0)
 
     async def syncNodeEdits2(self, offs, wait=True):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
+            await asyncio.sleep(0)
 
     async def getEditIndx(self):
         '''
@@ -1529,12 +1531,14 @@ class Layer(s_nexus.Pusher):
 
         mirror = self.layrinfo.get('mirror')
         if mirror is not None:
+            s_common.deprecated('mirror layer configuration option', curv='2.162.0')
             conf = {'retrysleep': 2}
             self.leader = await s_telepath.Client.anit(mirror, conf=conf)
             self.leadtask = self.schedCoro(self._runMirrorLoop())
 
         uplayr = self.layrinfo.get('upstream')
         if uplayr is not None:
+            s_common.deprecated('upstream layer configuration option', curv='2.162.0')
             if isinstance(uplayr, (tuple, list)):
                 for layr in uplayr:
                     await self.initUpstreamSync(layr)
@@ -4382,8 +4386,13 @@ def getNodeEditPerms(nodeedits):
     '''
     Yields (offs, perm) tuples that can be used in user.allowed()
     '''
+    tags = []
+    tagadds = []
 
     for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
+
+        tags.clear()
+        tagadds.clear()
 
         for editoffs, (edit, info, _) in enumerate(edits):
 
@@ -4406,7 +4415,11 @@ def getNodeEditPerms(nodeedits):
                 continue
 
             if edit == EDIT_TAG_SET:
-                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                if info[1] != (None, None):
+                    tagadds.append(info[0])
+                    yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                else:
+                    tags.append((len(info[0]), editoffs, info[0]))
                 continue
 
             if edit == EDIT_TAG_DEL:
@@ -4436,3 +4449,11 @@ def getNodeEditPerms(nodeedits):
             if edit == EDIT_EDGE_DEL:
                 yield (permoffs, ('node', 'edge', 'del', info[0]))
                 continue
+
+        for _, editoffs, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            yield ((nodeoffs, editoffs), ('node', 'tag', 'add', *tag.split('.')))
+            tagadds.append(tag)

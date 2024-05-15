@@ -116,6 +116,9 @@ class Prop:
             self.setperms.append(('node', 'prop', 'set', form.name, self.name))
             self.delperms.append(('node', 'prop', 'del', form.name, self.name))
 
+        self.setperms.reverse()  # Make them in precedence order
+        self.delperms.reverse()  # Make them in precedence order
+
         self.form = form
         self.type = None
         self.typedef = typedef
@@ -327,11 +330,16 @@ class Form:
                 'prop': [],
                 'ndef': [],
                 'array': [],
+                'ndefarray': [],
             }
 
             for name, prop in self.props.items():
 
                 if isinstance(prop.type, s_types.Array):
+                    if isinstance(prop.type.arraytype, s_types.Ndef):
+                        self.refsout['ndefarray'].append(name)
+                        continue
+
                     typename = prop.type.arraytype.name
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
@@ -870,9 +878,41 @@ class Model:
         for ifname in form.type.info.get('interfaces', ()):
             self._addFormIface(form, ifname)
 
+        self._checkFormDisplay(form)
+
         self.formprefixcache.clear()
 
         return form
+
+    def _checkFormDisplay(self, form):
+
+        formtype = self.types.get(form.full)
+
+        display = formtype.info.get('display')
+        if display is None:
+            return
+
+        for column in display.get('columns', ()):
+            coltype = column.get('type')
+            colopts = column.get('opts')
+
+            if coltype == 'prop':
+                curf = form
+                propname = colopts.get('name')
+                parts = propname.split('::')
+
+                for partname in parts:
+                    prop = curf.prop(partname)
+                    if prop is None:
+                        mesg = (f'Form {form.name} defines prop column {propname}'
+                               f' but {curf.full} has no property named {partname}.')
+                        raise s_exc.BadFormDef(mesg=mesg)
+
+                    curf = self.form(prop.type.name)
+
+            else:
+                mesg = f'Form {form.name} defines column with invalid type ({coltype}).'
+                raise s_exc.BadFormDef(mesg=mesg)
 
     def delForm(self, formname):
 
@@ -955,12 +995,12 @@ class Model:
         self.props[prop.full] = prop
         return prop
 
-    def _addFormIface(self, form, name):
+    def _addFormIface(self, form, name, subifaces=None):
 
         iface = self.ifaces.get(name)
 
         if iface is None:
-            mesg = f'Form {form.name} depends on non-existant interface: {name}'
+            mesg = f'Form {form.name} depends on non-existent interface: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):
@@ -973,11 +1013,23 @@ class Model:
             prop = self._addFormProp(form, propname, typedef, propinfo)
             self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
+            if subifaces is not None:
+                for subi in subifaces:
+                    self.ifaceprops[f'{subi}:{propname}'].append(prop.full)
+
         form.ifaces[name] = iface
         self.formsbyiface[name].append(form.name)
 
-        for ifname in iface.get('interfaces', ()):
-            self._addFormIface(form, ifname)
+        if (ifaces := iface.get('interfaces')) is not None:
+            if subifaces is None:
+                subifaces = []
+            else:
+                subifaces = list(subifaces)
+
+            subifaces.append(name)
+
+            for ifname in ifaces:
+                self._addFormIface(form, ifname, subifaces=subifaces)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

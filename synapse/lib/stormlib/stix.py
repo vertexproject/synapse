@@ -585,7 +585,7 @@ def validateStix(bundle, version='2.1'):
         'result': {},
     }
     bundle = json.loads(json.dumps(bundle))
-    opts = stix2validator.ValidationOptions(strict=True, version=version, no_cache=True)
+    opts = stix2validator.ValidationOptions(strict=True, version=version)
     try:
         results = stix2validator.validate_parsed_json(bundle, options=opts)
     except stix2validator.ValidationError as e:
@@ -1405,7 +1405,10 @@ class StixBundle(s_stormtypes.Prim):
 
     async def _callStorm(self, text, node):
 
-        opts = {'vars': {'bundle': self}}
+        varz = self.runt.getScopeVars()
+        varz['bundle'] = self
+
+        opts = {'vars': varz}
         query = await self.runt.snap.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 

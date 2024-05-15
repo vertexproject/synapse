@@ -9,3 +9,6 @@ modules:
 
 commands:
     - name: dotstorm.bar
+
+onload: |
+  $lib.time.sleep(0)

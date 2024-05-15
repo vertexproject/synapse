@@ -659,7 +659,7 @@ def iterfd(fd, size=10000000):
     Notes:
         If the first read call on the file descriptor is a empty bytestring,
         that zero length bytestring will be yielded and the generator will
-        then be exhuasted. This behavior is intended to allow the yielding of
+        then be exhausted. This behavior is intended to allow the yielding of
         contents of a zero byte file.
 
     Yields:
@@ -934,6 +934,7 @@ def config(conf, confdefs):
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
+    return mesg
 
 def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
@@ -971,6 +972,12 @@ def unjsonsafe_nodeedits(nodeedits):
         retn.append(newedit)
 
     return retn
+
+def reprauthrule(rule):
+    text = '.'.join(rule[1])
+    if not rule[0]:
+        text = '!' + text
+    return text
 
 def reqJsonSafeStrict(item):
     '''

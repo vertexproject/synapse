@@ -70,6 +70,23 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
+            self.len(1, await core.nodes('risk:vuln:cve=cve-2022-00001 [ :reporter:name=foo ]'))
+            nodes02 = await core.nodes('gen.risk.vuln CVE-2022-00001')
+            self.eq(nodes00[0].ndef, nodes02[0].ndef)
+
+            nodes03 = await core.nodes('gen.risk.vuln CVE-2022-00001 foo')
+            self.eq(nodes00[0].ndef, nodes03[0].ndef)
+            self.nn(nodes03[0].get('reporter'))
+
+            nodes04 = await core.nodes('gen.risk.vuln CVE-2022-00001 bar')
+            nodes05 = await core.nodes('yield $lib.gen.vulnByCve(CVE-2022-00001, reporter=bar)')
+            self.eq(nodes04[0].ndef, nodes05[0].ndef)
+            self.ne(nodes00[0].ndef, nodes05[0].ndef)
+            self.eq('bar', nodes05[0].get('reporter:name'))
+            self.nn(nodes05[0].get('reporter'))
+
+            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
+
             nodes00 = await core.nodes('yield $lib.gen.orgIdType(barcode)')
             nodes01 = await core.nodes('gen.ou.id.type barcode')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
@@ -79,8 +96,6 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.ou.id.number barcode 12345')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.eq(nodes00[0].get('type'), barcode)
-
-            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
 
             nodes00 = await core.nodes('yield $lib.gen.polCountryByIso2(UA)')
             nodes01 = await core.nodes('gen.pol.country ua')
@@ -113,6 +128,9 @@ class StormLibGenTest(s_test.SynTest):
             nodes02 = await core.nodes('gen.ou.campaign d-day otherorg')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.ne(nodes01[0].ndef, nodes02[0].ndef)
+            self.nn(nodes00[0].get('reporter'))
+            self.nn(nodes01[0].get('reporter'))
+            self.nn(nodes02[0].get('reporter'))
 
             q = 'gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn --time 2022'
             nodes00 = await core.nodes(q)
@@ -207,3 +225,23 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, await core.nodes('ou:org:name=forkorg'))
             self.len(1, await core.nodes('ou:org:name=anotherforkorg'))
+
+            nodes = await core.nodes('geo:place')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('gen.geo.place Zimbabwe')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'zimbabwe')
+            self.none(nodes[0].get('names'))
+
+            iden = nodes[0].iden()
+
+            msgs = await core.stormlist('geo:place:name=zimbabwe [ :names+=Rhodesia ]')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('gen.geo.place Rhodesia')
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), iden)
+            names = nodes[0].get('names')
+            self.len(1, names)
+            self.isin('rhodesia', names)

@@ -14,7 +14,8 @@ import synapse.common as s_common
 import synapse.lib.output as s_outp
 import synapse.lib.certdir as s_certdir
 
-from OpenSSL import crypto
+import cryptography.x509 as c_x509
+import cryptography.hazmat.primitives.serialization as c_serialization
 
 def checkCosign(outp):
     args = ('cosign', 'version')
@@ -65,16 +66,11 @@ def checkCRL(outp, sigd, certdir):
     byts = base64.b64decode(sigd.get('Cert', {}).get('Raw', ''))
 
     try:
-        cert = crypto.load_certificate(crypto.FILETYPE_ASN1, byts)
-        pem_byts = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
-    except crypto.Error as e:  # pragma: no cover
+        cert = c_x509.load_der_x509_certificate(byts)
+        pem_byts = cert.public_bytes(c_serialization.Encoding.PEM)
+    except Exception as e:  # pragma: no cover
         # Unwrap pyopenssl's exception_from_error_queue
-        estr = ''
-        for argv in e.args:
-            if estr:
-                estr += ', '
-            estr += ' '.join((arg for arg in argv[0] if arg))
-        outp.printf(f'Failed to load signature bytes: {byts}')
+        outp.printf(f'Failed to load signature bytes: {e} {byts}')
         return False
 
     try:
@@ -89,7 +85,8 @@ def checkCRL(outp, sigd, certdir):
         return False
 
     # Return the pubkey bytes in PEM format
-    return crypto.dump_publickey(crypto.FILETYPE_PEM, cert.get_pubkey())
+    return cert.public_key().public_bytes(encoding=c_serialization.Encoding.PEM,
+                                          format=c_serialization.PublicFormat.SubjectPublicKeyInfo)
 
 def checkCosignSignature(outp, pubk_byts, image_to_verify):
     with s_common.getTempDir() as dirn:

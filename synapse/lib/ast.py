@@ -24,7 +24,6 @@ import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmprvalu, undef
@@ -1180,33 +1179,32 @@ class CmdOper(Oper):
             mesg = f'Command ({name}) is not marked safe for readonly use.'
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
-        with s_provenance.claim('stormcmd', name=name):
-            async def genx():
+        async def genx():
 
-                async for node, path in genr:
-                    argv = await self.kids[1].compute(runt, path)
-                    if not await scmd.setArgv(argv):
-                        raise s_stormctrl.StormExit()
+            async for node, path in genr:
+                argv = await self.kids[1].compute(runt, path)
+                if not await scmd.setArgv(argv):
+                    raise s_stormctrl.StormExit()
 
-                    yield node, path
+                yield node, path
 
-            # must pull through the genr to get opts set
-            # ( many commands expect self.opts is set at run() )
-            genr, empty = await pullone(genx())
+        # must pull through the genr to get opts set
+        # ( many commands expect self.opts is set at run() )
+        genr, empty = await pullone(genx())
 
-            try:
-                if runtsafe:
-                    argv = await self.kids[1].compute(runt, None)
-                    if not await scmd.setArgv(argv):
-                        raise s_stormctrl.StormExit()
+        try:
+            if runtsafe:
+                argv = await self.kids[1].compute(runt, None)
+                if not await scmd.setArgv(argv):
+                    raise s_stormctrl.StormExit()
 
-                if runtsafe or not empty:
-                    async with contextlib.aclosing(scmd.execStormCmd(runt, genr)) as agen:
-                        async for item in agen:
-                            yield item
+            if runtsafe or not empty:
+                async with contextlib.aclosing(scmd.execStormCmd(runt, genr)) as agen:
+                    async for item in agen:
+                        yield item
 
-            finally:
-                await genr.aclose()
+        finally:
+            await genr.aclose()
 
 class SetVarOper(Oper):
 
@@ -1788,7 +1786,7 @@ class LiftProp(LiftOper):
 
                     prop = runt.model.prop(fullname)
                     if prop is None:
-                        continue
+                        return
 
                     cmpr = hint[1].get('cmpr')
                     valu = hint[1].get('valu')
@@ -1945,6 +1943,12 @@ class PivotOut(PivotOper):
                 continue
 
             if isinstance(prop.type, s_types.Array):
+                if isinstance(prop.type.arraytype, s_types.Ndef):
+                    for item in valu:
+                        if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
+                            yield pivo, path.fork(pivo)
+                    continue
+
                 typename = prop.type.opts.get('type')
                 if runt.model.forms.get(typename) is not None:
                     for item in valu:
@@ -2179,13 +2183,13 @@ class FormPivot(PivotOper):
 
             # plain old pivot...
             async def pgenr(node, strict=True):
-
-                valu = node.ndef[1]
-
                 if isarray:
-                    ngenr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                    if isinstance(prop.type.arraytype, s_types.Ndef):
+                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef)
+                    else:
+                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef[1])
                 else:
-                    ngenr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+                    ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1])
 
                 # TODO cache/bypass normalization in loop!
                 async for pivo in ngenr:
@@ -2268,6 +2272,16 @@ class FormPivot(PivotOper):
                         if pivo is not None:
                             yield pivo
 
+                for refsname in refs.get('ndefarray'):
+
+                    found = True
+
+                    if (refsvalu := node.get(refsname)) is not None:
+                        for aval in refsvalu:
+                            if aval[0] == destform.name:
+                                if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
+                                    yield pivo
+
                 #########################################################################
                 # reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
                 refs = destform.getRefsOut()
@@ -2303,6 +2317,14 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef):
+                        yield pivo
+
+                for refsname in refs.get('ndefarray'):
+
+                    found = True
+
+                    refsprop = destform.props.get(refsname)
+                    async for pivo in runt.snap.nodesByPropArray(refsprop.full, '=', node.ndef):
                         yield pivo
 
                 if strict and not found:
@@ -2391,6 +2413,12 @@ class PropPivotOut(PivotOper):
                 continue
 
             if prop.type.isarray:
+                if isinstance(prop.type.arraytype, s_types.Ndef):
+                    for item in valu:
+                        if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
+                            yield pivo, path.fork(pivo)
+                    continue
+
                 fname = prop.type.arraytype.name
                 if runt.model.forms.get(fname) is None:
                     if not warned:
@@ -2444,10 +2472,30 @@ class PropPivot(PivotOper):
 
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srcprop.type.isarray and not prop.type.isarray:
+                if isinstance(srcprop.type.arraytype, s_types.Ndef) and prop.isform:
+                    for aval in valu:
+                        if aval[0] != prop.form.name:
+                            continue
+
+                        if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
+                            yield pivo
+                    return
 
                 for arrayval in valu:
                     async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
                         yield pivo
+
+                return
+
+            if isinstance(srcprop.type, s_types.Ndef) and prop.isform:
+                if valu[0] != prop.form.name:
+                    return
+
+                pivo = await runt.snap.getNodeByNdef(valu)
+                if pivo is None:
+                    await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
+                    return
+                yield pivo
 
                 return
 
@@ -2465,7 +2513,6 @@ class PropPivot(PivotOper):
 
         if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
 
-            proplist = None
             if isinstance(name, list):
                 proplist = name
             else:
@@ -2487,7 +2534,7 @@ class PropPivot(PivotOper):
                     async for pivo in pgenr(node, srcprop, valu, strict=False):
                         yield pivo
 
-            return(listpivot)
+            return listpivot
 
         return self.pivogenr(runt, prop)
 
@@ -3239,16 +3286,19 @@ class PropValue(Value):
         if not path:
             return None, None
 
-        name = await self.kids[0].compute(runt, path)
+        propname = await self.kids[0].compute(runt, path)
+        name = await tostr(propname)
 
         ispiv = name.find('::') != -1
         if not ispiv:
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                    name=name, form=path.node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
             if isinstance(valu, (dict, list, tuple)):
@@ -3271,9 +3321,11 @@ class PropValue(Value):
 
             prop = node.form.props.get(name)
             if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
-                                                name=name, form=node.form.name))
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
                 if isinstance(valu, (dict, list, tuple)):
@@ -3354,6 +3406,7 @@ class VarValue(Value):
     def prepare(self):
         assert isinstance(self.kids[0], Const)
         self.name = self.kids[0].value()
+        self.isconst = False
 
     def isRuntSafe(self, runt):
         return runt.isRuntVar(self.name)
@@ -3812,7 +3865,7 @@ class RelProp(PropName):
 
 class UnivProp(RelProp):
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
+        valu = await tostr(await self.kids[0].compute(runt, path))
         if self.isconst:
             return valu
         return '.' + valu
@@ -3933,12 +3986,16 @@ class EditNodeAdd(Edit):
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
-                    formname = await self.kids[0].compute(runt, path)
+                    name = await self.kids[0].compute(runt, path)
+                    formname = await tostr(name)
                     runt.layerConfirm(('node', 'add', formname))
 
                     form = runt.model.form(formname)
                     if form is None:
-                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                        if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                            exc = s_exc.NoSuchForm.init(formname)
+
+                        raise self.kids[0].addExcInfo(exc)
 
                     # must use/resolve all variables from path before yield
                     async for item in self.addFromPath(form, runt, path):
@@ -3949,12 +4006,16 @@ class EditNodeAdd(Edit):
 
             else:
 
-                formname = await self.kids[0].compute(runt, None)
+                name = await self.kids[0].compute(runt, None)
+                formname = await tostr(name)
                 runt.layerConfirm(('node', 'add', formname))
 
                 form = runt.model.form(formname)
                 if form is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
+                    if (exc := await s_stormtypes.typeerr(name, str)) is None:
+                        exc = s_exc.NoSuchForm.init(formname)
+
+                    raise self.kids[0].addExcInfo(exc)
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.tostor(valu)
@@ -3997,12 +4058,15 @@ class EditPropSet(Edit):
 
         async for node, path in genr:
 
-            name = await self.kids[0].compute(runt, path)
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
 
             prop = node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
                 raise self.kids[0].addExcInfo(exc)
 
             if not node.form.isrunt:
@@ -4078,12 +4142,15 @@ class EditPropDel(Edit):
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         async for node, path in genr:
-            name = await self.kids[0].compute(runt, path)
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
 
             prop = node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
                 raise self.kids[0].addExcInfo(exc)
 
             runt.confirmPropDel(prop)

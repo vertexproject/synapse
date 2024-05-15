@@ -1262,7 +1262,7 @@ class StormTest(s_t_utils.SynTest):
                 query = await core.getStormQuery('')
                 async with snap.getStormRuntime(query) as runt:
                     with self.raises(s_exc.AuthDeny):
-                        runt.reqAdmin(gateiden='cortex')
+                        runt.reqAdmin(gateiden=layr)
 
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -1772,12 +1772,91 @@ class StormTest(s_t_utils.SynTest):
             self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['*'])
 
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
-            msgs = await core.stormlist('[ ou:org=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
+            msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
-
             node = nodes[0]
+
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
             self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            opts['vars'] = {
+                'md5': '12345a5758eea935f817dd1490a322a5',
+                'sha1': '40b8e76cff472e593bd0ba148c09fec66ae72362'
+            }
+            opts['view'] = fork
+            opts['show:storage'] = True
+            opts['embeds']['ou:org']['lol::nope'] = ('notreal',)
+            opts['embeds']['ou:org']['country::flag'] = ('md5', 'sha1')
+            opts['embeds']['ou:org']['country::tld'] = ('domain',)
+
+            await core.stormlist('pol:country [ :flag={[ file:bytes=* :md5=fa818a259cbed7ce8bc2a22d35a464fc ]} ]')
+
+            msgs = await core.stormlist('''
+                ou:org {
+                    -> pol:country
+                    [ :tld=co.uk ]
+                    {
+                        :flag -> file:bytes [ :md5=$md5 :sha1=$sha1 ]
+                    }
+                }
+            ''', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            node = nodes[0]
+
+            storage = node[1]['storage']
+            self.len(2, storage)
+            top = storage[0].get('embeds')
+            bot = storage[1].get('embeds')
+            self.nn(top)
+            self.nn(bot)
+
+            self.nn(top.get('country::flag::md5'))
+            self.eq(top['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+
+            self.nn(top.get('country::flag::sha1'))
+            self.eq(top['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+
+            self.nn(top.get('country::tld::domain'))
+            self.eq(top['country::tld::domain'][0], 'uk')
+
+            self.nn(bot.get('hq::email::user'))
+            self.eq(bot['hq::email::user'][0], 'visi')
+
+            self.nn(bot.get('country::flag::md5'))
+            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+
+            empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
+            opts['view'] = empty
+
+            msgs = await core.stormlist('ou:org', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            node = nodes[0]
+            storage = node[1]['storage']
+            self.len(3, storage)
+            top = storage[0].get('embeds')
+            mid = storage[1].get('embeds')
+            bot = storage[2].get('embeds')
+            self.none(top)
+
+            self.nn(mid)
+            self.nn(bot)
+
+            self.nn(mid.get('country::flag::md5'))
+            self.eq(mid['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+
+            self.nn(mid.get('country::flag::sha1'))
+            self.eq(mid['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+
+            self.nn(mid.get('country::tld::domain'))
+            self.eq(mid['country::tld::domain'][0], 'uk')
+
+            self.nn(bot.get('hq::email::user'))
+            self.eq(bot['hq::email::user'][0], 'visi')
+
+            self.nn(bot.get('country::flag::md5'))
+            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
     async def test_storm_wget(self):
 
@@ -2151,7 +2230,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Max recursion fail
             q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            await self.asyncraises(s_exc.RecursionLimitHit, core.nodes(q))
 
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tree $q'
@@ -2359,6 +2438,18 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag this is')
 
+        async with self.getTestCore() as core:
+            await core.nodes('[ syn:tag=hehe :isnow=haha ]')
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('haha.qwer'))
+            self.none(nodes[0].getTag('hehe.qwer'))
+            self.len(1, await core.nodes('syn:tag=haha.qwer'))
+
+            # this should hit the already existing redirected tag now...
+            nodes = await core.nodes('[ ou:org=* +#hehe.qwer ]')
+            self.len(1, nodes)
+
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
@@ -2414,9 +2505,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:comp $valu=({"foo": :hehe}) | uniq $valu')
             self.len(1, nodes)
             q = '''
-                [(graph:node=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
-                 (graph:node=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
-                 (graph:node=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
+                [(tel:mob:telem=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
+                 (tel:mob:telem=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
+                 (tel:mob:telem=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
                 uniq :data
             '''
             nodes = await core.nodes(q)
@@ -3331,7 +3422,6 @@ class StormTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': [2, 144, 0],
                 'synapse_version': '>=2.8.0,<3.0.0',
                 'commands': ({
                                  'name': 'testcmd',
@@ -4513,7 +4603,7 @@ class StormTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('node',)))
 
-            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+            size, sha256 = await core.callStorm('return($lib.axon.put($buf))', {'vars': {'buf': b'asdfasdf'}})
 
             self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
 

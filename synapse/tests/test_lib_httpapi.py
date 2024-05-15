@@ -840,7 +840,6 @@ class HttpApiTest(s_tests.SynTest):
                 spkg = {
                     'name': 'testy',
                     'version': (0, 0, 1),
-                    'synapse_minversion': [2, 144, 0],
                     'synapse_version': '>=2.50.0,<3.0.0',
                     'modules': (
                         {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
@@ -903,7 +902,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(info['creator'], root.iden)
                     self.eq(info['iden'], view)
 
-                    cdef = await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    cdef = await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30).pack())')
                     layr = await core.callStorm('return($lib.layer.add().iden)')
 
                     opts = {'vars': {'view': view, 'cron': cdef['iden'], 'layr': layr}}

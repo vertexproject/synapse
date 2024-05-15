@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -329,6 +330,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methType(self, name):
+        name = await s_stormtypes.tostr(name)
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
@@ -336,6 +338,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methProp(self, name):
+        name = await s_stormtypes.tostr(name)
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
@@ -343,6 +346,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methForm(self, name):
+        name = await s_stormtypes.tostr(name)
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
@@ -350,6 +354,7 @@ class LibModel(s_stormtypes.Lib):
     @s_cache.memoize(size=100)
     @s_stormtypes.stormfunc(readonly=True)
     async def _methTagProp(self, name):
+        name = await s_stormtypes.tostr(name)
         tagprop = self.model.getTagProp(name)
         if tagprop is not None:
             return ModelTagProp(tagprop)
@@ -394,7 +399,8 @@ class ModelForm(s_stormtypes.Prim):
         return ModelType(self.valu.type, path=path)
 
     @s_stormtypes.stormfunc(readonly=True)
-    def _getFormProp(self, name):
+    async def _getFormProp(self, name):
+        name = await s_stormtypes.tostr(name)
         prop = self.valu.prop(name)
         if prop is not None:
             return ModelProp(prop)
@@ -593,10 +599,12 @@ class LibModelEdge(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     def _methValidKeys(self):
+        s_common.deprecated('model.edge.validkeys', curv='2.165.0')
         return self.validedgekeys
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeGet(self, verb):
+        s_common.deprecated('model.edge.get', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -604,6 +612,7 @@ class LibModelEdge(s_stormtypes.Lib):
         return await self.runt.snap.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
+        s_common.deprecated('model.edge.set', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -619,6 +628,7 @@ class LibModelEdge(s_stormtypes.Lib):
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
+        s_common.deprecated('model.edge.del', curv='2.165.0')
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
 
@@ -637,6 +647,7 @@ class LibModelEdge(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeList(self):
+        s_common.deprecated('model.edge.list', curv='2.165.0')
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')
@@ -682,3 +693,122 @@ class LibModelDeprecated(s_stormtypes.Lib):
         todo = s_common.todo('setDeprLock', name, locked)
         gatekeys = ((self.runt.user.iden, ('model', 'deprecated', 'lock'), None),)
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+
+@s_stormtypes.registry.registerLib
+class LibModelMigration(s_stormtypes.Lib):
+    '''
+    A Storm library containing migration tools.
+    '''
+    _storm_locals = (
+        {'name': 'copyData', 'desc': 'Copy node data from the src node to the dst node.',
+         'type': {'type': 'function', '_funcname': '_methCopyData',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy data from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy data to.', },
+                      {'name': 'overwrite', 'type': 'boolean', 'default': False,
+                       'desc': 'Copy data even if the key exists on the destination node.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'copyEdges', 'desc': 'Copy edges from the src node to the dst node.',
+         'type': {'type': 'function', '_funcname': '_methCopyEdges',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy edges from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy edges to.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'copyTags', 'desc': 'Copy tags, tag timestamps, and tag props from the src node to the dst node.',
+         'type': {'type': 'function', '_funcname': '_methCopyTags',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy tags from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy tags to.', },
+                      {'name': 'overwrite', 'type': 'boolean', 'default': False,
+                       'desc': 'Copy tag property value even if the property exists on the destination node.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+    )
+    _storm_lib_path = ('model', 'migration')
+
+    def getObjLocals(self):
+        return {
+            'copyData': self._methCopyData,
+            'copyEdges': self._methCopyEdges,
+            'copyTags': self._methCopyTags,
+        }
+
+    async def _methCopyData(self, src, dst, overwrite=False):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyData() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyData() dest argument must be a node.')
+
+        overwrite = await s_stormtypes.tobool(overwrite)
+
+        async with self.runt.snap.getEditor() as editor:
+
+            proto = editor.loadNode(dst)
+
+            async for name in src.iterDataKeys():
+                if overwrite or not await dst.hasData(name):
+                    self.runt.layerConfirm(('node', 'data', 'set', name))
+                    valu = await src.getData(name)
+                    await proto.setData(name, valu)
+
+    async def _methCopyEdges(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() dest argument must be a node.')
+
+        snap = self.runt.snap
+
+        async with snap.getEditor() as editor:
+
+            proto = editor.loadNode(dst)
+            verbs = set()
+
+            async for (verb, n2iden) in src.iterEdgesN1():
+
+                if verb not in verbs:
+                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                    verbs.add(verb)
+
+                if await snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
+                    await proto.addEdge(verb, n2iden)
+
+            dstiden = s_common.ehex(dst.buid)
+
+            async for (verb, n1iden) in src.iterEdgesN2():
+
+                if verb not in verbs:
+                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                    verbs.add(verb)
+
+                n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+                if n1proto is not None:
+                    await n1proto.addEdge(verb, dstiden)
+
+    async def _methCopyTags(self, src, dst, overwrite=False):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyTags() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyTags() dest argument must be a node.')
+
+        overwrite = await s_stormtypes.tobool(overwrite)
+
+        snap = self.runt.snap
+
+        async with snap.getEditor() as editor:
+
+            proto = editor.loadNode(dst)
+
+            for name, valu in src.tags.items():
+                self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
+                await proto.addTag(name, valu=valu)
+
+            for tagname, tagprops in src.tagprops.items():
+                for propname, valu in tagprops.items():
+                    if overwrite or not dst.hasTagProp(tagname, propname):
+                        await proto.setTagProp(tagname, propname, valu) # use tag perms

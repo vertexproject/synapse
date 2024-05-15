@@ -65,6 +65,9 @@ class FilePath(s_types.Str):
 
             path.append(part)
 
+        if len(path) == 0:
+            return '', {}
+
         fullpath = lead + '/'.join(path)
 
         base = path[-1]
@@ -256,6 +259,8 @@ class FileModule(s_module.CoreModule):
                             'doc': 'MIME specific lat/long information extracted from metadata.'}),
                         ('altitude', ('geo:altitude', {}), {
                             'doc': 'MIME specific altitude information extracted from metadata.'}),
+                        ('text', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The text contained within the image.'}),
                     ),
                     'doc': 'Properties common to image file formats.',
                     'interfaces': ('file:mime:meta',),

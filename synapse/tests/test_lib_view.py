@@ -11,18 +11,21 @@ from synapse.tests.utils import alist
 
 class ViewTest(s_t_utils.SynTest):
 
-    async def test_view_nomerge(self):
+    async def test_view_protected(self):
         async with self.getTestCore() as core:
             view = await core.callStorm('return($lib.view.get().fork().iden)')
             opts = {'view': view}
 
             await core.nodes('[ ou:org=* ]', opts=opts)
-            await core.nodes('$lib.view.get().set(nomerge, $lib.true)', opts=opts)
+            await core.nodes('$lib.view.get().set(protected, $lib.true)', opts=opts)
 
             with self.raises(s_exc.CantMergeView):
                 await core.nodes('$lib.view.get().merge()', opts=opts)
 
-            await core.nodes('$lib.view.get().set(nomerge, $lib.false)', opts=opts)
+            with self.raises(s_exc.CantDelView):
+                await core.nodes('$lib.view.del($lib.view.get().iden)', opts=opts)
+
+            await core.nodes('$lib.view.get().set(protected, $lib.false)', opts=opts)
             await core.nodes('$lib.view.get().merge()', opts=opts)
 
             self.len(1, await core.nodes('ou:org'))
@@ -30,6 +33,50 @@ class ViewTest(s_t_utils.SynTest):
             # mop up some coverage issues
             with self.raises(s_exc.BadOptValu):
                 await core.view.setViewInfo('hehe', 10)
+
+        async with self.getTestCore() as core:
+            # Delete this block when nomerge is removed
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': view}
+
+            # Setting/getting nomerge should be redirected to protected
+            getnomerge = 'return($lib.view.get().get(nomerge))'
+            setnomerge = '$lib.view.get().set(nomerge, $valu)'
+
+            getprotected = 'return($lib.view.get().get(protected))'
+            setprotected = '$lib.view.get().set(protected, $valu)'
+
+            nomerge = await core.callStorm(getnomerge, opts=opts)
+            protected = await core.callStorm(getprotected, opts=opts)
+            self.false(nomerge)
+            self.false(protected)
+
+            opts['vars'] = {'valu': True}
+            await core.callStorm(setnomerge, opts=opts)
+
+            nomerge = await core.callStorm(getnomerge, opts=opts)
+            protected = await core.callStorm(getprotected, opts=opts)
+            self.true(nomerge)
+            self.true(protected)
+
+            opts['vars'] = {'valu': False}
+            await core.callStorm(setprotected, opts=opts)
+
+            nomerge = await core.callStorm(getnomerge, opts=opts)
+            protected = await core.callStorm(getprotected, opts=opts)
+            self.false(nomerge)
+            self.false(protected)
+
+    async def test_view_nomerge_migration(self):
+        async with self.getRegrCore('cortex-defaults-v2') as core:
+            view = core.getView('0df16dd693c74109da0d58ab87ba768a')
+            self.none(view.info.get('nomerge'))
+            self.true(view.info.get('protected'))
+
+            with self.raises(s_exc.CantMergeView):
+                await core.callStorm('return($lib.view.get(0df16dd693c74109da0d58ab87ba768a).merge())')
+            with self.raises(s_exc.CantDelView):
+                await core.callStorm('return($lib.view.del(0df16dd693c74109da0d58ab87ba768a))')
 
     async def test_view_set_parent(self):
 
@@ -759,3 +806,25 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(nodes[0].tagprops.get('seen'))
             self.nn(nodes[0].tagprops['seen'].get('score'))
             self.nn(nodes[0].nodedata.get('foo'))
+
+            await core.delUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
+
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'add', 'rep', 'foo')), gateiden=baselayr)
+
+            await core.nodes('test:str=foo [ -#seen +#rep.foo ]', opts=viewopts)
+
+            await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+
+            await core.nodes('test:str=foo | merge --apply', opts=viewopts)
+            nodes = await core.nodes('test:str=foo')
+            self.nn(nodes[0].get('#rep.foo'))
+
+            await core.nodes('test:str=foo [ -#rep ]')
+            await core.nodes('test:str=foo [ +#rep=now ]', opts=viewopts)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)

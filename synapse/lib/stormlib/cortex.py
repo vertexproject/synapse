@@ -3,7 +3,9 @@ import json
 import logging
 
 import synapse.exc as s_exc
+import synapse.telepath as s_telepath
 
+import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.stormlib.auth as slib_auth
 
@@ -85,6 +87,7 @@ stormcmds = [
             $lib.print(`!View: No view found ({$err.info.iden})`)
         }
         $lib.print(`Readonly: {$api.readonly}`)
+        $lib.print(`Pool enabled: {$api.pool}`)
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
         $lib.print(`Description: {$api.desc}`)
@@ -223,6 +226,9 @@ class HttpApi(s_stormtypes.StormType):
         ''',
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPath', '_gtorfunc': '_gtorPath',
                   'returns': {'type': 'str'}}},
+        {'name': 'pool', 'desc': 'Boolean value indicating if the handler responses may be executed as part of a Storm pool.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPool', '_gtorfunc': '_gtorPool',
+                  'returns': {'type': 'boolean'}}},
         {'name': 'vars', 'desc': 'The Storm runtime variables specific for the API instance.',
          'type': {'type': ['stor', 'ctor'], '_storfunc': '_storVars', '_ctorfunc': '_ctorVars',
                   'returns': {'type': 'http:api:vars'}}},
@@ -241,6 +247,8 @@ class HttpApi(s_stormtypes.StormType):
         {'name': 'authenticated', 'desc': 'Boolean value indicating if the Extended HTTP API requires an authenticated user or session.',
          'type': {'type': ['stor', 'gtor'], '_storfunc': '_storAuthenticated', '_gtorfunc': '_gtorAuthenticated',
                   'returns': {'type': 'boolean'}}},
+        {'name': 'methods', 'desc': 'The dictionary containing the Storm code used to implement the HTTP methods.',
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorMethods', 'returns': {'type': 'http:api:methods'}}}
     )
 
     def __init__(self, runt, info):
@@ -256,6 +264,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._storName,
             'desc': self._storDesc,
             'path': self._storPath,
+            'pool': self._storPool,
             'vars': self._storVars,
             'view': self._storView,
             'runas': self._storRunas,
@@ -269,6 +278,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._gtorName,
             'desc': self._gtorDesc,
             'path': self._gtorPath,
+            'pool': self._gtorPool,
             'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
@@ -291,6 +301,13 @@ class HttpApi(s_stormtypes.StormType):
             'created': self.info.get('created'),
         })
 
+    async def stormrepr(self):
+        name = await self._gtorName()
+        if not name:
+            name = '<no name>'
+        path = await self._gtorPath()
+        return f'{self._storm_typename}: {name} ({self.iden}), path={path}'
+
     def getObjLocals(self):
         return {
             'pack': self._methPack,
@@ -298,7 +315,10 @@ class HttpApi(s_stormtypes.StormType):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPack(self):
-        return copy.deepcopy(self.info)
+        # TODO: Remove this when we've migrated the HTTPAPI data to set this value.
+        ret = copy.deepcopy(self.info)
+        ret.setdefault('pool', False)
+        return ret
 
     @s_stormtypes.stormfunc(readonly=True)
     def _ctorMethods(self, path=None):
@@ -314,6 +334,17 @@ class HttpApi(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorPath(self):
         return self.info.get('path')
+
+    async def _storPool(self, pool):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
+        pool = await s_stormtypes.tobool(pool)
+        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'pool', pool)
+        self.info['pool'] = pool
+        self.info['updated'] = adef.get('updated')
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _gtorPool(self):
+        return self.info.get('pool')
 
     async def _storName(self, name):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
@@ -452,7 +483,7 @@ class HttpApi(s_stormtypes.StormType):
 @s_stormtypes.registry.registerType
 class HttpApiMethods(s_stormtypes.Prim):
     '''
-    Accessor dictionary for getting and setting Extened HTTP API methods.
+    Accessor dictionary for getting and setting Extended HTTP API methods.
 
     Notes:
         The Storm code used to run these methods will have a $request object
@@ -1054,7 +1085,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'readonly', 'type': 'boolean',
                        'desc': 'Run the Extended HTTP Storm methods in readonly mode.', 'default': False},
                   ),
-                  'returns': {'type': 'http:api', 'desc': 'A new http:api object.'}}},
+                  'returns': {'type': 'http:api', 'desc': 'A new ``http:api`` object.'}}},
         {'name': 'del', 'desc': 'Delete an Extended HTTP API endpoint.',
          'type': {'type': 'function', '_funcname': 'delHttpApi',
                   'args': (
@@ -1062,16 +1093,29 @@ class CortexHttpApi(s_stormtypes.Lib):
                        'desc': 'The iden of the API to delete.'},
                   ),
                   'returns': {'type': 'null'}}},
-        {'name': 'get', 'desc': 'Get an Extended HTTP API object.',
+        {'name': 'get', 'desc': 'Get an Extended ``http:api`` object.',
          'type': {'type': 'function', '_funcname': 'getHttpApi',
                   'args': (
                       {'name': 'iden', 'type': 'string',
-                       'desc': 'The iden of the API to retreive.'},
+                       'desc': 'The iden of the API to retrieve.'},
                   ),
-                  'returns': {'type': 'http:api', 'desc': 'The http:api object.'}}},
-        {'name': 'list', 'desc': 'Get all the Extneded HTTP APIs on the Cortex',
+                  'returns': {'type': 'http:api', 'desc': 'The ``http:api`` object.'}}},
+        {'name': 'getByPath', 'desc': '''
+        Get an Extended ``http:api`` object by path.
+
+        Notes:
+            The path argument is evaluated as a regular expression input, and will be
+            used to get the first HTTP API handler whose path value has a match.
+        ''',
+         'type': {'type': 'function', '_funcname': 'getHttpApiByPath',
+                  'args': (
+                      {'name': 'path', 'type': 'string',
+                       'desc': 'Path to use to retrieve an object.'},
+                  ),
+                  'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``$lib.null`` if there is no match.'}}},
+        {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
-                  'returns': {'type': 'list', 'desc': 'A list of http:api objects'}}},
+                 'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},
         {'name': 'index', 'desc': 'Set the index for a given Extended HTTP API.',
          'type': {'type': 'function', '_funcname': 'setHttpApiIndx',
                   'args': (
@@ -1110,6 +1154,7 @@ class CortexHttpApi(s_stormtypes.Lib):
             'list': self.listHttpApis,
             'index': self.setHttpApiIndx,
             'response': self.makeHttpResponse,
+            'getByPath': self.getHttpApiByPath,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1122,6 +1167,15 @@ class CortexHttpApi(s_stormtypes.Lib):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         iden = await s_stormtypes.tostr(iden)
         adef = await self.runt.snap.core.getHttpExtApi(iden)
+        return HttpApi(self.runt, adef)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getHttpApiByPath(self, path):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
+        path = await s_stormtypes.tostr(path)
+        adef, _ = await self.runt.snap.core.getHttpExtApiByPath(path)
+        if adef is None:
+            return None
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1167,3 +1221,88 @@ class CortexHttpApi(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
         index = await s_stormtypes.toint(index)
         return await self.runt.snap.view.core.setHttpApiIndx(iden, index)
+
+class StormPoolSetCmd(s_storm.Cmd):
+    '''
+    Setup a Storm query offload mirror pool for the Cortex.
+    '''
+    name = 'cortex.storm.pool.set'
+    def getArgParser(self):
+        pars = s_storm.Cmd.getArgParser(self)
+        pars.add_argument('--connection-timeout', type='int', default=2,
+            help='The maximum amount of time to wait for a connection from the pool to become available.')
+        pars.add_argument('--sync-timeout', type='int', default=2,
+            help='The maximum amount of time to wait for the mirror to be in sync with the leader')
+        pars.add_argument('url', type='str', required=True, help='The telepath URL for the AHA service pool.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe: # pragma: no cover
+            mesg = 'cortex.storm.pool.set arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        mesg = 'cortex.storm.pool.set command requires global admin permissions.'
+        self.runt.reqAdmin(mesg=mesg)
+
+        async for node, path in genr: # pragma: no cover
+            yield node, path
+
+        try:
+            s_telepath.chopurl(self.opts.url)
+        except s_exc.BadUrl as e:
+            raise s_exc.BadArg(mesg=f'Unable to set Storm pool URL from url={self.opts.url} : {e.get("mesg")}') from None
+
+        opts = {
+            'timeout:sync': self.opts.sync_timeout,
+            'timeout:connection': self.opts.connection_timeout,
+        }
+
+        await self.runt.snap.core.setStormPool(self.opts.url, opts)
+        await self.runt.printf('Storm pool configuration set.')
+
+class StormPoolDelCmd(s_storm.Cmd):
+    '''
+    Remove a Storm query offload mirror pool configuration.
+
+    Notes:
+        This will result in tearing down any Storm queries currently being serviced by the Storm pool.
+        This may result in this command raising an exception if it was offloaded to a pool member. That would be an expected behavior.
+    '''
+    name = 'cortex.storm.pool.del'
+
+    async def execStormCmd(self, runt, genr):
+
+        mesg = 'cortex.storm.pool.del command requires global admin permissions.'
+        self.runt.reqAdmin(mesg=mesg)
+
+        async for node, path in genr: # pragma: no cover
+            yield node, path
+
+        await self.runt.snap.core.delStormPool()
+        await self.runt.printf('Storm pool configuration removed.')
+
+class StormPoolGetCmd(s_storm.Cmd):
+    '''
+    Display the current Storm query offload mirror pool configuration.
+    '''
+    name = 'cortex.storm.pool.get'
+
+    async def execStormCmd(self, runt, genr):
+
+        mesg = 'cortex.storm.pool.get command requires global admin permissions.'
+        self.runt.reqAdmin(mesg=mesg)
+
+        async for node, path in genr: # pragma: no cover
+            yield node, path
+
+        item = await self.runt.snap.core.getStormPool()
+        if item is None:
+            await self.runt.printf('No Storm pool configuration found.')
+            return
+
+        url, opts = item
+
+        await self.runt.printf(f'Storm Pool URL: {url}')
+        await self.runt.printf(f'Sync Timeout (secs): {opts.get("timeout:sync")}')
+        await self.runt.printf(f'Connection Timeout (secs): {opts.get("timeout:connection")}')

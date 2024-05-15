@@ -237,6 +237,13 @@ class Node:
             for item in valu:
                 retn.append((name, (dest, item)))
 
+        for name in refs.get('ndefarray', ()):
+            if (valu := self.props.get(name)) is None:
+                continue
+
+            for item in valu:
+                retn.append((name, item))
+
         return retn
 
     async def set(self, name, valu, init=False):
@@ -472,10 +479,12 @@ class Node:
                                    form=self.form.full, tag=tag)
 
         pref = name + '.'
+        exists = self.tags.get(name, s_common.novalu) is not s_common.novalu
 
         todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
 
-        if len(path) > 1:
+        # only prune when we're actually deleting a tag
+        if len(path) > 1 and exists:
 
             parent = '.'.join(path[:-1])
 
@@ -511,7 +520,7 @@ class Node:
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
 
         edits.extend(self._getTagPropDel(name))
-        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+        if exists:
             edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         return edits

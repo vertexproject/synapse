@@ -209,6 +209,27 @@ class ProtoNode:
         if tagnode is not s_common.novalu:
             return self.ctx.loadNode(tagnode)
 
+        # check for an :isnow tag redirection in our hierarchy...
+        toks = info.get('toks')
+        for i in range(len(toks)):
+
+            toktag = '.'.join(toks[:i + 1])
+            toknode = await self.ctx.snap.getTagNode(toktag)
+            if toknode is s_common.novalu:
+                continue
+
+            tokvalu = toknode.ndef[1]
+            if tokvalu == toktag:
+                continue
+
+            realnow = tokvalu + norm[len(toktag):]
+            tagnode = await self.ctx.snap.getTagNode(realnow)
+            if tagnode is not s_common.novalu:
+                return self.ctx.loadNode(tagnode)
+
+            norm, info = await self.ctx.snap.getTagNorm(realnow)
+            break
+
         return await self.ctx.addNode('syn:tag', norm, norminfo=info)
 
     def getTag(self, tag):
@@ -619,10 +640,6 @@ class Snap(s_base.Base):
 
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
-        self.trigson = self.core.trigson
-
-    def disableTriggers(self):
-        self.trigson = False
 
     async def getSnapMeta(self):
         '''
@@ -661,6 +678,33 @@ class Snap(s_base.Base):
         self.onfini(runt)
         return runt
 
+    async def _joinEmbedStor(self, storage, embeds):
+        for nodePath, relProps in embeds.items():
+            await asyncio.sleep(0)
+            iden = relProps.get('*')
+            if not iden:
+                continue
+
+            stor = await self.view.getStorNodes(s_common.uhex(iden))
+            for relProp in relProps.keys():
+                await asyncio.sleep(0)
+                if relProp == '*':
+                    continue
+
+                for idx, layrstor in enumerate(stor):
+                    await asyncio.sleep(0)
+                    props = layrstor.get('props')
+                    if not props:
+                        continue
+
+                    if relProp not in props:
+                        continue
+
+                    if 'embeds' not in storage[idx]:
+                        storage[idx]['embeds'] = {}
+
+                    storage[idx]['embeds'][f'{nodePath}::{relProp}'] = props[relProp]
+
     async def iterStormPodes(self, text, opts, user=None):
         '''
         Yield packed node tuples for the given storm query text.
@@ -673,7 +717,9 @@ class Snap(s_base.Base):
 
         show_storage = False
 
-        self.core._logStormQuery(text, user, info={'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
+        info = opts.get('_loginfo', {})
+        info.update({'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
+        self.core._logStormQuery(text, user, info=info)
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')
@@ -703,6 +749,8 @@ class Snap(s_base.Base):
                 embdef = embeds.get(node.form.name)
                 if embdef is not None:
                     pode[1]['embeds'] = await node.getEmbeds(embdef)
+                    if show_storage:
+                        await self._joinEmbedStor(pode[1]['storage'], pode[1]['embeds'])
 
             yield pode
 

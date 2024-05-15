@@ -254,6 +254,7 @@ testmodel = {
                 ('size', ('int', {}), {}),
                 ('names', ('array', {'type': 'str'}), {}),
             ),
+            'interfaces': ('inet:proto:request',)
         }),
     ),
     'types': (
@@ -397,6 +398,7 @@ testmodel = {
             ('baz', ('nodeprop', {}), {}),
             ('tick', ('test:time', {}), {}),
             ('hehe', ('str', {}), {}),
+            ('ndefs', ('array', {'type': 'ndef'}), {}),
         )),
 
         ('test:migr', {}, (
@@ -1443,7 +1445,7 @@ class SynTest(unittest.TestCase):
         Get an Aha cell that is configured for provisioning on aha.loop.vertex.link.
 
         Args:
-            conf: Optional configuraiton information for the Aha cell.
+            conf: Optional configuration information for the Aha cell.
             dirn: Optional path to create the Aha cell in.
 
         Returns:
@@ -2343,6 +2345,8 @@ class SynTest(unittest.TestCase):
             return await core.nodes(query, opts)
         return await core.schedCoro(coro())
 
+ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
+
 class StormPkgTest(SynTest):
 
     vcr = None
@@ -2350,12 +2354,26 @@ class StormPkgTest(SynTest):
     pkgprotos = ()
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, conf=None, dirn=None):
+    async def getTestCore(self, conf=None, dirn=None, prepkghook=None):
 
         async with SynTest.getTestCore(self, conf=None, dirn=None) as core:
 
+            if prepkghook is not None:
+                await prepkghook(core)
+
             for pkgproto in self.pkgprotos:
-                self.eq(0, await s_genpkg.main((pkgproto, '--no-docs', '--push', core.getLocalUrl())))
+
+                pkgdef = s_genpkg.loadPkgProto(pkgproto, no_docs=True, readonly=True)
+
+                waiter = None
+                if pkgdef.get('onload') is not None:
+                    waiter = core.waiter(1, 'core:pkg:onload:complete')
+
+                await core.addStormPkg(pkgdef)
+
+                if waiter is not None:
+                    self.nn(await waiter.wait(timeout=ONLOAD_TIMEOUT),
+                            f'Package onload failed to run for {pkgdef.get("name")}')
 
             if self.assetdir is not None:
 
@@ -2371,4 +2389,7 @@ class StormPkgTest(SynTest):
             yield core
 
     async def initTestCore(self, core):
+        '''
+        This is executed after the package has been loaded and a VCR context has been entered.
+        '''
         pass

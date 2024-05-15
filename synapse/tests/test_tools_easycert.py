@@ -151,6 +151,19 @@ class TestEasyCert(s_t_utils.SynTest):
             argv = ['--importfile', 'cas', '--certdir', tstpath, 'nope']
             self.raises(s_exc.NoSuchFile, s_easycert.main, argv, outp=outp)
 
+    def test_easycert_code(self):
+        with self.getTestDir() as dirn:
+            outp = self.getTestOutp()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--ca', 'woot'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--code', 'wootpipe', '--signas', 'woot'), outp=outp))
+            outp.expect('code/wootpipe.crt')
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--code', 'selfpipe'), outp=outp))
+            outp.expect('code/selfpipe.crt')
+
     def test_easycert_revokeas(self):
 
         with self.getTestDir() as dirn:
@@ -158,7 +171,17 @@ class TestEasyCert(s_t_utils.SynTest):
             self.eq(0, s_easycert.main(('--certdir', dirn, '--ca', 'woot'), outp=outp))
 
             outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--ca', 'inner', '--signas', 'woot'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--crl', 'woot'), outp=outp))
+            outp.expect('CRL saved:')
+
+            outp.clear()
             self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'woot', 'newp@newp.newp'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'woot', '--code', 'testpipe'), outp=outp))
 
             outp.clear()
             self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'woot', '--server', 'newp.newp'), outp=outp))
@@ -168,6 +191,12 @@ class TestEasyCert(s_t_utils.SynTest):
 
             outp.clear()
             self.eq(0, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', '--server', 'newp.newp'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', '--ca', 'inner'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', '--code', 'testpipe'), outp=outp))
 
             outp.clear()
             self.eq(1, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'noexist'), outp=outp))

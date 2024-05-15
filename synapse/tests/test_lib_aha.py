@@ -6,6 +6,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
@@ -186,8 +187,8 @@ class AhaTest(s_test.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 with self.raises(s_exc.BadArg):
-                    await cryo.ahaclient.waitready(timeout=2)
-                    await cryo.ahaclient.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
+                    _proxy = await cryo.ahaclient.proxy(timeout=2)
+                    await _proxy.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
 
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
@@ -885,6 +886,27 @@ class AhaTest(s_test.SynTest):
                 self.isin('Provisioning aha:network must be equal to the Aha servers network',
                           cm.exception.get('mesg'))
 
+                # We can generate urls and then drop them en-mass. They will not usable.
+                provurls = []
+                enrlursl = []
+                async with aha.getLocalProxy() as proxy:
+                    provurls.append(await proxy.addAhaSvcProv('00.cell'))
+                    provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
+                    enrlursl.append(await proxy.addAhaUserEnroll('bob'))
+                    enrlursl.append(await proxy.addAhaUserEnroll('alice'))
+
+                    await proxy.clearAhaSvcProvs()
+                    await proxy.clearAhaUserEnrolls()
+
+                for url in provurls:
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        async with await s_telepath.openurl(url) as client:
+                            self.fail(f'Connected to an expired provisioning URL {url}')  # pragma: no cover
+                for url in enrlursl:
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        async with await s_telepath.openurl(url) as prox:
+                            self.fail(f'Connected to an expired enrollment URL {url}')  # pragma: no cover
+
     async def test_aha_httpapi(self):
 
         conf = {
@@ -1104,7 +1126,7 @@ class AhaTest(s_test.SynTest):
                     ready = svcinfo.get('ready')
                     online = svcinfo.get('online')
                     self.none(online)
-                    self.true(ready)  # Ready is not cleared upon restart
+                    self.false(ready)  # Ready is cleared upon restart / setting service down.
 
                     n = 3
                     if len(stack._exit_callbacks) > 0:
@@ -1124,8 +1146,6 @@ class AhaTest(s_test.SynTest):
     async def test_aha_service_pools(self):
 
         async with self.getTestAhaProv() as aha:
-
-            import synapse.cortex as s_cortex
 
             async with await s_base.Base.anit() as base:
 
@@ -1148,12 +1168,23 @@ class AhaTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
 
-                    with self.raises(s_exc.BadArg):
-                        await s_telepath.open('aha://pool00...')
+                    # Pool has no members....
+                    pool = await s_telepath.open('aha://pool00...')
+                    self.eq(0, pool.size())
+                    waiter = pool.waiter(0, 'svc:add')
 
                     msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                    self.len(1, await waiter.wait(timeout=12))
+                    prox = await pool.proxy(timeout=12)
+                    info = await prox.getCellInfo()
+                    self.eq('00', info.get('cell').get('aha').get('name'))
+                    self.eq(1, pool.size())
+                    await pool.fini()
+                    self.eq(0, pool.size())
+                    self.true(prox.isfini)
 
                     poolinfo = await aha.getAhaPool('pool00...')
                     self.len(1, poolinfo['services'])
@@ -1162,6 +1193,9 @@ class AhaTest(s_test.SynTest):
                     self.stormIsInPrint('Pool: pool00.loop.vertex.link', msgs)
                     self.stormIsInPrint('    00.loop.vertex.link', msgs)
                     self.stormIsInPrint('1 pools', msgs)
+
+                    msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.loop.vertex.link))')
+                    self.stormIsInPrint('aha:pool: pool00.loop.vertex.link', msgs)
 
                     async with await s_telepath.open('aha://pool00...') as pool:
 
@@ -1211,7 +1245,12 @@ class AhaTest(s_test.SynTest):
 
                         msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
                         self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (00...) removed from service pool (pool00.loop.vertex.link)', msgs)
+                        self.stormIsInPrint('AHA service (00.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)',
+                                            msgs)
+
+                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('Did not remove (00...) from the service pool.', msgs)
 
                         await waiter.wait(timeout=3)
                         run00 = await (await pool.proxy(timeout=3)).getCellRunId()
@@ -1320,3 +1359,90 @@ class AhaTest(s_test.SynTest):
                     svcinfo = snfo.get('svcinfo')
                     ready = svcinfo.get('ready')
                     self.true(ready)
+
+    async def test_aha_provision_longname(self):
+        # Run a long network name and try provisioning with values that would exceed CSR
+        # and certificate functionality.
+        with self.withNexusReplay() as stack:
+
+            with self.getTestDir() as dirn:
+                aha00dirn = s_common.gendir(dirn, 'aha00')
+                svc0dirn = s_common.gendir(dirn, 'svc00')
+                async with await s_base.Base.anit() as cm:
+                    # Add enough space to allow aha CA bootstraping.
+                    basenet = 'loop.vertex.link'
+                    networkname = f'{"x" * (64 - 7 - len(basenet))}.{basenet}'
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': networkname,
+                        'provision:listen': f'ssl://aha.{networkname}:0'
+                    }
+                    name = aconf.get('aha:name')
+                    netw = aconf.get('aha:network')
+                    dnsname = f'{name}.{netw}'
+
+                    aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    addr, port = aha.provdmon.addr
+                    # update the config to reflect the dynamically bound port
+                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+                    # do this config ex-post-facto due to port binding...
+                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaSvcProv('00.svc', provinfo=None)
+                    self.isin('Hostname value must not exceed 64 characters in length.',
+                              errcm.exception.get('mesg'))
+                    self.isin('len=65', errcm.exception.get('mesg'))
+
+                    # We can generate a 64 character names though.
+                    onetime = await aha.addAhaSvcProv('00.sv', provinfo=None)
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
+                    await cm.enter_context(svc0)
+
+                    # Cannot generate a user cert that would be a problem for signing
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaUserEnroll('ruhroh')
+                    self.isin('Username value must not exceed 64 characters in length.',
+                              errcm.exception.get('mesg'))
+                    self.isin('len=65', errcm.exception.get('mesg'))
+
+                    # We can generate a name that is 64 characters in length and have its csr signed
+                    onetime = await aha.addAhaUserEnroll('vvvvv')
+                    async with await s_telepath.openurl(onetime) as prox:
+                        userinfo = await prox.getUserInfo()
+                        ahauser = userinfo.get('aha:user')
+                        ahanetw = userinfo.get('aha:network')
+                        username = f'{ahauser}@{ahanetw}'
+                        byts = aha.certdir.genUserCsr(username)
+                        byts = await prox.signUserCsr(byts)
+                        self.nn(byts)
+
+                    # 0 length inputs
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaSvcProv('')
+                    self.isin('Empty name values are not allowed for provisioning.', errcm.exception.get('mesg'))
+                    with self.raises(s_exc.BadArg) as errcm:
+                        await aha.addAhaUserEnroll('')
+                    self.isin('Empty name values are not allowed for provisioning.', errcm.exception.get('mesg'))
+
+            # add an aha bootstrapping test failure
+            with self.getTestDir() as dirn:
+                aha00dirn = s_common.gendir(dirn, 'aha00')
+                async with await s_base.Base.anit() as cm:
+                    # Make the network too long that we cannot bootstrap the CA
+                    basenet = 'loop.vertex.link'
+                    networkname = f'{"x" * (64 - len(basenet))}.{basenet}'
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': networkname,
+                        'provision:listen': f'ssl://aha.{networkname}:0'
+                    }
+                    with self.raises(s_exc.CryptoErr) as errcm:
+                        await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
+                    self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))

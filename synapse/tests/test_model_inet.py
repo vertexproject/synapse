@@ -2650,6 +2650,9 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_model_inet_email_message(self):
 
         async with self.getTestCore() as core:
+
+            flow = s_common.guid()
+
             q = '''
             [
             inet:email:message="*"
@@ -2662,15 +2665,23 @@ class InetModelTest(s_t_utils.SynTest):
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :cc=(baz@faz.org, foo@bar.com, baz@faz.org)
                 :bytes="*"
+                :received:from:ipv4=1.2.3.4
+                :received:from:ipv6="::1"
+                :received:from:fqdn=smtp.vertex.link
+                :flow=$flow
             ]
 
             {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
             {[( inet:email:message:attachment=($node, "*") :name=sploit.exe )]}
             '''
-            nodes = await core.nodes(q)
+            nodes = await core.nodes(q, opts={'vars': {'flow': flow}})
             self.len(1, nodes)
 
             self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
+            self.eq(nodes[0].get('received:from:ipv6'), '::1')
+            self.eq(nodes[0].get('received:from:ipv4'), 0x01020304)
+            self.eq(nodes[0].get('received:from:fqdn'), 'smtp.vertex.link')
+            self.eq(nodes[0].get('flow'), flow)
 
             self.len(1, await core.nodes('inet:email:message:to=woot@woot.com'))
             self.len(1, await core.nodes('inet:email:message:date=2015'))
@@ -2756,3 +2767,70 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
+
+    async def test_model_inet_tls_handshake(self):
+
+        async with self.getTestCore() as core:
+            props = {
+                'ja3': '1' * 32,
+                'ja3s': '2' * 32,
+                'client': 'tcp://1.2.3.4:8888',
+                'server': 'tcp://5.6.7.8:9999'
+            }
+
+            nodes = await core.nodes('''
+                [
+                    inet:tls:handshake=*
+                        :time=now
+                        :flow=*
+                        :server=$server
+                        :server:cert=*
+                        :server:fingerprint:ja3=$ja3s
+                        :client=$client
+                        :client:cert=*
+                        :client:fingerprint:ja3=$ja3
+                ]
+            ''', opts={'vars': props})
+            self.len(1, nodes)
+            self.nn(nodes[0].get('time'))
+            self.nn(nodes[0].get('flow'))
+            self.nn(nodes[0].get('server:cert'))
+            self.nn(nodes[0].get('client:cert'))
+
+            self.eq(props['ja3'], nodes[0].get('client:fingerprint:ja3'))
+            self.eq(props['ja3s'], nodes[0].get('server:fingerprint:ja3'))
+
+            self.eq(props['client'], nodes[0].get('client'))
+            self.eq(props['server'], nodes[0].get('server'))
+
+    async def test_model_inet_ja3(self):
+
+        async with self.getTestCore() as core:
+
+            ja3 = '76e7b0cb0994d60a4b3f360a088fac39'
+            nodes = await core.nodes('[ inet:tls:ja3:sample=(tcp://1.2.3.4, $md5) ]', opts={'vars': {'md5': ja3}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.eq(nodes[0].get('ja3'), ja3)
+
+            ja3 = '4769ad08107979c719d86270e706fed5'
+            nodes = await core.nodes('[ inet:tls:ja3s:sample=(tcp://2.2.2.2, $md5) ]', opts={'vars': {'md5': ja3}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://2.2.2.2')
+            self.eq(nodes[0].get('ja3s'), ja3)
+
+    async def test_model_inet_tls_certs(self):
+
+        async with self.getTestCore() as core:
+
+            server = 'e4f6db65dbaa7a4598f7379f75dcd5f5'
+            client = 'df8d1f7e04f7c4a322e04b0b252e2851'
+            nodes = await core.nodes('[inet:tls:servercert=(tcp://1.2.3.4:1234, $server)]', opts={'vars': {'server': server}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:1234')
+            self.eq(nodes[0].get('cert'), server)
+
+            nodes = await core.nodes('[inet:tls:clientcert=(tcp://5.6.7.8:5678, $client)]', opts={'vars': {'client': client}})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('client'), 'tcp://5.6.7.8:5678')
+            self.eq(nodes[0].get('cert'), client)

@@ -27,8 +27,8 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.graph as s_stormlib_graph
@@ -225,6 +225,7 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'required': ['cert', 'sign'],
         },
+        # TODO: Remove me after Synapse 3.0.0.
         'synapse_minversion': {
             'type': ['array', 'null'],
             'items': {'type': 'number'}
@@ -1206,6 +1207,8 @@ stormcmds = (
         'descr': addcrondescr,
         'cmdargs': (
             ('query', {'help': 'Query for the cron job to execute.'}),
+            ('--pool', {'action': 'store_true', 'default': False,
+                'help': 'Allow the cron job to be run by a mirror from the query pool.'}),
             ('--minute', {'help': 'Minute value for job or recurrence period.'}),
             ('--name', {'help': 'An optional name for the cron job.'}),
             ('--doc', {'help': 'An optional doc string for the cron job.'}),
@@ -1225,6 +1228,7 @@ stormcmds = (
                                   minute=$cmdopts.minute,
                                   hour=$cmdopts.hour,
                                   day=$cmdopts.day,
+                                  pool=$cmdopts.pool,
                                   month=$cmdopts.month,
                                   year=$cmdopts.year,
                                   hourly=$cmdopts.hourly,
@@ -1372,6 +1376,7 @@ stormcmds = (
                 $lib.print('iden:            {iden}', iden=$job.iden)
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
+                $lib.print(`pool:            {$job.pool}`)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
                 $lib.print('# errors:        {errcount}', errcount=$job.errcount)
@@ -1824,6 +1829,8 @@ class Runtime(s_base.Base):
     opaque object which is called through, but not dereferenced.
 
     '''
+
+    _admin_reason = s_hiveauth._allowedReason(True, isadmin=True)
     async def __anit__(self, query, snap, opts=None, user=None, root=None):
 
         await s_base.Base.__anit__(self)
@@ -2187,25 +2194,93 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
+    def allowedReason(self, perms, gateiden=None, default=None):
+        '''
+        Similar to allowed, but always prefer the default value specified by the caller.
+        Default values are still pulled from permdefs if there is a match there; but still prefer caller default.
+        This results in a ternary response that can be used to know if a rule had a positive/negative or no match.
+        The matching reason metadata is also returned.
+        '''
+        if self.asroot:
+            return self._admin_reason
+
+        if default is None:
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', default)
+
+        return self.user.getAllowedReason(perms, gateiden=gateiden, default=default)
+
     def confirmPropSet(self, prop, layriden=None):
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.setperms):
+        meta0 = self.allowedReason(prop.setperms[0], gateiden=layriden)
+
+        if meta0.isadmin:
             return
 
-        self.user.raisePermDeny(prop.setperms[-1], gateiden=layriden)
+        allowed0 = meta0.value
+
+        meta1 = self.allowedReason(prop.setperms[1], gateiden=layriden)
+        allowed1 = meta1.value
+
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # This is a allow-with-precedence case.
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.rule) >= len(meta1.rule):
+                    return
+                self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
+            return
+
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed0 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.rule) > len(meta0.rule):
+                return
+
+        self.user.raisePermDeny(prop.setperms[0], gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
 
         if layriden is None:
             layriden = self.snap.wlyr.iden
 
-        if any(self.allowed(perm, gateiden=self.snap.wlyr.iden) for perm in prop.delperms):
+        meta0 = self.allowedReason(prop.delperms[0], gateiden=layriden)
+
+        if meta0.isadmin:
             return
 
-        self.user.raisePermDeny(prop.delperms[-1], gateiden=layriden)
+        allowed0 = meta0.value
+        meta1 = self.allowedReason(prop.delperms[1], gateiden=layriden)
+        allowed1 = meta1.value
+
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # This is a allow-with-precedence case.
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.rule) >= len(meta1.rule):
+                    return
+                self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
+            return
+
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed0 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.rule) > len(meta0.rule):
+                return
+
+        self.user.raisePermDeny(prop.delperms[0], gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
@@ -2238,27 +2313,26 @@ class Runtime(s_base.Base):
 
     async def execute(self, genr=None):
         try:
-            with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
 
-                async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
-                    nodegenr, empty = await s_ast.pullone(nodegenr)
+            async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
+                nodegenr, empty = await s_ast.pullone(nodegenr)
 
-                    if empty:
-                        return
+                if empty:
+                    return
 
-                    rules = self.opts.get('graph')
-                    if rules not in (False, None):
-                        if rules is True:
-                            rules = {'degrees': None, 'refs': True}
-                        elif isinstance(rules, str):
-                            rules = await self.snap.core.getStormGraph(rules)
+                rules = self.opts.get('graph')
+                if rules not in (False, None):
+                    if rules is True:
+                        rules = {'degrees': None, 'refs': True}
+                    elif isinstance(rules, str):
+                        rules = await self.snap.core.getStormGraph(rules)
 
-                        subgraph = s_ast.SubGraph(rules)
-                        nodegenr = subgraph.run(self, nodegenr)
+                    subgraph = s_ast.SubGraph(rules)
+                    nodegenr = subgraph.run(self, nodegenr)
 
-                    async for item in nodegenr:
-                        self.tick()
-                        yield item
+                async for item in nodegenr:
+                    self.tick()
+                    yield item
 
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
@@ -3589,7 +3663,7 @@ class CopyToCmd(Cmd):
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.props.keys():
-                    runt.confirmPropSet(node.form.props[name])
+                    runt.confirmPropSet(node.form.props[name], layriden=layriden)
 
                 for tag in node.tags.keys():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
@@ -3787,7 +3861,23 @@ class MergeCmd(Cmd):
             runt.confirmPropDel(prop, layriden=layr0)
             runt.confirmPropSet(prop, layriden=layr1)
 
+        tags = []
+        tagadds = []
         for tag, valu in sode.get('tags', {}).items():
+            if valu != (None, None):
+                tagadds.append(tag)
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            else:
+                tags.append((len(tag), tag))
+
+        for _, tag in sorted(tags, reverse=True):
+            look = tag + '.'
+            if any([tagadd.startswith(look) for tagadd in tagadds]):
+                continue
+
+            tagadds.append(tag)
             tagperm = tuple(tag.split('.'))
             runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
             runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
