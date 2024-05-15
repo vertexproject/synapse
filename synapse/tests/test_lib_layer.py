@@ -2106,3 +2106,20 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:campaign#bar:footime*duration=?'))
 
             await core.nodes('[ ou:campaign=(foo,) -:period -#foo -#bar:footime ]')
+
+    async def test_layer_ndef_indexes(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
+            await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')
+            await core.nodes('[ risk:vulnerable=* :node=(it:dev:int, 1) ]')
+            await core.nodes('[ risk:vulnerable=* :node=(inet:fqdn, foo.com) ]')
+
+            self.len(1, await core.nodes('risk:vulnerable:node*form=it:dev:int'))
+            self.len(1, await core.nodes('risk:vulnerable:node*form=inet:fqdn'))
+            self.len(0, await core.nodes('risk:vulnerable:node*form=it:dev:str'))
+
+            self.len(2, await core.nodes('test:str:ndefs*[form=it:dev:int]'))
+            self.len(1, await core.nodes('test:str:ndefs*[form=inet:fqdn]'))
+            self.len(0, await core.nodes('test:str:ndefs*[form=it:dev:str]'))

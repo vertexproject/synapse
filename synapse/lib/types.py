@@ -1491,6 +1491,19 @@ class Ndef(Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
+        self.storlifts |= {
+            'form=': self._storLiftForm
+        }
+
+    def _storLiftForm(self, cmpr, valu):
+        valu = valu.lower().strip()
+        if self.modl.form(valu) is None:
+            raise s_exc.NoSuchForm.init(valu)
+
+        return (
+            (cmpr, valu, self.stortype),
+        )
+
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)
 

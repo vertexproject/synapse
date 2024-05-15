@@ -691,7 +691,7 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('test:str=ndefs -> it:dev:int'))
             self.len(3, await core.nodes('test:str=ndefs :ndefs -> *'))
             self.len(2, await core.nodes('test:str=ndefs :ndefs -> it:dev:int'))
-                        
+
             await core.nodes('[ risk:technique:masquerade=* :node=(it:dev:int, 1) ]')
             nodes = await core.nodes('it:dev:int=1 <- *')
             self.len(2, nodes)
@@ -715,7 +715,7 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('test:str', nodes[0].ndef[0])
 
-            await core.nodes('teststr=ndefs [ :ndefs-=(it:dev:int, 1) ]')
+            await core.nodes('test:str=ndefs [ :ndefs-=(it:dev:int, 1) ]')
             self.len(0, await core.nodes('it:dev:int=1 <- *'))
             nodes = await core.nodes('it:dev:int=2 <- *')
             self.len(2, nodes)

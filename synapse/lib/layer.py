@@ -1360,13 +1360,10 @@ class StorTypeIval(StorType):
 
 class StorTypeMsgp(StorType):
 
-    stortype = STOR_TYPE_MSGP
-
     def __init__(self, layr):
-        StorType.__init__(self, layr, self.stortype)
+        StorType.__init__(self, layr, STOR_TYPE_MSGP)
         self.lifters.update({
             '=': self._liftMsgpEq,
-            '~=': self._liftRegx,
         })
 
     async def _liftMsgpEq(self, liftby, valu, reverse=False):
@@ -1377,8 +1374,29 @@ class StorTypeMsgp(StorType):
     def indx(self, valu):
         return (s_common.buid(valu),)
 
-class StorTypeNdef(StorTypeMsgp):
-    stortype = STOR_TYPE_NDEF
+class StorTypeNdef(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_NDEF)
+        self.lifters |= {
+            '=': self._liftNdefEq,
+            'form=': self._liftNdefFormEq,
+        }
+
+    async def _liftNdefEq(self, liftby, valu, reverse=False):
+        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
+        indx = formabrv + s_common.buid(valu)
+        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+            yield item
+
+    async def _liftNdefFormEq(self, liftby, valu, reverse=False):
+        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu, None)
+        for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
+            yield item
+
+    def indx(self, valu):
+        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
+        return (formabrv + s_common.buid(valu),)
 
 class StorTypeLatLon(StorType):
 
@@ -3355,7 +3373,7 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(univarryabrv + oldi, nid, db=self.indxdb)
 
                     if realtype == STOR_TYPE_NDEF:
-                        if (oldnid := self.core.getNidByBuid(oldi)) is not None:
+                        if (oldnid := self.core.getNidByBuid(oldi[8:])) is not None:
                             self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
 
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
@@ -3377,7 +3395,7 @@ class Layer(s_nexus.Pusher):
                         self.indxcounts.inc(univabrv, -1)
 
                     if oldt == STOR_TYPE_NDEF:
-                        if (oldnid := self.core.getNidByBuid(oldi)) is not None:
+                        if (oldnid := self.core.getNidByBuid(oldi[8:])) is not None:
                             self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
 
                 if oldt == STOR_TYPE_IVAL:
@@ -3512,7 +3530,7 @@ class Layer(s_nexus.Pusher):
                         self.layrslab.delete(univarryabrv + indx, nid, db=self.indxdb)
 
                     if realtype == STOR_TYPE_NDEF:
-                        if (oldnid := self.core.getNidByBuid(indx)) is not None:
+                        if (oldnid := self.core.getNidByBuid(indx[8:])) is not None:
                             self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
@@ -3532,7 +3550,7 @@ class Layer(s_nexus.Pusher):
                     self.indxcounts.inc(univabrv, -1)
 
                 if stortype == STOR_TYPE_NDEF:
-                    if (oldnid := self.core.getNidByBuid(indx)) is not None:
+                    if (oldnid := self.core.getNidByBuid(indx[8:])) is not None:
                         self.layrslab.delete(self.ndefabrv + oldnid, nid + abrv, db=self.indxdb)
 
             if stortype == STOR_TYPE_IVAL:
