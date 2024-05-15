@@ -2359,7 +2359,8 @@ class Runtime(s_base.Base):
 
         show_storage = False
 
-        info = {'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden}
+        info = self.opts.get('_loginfo', {})
+        info.update({'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden})
         self.view.core._logStormQuery(self.query.text, self.user, info=info)
 
         # { form: ( embedprop, ... ) }

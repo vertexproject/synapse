@@ -744,7 +744,7 @@ class LibModelMigration(s_stormtypes.Lib):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        async with self.runt.snap.getEditor() as editor:
+        async with self.runt.view.getEditor() as editor:
 
             proto = editor.loadNode(dst)
 
@@ -761,33 +761,31 @@ class LibModelMigration(s_stormtypes.Lib):
         if not isinstance(dst, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() dest argument must be a node.')
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
 
             proto = editor.loadNode(dst)
             verbs = set()
 
-            async for (verb, n2iden) in src.iterEdgesN1():
+            async for (verb, n2nid) in src.iterEdgesN1():
 
                 if verb not in verbs:
                     self.runt.layerConfirm(('node', 'edge', 'add', verb))
                     verbs.add(verb)
 
-                if await snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
-                    await proto.addEdge(verb, n2iden)
+                if await view.getNodeByNid(n2nid) is not None:
+                    await proto.addEdge(verb, n2nid)
 
-            dstiden = s_common.ehex(dst.buid)
-
-            async for (verb, n1iden) in src.iterEdgesN2():
+            async for (verb, n1nid) in src.iterEdgesN2():
 
                 if verb not in verbs:
                     self.runt.layerConfirm(('node', 'edge', 'add', verb))
                     verbs.add(verb)
 
-                n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+                n1proto = await editor.getNodeByNid(n1nid)
                 if n1proto is not None:
-                    await n1proto.addEdge(verb, dstiden)
+                    await n1proto.addEdge(verb, dst.nid)
 
     async def _methCopyTags(self, src, dst, overwrite=False):
 
@@ -798,17 +796,17 @@ class LibModelMigration(s_stormtypes.Lib):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
 
             proto = editor.loadNode(dst)
 
-            for name, valu in src.tags.items():
+            for name, valu in src._getTagsDict().items():
                 self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
                 await proto.addTag(name, valu=valu)
 
-            for tagname, tagprops in src.tagprops.items():
+            for tagname, tagprops in src._getTagPropsDict().items():
                 for propname, valu in tagprops.items():
                     if overwrite or not dst.hasTagProp(tagname, propname):
                         await proto.setTagProp(tagname, propname, valu) # use tag perms

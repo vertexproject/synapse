@@ -284,7 +284,7 @@ class StormlibModelTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ test:str=src test:str=dst test:str=deny test:str=other ]')
-            otheriden = nodes[3].iden()
+            othernid = nodes[3].nid
 
             lowuser = await core.auth.addUser('lowuser')
             aslow = {'user': lowuser.iden}
@@ -339,8 +339,8 @@ class StormlibModelTest(s_test.SynTest):
                 }
             ''')
             self.len(1, nodes)
-            self.eq([('bar', otheriden)], [edge async for edge in nodes[0].iterEdgesN1()])
-            self.eq([('foo', otheriden)], [edge async for edge in nodes[0].iterEdgesN2()])
+            self.eq([('bar', othernid)], [edge async for edge in nodes[0].iterEdgesN1()])
+            self.eq([('foo', othernid)], [edge async for edge in nodes[0].iterEdgesN2()])
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyEdges($n, $node) }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
