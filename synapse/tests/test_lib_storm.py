@@ -648,7 +648,7 @@ class StormTest(s_t_utils.SynTest):
                                 return($node.iden())
                             }
                             function dyncall() {
-                                return($lib.feed.list())
+                                return($lib.queue.list())
                             }
                             function dyniter() {
                                 for $item in $lib.queue.add(dyniter).gets(wait=$lib.false) {}
@@ -736,7 +736,7 @@ class StormTest(s_t_utils.SynTest):
             email = await core.callStorm('''
                 $iden = $lib.guid()
                 $props = ({"email": "visi@vertex.link"})
-                $lib.feed.ingest(syn.nodes, (
+                $lib.feed.ingest((
                     ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 ps:contact=$iden
@@ -747,7 +747,7 @@ class StormTest(s_t_utils.SynTest):
             email = await core.callStorm('''
                 $iden = $lib.guid()
                 $props = ({"email": "visi@vertex.link"})
-                yield $lib.feed.genr(syn.nodes, (
+                yield $lib.feed.genr((
                     ( (ps:contact, $iden), ({"props": $props})),
                 ))
                 return(:email)
@@ -3095,6 +3095,27 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
+    async def test_storm_viewexec(self):
+
+        async with self.getTestCore() as core:
+
+            view = await core.callStorm('return( $lib.view.get().iden )')
+            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
+
+            q = '''view.exec $view {
+                $lib.print(foo)
+                $lib.warn(bar)
+                $lib.fire(cool, some=event)
+                $lib.csv.emit(item1, item2, item3)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
+            self.len(1, [m for m in msgs if m[0] == 'csv:row'])
+            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
+
     async def test_storm_argv_parser(self):
 
         pars = s_storm.Parser(prog='hehe')
@@ -4237,6 +4258,20 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.get('#btag'))
+
+            q = '''runas visi {
+                $lib.print(foo)
+                $lib.warn(bar)
+                $lib.fire(cool, some=event)
+                $lib.csv.emit(item1, item2, item3)
+                [ it:dev:str=nomsg ]
+             }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo', msgs)
+            self.stormIsInWarn('bar', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
+            self.len(1, [m for m in msgs if m[0] == 'csv:row'])
+            self.len(0, [m for m in msgs if m[0] == 'node:edits'])
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:

@@ -276,44 +276,24 @@ class CoreApi(s_cell.CellApi):
         view = self.cell.getView()
         self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def getFeedFuncs(self):
-        '''
-        Get a list of Cortex feed functions.
-
-        Notes:
-            Each feed dictionary has the name of the feed function, the
-            full docstring for the feed function, and the first line of
-            the docstring broken out in their own keys for easy use.
-
-        Returns:
-            tuple: A tuple of dictionaries.
-        '''
-        return await self.cell.getFeedFuncs()
-
-    async def addFeedData(self, name, items, *, viewiden=None):
+    async def addFeedData(self, items, *, viewiden=None):
 
         view = self.cell.getView(viewiden, user=self.user)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-        parts = name.split('.')
-
-        self.user.confirm(('feed:data', *parts), gateiden=view.wlyr.iden)
+        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
-                                     info={'name': name,
-                                           'view': view.iden,
+                                     info={'view': view.iden,
                                            'nitems': len(items),
                                            })
 
-        func = self.cell.getFeedFunc(name)
-        if func is None:
-            raise s_exc.NoSuchName(name=name)
+        logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
 
-        logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
-
-        await func(view, items, user=self.user)
+        async for node in view.addNodes(items, user=self.user):
+            await asyncio.sleep(0)
 
     async def count(self, text, opts=None):
         '''
@@ -804,7 +784,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.viewsbylayer = collections.defaultdict(list)
 
         self.modules = {}
-        self.feedfuncs = {}
         self.stormcmds = {}
 
         self.maxnodes = self.conf.get('max:nodes')
@@ -860,7 +839,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initCoreHive()
         self._initStormLibs()
-        self._initFeedFuncs()
 
         self.modsbyiface = {}
         self.stormiface_search = self.conf.get('storm:interface:search')
@@ -3721,12 +3699,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if path:
                 self.addStormLib(path, ctor)
 
-    def _initFeedFuncs(self):
-        '''
-        Registration for built-in Cortex feed functions.
-        '''
-        self.setFeedFunc('syn.nodes', self._addSynNodes)
-
     def _initCortexHttpApi(self):
         '''
         Registration for built-in Cortex httpapi endpoints
@@ -4854,43 +4826,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.axready.wait()
         return self.axon.iden
 
-    def setFeedFunc(self, name, func):
-        '''
-        Set a data ingest function.
-
-        def func(view, items):
-            loaditems...
-        '''
-        self.feedfuncs[name] = func
-
-    def getFeedFunc(self, name):
-        '''
-        Get a data ingest function.
-        '''
-        return self.feedfuncs.get(name)
-
-    async def getFeedFuncs(self):
-        ret = []
-        for name, ctor in self.feedfuncs.items():
-            # TODO - Future support for feed functions defined via Storm.
-            doc = getattr(ctor, '__doc__', None)
-            if doc is None:
-                doc = 'No feed docstring'
-            doc = doc.strip()
-            desc = doc.split('\n')[0]
-            ret.append({'name': name,
-                        'desc': desc,
-                        'fulldoc': doc,
-                        })
-        return tuple(ret)
-
-    async def _addSynNodes(self, view, items, user=None):
-        '''
-        Add nodes to the Cortex via the packed node format.
-        '''
-        async for node in view.addNodes(items, user=user):
-            await asyncio.sleep(0)
-
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)
         await self._bumpUserDmons(iden)
@@ -5315,12 +5250,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addFeedData(self, name, items, *, user=None, viewiden=None):
+    async def addFeedData(self, items, *, user=None, viewiden=None):
         '''
-        Add data using a feed/parser function.
+        Add bulk data in nodes format.
 
         Args:
-            name (str): The name of the feed record format.
             items (list): A list of items to ingest.
             viewiden (str): The iden of a view to use.
                 If a view is not specified, the default view is used.
@@ -5330,16 +5264,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-        func = self.getFeedFunc(name)
-        if func is None:
-            raise s_exc.NoSuchName(name=name)
-
         if user is None:
             user = self.auth.rootuser
 
-        logger.info(f'User (user.name) adding feed data ({name}): {len(items)}')
+        logger.info(f'User (user.name) adding feed data: {len(items)}')
 
-        await func(view, items, user=user)
+        async for node in view.addNodes(items, user=user):
+            await asyncio.sleep(0)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''

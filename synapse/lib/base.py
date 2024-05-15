@@ -441,6 +441,26 @@ class Base:
         finally:
             self.off(evnt, func)
 
+    @contextlib.contextmanager
+    def onWithMulti(self, evnts, func):
+        '''
+        A context manager which can be used to add a callbacks and remove them when
+        using a ``with`` statement.
+
+        Args:
+            evnts (list):        A list of event names
+            func  (function):    A callback function to receive event tufo
+        '''
+        for evnt in evnts:
+            self.on(evnt, func)
+        # Allow exceptions to propagate during the context manager
+        # but ensure we cleanup our temporary callback
+        try:
+            yield self
+        finally:
+            for evnt in evnts:
+                self.off(evnt, func)
+
     async def waitfini(self, timeout=None):
         '''
         Wait for the base to fini()

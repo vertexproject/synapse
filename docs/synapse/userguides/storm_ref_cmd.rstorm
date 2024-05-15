@@ -1034,32 +1034,6 @@ The ``edges.del`` command is designed to delete multiple light edges to (or from
 .. storm-cli:: edges.del --help
 
 
-.. _storm-feed:
-
-feed
-----
-
-Storm includes ``feed.*`` commands that allow you to work with feeds (see :ref:`gloss-feed`).
-
-- `feed.list`_
-
-Help for individual ``feed.*`` commands can be displayed using:
-
-  ``<command> --help``
-
-
-.. _storm-feed-list:
-
-feed.list
-+++++++++
-
-The ``feed.list`` command displays available feed functions in the Cortex.
-
-**Syntax:**
-
-.. storm-cli:: feed.list --help
-
-
 .. _storm-gen:
 
 gen
