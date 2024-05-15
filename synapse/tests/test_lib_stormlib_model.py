@@ -222,33 +222,15 @@ class StormlibModelTest(s_test.SynTest):
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[ou:hasalias=(*, hehe)]')
 
-                with self.getAsyncLoggerStream('synapse.lib.snap',
+                with self.getAsyncLoggerStream('synapse.lib.view',
                                                'Prop ou:org:sic is locked due to deprecation') as stream:
                     data = (
                         (('ou:org', ('t0',)), {'props': {'sic': '5678'}}),
                     )
-                    await core.addFeedData('syn.nodes', data)
+                    await core.addFeedData(data)
                     self.true(await stream.wait(1))
                     nodes = await core.nodes('ou:org=(t0,)')
                     self.none(nodes[0].get('sic'))
-
-                # Coverage test for node.set()
-                async with await core.snap() as snap:
-                    snap.strict = False
-                    _msgs = []
-                    def append(evnt):
-                        _msgs.append(evnt)
-                    snap.link(append)
-                    nodes = await snap.nodes('ou:org=(t0,) [ :sic=5678 ]')
-                    snap.unlink(append)
-                    self.stormIsInWarn('Prop ou:org:sic is locked due to deprecation', _msgs)
-                    self.none(nodes[0].get('sic'))
-
-                    snap.strict = True
-                    with self.raises(s_exc.IsDeprLocked):
-                        await snap.nodes('ou:org=(t0,) [ :sic=5678 ]')
-
-                # End coverage test
 
                 mesgs = await core.stormlist('model.deprecated.locks')
                 self.stormIsInPrint('ou:org:sic: true', mesgs)

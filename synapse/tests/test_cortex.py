@@ -2309,20 +2309,9 @@ class CortexTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'haha'))
-                self.eq(node.getTag('bar'), (tick1, tick1 + 1))
-
-                # FIXME Snap.strict manipulation, remove in 3.0.0
-                # Sad path with snap.strict=False
-                snap.strict = False
-                waiter = snap.waiter(1, 'warn')
-                ret = await node.addTag('newp.newpnewp', ('2001', '1999'))
-                self.none(ret)
-                msgs = await waiter.wait(timeout=6)
-                self.len(1, msgs)
-                mesg = msgs[0]
-                self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
+            view = core.getView()
+            node = await view.getNodeByNdef(('test:str', 'haha'))
+            self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
             nodes = await core.nodes('test:str=haha')
@@ -2613,7 +2602,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(1, (await core.getFormCounts())['test:int'])
                 self.eq(2, (await core.getFormCounts())['test:str'])
 
-                node = await core.getNodeByNdef(('test:str', 'foo'))
+                node = await core.getView().getNodeByNdef(('test:str', 'foo'))
                 await node.delete()
 
                 self.eq(1, (await core.getFormCounts())['test:str'])
@@ -2851,20 +2840,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(arg_hit.get('hit'))
 
-    async def test_adddata(self):
-
-        data = ('foo', 'bar', 'baz')
-
-        async with self.getTestCore() as core:
-
-            await core.addFeedData('com.test.record', data)
-
-            vals = [node.ndef[1] for node in await core.nodes('test:str')]
-
-            vals.sort()
-
-            self.eq(vals, ('bar', 'baz', 'foo'))
-
     async def test_cell(self):
 
         data = ('foo', 'bar', 'baz')
@@ -2876,20 +2851,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(corever, s_version.version)
             self.eq(corever, cellver)
 
-            await proxy.addFeedData('com.test.record', data)
-
             # test the remote storm result counting API
             self.eq(0, await proxy.count('test:pivtarg'))
-
-            # Test the getFeedFuncs command to enumerate feed functions.
-            ret = await proxy.getFeedFuncs()
-            resp = {rec.get('name'): rec for rec in ret}
-            self.isin('com.test.record', resp)
-            self.isin('syn.nodes', resp)
-            rec = resp.get('syn.nodes')
-            self.eq(rec.get('name'), 'syn.nodes')
-            self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
-            self.eq(rec.get('fulldoc'), 'Add nodes to the Cortex via the packed node format.')
 
             # Test the stormpkg apis
             otherpkg = {
@@ -3055,24 +3018,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             buf = stream.getvalue()
             mesg = json.loads(buf.split('\n')[0])
             self.eq(mesg.get('view'), view)
-
-    async def test_strict(self):
-
-        async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-
-                node = await snap.addNode('test:str', 'foo')
-
-                await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
-                await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
-
-                # FIXME Snap.strict manipulation, remove in 3.0.0
-                snap.strict = False
-                self.none(await snap.addNode('test:str', s_common.novalu))
-
-                self.false(await node.set('newpnewp', 10))
-                self.false(await node.set('tick', (20, 30)))
 
     async def test_getcoremods(self):
 
@@ -3447,13 +3392,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             seeds = []
             alldefs = {}
 
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3498,27 +3441,23 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
+            async for node in core.view.iterStormPodes('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
 
-                async for node, path in snap.storm('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': iden}):
 
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': iden}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3537,15 +3476,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
+            async for node in core.view.iterStormPodes(text):
 
-            async with await core.snap() as snap:
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                async for node, path in snap.storm(text):
-
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3553,13 +3489,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             rules['filterinput'] = False
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             # our TLDs are no longer omits
             self.len(4, seeds)
@@ -3575,13 +3510,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             # The tlds are omitted, but since we are yieldfiltered=True,
             # we still get the seeds. We also get an inet:dns:a node we
@@ -3598,13 +3532,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:dns:a:fqdn=woot.com',
-                                                   opts={'graph': rules}):
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+            async for node in core.view.iterStormPodes('inet:dns:a:fqdn=woot.com', opts={'graph': rules}):
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
+
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             self.len(1, seeds)
             self.len(5, alldefs)
@@ -3622,9 +3555,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '#deathstar | graph --degrees 2 --refs'
             ndefs = set()
-            async with await core.snap() as snap:
-                async for node, path in snap.storm(q):
-                    ndefs.add(node.ndef)
+            async for node in core.view.iterStormPodes(q):
+                ndefs.add(node[0])
             self.isin(('inet:asn', 1138), ndefs)
 
             # Runtsafety test
@@ -4169,15 +4101,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('1.2.3.4', node.repr('ipv4'))
 
-    async def test_coverage(self):
-
-        # misc tests to increase code coverage
-        async with self.getTestCore() as core:
-            await core.nodes('[ test:str=foo ]')
-            self.nn(await core.getNodeByNdef(('test:str', 'foo')))
-            with self.raises(s_exc.NoSuchForm):
-                await core.getNodeByNdef(('test:newp', 'hehe'))
-
     async def test_cortex_storm_vars(self):
 
         async with self.getTestCore() as core:
@@ -4278,7 +4201,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             node1 = (await core0.nodes('[ test:int=1 ]'))[0]
             await node1.setData('foo', 'bar')
             pack = node1.pack()
-            pack[1]['nodedata']['foo'] = 'bar'
+            pack[1]['nodedata'] = {'foo': 'bar'}
             pack[1]['edges'] = (('refs', ('inet:ipv4', '1.2.3.4')),
                                 ('newp', ('test:newp', 'newp')),
                                 ('newp', ('test:int', 'newp')))
@@ -4299,7 +4222,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
 
-            await core1.addFeedData('syn.nodes', podes)
+            await core1.addFeedData(podes)
             self.len(4, await core1.nodes('test:int'))
             self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
             self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
@@ -4315,50 +4238,50 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = [m[1] for m in msgs if m[0] == 'node'][0]
             pode = (('test:int', 4), pode[1])
 
-            await core1.addFeedData('syn.nodes', [pode])
+            await core1.addFeedData([pode])
             nodes = await core1.nodes('test:int=4')
             self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
 
             # Put bad data in
             data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=newp -#test.newp'))
 
             data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
 
             data = [(('test:str', 'ahh'), {'nodedata': 123})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=ahh')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
             data = [(('test:str', 'baddata'), {'nodedata': {123: 'newp',
                                                             'newp': b'123'}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=baddata')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
             data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
             data = [(('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=fake')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
             data = [(('syn:cmd', 'newp'), {})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(0, await core1.nodes('syn:cmd=newp'))
 
             data = [(('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
@@ -4369,13 +4292,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             data = [(('test:int', 1), {'tags': {'noprop': [None, None]},
                                        'tagprops': {'noprop': {'test': 'newp'}}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
 
             data = [(('test:int', 1), {'tags': {'noprop': (None, None),
                                                 'noprop.two': (None, None)},
                                        'tagprops': {'noprop': {'test': 1}}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden})
             self.len(1, nodes)
             self.eq(1, nodes[0].getTagProp('noprop', 'test'))
@@ -4383,7 +4306,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Test a bulk add
             tags = {'tags': {'test': (2020, 2022)}}
             data = [(('test:int', x), tags) for x in range(2001)]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:int#test')
             self.len(2001, nodes)
 
@@ -4392,14 +4315,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             data = [(('test:int', 1), {'props': {'int2': 2},
                                        'tags': {'test': [2020, 2021]},
                                        'tagprops': {'noprop': {'test': 1}}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
             self.eq(2, nodes[0].get('int2'))
             self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
             data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
             self.eq((2020, 2022), nodes[0].getTag('newtag'))
@@ -4412,20 +4335,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 {'tags': {'test.12345': (None, None)},
                  'tagprops': {'test.12345': {'score': (1, 1)}}}
             )]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
             data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
+            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock ou:org:sic')
 
             data = [(('ou:org', '*'), {'props': {'sic': 1111, 'name': 'foo'}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('ou:org', opts={'view': view2_iden})
             self.len(1, nodes)
             self.nn(nodes[0].get('name'))
@@ -4436,7 +4359,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             data = [(('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
                                                             'ndefprop': ('test:deprprop', 'a'),
                                                             'okayprop': 'okay'}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform', opts={'view': view2_iden})
             self.len(1, nodes)
             self.nn(nodes[0].get('okayprop'))
@@ -5741,7 +5664,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         }
                     }, name=viewdmon)
                 '''
-                # Iden is captured from the current snap
                 await core.nodes(q, opts={'view': view2_iden})
                 await asyncio.sleep(0)
 

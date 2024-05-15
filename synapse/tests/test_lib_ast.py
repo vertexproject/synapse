@@ -9,7 +9,7 @@ import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
-import synapse.lib.snap as s_snap
+import synapse.lib.view as s_view
 
 import synapse.tests.utils as s_test
 
@@ -2639,8 +2639,8 @@ class AstTest(s_test.SynTest):
 
         calls = []
 
-        origprop = s_snap.Snap.nodesByProp
-        origvalu = s_snap.Snap.nodesByPropValu
+        origprop = s_view.View.nodesByProp
+        origvalu = s_view.View.nodesByPropValu
 
         async def checkProp(self, name, reverse=False, subtype=None):
             calls.append(('prop', name))
@@ -2652,8 +2652,8 @@ class AstTest(s_test.SynTest):
             async for node in origvalu(self, name, cmpr, valu, reverse=reverse):
                 yield node
 
-        with mock.patch('synapse.lib.snap.Snap.nodesByProp', checkProp):
-            with mock.patch('synapse.lib.snap.Snap.nodesByPropValu', checkValu):
+        with mock.patch('synapse.lib.view.View.nodesByProp', checkProp):
+            with mock.patch('synapse.lib.view.View.nodesByPropValu', checkValu):
                 async with self.getTestCore() as core:
 
                     self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
@@ -3218,21 +3218,20 @@ class AstTest(s_test.SynTest):
 
             nodes = []
 
-            async with await core.snap() as snap:
-                async for node, path in snap.storm(':md5 -> hash:md5', opts={'idens': [fiden], 'graph': rules}):
-                    nodes.append(node)
+            async for node in core.view.iterStormPodes(':md5 -> hash:md5', opts={'idens': [fiden], 'graph': rules}):
+                nodes.append(node)
 
-                    edges = path.metadata.get('edges')
-                    self.len(1, edges)
-                    self.eq(edges, [
-                        [fn.iden(), {
-                            "type": "prop",
-                            "prop": "md5",
-                            "reverse": True
-                        }]
-                    ])
+                edges = node[1]['path'].get('edges')
+                self.len(1, edges)
+                self.eq(edges, [
+                    [fn.iden(), {
+                        "type": "prop",
+                        "prop": "md5",
+                        "reverse": True
+                    }]
+                ])
 
-                    self.true(path.metadata.get('graph:seed'))
+                self.true(node[1]['path'].get('graph:seed'))
 
             self.len(1, nodes)
 

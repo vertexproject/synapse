@@ -127,8 +127,8 @@ class Node(NodeBase):
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, nid, ndef, soderefs):
-        self.snap = snap
+    def __init__(self, view, nid, ndef, soderefs):
+        self.view = view
 
         self.nid = nid
         self.ndef = ndef
@@ -141,9 +141,7 @@ class Node(NodeBase):
 
         self.sodes = [sref.sode for sref in soderefs]
 
-        self.form = snap.core.model.form(self.ndef[0])
-
-        self.nodedata = {}
+        self.form = view.core.model.form(self.ndef[0])
 
     async def getStorNodes(self):
         '''
@@ -160,7 +158,7 @@ class Node(NodeBase):
             if sode.get('antivalu') is not None:
                 return(retn)
 
-            iden = self.snap.view.layers[indx].iden
+            iden = self.view.layers[indx].iden
 
             if sode.get('valu') is not None:
                 retn.setdefault('ndef', iden)
@@ -197,23 +195,23 @@ class Node(NodeBase):
         return f'Node{{{self.pack()}}}'
 
     async def addEdge(self, verb, n2nid):
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2nid)
 
     async def delEdge(self, verb, n2nid):
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             return await editor.delEdge(verb, n2nid)
 
     async def iterEdgesN1(self, verb=None):
-        async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb, stop=self.lastlayr()):
+        async for edge in self.view.iterNodeEdgesN1(self.nid, verb=verb, stop=self.lastlayr()):
             yield edge
 
     async def iterEdgesN2(self, verb=None):
-        async for edge in self.snap.iterNodeEdgesN2(self.nid, verb=verb):
+        async for edge in self.view.iterNodeEdgesN2(self.nid, verb=verb):
             yield edge
 
     async def iterEdgeVerbs(self, n2nid):
-        async for verb in self.snap.iterEdgeVerbs(self.nid, n2nid, stop=self.lastlayr()):
+        async for verb in self.view.iterEdgeVerbs(self.nid, n2nid, stop=self.lastlayr()):
             yield verb
 
     async def storm(self, runt, text, opts=None, path=None):
@@ -226,7 +224,7 @@ class Node(NodeBase):
         Note:
             If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
         '''
-        query = await self.snap.core.getStormQuery(text)
+        query = await self.view.core.getStormQuery(text)
 
         if opts is None:
             opts = {}
@@ -269,7 +267,6 @@ class Node(NodeBase):
             'tags': self._getTagsDict(),
             'props': self.getProps(),
             'tagprops': self._getTagPropsDict(),
-            'nodedata': self.nodedata,
         })
 
         if dorepr:
@@ -300,7 +297,7 @@ class Node(NodeBase):
 
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:
-                step = cache[buid] = await node.snap.getNodeByBuid(buid)
+                step = cache[buid] = await node.view.getNodeByBuid(buid)
 
             return step
 
@@ -371,17 +368,11 @@ class Node(NodeBase):
         Returns:
             (bool): True if the property was changed.
         '''
-        if self.snap.readonly:
+        if self.view.readonly:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        prop = self.form.props.get(name)
-        if prop is None:
-            mesg = f'No property named {name} on form {self.form.name}.'
-            await self.snap._raiseOnStrict(s_exc.NoSuchProp, mesg)
-            return False
-
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             return await editor.set(name, valu)
 
     def has(self, name):
@@ -517,7 +508,7 @@ class Node(NodeBase):
         '''
         Remove a property from a node and return the value
         '''
-        async with self.snap.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self) as protonode:
             return await protonode.pop(name)
 
     def hasTag(self, name):
@@ -693,14 +684,14 @@ class Node(NodeBase):
         Returns:
             None: This returns None.
         '''
-        async with self.snap.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self) as protonode:
             await protonode.addTag(tag, valu=valu)
 
     async def delTag(self, tag, init=False):
         '''
         Delete a tag from the node.
         '''
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             await editor.delTag(tag)
 
     def getTagProps(self, tag):
@@ -851,11 +842,11 @@ class Node(NodeBase):
         '''
         Set the value of the given tag property.
         '''
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             await editor.delTagProp(tag, name)
 
     async def delete(self, force=False):
@@ -889,19 +880,17 @@ class Node(NodeBase):
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
+                async for _ in self.view.nodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
-                    return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
-                                                          iden=self.iden())
+                    raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-            async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
+            async for refr in self.view.nodesByPropTypeValu(formname, formvalu):
 
                 if refr.nid == self.nid:
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
-                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
-                                                      iden=self.iden())
+                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
             async for edge in self.iterEdgesN2():
 
@@ -909,41 +898,33 @@ class Node(NodeBase):
                     continue
 
                 mesg = 'Other nodes still have light edges to this node.'
-                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
-                                                      iden=self.iden())
+                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-        async with self.snap.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self) as protonode:
             await protonode.delete()
 
-        self.snap.livenodes.pop(self.nid)
+        self.view.clearCachedNode(self.nid)
 
     async def hasData(self, name):
-        if name in self.nodedata:
-            return True
-
-        return await self.snap.hasNodeData(self.nid, name, stop=self.lastlayr())
+        return await self.view.hasNodeData(self.nid, name, stop=self.lastlayr())
 
     async def getData(self, name, defv=None):
-        valu = self.nodedata.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
-
-        return await self.snap.getNodeData(self.nid, name, defv=defv, stop=self.lastlayr())
+        return await self.view.getNodeData(self.nid, name, defv=defv, stop=self.lastlayr())
 
     async def setData(self, name, valu):
-        async with self.snap.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self) as protonode:
             await protonode.setData(name, valu)
 
     async def popData(self, name):
-        async with self.snap.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self) as protonode:
             return await protonode.popData(name)
 
     async def iterData(self):
-        async for item in self.snap.iterNodeData(self.nid):
+        async for item in self.view.iterNodeData(self.nid):
             yield item
 
     async def iterDataKeys(self):
-        async for name in self.snap.iterNodeDataKeys(self.nid):
+        async for name in self.view.iterNodeDataKeys(self.nid):
             yield name
 
 class RuntNode(NodeBase):
@@ -951,12 +932,12 @@ class RuntNode(NodeBase):
     Runtime node instances are a separate class to minimize isrunt checking in
     real node code.
     '''
-    def __init__(self, snap, pode):
-        self.snap = snap
+    def __init__(self, view, pode):
+        self.view = view
         self.ndef = pode[0]
         self.pode = pode
         self.buid = s_common.buid(self.ndef)
-        self.form = snap.core.model.form(self.ndef[0])
+        self.form = view.core.model.form(self.ndef[0])
 
         self.nid = self.buid
 
@@ -978,11 +959,11 @@ class RuntNode(NodeBase):
     async def set(self, name, valu):
         prop = self._reqValidProp(name)
         norm = prop.type.norm(valu)[0]
-        return await self.snap.core.runRuntPropSet(self, prop, norm)
+        return await self.view.core.runRuntPropSet(self, prop, norm)
 
     async def pop(self, name, init=False):
         prop = self._reqValidProp(name)
-        return await self.snap.core.runRuntPropDel(self, prop)
+        return await self.view.core.runRuntPropDel(self, prop)
 
     async def addTag(self, name, valu=None):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
@@ -1028,6 +1009,7 @@ class Path:
         }
 
         self.metadata = {}
+        self.nodedata = collections.defaultdict(dict)
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -1066,6 +1048,24 @@ class Path:
         if path:
             info['nodes'] = [node.iden() for node in self.nodes]
         return info
+
+    def setData(self, nid, name, valu):
+        self.nodedata[nid][name] = valu
+
+    def popData(self, nid, name, defv=None):
+        if (nodedata := self.nodedata.get(nid, s_common.novalu)) is s_common.novalu:
+            return defv
+
+        return nodedata.pop(name, defv)
+
+    def getData(self, nid, name=None, defv=None):
+        if (nodedata := self.nodedata.get(nid, s_common.novalu)) is s_common.novalu:
+            return defv
+
+        if name is not None:
+            return nodedata.get(name, defv)
+
+        return nodedata
 
     def fork(self, node):
 

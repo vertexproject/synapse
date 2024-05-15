@@ -54,7 +54,7 @@ class LibWhois(s_stormtypes.Lib):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         if len(guid_vals) <= 1:
-            await self.runt.snap.warn(f'Insufficient guid vals identified, using random guid: {guid_vals}')
+            await self.runt.warn(f'Insufficient guid vals identified, using random guid: {guid_vals}')
             return s_common.guid()
 
         return s_common.guid(sorted(guid_vals))

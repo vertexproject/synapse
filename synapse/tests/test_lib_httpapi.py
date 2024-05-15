@@ -1641,10 +1641,6 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('NoSuchView', (await resp.json())['code'])
 
-                body = {'name': 'asdf'}
-                resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
-                self.eq('NoSuchFunc', (await resp.json())['code'])
-
                 body = {'items': [(('inet:ipv4', 0x05050505), {'tags': {'hehe': (None, None)}})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('ok', (await resp.json())['status'])

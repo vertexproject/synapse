@@ -496,10 +496,9 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(nodes[0].getTagNames(), ['foo', 'baz'])
 
             await core.setTagModel("foo", "regex", (None, "[a-zA-Z]{3}"))
-            async with await core.snap() as snap:
-                snap.strict = False
-                nodes = await snap.nodes('test:str=foo $tags=(["foo", "foo.a"]) [ -#$tags ]')
-                self.eq(nodes[0].getTagNames(), ['baz'])
+
+            nodes = await core.nodes('test:str=foo $tags=(["foo", "foo.a"]) [ -#$tags ]')
+            self.eq(nodes[0].getTagNames(), ['baz'])
 
     async def test_storm_lib_base(self):
         pdef = {
@@ -2581,16 +2580,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Error during time format', ernfos[0][1].get('mesg'))
 
-            # $lib.time.sleep causes cache flushes on the snap
-            async with await core.snap() as snap:
-                # lift a node into the cache
-                data0 = await alist(snap.storm('test:str=1234'))
-                self.len(1, snap.nodecache)
-                # use $lib.time.sleep
-                data1 = await alist(snap.storm('$lib.time.sleep(0) fini { test:str=1234 } '))
-                self.ne(id(data0[0][0]), id(data1[0][0]))
-                self.eq(data0[0][0].ndef, data1[0][0].ndef)
-
             # Get time parts
             self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
             self.eq(10, await core.callStorm('return($lib.time.month(20211031020304))'))
@@ -2628,20 +2617,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(3, nodes)
             self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
             self.nn(await core.getStormDmon(iden))
-
-            # lib.time.ticker also clears the snap cache
-            async with await core.snap() as snap:
-                # lift a node into the cache
-                _ = await alist(snap.storm('test:int=0'))
-                self.len(1, snap.nodecache)
-                q = '''
-                $visi=$lib.queue.get(visi)
-                for $tick in $lib.time.ticker(0.01, count=3) {
-                    $visi.put($tick)
-                }
-                '''
-                _ = await alist(snap.storm(q))
-                self.len(0, snap.nodecache)
 
     async def test_stormtypes_telepath(self):
 
@@ -3324,20 +3299,12 @@ class StormTypesTest(s_test.SynTest):
             ]
             svars = {'data': data}
             opts = {'vars': svars}
-            q = '$lib.feed.ingest("syn.nodes", $data)'
+            q = '$lib.feed.ingest($data)'
             nodes = await core.nodes(q, opts)
             self.eq(nodes, [])
             self.len(2, await core.nodes('test:str'))
             self.len(1, await core.nodes('test:str#test'))
             self.len(1, await core.nodes('test:str:tick=3001'))
-
-            q = 'feed.list'
-            mesgs = await core.stormlist(q)
-            self.stormIsInPrint('Storm feed list', mesgs)
-            self.stormIsInPrint('com.test.record', mesgs)
-            self.stormIsInPrint('No feed docstring', mesgs)
-            self.stormIsInPrint('syn.nodes', mesgs)
-            self.stormIsInPrint('Add nodes to the Cortex via the packed node format', mesgs)
 
             data = [
                 (('test:str', 'sup!'), {'props': {'tick': '2001'},
@@ -3346,7 +3313,7 @@ class StormTypesTest(s_test.SynTest):
                                         'tags': {}}),
             ]
             svars['data'] = data
-            q = '$genr=$lib.feed.genr("syn.nodes", $data) $lib.print($genr) yield $genr'
+            q = '$genr=$lib.feed.genr($data) $lib.print($genr) yield $genr'
             nodes = await core.nodes(q, opts=opts)
             self.len(2, nodes)
             self.eq({'sup!', 'dawg'},
@@ -3357,7 +3324,7 @@ class StormTypesTest(s_test.SynTest):
                 (('test:int', 'newp'), {}),
             ]
             svars['data'] = data
-            q = '$lib.feed.ingest("syn.nodes", $data)'
+            q = '$lib.feed.ingest($data)'
             msgs = await core.stormlist(q, opts)
             self.stormIsInWarn("BadTypeValu", msgs)
             errs = [m for m in msgs if m[0] == 'err']
@@ -5047,15 +5014,16 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.lift.byNodeData(newp) $node.data.load(lulz)')
             self.len(0, nodes)
 
-            nodes = await core.nodes('yield $lib.lift.byNodeData(hehe) $node.data.load(lulz)')
-            self.len(1, nodes)
-            self.eq(('inet:ipv4', 0x01020304), nodes[0].ndef)
-            self.eq('haha', nodes[0].nodedata['hehe'])
-            self.eq('haha', nodes[0].pack()[1]['nodedata']['hehe'])
-            self.eq('rofl', nodes[0].nodedata['lulz'])
-            self.eq('rofl', nodes[0].pack()[1]['nodedata']['lulz'])
+            msgs = await core.stormlist('yield $lib.lift.byNodeData(hehe) $node.data.load(lulz)')
+            podes = [n[1] for n in msgs if n[0] == 'node']
+            self.len(1, podes)
+            pode = podes[0]
+            self.eq(('inet:ipv4', 0x01020304), pode[0])
 
-            # Since the nodedata is loaded right away, getting the data shortcuts the layer
+            # nodedata must still be specifically loaded even when lifting by data name
+            self.none(pode[1]['nodedata'].get('hehe'))
+            self.eq('rofl', pode[1]['nodedata']['lulz'])
+
             q = 'yield $lib.lift.byNodeData(hehe) $lib.print($node.data.get(hehe))'
             msgs = await core.stormlist(q)
             self.stormIsInPrint('haha', msgs)

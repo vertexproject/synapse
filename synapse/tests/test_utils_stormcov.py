@@ -5,7 +5,7 @@ import unittest.mock as mock
 from coverage.exceptions import NoSource
 
 import synapse.lib.ast as s_ast
-import synapse.lib.snap as s_snap
+import synapse.lib.view as s_view
 import synapse.lib.stormctrl as s_stormctrl
 
 import synapse.tests.files as s_files
@@ -43,7 +43,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.true(ctrltracer.has_dynamic_source_filename())
         self.none(ctrltracer.dynamic_source_filename(None, inspect.currentframe()))
 
-        pivotracer = plugin.file_tracer('synapse/lib/snap.py')
+        pivotracer = plugin.file_tracer('synapse/lib/view.py')
         self.true(pivotracer.has_dynamic_source_filename())
         self.none(pivotracer.dynamic_source_filename(None, inspect.currentframe()))
 
@@ -77,7 +77,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             with mock.patch('synapse.lib.stormctrl.StormCtrlFlow.__init__', __init__):
                 await core.stormlist(s_files.getAssetStr('stormcov/lookup.storm'), opts={'mode': 'lookup'})
 
-            orig = s_snap.Snap.nodesByPropValu
+            orig = s_view.View.nodesByPropValu
             async def nodesByPropValu(self, full, cmpr, valu):
                 frame = inspect.currentframe()
                 if pivotracer.dynamic_source_filename(None, frame) is not None:
@@ -86,7 +86,7 @@ class TestUtilsStormcov(s_utils.SynTest):
                 async for item in orig(self, full, cmpr, valu):
                     yield item
 
-            with mock.patch('synapse.lib.snap.Snap.nodesByPropValu', nodesByPropValu):
+            with mock.patch('synapse.lib.view.View.nodesByPropValu', nodesByPropValu):
                 await core.nodes(s_files.getAssetStr('stormcov/pivot.storm'))
 
             async def pullone(genr):
