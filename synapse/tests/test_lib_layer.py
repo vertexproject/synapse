@@ -2123,3 +2123,6 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str:ndefs*[form=it:dev:int]'))
             self.len(1, await core.nodes('test:str:ndefs*[form=inet:fqdn]'))
             self.len(0, await core.nodes('test:str:ndefs*[form=it:dev:str]'))
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('risk:vulnerable:node*form=newp')
