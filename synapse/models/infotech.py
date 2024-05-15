@@ -594,8 +594,14 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:cmd', ('str', {'strip': True}), {
                     'doc': 'A unique command-line string.',
-                    'ex': 'foo.exe --dostuff bar',
-                }),
+                    'ex': 'foo.exe --dostuff bar'}),
+
+                ('it:cmd:session', ('guid', {}), {
+                    'doc': 'A command line session with multiple commands run over time.'}),
+
+                ('it:cmd:history', ('guid', {}), {
+                    'doc': 'A single command executed within a session.'}),
+
                 ('it:query', ('str', {'strip': True}), {
                     'doc': 'A unique query string.',
                 }),
@@ -776,18 +782,27 @@ class ItModule(s_module.CoreModule):
                     ('keyboard:language', ('lang:language', {}), {
                         'doc': 'The primary keyboard input language configured on the host.'}),
 
-                    ('image', ('it:infra:image', {}), {
+                    ('image', ('it:software:image', {}), {
                         'doc': 'The container or OS image running on the host.'}),
 
                 )),
-                ('it:os:image', {}, (
-                    ('name', ('it:prod:softname', {}), {
+
+                ('it:software:image', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the image.'}),
-                    # ('account', ('inet:service:account', {}), {}),
-                    # ('author'
-                    # ('publishor', ('inet:service:account', {}),
+
+                    ('published', ('time', {}), {
+                        'doc': 'The contact information of the org or person who published the image.'}),
+
+                    ('publisher', ('ps:contact', {}), {
+                        'doc': 'The contact information of the org or person who published the image.'}),
+
+                    ('parents', ('array', {'type': 'it:software:image'}), {
+                        'doc': 'An array of parent images in precedence order.'}),
                 )),
 
+                ('it:storage:volume:type:taxonomy', {}), {}),
                 ('it:storage:volume', {}, (
 
                     ('id', ('str', {'strip': True}), {
@@ -799,17 +814,20 @@ class ItModule(s_module.CoreModule):
                     ('type', ('it:storage:volume:type:taxonomy', {}), {
                         'doc': 'A taxonomy of storage volume types.'}),
 
-                    # ('platform', ('inet:service:platform', {}), {
-                        # 'doc': 'The optional platform which provides
-
+                    ('size', ('int', {'min': 0}), {
+                        'doc': 'The size of the volume in bytes.'}),
                 )),
 
                 ('it:storage:mount', {}, (
+
                     ('host', ('it:host', {}), {
                         'doc': 'The host that has mounted the volume.'}),
 
-                    ('volume', ('it:infra:volume', {}), {
+                    ('volume', ('it:storage:volume', {}), {
                         'doc': 'The volume that the host has mounted.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path where the volume is mounted in the host filesystem.'}),
                 )),
 
                 ('it:log:event:type:taxonomy', {}, ()),
@@ -1974,6 +1992,24 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:cmd', {}, ()),
+                ('it:cmd:session', {}, (
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host where the command line session was executed.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The period over which the command line session was running.'}),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file containing the command history such as a .bash_history file.'}),
+                )),
+                ('it:cmd:history', {}, (
+                    ('cmd', ('it:cmd', {}), {
+                        'doc': 'The command that was executed.'}),
+                    ('session', ('it:cmd:session', {}), {
+                        'doc': 'The session that contains this history entry.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the command was executed.'}),
+                    ('index', ('int', {'min': 0}), {
+                        'doc': 'Used to order the commands when times are not available.'}),
+                )),
                 ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
