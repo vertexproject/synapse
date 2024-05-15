@@ -706,19 +706,19 @@ class FileModule(s_module.CoreModule):
                     ('flags', ('int', {}), {
                         'doc': 'The flags specified by the LNK header that control the structure of the LNK file.'}),
                     ('entry:primary', ('file:path', {}), {
-                        'doc': "The primary file path contained within the FileEntry structure of the LNK file."}),
+                        'doc': 'The primary file path contained within the FileEntry structure of the LNK file.'}),
                     ('entry:secondary', ('file:path', {}), {
-                        'doc': "The secondary file path contained within the FileEntry structure of the LNK file."}),
+                        'doc': 'The secondary file path contained within the FileEntry structure of the LNK file.'}),
                     ('entry:extended', ('file:path', {}), {
-                        'doc': "The extended file path contained within the extended FileEntry structure of the LNK file."}),
+                        'doc': 'The extended file path contained within the extended FileEntry structure of the LNK file.'}),
                     ('entry:localized', ('file:path', {}), {
-                        'doc': "The localized file path contained within the extended FileEntry structure of the LNK file."}),
+                        'doc': 'The localized file path contained within the extended FileEntry structure of the LNK file.'}),
                     ('entry:icon', ('file:path', {}), {
                         'doc': 'The icon file path contained within the StringData structure of the LNK file.'}),
                     ('environment:path', ('file:path', {}), {
-                        'doc': "The target file path contained within the EnvironmentVariableDataBlock structure of the LNK file."}),
+                        'doc': 'The target file path contained within the EnvironmentVariableDataBlock structure of the LNK file.'}),
                     ('environment:icon', ('file:path', {}), {
-                        'doc': "The icon file path contained within the IconEnvironmentDataBlock structure of the LNK file."}),
+                        'doc': 'The icon file path contained within the IconEnvironmentDataBlock structure of the LNK file.'}),
                     ('working', ('file:path', {}), {
                         'doc': 'The working directory used when activating the link target.'}),
                     ('relative', ('str', {}), {
