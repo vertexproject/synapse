@@ -408,6 +408,9 @@ class FileModule(s_module.CoreModule):
                     'doc': 'A section inside a Mach-O binary denoting a named region of bytes inside a segment.',
                 }),
 
+                ('file:mime:lnk', ('guid', {}), {
+                    'doc': 'The GUID of the metadata pulled from a Windows shortcut or LNK file.',
+                }),
             ),
 
             'forms': (
@@ -699,6 +702,43 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The file offset to the beginning of the section'}),
                 )),
 
+                ('file:mime:lnk', {}, (
+                    ('flags', ('int', {}), {
+                        'doc': 'The flags specified by the LNK header that control the structure of the LNK file.'}),
+                    ('entry:primary', ('file:path', {}), {
+                        'doc': 'The primary file path contained within the FileEntry structure of the LNK file.'}),
+                    ('entry:secondary', ('file:path', {}), {
+                        'doc': 'The secondary file path contained within the FileEntry structure of the LNK file.'}),
+                    ('entry:extended', ('file:path', {}), {
+                        'doc': 'The extended file path contained within the extended FileEntry structure of the LNK file.'}),
+                    ('entry:localized', ('file:path', {}), {
+                        'doc': 'The localized file path contained within the extended FileEntry structure of the LNK file.'}),
+                    ('entry:icon', ('file:path', {}), {
+                        'doc': 'The icon file path contained within the StringData structure of the LNK file.'}),
+                    ('environment:path', ('file:path', {}), {
+                        'doc': 'The target file path contained within the EnvironmentVariableDataBlock structure of the LNK file.'}),
+                    ('environment:icon', ('file:path', {}), {
+                        'doc': 'The icon file path contained within the IconEnvironmentDataBlock structure of the LNK file.'}),
+                    ('working', ('file:path', {}), {
+                        'doc': 'The working directory used when activating the link target.'}),
+                    ('relative', ('str', {'strip': True}), {
+                        'doc': 'The relative target path string contained within the StringData structure of the LNK file.'}),
+                    ('arguments', ('it:cmd', {}), {
+                        'doc': 'The command line arguments passed to the target file when the LNK file is activated.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the LNK file contained within the StringData section of the LNK file.'}),
+                    ('target:attrs', ('int', {}), {
+                        'doc': 'The attributes of the target file according to the LNK header.'}),
+                    ('target:size', ('int', {}), {
+                        'doc': 'The size of the target file according to the LNK header. The LNK format specifies that this is only the lower 32 bits of the target file size.'}),
+                    ('target:created', ('time', {}), {
+                        'doc': 'The creation time of the target file according to the LNK header.'}),
+                    ('target:accessed', ('time', {}), {
+                        'doc': 'The access time of the target file according to the LNK header.'}),
+                    ('target:written', ('time', {}), {
+                        'doc': 'The write time of the target file according to the LNK header.'}),
+                )),
             ),
 
         }

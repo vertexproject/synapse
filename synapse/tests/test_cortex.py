@@ -2430,6 +2430,41 @@ class CortexTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:int :loc -> test:newp')
             self.stormIsInErr('No property named test:newp', msgs)
 
+            # ndef pivots
+            await core.nodes('''
+                [
+                    ( test:str=ndefpivdst )
+                    ( test:str=ndefpivsrc :bar=(test:str, ndefpivdst) )
+                    ( test:str=ndefpivprp :bar=(test:str, ndefpivdst) )
+                ]
+            ''')
+
+            nodes = await core.nodes('test:str=ndefpivsrc -> test:str')
+            self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc -> test:str:bar')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:str=ndefpivdst -> test:str:bar')
+            self.sorteq(['ndefpivprp', 'ndefpivsrc'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> * +test:str')
+            self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:str:bar')
+            self.sorteq(['ndefpivprp', 'ndefpivsrc'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:str')
+            self.eq(['ndefpivdst'], [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('test:str=ndefpivsrc :bar -> test:int')
+            self.len(0, nodes)
+
+            await core.nodes('test:str=ndefpivdst delnode')
+            msgs = await core.stormlist('test:str=ndefpivsrc :bar -> test:str')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInWarn("Missing node corresponding to ndef ('test:str', 'ndefpivdst')", msgs)
+
             # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
                       'test:pivcomp :lulz <+- *',
