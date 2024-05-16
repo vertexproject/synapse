@@ -1501,7 +1501,18 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:login', ('guid', {}), {
                         'interfaces': ('inet:service:action',)}),
 
+                    ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of inet service methods.'}),
+
+                    ('inet:service:login:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of inet service types.'}),
+
                     ('inet:service:session', ('guid', {}), {
+                        'interfaces': ('inet:service:object',)}),
+
+                    ('inet:service:egress', ('guid', {}), {
                         'interfaces': ('inet:service:object',)}),
 
                     ('inet:service:group', ('guid', {}), {
@@ -1526,7 +1537,7 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:service:action',)}),
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('taxonomy',)}),
+                        'interfaces': ('meta:taxonomy',)}),
 
                     ('inet:service:resource', ('guid', {}), {
                         'interfaces': ('inet:service:object',)}),
@@ -1587,7 +1598,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'Properties common to objects within a service platform.',
                         'props': (
 
-                            ('id', ('str', {'strip': True}, {
+                            ('id', ('str', {'strip': True}), {
                                 'doc': 'A platform specific ID used to identify the node.'}),
 
                             ('period', ('ival', {}), {
@@ -1613,7 +1624,7 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:service:object',),
                         'props': (
 
-                            ('id', ('str', {'strip': True}, {
+                            ('id', ('str', {'strip': True}), {
                                 'doc': 'A platform specific ID used to identify the action.'}),
 
                             ('time', ('time', {}), {
@@ -3418,8 +3429,8 @@ class InetModule(s_module.CoreModule):
                         ('provider', ('ou:org', {}), {
                             'doc': 'The organization which operates the platform.'}),
 
-                        ('provider:name', ('ou:name', {}), (
-                            'doc': 'The name of the organization which operates the platform.')),
+                        ('provider:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization which operates the platform.'}),
                     )),
 
                     ('inet:service:instance', {}, (
@@ -3436,7 +3447,7 @@ class InetModule(s_module.CoreModule):
                             'ex': 'https://v.vtx.lk/slack',
                             'doc': 'The primary URL which identifies the service instance.'}),
 
-                        ('name', ('str', {'lower': True, 'onespace': True}) {
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
                             'ex': 'synapse users slack',
                             'doc': 'The name of the service instance.'}),
                     )),
@@ -3461,7 +3472,7 @@ class InetModule(s_module.CoreModule):
                         ('id', ('str', {'strip': True}), {
                             'doc': 'A platform specific ID used to identify the group.'}),
 
-                        ('name', ('inet:group', {}),
+                        ('name', ('inet:group', {}), {}),
                         ('profile', ('ps:contact', {}), {}),
                     )),
 
@@ -3496,7 +3507,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The period where the session was valid.'}),
                     )),
 
-                    ('inet:service:login:type:taxonomy', {}, ()),
                     ('inet:service:login', {}, (
 
                         ('method', ('inet:service:login:method:taxonomy', {}), {

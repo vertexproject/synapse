@@ -692,6 +692,17 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:sec:c2:config', ('guid', {}), {
                     'doc': 'An extracted C2 config from an executable.'}),
+                ('it:software:image', ('guid', {}), {
+                    'doc': 'The base image used to create a container or OS.'}),
+                ('it:storage:mount', ('guid', {}), {
+                    'doc': 'A storage volume that has been attached to an image.'}),
+                ('it:storage:volume', ('guid', {}), {
+                    'doc': 'A physical or logical storage volume that can be attached to a physical/virtual machine or container.'}),
+                ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of a storage volume.',
+                    'ex': 'network.smb',
+                    'interfaces': ('meta:taxonomy',),
+                }),
             ),
             'interfaces': (
                 ('it:host:activity', {
@@ -784,7 +795,6 @@ class ItModule(s_module.CoreModule):
 
                     ('image', ('it:software:image', {}), {
                         'doc': 'The container or OS image running on the host.'}),
-
                 )),
 
                 ('it:software:image', {}, (
@@ -802,7 +812,6 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of parent images in precedence order.'}),
                 )),
 
-                ('it:storage:volume:type:taxonomy', {}), {}),
                 ('it:storage:volume', {}, (
 
                     ('id', ('str', {'strip': True}), {
