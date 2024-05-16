@@ -3476,8 +3476,10 @@ class InetModule(s_module.CoreModule):
                         ('id', ('str', {'strip': True}), {
                             'doc': 'A platform specific ID used to identify the group.'}),
 
-                        ('name', ('inet:group', {}), {}),
-                        ('profile', ('ps:contact', {}), {}),
+                        ('name', ('inet:group', {}), {
+                            'doc': 'The name of the group on this platform.'}),
+                        ('profile', ('ps:contact', {}), {
+                            'doc': 'Detailed contact information for this group.'}),
                     )),
 
                     ('inet:service:group:member', {}, (
@@ -3600,7 +3602,8 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:egress', {}, (
 
-                        ('account', ('inet:service:account', {}), {}),
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that connecting to the platform.'}),
 
                         ('host', ('it:host', {}), {
                             'doc': 'The host behind the egress address.'}),

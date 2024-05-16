@@ -348,7 +348,7 @@ class BaseTest(s_t_utils.SynTest):
 
                 keep.append(node)
 
-            self.len(0, keep)
+            self.len(0, keep, msg=[node.ndef[1] for node in keep])
             self.len(len(SYN_6315), skip)
 
             for edge in core.model.edges.values():
