@@ -1290,9 +1290,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     yield verb, n1nid
 
-    async def getNdefRefs(self, nid):
+    async def getNdefRefs(self, buid):
         last = None
-        gens = [layr.getNdefRefs(nid) for layr in self.layers]
+        gens = [layr.getNdefRefs(buid) for layr in self.layers]
 
         async for refsnid, _ in s_common.merggenr2(gens):
             if refsnid == last:

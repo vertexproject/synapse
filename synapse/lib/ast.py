@@ -2084,7 +2084,7 @@ class PivotIn(PivotOper):
             async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
-        async for refsnid in runt.view.getNdefRefs(node.nid):
+        async for refsnid in runt.view.getNdefRefs(node.buid):
             pivo = await runt.view.getNodeByNid(refsnid)
             yield pivo, path.fork(pivo)
 
