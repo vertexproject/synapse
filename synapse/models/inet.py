@@ -3548,8 +3548,8 @@ class InetModule(s_module.CoreModule):
                         ('from', ('inet:service:account', {}), {
                             'doc': 'The account which sent the message.'}),
 
-                        ('to', ('ndef', {'forms': ('inet:service:account', 'inet:service:group')}), {
-                            'doc': 'The account, group, or channel that the message was sent to.'}),
+                        # ('to', ('ndef', {'forms': ('inet:service:account', 'inet:service:group', 'inet:service:channel')}), {
+                        #     'doc': 'The account, group, or channel that the message was sent to.'}),
 
                         ('to', ('inet:service:account', {}), {
                             'doc': 'The destination account. Used for direct messages.'}),
@@ -3606,7 +3606,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The host behind the egress address.'}),
 
                         ('client', ('inet:client', {}), {
-                            'doc': 'The network address that the client from the server perspective.'}),
+                            'doc': 'The network address of the client from the server perspective.'}),
 
                         ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The client IPv4 egress address from the server perspective.'}),
