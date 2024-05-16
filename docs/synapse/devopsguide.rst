@@ -575,7 +575,6 @@ Create the container directory::
 
 Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       01.axon:
         user: "999"
@@ -629,7 +628,6 @@ Create the container directory::
 
 Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       02.cortex:
         user: "999"
@@ -694,7 +692,6 @@ that it is deprecated. Deprecated functionality is also noted in service changel
 in your environment, you can set the ``PYTHONWARNINGS`` environment variable to display them.
 The following shows this being enabled for a Cortex deployment::
 
-    version: "3.3"
     services:
       00.cortex:
         user: "999"
@@ -744,7 +741,6 @@ file:
 That directory will be mounted at ``/vertex/boothooks``. The following Compose file shows mounting that
 directory into the container and setting environment variables for the script to use::
 
-  version: "3.3"
   services:
     00.cortex:
       image: vertexproject/synapse-cortex:v2.x.x
@@ -808,7 +804,6 @@ Running this with a ``docker build`` command can be used to create the image ``c
 
 That custom user can then be used to run the Cortex::
 
-    version: "3.3"
     services:
       00.cortex:
         user: "8888"

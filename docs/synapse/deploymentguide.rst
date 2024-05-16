@@ -97,7 +97,6 @@ Create the container directory::
 
 Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       aha:
         user: "999"
@@ -179,7 +178,6 @@ Create the container directory::
 
 Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       00.axon:
         user: "999"
@@ -224,7 +222,6 @@ Create the container directory::
 
 Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       00.jsonstor:
         user: "999"
@@ -269,7 +266,6 @@ Create the container directory::
 
 Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       00.cortex:
         user: "999"
@@ -326,7 +322,6 @@ Create the container storage directory::
 
 Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       01.cortex:
         user: "999"
