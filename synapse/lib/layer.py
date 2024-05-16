@@ -3441,16 +3441,15 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((univarryabrv + indx, nid))
                     self.indxcounts.inc(univarryabrv)
 
+                if realtype == STOR_TYPE_NDEF:
+                    kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
+
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 kvpairs.append((abrv + indx, nid))
                 self.indxcounts.inc(abrv)
                 if univabrv is not None:
                     kvpairs.append((univabrv + indx, nid))
                     self.indxcounts.inc(univabrv)
-
-            if realtype == STOR_TYPE_NDEF:
-                for aval in valu:
-                    kvpairs.append((self.ndefabrv + s_common.buid(aval), nid + abrv))
 
         else:
 
@@ -3461,10 +3460,10 @@ class Layer(s_nexus.Pusher):
                     kvpairs.append((univabrv + indx, nid))
                     self.indxcounts.inc(univabrv)
 
-            if stortype == STOR_TYPE_NDEF:
-                kvpairs.append((self.ndefabrv + s_common.buid(valu), nid + abrv))
+                if stortype == STOR_TYPE_NDEF:
+                    kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
 
-            elif stortype == STOR_TYPE_IVAL:
+            if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
                     dura = self.stortypes[STOR_TYPE_IVAL].maxdura
                 else:
