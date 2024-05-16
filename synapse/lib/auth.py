@@ -243,12 +243,12 @@ class Auth(s_nexus.Pusher):
         Returns:
             User: A User.  May return None if there is no user by the requested name.
         '''
-        useriden = self.useridenbyname.get(name)
+        useriden = self.useridenbynamecache.get(name)
         if useriden is not None:
             return self.user(useriden)
 
     async def getUserIdenByName(self, name):
-        return self.useridenbyname.get(name)
+        return self.useridenbynamecache.get(name)
 
     def _getUserIden(self, name):
         return self.useridenbyname.get(name)
@@ -516,7 +516,7 @@ class Auth(s_nexus.Pusher):
 
         self.checkUserLimit()
 
-        if self.useridenbyname.get(name) is not None:
+        if self.useridenbynamecache.get(name) is not None:
             raise s_exc.DupUserName(name=name)
 
         if iden is None:
@@ -547,7 +547,7 @@ class Auth(s_nexus.Pusher):
     @s_nexus.Pusher.onPush('user:add')
     async def _addUser(self, iden, name):
 
-        user = self.useridenbyname.get(name)
+        user = self.useridenbynamecache.get(name)
         if user is not None:
             return
 
