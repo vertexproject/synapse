@@ -3725,7 +3725,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                       structlog=opts.structured_logging)
 
         logger.info(f'Starting {cls.getCellType()} version {cls.VERSTRING}, Synapse version: {s_version.verstring}',
-                    extra={'synapse': {'svc_version': cls.VERSTRING, 'synapse_version': s_version.verstring}})
+                    extra={'synapse': {'svc_type': cls.getCellType(), 'svc_version': cls.VERSTRING,
+                                       'synapse_version': s_version.verstring}})
 
         await cls._initBootRestore(opts.dirn)
 
