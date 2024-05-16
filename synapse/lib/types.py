@@ -1408,6 +1408,27 @@ class Ndef(Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
+        self.formfilter = None
+        if (filt := self.opts.get('formfilter')) is not None:
+            if (names := filt.get('name')) is not None:
+                names = set(names)
+
+            if (ifaces := filt.get('interface')) is not None:
+                ifaces = set(ifaces)
+
+            def filtfunc(form):
+                if names is not None and form.name in names:
+                    return False
+
+                if ifaces is not None:
+                    for iface in form.ifaces.keys():
+                        if iface in ifaces:
+                            return False
+
+                return True
+
+            self.formfilter = filtfunc
+
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)
 
@@ -1420,6 +1441,11 @@ class Ndef(Type):
         form = self.modl.form(formname)
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
+
+        if self.formfilter is not None and self.formfilter(form):
+            filt = self.opts.get('formfilter')
+            mesg = f'Ndef of form {formname} is not allowed as a value for {self.name} with form filter {filt}'
+            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, formfilter=filt)
 
         formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
