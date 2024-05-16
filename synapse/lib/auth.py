@@ -525,7 +525,7 @@ class Auth(s_nexus.Pusher):
             if not s_common.isguid(iden):
                 raise s_exc.BadArg(name='iden', arg=iden, mesg='Argument it not a valid iden.')
 
-            if self.userbyiden.get(iden) is not None:
+            if self.userdefs.get(iden) is not None:
                 raise s_exc.DupIden(name=name, iden=iden,
                                     mesg='User already exists for the iden.')
 
