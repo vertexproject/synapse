@@ -140,3 +140,7 @@ Properties
 - `it:exec:proc`
     - `:user`
         - Please use the `:account` `it:exec:proc` property to link processes to users.
+
+- `it:prod:hardware`
+    - `:make`
+        - The `:make` property has been superseded by the property `it:prod:hardware:manufacturer`, which is typed as `ou:org`.
