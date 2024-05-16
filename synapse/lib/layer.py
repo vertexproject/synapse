@@ -2757,7 +2757,7 @@ class Layer(s_nexus.Pusher):
         else:
             self.layrinfo[name] = valu
 
-        self.core.layerkv.set(self.iden, self.layrinfo)
+        self.core.layerdefs.set(self.iden, self.layrinfo)
 
         await self.core.feedBeholder('layer:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden])
         return valu
@@ -4191,7 +4191,7 @@ class Layer(s_nexus.Pusher):
     @s_nexus.Pusher.onPush('layer:set:modelvers')
     async def _setModelVers(self, vers):
         self.layrinfo['model:version'] = vers
-        self.core.layerkv.set(self.iden, self.layrinfo)
+        self.core.layerdefs.set(self.iden, self.layrinfo)
 
     async def getStorNodes(self):
         '''

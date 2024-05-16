@@ -929,7 +929,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
-        self.cortexkv = self.slab.getSafeKeyVal('cortex')
+        self.cortexdata = self.slab.getSafeKeyVal('cortex')
 
         await self._initCoreHive()
         self._initStormLibs()
@@ -973,7 +973,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initOAuthManager()
 
-        self.stormdmonkv = self.cortexkv.getSubKeyVal('storm:dmons:')
+        self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
 
@@ -984,10 +984,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initRuntFuncs()
 
-        self.tagkv = self.cortexkv.getSubKeyVal('tagmeta:')
-        self.cmdkv = self.cortexkv.getSubKeyVal('storm:cmds:')
-        self.pkgkv = self.cortexkv.getSubKeyVal('storm:packages:')
-        self.svckv = self.cortexkv.getSubKeyVal('storm:services:')
+        self.tagmeta = self.cortexdata.getSubKeyVal('tagmeta:')
+        self.cmddefs = self.cortexdata.getSubKeyVal('storm:cmds:')
+        self.pkgdefs = self.cortexdata.getSubKeyVal('storm:packages:')
+        self.svcdefs = self.cortexdata.getSubKeyVal('storm:services:')
 
         await self._initDeprLocks()
         await self._warnDeprLocks()
@@ -1024,20 +1024,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _storCortexHiveMigration(self):
 
-        viewkv = self.cortexkv.getSubKeyVal('view:info:')
+        viewdefs = self.cortexdata.getSubKeyVal('view:info:')
         async with await self.hive.open(('cortex', 'views')) as viewnodes:
             for iden, node in viewnodes:
                 viewdict = await node.dict()
                 viewinfo = viewdict.pack()
                 viewinfo.setdefault('iden', iden)
-                viewkv.set(iden, viewinfo)
+                viewdefs.set(iden, viewinfo)
 
-                trigdict = self.cortexkv.getSubKeyVal(f'view:{iden}:trigger:')
+                trigdict = self.cortexdata.getSubKeyVal(f'view:{iden}:trigger:')
                 async with await node.open(('triggers',)) as trignodes:
                     for iden, trig in trignodes:
                         trigdict.set(iden, trig.valu)
 
-        layrkv = self.cortexkv.getSubKeyVal('layer:info:')
+        layrdefs = self.cortexdata.getSubKeyVal('layer:info:')
         async with await self.hive.open(('cortex', 'layers')) as layrnodes:
             for iden, node in layrnodes:
                 layrdict = await node.dict()
@@ -1055,7 +1055,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
                         pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
 
-                layrkv.set(iden, layrinfo)
+                layrdefs.set(iden, layrinfo)
 
         migrs = (
             (('agenda', 'appts'), 'agenda:appt:'),
@@ -1073,7 +1073,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         )
 
         for hivepath, kvpref in migrs:
-            subkv = self.cortexkv.getSubKeyVal(kvpref)
+            subkv = self.cortexdata.getSubKeyVal(kvpref)
             async with await self.hive.open(hivepath) as hivenode:
                 for name, node in hivenode:
                     subkv.set(name, node.valu)
@@ -1932,14 +1932,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await core.setTagModel("cno.cve", "regex", (None, None, "[0-9]{4}", "[0-9]{5}"))
 
         '''
-        meta = self.tagkv.get(tagname)
+        meta = self.tagmeta.get(tagname)
         if meta is None:
             meta = {}
 
         meta[name] = valu
         reqValidTagModel(meta)
 
-        self.tagkv.set(tagname, meta)
+        self.tagmeta.set(tagname, meta)
 
         # clear cached entries
         if name == 'regex':
@@ -1955,7 +1955,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Arguments:
             tagname (str): The name of the tag.
         '''
-        self.tagkv.pop(tagname)
+        self.tagmeta.pop(tagname)
         self.tagvalid.clear()
         self.tagprune.clear()
 
@@ -1972,12 +1972,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (object): The current value of the property.
         '''
 
-        meta = self.tagkv.get(tagname)
+        meta = self.tagmeta.get(tagname)
         if meta is None:
             return None
 
         retn = meta.pop(name, None)
-        self.tagkv.set(tagname, meta)
+        self.tagmeta.set(tagname, meta)
 
         if name == 'regex':
             self.tagvalid.clear()
@@ -2000,7 +2000,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         parts = s_chop.tagpath(tagname)
         for tag in s_chop.tags(tagname):
 
-            meta = self.tagkv.get(tag)
+            meta = self.tagmeta.get(tag)
             if meta is None:
                 continue
 
@@ -2033,7 +2033,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 prune.append(tag)
                 continue
 
-            meta = self.tagkv.get(tag)
+            meta = self.tagmeta.get(tag)
             if meta is None:
                 continue
 
@@ -2055,7 +2055,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns:
             (dict): The tag model specification or None.
         '''
-        retn = self.tagkv.get(tagname)
+        retn = self.tagmeta.get(tagname)
         if retn is not None:
             return dict(retn)
 
@@ -2066,7 +2066,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns:
             ([(str, dict), ...]): A list of tag model specification tuples.
         '''
-        return list(self.tagkv.items())
+        return list(self.tagmeta.items())
 
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
@@ -2112,7 +2112,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initStormDmons(self):
 
-        for iden, ddef in self.stormdmonkv.items():
+        for iden, ddef in self.stormdmondefs.items():
             try:
                 await self.runStormDmon(iden, ddef)
 
@@ -2124,7 +2124,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initStormSvcs(self):
 
-        for iden, sdef in self.svckv.items():
+        for iden, sdef in self.svcdefs.items():
 
             try:
                 await self._setStormSvc(sdef)
@@ -2187,7 +2187,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         name = cdef.get('name')
         await self._setStormCmd(cdef)
-        self.cmdkv.set(name, cdef)
+        self.cmddefs.set(name, cdef)
 
     async def _reqStormCmd(self, cdef):
 
@@ -2523,12 +2523,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ctor is None:
             return
 
-        cdef = self.cmdkv.get(name)
+        cdef = self.cmddefs.get(name)
         if cdef is None:
             mesg = f'The storm command ({name}) is not dynamic.'
             raise s_exc.CantDelCmd(mesg=mesg)
 
-        self.cmdkv.pop(name)
+        self.cmddefs.pop(name)
         self.stormcmds.pop(name, None)
 
         await self.fire('core:cmd:change', cmd=name, act='del')
@@ -2583,12 +2583,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('pkg:add')
     async def _addStormPkg(self, pkgdef):
         name = pkgdef.get('name')
-        olddef = self.pkgkv.get(name, None)
+        olddef = self.pkgdefs.get(name, None)
         if olddef is not None:
             await self._dropStormPkg(olddef)
 
         await self.loadStormPkg(pkgdef)
-        self.pkgkv.set(name, pkgdef)
+        self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
 
@@ -2601,7 +2601,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('pkg:add', pkgdef, gates=gates, perms=perms)
 
     async def delStormPkg(self, name):
-        pkgdef = self.pkgkv.get(name)
+        pkgdef = self.pkgdefs.get(name)
         if pkgdef is None:
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
@@ -2613,7 +2613,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete a storm package by name.
         '''
-        pkgdef = self.pkgkv.pop(name, None)
+        pkgdef = self.pkgdefs.pop(name, None)
         if pkgdef is None:
             return
 
@@ -2636,7 +2636,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self._getStormPkgs()
 
     def _getStormPkgs(self):
-        return copy.deepcopy(list(self.pkgkv.values()))
+        return copy.deepcopy(list(self.pkgdefs.values()))
 
     async def getStormMods(self):
         return copy.deepcopy(self.stormmods)
@@ -2951,13 +2951,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return ssvc.sdef
 
         ssvc = await self._setStormSvc(sdef)
-        self.svckv.set(iden, sdef)
+        self.svcdefs.set(iden, sdef)
 
         await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden})
         return ssvc.sdef
 
     async def delStormSvc(self, iden):
-        sdef = self.svckv.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
@@ -2969,7 +2969,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete a registered storm service from the cortex.
         '''
-        sdef = self.svckv.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:  # pragma: no cover
             return
 
@@ -2981,7 +2981,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
-        sdef = self.svckv.pop(iden)
+        sdef = self.svcdefs.pop(iden)
 
         await self._delStormSvcPkgs(iden)
 
@@ -3001,7 +3001,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Delete storm packages associated with a service.
         '''
         oldpkgs = []
-        for pdef in self.pkgkv.values():
+        for pdef in self.pkgdefs.values():
             pkgiden = pdef.get('svciden')
             if pkgiden and pkgiden == iden:
                 oldpkgs.append(pdef)
@@ -3042,17 +3042,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns:
             dict: An updated storm service definition dictionary.
         '''
-        sdef = self.svckv.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
         sdef['evts'] = edef
-        self.svckv.set(iden, sdef)
+        self.svcdefs.set(iden, sdef)
         return sdef
 
     async def _runStormSvcAdd(self, iden):
-        sdef = self.svckv.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
@@ -3069,12 +3069,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         sdef['added'] = True
-        self.svckv.set(iden, sdef)
+        self.svcdefs.set(iden, sdef)
 
     async def runStormSvcEvent(self, iden, name):
         assert name in ('add', 'del')
 
-        sdef = self.svckv.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
@@ -3147,10 +3147,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _loadExtModel(self):
 
-        self.extforms = self.cortexkv.getSubKeyVal('model:forms:')
-        self.extprops = self.cortexkv.getSubKeyVal('model:props:')
-        self.extunivs = self.cortexkv.getSubKeyVal('model:univs:')
-        self.exttagprops = self.cortexkv.getSubKeyVal('model:tagprops:')
+        self.extforms = self.cortexdata.getSubKeyVal('model:forms:')
+        self.extprops = self.cortexdata.getSubKeyVal('model:props:')
+        self.extunivs = self.cortexdata.getSubKeyVal('model:univs:')
+        self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
 
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             try:
@@ -3844,12 +3844,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await self.waitfini(1)
 
     async def _initCoreHive(self):
-        self.stormvars = self.cortexkv.getSubKeyVal('storm:vars:')
+        self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
         if self.inaugural:
             self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
 
     async def _initDeprLocks(self):
-        self.deprlocks = self.cortexkv.getSubKeyVal('model:deprlocks:')
+        self.deprlocks = self.cortexdata.getSubKeyVal('model:deprlocks:')
         # TODO: 3.0.0 conversion will truncate this hive key
 
         if self.inaugural:
@@ -4079,18 +4079,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initPureStormCmds(self):
         oldcmds = []
-        for name, cdef in self.cmdkv.items():
+        for name, cdef in self.cmddefs.items():
             cmdiden = cdef.get('cmdconf', {}).get('svciden')
-            if cmdiden and self.svckv.get(cmdiden) is None:
+            if cmdiden and self.svcdefs.get(cmdiden) is None:
                 oldcmds.append(name)
             else:
                 await self._trySetStormCmd(name, cdef)
 
         for name in oldcmds:
             logger.warning(f'Removing old command: [{name}]')
-            self.cmdkv.pop(name)
+            self.cmddefs.pop(name)
 
-        for pkgdef in self.pkgkv.values():
+        for pkgdef in self.pkgdefs.values():
             await self._tryLoadStormPkg(pkgdef)
 
     async def _trySetStormCmd(self, name, cdef):
@@ -4442,9 +4442,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         defiden = self.cellinfo.get('defaultview')
 
-        self.viewkv = self.cortexkv.getSubKeyVal('view:info:')
+        self.viewdefs = self.cortexdata.getSubKeyVal('view:info:')
 
-        for iden, vdef in self.viewkv.items():
+        for iden, vdef in self.viewdefs.items():
             view = await self._loadView(vdef)
             if iden == defiden:
                 self.view = view
@@ -4516,7 +4516,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             role = await self.auth.getRoleByName('all')
             await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
 
-        self.viewkv.set(iden, vdef)
+        self.viewdefs.set(iden, vdef)
 
         view = await self._loadView(vdef)
         view.init2()
@@ -4556,7 +4556,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if cview.parent is not None and cview.parent.iden == iden:
                 raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
-        self.viewkv.pop(iden)
+        self.viewdefs.pop(iden)
         await view.delete()
 
         self._calcViewsByLayer()
@@ -4592,7 +4592,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
 
-        self.layerkv.delete(iden)
+        self.layerdefs.delete(iden)
 
         await layr.delete()
 
@@ -4747,7 +4747,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         user = await self.auth.reqUser(creator)
 
-        self.layerkv.set(iden, ldef)
+        self.layerdefs.set(iden, ldef)
 
         layr = await self._initLayr(ldef, nexsoffs=nexsitem[0])
         await user.setAdmin(True, gateiden=iden, logged=False)
@@ -4815,8 +4815,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await s_layer.Layer.anit(self, layrinfo)
 
     async def _initCoreLayers(self):
-        self.layerkv = self.cortexkv.getSubKeyVal('layer:info:')
-        for ldef in self.layerkv.values():
+        self.layerdefs = self.cortexdata.getSubKeyVal('layer:info:')
+        for ldef in self.layerdefs.values():
             await self._initLayr(ldef)
 
     @s_nexus.Pusher.onPushAuto('layer:push:add')
@@ -4841,7 +4841,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pushs[iden] = pdef
 
         layr.layrinfo['pushs'] = pushs
-        self.layerkv.set(layr.iden, layr.layrinfo)
+        self.layerdefs.set(layr.iden, layr.layrinfo)
 
         await self.runLayrPush(layr, pdef)
 
@@ -4861,7 +4861,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         layr.layrinfo['pushs'] = pushs
-        self.layerkv.set(layr.iden, layr.layrinfo)
+        self.layerdefs.set(layr.iden, layr.layrinfo)
 
         await self.delActiveCoro(pushiden)
 
@@ -4887,7 +4887,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pulls[iden] = pdef
 
         layr.layrinfo['pulls'] = pulls
-        self.layerkv.set(layr.iden, layr.layrinfo)
+        self.layerdefs.set(layr.iden, layr.layrinfo)
 
         await self.runLayrPull(layr, pdef)
 
@@ -4907,7 +4907,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         layr.layrinfo['pulls'] = pulls
-        self.layerkv.set(layr.iden, layr.layrinfo)
+        self.layerdefs.set(layr.iden, layr.layrinfo)
 
         await self.delActiveCoro(pulliden)
 
@@ -5032,12 +5032,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         newpath = s_common.gendir(self.dirn, 'layers', newiden)
         await layr.clone(newpath)
 
-        copyinfo = self.layerkv.get(iden)
+        copyinfo = self.layerdefs.get(iden)
 
         for name, valu in copyinfo.items():
             ldef.setdefault(name, valu)
 
-        self.layerkv.set(newiden, ldef)
+        self.layerdefs.set(newiden, ldef)
 
         copylayr = await self._initLayr(ldef, nexsoffs=nexsitem[0])
 
@@ -5071,7 +5071,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
     async def bumpStormDmon(self, iden):
-        ddef = self.stormdmonkv.get(iden)
+        ddef = self.stormdmondefs.get(iden)
         if ddef is None:
             return False
 
@@ -5088,7 +5088,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (str): User iden.
         '''
-        for dmoniden, ddef in list(self.stormdmonkv.items()):
+        for dmoniden, ddef in list(self.stormdmondefs.items()):
             if ddef.get('user') == iden:
                 await self.bumpStormDmon(dmoniden)
 
@@ -5104,7 +5104,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon.enabled = True
         dmon.ddef['enabled'] = True
 
-        self.stormdmonkv.set(iden, dmon.ddef)
+        self.stormdmondefs.set(iden, dmon.ddef)
 
         if self.isactive:
             await dmon.run()
@@ -5124,7 +5124,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon.enabled = False
         dmon.ddef['enabled'] = False
 
-        self.stormdmonkv.set(iden, dmon.ddef)
+        self.stormdmondefs.set(iden, dmon.ddef)
 
         if self.isactive:
             await dmon.stop()
@@ -5145,14 +5145,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         dmon = await self.runStormDmon(iden, ddef)
 
-        self.stormdmonkv.set(iden, ddef)
+        self.stormdmondefs.set(iden, ddef)
         return dmon.pack()
 
     async def delStormDmon(self, iden):
         '''
         Stop and remove a storm dmon.
         '''
-        ddef = self.stormdmonkv.get(iden)
+        ddef = self.stormdmondefs.get(iden)
         if ddef is None:
             mesg = f'No storm daemon exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -5161,7 +5161,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
-        ddef = self.stormdmonkv.pop(iden)
+        ddef = self.stormdmondefs.pop(iden)
         if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)

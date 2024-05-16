@@ -430,7 +430,7 @@ class _Appt:
 
     async def save(self):
         stordict = self.pack()
-        self.stor.apptkv.set(self.iden, stordict)
+        self.stor.apptdefs.set(self.iden, stordict)
 
 class Agenda(s_base.Base):
     '''
@@ -450,7 +450,7 @@ class Agenda(s_base.Base):
         self._wake_event = s_coro.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
 
-        self.apptkv = self.core.cortexkv.getSubKeyVal('agenda:appt:')
+        self.apptdefs = self.core.cortexdata.getSubKeyVal('agenda:appt:')
 
         await self._load_all()
 
@@ -463,7 +463,7 @@ class Agenda(s_base.Base):
         self.appts = {}
 
         to_delete = []
-        for iden, info in self.apptkv.items():
+        for iden, info in self.apptdefs.items():
             try:
                 appt = _Appt.unpack(self, info)
                 if appt.iden != iden:
@@ -477,7 +477,7 @@ class Agenda(s_base.Base):
                 continue
 
         for iden in to_delete:
-            self.apptkv.pop(iden)
+            self.apptdefs.pop(iden)
 
         # Make sure we don't assign the same index to 2 appointments
         if self.appts:
@@ -688,7 +688,7 @@ class Agenda(s_base.Base):
                 heapq.heapify(self.apptheap)
 
         del self.appts[iden]
-        self.apptkv.delete(iden)
+        self.apptdefs.delete(iden)
 
     def _getNowTick(self):
         return time.time() + self.tickoff

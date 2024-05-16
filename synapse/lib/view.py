@@ -100,7 +100,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
-        self.trigdict = self.core.cortexkv.getSubKeyVal(f'view:{self.iden}:trigger:')
+        self.trigdict = self.core.cortexdata.getSubKeyVal(f'view:{self.iden}:trigger:')
 
         self.triggers = s_trigger.Triggers(self)
         for tdef in self.trigdict.values():
@@ -271,13 +271,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.merging = True
         self.info['merging'] = True
-        self.core.viewkv.set(self.iden, self.info)
+        self.core.viewdefs.set(self.iden, self.info)
 
         layr = self.layers[0]
 
         layr.readonly = True
         layr.layrinfo['readonly'] = True
-        self.core.layerkv.set(layr.iden, layr.layrinfo)
+        self.core.layerdefs.set(layr.iden, layr.layrinfo)
 
         merge = self.getMergeRequest()
         votes = [vote async for vote in self.getMergeVotes()]
@@ -496,7 +496,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.parent = None
         if self.info.pop('parent', None) is not None:
-            self.core.viewkv.set(self.iden, self.info)
+            self.core.viewdefs.set(self.iden, self.info)
 
             await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
                                          gates=[self.iden, self.layers[0].iden])
@@ -715,7 +715,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.layers = layers
         self.info['layers'] = [layr.iden for layr in layers]
-        self.core.viewkv.set(self.iden, self.info)
+        self.core.viewdefs.set(self.iden, self.info)
 
     async def pack(self):
         d = {'iden': self.iden}
@@ -1130,7 +1130,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.parent = parent
             self.info[name] = valu
-            self.core.viewkv.set(self.iden, self.info)
+            self.core.viewdefs.set(self.iden, self.info)
 
             await self._calcForkLayers()
 
@@ -1161,7 +1161,7 @@ class View(s_nexus.Pusher):  # type: ignore
             else:
                 self.info[name] = valu
 
-            self.core.viewkv.set(self.iden, self.info)
+            self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
                                      gates=[self.iden, self.layers[0].iden])
@@ -1196,7 +1196,7 @@ class View(s_nexus.Pusher):  # type: ignore
             self.layers.insert(indx, layr)
 
         self.info['layers'] = [lyr.iden for lyr in self.layers]
-        self.core.viewkv.set(self.iden, self.info)
+        self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
         self.core._calcViewsByLayer()
@@ -1226,7 +1226,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = layrs
 
         self.info['layers'] = layers
-        self.core.viewkv.set(self.iden, self.info)
+        self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
 
@@ -1258,7 +1258,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 # convert layers to a list of idens...
                 lids = [layr.iden for layr in layers]
                 child.info['layers'] = lids
-                self.core.viewkv.set(child.iden, child.info)
+                self.core.viewdefs.set(child.iden, child.info)
 
                 await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
 
@@ -1543,7 +1543,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.trigdict.truncate()
-        self.core.viewkv.delete(self.iden)
+        self.core.viewdefs.delete(self.iden)
         await self._wipeViewMeta()
         shutil.rmtree(self.dirn, ignore_errors=True)
 

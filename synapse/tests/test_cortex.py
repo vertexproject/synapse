@@ -5861,7 +5861,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # nexus recover() previously failed on adding to the hive
                 # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
-                self.nn(core.stormdmonkv.get(iden))
+                self.nn(core.stormdmondefs.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
 

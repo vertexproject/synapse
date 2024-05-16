@@ -480,7 +480,7 @@ class AgendaTest(s_t_utils.SynTest):
                 guid = s_common.guid()
                 cdef['ver'] = 0
                 cdef['iden'] = guid
-                core.agenda.apptkv.set(guid, cdef)
+                core.agenda.apptdefs.set(guid, cdef)
 
             async with self.getTestCore(dirn=dirn) as core:
 
