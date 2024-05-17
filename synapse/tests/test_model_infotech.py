@@ -3,6 +3,8 @@ import hashlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.const as s_const
+
 import synapse.models.crypto as s_m_crypto
 
 import synapse.tests.utils as s_t_utils
@@ -364,6 +366,25 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi total" -> it:av:scan:result +:scanner:name="visi scan"'))
 
+            q = '''
+            [ it:network=(vertex, ops, lan)
+                :desc="Vertex Project Operations LAN"
+                :name="opslan.lax.vertex.link"
+                :net4="10.1.0.0/16"
+                :net6="fe80::0/64"
+                :org={ gen.ou.org "Vertex Project" }
+                :type=virtual.sdn
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:network', s_common.guid(('vertex', 'ops', 'lan'))))
+            self.eq(nodes[0].get('desc'), 'Vertex Project Operations LAN')
+            self.eq(nodes[0].get('name'), 'opslan.lax.vertex.link')
+            self.eq(nodes[0].get('net4'), (167837696, 167903231))
+            self.eq(nodes[0].get('net6'), ('fe80::', 'fe80::ffff:ffff:ffff:ffff'))
+            self.eq(nodes[0].get('type'), 'virtual.sdn.')
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:
@@ -424,6 +445,21 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:hostname', 'bobs computer'))
 
+            q = '''
+            [ it:software:image=(ubuntu, 24.10, amd64, vhdx)
+                :name="ubuntu-24.10-amd64.vhdx"
+                :published=202405170940
+                :publisher={[ ps:contact=(blackout,) :name=blackout ]}
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:software:image', s_common.guid(('ubuntu', '24.10', 'amd64', 'vhdx'))))
+            self.eq(nodes[0].get('name'), 'ubuntu-24.10-amd64.vhdx')
+            self.eq(nodes[0].get('published'), 1715938800000)
+            self.eq(nodes[0].get('publisher'), s_common.guid(('blackout',)))
+            image = nodes[0]
+
             org0 = s_common.guid()
             host0 = s_common.guid()
             sver0 = s_common.guid()
@@ -441,11 +477,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'loc': 'us.hehe.haha',
                 'operator': cont0,
                 'org': org0,
-                'ext:id': 'foo123'
+                'ext:id': 'foo123',
+                'image': image.ndef[1],
             }
             q = '''[(it:host=$valu :name=$p.name :desc=$p.desc :ipv4=$p.ipv4 :place=$p.place :latlong=$p.latlong
                 :os=$p.os :manu=$p.manu :model=$p.model :serial=$p.serial :loc=$p.loc :operator=$p.operator
-                :org=$p.org :ext:id=$p."ext:id")]'''
+                :org=$p.org :ext:id=$p."ext:id" :image=$p.image)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': host0, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -460,6 +497,40 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('org'), org0)
             self.eq(node.get('operator'), cont0)
             self.eq(node.get('ext:id'), 'foo123')
+            host = node
+
+            q = r'''
+            [ it:storage:volume=(smb, 192.168.0.10, c$, temp)
+                :name="\\\\192.168.0.10\\c$\\temp"
+                :size=(10485760)
+                :type=windows.smb.share
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:storage:volume', s_common.guid(('smb', '192.168.0.10', 'c$', 'temp'))))
+            self.eq(nodes[0].get('name'), '\\\\192.168.0.10\\c$\\temp')
+            self.eq(nodes[0].get('size'), s_const.mebibyte * 10)
+            self.eq(nodes[0].get('type'), 'windows.smb.share.')
+            volume = nodes[0]
+
+            q = r'''
+            [ it:storage:mount=($hostiden, $voluiden, z:\\)
+                :host=$hostiden
+                :path="z:\\"
+                :volume=$voluiden
+            ]
+            '''
+            opts = {'vars': {
+                'voluiden': volume.ndef[1],
+                'hostiden': host.ndef[1],
+            }}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:storage:mount', s_common.guid((host.ndef[1], volume.ndef[1], r'z:\\'))))
+            self.eq(nodes[0].get('host'), host.ndef[1])
+            self.eq(nodes[0].get('path'), 'z:')
+            self.eq(nodes[0].get('volume'), volume.ndef[1])
 
             valu = (host0, 'http://vertex.ninja/cool.php')
             nodes = await core.nodes('[it:hosturl=$valu]', opts={'vars': {'valu': valu}})
@@ -1084,6 +1155,62 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('it:cmd')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
+
+            q = '''
+            [ it:host=(VTX001, 192.168.0.10) :name=VTX001 :ipv4=192.168.0.10 ]
+            $host = $node
+
+            [( it:cmd:session=(202405170900, 202405171000, bash, $host)
+                :host=$host
+                :period=(202405170900, 202405171000)
+            )]
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            hostguid = s_common.guid(('VTX001', '192.168.0.10'))
+            self.eq(nodes[0].ndef, ('it:host', hostguid))
+            self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
+            self.eq(nodes[1].get('host'), hostguid)
+            self.eq(nodes[1].get('period'), (1715936400000, 1715940000000))
+            cmdsess = nodes[1]
+
+            q = '''
+            [
+                (it:cmd:history=(1715936400001, $sessiden)
+                    :cmd="ls -la"
+                    :time=(1715936400001)
+                )
+
+                (it:cmd:history=(1715936400002, $sessiden)
+                    :cmd="cd /"
+                    :time=(1715936400002)
+                )
+
+                (it:cmd:history=(1715936400003, $sessiden)
+                    :cmd="ls -laR"
+                    :time=(1715936400003)
+                )
+
+                :session=$sessiden
+            ]
+            '''
+            opts = {'vars': {'sessiden': cmdsess.ndef[1]}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('it:cmd:history', s_common.guid(('1715936400001', cmdsess.ndef[1]))))
+            self.eq(nodes[0].get('cmd'), 'ls -la')
+            self.eq(nodes[0].get('time'), 1715936400001)
+            self.eq(nodes[0].get('session'), cmdsess.ndef[1])
+
+            self.eq(nodes[1].ndef, ('it:cmd:history', s_common.guid(('1715936400002', cmdsess.ndef[1]))))
+            self.eq(nodes[1].get('cmd'), 'cd /')
+            self.eq(nodes[1].get('time'), 1715936400002)
+            self.eq(nodes[1].get('session'), cmdsess.ndef[1])
+
+            self.eq(nodes[2].ndef, ('it:cmd:history', s_common.guid(('1715936400003', cmdsess.ndef[1]))))
+            self.eq(nodes[2].get('cmd'), 'ls -laR')
+            self.eq(nodes[2].get('time'), 1715936400003)
+            self.eq(nodes[2].get('session'), cmdsess.ndef[1])
 
             m0 = s_common.guid()
             mprops = {

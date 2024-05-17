@@ -806,7 +806,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the image.'}),
 
                     ('published', ('time', {}), {
-                        'doc': 'The contact information of the org or person who published the image.'}),
+                        'doc': 'The time the image was published.'}),
 
                     ('publisher', ('ps:contact', {}), {
                         'doc': 'The contact information of the org or person who published the image.'}),
@@ -886,7 +886,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A brief description of the network.'}),
 
                     ('type', ('it:network:type:taxonomy', {}), {
-                        'doc': 'The type if network.'}),
+                        'doc': 'The type of network.'}),
 
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that owns/operates the network.'}),
