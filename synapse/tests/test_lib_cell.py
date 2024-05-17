@@ -2615,6 +2615,8 @@ class CellTest(s_t_utils.SynTest):
                 await cell.delUserApiKey(newp)
 
     async def test_cell_check_sysctl(self):
+        sysctls = s_linux.getSysctls()
+
         sysvals = s_cell.Cell.SYSCTL_VALS.copy()
         sysvals['vm.dirty_expire_centisecs'] += 1
         sysvals['vm.dirty_writeback_centisecs'] += 1
@@ -2638,12 +2640,11 @@ class CellTest(s_t_utils.SynTest):
         mesg += 'for information about these sysctl parameters.'
         self.eq(msgs[0]['message'], mesg)
         self.eq(msgs[0]['sysctls'], [
-            {'name': 'vm.dirty_expire_centisecs', 'expected': 21, 'actual': 20},
-            {'name': 'vm.dirty_writeback_centisecs', 'expected': 21, 'actual': 20},
+            {'name': 'vm.dirty_expire_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_expire_centisecs']},
+            {'name': 'vm.dirty_writeback_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_writeback_centisecs']},
         ])
 
         # Copy the current sysctl valus to the cell so the check passes
-        sysctls = s_linux.getSysctls()
         sysvals = {
             'vm.dirty_expire_centisecs': sysctls['vm.dirty_expire_centisecs'],
             'vm.dirty_writeback_centisecs': sysctls['vm.dirty_writeback_centisecs'],
