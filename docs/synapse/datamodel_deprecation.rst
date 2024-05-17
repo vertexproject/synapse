@@ -143,4 +143,4 @@ Properties
 
 - `it:prod:hardware`
     - `:make`
-        - The `:make` property has been superseded by the property `it:prod:hardware:manufacturer`, which is typed as `ou:org`.
+        - The `:make` property has been superseded by the properties `it:prod:hardware:manufacturer` and  `it:prod:hardware:manufacturer:name`, which are typed as `ou:org` and `ou:name` respectively.

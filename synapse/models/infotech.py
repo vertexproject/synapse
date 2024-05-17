@@ -1575,6 +1575,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
                     ('manufacturer', ('ou:org', {}), {
                         'doc': 'The organization that manufactures this hardware.'}),
+                    ('manufacturer:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization that manufactures this hardware.'}),
                     ('make', ('ou:name', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use :manufacturer:name.'}),
