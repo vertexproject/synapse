@@ -330,11 +330,16 @@ class Form:
                 'prop': [],
                 'ndef': [],
                 'array': [],
+                'ndefarray': [],
             }
 
             for name, prop in self.props.items():
 
                 if isinstance(prop.type, s_types.Array):
+                    if isinstance(prop.type.arraytype, s_types.Ndef):
+                        self.refsout['ndefarray'].append(name)
+                        continue
+
                     typename = prop.type.arraytype.name
                     if self.modl.forms.get(typename) is not None:
                         self.refsout['array'].append((name, typename))
