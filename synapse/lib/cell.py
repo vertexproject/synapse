@@ -1311,14 +1311,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _onBootOptimize(self):
 
+        bdir = s_common.genpath(self.dirn, 'backups')
         tdir = s_common.gendir(self.dirn, 'tmp')
         tdev = os.stat(tdir).st_dev
+
+        logger.warning('Collecting LMDB files for onboot optimization.')
 
         lmdbs = []
         for (root, dirs, files) in os.walk(self.dirn):
             for dirname in dirs:
                 filepath = os.path.join(root, dirname, 'data.mdb')
                 if os.path.isfile(filepath):
+                    if filepath.startswith(bdir):
+                        logger.debug(f'Skipping backup file {filepath}')
+                        continue
                     if os.stat(filepath).st_dev != tdev:
                         logger.warning(f'Unable to run onboot:optimize, {filepath} is not on the same volume as {tdir}')
                         return
@@ -2932,23 +2938,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
-        isnew = not self.slab.dbexists('hive')
-
         db = self.slab.initdb('hive')
         hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot())
         self.onfini(hive)
-
-        if isnew:
-            path = os.path.join(self.dirn, 'hiveboot.yaml')
-            if os.path.isfile(path):
-                s_common.deprdate('Initial hive config from hiveboot.yaml', '2024-05-05')
-                logger.debug(f'Loading cell hive from {path}')
-                tree = s_common.yamlload(path)
-                if tree is not None:
-                    # Pack and unpack the tree to avoid tuple/list issues
-                    # for in-memory structures.
-                    tree = s_common.tuplify(tree)
-                    await hive.loadHiveTree(tree)
 
         return hive
 
@@ -3772,6 +3764,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
+
+        logger.info(f'Starting {cls.getCellType()} version {cls.VERSTRING}, Synapse version: {s_version.verstring}',
+                    extra={'synapse': {'svc_type': cls.getCellType(), 'svc_version': cls.VERSTRING,
+                                       'synapse_version': s_version.verstring}})
 
         await cls._initBootRestore(opts.dirn)
 
