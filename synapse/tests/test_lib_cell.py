@@ -2671,5 +2671,5 @@ class CellTest(s_t_utils.SynTest):
 
         stream.seek(0)
         data = stream.read()
-        self.len(0, data)
+        self.len(0, data, msg=data)
         self.none(s_cell.Cell._SYSCTL_CHECK_TASK)
