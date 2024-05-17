@@ -1,6 +1,7 @@
 import os
 import ssl
 import sys
+import json
 import time
 import base64
 import signal
@@ -2645,31 +2646,46 @@ class CellTest(s_t_utils.SynTest):
                 await cell.delUserApiKey(newp)
 
     async def test_cell_check_sysctl(self):
-        sysvals = s_linux.getSysctls()
+        # Get the expected values from the cell and increment them to make them different
+        sysvals = s_cell.Cell.SYSCTL_VALS.copy()
+        sysvals['vm.dirty_expire_centisecs'] += 1
+        sysvals['vm.dirty_writeback_centisecs'] += 1
 
         s_cell.Cell._SYSCTL_CHECK_TASK = None
-        with self.getLoggerStream('synapse.lib.cell') as stream:
-            with mock.patch.object(s_cell.Cell, 'SYSCTL_DEFAULT_VALS', sysvals):
-                async with self.getTestCell(s_cell.Cell):
+        with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+            with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
+                async with self.getTestCore():
                     pass
 
         stream.seek(0)
-        data = stream.read()
-        mesg = f'Linux default sysctl values detected: {", ".join(sysvals)}. '
+        data = stream.getvalue()
+        raw_mesgs = [m for m in data.split('\\n') if m]
+        msgs = [json.loads(m) for m in raw_mesgs]
+
+        self.len(1, msgs)
+
+        mesg = f'Sysctl values different than expected: {", ".join(sysvals)}. '
         mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
         mesg += 'for information about these sysctl parameters.'
-        self.isin(mesg, data)
+        self.eq(msgs[0]['message'], mesg)
+        self.eq(msgs[0]['sysctls'], [
+            {'name': 'vm.dirty_expire_centisecs', 'expected': 21, 'actual': 20},
+            {'name': 'vm.dirty_writeback_centisecs', 'expected': 21, 'actual': 20},
+        ])
 
-        # Bump the current values so we can patch the default values differently than the current values
-        for name in sysvals:
-            sysvals[name] += 1
+        # Copy the current sysctl valus to the cell so the check passes
+        sysctls = s_linux.getSysctls()
+        sysvals = {
+            'vm.dirty_expire_centisecs': sysctls['vm.dirty_expire_centisecs'],
+            'vm.dirty_writeback_centisecs': sysctls['vm.dirty_writeback_centisecs'],
+        }
 
         s_cell.Cell._SYSCTL_CHECK_TASK = None
         with self.getLoggerStream('synapse.lib.cell') as stream:
-            with mock.patch.object(s_cell.Cell, 'SYSCTL_DEFAULT_VALS', sysvals):
-                async with self.getTestCell(s_cell.Cell):
+            with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
+                async with self.getTestCore():
                     pass
 
         stream.seek(0)
         data = stream.read()
-        self.notin('Linux default sysctl values detected: ', data)
+        self.len(0, data)

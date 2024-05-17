@@ -925,6 +925,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'minimum': 0,
             'maximum': 100,
         },
+        'health:sysctl:checks': {
+            'default': True,
+            'description': 'Enable sysctl parameter checks and warn if values are not optimal.',
+            'type': 'boolean',
+        },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
@@ -1050,12 +1055,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSION = s_version.version
     VERSTRING = s_version.verstring
 
-    SYSCTL_DEFAULT_VALS = {
-        'vm.swappiness': 60,
-        'vm.dirty_expire_centisecs': 3000,
-        'vm.dirty_writeback_centisecs': 500,
-        'vm.dirty_background_ratio': 10,
-        'vm.dirty_ratio': 20,
+    SYSCTL_VALS = {
+        'vm.dirty_expire_centisecs': 20,
+        'vm.dirty_writeback_centisecs': 20,
     }
     SYSCTL_CHECK_FREQ = 60.0
     _SYSCTL_CHECK_TASK = None # Limit one task per process
@@ -1228,7 +1230,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
 
-        if Cell._SYSCTL_CHECK_TASK is None:
+        if Cell._SYSCTL_CHECK_TASK is None and self.conf.get('health:sysctl:checks', True):
             Cell._SYSCTL_CHECK_TASK = self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
@@ -1433,16 +1435,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             fixvals = []
             sysctls = s_linux.getSysctls()
 
-            for name, valu in self.SYSCTL_DEFAULT_VALS.items():
-                if sysctls.get(name) == valu:
-                    fixvals.append(name)
+            for name, valu in self.SYSCTL_VALS.items():
+                if (sysval := sysctls.get(name)) != valu:
+                    fixvals.append({'name': name, 'expected': valu, 'actual': sysval})
 
             if not fixvals:
-                # All sysctl parameters have been updated away from default values. No need to keep checking
+                # All sysctl parameters have been set to recommended values, no
+                # need to keep checking.
                 Cell._SYSCTL_CHECK_TASK = None
                 break
 
-            mesg = f'Linux default sysctl values detected: {", ".join(fixvals)}. '
+            fixnames = [k['name'] for k in fixvals]
+            mesg = f'Sysctl values different than expected: {", ".join(fixnames)}. '
             mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
             mesg += 'for information about these sysctl parameters.'
 
