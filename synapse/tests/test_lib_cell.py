@@ -2646,11 +2646,11 @@ class CellTest(s_t_utils.SynTest):
                 await cell.delUserApiKey(newp)
 
     async def test_cell_check_sysctl(self):
-        # Get the expected values from the cell and increment them to make them different
         sysvals = s_cell.Cell.SYSCTL_VALS.copy()
         sysvals['vm.dirty_expire_centisecs'] += 1
         sysvals['vm.dirty_writeback_centisecs'] += 1
 
+        # Detect and report incorrect values
         s_cell.Cell._SYSCTL_CHECK_TASK = None
         with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
             with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
@@ -2680,6 +2680,7 @@ class CellTest(s_t_utils.SynTest):
             'vm.dirty_writeback_centisecs': sysctls['vm.dirty_writeback_centisecs'],
         }
 
+        # Detect correct values and stop the task
         s_cell.Cell._SYSCTL_CHECK_TASK = None
         with self.getLoggerStream('synapse.lib.cell') as stream:
             with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
@@ -2689,3 +2690,16 @@ class CellTest(s_t_utils.SynTest):
         stream.seek(0)
         data = stream.read()
         self.len(0, data)
+        self.none(s_cell.Cell._SYSCTL_CHECK_TASK)
+
+        # Disable the sysctl check and don't check at all
+        s_cell.Cell._SYSCTL_CHECK_TASK = None
+        with self.getLoggerStream('synapse.lib.cell') as stream:
+            conf = {'health:sysctl:checks': False}
+            async with self.getTestCore(conf=conf):
+                pass
+
+        stream.seek(0)
+        data = stream.read()
+        self.len(0, data)
+        self.none(s_cell.Cell._SYSCTL_CHECK_TASK)
