@@ -141,6 +141,7 @@ commands:
             if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
             if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
 
+
       - do_test_execution
       - do_report_coverage
 
