@@ -1577,7 +1577,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The organization that manufactures this hardware.'}),
                     ('make', ('ou:name', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :manufacturer to allow entity resolution.'}),
+                        'doc': 'Deprecated. Please use :manufacturer:name.'}),
                     ('model', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The model name or number for this hardware specification.'}),
                     ('version', ('str', {'lower': True, 'onespace': True}), {
