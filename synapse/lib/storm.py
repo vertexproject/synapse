@@ -2351,7 +2351,9 @@ class Runtime(s_base.Base):
                 if view is None:
                     raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-                self.user.confirm(('view', 'read'), gateiden=viewiden)
+                if not self.asroot:
+                    self.user.confirm(('view', 'read'), gateiden=viewiden)
+
                 snap = await view.snap(self.user)
 
         return snap
