@@ -401,9 +401,9 @@ class StormlibModelTest(s_test.SynTest):
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
 
-    async def test_model_migration_s_itSecCpeFixup(self):
+    async def test_model_migration_s_itSecCpe_2_170_0(self):
 
-        async with self.getRegrCore('itSecCpeFixup') as core:
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
             # Migrate it:sec:cpe nodes with a valid CPE2.3, valid CPE2.2
             q = 'it:sec:cpe +#test.cpe.23valid +#test.cpe.22valid'
             nodes = await core.nodes(q)
@@ -419,27 +419,27 @@ class StormlibModelTest(s_test.SynTest):
             q = '''
             it:sec:cpe +#test.cpe.23valid +#test.cpe.22valid
             $lib.debug=$lib.true
-            $lib.model.migration.s.itSecCpeFixup($node)
-            $node.data.load(migration.s.itSecCpeFixup)
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            $node.data.load(migration.s.itSecCpe_2_170_0)
             '''
             nodes = await core.nodes(q)
 
-            data = nodes[0].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.none(data.get('reason'))
 
-            data = nodes[1].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[1].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.none(data.get('reason'))
 
-        async with self.getRegrCore('itSecCpeFixup') as core:
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
             # Migrate it:sec:cpe nodes with a valid CPE2.3, invalid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23valid +#test.cpe.22invalid
             $lib.debug=$lib.true
-            $lib.model.migration.s.itSecCpeFixup($node)
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
             '''
             nodes = await core.nodes(q)
             self.len(3, nodes)
@@ -454,19 +454,19 @@ class StormlibModelTest(s_test.SynTest):
 
             q = '''
             it:sec:cpe +#test.cpe.23valid +#test.cpe.22invalid
-            $node.data.load(migration.s.itSecCpeFixup)
+            $node.data.load(migration.s.itSecCpe_2_170_0)
             '''
             nodes = await core.nodes(q)
             self.len(3, nodes)
 
-            data = nodes[0].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['v2_2', 'product'])
             self.eq(nodes[0].get('v2_2'), 'cpe:/a:1c:1c%3aenterprise:-')
             self.eq(nodes[0].get('product'), '1c:enterprise')
 
-            data = nodes[1].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[1].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.none(data.get('valu'))
@@ -474,7 +474,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[1].get('v2_2'), 'cpe:/o:zyxel:nas542_firmware:5.21%2528aazf.15%2529co')
             self.eq(nodes[1].get('version'), '5.21%28aazf.15%29co')
 
-            data = nodes[2].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[2].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['v2_2', 'product'])
@@ -489,7 +489,7 @@ class StormlibModelTest(s_test.SynTest):
             q = '''
             it:sec:cpe:product=nas542_firmware [ :v2_2="cpe:/o:zyxel:nas542_firmware:5.21%28aazf.15%29co" ]
             $lib.debug=$lib.true
-            $lib.model.migration.s.itSecCpeFixup($node, prefer_v22=$lib.true, force=$lib.true)
+            $lib.model.migration.s.itSecCpe_2_170_0($node, prefer_v22=$lib.true, force=$lib.true)
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -497,12 +497,12 @@ class StormlibModelTest(s_test.SynTest):
             # Lift the updated node and check the migration did what was expected.
             q = '''
             it:sec:cpe:product=nas542_firmware
-            $node.data.load(migration.s.itSecCpeFixup)
+            $node.data.load(migration.s.itSecCpe_2_170_0)
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            data = nodes[0].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['version'])
@@ -510,12 +510,12 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].get('v2_2'), 'cpe:/o:zyxel:nas542_firmware:5.21%28aazf.15%29co')
             self.eq(nodes[0].get('version'), '5.21(aazf.15)co')
 
-        async with self.getRegrCore('itSecCpeFixup') as core:
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
             # Migrate it:sec:cpe nodes with a invalid CPE2.3, valid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22valid
             $lib.debug=$lib.true
-            $lib.model.migration.s.itSecCpeFixup($node)
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
             '''
             nodes = await core.nodes(q)
             self.len(4, nodes)
@@ -531,12 +531,12 @@ class StormlibModelTest(s_test.SynTest):
 
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22valid
-            $node.data.load(migration.s.itSecCpeFixup)
+            $node.data.load(migration.s.itSecCpe_2_170_0)
             '''
             nodes = await core.nodes(q)
             self.len(4, nodes)
 
-            data = nodes[0].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['vendor', 'product'])
@@ -544,7 +544,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].get('vendor'), 'd-link')
             self.eq(nodes[0].get('product'), 'dir-850l')
 
-            data = nodes[1].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[1].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['product', 'update', 'edition', 'target_sw'])
@@ -554,7 +554,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[1].get('edition'), '*')
             self.eq(nodes[1].get('target_sw'), 'wordpress')
 
-            data = nodes[2].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[2].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['update', 'edition', 'sw_edition', 'target_sw'])
@@ -564,22 +564,22 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[2].get('sw_edition'), 'premium')
             self.eq(nodes[2].get('target_sw'), 'wordpress')
 
-            data = nodes[3].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[3].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['version'])
             self.eq(data['valu'], 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*')
             self.eq(nodes[3].get('version'), '5.21(aazf.14)c0')
 
-        async with self.getRegrCore('itSecCpeFixup') as core:
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
             # Migrate it:sec:cpe nodes with a invalid CPE2.3, invalid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid
             $lib.debug=$lib.true
-            $lib.model.migration.s.itSecCpeFixup($node)
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
             '''
             msgs = await core.stormlist(q)
-            mesg = 'itSecCpeFixup(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): '
+            mesg = 'itSecCpe_2_170_0(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): '
             mesg += 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.'
             self.stormIsInWarn(mesg, msgs)
 
@@ -594,44 +594,54 @@ class StormlibModelTest(s_test.SynTest):
 
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid
-            $node.data.load(migration.s.itSecCpeFixup)
+            $node.data.load(migration.s.itSecCpe_2_170_0)
             '''
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
             for node in nodes:
-                data = node.nodedata['migration.s.itSecCpeFixup']
+                data = node.nodedata['migration.s.itSecCpe_2_170_0']
                 self.eq(data, {
                     'status': 'failed',
-                    'reason': 'Primary property and :v2_2 are both invalid.'
+                    'reason': 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.',
                 })
 
             # Now update the :v2_2 on one of the nodes and migrate again
             q = '''
             it:sec:cpe:version^=8.2p1 [ :v2_2="cpe:/a:openbsd:openssh:8.2p1_ubuntu-4ubuntu0.2" ]
             $lib.debug=$lib.true
-            $lib.model.migration.s.itSecCpeFixup($node)
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
 
             q = '''
             it:sec:cpe:version^=8.2p1
-            $node.data.load(migration.s.itSecCpeFixup)
+            $node.data.load(migration.s.itSecCpe_2_170_0)
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            data = nodes[0].nodedata['migration.s.itSecCpeFixup']
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
             self.nn(data)
             self.eq(data['status'], 'success')
             self.eq(data['updated'], ['version'])
             self.eq(data['valu'], 'cpe:2.3:a:openbsd:openssh:8.2p1_ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
             self.eq(nodes[0].get('version'), '8.2p1_ubuntu-4ubuntu0.2')
 
+            # Run the migration again to make sure we identify already migrated
+            # nodes correctly and bail early.
+            q = '''
+            it:sec:cpe:version^=8.2p1
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint(f'DEBUG: itSecCpe_2_170_0(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): Node already migrated.', msgs)
+
         async with self.getTestCore() as core:
             with self.raises(s_exc.BadArg):
-                await core.callStorm('$lib.model.migration.s.itSecCpeFixup(newp)')
+                await core.callStorm('$lib.model.migration.s.itSecCpe_2_170_0(newp)')
 
             with self.raises(s_exc.BadArg):
-                await core.callStorm('[ inet:fqdn=vertex.link ] $lib.model.migration.s.itSecCpeFixup($node)')
+                await core.callStorm('[ inet:fqdn=vertex.link ] $lib.model.migration.s.itSecCpe_2_170_0($node)')

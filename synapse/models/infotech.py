@@ -18,11 +18,15 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-# The CPE2.2 regex is not used in scrape but is used elsewhere. This seems like
-# the logical location for it since the CPE2.3 regex is here too.
+# This is the regular expression pattern for CPE2.2. It's kind of a hybrid
+# between compatible binding and preferred binding. Differences are here:
+# - Use only the list of percent encoded values specified by preferred binding.
+#   This is to ensure it converts properly to CPE2.3.
+# - Add tilde (~) to the UNRESERVED list which removes the need to specify the
+#   PACKED encoding specifically.
 ALPHA = '[A-Za-z]'
 DIGIT = '[0-9]'
-UNRESERVED = r'[A-Za-z0-9\-\.\_]'
+UNRESERVED = r'[A-Za-z0-9\-\.\_~]'
 SPEC1 = '%01'
 SPEC2 = '%02'
 # This is defined in the ABNF but not actually referenced
@@ -32,7 +36,6 @@ PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3d|3e|3f|40|5
 STR_WO_SPECIAL = f'(?:{UNRESERVED}|{PCT_ENCODED})*'
 STR_W_SPECIAL = f'{SPEC_CHRS}? (?:{UNRESERVED}|{PCT_ENCODED})+ {SPEC_CHRS}?'
 STRING = f'(?:{STR_W_SPECIAL}|{STR_WO_SPECIAL})'
-PACKED = rf'\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?\~{STRING}?'
 REGION = f'(?:{ALPHA}{{2}}|{DIGIT}{{3}})'
 LANGTAG = rf'(?:{ALPHA}{{2,3}}(?:\-{REGION})?)'
 PART = '[hoa]?'
@@ -40,7 +43,7 @@ VENDOR = STRING
 PRODUCT = STRING
 VERSION = STRING
 UPDATE = STRING
-EDITION = f'(?:{PACKED}|{STRING})'
+EDITION = STRING
 LANG = f'{LANGTAG}?'
 COMPONENT_LIST = f'''
     (?:
