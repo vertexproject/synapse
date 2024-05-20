@@ -227,6 +227,7 @@ STOR_TYPE_FLOAT64 = 22
 STOR_TYPE_HUGENUM = 23
 
 STOR_TYPE_MAXTIME = 24
+STOR_TYPE_NDEF = 25
 
 STOR_FLAG_ARRAY = 0x8000
 
@@ -280,6 +281,8 @@ INDX_IVAL_DURATION = b'\x00\x0b'
 INDX_NODEDATA = b'\x00\x0c'
 
 INDX_TOMB = b'\x00\x0d'
+
+INDX_NDEF = b'\x00\x0e'
 
 FLAG_TOMB = b'\x00'
 FLAG_NORM = b'\x01'
@@ -1372,6 +1375,37 @@ class StorTypeMsgp(StorType):
     def indx(self, valu):
         return (s_common.buid(valu),)
 
+class StorTypeNdef(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_NDEF)
+        self.lifters |= {
+            '=': self._liftNdefEq,
+            'form=': self._liftNdefFormEq,
+        }
+
+    def indx(self, valu):
+        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
+        return (formabrv + s_common.buid(valu),)
+
+    async def _liftNdefEq(self, liftby, valu, reverse=False):
+        try:
+            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu[0], None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for item in liftby.keyNidsByDups(formabrv + s_common.buid(valu), reverse=reverse):
+            yield item
+
+    async def _liftNdefFormEq(self, liftby, valu, reverse=False):
+        try:
+            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu, None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
+            yield item
+
 class StorTypeLatLon(StorType):
 
     def __init__(self, layr):
@@ -1528,6 +1562,7 @@ class Layer(s_nexus.Pusher):
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
 
             StorTypeTime(self),  # STOR_TYPE_MAXTIME
+            StorTypeNdef(self),
         ]
 
         self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
@@ -2152,6 +2187,7 @@ class Layer(s_nexus.Pusher):
 
         self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True)
 
+        self.ndefabrv = self.core.setIndxAbrv(INDX_NDEF)
         self.edgen1abrv = self.core.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.core.setIndxAbrv(INDX_EDGE_N2)
         self.edgen1n2abrv = self.core.setIndxAbrv(INDX_EDGE_N1N2)
@@ -3323,6 +3359,9 @@ class Layer(s_nexus.Pusher):
         if oldv is not None:
 
             if oldt & STOR_FLAG_ARRAY:
+
+                realtype = oldt & 0x7fff
+
                 arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
                 self.indxcounts.inc(arryabrv, len(oldv) * -1)
 
@@ -3334,6 +3373,9 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(arryabrv + oldi, nid, db=self.indxdb)
                     if univabrv is not None:
                         self.layrslab.delete(univarryabrv + oldi, nid, db=self.indxdb)
+
+                    if realtype == STOR_TYPE_NDEF:
+                        self.layrslab.delete(self.ndefabrv + oldi[8:], nid + abrv, db=self.indxdb)
 
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
                     self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
@@ -3352,6 +3394,9 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.indxdb)
                         self.indxcounts.inc(univabrv, -1)
+
+                    if oldt == STOR_TYPE_NDEF:
+                        self.layrslab.delete(self.ndefabrv + oldi[8:], nid + abrv, db=self.indxdb)
 
                 if oldt == STOR_TYPE_IVAL:
                     if oldv[1] == self.ivaltimetype.futsize:
@@ -3389,6 +3434,8 @@ class Layer(s_nexus.Pusher):
 
         if stortype & STOR_FLAG_ARRAY:
 
+            realtype = stortype & 0x7fff
+
             arryabrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
             if univabrv is not None:
                 univarryabrv = self.core.setIndxAbrv(INDX_ARRAY, None, prop)
@@ -3399,6 +3446,9 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     kvpairs.append((univarryabrv + indx, nid))
                     self.indxcounts.inc(univarryabrv)
+
+                if realtype == STOR_TYPE_NDEF:
+                    kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 kvpairs.append((abrv + indx, nid))
@@ -3415,6 +3465,9 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     kvpairs.append((univabrv + indx, nid))
                     self.indxcounts.inc(univabrv)
+
+                if stortype == STOR_TYPE_NDEF:
+                    kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
 
             if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
@@ -3473,6 +3526,9 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univarryabrv + indx, nid, db=self.indxdb)
 
+                    if realtype == STOR_TYPE_NDEF:
+                        self.layrslab.delete(self.ndefabrv + indx[8:], nid + abrv, db=self.indxdb)
+
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(abrv, -1)
@@ -3488,6 +3544,9 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, nid, db=self.indxdb)
                     self.indxcounts.inc(univabrv, -1)
+
+                if stortype == STOR_TYPE_NDEF:
+                    self.layrslab.delete(self.ndefabrv + indx[8:], nid + abrv, db=self.indxdb)
 
             if stortype == STOR_TYPE_IVAL:
                 if valu[1] == self.ivaltimetype.futsize:
@@ -4227,6 +4286,10 @@ class Layer(s_nexus.Pusher):
 
         elif self.layrslab.hasdup(self.edgen1abrv + n1nid + vabrv + FLAG_TOMB, n2nid, db=self.indxdb):
             return False
+
+    async def getNdefRefs(self, buid):
+        for _, byts in self.layrslab.scanByDups(self.ndefabrv + buid, db=self.indxdb):
+            yield byts[:8], byts[8:]
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''

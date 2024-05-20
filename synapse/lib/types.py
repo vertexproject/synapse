@@ -1485,11 +1485,35 @@ class Loc(Type):
 
 class Ndef(Type):
 
-    stortype = s_layer.STOR_TYPE_MSGP
+    stortype = s_layer.STOR_TYPE_NDEF
 
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+
+        self.storlifts |= {
+            'form=': self._storLiftForm
+        }
+
+        nameopts = {'lower': True, 'strip': True}
+        self.formnametype = Str(self.modl, 'formname', {}, nameopts)
+        self.subtypes |= {
+            'form': (self.formnametype, self._getForm),
+        }
+
+    def _storLiftForm(self, cmpr, valu):
+        valu = valu.lower().strip()
+        if self.modl.form(valu) is None:
+            raise s_exc.NoSuchForm.init(valu)
+
+        return (
+            (cmpr, valu, self.stortype),
+        )
+
+    def _getForm(self, valu):
+        if valu is None:
+            return None
+        return valu[0]
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)

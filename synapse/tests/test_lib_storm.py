@@ -2819,27 +2819,30 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }'
             nodes = await core.nodes(q)
-            self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('inet:asn', 0))
-            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef, ('inet:ipv4', 0x01020304))
-
-            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> meta:seen:node :source -> * }'
-            nodes = await core.nodes(q)
             self.len(4, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('meta:source'))
+            self.eq(nodes[2].ndef[0], 'meta:seen')
             self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> meta:seen:node :source -> * }'
+            nodes = await core.nodes(q)
+            self.len(5, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('meta:seen'))
+            self.eq(nodes[3].ndef[0], ('meta:source'))
+            self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # Queries can be a heavy list
             q = '$list = $lib.list(${ -> * }, ${ <- * }, ${ -> meta:seen:node :source -> * }) inet:ipv4=1.2.3.4 | tee --join $list'
             nodes = await core.nodes(q)
-            self.len(4, nodes)
+            self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('meta:source'))
-            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[2].ndef[0], ('meta:seen'))
+            self.eq(nodes[3].ndef[0], ('meta:source'))
+            self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # A empty list of queries still works as an nop
             q = '$list = $lib.list() | tee $list'
@@ -2866,11 +2869,12 @@ class StormTest(s_t_utils.SynTest):
             q = 'inet:ipv4=1.2.3.4 | tee --join $list'
             queries = ('-> *', '<- *', '-> meta:seen:node :source -> *')
             nodes = await core.nodes(q, {'vars': {'list': queries}})
-            self.len(4, nodes)
+            self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('meta:source'))
-            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[2].ndef[0], ('meta:seen'))
+            self.eq(nodes[3].ndef[0], ('meta:source'))
+            self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # Empty queries are okay - they will just return the input node
             q = 'inet:ipv4=1.2.3.4 | tee {}'

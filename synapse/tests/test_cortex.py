@@ -7535,19 +7535,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
-                    core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
+            offs = core.indxabrv.offs
+
+            self.eq(s_common.int64en(offs), core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
             # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x07',
-                    core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
-                    core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
-            self.eq(('visi', 'foo'),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x07'))
-            self.eq(('whip', None),
-                    core.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
-            self.raises(s_exc.NoSuchAbrv,
-                        core.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x09')
+            self.eq(s_common.int64en(offs), core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
+            self.eq(s_common.int64en(offs + 1), core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
+            self.eq(('visi', 'foo'), core.getAbrvIndx(s_common.int64en(offs)))
+            self.eq(('whip', None), core.getAbrvIndx(s_common.int64en(offs + 1)))
+            self.raises(s_exc.NoSuchAbrv, core.getAbrvIndx, s_common.int64en(offs + 2))
 
     async def test_cortex_query_offload(self):
         async with self.getTestAhaProv() as aha:
