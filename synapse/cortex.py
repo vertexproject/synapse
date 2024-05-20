@@ -749,6 +749,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     confbase['nexslog:en']['default'] = True  # type: ignore
     confbase['mirror']['hidedocs'] = False  # type: ignore
     confbase['mirror']['hidecmdl'] = False  # type: ignore
+    confbase['health:sysctl:checks']['default'] = True  # type: ignore
 
     confdefs = {
         'axon': {

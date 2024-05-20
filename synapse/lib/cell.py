@@ -926,7 +926,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'maximum': 100,
         },
         'health:sysctl:checks': {
-            'default': True,
+            'default': False,
             'description': 'Enable sysctl parameter checks and warn if values are not optimal.',
             'type': 'boolean',
         },
