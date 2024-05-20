@@ -2659,6 +2659,7 @@ class Layer(s_nexus.Pusher):
         self.edgesn1n2 = self.layrslab.initdb('edgesn1n2', dupsort=True)
 
         self.bytag = self.layrslab.initdb('bytag', dupsort=True)
+        self.byform = self.layrslab.initdb('byform', dupsort=True)
         self.byprop = self.layrslab.initdb('byprop', dupsort=True)
         self.byarray = self.layrslab.initdb('byarray', dupsort=True)
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
@@ -2718,6 +2719,8 @@ class Layer(s_nexus.Pusher):
 
         if self.layrvers < 10:
             await self._layrV9toV10()
+
+        # todo: byform migration
 
         if self.layrvers != 10:
             mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
@@ -2885,6 +2888,11 @@ class Layer(s_nexus.Pusher):
         self.buidcache[buid] = sode
 
         return sode
+
+    def hasStorNode(self, buid):
+        if buid in self.dirty:
+            return True
+        return self.layrslab.has(buid, db=self.bybuidv3)
 
     def _genStorNode(self, buid):
         # get or create the storage node. this returns the *actual* storage node
@@ -3323,6 +3331,11 @@ class Layer(s_nexus.Pusher):
             return
 
         # no more refs in this layer.  time to pop it...
+        try:
+            abrv = self.getPropAbrv(sode.get('form'), None)
+            self.layrslab.delete(abrv, val=buid, db=self.byform)
+        except s_exc.NoSuchAbrv:
+            pass
         self.dirty.pop(buid, None)
         self.buidcache.pop(buid, None)
         self.layrslab.delete(buid, db=self.bybuidv3)
@@ -3347,6 +3360,8 @@ class Layer(s_nexus.Pusher):
         self.setSodeDirty(buid, sode, form)
 
         abrv = self.setPropAbrv(form, None)
+
+        self.layrslab.put(abrv, buid, db=self.byform)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3470,6 +3485,9 @@ class Layer(s_nexus.Pusher):
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
 
+        formabrv = self.setPropAbrv(form, None)
+        self.layrslab.put(formabrv, buid, db=self.byform)
+
         if stortype & STOR_FLAG_ARRAY:
 
             for indx in self.getStorIndx(stortype, valu):
@@ -3564,6 +3582,8 @@ class Layer(s_nexus.Pusher):
         sode['tags'][tag] = valu
         self.setSodeDirty(buid, sode, form)
 
+        self.layrslab.put(formabrv, buid, db=self.byform)
+
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
         return (
@@ -3629,6 +3649,9 @@ class Layer(s_nexus.Pusher):
         sode['tagprops'][tag][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
 
+        formabrv = self.setPropAbrv(form, None)
+        self.layrslab.put(formabrv, buid, db=self.byform)
+
         kvpairs = []
         for indx in self.getStorIndx(stortype, valu):
             kvpairs.append((tp_abrv + indx, buid))
@@ -3683,6 +3706,9 @@ class Layer(s_nexus.Pusher):
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
 
+        formabrv = self.setPropAbrv(form, None)
+        self.layrslab.put(formabrv, buid, db=self.byform)
+
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
 
@@ -3729,6 +3755,9 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
+
+        formabrv = self.setPropAbrv(form, None)
+        self.layrslab.put(formabrv, buid, db=self.byform)
 
         self.layrslab.put(venc, buid + n2buid, db=self.byverb)
         self.layrslab.put(n1key, n2buid, db=self.edgesn1)
@@ -4206,6 +4235,20 @@ class Layer(s_nexus.Pusher):
                 continue
 
             yield buid, s_msgpack.un(byts)
+            await asyncio.sleep(0)
+
+    async def getStorNodesByForm(self, form):
+        '''
+        Yield (buid, sode) tuples for nodes of a given form with props/tags/tagprops/edges/nodedata in this layer.
+        '''
+        try:
+            abrv = self.getPropAbrv(form, None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for _, buid in self.layrslab.scanByDups(abrv, db=self.byform):
+            sode = await self.getStorNode(buid)
+            yield buid, sode
             await asyncio.sleep(0)
 
     async def iterNodeEditLog(self, offs=0):
