@@ -670,6 +670,28 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('geo:nloc', nodes[0].ndef[0])
 
+            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
+            await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:int=1 -> test:str:ndefs')
+            self.len(1, nodes)
+            self.eq('ndefs', nodes[0].ndef[1])
+            self.eq(nodes[0].getNodeRefs(), [
+                ('ndefs', ('it:dev:int', 1)),
+                ('ndefs', ('it:dev:int', 2)),
+                ('ndefs', ('inet:fqdn', 'woot.com'))
+            ])
+
+            nodes = await core.nodes('[ test:str = norefs ]')
+            self.eq(nodes[0].getNodeRefs(), [])
+
+            self.len(1, await core.nodes('it:dev:int=1 -> test:str'))
+            self.len(3, await core.nodes('test:str=ndefs -> *'))
+            self.len(2, await core.nodes('test:str=ndefs -> it:dev:int'))
+            self.len(3, await core.nodes('test:str=ndefs :ndefs -> *'))
+            self.len(2, await core.nodes('test:str=ndefs :ndefs -> it:dev:int'))
+
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!
         async with self.getTestCore() as core:

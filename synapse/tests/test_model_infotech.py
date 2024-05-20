@@ -974,6 +974,8 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 it:prod:hardware=*
+                    :manufacturer={ gen.ou.org dell }
+                    :manufacturer:name=dell
                     :make=dell
                     :model=XPS13
                     :version=alpha
@@ -992,6 +994,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
             self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
             self.len(2, await core.nodes('it:prod:hardware:make=dell -> it:prod:hardware'))
+            self.eq('dell', nodes[0].props['manufacturer:name'])
+            self.len(1, await core.nodes('it:prod:hardware -> ou:org +:name=dell'))
 
             nodes = await core.nodes('''[
                 it:prod:component=*

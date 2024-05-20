@@ -313,7 +313,7 @@ class LibModel(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the tag prop to retrieve.', },
                   ),
                   'returns': {'type': ['model:tagprop', 'null'],
-                              'desc': 'The ``model:tagprop`` instance if the tag prop if present or null.',
+                              'desc': 'The ``model:tagprop`` instance of the tag prop if present or null.',
                               }}},
     )
 
