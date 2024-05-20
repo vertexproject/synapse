@@ -695,12 +695,16 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:sec:c2:config', ('guid', {}), {
                     'doc': 'An extracted C2 config from an executable.'}),
+
                 ('it:software:image', ('guid', {}), {
                     'doc': 'The base image used to create a container or OS.'}),
+
                 ('it:storage:mount', ('guid', {}), {
                     'doc': 'A storage volume that has been attached to an image.'}),
+
                 ('it:storage:volume', ('guid', {}), {
                     'doc': 'A physical or logical storage volume that can be attached to a physical/virtual machine or container.'}),
+
                 ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of a storage volume.',
                     'ex': 'network.smb',
@@ -797,7 +801,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The primary keyboard input language configured on the host.'}),
 
                     ('image', ('it:software:image', {}), {
-                        'doc': 'The container or OS image running on the host.'}),
+                        'doc': 'The container image or OS image running on the host.'}),
                 )),
 
                 ('it:software:image', {}, (
@@ -810,6 +814,9 @@ class ItModule(s_module.CoreModule):
 
                     ('publisher', ('ps:contact', {}), {
                         'doc': 'The contact information of the org or person who published the image.'}),
+
+                    ('publisher:account', ('inet:service:account', {}), {
+                        'doc': 'The serivce account which published the software image.'}),
 
                     ('parents', ('array', {'type': 'it:software:image'}), {
                         'doc': 'An array of parent images in precedence order.'}),

@@ -978,7 +978,13 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The URL where the leaked information was made publicly available.'}),
 
                     ('size:bytes', ('int', {'min': 0}), {
-                        'doc': 'The approximate uncompressed size of the total data leaked.'}),
+                        'doc': 'The total size of the leaked data in bytes.'}),
+
+                    ('size:count', ('int', {'min': 0}), {
+                        'doc': 'The number of files included in the leaked data.'}),
+
+                    ('size:percent', ('int', {'min': 0, 'max': 100}), {
+                        'doc': 'The total percent of the data leaked.'}),
 
                 )),
 
@@ -1036,6 +1042,12 @@ class RiskModule(s_module.CoreModule):
 
                     ('demanded:payment:currency', ('econ:currency', {}), {
                         'doc': 'The currency in which payment was demanded.'}),
+
+                    ('paid:price', ('econ:price', {}), {
+                        'doc': 'The total price paid by the target of the extortion.'}),
+
+                    ('payments', ('econ:acct:payment', {}), {
+                        'doc': 'Payments made from the target to the attacker.'}),
 
                 )),
                 ('risk:technique:masquerade', {}, (

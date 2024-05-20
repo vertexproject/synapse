@@ -36,12 +36,16 @@ class EconTest(s_utils.SynTest):
                     :paid:time=20180202
 
                     :settled=20180205
+                    :listing = *
             ]'''
 
             perc = (await core.nodes(text))[0]
 
+            self.nn(perc.get('listing'))
             self.eq('13.37', perc.get('price'))
             self.eq('usd', perc.get('currency'))
+
+            self.len(1, await core.nodes('econ:purchase -> biz:listing'))
 
             self.len(1, await core.nodes('econ:purchase:price=13.37'))
             self.len(1, await core.nodes('econ:purchase:price=13.370'))

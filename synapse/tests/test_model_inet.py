@@ -3124,6 +3124,13 @@ class InetModelTest(s_t_utils.SynTest):
                 :text="omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                 :links+=$linkiden
                 :attachments+=$atchiden
+
+                :place:name=nyc
+                :place = { gen.geo.place nyc }
+                :file=*
+
+                :client:software = {[ it:prod:softver=* :name=woot ]}
+                :client:software:name = woot
             ]
             '''
             opts = {'vars': {
@@ -3137,9 +3144,16 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(3, nodes)
             for node in nodes:
-                self.eq(nodes[0].get('from'), blckacct.ndef[1])
-                self.eq(nodes[0].get('text'), "omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-                self.eq(nodes[0].get('links'), [msglink.ndef[1]])
+
+                self.eq(node.get('from'), blckacct.ndef[1])
+                self.eq(node.get('text'), "omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+                self.eq(node.get('links'), [msglink.ndef[1]])
+
+                self.nn(node.get('client:software'))
+                self.eq(node.get('client:software:name'), 'woot')
+
+                self.nn(node.get('place'))
+                self.eq(node.get('place:name'), 'nyc')
 
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))

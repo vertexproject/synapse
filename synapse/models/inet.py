@@ -3533,25 +3533,13 @@ class InetModule(s_module.CoreModule):
                         ('client:host', ('it:host', {}), {
                             'doc': 'The client host which initiated the login.'}),
 
-                        # ndef based proto details?
-
-                        # ('client:creds:cert', ('crypto:x509:cert', {}), {
-                            # 'doc': 'The X.509 certificate sent by the client during the login.'}),
-
-                        # ('client:creds:passwd', ('inet:passwd', {}), {
-                            # 'doc': 'The password sent by the client during the login.'}),
-
-                        # ('client:creds:passwdhash', ('it:auth:passwdhash', {}), {
-                            # 'doc': 'The password hash sent by the client during the login.'}),
+                        # TODO ndef based auth proto details
                     )),
 
                     ('inet:service:message', {}, (
 
                         ('from', ('inet:service:account', {}), {
                             'doc': 'The account which sent the message.'}),
-
-                        # ('to', ('ndef', {'forms': ('inet:service:account', 'inet:service:group', 'inet:service:channel')}), {
-                        #     'doc': 'The account, group, or channel that the message was sent to.'}),
 
                         ('to', ('inet:service:account', {}), {
                             'doc': 'The destination account. Used for direct messages.'}),
@@ -3569,6 +3557,9 @@ class InetModule(s_module.CoreModule):
                             'disp': {'hint': 'text'},
                             'doc': 'The text body of the message.'}),
 
+                        ('deleted', ('bool', {}), {
+                            'doc': 'Set to true if the message was deleted.'}),
+
                         ('replyto', ('inet:service:message', {}), {
                             'doc': 'The message that this message was sent in reply to. Used for message threading.'}),
 
@@ -3577,6 +3568,24 @@ class InetModule(s_module.CoreModule):
 
                         ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of files attached to the message.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the message was reportedly sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the message was reportedly sent from.'}),
+
+                        ('client:address', ('inet:client', {}), {
+                            'doc': 'The client address that the message was sent from.'}),
+
+                        ('client:software', ('it:prod:softver', {}), {
+                            'doc': 'The client software version used to send the message.'}),
+
+                        ('client:software:name', ('it:prod:softname', {}), {
+                            'doc': 'The client software version used to send the message.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The raw file that the message was extracted from.'}),
                     )),
 
                     ('inet:service:message:link', {}, (
