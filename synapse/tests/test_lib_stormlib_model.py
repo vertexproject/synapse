@@ -639,6 +639,14 @@ class StormlibModelTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint(f'DEBUG: itSecCpe_2_170_0(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): Node already migrated.', msgs)
 
+            q = '''
+            it:sec:cpe:version^=8.2p1
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node, force=$lib.true)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint(f'DEBUG: itSecCpe_2_170_0(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): No property updates required.', msgs)
+
         async with self.getTestCore() as core:
             with self.raises(s_exc.BadArg):
                 await core.callStorm('$lib.model.migration.s.itSecCpe_2_170_0(newp)')
