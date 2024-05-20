@@ -833,8 +833,8 @@ class LibModelMigrations(s_stormtypes.Lib):
             entire cortex. E.g.::
 
                 for $view in $lib.view.list(deporder=$lib.true) {
-                    for $n in $lib.layer.get().liftByProp(it:sec:cpe) {
-                        view.exec $view.iden {
+                    view.exec $view.iden {
+                        for $n in $lib.layer.get().liftByProp(it:sec:cpe) {
                             $lib.model.migration.s.itSecCpe_2_170_0($n)
                         }
                     }

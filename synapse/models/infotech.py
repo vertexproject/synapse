@@ -32,7 +32,7 @@ SPEC2 = '%02'
 # This is defined in the ABNF but not actually referenced
 # SPECIAL = f'(?:{SPEC1}|{SPEC2})'
 SPEC_CHRS = f'(?:{SPEC1}+|{SPEC2})'
-PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e)'
+PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3c|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e)'
 STR_WO_SPECIAL = f'(?:{UNRESERVED}|{PCT_ENCODED})*'
 STR_W_SPECIAL = f'{SPEC_CHRS}? (?:{UNRESERVED}|{PCT_ENCODED})+ {SPEC_CHRS}?'
 STRING = f'(?:{STR_W_SPECIAL}|{STR_WO_SPECIAL})'
