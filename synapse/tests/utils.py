@@ -308,16 +308,14 @@ testmodel = {
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:ndef:formfilter1', ('ndef', {
-            'formfilter': {'name': ('inet:ipv4', 'inet:ipv6')}
+            'forms': ('inet:ipv4', 'inet:ipv6')
         }), {}),
         ('test:ndef:formfilter2', ('ndef', {
-            'formfilter': {'interface': ('meta:taxonomy',)}
+            'interfaces': ('meta:taxonomy',)
         }), {}),
         ('test:ndef:formfilter3', ('ndef', {
-            'formfilter': {
-                'name': ('inet:ipv4',),
-                'interface': ('file:mime:msoffice',)
-            }
+            'forms': ('inet:ipv4',),
+            'interfaces': ('file:mime:msoffice',)
         }), {}),
 
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),

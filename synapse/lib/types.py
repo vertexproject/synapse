@@ -1409,18 +1409,22 @@ class Ndef(Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
         self.formfilter = None
-        if (filt := self.opts.get('formfilter')) is not None:
-            if (names := filt.get('name')) is not None:
-                names = set(names)
 
-            if (ifaces := filt.get('interface')) is not None:
-                ifaces = set(ifaces)
+        self.forms = self.opts.get('forms')
+        self.ifaces = self.opts.get('interfaces')
+
+        if self.forms or self.ifaces:
+            if self.forms is not None:
+                forms = set(self.forms)
+
+            if self.ifaces is not None:
+                ifaces = set(self.ifaces)
 
             def filtfunc(form):
-                if names is not None and form.name in names:
+                if self.forms is not None and form.name in forms:
                     return False
 
-                if ifaces is not None:
+                if self.ifaces is not None:
                     for iface in form.ifaces.keys():
                         if iface in ifaces:
                             return False
@@ -1443,9 +1447,14 @@ class Ndef(Type):
             raise s_exc.NoSuchForm.init(formname)
 
         if self.formfilter is not None and self.formfilter(form):
-            filt = self.opts.get('formfilter')
-            mesg = f'Ndef of form {formname} is not allowed as a value for {self.name} with form filter {filt}'
-            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, formfilter=filt)
+            mesg = f'Ndef of form {formname} is not allowed as a value for {self.name} with form filter'
+            if self.forms is not None:
+                mesg += f' forms={self.forms}'
+
+            if self.ifaces is not None:
+                mesg += f' interfaces={self.ifaces}'
+
+            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, forms=self.forms, interfaces=self.ifaces)
 
         formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
