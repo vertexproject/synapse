@@ -1384,19 +1384,25 @@ class StorTypeNdef(StorType):
             'form=': self._liftNdefFormEq,
         }
 
-    def getNdefIndx(self, valu):
-        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
-        return formabrv + s_common.buid(valu)
-
     def indx(self, valu):
-        return (self.getNdefIndx(valu),)
+        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
+        return (formabrv + s_common.buid(valu),)
 
     async def _liftNdefEq(self, liftby, valu, reverse=False):
-        for item in liftby.keyNidsByDups(self.getNdefIndx(valu), reverse=reverse):
+        try:
+            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu[0], None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for item in liftby.keyNidsByDups(formabrv + s_common.buid(valu), reverse=reverse):
             yield item
 
     async def _liftNdefFormEq(self, liftby, valu, reverse=False):
-        formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu, None)
+        try:
+            formabrv = self.layr.core.getIndxAbrv(INDX_PROP, valu, None)
+        except s_exc.NoSuchAbrv:
+            return
+
         for item in liftby.keyNidsByPref(formabrv, reverse=reverse):
             yield item
 

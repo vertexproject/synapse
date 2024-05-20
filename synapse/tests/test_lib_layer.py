@@ -2116,6 +2116,8 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[ risk:vulnerable=* :node=(it:dev:int, 1) ]')
             await core.nodes('[ risk:vulnerable=* :node=(inet:fqdn, foo.com) ]')
 
+            self.len(0, await core.nodes('risk:vulnerable:node=(it:dev:str, newp)'))
+
             self.len(1, await core.nodes('risk:vulnerable:node*form=it:dev:int'))
             self.len(1, await core.nodes('risk:vulnerable:node*form=inet:fqdn'))
             self.len(0, await core.nodes('risk:vulnerable:node*form=it:dev:str'))
