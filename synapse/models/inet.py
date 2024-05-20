@@ -23,7 +23,7 @@ import synapse.lookup.iana as s_l_iana
 logger = logging.getLogger(__name__)
 drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
 
 udots = regex.compile(r'[\u3002\uff0e\uff61]')
 
