@@ -2611,3 +2611,28 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)
+
+    async def test_cell_version_mismatch(self):
+        class TestCell(s_cell.Cell):
+            VERSTRING = '0.2.0'
+            VERSION = (0, 2, 0)
+            COMMIT = 'asdf'
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(TestCell, dirn=dirn):
+                pass
+
+            TestCell.VERSTRING = '0.1.0'
+            TestCell.VERSION = (0, 1, 0)
+
+            with self.raises(s_exc.BadVersion) as exc:
+                async with self.getTestCell(TestCell, dirn=dirn):
+                    pass
+            mesg = 'Version mismatch for testcell. Current version ((0, 1, 0)) is less than previous version ((0, 2, 0)).'
+            self.eq(exc.exception.get('mesg'), mesg)
+
+            TestCell.VERSTRING = '0.2.0'
+            TestCell.VERSION = (0, 2, 0)
+
+            async with self.getTestCell(TestCell, dirn=dirn):
+                pass
