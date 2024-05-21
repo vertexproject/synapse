@@ -142,11 +142,15 @@ class Addr(s_types.Str):
                     if v6v4addr is not None:
                         subs['ipv4'] = v6v4addr
 
-                port = self.modl.type('inet:port').norm(port)[0]
                 subs['ipv6'] = ipv6
-                subs['port'] = port
 
-                return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
+                portstr = ''
+                if port is not None:
+                    port = self.modl.type('inet:port').norm(port)[0]
+                    subs['port'] = port
+                    portstr = f':{port}'
+
+                return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
