@@ -1187,7 +1187,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # Check the synapse version didn't regress
         if (lastver := self.cellinfo.get('synapse:version')) is not None and s_version.version < lastver:
             mesg = f'Synapse version mismatch for {self.getCellType()}. Current version ({s_version.version}) is less than previous version ({lastver}).'
-            raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+            raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
 
         await self.cellinfo.set('synapse:version', s_version.version)
 

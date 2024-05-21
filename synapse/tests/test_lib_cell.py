@@ -2613,26 +2613,25 @@ class CellTest(s_t_utils.SynTest):
                 await cell.delUserApiKey(newp)
 
     async def test_cell_version_mismatch(self):
+        oldver = (0, 1, 0)
+        newver = (0, 2, 0)
+
         class TestCell(s_cell.Cell):
-            VERSTRING = '0.2.0'
-            VERSION = (0, 2, 0)
-            COMMIT = 'asdf'
+            VERSION = newver
 
         with self.getTestDir() as dirn:
             async with self.getTestCell(TestCell, dirn=dirn):
                 pass
 
-            TestCell.VERSTRING = '0.1.0'
-            TestCell.VERSION = (0, 1, 0)
-
             with self.raises(s_exc.BadVersion) as exc:
-                async with self.getTestCell(TestCell, dirn=dirn):
-                    pass
-            mesg = 'Cell version mismatch for testcell. Current version ((0, 1, 0)) is less than previous version ((0, 2, 0)).'
-            self.eq(exc.exception.get('mesg'), mesg)
+                with mock.patch.object(TestCell, 'VERSION', oldver):
+                    async with self.getTestCell(TestCell, dirn=dirn):
+                        pass
 
-            TestCell.VERSTRING = '0.2.0'
-            TestCell.VERSION = (0, 2, 0)
+            mesg = f'Cell version mismatch for testcell. Current version ({oldver}) is less than previous version ({newver}).'
+            self.eq(exc.exception.get('mesg'), mesg)
+            self.eq(exc.exception.get('currver'), oldver)
+            self.eq(exc.exception.get('lastver'), newver)
 
             async with self.getTestCell(TestCell, dirn=dirn):
                 pass
@@ -2652,6 +2651,8 @@ class CellTest(s_t_utils.SynTest):
 
             mesg = f'Synapse version mismatch for cell. Current version ({synver}) is less than previous version ({s_version.version}).'
             self.eq(exc.exception.get('mesg'), mesg)
+            self.eq(exc.exception.get('currver'), synver)
+            self.eq(exc.exception.get('lastver'), s_version.version)
 
             async with self.getTestCell(s_cell.Cell, dirn=dirn):
                 pass
