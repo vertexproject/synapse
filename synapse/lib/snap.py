@@ -322,7 +322,7 @@ class ProtoNode:
         if self.node is not None:
             return self.node.get(name)
 
-    async def _set(self, prop, valu, norminfo=None):
+    async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
@@ -360,7 +360,7 @@ class ProtoNode:
         if curv == valu:
             return False
 
-        if prop.info.get('ro') and curv is not None:
+        if not ignore_ro and prop.info.get('ro') and curv is not None:
             mesg = f'Property is read only: {prop.full}.'
             await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg)
             return False
@@ -372,12 +372,12 @@ class ProtoNode:
 
         return valu, norminfo
 
-    async def set(self, name, valu, norminfo=None):
+    async def set(self, name, valu, norminfo=None, ignore_ro=False):
         prop = self.form.props.get(name)
         if prop is None:
             return False
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
+        retn = await self._set(prop, valu, norminfo=norminfo, ignore_ro=ignore_ro)
         if retn is False:
             return False
 
