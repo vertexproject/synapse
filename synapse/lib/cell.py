@@ -1230,7 +1230,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
 
-        if Cell._SYSCTL_CHECK_TASK is None and self.conf.get('health:sysctl:checks', True):
+        if Cell._SYSCTL_CHECK_TASK is None and self.conf.get('health:sysctl:checks'):
             Cell._SYSCTL_CHECK_TASK = self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
