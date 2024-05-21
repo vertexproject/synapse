@@ -1177,24 +1177,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellinfo = await node.dict()
         self.onfini(node)
 
-        lastver = self.cellinfo.get('cell:version')
-        if lastver is None:
-            await self.cellinfo.set('cell:version', self.VERSION)
-
-        if lastver is not None and self.VERSION < lastver:
-            mesg = f'Version mismatch for {self.getCellType()}. Current version ({self.VERSION}) is less than previous version ({lastver}).'
+        # Check the cell version didn't regress
+        if (lastver := self.cellinfo.get('cell:version')) is not None and self.VERSION < lastver:
+            mesg = f'Cell version mismatch for {self.getCellType()}. Current version ({self.VERSION}) is less than previous version ({lastver}).'
             raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+
+        await self.cellinfo.set('cell:version', self.VERSION)
+
+        # Check the synapse version didn't regress
+        if (lastver := self.cellinfo.get('synapse:version')) is not None and s_version.version < lastver:
+            mesg = f'Synapse version mismatch for {self.getCellType()}. Current version ({s_version.version}) is less than previous version ({lastver}).'
+            raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+
+        await self.cellinfo.set('synapse:version', s_version.version)
 
         node = await self.hive.open(('cellvers',))
         self.cellvers = await node.dict(nexs=True)
-
-        if self.inaugural:
-            await self.cellinfo.set('synapse:version', s_version.version)
-
-        synvers = self.cellinfo.get('synapse:version')
-
-        if synvers is None or synvers < s_version.version:
-            await self.cellinfo.set('synapse:version', s_version.version)
 
         self.auth = await self._initCellAuth()
 

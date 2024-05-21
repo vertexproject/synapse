@@ -2628,11 +2628,30 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadVersion) as exc:
                 async with self.getTestCell(TestCell, dirn=dirn):
                     pass
-            mesg = 'Version mismatch for testcell. Current version ((0, 1, 0)) is less than previous version ((0, 2, 0)).'
+            mesg = 'Cell version mismatch for testcell. Current version ((0, 1, 0)) is less than previous version ((0, 2, 0)).'
             self.eq(exc.exception.get('mesg'), mesg)
 
             TestCell.VERSTRING = '0.2.0'
             TestCell.VERSION = (0, 2, 0)
 
             async with self.getTestCell(TestCell, dirn=dirn):
+                pass
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                pass
+
+            synver = list(s_version.version)
+            synver[1] -= 1
+            synver = tuple(synver)
+
+            with self.raises(s_exc.BadVersion) as exc:
+                with mock.patch.object(s_version, 'version', synver):
+                    async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                        pass
+
+            mesg = f'Synapse version mismatch for cell. Current version ({synver}) is less than previous version ({s_version.version}).'
+            self.eq(exc.exception.get('mesg'), mesg)
+
+            async with self.getTestCell(s_cell.Cell, dirn=dirn):
                 pass
