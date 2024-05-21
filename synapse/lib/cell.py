@@ -1,5 +1,6 @@
 import gc
 import os
+import abc
 import ssl
 import copy
 import time
@@ -1045,9 +1046,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     BACKUP_SPAWN_TIMEOUT = 60.0
     FREE_SPACE_CHECK_FREQ = 60.0
 
-    COMMIT = None
-    VERSION = None
-    VERSTRING = None
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
@@ -1177,20 +1178,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellinfo = await node.dict()
         self.onfini(node)
 
+        lastver = self.cellinfo.get('cell:version')
+        if lastver is None:
+            await self.cellinfo.set('cell:version', self.VERSION)
+
+        if lastver is not None and self.VERSION < lastver:
+            mesg = f'Version mismatch for {self.getCellType()}. Current version ({self.VERSION}) is less than previous version ({lastver}).'
+            raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+
         node = await self.hive.open(('cellvers',))
         self.cellvers = await node.dict(nexs=True)
 
         if self.inaugural:
             await self.cellinfo.set('synapse:version', s_version.version)
-
-        if self.VERSION is not None:
-            lastver = self.cellinfo.get('cell:version')
-            if lastver is None:
-                await self.cellinfo.set('cell:version', self.VERSION)
-
-            if lastver is not None and self.VERSION < lastver:
-                mesg = f'Version mismatch for {self.getCellType()}. Current version ({self.VERSION}) is less than previous version ({lastver}).'
-                raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
 
         synvers = self.cellinfo.get('synapse:version')
 

@@ -9,7 +9,6 @@ import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
@@ -417,9 +416,6 @@ class JsonStorApi(s_cell.CellApi):
             yield item
 
 class JsonStorCell(s_cell.Cell):
-    COMMIT = s_version.commit
-    VERSION = s_version.version
-    VERSTRING = s_version.verstring
 
     cellapi = JsonStorApi
 
