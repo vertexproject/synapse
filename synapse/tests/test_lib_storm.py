@@ -3116,6 +3116,31 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, [m for m in msgs if m[0] == 'csv:row'])
             self.len(0, [m for m in msgs if m[0] == 'node:edits'])
 
+            await core.addStormPkg({
+                'name': 'testpkg',
+                'version': (0, 0, 1),
+                'modules': (
+                    {'name': 'priv.exec',
+                     'asroot:perms': [['power-ups', 'testpkg']],
+                     'modconf': {'viewiden': fork},
+                     'storm': '''
+                        function asroot () {
+                            view.exec $modconf.viewiden { $foo=bar } | return($foo)
+                        }
+                     '''},
+                ),
+            })
+
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            await core.stormlist('auth.user.addrule visi power-ups.testpkg')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return(woot)', opts={'user': visi.iden, 'view': fork})
+
+            self.eq('bar', await core.callStorm('return($lib.import(priv.exec).asroot())', opts=asvisi))
+
     async def test_storm_argv_parser(self):
 
         pars = s_storm.Parser(prog='hehe')

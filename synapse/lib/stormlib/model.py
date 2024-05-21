@@ -5,6 +5,8 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.models.infotech as s_infotech
+
 stormcmds = [
     {
         'name': 'model.edge.set',
@@ -810,3 +812,196 @@ class LibModelMigration(s_stormtypes.Lib):
                 for propname, valu in tagprops.items():
                     if overwrite or not dst.hasTagProp(tagname, propname):
                         await proto.setTagProp(tagname, propname, valu) # use tag perms
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations(s_stormtypes.Lib):
+    '''
+    A Storm library for selectively migrating nodes in the current view.
+    '''
+    _storm_locals = (
+        {'name': 'itSecCpe_2_170_0',
+         'desc': '''
+            Versions of Synapse prior to v2.169.0 did not correctly parse and
+            convert CPE strings from 2.2 -> 2.3 or 2.3 -> 2.2. This migration
+            attempts to re-normalize `it:sec:cpe` nodes that may be fixable.
+
+            NOTE: It is highly recommended to test the `it:sec:cpe` migrations
+            in a fork first and confirm the migration was successful without any
+            issues. Then run the migration in view deporder to migrate the
+            entire cortex. E.g.::
+
+                for $view in $lib.view.list(deporder=$lib.true) {
+                    view.exec $view.iden {
+                        for $n in $lib.layer.get().liftByProp(it:sec:cpe) {
+                            $lib.model.migration.s.itSecCpe_2_170_0($n)
+                        }
+                    }
+                }
+
+            Upon completion of the migration, nodedata will contain a
+            `migration.s.itSecCpe_2_170_0` dict with information about the
+            migration status. This dict may contain the following:
+
+                - `status`: (required str) "success" or "failed"
+                - `reason`: (optional str) if "status" is "failed", this key will
+                  explain why the migration failed.
+                - `valu`: (optional str) if this key is present, it will contain
+                  an updated CPE2.3 string since the primary property cannot be
+                  changed.
+                - `updated`: (optional list[str]) A list of properties that were
+                  updated by the migration.
+
+            Failed or incorrect migrations may be helped by updating the :v2_2
+            property to be a valid CPE2.2 string and then re-running the
+            migration with `force=$lib.true`. If the primary property (CPE2.3)
+            is valid but incorrect, users may update the :v2_2 property and then
+            run the migration with `prefer_v22=$lib.true` to make the migration
+            use the `:v2_2` string instead of the primary property for the
+            migration process.
+         ''',
+         'type': {'type': 'function', '_funcname': '_itSecCpe_2_170_0',
+                  'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
+                      {'name': 'prefer_v22', 'type': 'bool', 'default': False,
+                       'desc': '''
+                        Try to renormalize using the :v2_2 prop instead of the
+                        primary property. This can be especially useful when the
+                        primary property is a valid but incorrect CPE string.
+                        '''},
+                      {'name': 'force', 'type': 'bool', 'default': False,
+                       'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
+    )
+    _storm_lib_path = ('model', 'migration', 's')
+
+    def getObjLocals(self):
+        return {
+            'itSecCpe_2_170_0': self._itSecCpe_2_170_0,
+        }
+
+    async def _itSecCpe_2_170_0(self, n, prefer_v22=False, force=False):
+
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.s.itSecCpe_2_170_0() argument must be a node.')
+
+        if n.form.name != 'it:sec:cpe':
+            raise s_exc.BadArg(f'itSecCpeFix only accepts it:sec:cpe nodes, not {n.form.name}')
+
+        prefer_v22 = await s_stormtypes.tobool(prefer_v22)
+        force = await s_stormtypes.tobool(force)
+
+        layr = self.runt.snap.wlyr
+        # We only need to check :v2_2 since that's the only property that's
+        # writable. Everthing else is readonly. And we can do it here once
+        # instead of in the loop below which will cause a perf hit.
+        self.runt.confirmPropSet(n.form.prop('v2_2'), layriden=layr.iden)
+
+        curv = n.repr()
+        reprvalu = f'it:sec:cpe={curv}'
+
+        nodedata = await n.getData('migration.s.itSecCpe_2_170_0', {})
+        if nodedata.get('status') == 'success' and not force:
+            if self.runt.debug:
+                mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node already migrated.'
+                await self.runt.printf(mesg)
+            return True
+
+        modl = self.runt.model.type('it:sec:cpe')
+
+        valu23 = None
+        valu22 = None
+        invalid = ''
+
+        # Check the primary property for validity.
+        cpe23 = s_infotech.cpe23_regex.match(curv)
+        if cpe23 is not None and cpe23.group() == curv:
+            valu23 = curv
+
+        # Check the v2_2 property for validity.
+        v2_2 = n.props.get('v2_2')
+        if v2_2 is not None:
+            rgx = s_infotech.cpe22_regex.match(v2_2)
+            if rgx is not None and rgx.group() == v2_2:
+                valu22 = v2_2
+
+        async with self.runt.snap.getNodeEditor(n) as proto:
+
+            # If both values are populated, this node is valid
+            if valu23 is not None and valu22 is not None and not force:
+                if self.runt.debug:
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node is valid, no migration necessary.'
+                    await self.runt.printf(mesg)
+
+                await proto.setData('migration.s.itSecCpe_2_170_0', {
+                    'status': 'success',
+                })
+
+                return True
+
+            if valu23 is None and valu22 is None:
+                reason = 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.'
+                # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
+                # we can do here so log, mark, and go around.
+                mesg = f'itSecCpe_2_170_0({reprvalu}): {reason}'
+                await self.runt.warn(mesg)
+
+                await proto.setData('migration.s.itSecCpe_2_170_0', {
+                    'status': 'failed',
+                    'reason': reason,
+                })
+
+                return False
+
+            if prefer_v22:
+                valu = valu22 or valu23
+            else:
+                valu = valu23 or valu22
+
+            # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
+            norm, info = modl.norm(valu)
+            subs = info.get('subs')
+
+            edits = []
+            nodedata = {'status': 'success'}
+
+            if norm != curv:
+                # The re-normed value is not the same as the current value.
+                # Since we can't change the primary property, store the
+                # updated value in nodedata.
+                if self.runt.debug:
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Stored updated primary property value to nodedata: {curv} -> {norm}.'
+                    await self.runt.printf(mesg)
+
+                nodedata['valu'] = norm
+
+            # Iterate over the existing properties
+            for propname, propcurv in n.props.items():
+                subscurv = subs.get(propname)
+                if subscurv is None:
+                    continue
+
+                if propname == 'v2_2' and isinstance(subscurv, list):
+                    subscurv = s_infotech.zipCpe22(subscurv)
+
+                # Values are the same, go around
+                if propcurv == subscurv:
+                    continue
+
+                nodedata.setdefault('updated', [])
+                nodedata['updated'].append(propname)
+
+                # Update the existing property with the re-normalized property value.
+                await proto.set(propname, subscurv, ignore_ro=True)
+
+            await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
+
+            if self.runt.debug:
+                if nodedata.get('updated'):
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Updated properties: {", ".join(nodedata["updated"])}.'
+                    await self.runt.printf(mesg)
+                else:
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): No property updates required.'
+                    await self.runt.printf(mesg)
+
+            return True

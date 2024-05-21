@@ -2401,7 +2401,7 @@ class Runtime(s_base.Base):
                 if view is None:
                     raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-                self.user.confirm(('view', 'read'), gateiden=viewiden)
+                self.confirm(('view', 'read'), gateiden=viewiden)
 
         return view
 

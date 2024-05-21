@@ -1501,6 +1501,31 @@ class Ndef(Type):
             'form': (self.formnametype, self._getForm),
         }
 
+        self.formfilter = None
+
+        self.forms = self.opts.get('forms')
+        self.ifaces = self.opts.get('interfaces')
+
+        if self.forms or self.ifaces:
+            if self.forms is not None:
+                forms = set(self.forms)
+
+            if self.ifaces is not None:
+                ifaces = set(self.ifaces)
+
+            def filtfunc(form):
+                if self.forms is not None and form.name in forms:
+                    return False
+
+                if self.ifaces is not None:
+                    for iface in form.ifaces.keys():
+                        if iface in ifaces:
+                            return False
+
+                return True
+
+            self.formfilter = filtfunc
+
     def _storLiftForm(self, cmpr, valu):
         valu = valu.lower().strip()
         if self.modl.form(valu) is None:
@@ -1527,6 +1552,16 @@ class Ndef(Type):
         form = self.modl.form(formname)
         if form is None:
             raise s_exc.NoSuchForm.init(formname)
+
+        if self.formfilter is not None and self.formfilter(form):
+            mesg = f'Ndef of form {formname} is not allowed as a value for {self.name} with form filter'
+            if self.forms is not None:
+                mesg += f' forms={self.forms}'
+
+            if self.ifaces is not None:
+                mesg += f' interfaces={self.ifaces}'
+
+            raise s_exc.BadTypeValu(valu=formname, name=self.name, mesg=mesg, forms=self.forms, interfaces=self.ifaces)
 
         formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
