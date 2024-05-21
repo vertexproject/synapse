@@ -926,7 +926,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'maximum': 100,
         },
         'health:sysctl:checks': {
-            'default': False,
+            'default': True,
             'description': 'Enable sysctl parameter checks and warn if values are not optimal.',
             'type': 'boolean',
         },
@@ -1060,7 +1060,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'vm.dirty_writeback_centisecs': 20,
     }
     SYSCTL_CHECK_FREQ = 60.0
-    _SYSCTL_CHECK_TASK = None # Limit one task per process
 
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
@@ -1230,8 +1229,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
 
-        if Cell._SYSCTL_CHECK_TASK is None and self.conf.get('health:sysctl:checks'):
-            Cell._SYSCTL_CHECK_TASK = self.schedCoro(self._runSysctlLoop())
+        if self.conf.get('health:sysctl:checks'):
+            self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
         await self._initAhaRegistry()
@@ -1448,7 +1447,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not fixvals:
                 # All sysctl parameters have been set to recommended values, no
                 # need to keep checking.
-                Cell._SYSCTL_CHECK_TASK = None
                 break
 
             fixnames = [k['name'] for k in fixvals]
