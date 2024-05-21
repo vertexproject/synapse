@@ -743,6 +743,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     # For the cortex, nexslog:en defaults to True
     confbase = copy.deepcopy(s_cell.Cell.confbase)

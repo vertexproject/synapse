@@ -24,6 +24,7 @@ import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -753,6 +754,9 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
 
 class Axon(s_cell.Cell):
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     cellapi = AxonApi
     byterange = False

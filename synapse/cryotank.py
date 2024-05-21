@@ -9,6 +9,7 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.storm as s_storm
+import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
@@ -211,6 +212,9 @@ class CryoApi(s_cell.CellApi):
         return await self.cell.delete(name)
 
 class CryoCell(s_cell.Cell):
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     cellapi = CryoApi
     tankapi = TankApi

@@ -20,6 +20,7 @@ import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
+import synapse.lib.version as s_version
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -458,6 +459,9 @@ class ProvApi:
         return self.aha.certdir._certToByts(cert)
 
 class AhaCell(s_cell.Cell):
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     cellapi = AhaApi
     confbase = copy.deepcopy(s_cell.Cell.confbase)
