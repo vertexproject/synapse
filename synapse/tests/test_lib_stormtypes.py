@@ -3664,68 +3664,6 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('test:str=foo delnode')
             self.len(0, await core.callStorm(scmd, opts=opts))
 
-    async def test_storm_lib_layer_sodebyform_temp_n2(self):
-        async with self.getTestCore() as core:
-            # fixme: rework this test - currently just an example of doing a full manual migration
-
-            scmd_sodebyform = '''
-                $sodes = ([])
-                for $sode in $lib.layer.get().getStorNodesByForm(test:str) {
-                    $sodes.append($sode)
-                }
-                return($sodes)
-            '''
-
-            view_test0 = await core.callStorm('return($lib.view.add(($lib.layer.add().iden,)).iden)')
-            view_test1 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': view_test0})
-
-            await core.nodes('[ test:str=base :hehe=haha ]', opts={'view': view_test0})
-            await core.nodes('test:str=base [ <(refs)+ {[ test:int=1 ]} ]', opts={'view': view_test1})
-
-            self.len(1, await core.callStorm(scmd_sodebyform, opts={'view': view_test0}))
-            self.len(0, await core.callStorm(scmd_sodebyform, opts={'view': view_test1}))
-
-            nodes = await core.nodes('test:int=1 -(refs)> test:str', opts={'view': view_test1})
-            self.sorteq(['base'], [n.ndef[1] for n in nodes])
-
-            await core.nodes('''
-
-                $layr_readviews = $lib.view.bylayer(write_layers=$lib.false)
-
-                for $view in $lib.view.list(deporder=$lib.true) {
-                    view.exec $view.iden {
-
-                        $layr = $lib.layer.get()
-                        $other_views = $layr_readviews.($layr.iden)
-
-                        for ($buid, $sode) in $layr.getStorNodesByForm(test:str) {
-
-                            if (not $sode.props.hehe) { continue }
-
-                            yield $buid
-                            $srciden = $node.iden()
-                            $srcvalu = $node.value()
-
-                            -> {[ test:str=`{$srcvalu}-new` :hehe=$sode.props.hehe.0 ]}
-                            $dstiden = $node.iden()
-
-                            { for $other_view in $other_views {
-                                view.exec $other_view.iden {
-                                    $lib.model.migration.copyStandaloneN2Edges($srciden, $dstiden)
-                                }
-                            } }
-
-                        }
-                    }
-                }
-            ''')
-
-            self.len(2, await core.callStorm(scmd_sodebyform, opts={'view': view_test0}))
-            self.len(0, await core.callStorm(scmd_sodebyform, opts={'view': view_test1}))
-
-            nodes = await core.nodes('test:int=1 -(refs)> test:str', opts={'view': view_test1})
-            self.sorteq(['base', 'base-new'], [n.ndef[1] for n in nodes])
-
     async def test_storm_lib_layer_upstream(self):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:

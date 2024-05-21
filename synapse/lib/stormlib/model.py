@@ -1,7 +1,6 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.stormtypes as s_stormtypes
@@ -726,7 +725,6 @@ class LibModelMigration(s_stormtypes.Lib):
                        'desc': 'Copy tag property value even if the property exists on the destination node.', },
                   ),
                   'returns': {'type': 'null', }}},
-        # todo: doc copyStandaloneN2Edges
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -735,7 +733,6 @@ class LibModelMigration(s_stormtypes.Lib):
             'copyData': self._methCopyData,
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
-            'copyStandaloneN2Edges': self._methCopyStandaloneN2Edges,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -815,25 +812,3 @@ class LibModelMigration(s_stormtypes.Lib):
                 for propname, valu in tagprops.items():
                     if overwrite or not dst.hasTagProp(tagname, propname):
                         await proto.setTagProp(tagname, propname, valu) # use tag perms
-
-    async def _methCopyStandaloneN2Edges(self, srciden, dstiden):
-
-        srciden = await s_stormtypes.tostr(srciden)
-        dstiden = await s_stormtypes.tostr(dstiden)
-
-        snap = self.runt.snap
-        srcbuid = s_common.uhex(srciden)
-
-        if snap.wlyr.hasStorNode(srcbuid):
-            return
-
-        genr, empty = await s_ast.pullone(snap.wlyr.iterNodeEdgesN2(srcbuid))
-        if empty:
-            return False
-
-        async with snap.getEditor() as editor:
-            async for verb, n1iden in genr:
-                proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
-                await proto.addEdge(verb, dstiden)
-
-        return True

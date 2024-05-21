@@ -6721,7 +6721,16 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
-        # fixme: doc getStorNodesByForm
+        {'name': 'getStorNodesByForm', 'desc': '''
+            Get buid, sode tuples representing the data stored in the layer for a given form.
+
+            Notes:
+                The storage nodes represent **only** the data stored in the layer
+                and may not represent whole nodes. If the only data stored in the layer for
+                a given buid is an N2 edge reference, a storage node will not be returned.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNodes',
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
         {'name': 'getMirrorStatus', 'desc': '''
             Return a dictionary of the mirror synchronization status for the layer.
             ''',
@@ -6756,7 +6765,6 @@ class Layer(Prim):
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
-        # todo: doc hasStorNode
         {'name': 'liftByProp', 'desc': '''
             Lift and yield nodes with the property and optional value set within the layer.
 
@@ -6902,7 +6910,6 @@ class Layer(Prim):
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
-            'hasStorNode': self.hasStorNode,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
             'getStorNodesByForm': self.getStorNodesByForm,
@@ -7195,14 +7202,6 @@ class Layer(Prim):
         return await layr.getStorNode(s_common.uhex(nodeid))
 
     @stormfunc(readonly=True)
-    async def hasStorNode(self, nodeid):
-        nodeid = await tostr(nodeid)
-        layriden = self.valu.get('iden')
-        await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.hasStorNode(s_common.uhex(nodeid))
-
-    @stormfunc(readonly=True)
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
@@ -7341,7 +7340,6 @@ class LibView(Lib):
                         'desc': 'Return the lists in bottom-up dependency order.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'List of ``view`` objects.', }}},
-        # todo: doc bylayer
     )
 
     def getObjLocals(self):
@@ -7350,7 +7348,6 @@ class LibView(Lib):
             'del': self._methViewDel,
             'get': self._methViewGet,
             'list': self._methViewList,
-            'bylayer': self._methViewByLayer,
         }
 
     async def _methViewAdd(self, layers, name=None, worldreadable=False):
@@ -7399,22 +7396,6 @@ class LibView(Lib):
         deporder = await tobool(deporder)
         viewdefs = await self.runt.snap.core.getViewDefs(deporder=deporder)
         return [View(self.runt, vdef, path=self.path) for vdef in viewdefs]
-
-    @stormfunc(readonly=True)
-    async def _methViewByLayer(self, write_layers=True):
-        write_layers = await tobool(write_layers)
-
-        lyrviews = collections.defaultdict(list)
-
-        viewdefs = await self.runt.snap.core.getViewDefs(deporder=True)
-
-        for vdef in viewdefs:
-            for i, ldef in enumerate(vdef['layers']):
-                if i == 0 and not write_layers:
-                    continue
-                lyrviews[ldef['iden']].append(View(self.runt, vdef, path=self.path))
-
-        return dict(lyrviews)
 
 @registry.registerType
 class View(Prim):

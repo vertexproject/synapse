@@ -2889,11 +2889,6 @@ class Layer(s_nexus.Pusher):
 
         return sode
 
-    def hasStorNode(self, buid):
-        if buid in self.dirty:
-            return True
-        return self.layrslab.has(buid, db=self.bybuidv3)
-
     def _genStorNode(self, buid):
         # get or create the storage node. this returns the *actual* storage node
 
