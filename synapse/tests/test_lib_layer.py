@@ -26,7 +26,7 @@ class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
-            self.eq(layr.layrvers, 10)
+            self.eq(layr.layrvers, 11)
 
     async def test_layer_verify(self):
 
@@ -1529,6 +1529,57 @@ class LayerTest(s_t_utils.SynTest):
             self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
             verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
             self.len(0, verbs)
+
+    async def test_layer_v11(self):
+
+        try:
+
+            oldv = s_layer.MIGR_COMMIT_SIZE
+            s_layer.MIGR_COMMIT_SIZE = 1
+
+            async with self.getRegrCore('layer-v11') as core:
+
+                wlyrs_byview = await core.callStorm('''
+                    $wlyrs = ({})
+                    for $view in $lib.view.list() {
+                        $wlyrs.($view.get(name)) = $view.layers.0.iden
+                    }
+                    return($wlyrs)
+                ''')
+                self.len(8, wlyrs_byview)
+
+                layr = core.getLayer(iden=wlyrs_byview['default'])
+                await self.agenlen(2, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('syn:tag'))
+
+                layr = core.getLayer(iden=wlyrs_byview['prop'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+
+                layr = core.getLayer(iden=wlyrs_byview['tags'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('syn:tag'))
+
+                layr = core.getLayer(iden=wlyrs_byview['tagp'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(0, layr.getStorNodesByForm('syn:tag'))
+
+                layr = core.getLayer(iden=wlyrs_byview['n1eg'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('test:int'))
+
+                layr = core.getLayer(iden=wlyrs_byview['n2eg'])
+                await self.agenlen(0, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('test:int'))
+
+                layr = core.getLayer(iden=wlyrs_byview['data'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+
+                layr = core.getLayer(iden=wlyrs_byview['noop'])
+                await self.agenlen(0, layr.getStorNodes())
+                await self.agenlen(0, layr.getStorNodesByForm('test:str'))
+
+        finally:
+            s_layer.MIGR_COMMIT_SIZE = oldv
 
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:

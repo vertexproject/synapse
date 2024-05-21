@@ -107,6 +107,7 @@ reqValidLdef = s_config.getJsValidator({
 })
 
 WINDOW_MAXSIZE = 10_000
+MIGR_COMMIT_SIZE = 1_000
 
 class LayerApi(s_cell.CellApi):
 
@@ -2612,7 +2613,7 @@ class Layer(s_nexus.Pusher):
             venc = lkey[32:]
 
             putkeys.append((n1buid + n2buid, venc))
-            if len(putkeys) > 1000:
+            if len(putkeys) > MIGR_COMMIT_SIZE:
                 commit()
 
         if len(putkeys):
@@ -2622,6 +2623,33 @@ class Layer(s_nexus.Pusher):
         self.layrvers = 10
 
         logger.warning(f'...complete!')
+
+    async def _layrV10toV11(self):
+
+        logger.warning(f'Adding byform index to layer {self.iden}')
+
+        def commit():
+            self.layrslab.putmulti(putkeys, db=self.byform)
+            putkeys.clear()
+
+        putkeys = []
+        async for buid, sode in self.getStorNodes():
+            if not (form := sode.get('form')):
+                continue
+
+            abrv = self.setPropAbrv(form, None)
+            putkeys.append((abrv, buid))
+
+            if len(putkeys) > MIGR_COMMIT_SIZE:
+                commit()
+
+        if putkeys:
+            commit()
+
+        self.meta.set('version', 11)
+        self.layrvers = 11
+
+        logger.warning('...complete!')
 
     async def _initSlabs(self, slabopts):
 
@@ -2685,7 +2713,7 @@ class Layer(s_nexus.Pusher):
         await self._initSlabs(slabopts)
 
         if self.fresh:
-            self.meta.set('version', 10)
+            self.meta.set('version', 11)
 
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
@@ -2720,10 +2748,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 10:
             await self._layrV9toV10()
 
-        # todo: byform migration
+        if self.layrvers < 11:
+            await self._layrV10toV11()
 
-        if self.layrvers != 10:
-            mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
+        if self.layrvers != 11:
+            mesg = f'Got layer version {self.layrvers}.  Expected 11.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
