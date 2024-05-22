@@ -1265,10 +1265,6 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'View ({self.iden}) is not a fork, cannot insert a new fork between it and parent.'
             raise s_exc.BadState(mesg=mesg)
 
-        if self.getMergeRequest() is not None:
-            mesg = 'Cannot insert a fork below a view which has a merge request.'
-            raise s_exc.BadState(mesg=mesg)
-
         ctime = s_common.now()
         layriden = s_common.guid()
 
