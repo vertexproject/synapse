@@ -58,7 +58,42 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
             self.eq(nodes[0].get('isnow'), 'G0110')
 
-            nodes = await core.nodes('''[
+            desc = 'A database and set of services that allows administrators to manage permissions, access to network '
+            desc += 'resources, and stored data objects (user, group, application, or devices)(Citation: Microsoft AD '
+            desc += 'DS Getting Started)'
+            refs = (
+                'https://attack.mitre.org/datasources/DS0026',
+                'https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/ad-ds-getting-started',
+            )
+            q = f'''
+            [ it:mitre:attack:datasource=DS0026
+                :name="Active Directory"
+                :description="{desc}"
+                :references=({",".join(refs)})
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:datasource', 'DS0026'))
+            self.eq(nodes[0].get('name'), 'active directory')
+            self.eq(nodes[0].get('description'), desc)
+            self.eq(nodes[0].get('references'), refs)
+
+            dccomp = ('DS0026', 'active directory credential request')
+            q = f'''
+            [ it:mitre:attack:data:component=(DS0026, "Active Directory Credential Request")
+                :description="{desc}"
+            ] -+> it:mitre:attack:datasource
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:data:component', dccomp))
+            self.eq(nodes[0].get('name'), 'active directory credential request')
+            self.eq(nodes[0].get('description'), desc)
+            self.eq(nodes[0].get('datasource'), 'DS0026')
+            self.eq(nodes[1].ndef, ('it:mitre:attack:datasource', 'DS0026'))
+
+            nodes = await core.nodes(f'''[
                 it:mitre:attack:tactic=TA0100
                     :name=tactilneck
                     :desc=darkerblack
@@ -66,8 +101,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.ta0100
                     :references=(https://foo.com,https://bar.com)
                     :matrix=enterprise
-            ]''')
-            self.len(1, nodes)
+                    :data:components+={dccomp}
+            ] -+> it:mitre:attack:data:component
+            ''')
+            self.len(2, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
             self.eq(nodes[0].get('name'), 'tactilneck')
             self.eq(nodes[0].get('desc'), 'darkerblack')
@@ -75,6 +112,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://archer.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('matrix'), 'enterprise')
+            self.eq(nodes[0].get('data:components'), [dccomp])
+            self.eq(nodes[1].ndef, ('it:mitre:attack:data:component', dccomp))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:technique=T0100

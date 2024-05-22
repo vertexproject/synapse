@@ -713,6 +713,20 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A MITRE ATT&CK Campaign ID.',
                     'ex': 'C0028',
                 }),
+                ('it:mitre:attack:datasource', ('str', {'regex': r'^DS[0-9]{4}$'}), {
+                    'doc': 'A MITRE ATT&CK Datasource ID.',
+                    'ex': 'DS0026',
+                }),
+                ('it:mitre:attack:data:component',
+                    ('comp', {
+                        'fields': (
+                            ('datasource', 'it:mitre:attack:datasource'),
+                            ('name', ('str', {'lower': True, 'onespace': True})))
+                    }),
+                    {
+                        'doc': 'A MITRE ATT&CK data component.',
+                    }
+                ),
                 ('it:mitre:attack:flow', ('guid', {}), {
                     'doc': 'A MITRE ATT&CK Flow diagram.',
                 }),
@@ -1482,6 +1496,9 @@ class ItModule(s_module.CoreModule):
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
                     }),
+                    ('data:components', ('array', {'type': 'it:mitre:attack:data:component', 'uniq': True}), {
+                        'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK tactic.',
+                    }),
                 )),
                 ('it:mitre:attack:technique', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1635,6 +1652,23 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The Synapse user that created the node.'}),
                     ('author:contact', ('ps:contact', {}), {
                         'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
+                )),
+                ('it:mitre:attack:datasource', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the datasource.'}),
+                    ('description', ('str', {}), {
+                        'doc': 'A description of the datasource.'}),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the datasource.',
+                    }),
+                )),
+                ('it:mitre:attack:data:component', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the data component.'}),
+                    ('description', ('str', {}), {
+                        'doc': 'A description of the data component.'}),
+                    ('datasource', ('it:mitre:attack:datasource', {}), {
+                        'doc': 'The datasource this data component belongs to.'}),
                 )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),
