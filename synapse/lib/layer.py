@@ -3380,12 +3380,13 @@ class Layer(s_nexus.Pusher):
         if sode.get('valu') == valt:
             return ()
 
-        sode['valu'] = valt
-        self.setSodeDirty(buid, sode, form)
-
         abrv = self.setPropAbrv(form, None)
 
-        self.layrslab.put(abrv, buid, db=self.byform)
+        if sode.get('form') is None:
+            self.layrslab.put(abrv, buid, db=self.byform)
+
+        sode['valu'] = valt
+        self.setSodeDirty(buid, sode, form)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3506,11 +3507,12 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
+        if sode.get('form') is None:
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
-
-        formabrv = self.setPropAbrv(form, None)
-        self.layrslab.put(formabrv, buid, db=self.byform)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3603,10 +3605,11 @@ class Layer(s_nexus.Pusher):
             if oldv == valu:
                 return ()
 
+        if sode.get('form') is None:
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         sode['tags'][tag] = valu
         self.setSodeDirty(buid, sode, form)
-
-        self.layrslab.put(formabrv, buid, db=self.byform)
 
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
@@ -3668,13 +3671,14 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
                     self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
+        if sode.get('form') is None:
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
         sode['tagprops'][tag][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
-
-        formabrv = self.setPropAbrv(form, None)
-        self.layrslab.put(formabrv, buid, db=self.byform)
 
         kvpairs = []
         for indx in self.getStorIndx(stortype, valu):
@@ -3729,9 +3733,8 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
-
-        formabrv = self.setPropAbrv(form, None)
-        self.layrslab.put(formabrv, buid, db=self.byform)
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
 
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
@@ -3779,9 +3782,8 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
-
-        formabrv = self.setPropAbrv(form, None)
-        self.layrslab.put(formabrv, buid, db=self.byform)
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
 
         self.layrslab.put(venc, buid + n2buid, db=self.byverb)
         self.layrslab.put(n1key, n2buid, db=self.edgesn1)
