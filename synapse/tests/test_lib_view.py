@@ -828,3 +828,70 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
+
+    async def test_view_insert_parent_fork(self):
+
+        async with self.getTestCore() as core:
+
+            role = await core.auth.addRole('ninjas')
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            view00 = core.getView()
+            view02 = core.getView((await view00.fork())['iden'])
+            view03 = core.getView((await view02.fork())['iden'])
+
+            self.eq(view02.parent, view00)
+
+            self.len(2, view02.layers)
+            self.len(3, view03.layers)
+
+            await view00.nodes('[ inet:fqdn=vertex.link ]')
+            await view02.nodes('inet:fqdn=vertex.link [ +#foo ]')
+
+            await view02.nodes('auth.user.addrule visi node --gate $lib.view.get().iden')
+            await view02.nodes('auth.user.mod visi --admin $lib.true --gate $lib.view.get().iden')
+            userrules = visi.getRules(gateiden=view02.iden)
+
+            await view02.nodes('auth.role.addrule ninjas node.add --gate $lib.view.get().iden')
+            rolerules = role.getRules(gateiden=view02.iden)
+
+            msgs = await core.stormlist('auth.user.addrule visi node --gate $lib.view.get().layers.0.iden')
+            self.stormHasNoWarnErr(msgs)
+
+            forkopts = {'view': view02.iden}
+            q = 'return($lib.view.get().insertParentFork(name=staging).iden)'
+            newiden = await core.callStorm(q, opts=forkopts)
+
+            view01 = core.getView(newiden)
+
+            self.ne(view02.parent, view00)
+            self.eq(view03.parent, view02)
+            self.eq(view02.parent, view01)
+            self.eq(view01.parent, view00)
+
+            self.len(2, view01.layers)
+            self.len(3, view02.layers)
+            self.len(4, view03.layers)
+            self.isin(view01.layers[0], view02.layers)
+            self.isin(view01.layers[0], view03.layers)
+
+            self.eq(userrules, visi.getRules(gateiden=view01.iden))
+            self.eq(rolerules, role.getRules(gateiden=view01.iden))
+
+            nodes = await view01.nodes('inet:fqdn=vertex.link')
+            self.none(nodes[0].getTag('foo'))
+
+            await core.nodes('merge --diff --apply', opts=forkopts)
+
+            nodes = await core.nodes('inet:fqdn=vertex.link')
+            self.none(nodes[0].getTag('foo'))
+
+            nodes = await view01.nodes('inet:fqdn=vertex.link')
+            self.nn(nodes[0].getTag('foo'))
+
+            with self.raises(s_exc.BadState):
+                await view00.insertParentFork(visi.iden)
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().insertParentFork().iden)')
