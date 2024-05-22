@@ -101,7 +101,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.ta0100
                     :references=(https://foo.com,https://bar.com)
                     :matrix=enterprise
-            ] ''')
+            ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
             self.eq(nodes[0].get('name'), 'tactilneck')
