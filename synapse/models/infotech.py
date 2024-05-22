@@ -321,12 +321,15 @@ class ItModule(s_module.CoreModule):
                 }),
             ),
             'types': (
+
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
-                    'doc': 'The name of a host or system.',
-                }),
+                    'doc': 'The name of a host or system.'}),
+
+
                 ('it:host', ('guid', {}), {
-                    'doc': 'A GUID that represents a host or system.'
-                }),
+                    'interfaces': ('inet:service:object',),
+                    'doc': 'A GUID that represents a host or system.'}),
+
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of log event types.',
                     'interfaces': ('meta:taxonomy',),
@@ -696,7 +699,15 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:c2:config', ('guid', {}), {
                     'doc': 'An extracted C2 config from an executable.'}),
 
+                ('it:host:tenancy', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
+                    'doc': 'A time window where a host was a tenant run by another host.'}),
+
+                ('it:software:image:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of software image types.'}),
+
                 ('it:software:image', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'The base image used to create a container or OS.'}),
 
                 ('it:storage:mount', ('guid', {}), {
@@ -776,11 +787,11 @@ class ItModule(s_module.CoreModule):
 
                     ('manu', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:make.'}),
+                        'doc': 'Please use :hardware::manufacturer:name.'}),
 
                     ('model', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:model.'}),
+                        'doc': 'Please use :hardware::model.'}),
 
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.'}),
@@ -804,10 +815,23 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The container image or OS image running on the host.'}),
                 )),
 
+                ('it:host:tenancy', {}, (
+
+                    ('lessor', ('it:host', {}), {
+                        'doc': 'The host which provides runtime resources to the tenant host.'}),
+
+                    ('tenant', ('it:host', {}), {
+                        'doc': 'The host which is run within the resources provided by the lessor.'}),
+
+                )),
+
                 ('it:software:image', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the image.'}),
+
+                    ('type', ('it:software:image:type:taxonomy', {}), {
+                        'doc': 'The type of software image.'}),
 
                     ('published', ('time', {}), {
                         'doc': 'The time the image was published.'}),

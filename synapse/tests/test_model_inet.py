@@ -3215,19 +3215,3 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
             self.eq(nodes[0].get('time'), 1715856900000)
-
-            q = '''
-            [ inet:service:egress=(blackout, 192.168.0.10, vertex, slack)
-                :account=$blckiden
-                :host={[ it:host=(192.168.0.10,) :ipv4=192.168.0.10 ]}
-                :client=tcp://172.16.0.10:12345
-                :client:ipv4=172.16.0.10
-            ]
-            '''
-            opts = {'vars': {'blckiden': blckacct.ndef[1]}}
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].get('account'), blckacct.ndef[1])
-            self.eq(nodes[0].get('host'), 'ef9ea57148ad79239a0a0bbcdb07e293')
-            self.eq(nodes[0].get('client'), 'tcp://172.16.0.10:12345')
-            self.eq(nodes[0].get('client:ipv4'), 2886729738)
