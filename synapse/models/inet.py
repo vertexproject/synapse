@@ -1639,7 +1639,7 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The service account which created the object.'}),
 
                             ('owner', ('inet:service:account', {}), {
-                                'doc': 'The serivce account which owns the object.'}),
+                                'doc': 'The service account which owns the object.'}),
                         ),
                     }),
 
