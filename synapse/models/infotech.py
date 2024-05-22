@@ -717,7 +717,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A physical or logical storage volume that can be attached to a physical/virtual machine or container.'}),
 
                 ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of a storage volume.',
+                    'doc': 'A taxonomy of storage volume types.',
                     'ex': 'network.smb',
                     'interfaces': ('meta:taxonomy',),
                 }),
