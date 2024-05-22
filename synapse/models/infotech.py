@@ -840,7 +840,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The contact information of the org or person who published the image.'}),
 
                     ('publisher:account', ('inet:service:account', {}), {
-                        'doc': 'The serivce account which published the software image.'}),
+                        'doc': 'The service account which published the software image.'}),
 
                     ('parents', ('array', {'type': 'it:software:image'}), {
                         'doc': 'An array of parent images in precedence order.'}),
