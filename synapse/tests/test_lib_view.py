@@ -860,7 +860,8 @@ class ViewTest(s_t_utils.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             forkopts = {'view': view02.iden}
-            newiden = await core.callStorm('return($lib.view.get().insertParentFork().iden)', opts=forkopts)
+            q = 'return($lib.view.get().insertParentFork(name=staging).iden)'
+            newiden = await core.callStorm(q, opts=forkopts)
 
             view01 = core.getView(newiden)
 
@@ -888,3 +889,9 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await view01.nodes('inet:fqdn=vertex.link')
             self.nn(nodes[0].getTag('foo'))
+
+            with self.raises(s_exc.BadState):
+                await view00.insertParentFork(visi.iden)
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().insertParentFork().iden)')
