@@ -7931,8 +7931,7 @@ class View(Prim):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        if name is not None:
-            name = await tostr(name)
+        name = await tostr(name, noneok=True)
 
         self.runt.reqAdmin(gateiden=viewiden)
 
