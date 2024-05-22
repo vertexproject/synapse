@@ -70,8 +70,7 @@ ipv6_multicast_scopes = {
 scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
 
 svcobjstatus = (
-    (10, 'planned'),
-    (20, 'provisioning'),
+    (10, 'draft'),
     (30, 'available'),
     (40, 'offline'),
     (50, 'removed'),
@@ -1624,11 +1623,11 @@ class InetModule(s_module.CoreModule):
                             ('created', ('time', {}), {
                                 'doc': 'The time when the object was created in the platform.'}),
 
-                            ('status', ('inet:service:object:status', {}), {
-                                'doc': 'The status of this object.'}),
-
                             ('removed', ('time', {}), {
                                 'doc': 'The time when the object was removed from the platform.'}),
+
+                            ('status', ('inet:service:object:status', {}), {
+                                'doc': 'The status of this object.'}),
 
                             ('platform', ('inet:service:platform', {}), {
                                 'doc': 'The platform which defines the object.'}),
