@@ -93,7 +93,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('datasource'), 'DS0026')
             self.eq(nodes[1].ndef, ('it:mitre:attack:datasource', 'DS0026'))
 
-            nodes = await core.nodes(f'''[
+            nodes = await core.nodes('''[
                 it:mitre:attack:tactic=TA0100
                     :name=tactilneck
                     :desc=darkerblack
@@ -101,10 +101,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.ta0100
                     :references=(https://foo.com,https://bar.com)
                     :matrix=enterprise
-                    :data:components+={dccomp}
-            ] -+> it:mitre:attack:data:component
-            ''')
-            self.len(2, nodes)
+            ] ''')
+            self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
             self.eq(nodes[0].get('name'), 'tactilneck')
             self.eq(nodes[0].get('desc'), 'darkerblack')
@@ -112,10 +110,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://archer.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('matrix'), 'enterprise')
-            self.eq(nodes[0].get('data:components'), [dccomp])
-            self.eq(nodes[1].ndef, ('it:mitre:attack:data:component', dccomp))
 
-            nodes = await core.nodes('''[
+            nodes = await core.nodes(f'''[
                 it:mitre:attack:technique=T0100
                     :name="   LockPicking   "
                     :desc=speedhackers
@@ -127,8 +123,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :isnow=T1110
                     :tactics=(TA0200,TA0100,TA0100)
                     :matrix=enterprise
-            ]''')
-            self.len(1, nodes)
+                    :data:components+={dccomp}
+            ] -+> it:mitre:attack:data:component
+            ''')
+            self.len(2, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
             self.eq(nodes[0].get('name'), 'lockpicking')
             self.eq(nodes[0].get('desc'), 'speedhackers')
@@ -140,6 +138,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('status'), 'deprecated')
             self.eq(nodes[0].get('isnow'), 'T1110')
             self.eq(nodes[0].get('matrix'), 'enterprise')
+            self.eq(nodes[0].get('data:components'), [dccomp])
+            self.eq(nodes[1].ndef, ('it:mitre:attack:data:component', dccomp))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100

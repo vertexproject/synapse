@@ -1496,9 +1496,6 @@ class ItModule(s_module.CoreModule):
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
                     }),
-                    ('data:components', ('array', {'type': 'it:mitre:attack:data:component', 'uniq': True}), {
-                        'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK tactic.',
-                    }),
                 )),
                 ('it:mitre:attack:technique', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1533,6 +1530,9 @@ class ItModule(s_module.CoreModule):
                     ('tactics', ('array', {'type': 'it:mitre:attack:tactic',
                                            'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK tactics that include this technique.',
+                    }),
+                    ('data:components', ('array', {'type': 'it:mitre:attack:data:component', 'uniq': True}), {
+                        'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.',
                     }),
                 )),
                 ('it:mitre:attack:software', {}, (
