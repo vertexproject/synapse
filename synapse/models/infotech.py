@@ -855,7 +855,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the volume.'}),
 
                     ('type', ('it:storage:volume:type:taxonomy', {}), {
-                        'doc': 'A taxonomy of storage volume types.'}),
+                        'doc': 'The type of storage volume.'}),
 
                     ('size', ('int', {'min': 0}), {
                         'doc': 'The size of the volume in bytes.'}),
