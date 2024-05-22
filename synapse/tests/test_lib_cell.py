@@ -2612,7 +2612,7 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)
 
-    async def test_cell_version_mismatch(self):
+    async def test_cell_version_regression(self):
         oldver = (0, 1, 0)
         newver = (0, 2, 0)
 
@@ -2625,13 +2625,18 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadVersion) as exc:
                 with mock.patch.object(TestCell, 'VERSION', oldver):
-                    async with self.getTestCell(TestCell, dirn=dirn):
-                        pass
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                        async with self.getTestCell(TestCell, dirn=dirn):
+                            pass
 
-            mesg = f'Cell version mismatch for testcell. Current version ({oldver}) is less than previous version ({newver}).'
+            mesg = f'Cell version regression (testcell) is not allowed! Stored version: {newver}, current version: {oldver}.'
             self.eq(exc.exception.get('mesg'), mesg)
             self.eq(exc.exception.get('currver'), oldver)
             self.eq(exc.exception.get('lastver'), newver)
+
+            stream.seek(0)
+            data = stream.read()
+            self.isin(mesg, data)
 
             async with self.getTestCell(TestCell, dirn=dirn):
                 pass
@@ -2646,13 +2651,18 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadVersion) as exc:
                 with mock.patch.object(s_version, 'version', synver):
-                    async with self.getTestCell(s_cell.Cell, dirn=dirn):
-                        pass
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                        async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                            pass
 
-            mesg = f'Synapse version mismatch for cell. Current version ({synver}) is less than previous version ({s_version.version}).'
+            mesg = f'Synapse version regression (cell) is not allowed! Stored version: {s_version.version}, current version: {synver}.'
             self.eq(exc.exception.get('mesg'), mesg)
             self.eq(exc.exception.get('currver'), synver)
             self.eq(exc.exception.get('lastver'), s_version.version)
+
+            stream.seek(0)
+            data = stream.read()
+            self.isin(mesg, data)
 
             async with self.getTestCell(s_cell.Cell, dirn=dirn):
                 pass
