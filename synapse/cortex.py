@@ -3866,7 +3866,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     with open(idenpath, 'w') as fd:
                         fd.write(jsoniden)
 
-            # Disable sysctl checks for embedded axon server
+            # Disable sysctl checks for embedded jsonstor server
             conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
 
