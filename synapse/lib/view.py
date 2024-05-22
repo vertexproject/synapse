@@ -1262,7 +1262,11 @@ class View(s_nexus.Pusher):  # type: ignore
             New view definition with the same perms as the current fork.
         '''
         if not self.isafork():
-            mesg = f'View ({self.iden}) is not a fork, cannot insert a new fork between parent.'
+            mesg = f'View ({self.iden}) is not a fork, cannot insert a new fork between it and parent.'
+            raise s_exc.BadState(mesg=mesg)
+
+        if self.getMergeRequest() is not None:
+            mesg = 'Cannot insert a fork below a view which has a merge request.'
             raise s_exc.BadState(mesg=mesg)
 
         ctime = s_common.now()
@@ -1293,17 +1297,17 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self._push('view:forkparent', ldef, vdef)
 
-    @s_nexus.Pusher.onPush('view:forkparent')
-    async def _insertParentFork(self, ldef, vdef):
+    @s_nexus.Pusher.onPush('view:forkparent', passitem=True)
+    async def _insertParentFork(self, ldef, vdef, nexsitem):
 
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
-        await self.core._addLayer(ldef, (None, None))
+        await self.core._addLayer(ldef, nexsitem)
         await self.core._addView(vdef)
 
         forkiden = vdef.get('iden')
-        self.parent = self.core.getView(forkiden)
+        self.parent = self.core.reqView(forkiden)
         await self.info.set('parent', forkiden)
 
         await self._calcForkLayers()
@@ -1320,7 +1324,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         for userinfo in authgate.get('users'):
             useriden = userinfo.get('iden')
-            if (user := self.core.auth.user(useriden)) is None:
+            if (user := self.core.auth.user(useriden)) is None:  # pragma: no cover
                 logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
                 continue
 
@@ -1329,7 +1333,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         for roleinfo in authgate.get('roles'):
             roleiden = roleinfo.get('iden')
-            if (role := self.core.auth.role(roleiden)) is None:
+            if (role := self.core.auth.role(roleiden)) is None:  # pragma: no cover
                 logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
                 continue
 

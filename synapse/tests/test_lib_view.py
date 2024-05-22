@@ -895,3 +895,10 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().insertParentFork().iden)')
+
+            opts = {'vars': {'role': role.iden}, 'view': view02.iden}
+            await core.callStorm('$lib.view.get().set(quorum, ({"count": 1, "roles": [$role]}))', opts=opts)
+            await core.callStorm('$lib.view.get().setMergeRequest(comment=woot)', opts={'view': view03.iden})
+
+            with self.raises(s_exc.BadState):
+                await core.callStorm('return($lib.view.get().insertParentFork().iden)', opts={'view': view03.iden})
