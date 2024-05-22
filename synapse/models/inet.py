@@ -23,7 +23,7 @@ import synapse.lookup.iana as s_l_iana
 logger = logging.getLogger(__name__)
 drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
+srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
 
 udots = regex.compile(r'[\u3002\uff0e\uff61]')
 
@@ -142,11 +142,15 @@ class Addr(s_types.Str):
                     if v6v4addr is not None:
                         subs['ipv4'] = v6v4addr
 
-                port = self.modl.type('inet:port').norm(port)[0]
                 subs['ipv6'] = ipv6
-                subs['port'] = port
 
-                return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
+                portstr = ''
+                if port is not None:
+                    port = self.modl.type('inet:port').norm(port)[0]
+                    subs['port'] = port
+                    portstr = f':{port}'
+
+                return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
