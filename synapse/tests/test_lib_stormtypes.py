@@ -3664,6 +3664,18 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('test:str=foo delnode')
             self.len(0, await core.callStorm(scmd, opts=opts))
 
+            # sad
+
+            await self.asyncraises(s_exc.NoSuchForm, core.callStorm(scmd, opts={'vars': {'form': 'newp:newp'}}))
+
+            lowuser = await core.auth.addUser('low')
+            lowopts = opts | {'user': lowuser.iden, 'view': view_prop}
+
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=lowopts))
+
+            await lowuser.addRule((True, ('view', 'read')), gateiden=view_prop)
+            await core.callStorm(scmd, opts=lowopts)
+
     async def test_storm_lib_layer_upstream(self):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:

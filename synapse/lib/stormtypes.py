@@ -7212,9 +7212,13 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def getStorNodesByForm(self, form):
         form = await tostr(form)
+        if self.runt.snap.core.model.form(form) is None:
+            raise s_exc.NoSuchForm.init(form)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
+
         async for item in layr.getStorNodesByForm(form):
             yield item
 
