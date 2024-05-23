@@ -7803,7 +7803,7 @@ class View(Prim):
 
         self.runt.reqAdmin(gateiden=viewiden)
 
-        view = self.runt.snap.core.reqView(viewiden)
+        view = self.runt.view.core.reqView(viewiden)
         if not view.isafork():
             mesg = f'View ({viewiden}) is not a fork, cannot insert a new fork between it and parent.'
             raise s_exc.BadState(mesg=mesg)
