@@ -1189,16 +1189,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellinfo = await node.dict()
         self.onfini(node)
 
+        # Check the cell version didn't regress
+        if (lastver := self.cellinfo.get('cell:version')) is not None and self.VERSION < lastver:
+            mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
+            logger.error(mesg)
+            raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+
+        await self.cellinfo.set('cell:version', self.VERSION)
+
+        # Check the synapse version didn't regress
+        if (lastver := self.cellinfo.get('synapse:version')) is not None and s_version.version < lastver:
+            mesg = f'Synapse version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {s_version.version}.'
+            logger.error(mesg)
+            raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
+
+        await self.cellinfo.set('synapse:version', s_version.version)
+
         node = await self.hive.open(('cellvers',))
         self.cellvers = await node.dict(nexs=True)
-
-        if self.inaugural:
-            await self.cellinfo.set('synapse:version', s_version.version)
-
-        synvers = self.cellinfo.get('synapse:version')
-
-        if synvers is None or synvers < s_version.version:
-            await self.cellinfo.set('synapse:version', s_version.version)
 
         self.auth = await self._initCellAuth()
 
