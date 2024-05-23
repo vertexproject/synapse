@@ -717,16 +717,9 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A MITRE ATT&CK Datasource ID.',
                     'ex': 'DS0026',
                 }),
-                ('it:mitre:attack:data:component',
-                    ('comp', {
-                        'fields': (
-                            ('datasource', 'it:mitre:attack:datasource'),
-                            ('name', ('str', {'lower': True, 'onespace': True})))
-                    }),
-                    {
+                ('it:mitre:attack:data:component', ('guid', {}), {
                         'doc': 'A MITRE ATT&CK data component.',
-                    }
-                ),
+                }),
                 ('it:mitre:attack:flow', ('guid', {}), {
                     'doc': 'A MITRE ATT&CK Flow diagram.',
                 }),
