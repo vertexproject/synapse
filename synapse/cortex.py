@@ -5159,12 +5159,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return dmon
 
     async def getStormDmon(self, iden):
+        mirurl = self.conf.get('mirror')
+        if mirurl is not None:
+            async with await s_telepath.openurl(mirurl) as leader:
+                return await leader.getStormDmon(iden)
+
         return self.stormdmons.getDmonDef(iden)
 
     async def getStormDmons(self):
+        mirurl = self.conf.get('mirror')
+        if mirurl is not None:
+            async with await s_telepath.openurl(mirurl) as leader:
+                return await leader.getStormDmons()
+
         return self.stormdmons.getDmonDefs()
 
     async def getStormDmonLog(self, iden):
+        mirurl = self.conf.get('mirror')
+        if mirurl is not None:
+            async with await s_telepath.openurl(mirurl) as leader:
+                return await leader.getStormDmonLog(iden)
+
         return self.stormdmons.getDmonRunlog(iden)
 
     def addStormLib(self, path, ctor):
