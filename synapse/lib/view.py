@@ -1313,8 +1313,9 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core._addView(vdef)
 
         forkiden = vdef.get('iden')
+        self.info['parent'] = forkiden
         self.parent = self.core.reqView(forkiden)
-        await self.info.set('parent', forkiden)
+        self.core.viewdefs.set(self.iden, self.info)
 
         await self._calcForkLayers()
 
