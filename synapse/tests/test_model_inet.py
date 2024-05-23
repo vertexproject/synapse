@@ -165,6 +165,7 @@ class InetModelTest(s_t_utils.SynTest):
             # IPv6
             self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1', 'proto': 'icmp'}}))
             self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2, 'proto': 'tcp'}}))
+            self.eq(t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': {'ipv6': '::1', 'proto': 'tcp'}}))
             self.eq(t.norm('tcp://[::fFfF:0102:0304]:2'),
                     ('tcp://[::ffff:1.2.3.4]:2', {'subs': {'ipv6': '::ffff:1.2.3.4',
                                                            'ipv4': 0x01020304,
@@ -1472,6 +1473,69 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.none(nodes[0].get('ipv4'))
             self.none(nodes[0].get('fqdn'))
+
+            q = '''
+            [
+                inet:url="http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:80/index.html"
+                inet:url="http://[1080:0:0:0:8:800:200C:417A]/index.html?foo=bar"
+                inet:url="http://[3ffe:2a00:100:7031::1]"
+                inet:url="http://[1080::8:800:200C:417A]/foo"
+                inet:url="http://[::192.9.5.5]/ipng"
+                inet:url="http://[::FFFF:129.144.52.38]:80/index.html"
+                inet:url="https://[2010:836B:4179::836B:4179]"
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(7, nodes)
+            print(nodes)
+            self.eq(nodes[0].get('base'), 'http://[fedc:ba98:7654:3210:fedc:ba98:7654:3210]:80/index.html')
+            self.eq(nodes[0].get('proto'), 'http')
+            self.eq(nodes[0].get('path'), '/index.html')
+            self.eq(nodes[0].get('params'), '')
+            self.eq(nodes[0].get('ipv6'), 'fedc:ba98:7654:3210:fedc:ba98:7654:3210')
+            self.eq(nodes[0].get('port'), 80)
+
+            self.eq(nodes[1].get('base'), 'http://[1080::8:800:200c:417a]/index.html')
+            self.eq(nodes[1].get('proto'), 'http')
+            self.eq(nodes[1].get('path'), '/index.html')
+            self.eq(nodes[1].get('params'), '?foo=bar')
+            self.eq(nodes[1].get('ipv6'), '1080::8:800:200c:417a')
+            self.eq(nodes[1].get('port'), 80)
+
+            self.eq(nodes[2].get('base'), 'http://[3ffe:2a00:100:7031::1]')
+            self.eq(nodes[2].get('proto'), 'http')
+            self.eq(nodes[2].get('path'), '')
+            self.eq(nodes[2].get('params'), '')
+            self.eq(nodes[2].get('ipv6'), '3ffe:2a00:100:7031::1')
+            self.eq(nodes[2].get('port'), 80)
+
+            self.eq(nodes[3].get('base'), 'http://[1080::8:800:200c:417a]/foo')
+            self.eq(nodes[3].get('proto'), 'http')
+            self.eq(nodes[3].get('path'), '/foo')
+            self.eq(nodes[3].get('params'), '')
+            self.eq(nodes[3].get('ipv6'), '1080::8:800:200c:417a')
+            self.eq(nodes[3].get('port'), 80)
+
+            self.eq(nodes[4].get('base'), 'http://[::c009:505]/ipng')
+            self.eq(nodes[4].get('proto'), 'http')
+            self.eq(nodes[4].get('path'), '/ipng')
+            self.eq(nodes[4].get('params'), '')
+            self.eq(nodes[4].get('ipv6'), '::c009:505')
+            self.eq(nodes[4].get('port'), 80)
+
+            self.eq(nodes[5].get('base'), 'http://[::ffff:129.144.52.38]:80/index.html')
+            self.eq(nodes[5].get('proto'), 'http')
+            self.eq(nodes[5].get('path'), '/index.html')
+            self.eq(nodes[5].get('params'), '')
+            self.eq(nodes[5].get('ipv6'), '::ffff:129.144.52.38')
+            self.eq(nodes[5].get('port'), 80)
+
+            self.eq(nodes[6].get('base'), 'https://[2010:836b:4179::836b:4179]')
+            self.eq(nodes[6].get('proto'), 'https')
+            self.eq(nodes[6].get('path'), '')
+            self.eq(nodes[6].get('params'), '')
+            self.eq(nodes[6].get('ipv6'), '2010:836b:4179::836b:4179')
+            self.eq(nodes[6].get('port'), 443)
 
     async def test_url_file(self):
 

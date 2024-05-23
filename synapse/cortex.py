@@ -3490,7 +3490,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     with open(idenpath, 'w') as fd:
                         fd.write(jsoniden)
 
-            conf = {'cell:guid': jsoniden}
+            # Disable sysctl checks for embedded jsonstor server
+            conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
 
         self.onfini(self.jsonstor)
@@ -3567,7 +3568,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
-            conf = {}
+            # Disable sysctl checks for embedded axon server
+            conf = {'health:sysctl:checks': False}
 
             proxyurl = self.conf.get('http:proxy')
             if proxyurl is not None:
