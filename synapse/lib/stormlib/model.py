@@ -874,8 +874,80 @@ class LibModelMigrations(s_stormtypes.Lib):
                        'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
+        {'name': 'riskHasVulnToVulnerable', 'desc': '''
+            Create a risk:vulnerable node from the provided risk:hasvuln node.
+
+            Edits will be made to the risk:vulnerable node in the current write layer.
+
+            If multiple vulnerable properties are set on the risk:hasvuln node
+            multiple risk:vulnerable nodes will be created (each with a unique guid).
+            Otherwise, a single risk:vulnerable will be created with the same guid
+            as the provided risk:hasvuln node. Extended properties will not be migrated.
+
+            Tags, tag properties, edges, and node data will be copied
+            to the risk:vulnerable node. However, existing tag properties and
+            node data will not be overwritten.
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of risk:vulnerable nodes.'}}},
     )
     _storm_lib_path = ('model', 'migration', 's')
+
+    _storm_query = '''
+        function riskHasVulnToVulnerable(n) {
+
+            if (not $n.isform(risk:hasvuln)) {
+                $lib.raise(BadArg, `riskHasVulnToVulnerable() only accepts risk:hasvuln nodes, not {$n.form()}.`)
+            }
+
+            $ret = ([])
+            $links = ({})
+
+            $vuln = $n.props.vuln
+            if (not $vuln) { return() }
+
+            for $prop in (hardware, host, item, org, person, place, software, spec) {
+                $valu = $n.props.$prop
+                if $valu { $links.$prop = $valu }
+            }
+
+            $linkcnt = $lib.dict.keys($links).size()
+            if ($linkcnt = 0) { return() }
+
+            if ($linkcnt = 1) {
+                $guid = $n.value()
+            } else {
+                $guid = $lib.null
+            }
+
+            $model = $lib.model.form(risk:hasvuln)
+
+            for ($prop, $valu) in $links {
+
+                $pguid = $guid
+                if ($pguid = $lib.null) {
+                    $pguid = $lib.guid($n.value(), $prop)
+                }
+
+                [ risk:vulnerable=$pguid
+                    :vuln=$vuln
+                    :node=($model.prop($prop).type.name, $valu)
+                    .seen?=$n.props.".seen"
+                ]
+
+                $lib.model.migration.copyData($n, $node)
+                $lib.model.migration.copyEdges($n, $node)
+                $lib.model.migration.copyTags($n, $node)
+
+                $ret.append($node)
+            }
+
+            fini { return($ret) }
+        }
+    '''
 
     def getObjLocals(self):
         return {
