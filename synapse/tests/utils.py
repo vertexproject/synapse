@@ -307,6 +307,17 @@ testmodel = {
         ('test:cycle1', ('str', {}), {}),
 
         ('test:ndef', ('ndef', {}), {}),
+        ('test:ndef:formfilter1', ('ndef', {
+            'forms': ('inet:ipv4', 'inet:ipv6')
+        }), {}),
+        ('test:ndef:formfilter2', ('ndef', {
+            'interfaces': ('meta:taxonomy',)
+        }), {}),
+        ('test:ndef:formfilter3', ('ndef', {
+            'forms': ('inet:ipv4',),
+            'interfaces': ('file:mime:msoffice',)
+        }), {}),
+
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
         ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
         ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),

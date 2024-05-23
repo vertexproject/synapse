@@ -1264,6 +1264,89 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 todo.append(child)
 
+    async def insertParentFork(self, useriden, name=None):
+        '''
+        Insert a new View between a forked View and its parent.
+
+        Returns:
+            New view definition with the same perms as the current fork.
+        '''
+        if not self.isafork():
+            mesg = f'View ({self.iden}) is not a fork, cannot insert a new fork between it and parent.'
+            raise s_exc.BadState(mesg=mesg)
+
+        ctime = s_common.now()
+        layriden = s_common.guid()
+
+        ldef = {
+            'iden': layriden,
+            'created': ctime,
+            'creator': useriden,
+            'lockmemory': self.core.conf.get('layers:lockmemory'),
+            'logedits': self.core.conf.get('layers:logedits'),
+            'readonly': False
+        }
+
+        vdef = {
+            'iden': s_common.guid(),
+            'created': ctime,
+            'creator': useriden,
+            'parent': self.parent.iden,
+            'layers': [layriden] + [lyr.iden for lyr in self.parent.layers]
+        }
+
+        if name is not None:
+            vdef['name'] = name
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        return await self._push('view:forkparent', ldef, vdef)
+
+    @s_nexus.Pusher.onPush('view:forkparent', passitem=True)
+    async def _insertParentFork(self, ldef, vdef, nexsitem):
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        await self.core._addLayer(ldef, nexsitem)
+        await self.core._addView(vdef)
+
+        forkiden = vdef.get('iden')
+        self.parent = self.core.reqView(forkiden)
+        await self.info.set('parent', forkiden)
+
+        await self._calcForkLayers()
+
+        for view in self.core.views.values():
+            if view.isForkOf(self.iden):
+                await view._calcForkLayers()
+
+        self.core._calcViewsByLayer()
+
+        authgate = await self.core.getAuthGate(self.iden)
+        if authgate is None:  # pragma: no cover
+            return await self.parent.pack()
+
+        for userinfo in authgate.get('users'):
+            useriden = userinfo.get('iden')
+            if (user := self.core.auth.user(useriden)) is None:  # pragma: no cover
+                logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
+                continue
+
+            await user.setRules(userinfo.get('rules'), gateiden=forkiden, nexs=False)
+            await user.setAdmin(userinfo.get('admin'), gateiden=forkiden, logged=False)
+
+        for roleinfo in authgate.get('roles'):
+            roleiden = roleinfo.get('iden')
+            if (role := self.core.auth.role(roleiden)) is None:  # pragma: no cover
+                logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
+                continue
+
+            await role.setRules(roleinfo.get('rules'), gateiden=forkiden, nexs=False)
+
+        return await self.parent.pack()
+
     async def fork(self, ldef=None, vdef=None):
         '''
         Make a new view inheriting from this view with the same layers and a new write layer on top

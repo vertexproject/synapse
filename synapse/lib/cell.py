@@ -55,6 +55,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.lib.crypto.passwd as s_passwd
+import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.backup as s_t_backup
 
@@ -926,6 +927,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'minimum': 0,
             'maximum': 100,
         },
+        'health:sysctl:checks': {
+            'default': True,
+            'description': 'Enable sysctl parameter checks and warn if values are not optimal.',
+            'type': 'boolean',
+        },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
@@ -1050,6 +1056,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     COMMIT = s_version.commit
     VERSION = s_version.version
     VERSTRING = s_version.verstring
+
+    SYSCTL_VALS = {
+        'vm.dirty_expire_centisecs': 20,
+        'vm.dirty_writeback_centisecs': 20,
+    }
+    SYSCTL_CHECK_FREQ = 60.0
 
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
@@ -1219,6 +1231,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
+
+        if self.conf.get('health:sysctl:checks'):
+            self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
         await self._initAhaRegistry()
@@ -1567,6 +1582,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
+
+    async def _runSysctlLoop(self):
+        while not self.isfini:
+            fixvals = []
+            sysctls = s_linux.getSysctls()
+
+            for name, valu in self.SYSCTL_VALS.items():
+                if (sysval := sysctls.get(name)) != valu:
+                    fixvals.append({'name': name, 'expected': valu, 'actual': sysval})
+
+            if not fixvals:
+                # All sysctl parameters have been set to recommended values, no
+                # need to keep checking.
+                break
+
+            fixnames = [k['name'] for k in fixvals]
+            mesg = f'Sysctl values different than expected: {", ".join(fixnames)}. '
+            mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
+            mesg += 'for information about these sysctl parameters.'
+
+            extra = await self.getLogExtra(sysctls=fixvals)
+            logger.warning(mesg, extra=extra)
+
+            await asyncio.sleep(self.SYSCTL_CHECK_FREQ)
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')

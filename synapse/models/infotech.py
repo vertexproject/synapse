@@ -1,5 +1,9 @@
+import copy
+import string
 import asyncio
 import logging
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.data as s_data
@@ -9,9 +13,52 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+import synapse.lib.scrape as s_scrape
 import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
+
+# This is the regular expression pattern for CPE2.2. It's kind of a hybrid
+# between compatible binding and preferred binding. Differences are here:
+# - Use only the list of percent encoded values specified by preferred binding.
+#   This is to ensure it converts properly to CPE2.3.
+# - Add tilde (~) to the UNRESERVED list which removes the need to specify the
+#   PACKED encoding specifically.
+ALPHA = '[A-Za-z]'
+DIGIT = '[0-9]'
+UNRESERVED = r'[A-Za-z0-9\-\.\_~]'
+SPEC1 = '%01'
+SPEC2 = '%02'
+# This is defined in the ABNF but not actually referenced
+# SPECIAL = f'(?:{SPEC1}|{SPEC2})'
+SPEC_CHRS = f'(?:{SPEC1}+|{SPEC2})'
+PCT_ENCODED = '%(?:21|22|23|24|25|26|27|28|28|29|2a|2b|2c|2f|3a|3b|3c|3d|3e|3f|40|5b|5c|5d|5e|60|7b|7c|7d|7e)'
+STR_WO_SPECIAL = f'(?:{UNRESERVED}|{PCT_ENCODED})*'
+STR_W_SPECIAL = f'{SPEC_CHRS}? (?:{UNRESERVED}|{PCT_ENCODED})+ {SPEC_CHRS}?'
+STRING = f'(?:{STR_W_SPECIAL}|{STR_WO_SPECIAL})'
+REGION = f'(?:{ALPHA}{{2}}|{DIGIT}{{3}})'
+LANGTAG = rf'(?:{ALPHA}{{2,3}}(?:\-{REGION})?)'
+PART = '[hoa]?'
+VENDOR = STRING
+PRODUCT = STRING
+VERSION = STRING
+UPDATE = STRING
+EDITION = STRING
+LANG = f'{LANGTAG}?'
+COMPONENT_LIST = f'''
+    (?:
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION}:{LANG} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE}:{EDITION} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION}:{UPDATE} |
+        {PART}:{VENDOR}:{PRODUCT}:{VERSION} |
+        {PART}:{VENDOR}:{PRODUCT} |
+        {PART}:{VENDOR} |
+        {PART}
+    )
+'''
+
+cpe22_regex = regex.compile(f'cpe:/{COMPONENT_LIST}', regex.VERBOSE | regex.IGNORECASE)
+cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
 
 def cpesplit(text):
     part = ''
@@ -36,7 +83,160 @@ def cpesplit(text):
     except StopIteration:
         parts.append(part)
 
-    return parts
+    return [part.strip() for part in parts]
+
+# Formatted String Binding characters that need to be escaped
+FSB_ESCAPE_CHARS = [
+    '!', '"', '#', '$', '%', '&', "'", '(', ')',
+    '+', ',', '/', ':', ';', '<', '=', '>', '@',
+    '[', ']', '^', '`', '{', '|', '}', '~',
+    '\\', '?', '*'
+]
+
+FSB_VALID_CHARS = ['-', '.', '_']
+FSB_VALID_CHARS.extend(string.ascii_letters)
+FSB_VALID_CHARS.extend(string.digits)
+FSB_VALID_CHARS.extend(FSB_ESCAPE_CHARS)
+
+def fsb_escape(text):
+    ret = ''
+    if text in ('*', '-'):
+        return text
+
+    # Check validity of text first
+    if (invalid := [char for char in text if char not in FSB_VALID_CHARS]):
+        badchars = ', '.join(invalid)
+        mesg = f'Invalid CPE 2.3 character(s) ({badchars}) detected.'
+        raise s_exc.BadTypeValu(mesg=mesg, valu=text)
+
+    textlen = len(text)
+
+    for idx, char in enumerate(text):
+        if char not in FSB_ESCAPE_CHARS:
+            ret += char
+            continue
+
+        escchar = f'\\{char}'
+
+        # The only character in the string
+        if idx == 0 and idx == textlen - 1:
+            ret += escchar
+            continue
+
+        # Handle the backslash as a special case
+        if char == '\\':
+            if idx == 0:
+                # Its the first character and escaping another special character
+                if text[idx + 1] in FSB_ESCAPE_CHARS:
+                    ret += char
+                else:
+                    ret += escchar
+
+                continue
+
+            if idx == textlen - 1:
+                # Its the last character and being escaped
+                if text[idx - 1] == '\\':
+                    ret += char
+                else:
+                    ret += escchar
+
+                continue
+
+            # The backslash is in the middle somewhere
+
+            # It's already escaped or it's escaping a special char
+            if text[idx - 1] == '\\' or text[idx + 1] in FSB_ESCAPE_CHARS:
+                ret += char
+                continue
+
+            # Lone backslash, escape it and move on
+            ret += escchar
+            continue
+
+        # First char, no look behind
+        if idx == 0:
+            # Escape the first character and go around
+            ret += escchar
+            continue
+
+        escaped = text[idx - 1] == '\\'
+
+        if not escaped:
+            ret += escchar
+            continue
+
+        ret += char
+
+    return ret
+
+def fsb_unescape(text):
+    ret = ''
+    textlen = len(text)
+
+    for idx, char in enumerate(text):
+        # The last character so we can't look ahead
+        if idx == textlen - 1:
+            ret += char
+            continue
+
+        if char == '\\' and text[idx + 1] in FSB_ESCAPE_CHARS:
+            continue
+
+        ret += char
+
+    return ret
+
+# URI Binding characters that can be encoded in percent format
+URI_PERCENT_CHARS = [
+    # Do the percent first so we don't double encode by accident
+    ('%25', '%'),
+    ('%21', '!'), ('%22', '"'), ('%23', '#'), ('%24', '$'), ('%26', '&'), ('%27', "'"),
+    ('%28', '('), ('%29', ')'), ('%2a', '*'), ('%2b', '+'), ('%2c', ','), ('%2f', '/'), ('%3a', ':'),
+    ('%3b', ';'), ('%3c', '<'), ('%3d', '='), ('%3e', '>'), ('%3f', '?'), ('%40', '@'), ('%5b', '['),
+    ('%5c', '\\'), ('%5d', ']'), ('%5e', '^'), ('%60', '`'), ('%7b', '{'), ('%7c', '|'), ('%7d', '}'),
+    ('%7e', '~'),
+]
+
+def uri_quote(text):
+    ret = ''
+    for (pct, char) in URI_PERCENT_CHARS:
+        text = text.replace(char, pct)
+    return text
+
+def uri_unquote(text):
+    # iterate backwards so we do the % last to avoid double unquoting
+    # example: "%2521" would turn into "%21" which would then replace into "!"
+    for (pct, char) in URI_PERCENT_CHARS[::-1]:
+        text = text.replace(pct, char)
+    return text
+
+UNSPECIFIED = ('', '*')
+def uri_pack(edition, sw_edition, target_sw, target_hw, other):
+    # If the four extended attributes are unspecified, only return the edition value
+    if (sw_edition in UNSPECIFIED and target_sw in UNSPECIFIED and target_hw in UNSPECIFIED and other in UNSPECIFIED):
+        return edition
+
+    ret = [edition, '', '', '', '']
+
+    if sw_edition not in UNSPECIFIED:
+        ret[1] = sw_edition
+
+    if target_sw not in UNSPECIFIED:
+        ret[2] = target_sw
+
+    if target_hw not in UNSPECIFIED:
+        ret[3] = target_hw
+
+    if other not in UNSPECIFIED:
+        ret[4] = other
+
+    return '~' + '~'.join(ret)
+
+def uri_unpack(edition):
+    if edition.startswith('~') and edition.count('~') == 5:
+        return edition[1:].split('~', 5)
+    return None
 
 class Cpe22Str(s_types.Str):
     '''
@@ -60,7 +260,14 @@ class Cpe22Str(s_types.Str):
             mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
-        return zipCpe22(parts), {}
+        v2_2 = zipCpe22(parts)
+
+        rgx = cpe22_regex.match(v2_2)
+        if rgx is None or rgx.group() != v2_2:
+            mesg = 'CPE 2.2 string appears to be invalid.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
+        return v2_2, {}
 
     def _normPyList(self, parts):
         return zipCpe22(parts), {}
@@ -77,7 +284,7 @@ def chopCpe22(text):
     CPE 2.2 Formatted String
     https://cpe.mitre.org/files/cpe-specification_2.2.pdf
     '''
-    if not text.startswith('cpe:/'):
+    if not text.startswith('cpe:/'): # pragma: no cover
         mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
         raise s_exc.BadTypeValu(valu=text, mesg=mesg)
 
@@ -88,6 +295,18 @@ def chopCpe22(text):
         raise s_exc.BadTypeValu(valu=text, mesg=mesg)
 
     return parts
+
+PART_IDX_PART = 0
+PART_IDX_VENDOR = 1
+PART_IDX_PRODUCT = 2
+PART_IDX_VERSION = 3
+PART_IDX_UPDATE = 4
+PART_IDX_EDITION = 5
+PART_IDX_LANG = 6
+PART_IDX_SW_EDITION = 7
+PART_IDX_TARGET_SW = 8
+PART_IDX_TARGET_HW = 9
+PART_IDX_OTHER = 10
 
 class Cpe23Str(s_types.Str):
     '''
@@ -119,31 +338,113 @@ class Cpe23Str(s_types.Str):
 
             extsize = 11 - len(parts)
             parts.extend(['*' for _ in range(extsize)])
+
+            v2_3 = 'cpe:2.3:' + ':'.join(parts)
+
+            v2_2 = copy.copy(parts)
+            for idx, part in enumerate(v2_2):
+                if part == '*':
+                    v2_2[idx] = ''
+                    continue
+
+                part = fsb_unescape(part)
+                v2_2[idx] = uri_quote(part)
+
+            v2_2[PART_IDX_EDITION] = uri_pack(
+                v2_2[PART_IDX_EDITION],
+                v2_2[PART_IDX_SW_EDITION],
+                v2_2[PART_IDX_TARGET_SW],
+                v2_2[PART_IDX_TARGET_HW],
+                v2_2[PART_IDX_OTHER]
+            )
+
+            v2_2 = v2_2[:7]
+
+            parts = [fsb_unescape(k) for k in parts]
+
         elif text.startswith('cpe:/'):
+
+            v2_2 = text
             # automatically normalize CPE 2.2 format to CPE 2.3
             parts = chopCpe22(text)
+
+            # Account for blank fields
+            for idx, part in enumerate(parts):
+                if not part:
+                    parts[idx] = '*'
+
             extsize = 11 - len(parts)
             parts.extend(['*' for _ in range(extsize)])
+
+            # URI bindings can pack extended attributes into the
+            # edition field, handle that here.
+            unpacked = uri_unpack(parts[PART_IDX_EDITION])
+            if unpacked:
+                (edition, sw_edition, target_sw, target_hw, other) = unpacked
+
+                if edition:
+                    parts[PART_IDX_EDITION] = edition
+                else:
+                    parts[PART_IDX_EDITION] = '*'
+
+                if sw_edition:
+                    parts[PART_IDX_SW_EDITION] = sw_edition
+
+                if target_sw:
+                    parts[PART_IDX_TARGET_SW] = target_sw
+
+                if target_hw:
+                    parts[PART_IDX_TARGET_HW] = target_hw
+
+                if other:
+                    parts[PART_IDX_OTHER] = other
+
+            parts = [uri_unquote(part) for part in parts]
+
+            # This feels a little uninuitive to escape parts for "escaped" and
+            # unescape parts for "parts" but values in parts could be incorrectly
+            # escaped or incorrectly unescaped so just do both.
+            escaped = [fsb_escape(part) for part in parts]
+            parts = [fsb_unescape(part) for part in parts]
+
+            v2_3 = 'cpe:2.3:' + ':'.join(escaped)
+
         else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
+        rgx = cpe23_regex.match(v2_3)
+        if rgx is None or rgx.group() != v2_3:
+            mesg = 'CPE 2.3 string appears to be invalid.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
+        if isinstance(v2_2, list):
+            cpe22 = zipCpe22(v2_2)
+        else:
+            cpe22 = v2_2
+
+        rgx = cpe22_regex.match(cpe22)
+        if rgx is None or rgx.group() != cpe22:
+            v2_2 = None
+
         subs = {
-            'v2_2': parts,
-            'part': parts[0],
-            'vendor': parts[1],
-            'product': parts[2],
-            'version': parts[3],
-            'update': parts[4],
-            'edition': parts[5],
-            'language': parts[6],
-            'sw_edition': parts[7],
-            'target_sw': parts[8],
-            'target_hw': parts[9],
-            'other': parts[10],
+            'part': parts[PART_IDX_PART],
+            'vendor': parts[PART_IDX_VENDOR],
+            'product': parts[PART_IDX_PRODUCT],
+            'version': parts[PART_IDX_VERSION],
+            'update': parts[PART_IDX_UPDATE],
+            'edition': parts[PART_IDX_EDITION],
+            'language': parts[PART_IDX_LANG],
+            'sw_edition': parts[PART_IDX_SW_EDITION],
+            'target_sw': parts[PART_IDX_TARGET_SW],
+            'target_hw': parts[PART_IDX_TARGET_HW],
+            'other': parts[PART_IDX_OTHER],
         }
 
-        return 'cpe:2.3:' + ':'.join(parts), {'subs': subs}
+        if v2_2 is not None:
+            subs['v2_2'] = v2_2
+
+        return v2_3, {'subs': subs}
 
 class SemVer(s_types.Int):
     '''
@@ -1573,8 +1874,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A brief description of the hardware.'}),
                     ('cpe', ('it:sec:cpe', {}), {
                         'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
+                    ('manufacturer', ('ou:org', {}), {
+                        'doc': 'The organization that manufactures this hardware.'}),
+                    ('manufacturer:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization that manufactures this hardware.'}),
                     ('make', ('ou:name', {}), {
-                        'doc': 'The name of the organization which manufactures this hardware.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :manufacturer:name.'}),
                     ('model', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The model name or number for this hardware specification.'}),
                     ('version', ('str', {'lower': True, 'onespace': True}), {
