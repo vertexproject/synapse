@@ -183,6 +183,15 @@ class ProtoNode:
 
         return s_common.novalu
 
+    async def hasData(self, name):
+        if name in self.nodedata:
+            return True
+
+        if self.node is not None:
+            return await self.node.hasData(name)
+
+        return False
+
     async def setData(self, name, valu):
 
         if await self.getData(name) == valu:
@@ -286,6 +295,15 @@ class ProtoNode:
 
         if self.node is not None:
             return self.node.getTagProp(tag, name)
+
+    def hasTagProp(self, tag, name):
+        if (tag, name) in self.tagprops:
+            return True
+
+        if self.node is not None:
+            return self.node.hasTagProp(tag, name)
+
+        return False
 
     async def setTagProp(self, tag, name, valu):
 
