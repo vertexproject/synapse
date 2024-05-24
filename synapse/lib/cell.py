@@ -110,6 +110,18 @@ def adminapi(log=False):
 
     return decrfunc
 
+def on_leader(func):
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if isinstance(self, Cell) and not self.isactive:
+            proxy = await self.nexsroot.client.proxy()
+            api = getattr(proxy, func.__name__)
+            return await api(*args, **kwargs)
+
+        return await func(self, *args, **kwargs)
+
+    return wrapper
+
 async def _doIterBackup(path, chunksize=1024):
     '''
     Create tarball and stream bytes.
