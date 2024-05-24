@@ -1651,6 +1651,7 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the datasource.'}),
                     ('description', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A description of the datasource.'}),
                     ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of URLs that document the datasource.',
@@ -1661,6 +1662,7 @@ class ItModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The name of the data component.'}),
                     ('description', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A description of the data component.'}),
                     ('datasource', ('it:mitre:attack:datasource', {}), {
                         'ro': True,
