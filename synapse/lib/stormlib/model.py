@@ -905,7 +905,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
             If multiple vulnerable properties are set on the risk:hasvuln node
             multiple risk:vulnerable nodes will be created (each with a unique guid).
-            Otherwise, a single risk:vulnerable will be created with the same guid
+            Otherwise, a single risk:vulnerable node will be created with the same guid
             as the provided risk:hasvuln node. Extended properties will not be migrated.
 
             Tags, tag properties, edges, and node data will be copied
