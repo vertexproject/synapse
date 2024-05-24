@@ -121,9 +121,8 @@ def on_leader(func):
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         if not isinstance(self, Cell):
-            cls = self.__class__.__name__
             mesg = 'Methods using on_leader() MUST be classes/subclasses of Cell.'
-            raise s_exc.SynErr(mesg=mesg, func=func.__name__, cls=cls)
+            raise s_exc.SynErr(mesg=mesg, func=func.__name__, cls=self.__class__.__name__)
 
         if not hasattr(self.cellapi, func.__name__):
             mesg = f'Methods using on_leader() MUST have a corresponding telepath API name.'
