@@ -1524,7 +1524,8 @@ class ItModule(s_module.CoreModule):
                                            'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK tactics that include this technique.',
                     }),
-                    ('data:components', ('array', {'type': 'it:mitre:attack:data:component', 'uniq': True}), {
+                    ('data:components', ('array', {'type': 'it:mitre:attack:data:component',
+                                                   'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.',
                     }),
                 )),
@@ -1651,7 +1652,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the datasource.'}),
                     ('description', ('str', {}), {
                         'doc': 'A description of the datasource.'}),
-                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of URLs that document the datasource.',
                     }),
                 )),
