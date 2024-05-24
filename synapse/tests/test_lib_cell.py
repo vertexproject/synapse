@@ -2723,3 +2723,43 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getTestCell(s_cell.Cell, dirn=dirn):
                 pass
+
+    async def test_cell_on_leader(self):
+        class FooApi(s_cell.CellApi):
+            async def bar(self):
+                return self.cell.bar()
+
+        class Foo(s_cell.Cell):
+            cellapi = FooApi
+
+            @s_cell.on_leader
+            async def bar(self):
+                return True
+
+            @s_cell.on_leader
+            async def baz(self):
+                return True
+
+        class Bar:
+            @s_cell.on_leader
+            async def baz(self):
+                return True
+
+        async with self.getTestCell(Foo) as foo:
+            self.true(await foo.bar())
+
+            with self.raises(s_exc.SynErr) as exc:
+                await foo.baz()
+
+            self.eq(exc.exception.get('mesg'), 'Methods using on_leader() MUST have a corresponding telepath API name.')
+            self.eq(exc.exception.get('cls'), 'Foo')
+            self.eq(exc.exception.get('func'), 'baz')
+
+            bar = Bar()
+
+            with self.raises(s_exc.SynErr) as exc:
+                await bar.baz()
+
+            self.eq(exc.exception.get('mesg'), 'Methods using on_leader() MUST be classes/subclasses of Cell.')
+            self.eq(exc.exception.get('cls'), 'Bar')
+            self.eq(exc.exception.get('func'), 'baz')

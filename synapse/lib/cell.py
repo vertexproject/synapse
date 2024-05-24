@@ -111,9 +111,25 @@ def adminapi(log=False):
     return decrfunc
 
 def on_leader(func):
+    '''
+    Decorator used to indicate that the decorated method must call up to the
+    leader to perform it's work.
+
+    This only works on Cell classes and subclasses. The decorated method name
+    MUST be the same as the telepath API name.
+    '''
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
-        if isinstance(self, Cell) and not self.isactive:
+        if not isinstance(self, Cell):
+            cls = self.__class__.__name__
+            mesg = 'Methods using on_leader() MUST be classes/subclasses of Cell.'
+            raise s_exc.SynErr(mesg=mesg, func=func.__name__, cls=cls)
+
+        if not hasattr(self.cellapi, func.__name__):
+            mesg = f'Methods using on_leader() MUST have a corresponding telepath API name.'
+            raise s_exc.SynErr(mesg=mesg, func=func.__name__, cls=self.__class__.__name__)
+
+        if not self.isactive:
             proxy = await self.nexsroot.client.proxy()
             api = getattr(proxy, func.__name__)
             return await api(*args, **kwargs)
