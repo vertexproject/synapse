@@ -3671,7 +3671,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The client software version used to send the message.'}),
 
                         ('client:software:name', ('it:prod:softname', {}), {
-                            'doc': 'The client software version used to send the message.'}),
+                            'doc': 'The name of the client software used to send the message.'}),
 
                         ('file', ('file:bytes', {}), {
                             'doc': 'The raw file that the message was extracted from.'}),
