@@ -1046,9 +1046,8 @@ class RiskModule(s_module.CoreModule):
                     ('paid:price', ('econ:price', {}), {
                         'doc': 'The total price paid by the target of the extortion.'}),
 
-                    ('payments', ('econ:acct:payment', {}), {
+                    ('payments', ('array', {'type': 'econ:acct:payment'}), {
                         'doc': 'Payments made from the target to the attacker.'}),
-
                 )),
                 ('risk:technique:masquerade', {}, (
                     ('node', ('ndef', {}), {

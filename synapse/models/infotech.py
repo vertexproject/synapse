@@ -342,6 +342,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A GUID that represents a logical network.'}),
 
                 ('it:network:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of network types.'}),
 
                 ('it:domain', ('guid', {}), {
@@ -704,6 +705,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A time window where a host was a tenant run by another host.'}),
 
                 ('it:software:image:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of software image types.'}),
 
                 ('it:software:image', ('guid', {}), {
@@ -717,9 +719,9 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A physical or logical storage volume that can be attached to a physical/virtual machine or container.'}),
 
                 ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of storage volume types.',
                     'ex': 'network.smb',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of storage volume types.',
                 }),
             ),
             'interfaces': (
@@ -846,6 +848,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of parent images in precedence order.'}),
                 )),
 
+                ('it:storage:volume:type:taxonomy', {}, ()),
                 ('it:storage:volume', {}, (
 
                     ('id', ('str', {'strip': True}), {
@@ -2040,21 +2043,31 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:cmd', {}, ()),
                 ('it:cmd:session', {}, (
+
                     ('host', ('it:host', {}), {
                         'doc': 'The host where the command line session was executed.'}),
+
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which was interpreting this command line session.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The period over which the command line session was running.'}),
+
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file containing the command history such as a .bash_history file.'}),
                 )),
                 ('it:cmd:history', {}, (
+
                     ('cmd', ('it:cmd', {}), {
                         'doc': 'The command that was executed.'}),
+
                     ('session', ('it:cmd:session', {}), {
                         'doc': 'The session that contains this history entry.'}),
+
                     ('time', ('time', {}), {
                         'doc': 'The time that the command was executed.'}),
-                    ('index', ('int', {'min': 0}), {
+
+                    ('index', ('int', {}), {
                         'doc': 'Used to order the commands when times are not available.'}),
                 )),
                 ('it:exec:proc', {}, (
@@ -2065,9 +2078,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.',
                     }),
                     ('cmd', ('it:cmd', {}), {
-                        'doc': 'The command string used to launch the process, including any command line parameters.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The command string used to launch the process, including any command line parameters.'}),
+
+                    ('cmd:history', ('it:cmd:history', {}), {
+                        'doc': 'The command history entry which caused this process to be run.'}),
+
                     ('pid', ('int', {}), {
                         'doc': 'The process ID.',
                     }),
