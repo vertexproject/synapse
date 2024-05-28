@@ -2637,6 +2637,7 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell(s_cell.Cell) as cell:
             data = await s_t_utils.alist(cell.iterSlabData('cell:info'))
             self.eq(data, (
+                ('cell:version', s_version.version),
                 ('nexus:version', s_cell.NEXUS_VERSION),
                 ('synapse:version', s_version.version)
             ))
