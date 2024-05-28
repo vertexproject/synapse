@@ -1194,15 +1194,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ), nexs=False)
 
         if self.inaugural:
-            self.cellinfo.set('synapse:version', s_version.version)
             self.cellinfo.set('nexus:version', NEXUS_VERSION)
 
-        synvers = self.cellinfo.get('synapse:version')
+        # Check the cell version didn't regress
+        if (lastver := self.cellinfo.get('cell:version')) is not None and self.VERSION < lastver:
+            mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
+            logger.error(mesg)
+            raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+
+        self.cellinfo.set('cell:version', self.VERSION)
+
+        # Check the synapse version didn't regress
+        if (lastver := self.cellinfo.get('synapse:version')) is not None and s_version.version < lastver:
+            mesg = f'Synapse version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {s_version.version}.'
+            logger.error(mesg)
+            raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
+
+        self.cellinfo.set('synapse:version', s_version.version)
+        
         self.nexsvers = self.cellinfo.get('nexus:version', (0, 0))
         self.nexspatches = ()
-
-        if synvers is None or synvers < s_version.version:
-            self.cellinfo.set('synapse:version', s_version.version)
 
         await self._bumpCellVers('cell:storage', (
             (2, self._storCellAuthMigration),

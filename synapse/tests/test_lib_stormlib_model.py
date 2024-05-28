@@ -653,3 +653,177 @@ class StormlibModelTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.callStorm('[ inet:fqdn=vertex.link ] $lib.model.migration.s.itSecCpe_2_170_0($node)')
+
+    async def test_stormlib_model_migrations_risk_hasvuln_vulnerable(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+            await core.nodes('$lib.model.ext.addFormProp(risk:hasvuln, _test, (ps:contact, ({})), ({}))')
+
+            await core.nodes('[ risk:vuln=* it:prod:softver=* +#test ]')
+
+            opts = {
+                'vars': {
+                    'guid00': (guid00 := 'c6f158a4d8e267a023b06415a04bf583'),
+                    'guid01': (guid01 := 'e98f7eada5f5057bc3181ab3fab1f7d5'),
+                    'guid02': (guid02 := '99b27f37f5cc1681ad0617e7c97a4094'),
+                }
+            }
+
+            # nodes with 1 vulnerable node get matching guids
+            # all data associated with hasvuln (except ext props) are migrated
+
+            nodes = await core.nodes('''
+                [ risk:hasvuln=$guid00
+                    :software={ it:prod:softver#test }
+                    :vuln={ risk:vuln#test }
+                    :_test={[ ps:contact=* ]}
+                    .seen=(2010, 2011)
+                    +#test=(2012, 2013)
+                    +#test.foo:test=hi
+                    <(seen)+ {[ meta:source=* :name=foo ]}
+                    +(refs)> {[ ps:contact=* :name=bar ]}
+                ]
+                $node.data.set(baz, bam)
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            ''', opts=opts)
+            self.len(1, nodes)
+            self.eq(guid00, nodes[0].ndef[1])
+            self.eq([
+                ('test', (s_time.parse('2012'), s_time.parse('2013'))),
+                ('test.foo', (None, None))
+            ], nodes[0].getTags())
+            self.eq('hi', nodes[0].getTagProp('test.foo', 'test'))
+            self.eq('bam', await nodes[0].getData('baz'))
+
+            self.len(1, await core.nodes('risk:vulnerable#test <(seen)- meta:source +:name=foo'))
+            self.len(1, await core.nodes('risk:vulnerable#test -(refs)> ps:contact +:name=bar'))
+            self.len(1, await core.nodes('risk:vulnerable#test :vuln -> risk:vuln +#test'))
+            self.len(1, await core.nodes('risk:vulnerable#test :node -> * +it:prod:softver +#test'))
+
+            # migrate guids - node existence not required
+
+            nodes = await core.nodes('''
+                [ risk:hasvuln=$guid01
+                    :software=$lib.guid()
+                    :vuln=$lib.guid()
+                ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            ''', opts=opts)
+            self.len(1, nodes)
+            self.eq(guid01, nodes[0].ndef[1])
+            self.nn(nodes[0].get('node'))
+            self.nn(nodes[0].get('vuln'))
+
+            # multi-prop - unique guids by prop
+
+            nodes = await core.nodes('''
+                [ risk:hasvuln=$guid02
+                    :hardware={[ it:prod:hardware=* ]}
+                    :host={[ it:host=* ]}
+                    :item={[ mat:item=* ]}
+                    :org={[ ou:org=* ]}
+                    :person={[ ps:person=* ]}
+                    :place={[ geo:place=* ]}
+                    :software={ it:prod:softver#test }
+                    :spec={[ mat:spec=* ]}
+                    :vuln={ risk:vuln#test }
+                    +#test2
+                ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            ''', opts=opts)
+            self.len(8, nodes)
+            self.false(any(n.ndef[1] == guid02 for n in nodes))
+            self.true(all(n.hasTag('test2') for n in nodes))
+            nodes.sort(key=lambda n: n.get('node'))
+            self.eq(
+                ['geo:place', 'it:host', 'it:prod:hardware', 'it:prod:softver',
+                 'mat:item', 'mat:spec', 'ou:org', 'ps:person'],
+                [n.get('node')[0] for n in nodes]
+            )
+
+            self.len(2, await core.nodes('it:prod:softver#test -> risk:vulnerable +{ :vuln -> risk:vuln +#test }'))
+
+            # nodata
+
+            self.len(1, await core.nodes('risk:vulnerable=$guid00 $node.data.pop(baz)', opts=opts))
+
+            nodes = await core.nodes('''
+                risk:hasvuln=$guid00 $n=$node
+                -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n, nodata=$lib.true) }
+            ''', opts=opts)
+            self.len(1, nodes)
+            self.none(await nodes[0].getData('baz'))
+
+            # no-ops
+
+            self.len(0, await core.nodes('''
+                [ risk:hasvuln=* ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            '''))
+
+            self.len(0, await core.nodes('''
+                [ risk:hasvuln=* :vuln={[ risk:vuln=* ]} ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            '''))
+
+            self.len(0, await core.nodes('''
+                [ risk:hasvuln=* :host={[ it:host=* ]} ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            '''))
+
+            # perms
+
+            lowuser = await core.auth.addUser('low')
+            aslow = {'user': lowuser.iden}
+
+            await lowuser.addRule((True, ('node', 'tag', 'add')))
+
+            await core.nodes('''
+                [ risk:hasvuln=*
+                    :vuln={[ risk:vuln=* ]}
+                    :host={[ it:host=* ]}
+                    .seen=2010
+                    +#test.low
+                ]
+            ''')
+
+            scmd = '''
+                risk:hasvuln#test.low $n=$node
+                -> {
+                   yield $lib.model.migration.s.riskHasVulnToVulnerable($n)
+                }
+            '''
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.add.risk:vulnerable', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.')))
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.prop.set.risk:vulnerable.vuln', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.')))
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.prop.set.risk:vulnerable.node', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.')))
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.prop.set.risk:vulnerable..seen', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.', maxsplit=4)))
+
+            self.len(1, await core.nodes(scmd, opts=aslow))
+
+            # bad inputs
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('[ it:host=* ] $lib.model.migration.s.riskHasVulnToVulnerable($node)')
+            self.isin('only accepts risk:hasvuln nodes', ectx.exception.errinfo['mesg'])
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.model.migration.s.riskHasVulnToVulnerable(newp)')
+            self.isin('must be a node', ectx.exception.errinfo['mesg'])
