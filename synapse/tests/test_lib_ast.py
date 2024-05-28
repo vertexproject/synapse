@@ -2820,14 +2820,14 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_tag_optimization(self):
         calls = []
-        origtag = s_snap.Snap.nodesByTag
+        origtag = s_view.View.nodesByTag
 
         async def checkTag(self, tag, form=None, reverse=False):
             calls.append(('tag', tag, form))
             async for node in origtag(self, tag, form=form, reverse=reverse):
                 yield node
 
-        with mock.patch('synapse.lib.snap.Snap.nodesByTag', checkTag):
+        with mock.patch('synapse.lib.view.View.nodesByTag', checkTag):
             async with self.getTestCore() as core:
                 self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
                 self.len(1, await core.nodes('[test:int=12 +#visi]'))
