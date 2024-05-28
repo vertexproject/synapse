@@ -3531,7 +3531,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The current email address associated with the account.'}),
 
                         ('profile', ('ps:contact', {}), {
-                            'doc': 'Profile details associated with the account.'}),
+                            'doc': 'Current profile details associated with the account.'}),
                     )),
 
                     ('inet:service:group', {}, (
