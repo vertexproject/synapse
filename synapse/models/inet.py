@@ -3540,7 +3540,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A platform specific ID used to identify the group.'}),
 
                         ('name', ('inet:group', {}), {
-                            'doc': 'The name of the group on this platform.'}),
+                            'doc': 'The current name of the group on this platform.'}),
                         ('profile', ('ps:contact', {}), {
                             'doc': 'Current detailed contact information for this group.'}),
                     )),
