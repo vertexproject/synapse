@@ -3470,6 +3470,10 @@ class InetModule(s_module.CoreModule):
                             'ex': 'twitter',
                             'doc': 'A friendly name for the platform.'}),
 
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service platform.'}),
+
                         ('provider', ('ou:org', {}), {
                             'doc': 'The organization which operates the platform.'}),
 
