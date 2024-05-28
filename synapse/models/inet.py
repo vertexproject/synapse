@@ -1527,10 +1527,6 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('meta:taxonomy',),
                         'doc': 'A taxonomy of inet service methods.'}),
 
-                    ('inet:service:login:type:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service types.'}),
-
                     ('inet:service:session', ('guid', {}), {
                         'interfaces': ('inet:service:object',)}),
 
