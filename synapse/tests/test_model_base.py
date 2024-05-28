@@ -12,9 +12,10 @@ class BaseTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ meta:timeline=* :title=Woot :summary=4LOLZ :type=lol.cats ]')
             self.len(1, nodes)
             nodes = await core.nodes('''
-                [ meta:event=* :title=Zip :duration=1:30:00
+                [ meta:event=* :title=Zip :duration=1:30:00 :index=0
                     :summary=Zop :time=20220321 :type=zip.zop :timeline={meta:timeline:title=Woot} ]''')
             self.len(1, nodes)
+            self.eq(0, nodes[0].get('index'))
             nodes = await core.nodes('''[ meta:event=* :title=Hehe :duration=2:00
                     :summary=Haha :time=20220322 :type=hehe.haha :timeline={meta:timeline:title=Woot} ]''')
             self.len(1, nodes)

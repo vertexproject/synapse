@@ -213,17 +213,26 @@ class BaseModule(s_module.CoreModule):
                 ('meta:timeline:taxonomy', {}, ()),
 
                 ('meta:event', {}, (
+
                     ('timeline', ('meta:timeline', {}), {
                         'doc': 'The timeline containing the event.'}),
+
                     ('title', ('str', {}), {
                         'doc': 'A title for the event.'}),
+
                     ('summary', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A prose summary of the event.'}),
+
                     ('time', ('time', {}), {
                         'doc': 'The time that the event occurred.'}),
+
+                    ('index', ('int', {}), {
+                        'doc': 'The index of this event in a timeline without exact times.'}),
+
                     ('duration', ('duration', {}), {
                         'doc': 'The duration of the event.'}),
+
                     ('type', ('meta:event:taxonomy', {}), {
                         'doc': 'Type of event.'}),
                 )),
