@@ -1636,6 +1636,7 @@ class InetModule(s_module.CoreModule):
 
                             ('owner', ('inet:service:account', {}), {
                                 'doc': 'The service account which owns the object.'}),
+
                         ),
                     }),
 
@@ -3488,7 +3489,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A platform specific ID to identify the service instance.'}),
 
                         ('platform', ('inet:service:platform', {}), {
-                            'ex': '{ inet:service:platform:name=slack }',
                             'doc': 'The platform which defines the service instance.'}),
 
                         ('url', ('inet:url', {}), {
@@ -3498,6 +3498,25 @@ class InetModule(s_module.CoreModule):
                         ('name', ('str', {'lower': True, 'onespace': True}), {
                             'ex': 'synapse users slack',
                             'doc': 'The name of the service instance.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service instance.'}),
+
+                        ('created', ('time', {}), {
+                            'doc': 'The time when the instance was created in the platform.'}),
+
+                        ('removed', ('time', {}), {
+                            'doc': 'The time when the instance was removed from the platform.'}),
+
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The status of this instance.'}),
+
+                        ('creator', ('inet:service:account', {}), {
+                            'doc': 'The service account which created the instance.'}),
+
+                        ('owner', ('inet:service:account', {}), {
+                            'doc': 'The service account which owns the instance.'}),
                     )),
 
                     ('inet:service:account', {}, (
