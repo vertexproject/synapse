@@ -1211,7 +1211,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
 
         self.cellinfo.set('synapse:version', s_version.version)
-        
+
         self.nexsvers = self.cellinfo.get('nexus:version', (0, 0))
         self.nexspatches = ()
 
