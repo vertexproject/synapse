@@ -7,6 +7,17 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.models.infotech as s_infotech
 
+RISK_HASVULN_VULNPROPS = (
+    'hardware',
+    'host',
+    'item',
+    'org',
+    'person',
+    'place',
+    'software',
+    'spec',
+)
+
 stormcmds = [
     {
         'name': 'model.edge.set',
@@ -696,8 +707,59 @@ class LibModelDeprecated(s_stormtypes.Lib):
         gatekeys = ((self.runt.user.iden, ('model', 'deprecated', 'lock'), None),)
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
+class MigrationEditorMixin:
+    '''
+    Mixin helpers for migrating data within an editor context.
+    '''
+
+    async def copyData(self, src, proto, overwrite=False):
+
+        async for name in src.iterDataKeys():
+            if overwrite or not await proto.hasData(name):
+                self.runt.layerConfirm(('node', 'data', 'set', name))
+                valu = await src.getData(name)
+                await proto.setData(name, valu)
+
+    async def copyEdges(self, editor, src, proto):
+
+        verbs = set()
+
+        async for (verb, n2nid) in src.iterEdgesN1():
+
+            if verb not in verbs:
+                self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                verbs.add(verb)
+
+            if await self.runt.view.getNodeByNid(n2nid) is not None:
+                await proto.addEdge(verb, n2nid)
+
+        if (dstnid := proto.nid) is None:
+            return
+
+        async for (verb, n1nid) in src.iterEdgesN2():
+
+            if verb not in verbs:
+                self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                verbs.add(verb)
+
+            n1proto = await editor.getNodeByNid(n1nid)
+            if n1proto is not None:
+                await n1proto.addEdge(verb, dstnid)
+
+    async def copyTags(self, src, proto, overwrite=False):
+
+        for name, valu in src._getTagsDict().items():
+            self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
+            await proto.addTag(name, valu=valu)
+
+        for tagname, tagprops in src._getTagPropsDict().items():
+            for propname, valu in tagprops.items():
+                if overwrite or not proto.hasTagProp(tagname, propname):
+                    await proto.setTagProp(tagname, propname, valu) # use tag perms
+
+
 @s_stormtypes.registry.registerLib
-class LibModelMigration(s_stormtypes.Lib):
+class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
     '''
     A Storm library containing migration tools.
     '''
@@ -747,14 +809,8 @@ class LibModelMigration(s_stormtypes.Lib):
         overwrite = await s_stormtypes.tobool(overwrite)
 
         async with self.runt.view.getEditor() as editor:
-
             proto = editor.loadNode(dst)
-
-            async for name in src.iterDataKeys():
-                if overwrite or not await dst.hasData(name):
-                    self.runt.layerConfirm(('node', 'data', 'set', name))
-                    valu = await src.getData(name)
-                    await proto.setData(name, valu)
+            await self.copyData(src, proto, overwrite=overwrite)
 
     async def _methCopyEdges(self, src, dst):
 
@@ -766,28 +822,8 @@ class LibModelMigration(s_stormtypes.Lib):
         view = self.runt.view
 
         async with view.getEditor() as editor:
-
             proto = editor.loadNode(dst)
-            verbs = set()
-
-            async for (verb, n2nid) in src.iterEdgesN1():
-
-                if verb not in verbs:
-                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
-                    verbs.add(verb)
-
-                if await view.getNodeByNid(n2nid) is not None:
-                    await proto.addEdge(verb, n2nid)
-
-            async for (verb, n1nid) in src.iterEdgesN2():
-
-                if verb not in verbs:
-                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
-                    verbs.add(verb)
-
-                n1proto = await editor.getNodeByNid(n1nid)
-                if n1proto is not None:
-                    await n1proto.addEdge(verb, dst.nid)
+            await self.copyEdges(editor, src, proto)
 
     async def _methCopyTags(self, src, dst, overwrite=False):
 
@@ -801,20 +837,11 @@ class LibModelMigration(s_stormtypes.Lib):
         view = self.runt.view
 
         async with view.getEditor() as editor:
-
             proto = editor.loadNode(dst)
-
-            for name, valu in src._getTagsDict().items():
-                self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
-                await proto.addTag(name, valu=valu)
-
-            for tagname, tagprops in src._getTagPropsDict().items():
-                for propname, valu in tagprops.items():
-                    if overwrite or not dst.hasTagProp(tagname, propname):
-                        await proto.setTagProp(tagname, propname, valu) # use tag perms
+            await self.copyTags(src, proto, overwrite=overwrite)
 
 @s_stormtypes.registry.registerLib
-class LibModelMigrations(s_stormtypes.Lib):
+class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
     '''
     A Storm library for selectively migrating nodes in the current view.
     '''
@@ -872,12 +899,34 @@ class LibModelMigrations(s_stormtypes.Lib):
                        'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
+        {'name': 'riskHasVulnToVulnerable', 'desc': '''
+            Create a risk:vulnerable node from the provided risk:hasvuln node.
+
+            Edits will be made to the risk:vulnerable node in the current write layer.
+
+            If multiple vulnerable properties are set on the risk:hasvuln node
+            multiple risk:vulnerable nodes will be created (each with a unique guid).
+            Otherwise, a single risk:vulnerable node will be created with the same guid
+            as the provided risk:hasvuln node. Extended properties will not be migrated.
+
+            Tags, tag properties, edges, and node data will be copied
+            to the risk:vulnerable node. However, existing tag properties and
+            node data will not be overwritten.
+        ''',
+        'type': {'type': 'function', '_funcname': '_riskHasVulnToVulnerable',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
+                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                       'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
+                 ),
+                 'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
     )
     _storm_lib_path = ('model', 'migration', 's')
 
     def getObjLocals(self):
         return {
             'itSecCpe_2_170_0': self._itSecCpe_2_170_0,
+            'riskHasVulnToVulnerable': self._riskHasVulnToVulnerable,
         }
 
     async def _itSecCpe_2_170_0(self, n, prefer_v22=False, force=False):
@@ -891,7 +940,7 @@ class LibModelMigrations(s_stormtypes.Lib):
         prefer_v22 = await s_stormtypes.tobool(prefer_v22)
         force = await s_stormtypes.tobool(force)
 
-        layr = self.runt.snap.wlyr
+        layr = self.runt.view.wlyr
         # We only need to check :v2_2 since that's the only property that's
         # writable. Everthing else is readonly. And we can do it here once
         # instead of in the loop below which will cause a perf hit.
@@ -925,7 +974,7 @@ class LibModelMigrations(s_stormtypes.Lib):
             if rgx is not None and rgx.group() == v2_2:
                 valu22 = v2_2
 
-        async with self.runt.snap.getNodeEditor(n) as proto:
+        async with self.runt.view.getNodeEditor(n) as proto:
 
             # If both values are populated, this node is valid
             if valu23 is not None and valu22 is not None and not force:
@@ -1005,3 +1054,63 @@ class LibModelMigrations(s_stormtypes.Lib):
                     await self.runt.printf(mesg)
 
             return True
+
+    async def _riskHasVulnToVulnerable(self, n, nodata=False):
+
+        nodata = await s_stormtypes.tobool(nodata)
+
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.s.riskHasVulnToVulnerable() argument must be a node.')
+
+        if n.form.name != 'risk:hasvuln':
+            mesg = f'$lib.model.migration.s.riskHasVulnToVulnerable() only accepts risk:hasvuln nodes, not {n.form.name}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retidens = []
+
+        if not (vuln := n.get('vuln')):
+            return retidens
+
+        props = {
+            'vuln': vuln,
+        }
+
+        links = {prop: valu for prop in RISK_HASVULN_VULNPROPS if (valu := n.get(prop)) is not None}
+
+        match len(links):
+            case 0:
+                return retidens
+            case 1:
+                guid = n.ndef[1]
+            case _:
+                guid = None
+
+        riskvuln = self.runt.model.form('risk:vulnerable')
+
+        self.runt.layerConfirm(riskvuln.addperm)
+        self.runt.confirmPropSet(riskvuln.props['vuln'])
+        self.runt.confirmPropSet(riskvuln.props['node'])
+
+        if (seen := n.get('.seen')):
+            self.runt.confirmPropSet(riskvuln.props['.seen'])
+            props['.seen'] = seen
+
+        async with self.runt.view.getEditor() as editor:
+
+            for prop, valu in links.items():
+
+                pguid = guid if guid is not None else s_common.guid((guid, prop))
+                pprops = props | {'node': (n.form.props[prop].type.name, valu)}
+
+                node = await self.runt.view.addNode('risk:vulnerable', pguid, props=pprops)
+                proto = editor.loadNode(node)
+
+                retidens.append(proto.iden())
+
+                await self.copyTags(n, proto, overwrite=False)
+                await self.copyEdges(editor, n, proto)
+
+                if not nodata:
+                    await self.copyData(n, proto, overwrite=False)
+
+        return retidens

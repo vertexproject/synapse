@@ -2818,6 +2818,50 @@ class AstTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.len(0, calls)
 
+    async def test_ast_tag_optimization(self):
+        calls = []
+        origtag = s_snap.Snap.nodesByTag
+
+        async def checkTag(self, tag, form=None, reverse=False):
+            calls.append(('tag', tag, form))
+            async for node in origtag(self, tag, form=form, reverse=reverse):
+                yield node
+
+        with mock.patch('synapse.lib.snap.Snap.nodesByTag', checkTag):
+            async with self.getTestCore() as core:
+                self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
+                self.len(1, await core.nodes('[test:int=12 +#visi]'))
+                self.len(1, await core.nodes('[test:int=99 +#visi]'))
+
+                nodes = await core.nodes('test:int +#$x', opts={'vars': {'x': 'visi'}})
+                self.len(2, nodes)
+                self.len(1, calls)
+                self.eq(('tag', 'visi', 'test:int'), calls[0])
+
+                calls = []
+                # not for non-runtsafe
+                nodes = await core.nodes('inet:asn:name $valu=:name test:int +#$valu')
+                self.len(2, nodes)
+                self.len(0, calls)
+
+                nodes = await core.nodes('''
+                    $tag = 'yeyeyeyeyeyeyeyeye'
+                    if $x {
+                        $tag = 'visi'
+                    } else {
+                        $tag = 'lolnope'
+                    }
+                    test:int +#$tag
+                ''', opts={'vars': {'x': True}})
+                self.len(2, nodes)
+                self.len(1, calls)
+                self.eq(('tag', 'visi', 'test:int'), calls[0])
+
+                calls = []
+                nodes = await core.nodes('test:int +#$x', opts={'vars': {'x': 'v*'}})
+                self.len(2, nodes)
+                self.len(0, calls)
+
     async def test_ast_cmdoper(self):
 
         async with self.getTestCore() as core:

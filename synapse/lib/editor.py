@@ -290,16 +290,30 @@ class ProtoNode(s_node.NodeBase):
         if dels:
             await self.editor.view.saveNodeEdits(dels, meta=meta)
 
-    async def getData(self, name):
+    async def getData(self, name, defv=s_common.novalu):
 
-        curv = self.nodedata.get(name, s_common.novalu)
-        if curv is not s_common.novalu:
+        if (curv := self.nodedata.get(name, s_common.novalu)) is not s_common.novalu:
             return curv
 
-        if self.node is not None:
-            return await self.node.getData(name, defv=s_common.novalu)
+        if name in self.nodedatadels or name in self.nodedatatombs:
+            return defv
 
-        return s_common.novalu
+        if self.node is not None:
+            return await self.node.getData(name, defv=defv)
+
+        return defv
+
+    async def hasData(self, name):
+        if name in self.nodedata:
+            return True
+
+        if name in self.nodedatadels or name in self.nodedatatombs:
+            return False
+
+        if self.node is not None:
+            return await self.node.hasData(name)
+
+        return False
 
     async def setData(self, name, valu):
 
@@ -309,6 +323,8 @@ class ProtoNode(s_node.NodeBase):
         s_common.reqjsonsafe(valu)
 
         self.nodedata[name] = valu
+        self.nodedatadels.discard(name)
+        self.nodedatatombs.discard(name)
 
     async def popData(self, name):
 
@@ -540,6 +556,18 @@ class ProtoNode(s_node.NodeBase):
 
         return defv, None
 
+    def hasTagProp(self, tag, name):
+        if (tag, name) in self.tagprops:
+            return True
+
+        if (tag, name) in self.tagpropdels or (tag, name) in self.tagproptombs:
+            return False
+
+        if self.node is not None:
+            return self.node.hasTagProp(tag, name)
+
+        return False
+
     async def setTagProp(self, tag, name, valu):
 
         tagnode = await self.addTag(tag)
@@ -613,7 +641,7 @@ class ProtoNode(s_node.NodeBase):
 
         return defv, None
 
-    async def _set(self, prop, valu, norminfo=None):
+    async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
 
         if prop.locked:
             raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
@@ -642,7 +670,7 @@ class ProtoNode(s_node.NodeBase):
         if curv == valu:
             return False
 
-        if prop.info.get('ro') and curv is not None:
+        if not ignore_ro and prop.info.get('ro') and curv is not None:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
 
         if self.node is not None:
@@ -654,12 +682,12 @@ class ProtoNode(s_node.NodeBase):
 
         return valu, norminfo
 
-    async def set(self, name, valu, norminfo=None):
+    async def set(self, name, valu, norminfo=None, ignore_ro=False):
         prop = self.form.props.get(name)
         if prop is None:
             raise s_exc.NoSuchProp(mesg=f'No property named {name} on form {self.form.name}.')
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
+        retn = await self._set(prop, valu, norminfo=norminfo, ignore_ro=ignore_ro)
         if retn is False:
             return False
 

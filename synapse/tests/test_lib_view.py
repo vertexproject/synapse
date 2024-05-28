@@ -1181,7 +1181,9 @@ class ViewTest(s_t_utils.SynTest):
     async def test_node_editor(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
+
+            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+            await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
             root = core.auth.rootuser
 
             async with core.view.getEditor() as editor:
@@ -1208,6 +1210,14 @@ class ViewTest(s_t_utils.SynTest):
                 self.len(1, nodeedits)
                 self.len(1, nodeedits[0][2])
 
+                self.false(await news.hasData('foo'))
+                await news.setData('foo', 'bar')
+                self.true(await news.hasData('foo'))
+
+                self.false(news.hasTagProp('foo', 'test'))
+                await news.setTagProp('foo', 'test', 'bar')
+                self.true(news.hasTagProp('foo', 'test'))
+
             async with core.view.getEditor() as editor:
                 news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
 
@@ -1220,6 +1230,10 @@ class ViewTest(s_t_utils.SynTest):
                 self.true(await news.addEdge('pwns', fqdn.nid))
                 nodeedits = editor.getNodeEdits()
                 self.len(0, nodeedits)
+
+                self.true(await news.hasData('foo'))
+
+                self.true(news.hasTagProp('foo', 'test'))
 
                 with self.raises(s_exc.NoSuchProp):
                     await news.pop('newp')
