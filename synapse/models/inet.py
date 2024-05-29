@@ -3541,6 +3541,7 @@ class InetModule(s_module.CoreModule):
 
                         ('name', ('inet:group', {}), {
                             'doc': 'The name of the group on this platform.'}),
+
                         ('profile', ('ps:contact', {}), {
                             'doc': 'Detailed contact information for this group.'}),
                     )),
