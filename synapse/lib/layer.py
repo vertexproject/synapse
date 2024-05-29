@@ -107,6 +107,7 @@ reqValidLdef = s_config.getJsValidator({
 })
 
 WINDOW_MAXSIZE = 10_000
+MIGR_COMMIT_SIZE = 1_000
 
 class LayerApi(s_cell.CellApi):
 
@@ -2612,7 +2613,7 @@ class Layer(s_nexus.Pusher):
             venc = lkey[32:]
 
             putkeys.append((n1buid + n2buid, venc))
-            if len(putkeys) > 1000:
+            if len(putkeys) > MIGR_COMMIT_SIZE:
                 commit()
 
         if len(putkeys):
@@ -2622,6 +2623,33 @@ class Layer(s_nexus.Pusher):
         self.layrvers = 10
 
         logger.warning(f'...complete!')
+
+    async def _layrV10toV11(self):
+
+        logger.warning(f'Adding byform index to layer {self.iden}')
+
+        def commit():
+            self.layrslab.putmulti(putkeys, db=self.byform)
+            putkeys.clear()
+
+        putkeys = []
+        async for buid, sode in self.getStorNodes():
+            if not (form := sode.get('form')):
+                continue
+
+            abrv = self.setPropAbrv(form, None)
+            putkeys.append((abrv, buid))
+
+            if len(putkeys) > MIGR_COMMIT_SIZE:
+                commit()
+
+        if putkeys:
+            commit()
+
+        self.meta.set('version', 11)
+        self.layrvers = 11
+
+        logger.warning('...complete!')
 
     async def _initSlabs(self, slabopts):
 
@@ -2659,6 +2687,7 @@ class Layer(s_nexus.Pusher):
         self.edgesn1n2 = self.layrslab.initdb('edgesn1n2', dupsort=True)
 
         self.bytag = self.layrslab.initdb('bytag', dupsort=True)
+        self.byform = self.layrslab.initdb('byform', dupsort=True)
         self.byprop = self.layrslab.initdb('byprop', dupsort=True)
         self.byarray = self.layrslab.initdb('byarray', dupsort=True)
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
@@ -2684,7 +2713,7 @@ class Layer(s_nexus.Pusher):
         await self._initSlabs(slabopts)
 
         if self.fresh:
-            self.meta.set('version', 10)
+            self.meta.set('version', 11)
 
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
@@ -2719,8 +2748,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 10:
             await self._layrV9toV10()
 
-        if self.layrvers != 10:
-            mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
+        if self.layrvers < 11:
+            await self._layrV10toV11()
+
+        if self.layrvers != 11:
+            mesg = f'Got layer version {self.layrvers}.  Expected 11.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
@@ -3323,6 +3355,11 @@ class Layer(s_nexus.Pusher):
             return
 
         # no more refs in this layer.  time to pop it...
+        try:
+            abrv = self.getPropAbrv(sode.get('form'), None)
+            self.layrslab.delete(abrv, val=buid, db=self.byform)
+        except s_exc.NoSuchAbrv:
+            pass
         self.dirty.pop(buid, None)
         self.buidcache.pop(buid, None)
         self.layrslab.delete(buid, db=self.bybuidv3)
@@ -3343,10 +3380,13 @@ class Layer(s_nexus.Pusher):
         if sode.get('valu') == valt:
             return ()
 
+        abrv = self.setPropAbrv(form, None)
+
+        if sode.get('form') is None:
+            self.layrslab.put(abrv, buid, db=self.byform)
+
         sode['valu'] = valt
         self.setSodeDirty(buid, sode, form)
-
-        abrv = self.setPropAbrv(form, None)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3467,6 +3507,10 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
+        if sode.get('form') is None:
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
 
@@ -3561,6 +3605,9 @@ class Layer(s_nexus.Pusher):
             if oldv == valu:
                 return ()
 
+        if sode.get('form') is None:
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         sode['tags'][tag] = valu
         self.setSodeDirty(buid, sode, form)
 
@@ -3624,6 +3671,10 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
                     self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
+        if sode.get('form') is None:
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
         sode['tagprops'][tag][prop] = (valu, stortype)
@@ -3682,6 +3733,8 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
 
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
@@ -3729,6 +3782,8 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
 
         self.layrslab.put(venc, buid + n2buid, db=self.byverb)
         self.layrslab.put(n1key, n2buid, db=self.edgesn1)
@@ -4206,6 +4261,20 @@ class Layer(s_nexus.Pusher):
                 continue
 
             yield buid, s_msgpack.un(byts)
+            await asyncio.sleep(0)
+
+    async def getStorNodesByForm(self, form):
+        '''
+        Yield (buid, sode) tuples for nodes of a given form with props/tags/tagprops/edges/nodedata in this layer.
+        '''
+        try:
+            abrv = self.getPropAbrv(form, None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for _, buid in self.layrslab.scanByDups(abrv, db=self.byform):
+            sode = await self.getStorNode(buid)
+            yield buid, sode
             await asyncio.sleep(0)
 
     async def iterNodeEditLog(self, offs=0):
