@@ -3531,7 +3531,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The current email address associated with the account.'}),
 
                         ('profile', ('ps:contact', {}), {
-                            'doc': 'Profile details associated with the account.'}),
+                            'doc': 'Current profile details associated with the account.'}),
                     )),
 
                     ('inet:service:group', {}, (
@@ -3543,7 +3543,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the group on this platform.'}),
 
                         ('profile', ('ps:contact', {}), {
-                            'doc': 'Detailed contact information for this group.'}),
+                            'doc': 'Current detailed contact information for this group.'}),
                     )),
 
                     ('inet:service:group:member', {}, (
@@ -3672,7 +3672,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The client software version used to send the message.'}),
 
                         ('client:software:name', ('it:prod:softname', {}), {
-                            'doc': 'The client software version used to send the message.'}),
+                            'doc': 'The name of the client software used to send the message.'}),
 
                         ('file', ('file:bytes', {}), {
                             'doc': 'The raw file that the message was extracted from.'}),
@@ -3702,7 +3702,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:channel', {}, (
 
                         ('name', ('str', {'onespace': True, 'lower': True}), {
-                            'doc': 'The current name of the channel.'}),
+                            'doc': 'The name of the channel.'}),
 
                         ('period', ('ival', {}), {
                             'doc': 'The time period where the channel was available.'}),
