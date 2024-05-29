@@ -2820,15 +2820,24 @@ class TagCond(Cond):
         kid = self.kids[0]
 
         if not isinstance(kid, TagMatch):
-            # TODO:  we might hint based on variable value
             return []
 
-        if not kid.isconst or kid.hasglob():
+        if kid.hasglob():
             return []
 
-        return (
-            ('tag', {'name': await kid.compute(None, None)}),
-        )
+        if kid.isconst:
+            return (
+                ('tag', {'name': await kid.compute(None, None)}),
+            )
+
+        if kid.isRuntSafe(runt):
+            name = await kid.compute(runt, path)
+            if name and '*' not in name:
+                return (
+                    ('tag', {'name': name}),
+                )
+
+        return []
 
     async def getCondEval(self, runt):
 
