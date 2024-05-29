@@ -78,6 +78,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
+import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
@@ -4093,6 +4094,71 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0]
 
+    async def iterLayerAddPerms(self):
+
+        # nodes & props
+        for byts, abrv in self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv):
+            form, prop = s_msgpack.un(byts)
+            if form is None or prop is None:
+                continue
+
+            yield ('node', 'add', form)
+            yield ('node', 'prop', 'set', f'{form}:{prop}')
+
+        # tags
+        seen = await s_spooled.Dict.anit(cell=self.core)
+
+        for tag in self.tagabrv.names():
+            parts = tag.split('.')
+            for idx in range(1, len(parts) + 1):
+                key = tuple(parts[:idx])
+                await seen.set(key, seen.get(key, 0) + 1)
+
+        for key, count in seen.items():
+            if count == 1:
+                yield ('node', 'tag', 'add', *key)
+
+        # tagprops
+        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
+            info = s_msgpack.un(byts)
+            if None in info or len(info) != 3:
+                continue
+
+            _, tag, _ = info
+            yield ('node', 'tag', 'add', *tag.split('.'))
+
+        # nodedata
+        for abrv, _ in self.dataslab.scanByFull(db=self.dataname):
+            name, _ = self.getAbrvProp(abrv)
+            yield ('node', 'data', 'set', name)
+
+        # edges
+        for verb, _ in self.layrslab.scanByFull(db=self.byverb):
+            yield ('node', 'edge', 'add', verb.decode())
+
+    async def iterLayerDelPerms(self):
+        # TODO: where does this data come from?
+        pass
+
+    async def iterLayerWipePerms(self):
+        async for perm in self.iterLayerAddPerms():
+            match perm[:2]:
+                case ('node', 'add'):
+                    yield (perm[0], 'del', *perm[2:])
+
+            match perm[:3]:
+                case ('node', 'prop', 'set'):
+                    yield ('node', 'prop', 'del', *perm[3:])
+
+                case ('node' 'tag', 'add'):
+                    yield ('node', 'tag', 'del', *perm[3:])
+
+                case ('node' 'data', 'set'):
+                    yield ('node', 'data', 'pop', *perm[3:])
+
+                case ('node' 'edge', 'add'):
+                    yield ('node', 'edge', 'del', *perm[3:])
+
     async def iterLayerNodeEdits(self):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
@@ -4450,79 +4516,3 @@ def getFlatEdits(nodeedits):
         addedits(buid, form, edits)
 
     return [(k[0], k[1], v) for (k, v) in editsbynode.items()]
-
-def getNodeEditPerms(nodeedits):
-    '''
-    Yields (offs, perm) tuples that can be used in user.allowed()
-    '''
-    tags = []
-    tagadds = []
-
-    for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
-
-        tags.clear()
-        tagadds.clear()
-
-        for editoffs, (edit, info, _) in enumerate(edits):
-
-            permoffs = (nodeoffs, editoffs)
-
-            if edit == EDIT_NODE_ADD:
-                yield (permoffs, ('node', 'add', form))
-                continue
-
-            if edit == EDIT_NODE_DEL:
-                yield (permoffs, ('node', 'del', form))
-                continue
-
-            if edit == EDIT_PROP_SET:
-                yield (permoffs, ('node', 'prop', 'set', f'{form}:{info[0]}'))
-                continue
-
-            if edit == EDIT_PROP_DEL:
-                yield (permoffs, ('node', 'prop', 'del', f'{form}:{info[0]}'))
-                continue
-
-            if edit == EDIT_TAG_SET:
-                if info[1] != (None, None):
-                    tagadds.append(info[0])
-                    yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
-                else:
-                    tags.append((len(info[0]), editoffs, info[0]))
-                continue
-
-            if edit == EDIT_TAG_DEL:
-                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_TAGPROP_SET:
-                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_TAGPROP_DEL:
-                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_NODEDATA_SET:
-                yield (permoffs, ('node', 'data', 'set', info[0]))
-                continue
-
-            if edit == EDIT_NODEDATA_DEL:
-                yield (permoffs, ('node', 'data', 'pop', info[0]))
-                continue
-
-            if edit == EDIT_EDGE_ADD:
-                yield (permoffs, ('node', 'edge', 'add', info[0]))
-                continue
-
-            if edit == EDIT_EDGE_DEL:
-                yield (permoffs, ('node', 'edge', 'del', info[0]))
-                continue
-
-        for _, editoffs, tag in sorted(tags, reverse=True):
-            look = tag + '.'
-            if any([tagadd.startswith(look) for tagadd in tagadds]):
-                continue
-
-            yield ((nodeoffs, editoffs), ('node', 'tag', 'add', *tag.split('.')))
-            tagadds.append(tag)
