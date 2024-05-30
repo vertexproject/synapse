@@ -78,7 +78,6 @@ import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
-import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
