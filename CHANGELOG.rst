@@ -12,7 +12,7 @@ v2.170.0 - TBD
 
 Automatic Migrations
 --------------------
-- Add an additional index of storage nodes by form in Layers.
+- Populate an additional index of buids by form in Layers.
   (`#3729 <https://github.com/vertexproject/synapse/pull/3729>`_)
 - See :ref:`datamigration` for more information about automatic migrations.
 
@@ -86,9 +86,8 @@ Features and Enhancements
   (`#3715 <https://github.com/vertexproject/synapse/pull/3715>`_)
 - Add support for pivoting to or from ``ndef`` array properties.
   (`#3720 <https://github.com/vertexproject/synapse/pull/3720>`_)
-- Add an index of storage nodes by form to Layers. A ``getStorNodesByForm()``
-  API has been added to Storm Layer objects to retrieve storage nodes
-  using this index.
+- Add an index of buids by form to Layers. A ``getStorNodesByForm()`` API has
+  been added to Storm Layer objects to retrieve storage nodes using this index.
   (`#3729 <https://github.com/vertexproject/synapse/pull/3729>`_)
 
 Bugfixes
