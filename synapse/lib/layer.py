@@ -4136,7 +4136,7 @@ class Layer(s_nexus.Pusher):
         @s_cache.memoize()
         def tagPartsByAbrv(abrv):
             name = self.tagabrv.abrvToName(abrv)
-            return name.split('.')
+            return tuple(name.split('.'))
 
         for lkey, buid in self.layrslab.scanByFull(db=self.bytag):
             abrv = lkey[:8]
@@ -4152,7 +4152,7 @@ class Layer(s_nexus.Pusher):
 
             if len(abrvs) == 1:
                 # IF there's only one tag abrv, then it's a leaf by default
-                key = tagPargsByAbrv(abrv)
+                key = tagPartsByAbrv(abrv)
                 if key not in tagperms:
                     yield ('node', 'tag', 'add', *key)
                     await tagperms.add(key)
