@@ -4112,20 +4112,29 @@ class Layer(s_nexus.Pusher):
                     break
 
         # tags
-        seen = await s_spooled.Dict.anit(cell=self.core)
+        # NB: tag perms should be yielded for every leaf on every node in the layer
+        await self._saveDirtySodes()
+        for buid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
+            sode = s_msgpack.un(byts)
 
-        for tag in self.tagabrv.names():
-            if not await self.getTagCount(tag):
+            form = sode.get('form')
+            if form is None:
+                iden = s_common.ehex(buid)
+                logger.warning(f'NODE HAS NO FORM: {iden}')
                 continue
 
-            parts = tag.split('.')
-            for idx in range(1, len(parts) + 1):
-                key = tuple(parts[:idx])
-                await seen.set(key, seen.get(key, 0) + 1)
+            seen = {}
 
-        for key, count in seen.items():
-            if count == 1:
-                yield ('node', 'tag', 'add', *key)
+            for tag in sode.get('tags', ()):
+                parts = tag.split('.')
+                for idx in range(1, len(parts) + 1):
+                    key = tuple(parts[:idx])
+                    seen.setdefault(key, 0)
+                    seen[key] += 1
+
+            for key, count in seen.items():
+                if count == 1:
+                    yield ('node', 'tag', 'add', *key)
 
         # tagprops
         for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):

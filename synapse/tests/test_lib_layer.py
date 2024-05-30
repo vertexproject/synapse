@@ -1911,13 +1911,13 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('[ test:str=bar ]', opts=opts)
+            await core.nodes('[ test:str=bar +#foo.bar ]', opts=opts)
 
             await core.nodes('''
                 [ test:str=foo
                     :hehe=bar
                     +#foo:score=2
-                    +#foo.bar
+                    +#foo.bar.baz
                     +#bar:score=2
                     <(refs)+ { test:str=bar }
                 ]
@@ -1940,6 +1940,7 @@ class LayerTest(s_t_utils.SynTest):
                 ('node', 'tag', 'add', 'foo'),
                 ('node', 'tag', 'add', 'bar'),
                 ('node', 'tag', 'add', 'foo', 'bar'),
+                ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
 
                 ('node', 'data', 'set', 'foo'),
 
@@ -1964,6 +1965,8 @@ class LayerTest(s_t_utils.SynTest):
                 ('node', 'prop', 'set', 'syn:tag:base'),
                 ('node', 'prop', 'set', 'syn:tag:depth'),
                 ('node', 'prop', 'set', 'syn:tag:.created'),
+
+                ('node', 'tag', 'add', 'foo', 'bar'),
             }, set(perms))
 
             perms = [perm async for perm in layr.iterLayerWipePerms()]
@@ -1977,6 +1980,8 @@ class LayerTest(s_t_utils.SynTest):
                 ('node', 'prop', 'del', 'syn:tag:base'),
                 ('node', 'prop', 'del', 'syn:tag:depth'),
                 ('node', 'prop', 'del', 'syn:tag:.created'),
+
+                ('node', 'tag', 'del', 'foo', 'bar'),
             }, set(perms))
 
     async def test_layer_v9(self):
