@@ -4109,8 +4109,28 @@ class Layer(s_nexus.Pusher):
 
                 break
 
+        # tagprops
+        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
+            info = s_msgpack.un(byts)
+            if None in info or len(info) != 3:
+                continue
+
+            for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+                yield ('node', 'tag', 'add', *info[1].split('.'))
+                break
+
+        # nodedata
+        for abrv in self.dataslab.scanKeys(db=self.dataname):
+            name, _ = self.getAbrvProp(abrv)
+            yield ('node', 'data', 'set', name)
+
+        # edges
+        for verb in self.layrslab.scanKeys(db=self.byverb):
+            yield ('node', 'edge', 'add', verb.decode())
+
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
+        '''
         await self._saveDirtySodes()
         for buid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
             sode = s_msgpack.un(byts)
@@ -4133,25 +4153,32 @@ class Layer(s_nexus.Pusher):
             for key, count in seen.items():
                 if count == 1:
                     yield ('node', 'tag', 'add', *key)
+        '''
+        tags = {}
 
-        # tagprops
-        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
-            info = s_msgpack.un(byts)
-            if None in info or len(info) != 3:
-                continue
+        @s_cache.memoize()
+        def tagNameByAbrv(abrv):
+            return self.tagabrv.abrvToName(abrv)
 
-            for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-                yield ('node', 'tag', 'add', *info[1].split('.'))
-                break
+        for lkey, buid in self.layrslab.scanByFull(db=self.bytag):
+            abrv = lkey[:8]
+            tags.setdefault(buid, [])
+            tags[buid].append(abrv)
 
-        # nodedata
-        for abrv in self.dataslab.scanKeys(db=self.dataname):
-            name, _ = self.getAbrvProp(abrv)
-            yield ('node', 'data', 'set', name)
+        for buid, abrvs in tags.items():
+            seen = {}
 
-        # edges
-        for verb in self.layrslab.scanKeys(db=self.byverb):
-            yield ('node', 'edge', 'add', verb.decode())
+            for abrv in abrvs:
+                tag = tagNameByAbrv(abrv)
+                parts = tag.split('.')
+                for idx in range(1, len(parts) + 1):
+                    key = tuple(parts[:idx])
+                    seen.setdefault(key, 0)
+                    seen[key] += 1
+
+            for key, count in seen.items():
+                if count == 1:
+                    yield ('node', 'tag', 'add', *key)
 
     async def iterLayerDelPerms(self): # pragma: no cover
         # TODO: Implement me for Syn3.x
