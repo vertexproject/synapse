@@ -4141,9 +4141,8 @@ class Layer(s_nexus.Pusher):
             if None in info or len(info) != 3:
                 continue
 
-            form, tag, prop = info
             for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-                yield ('node', 'tag', 'add', *tag.split('.'))
+                yield ('node', 'tag', 'add', *info[1].split('.'))
                 break
 
         # nodedata
