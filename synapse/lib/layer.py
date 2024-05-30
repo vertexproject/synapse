@@ -4102,11 +4102,14 @@ class Layer(s_nexus.Pusher):
             if form is None:
                 continue
 
-            if await self.layrslab.countByPref(abrv, db=self.byform):
+            for _ in self.layrslab.scanByPref(abrv, db=self.byform):
                 yield ('node', 'add', form)
+                break
 
-            if prop and await self.getPropCount(form, prop):
-                yield ('node', 'prop', 'set', f'{form}:{prop}')
+            if prop:
+                for _ in self.layrslab.scanByPref(abrv, db=self.byprop):
+                    yield ('node', 'prop', 'set', f'{form}:{prop}')
+                    break
 
         # tags
         seen = await s_spooled.Dict.anit(cell=self.core)
@@ -4131,24 +4134,17 @@ class Layer(s_nexus.Pusher):
                 continue
 
             form, tag, prop = info
-            if not await self.getTagPropCount(form, tag, prop):
-                continue
-
-            yield ('node', 'tag', 'add', *tag.split('.'))
+            for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+                yield ('node', 'tag', 'add', *tag.split('.'))
+                break
 
         # nodedata
-        for abrv, _ in self.dataslab.scanByFull(db=self.dataname):
-            if not await self.dataslab.countByPref(abrv, db=self.dataname):
-                continue
-
+        for abrv in self.dataslab.scanKeys(db=self.dataname):
             name, _ = self.getAbrvProp(abrv)
             yield ('node', 'data', 'set', name)
 
         # edges
-        for verb, _ in self.layrslab.scanByFull(db=self.byverb):
-            if not await self.layrslab.countByPref(verb, db=self.byverb):
-                continue
-
+        for verb in self.layrslab.scanKeys(db=self.byverb):
             yield ('node', 'edge', 'add', verb.decode())
 
     async def iterLayerDelPerms(self): # pragma: no cover
