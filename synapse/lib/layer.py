@@ -4151,15 +4151,14 @@ class Layer(s_nexus.Pusher):
 
             yield ('node', 'edge', 'add', verb.decode())
 
-    async def iterLayerDelPerms(self):
+    async def iterLayerDelPerms(self): # pragma: no cover
         # TODO: Implement me for Syn3.x
         pass
 
     async def iterLayerWipePerms(self):
         async for perm in self.iterLayerAddPerms():
-            match perm[:2]:
-                case ('node', 'add'):
-                    yield (perm[0], 'del', *perm[2:])
+            if perm[:2] == ('node', 'add'):
+                yield ('node', 'del', *perm[2:])
 
             match perm[:3]:
                 case ('node', 'prop', 'set'):
