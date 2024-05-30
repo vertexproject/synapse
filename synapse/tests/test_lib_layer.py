@@ -1905,6 +1905,8 @@ class LayerTest(s_t_utils.SynTest):
                 return($view.iden)
             ''')
 
+            layr = core.views[viewiden].layers[0]
+
             opts = {'view': viewiden}
 
             await core.addTagProp('score', ('int', {}), {})
@@ -1916,10 +1918,33 @@ class LayerTest(s_t_utils.SynTest):
                     :hehe=bar
                     +#foo:score=2
                     +#foo.bar
+                    +#bar:score=2
                     <(refs)+ { test:str=bar }
                 ]
                 $node.data.set(foo, bar)
             ''', opts=opts)
+
+            perms = [perm async for perm in layr.iterLayerAddPerms()]
+            self.eq({
+                ('node', 'add', 'syn:tag'),
+                ('node', 'add', 'test:str'),
+
+                ('node', 'prop', 'set', 'test:str:hehe'),
+                ('node', 'prop', 'set', 'test:str:.created'),
+
+                ('node', 'prop', 'set', 'syn:tag:up'),
+                ('node', 'prop', 'set', 'syn:tag:base'),
+                ('node', 'prop', 'set', 'syn:tag:depth'),
+                ('node', 'prop', 'set', 'syn:tag:.created'),
+
+                ('node', 'tag', 'add', 'foo'),
+                ('node', 'tag', 'add', 'bar'),
+                ('node', 'tag', 'add', 'foo', 'bar'),
+
+                ('node', 'data', 'set', 'foo'),
+
+                ('node', 'edge', 'add', 'refs'),
+            }, set(perms))
 
             await core.nodes('''
                 test:str=foo
@@ -1928,34 +1953,30 @@ class LayerTest(s_t_utils.SynTest):
                 | delnode
             ''', opts=opts)
 
-            layr = core.views[viewiden].layers[0]
-
-            nodeedits = []
-            async for _, edits, _ in layr.iterNodeEditLog():
-                nodeedits.extend(edits)
-
-            perms = []
-            perms.extend([perm async for perm in layr.iterLayerAddPerms()])
-            # perms.extend([perm async for perm in layr.iterLayerDelPerms()])
-
+            perms = [perm async for perm in layr.iterLayerAddPerms()]
             self.eq({
+                ('node', 'add', 'syn:tag'),
                 ('node', 'add', 'test:str'),
 
-                ('node', 'add', 'syn:tag'),
-
                 ('node', 'prop', 'set', 'test:str:.created'),
-
-                ('node', 'prop', 'set', 'test:str:hehe'),
 
                 ('node', 'prop', 'set', 'syn:tag:up'),
                 ('node', 'prop', 'set', 'syn:tag:base'),
                 ('node', 'prop', 'set', 'syn:tag:depth'),
                 ('node', 'prop', 'set', 'syn:tag:.created'),
+            }, set(perms))
 
-                ('node', 'tag', 'add', 'foo'),
+            perms = [perm async for perm in layr.iterLayerWipePerms()]
+            self.eq({
+                ('node', 'del', 'syn:tag'),
+                ('node', 'del', 'test:str'),
 
-                ('node', 'tag', 'add', 'foo', 'bar'),
+                ('node', 'prop', 'del', 'test:str:.created'),
 
+                ('node', 'prop', 'del', 'syn:tag:up'),
+                ('node', 'prop', 'del', 'syn:tag:base'),
+                ('node', 'prop', 'del', 'syn:tag:depth'),
+                ('node', 'prop', 'del', 'syn:tag:.created'),
             }, set(perms))
 
     async def test_layer_v9(self):

@@ -4099,16 +4099,22 @@ class Layer(s_nexus.Pusher):
         # nodes & props
         for byts, abrv in self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv):
             form, prop = s_msgpack.un(byts)
-            if form is None or prop is None:
+            if form is None:
                 continue
 
-            yield ('node', 'add', form)
-            yield ('node', 'prop', 'set', f'{form}:{prop}')
+            if await self.layrslab.countByPref(abrv, db=self.byform):
+                yield ('node', 'add', form)
+
+            if prop and await self.getPropCount(form, prop):
+                yield ('node', 'prop', 'set', f'{form}:{prop}')
 
         # tags
         seen = await s_spooled.Dict.anit(cell=self.core)
 
         for tag in self.tagabrv.names():
+            if not await self.getTagCount(tag):
+                continue
+
             parts = tag.split('.')
             for idx in range(1, len(parts) + 1):
                 key = tuple(parts[:idx])
@@ -4124,20 +4130,29 @@ class Layer(s_nexus.Pusher):
             if None in info or len(info) != 3:
                 continue
 
-            _, tag, _ = info
+            form, tag, prop = info
+            if not await self.getTagPropCount(form, tag, prop):
+                continue
+
             yield ('node', 'tag', 'add', *tag.split('.'))
 
         # nodedata
         for abrv, _ in self.dataslab.scanByFull(db=self.dataname):
+            if not await self.dataslab.countByPref(abrv, db=self.dataname):
+                continue
+
             name, _ = self.getAbrvProp(abrv)
             yield ('node', 'data', 'set', name)
 
         # edges
         for verb, _ in self.layrslab.scanByFull(db=self.byverb):
+            if not await self.layrslab.countByPref(verb, db=self.byverb):
+                continue
+
             yield ('node', 'edge', 'add', verb.decode())
 
     async def iterLayerDelPerms(self):
-        # TODO: where does this data come from?
+        # TODO: Implement me for Syn3.x
         pass
 
     async def iterLayerWipePerms(self):
@@ -4150,13 +4165,13 @@ class Layer(s_nexus.Pusher):
                 case ('node', 'prop', 'set'):
                     yield ('node', 'prop', 'del', *perm[3:])
 
-                case ('node' 'tag', 'add'):
+                case ('node', 'tag', 'add'):
                     yield ('node', 'tag', 'del', *perm[3:])
 
-                case ('node' 'data', 'set'):
+                case ('node', 'data', 'set'):
                     yield ('node', 'data', 'pop', *perm[3:])
 
-                case ('node' 'edge', 'add'):
+                case ('node', 'edge', 'add'):
                     yield ('node', 'edge', 'del', *perm[3:])
 
     async def iterLayerNodeEdits(self):
