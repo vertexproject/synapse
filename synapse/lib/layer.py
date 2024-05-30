@@ -4101,14 +4101,13 @@ class Layer(s_nexus.Pusher):
             if form is None:
                 continue
 
-            for _ in self.layrslab.scanByPref(abrv, db=self.byform):
-                yield ('node', 'add', form)
-                break
-
-            if prop:
-                for _ in self.layrslab.scanByPref(abrv, db=self.byprop):
+            for _ in self.layrslab.scanByPref(abrv, db=self.byprop):
+                if prop:
                     yield ('node', 'prop', 'set', f'{form}:{prop}')
-                    break
+                else:
+                    yield ('node', 'add', form)
+
+                break
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
