@@ -3568,6 +3568,114 @@ class StormTypesTest(s_test.SynTest):
             self.eq(counts.get('test:int'), 2)
             self.eq(counts.get('test:guid'), 1)
 
+    async def test_storm_lib_layer_sodebyform(self):
+        async with self.getTestCore() as core:
+
+            await core.nodes('$lib.model.ext.addTagProp(score, (int, ({})), ({}))')
+
+            view_prop = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_tags = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_tagp = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_n1eg = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_n2eg = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_data = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_noop = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            self.len(1, await core.nodes('[ test:str=foo +#base ]'))
+            self.len(1, await core.nodes('test:str=foo [ :hehe=haha ]', opts={'view': view_prop}))
+            self.len(1, await core.nodes('test:str=foo [ +#bar ]', opts={'view': view_tags}))
+            self.len(1, await core.nodes('test:str=foo [ +#base:score=10 ]', opts={'view': view_tagp}))
+            self.len(1, await core.nodes('test:str=foo [ +(bam)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(bam)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo $node.data.set(hehe, haha)', opts={'view': view_data}))
+
+            scmd = '''
+                $sodes = ([])
+                for $sode in $lib.layer.get().getStorNodesByForm($form) {
+                    $sodes.append($sode)
+                }
+                return($sodes)
+            '''
+            opts = {'vars': {'form': 'test:str'}}
+
+            self.len(1, await core.callStorm(scmd, opts=opts))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_prop}))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_tags}))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_tagp}))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_n1eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n2eg})) # n2-only sode not added
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_data}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_noop}))
+
+            self.len(1, await core.nodes('test:str=foo [ -:hehe ]', opts={'view': view_prop}))
+            self.len(1, await core.nodes('test:str=foo [ -#bar ]', opts={'view': view_tags}))
+            self.len(1, await core.nodes('test:str=foo [ -#base:score ]', opts={'view': view_tagp}))
+            self.len(1, await core.nodes('test:str=foo [ -(bam)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(bam)- {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo $node.data.pop(hehe)', opts={'view': view_data}))
+
+            self.len(1, await core.callStorm(scmd, opts=opts))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_prop}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tags}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tagp}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n1eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n2eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_data}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_noop}))
+
+            self.len(1, await core.nodes('''
+                test:str=foo [
+                    :hehe=lol
+                    +#baz
+                    +#base:score=11
+                    +(bar)> {[ test:int=2 ]}
+                    <(bar)+ {[ test:int=1 ]}
+                ]
+                $node.data.set(haha, lol)
+            '''))
+            self.len(1, await core.nodes('test:str=foo [ :hehe=lol ]', opts={'view': view_prop}))
+            self.len(1, await core.nodes('test:str=foo [ +#baz ]', opts={'view': view_tags}))
+            self.len(1, await core.nodes('test:str=foo [ +#base:score=11 ]', opts={'view': view_tagp}))
+            self.len(1, await core.nodes('test:str=foo [ +(bar)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(bar)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo $node.data.set(haha, lol)', opts={'view': view_data}))
+
+            self.len(1, await core.callStorm(scmd, opts=opts))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_prop}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tags}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tagp}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n1eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n2eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_data}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_noop}))
+
+            self.len(1, await core.nodes('''
+                test:str=foo [
+                    -:hehe
+                    -#baz
+                    -#base:score -#base
+                    -(bar)> { test:int=2 }
+                    <(bar)- { test:int=1 }
+                ]
+                $node.data.pop(haha)
+            '''))
+            self.len(1, await core.callStorm(scmd, opts=opts))
+
+            await core.nodes('test:str=foo delnode')
+            self.len(0, await core.callStorm(scmd, opts=opts))
+
+            # sad
+
+            await self.asyncraises(s_exc.NoSuchForm, core.callStorm(scmd, opts={'vars': {'form': 'newp:newp'}}))
+
+            lowuser = await core.auth.addUser('low')
+            lowopts = opts | {'user': lowuser.iden, 'view': view_prop}
+
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=lowopts))
+
+            await lowuser.addRule((True, ('view', 'read')), gateiden=view_prop)
+            await core.callStorm(scmd, opts=lowopts)
+
     async def test_storm_lib_layer_upstream(self):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
