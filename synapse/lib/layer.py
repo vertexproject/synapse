@@ -4116,7 +4116,7 @@ class Layer(s_nexus.Pusher):
             sode = s_msgpack.un(byts)
 
             form = sode.get('form')
-            if form is None:
+            if form is None: # pragma: no cover
                 iden = s_common.ehex(buid)
                 logger.warning(f'NODE HAS NO FORM: {iden}')
                 continue
