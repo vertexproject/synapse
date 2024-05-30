@@ -5158,12 +5158,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return dmon
 
+    @s_cell.from_leader
     async def getStormDmon(self, iden):
         return self.stormdmons.getDmonDef(iden)
 
+    @s_cell.from_leader
     async def getStormDmons(self):
         return self.stormdmons.getDmonDefs()
 
+    @s_cell.from_leader
     async def getStormDmonLog(self, iden):
         return self.stormdmons.getDmonRunlog(iden)
 
