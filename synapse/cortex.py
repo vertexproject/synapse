@@ -4496,6 +4496,79 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('view:add', pack, gates=[iden])
         return pack
 
+    async def delViewWithLayer(self, iden):
+        '''
+        Delete a Cortex View and its write Layer by iden.
+
+        Note:
+            Any children of the View will have their parent view updated to
+            the deleted View's parent (if present). The deleted layer will also
+            be removed from any Views which contain it in their layer stack.
+        '''
+        view = self.views.get(iden)
+        if view is None:
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
+
+        if view.info.get('protected'):
+            mesg = f'Cannot delete view ({iden}) that has protected set.'
+            raise s_exc.CantDelView(mesg=mesg)
+
+        layriden = view.layers[0].iden
+        pareiden = None
+        if view.parent is not None:
+            pareiden = view.parent.iden
+
+        return await self._push('view:delwithlayer', iden, view.layers[0].iden, newparent=pareiden)
+
+    @s_nexus.Pusher.onPush('view:delwithlayer', passitem=True)
+    async def _delViewAndLayer(self, viewiden, layriden, nexsitem, newparent=None):
+
+        if viewiden == self.view.iden:
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
+
+        if (view := self.views.get(viewiden)) is not None:
+
+            await self.hive.pop(('cortex', 'views', viewiden))
+            await view.delete()
+
+            self._calcViewsByLayer()
+            await self.feedBeholder('view:del', {'iden': viewiden}, gates=[viewiden])
+            await self.auth.delAuthGate(viewiden)
+
+        newview = self.views.get(newparent)
+
+        for cview in self.views.values():
+            if cview.parent is not None and cview.parent.iden == viewiden:
+                cview.parent = newview
+                if newparent is None:
+                    await cview.info.pop('parent')
+                else:
+                    await cview.info.set('parent', newparent)
+
+        if (layr := self.layers.get(layriden)) is not None:
+            del self.layers[layriden]
+
+            for pdef in layr.layrinfo.get('pushs', {}).values():
+                await self.delActiveCoro(pdef.get('iden'))
+
+            for pdef in layr.layrinfo.get('pulls', {}).values():
+                await self.delActiveCoro(pdef.get('iden'))
+
+            await self.feedBeholder('layer:del', {'iden': layriden}, gates=[layriden])
+            await self.auth.delAuthGate(layriden)
+            self.dynitems.pop(layriden)
+
+            await self.hive.pop(('cortex', 'layers', layriden))
+
+            await layr.delete()
+
+            layr.deloffs = nexsitem[0]
+
+        for cview in self.views.values():
+            if layr in cview.layers:
+                cview.layers.remove(layr)
+                await cview.info.set('layers', [lyr.iden for lyr in cview.layers])
+
     async def delView(self, iden):
         view = self.views.get(iden)
         if view is None:
