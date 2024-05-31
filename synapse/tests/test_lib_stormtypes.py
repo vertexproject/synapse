@@ -6762,6 +6762,7 @@ words\tword\twrd'''
             midfork = core.getView(fork00['iden'])
 
             fork01 = await midfork.fork()
+            self.true(midfork.hasKids())
 
             opts = {'view': midfork.iden}
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
@@ -6776,8 +6777,10 @@ words\tword\twrd'''
             self.eq([], await core.callStorm(merging))
 
             leaffork = core.getView(fork01['iden'])
-            self.eq(leaffork.parent, core.getView())
+            self.false(leaffork.hasKids())
+
             self.len(2, leaffork.layers)
+            self.eq(leaffork.parent, core.getView())
 
             # test coverage for bad state for merge request
             opts = {'view': fork01['iden']}

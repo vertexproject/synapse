@@ -4521,7 +4521,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await self._push('view:delwithlayer', iden, view.layers[0].iden, newparent=pareiden)
 
     @s_nexus.Pusher.onPush('view:delwithlayer', passitem=True)
-    async def _delViewAndLayer(self, viewiden, layriden, nexsitem, newparent=None):
+    async def _delViewWithLayer(self, viewiden, layriden, nexsitem, newparent=None):
 
         if viewiden == self.view.iden:
             raise s_exc.SynErr(mesg='Cannot delete the main view')
@@ -4535,14 +4535,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.feedBeholder('view:del', {'iden': viewiden}, gates=[viewiden])
             await self.auth.delAuthGate(viewiden)
 
-        newview = self.views.get(newparent)
+        if newparent is not None:
+            newview = self.views.get(newparent)
 
         for cview in self.views.values():
             if cview.parent is not None and cview.parent.iden == viewiden:
-                cview.parent = newview
                 if newparent is None:
+                    cview.parent = None
                     await cview.info.pop('parent')
                 else:
+                    cview.parent = newview
                     await cview.info.set('parent', newparent)
 
         if (layr := self.layers.get(layriden)) is not None:
