@@ -6704,11 +6704,10 @@ words\tword\twrd'''
             self.nn(await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts))
             self.eq([fork.iden], await core.callStorm(merging))
 
-            # confirm that you may not re-parent to a view with a merge request
+            # confirm that you may re-parent to a view with a merge request
             layr = await core.addLayer()
             vdef = await core.addView({'layers': (layr['iden'],)})
-            with self.raises(s_exc.BadState):
-                await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
+            await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
 
             opts = {'view': fork.iden, 'user': visi.iden}
             self.nn(await core.callStorm('return($lib.view.get().setMergeVote(approved=(false)))', opts=opts))
@@ -6790,9 +6789,7 @@ words\tword\twrd'''
                 await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
             core.getView().layers[0].readonly = False
-
-            with self.raises(s_exc.BadState):
-                await core.callStorm('return($lib.view.get().fork())', opts=opts)
+            await core.callStorm('return($lib.view.get().fork())', opts=opts)
 
             # setup a new merge and make a mirror...
             forkdef = await core.getView().fork()
