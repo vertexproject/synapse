@@ -6329,6 +6329,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             view4 = core.getView(vdef4.get('iden'))
 
+            self.eq(view4.parent, view3)
+            self.len(2, view4.layers)
+
             await core.auth.rootuser.setPasswd('secret')
             host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
             layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
