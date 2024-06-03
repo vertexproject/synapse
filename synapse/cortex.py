@@ -4538,16 +4538,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if newparent is not None:
             newview = self.views.get(newparent)
 
-        for cview in self.views.values():
-            if cview.parent is not None and cview.parent.iden == viewiden:
-                if newparent is None:
-                    cview.parent = None
-                    await cview.info.pop('parent')
-                else:
-                    cview.parent = newview
-                    await cview.info.set('parent', newparent)
+        layrinuse = False
+        for view in self.viewsbylayer[layriden]:
+            if not view.isForkOf(viewiden):
+                layrinuse = True
+                continue
 
-        if (layr := self.layers.get(layriden)) is not None:
+            view.layers = [lyr for lyr in view.layers if lyr.iden != layriden]
+            await view.info.set('layers', [lyr.iden for lyr in view.layers])
+
+            if view.parent.iden == viewiden:
+                if newparent is None:
+                    view.parent = None
+                    await view.info.pop('parent')
+                else:
+                    view.parent = newview
+                    await view.info.set('parent', newparent)
+
+        if not layrinuse and (layr := self.layers.get(layriden)) is not None:
             del self.layers[layriden]
 
             for pdef in layr.layrinfo.get('pushs', {}).values():
@@ -4565,11 +4573,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await layr.delete()
 
             layr.deloffs = nexsitem[0]
-
-        for cview in self.views.values():
-            if layr in cview.layers:
-                cview.layers.remove(layr)
-                await cview.info.set('layers', [lyr.iden for lyr in cview.layers])
 
     async def delView(self, iden):
         view = self.views.get(iden)
