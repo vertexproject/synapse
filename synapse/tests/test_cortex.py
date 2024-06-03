@@ -6327,7 +6327,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             view3 = core.getView(view3_iden)
             vdef4 = await view3.fork()
 
-            view4 = core.getView(vdef4.get('iden'))
+            deadlayr = view3.layers[0].iden
+            view4_iden = vdef4.get('iden')
+            view4 = core.getView(view4_iden)
 
             self.eq(view4.parent, view3)
             self.len(2, view4.layers)
@@ -6350,6 +6352,22 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.none(view4.parent)
             self.len(1, view4.layers)
+            self.none(core.getLayer(deadlayr))
+
+            vdef5 = await view4.fork()
+            view5 = core.getView(vdef5.get('iden'))
+
+            usedlayr = view4.layers[0].iden
+            vdef6 = {'layers': (usedlayr,)}
+            view6 = core.getView((await core.addView(vdef6)).get('iden'))
+
+            await core.delViewWithLayer(view4_iden)
+
+            self.none(view5.parent)
+            self.len(1, view5.layers)
+
+            self.nn(core.getLayer(usedlayr))
+            self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
 
     async def test_cortex_view_opts(self):
         '''
