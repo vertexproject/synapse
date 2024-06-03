@@ -89,6 +89,14 @@ Features and Enhancements
 - Add an index of buids by form to Layers. A ``getStorNodesByForm()`` API has
   been added to Storm Layer objects to retrieve storage nodes using this index.
   (`#3729 <https://github.com/vertexproject/synapse/pull/3729>`_)
+- Storm Dmon APIs called on a Cortex mirror now call up to the leader to
+  retrieve their result.
+  (`#3735 <https://github.com/vertexproject/synapse/pull/3735>`_)
+- Add a ``insertParentFork()`` API on Storm View objects to insert a new
+  View between an existing fork and its parent View.
+  (`#3731 <https://github.com/vertexproject/synapse/pull/3731>`_)
+- Quorum merge requests are now allowed on Views which have forks.
+  (`#3738 <https://github.com/vertexproject/synapse/pull/3738>`_)
 
 Bugfixes
 --------
@@ -120,14 +128,6 @@ Features and Enhancements
 - Add ``node.data.set`` and ``node.data.pop`` to the list of declared
   Cortex permissions.
   (`#3716 <https://github.com/vertexproject/synapse/pull/3716>`_)
-- Storm Dmon APIs called on a Cortex mirror now call up to the leader to
-  retrieve their result.
-  (`#3735 <https://github.com/vertexproject/synapse/pull/3735>`_)
-- Add a ``insertParentFork()`` API on Storm View objects to insert a new
-  View between an existing fork and its parent View.
-  (`#3731 <https://github.com/vertexproject/synapse/pull/3731>`_)
-- Quorum merge requests are now allowed on Views which have forks.
-  (`#3738 <https://github.com/vertexproject/synapse/pull/3738>`_)
 
 Bugfixes
 --------
