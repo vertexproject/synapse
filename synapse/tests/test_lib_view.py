@@ -859,9 +859,19 @@ class ViewTest(s_t_utils.SynTest):
             msgs = await core.stormlist('auth.user.addrule visi node --gate $lib.view.get().layers.0.iden')
             self.stormHasNoWarnErr(msgs)
 
+            opts = {'vars': {'role': role.iden}}
+            quorum = await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
+
             forkopts = {'view': view02.iden}
+            await core.callStorm('return($lib.view.get().setMergeRequest(comment=woot))', opts=forkopts)
+
+            merging = 'return($lib.view.get().getMergingViews()) '
+            self.eq([view02.iden], await core.callStorm(merging))
+
             q = 'return($lib.view.get().insertParentFork(name=staging).iden)'
             newiden = await core.callStorm(q, opts=forkopts)
+
+            self.eq([], await core.callStorm(merging))
 
             view01 = core.getView(newiden)
 

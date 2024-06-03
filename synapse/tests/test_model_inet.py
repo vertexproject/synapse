@@ -1484,7 +1484,6 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(7, nodes)
-            print(nodes)
             self.eq(nodes[0].get('base'), 'http://[fedc:ba98:7654:3210:fedc:ba98:7654:3210]:80/index.html')
             self.eq(nodes[0].get('proto'), 'http')
             self.eq(nodes[0].get('path'), '/index.html')
