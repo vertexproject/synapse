@@ -6348,7 +6348,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist(pushq, opts=opts)
             self.stormHasNoWarnErr(msgs)
 
+            coros = len(core.activecoros)
+
             await core.delViewWithLayer(view3_iden)
+
+            # push/pull activecoros have been deleted
+            self.len(coros - 2, core.activecoros)
 
             self.none(view4.parent)
             self.len(1, view4.layers)
