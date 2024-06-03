@@ -4178,6 +4178,7 @@ class Layer(s_nexus.Pusher):
         async for perm in self.iterLayerAddPerms():
             if perm[:2] == ('node', 'add'):
                 yield ('node', 'del', *perm[2:])
+                continue
 
             match perm[:3]:
                 case ('node', 'prop', 'set'):
