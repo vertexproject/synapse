@@ -4498,12 +4498,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def delViewWithLayer(self, iden):
         '''
-        Delete a Cortex View and its write Layer by iden.
+        Delete a Cortex View and its write Layer if not in use by other View stacks.
 
         Note:
-            Any children of the View will have their parent view updated to
-            the deleted View's parent (if present). The deleted layer will also
-            be removed from any Views which contain it in their layer stack.
+            Any children of the View will have their parent View updated to
+            the deleted View's parent (if present). The deleted View's write Layer
+            will also be removed from any child Views which contain it in their
+            Layer stack. If the Layer is used in Views which are not children of
+            the deleted View, the Layer will be preserved, otherwise it will be
+            deleted as well.
         '''
         view = self.views.get(iden)
         if view is None:
