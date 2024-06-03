@@ -110,6 +110,25 @@ def adminapi(log=False):
 
     return decrfunc
 
+def from_leader(func):
+    '''
+    Decorator used to indicate that the decorated method must call up to the
+    leader to perform it's work.
+
+    This only works on Cell classes and subclasses. The decorated method name
+    MUST be the same as the telepath API name.
+    '''
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if not self.isactive:
+            proxy = await self.nexsroot.client.proxy()
+            api = getattr(proxy, func.__name__)
+            return await api(*args, **kwargs)
+
+        return await func(self, *args, **kwargs)
+
+    return wrapper
+
 async def _doIterBackup(path, chunksize=1024):
     '''
     Create tarball and stream bytes.

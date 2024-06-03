@@ -196,10 +196,6 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
 
-        if self.hasKids():
-            mesg = 'Cannot add a merge request to a view with children.'
-            raise s_exc.BadState(mesg=mesg)
-
         s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
@@ -450,8 +446,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
-            await self.core.delView(self.iden)
-            await self.core.delLayer(self.layers[0].iden)
+            await self.core.delViewWithLayer(self.iden)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')
@@ -1112,10 +1107,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 mesg = 'Circular dependency of view parents is not supported.'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if parent.getMergeRequest() is not None:
-                mesg = 'You may not set the parent to a view with a pending merge request.'
-                raise s_exc.BadState(mesg=mesg)
-
             if self.parent is not None:
                 if self.parent.iden == parent.iden:
                     return valu
@@ -1299,6 +1290,9 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
+        if self.getMergeRequest() is not None:
+            await self._delMergeRequest()
+
         await self.core._addLayer(ldef, nexsitem)
         await self.core._addView(vdef)
 
@@ -1354,10 +1348,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if vdef is None:
             vdef = {}
-
-        if self.getMergeRequest() is not None:
-            mesg = 'Cannot fork a view which has a merge request.'
-            raise s_exc.BadState(mesg=mesg)
 
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')

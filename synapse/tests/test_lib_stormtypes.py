@@ -6704,11 +6704,10 @@ words\tword\twrd'''
             self.nn(await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts))
             self.eq([fork.iden], await core.callStorm(merging))
 
-            # confirm that you may not re-parent to a view with a merge request
+            # confirm that you may re-parent to a view with a merge request
             layr = await core.addLayer()
             vdef = await core.addView({'layers': (layr['iden'],)})
-            with self.raises(s_exc.BadState):
-                await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
+            await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
 
             opts = {'view': fork.iden, 'user': visi.iden}
             self.nn(await core.callStorm('return($lib.view.get().setMergeVote(approved=(false)))', opts=opts))
@@ -6758,28 +6757,42 @@ words\tword\twrd'''
 
             self.eq([], await core.callStorm(merging))
 
-            # test coverage for bad state for merge request
+            # merge a view with a fork
             fork00 = await core.getView().fork()
-            fork01 = await core.getView(fork00['iden']).fork()
+            midfork = core.getView(fork00['iden'])
 
-            opts = {'view': fork00['iden']}
-            with self.raises(s_exc.BadState):
-                await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+            fork01 = await midfork.fork()
+            self.true(midfork.hasKids())
+
+            opts = {'view': midfork.iden}
+            await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            self.eq([midfork.iden], await core.callStorm(merging))
+
+            opts = {'view': midfork.iden, 'user': visi.iden}
+            await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
+
+            self.true(await midfork.waitfini(timeout=12))
 
             self.eq([], await core.callStorm(merging))
 
-            await core.delView(fork01['iden'])
+            leaffork = core.getView(fork01['iden'])
+            self.false(leaffork.hasKids())
+
+            self.len(2, leaffork.layers)
+            self.eq(leaffork.parent, core.getView())
+
+            # test coverage for bad state for merge request
+            opts = {'view': fork01['iden']}
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
-            self.eq([fork00['iden']], await core.callStorm(merging))
+            self.eq([fork01['iden']], await core.callStorm(merging))
 
             core.getView().layers[0].readonly = True
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
             core.getView().layers[0].readonly = False
-
-            with self.raises(s_exc.BadState):
-                await core.callStorm('return($lib.view.get().fork())', opts=opts)
+            await core.callStorm('return($lib.view.get().fork())', opts=opts)
 
             # setup a new merge and make a mirror...
             forkdef = await core.getView().fork()
@@ -6789,7 +6802,7 @@ words\tword\twrd'''
             await core.stormlist('[ inet:ipv4=5.5.5.5 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
-            self.eq(set([fork.iden, fork00['iden']]), set(await core.callStorm(merging)))
+            self.eq(set([fork.iden, fork01['iden']]), set(await core.callStorm(merging)))
 
             # hamstring the runViewMerge method on the new view
             async def fake():
