@@ -6729,7 +6729,11 @@ class Layer(Prim):
                 and may not represent whole nodes. If the only data stored in the layer for
                 a given buid is an N2 edge reference, a storage node will not be returned.
             ''',
-         'type': {'type': 'function', '_funcname': 'getStorNodes',
+         'type': {'type': 'function', '_funcname': 'getStorNodesByForm',
+                  'args': (
+                      {'name': 'form', 'type': 'str',
+                       'desc': 'The name of the form to get storage nodes for.'},
+                   ),
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
         {'name': 'getMirrorStatus', 'desc': '''
             Return a dictionary of the mirror synchronization status for the layer.
