@@ -109,6 +109,7 @@ reqValidLdef = s_config.getJsValidator({
 })
 
 WINDOW_MAXSIZE = 10_000
+MIGR_COMMIT_SIZE = 1_000
 
 class LayerApi(s_cell.CellApi):
 
@@ -283,6 +284,8 @@ INDX_NODEDATA = b'\x00\x0c'
 INDX_TOMB = b'\x00\x0d'
 
 INDX_NDEF = b'\x00\x0e'
+
+INDX_FORM = b'\x00\x0f'
 
 FLAG_TOMB = b'\x00'
 FLAG_NORM = b'\x01'
@@ -2214,7 +2217,7 @@ class Layer(s_nexus.Pusher):
         await self._initSlabs(slabopts)
 
         if self.fresh:
-            self.meta.set('version', 10)
+            self.meta.set('version', 11)
 
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
@@ -2226,8 +2229,8 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.on('commit', self._onLayrSlabCommit)
 
-        self.layrvers = self.meta.get('version', 10)
-        if self.layrvers != 10:
+        self.layrvers = self.meta.get('version', 11)
+        if self.layrvers != 11:
             mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
@@ -2488,7 +2491,7 @@ class Layer(s_nexus.Pusher):
         '''
         try:
             verbabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
-            formabrv = self.core.getIndxAbrv(INDX_PROP, form, None)
+            formabrv = self.core.getIndxAbrv(INDX_FORM, form)
         except s_exc.NoSuchAbrv:
             return 0
 
@@ -2787,6 +2790,12 @@ class Layer(s_nexus.Pusher):
             return False
 
         # no more refs in this layer.  time to pop it...
+        try:
+            abrv = self.core.getIndxAbrv(INDX_FORM, sode.get('form'))
+            self.layrslab.delete(abrv, val=nid, db=self.indxdb)
+        except s_exc.NoSuchAbrv:
+            pass
+
         self.dirty.pop(nid, None)
         self.nidcache.pop(nid, None)
         self.layrslab.delete(nid, db=self.bynid)
@@ -3207,7 +3216,6 @@ class Layer(s_nexus.Pusher):
             return ()
 
         valu, stortype = sode['valu'] = edit[1]
-        sode['form'] = form
 
         if self.core.getBuidByNid(nid) is None:
             self.core.setNidNdef(nid, (form, valu))
@@ -3215,6 +3223,11 @@ class Layer(s_nexus.Pusher):
         self.dirty[nid] = sode
 
         kvpairs = []
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
@@ -3317,15 +3330,21 @@ class Layer(s_nexus.Pusher):
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
-        sode['form'] = form
         sode['antivalu'] = True
+
+        kvpairs = [(INDX_TOMB + abrv, nid)]
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
 
         self.dirty[nid] = sode
 
         await self._wipeNodeData(nid, sode)
         await self._delNodeEdges(nid, abrv, sode)
 
-        return ((INDX_TOMB + abrv, nid),)
+        return kvpairs
 
     async def _editNodeTombDel(self, nid, form, edit, sode, meta):
 
@@ -3431,6 +3450,11 @@ class Layer(s_nexus.Pusher):
         self.dirty[nid] = sode
 
         kvpairs = []
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3584,10 +3608,17 @@ class Layer(s_nexus.Pusher):
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
 
+        kvpairs = [(INDX_TOMB + abrv, nid)]
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
+
         sode['antiprops'][prop] = True
         self.dirty[nid] = sode
 
-        return ((INDX_TOMB + abrv, nid),)
+        return kvpairs
 
     async def _editPropTombDel(self, nid, form, edit, sode, meta):
 
@@ -3661,6 +3692,11 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
 
         kvpairs = []
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
 
         if valu == (None, None):
             kvpairs.append((abrv, nid))
@@ -3750,10 +3786,17 @@ class Layer(s_nexus.Pusher):
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
 
+        kvpairs = [(INDX_TOMB + abrv, nid)]
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
+
         sode['antitags'][tag] = True
         self.dirty[nid] = sode
 
-        return ((INDX_TOMB + abrv, nid),)
+        return kvpairs
 
     async def _editTagTombDel(self, nid, form, edit, sode, meta):
 
@@ -3830,6 +3873,12 @@ class Layer(s_nexus.Pusher):
         self.dirty[nid] = sode
 
         kvpairs = []
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
+
         for indx in self.getStorIndx(stortype, valu):
             kvpairs.append((tp_abrv + indx, nid))
             kvpairs.append((ftp_abrv + indx, nid))
@@ -3916,13 +3965,20 @@ class Layer(s_nexus.Pusher):
 
         abrv = self.core.setIndxAbrv(INDX_TAGPROP, None, tag, prop)
 
+        kvpairs = [(INDX_TOMB + abrv, nid)]
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
+
         if antitags is None or antiprops is None:
             sode['antitagprops'][tag] = {}
 
         sode['antitagprops'][tag][prop] = True
         self.dirty[nid] = sode
 
-        return ((INDX_TOMB + abrv, nid),)
+        return kvpairs
 
     async def _editTagPropTombDel(self, nid, form, edit, sode, meta):
 
@@ -3958,6 +4014,11 @@ class Layer(s_nexus.Pusher):
             self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
 
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            return ((formabrv, nid),)
+
         return ()
 
     async def _editNodeDataDel(self, nid, form, edit, sode, meta):
@@ -3982,7 +4043,14 @@ class Layer(s_nexus.Pusher):
         self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
         self.dirty[nid] = sode
 
-        return ((INDX_TOMB + abrv, nid),)
+        kvpairs = [(INDX_TOMB + abrv, nid)]
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
+
+        return kvpairs
 
     async def _editNodeDataTombDel(self, nid, form, edit, sode, meta):
 
@@ -4024,24 +4092,31 @@ class Layer(s_nexus.Pusher):
         self.dirty[nid] = sode
         self.dirty[n2nid] = n2sode
 
-        formabrv = self.core.setIndxAbrv(INDX_PROP, form, None)
-
-        self.indxcounts.inc(vabrv, 1)
-        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, 1)
-
-        if (n2form := n2sode.get('form')) is None:
-            n2form = self.core.getNidNdef(n2nid)[0]
-
-        if n2form is not None:
-            n2formabrv = self.core.setIndxAbrv(INDX_PROP, n2form, None)
-            self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, 1)
-
         kvpairs = [
             (vabrv + nid + FLAG_NORM, n2nid),
             (self.edgen1abrv + nid + vabrv + FLAG_NORM, n2nid),
             (self.edgen2abrv + n2nid + vabrv + FLAG_NORM, nid),
             (self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv)
         ]
+
+        formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            kvpairs.append((formabrv, nid))
+
+        self.indxcounts.inc(vabrv, 1)
+        self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, 1)
+
+        if (n2form := n2sode.get('form')) is None:
+            n2form = self.core.getNidNdef(n2nid)[0]
+            n2sode['form'] = n2form
+            n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+            kvpairs.append((n2formabrv, n2nid))
+        else:
+            n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+
+        self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, 1)
 
         return kvpairs
 
@@ -4077,7 +4152,7 @@ class Layer(s_nexus.Pusher):
             n2sode['n2verbs'][verb] = newvalu
             self.dirty[n2nid] = n2sode
 
-        formabrv = self.core.setIndxAbrv(INDX_PROP, form, None)
+        formabrv = self.core.setIndxAbrv(INDX_FORM, form)
 
         self.indxcounts.inc(vabrv, -1)
         self.indxcounts.inc(INDX_EDGE_N1 + formabrv + vabrv, -1)
@@ -4086,7 +4161,7 @@ class Layer(s_nexus.Pusher):
             n2form = self.core.getNidNdef(n2nid)[0]
 
         if n2form is not None:
-            n2formabrv = self.core.setIndxAbrv(INDX_PROP, n2form, None)
+            n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
             self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
 
         return ()
@@ -4114,6 +4189,17 @@ class Layer(s_nexus.Pusher):
             (self.edgen2abrv + n2nid + vabrv + FLAG_TOMB, nid),
             (self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv)
         ]
+
+        if sode.get('form') is None:
+            sode['form'] = form
+            formabrv = self.core.setIndxAbrv(INDX_FORM, form)
+            kvpairs.append((formabrv, nid))
+
+        if (n2form := n2sode.get('form')) is None:
+            n2form = self.core.getNidNdef(n2nid)[0]
+            n2sode['form'] = n2form
+            n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+            kvpairs.append((n2formabrv, n2nid))
 
         return kvpairs
 
@@ -4222,7 +4308,7 @@ class Layer(s_nexus.Pusher):
                 n2form = self.core.getNidNdef(n2nid)[0]
 
             if n2form is not None:
-                n2formabrv = self.core.setIndxAbrv(INDX_PROP, n2form, None)
+                n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
                 self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
 
     def getStorIndx(self, stortype, valu):
@@ -4279,7 +4365,7 @@ class Layer(s_nexus.Pusher):
         try:
             vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
         except s_exc.NoSuchAbrv:
-            return False
+            return None
 
         if self.layrslab.hasdup(self.edgen1abrv + n1nid + vabrv + FLAG_NORM, n2nid, db=self.indxdb):
             return True
@@ -4586,6 +4672,20 @@ class Layer(s_nexus.Pusher):
         for nid, byts in self.layrslab.scanByFull(db=self.bynid):
             await asyncio.sleep(0)
             yield nid, s_msgpack.un(byts)
+
+    async def getStorNodesByForm(self, form):
+        '''
+        Yield (nid, sode) tuples for nodes of a given form with any data in this layer.
+        '''
+        try:
+            abrv = self.core.getIndxAbrv(INDX_FORM, form)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for _, nid in self.layrslab.scanByDups(abrv, db=self.indxdb):
+            sode = self.getStorNode(nid)
+            yield nid, sode
+            await asyncio.sleep(0)
 
     def getStorNode(self, nid):
         '''

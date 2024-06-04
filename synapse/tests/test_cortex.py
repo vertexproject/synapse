@@ -6074,12 +6074,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Can't delete the default view
             await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
+            await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
 
             # Can't delete a layer in a view
             await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
 
             # Can't delete a nonexistent view
             await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
+            await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
 
             # Can't delete a nonexistent layer
             await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
@@ -6091,6 +6093,68 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Can't delete a view twice
             await core.delView(view2_iden)
             await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
+
+            layr = await core.addLayer()
+            layriden = layr['iden']
+            vdef3 = {'layers': (layriden,)}
+            view3_iden = (await core.addView(vdef3)).get('iden')
+
+            opts = {'view': view3_iden}
+            await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
+
+            await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
+
+            await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
+
+            view3 = core.getView(view3_iden)
+            vdef4 = await view3.fork()
+
+            deadlayr = view3.layers[0].iden
+            view4_iden = vdef4.get('iden')
+            view4 = core.getView(view4_iden)
+
+            self.eq(view4.parent, view3)
+            self.len(2, view4.layers)
+
+            await core.auth.rootuser.setPasswd('secret')
+            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+            layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
+            varz = {'iden': layriden, 'tgt': layr2.get('iden'), 'port': port}
+            opts = {'vars': varz, 'view': view3_iden}
+
+            pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+            pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+            msgs = await core.stormlist(pullq, opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist(pushq, opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            coros = len(core.activecoros)
+
+            await core.delViewWithLayer(view3_iden)
+
+            # push/pull activecoros have been deleted
+            self.len(coros - 2, core.activecoros)
+
+            self.none(view4.parent)
+            self.len(1, view4.layers)
+            self.none(core.getLayer(deadlayr))
+
+            vdef5 = await view4.fork()
+            view5 = core.getView(vdef5.get('iden'))
+
+            usedlayr = view4.layers[0].iden
+            vdef6 = {'layers': (usedlayr,)}
+            view6 = core.getView((await core.addView(vdef6)).get('iden'))
+
+            await core.delViewWithLayer(view4_iden)
+
+            self.none(view5.parent)
+            self.len(1, view5.layers)
+
+            self.nn(core.getLayer(usedlayr))
+            self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
 
     async def test_cortex_view_opts(self):
         '''

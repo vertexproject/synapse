@@ -6517,6 +6517,19 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'getStorNodesByForm', 'desc': '''
+            Get buid, sode tuples representing the data stored in the layer for a given form.
+
+            Notes:
+                The storage nodes represent **only** the data stored in the layer
+                and may not represent whole nodes.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNodesByForm',
+                  'args': (
+                      {'name': 'form', 'type': 'str',
+                       'desc': 'The name of the form to get storage nodes for.'},
+                   ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
         {'name': 'getMirrorStatus', 'desc': '''
             Return a dictionary of the mirror synchronization status for the layer.
             ''',
@@ -6715,6 +6728,7 @@ class Layer(Prim):
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
+            'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
             'delTombstone': self.delTombstone,
@@ -7013,6 +7027,19 @@ class Layer(Prim):
         layr = self.runt.view.core.getLayer(layriden)
 
         async for nid, sode in layr.getStorNodes():
+            yield (s_common.ehex(self.runt.view.core.getBuidByNid(nid)), sode)
+
+    @stormfunc(readonly=True)
+    async def getStorNodesByForm(self, form):
+        form = await tostr(form)
+        if self.runt.view.core.model.form(form) is None:
+            raise s_exc.NoSuchForm.init(form)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for nid, sode in layr.getStorNodesByForm(form):
             yield (s_common.ehex(self.runt.view.core.getBuidByNid(nid)), sode)
 
     @stormfunc(readonly=True)

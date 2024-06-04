@@ -207,11 +207,14 @@ class ProtoNode(s_node.NodeBase):
         if toplayr is True:
             return False
 
+        if toplayr is False:
+            self.edgetombdels.add(tupl)
+
         for layr in self.editor.view.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
-                if undr and toplayr is False:
-                    self.edgetombdels.add(tupl)
-                    return True
+                if undr is True:
+                    # we have a value underneath, if write layer wasn't a tombstone we didn't do anything
+                    return toplayr is False
                 break
 
         self.edges.add(tupl)
