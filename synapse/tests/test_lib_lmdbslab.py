@@ -123,7 +123,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slab.put(b'\x00\x01', b'hehe', db=foo)
             slab.put(b'\x00\x02', b'haha', db=foo)
             slab.put(b'\x01\x03', b'hoho', db=foo)
-            slab.put(b'\x02', b'back', db=foo)
 
             for db in (bar, barfixed):
                 slab.put(b'\x00\x01', b'hehe', dupdata=True, db=db)
@@ -145,7 +144,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             self.eq(b'\x00\x01', slab.firstkey(db=foo))
             self.none(slab.firstkey(db=empty))
-            self.eq(b'\x02', slab.lastkey(db=foo))
+            self.eq(b'\x01\x03', slab.lastkey(db=foo))
             self.none(slab.lastkey(db=empty))
 
             self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
@@ -231,12 +230,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     self.eq(scan.atitem, (b'\x00\x03', b'hoho'))
 
             items = list(slab.scanByFullBack(db=foo))
-            self.eq(items, (
-                (b'\x02', b'back'),
-                (b'\x01\x03', b'hoho'),
-                (b'\x00\x02', b'haha'),
-                (b'\x00\x01', b'hehe')
-            ))
+            self.eq(items, ((b'\x01\x03', b'hoho'), (b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
             with s_lmdbslab.ScanBack(slab, db=foo) as scan:
                 scan.set_key(b'\x00\x02')
@@ -288,7 +282,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Copy a database inside the same slab
             self.raises(s_exc.DataAlreadyExists, slab.copydb, foo, slab, 'bar')
-            self.eq(4, slab.copydb(foo, slab, 'foo2'))
+            self.eq(3, slab.copydb(foo, slab, 'foo2'))
 
             # Increase the size of the new source DB to trigger a resize on the next copydb
             foo2 = slab.initdb('foo2')
@@ -302,8 +296,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             # Copy a database to a different slab
             path2 = os.path.join(dirn, 'test2.lmdb')
             async with await s_lmdbslab.Slab.anit(path2, map_size=512 * 1024) as slab2:
-                with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 5):
-                    self.eq(5, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
+                with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 2):
+
+                    self.eq(4, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
                     self.gt(vardict.get('prog', 0), 0)
 
             # Test slab.drop and slab.dbexists
@@ -653,6 +648,42 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'1', val=b'2', db=dupndb)
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
+
+    async def test_lmdbslab_scanback(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                foodup = slab.initdb('foodup', dupsort=True)
+                foonodup = slab.initdb('foonodup', dupsort=False)
+
+                for db in (foodup, foonodup):
+                    slab.put(b'\x01', b'foo', db=db)
+                    slab.put(b'\x01\x01', b'bar', db=db)
+                    slab.put(b'\x01\x03', b'baz', db=db)
+                    slab.put(b'\x02', b'faz', db=db)
+
+                items = list(slab.scanByPrefBack(b'\x01', db=foonodup))
+                self.eq(items, (
+                    (b'\x01\x03', b'baz'),
+                    (b'\x01\x01', b'bar'),
+                    (b'\x01', b'foo')
+                ))
+
+                self.eq((), list(slab.scanByPrefBack(b'\x00', db=foonodup)))
+
+                slab.put(b'\x01\x03', b'waz', db=foodup)
+
+                items = list(slab.scanByPrefBack(b'\x01', db=foodup))
+                self.eq(items, (
+                    (b'\x01\x03', b'waz'),
+                    (b'\x01\x03', b'baz'),
+                    (b'\x01\x01', b'bar'),
+                    (b'\x01', b'foo')
+                ))
 
     async def test_lmdbslab_count_empty(self):
 

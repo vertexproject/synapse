@@ -1368,7 +1368,7 @@ class Slab(s_base.Base):
                     return
 
                 if scan.atitem[0] == nextbyts:
-                    if not scan.prev_key():
+                    if not scan.next_key():
                         return
 
             except OverflowError:
@@ -1814,7 +1814,7 @@ class ScanBack(Scan):
         self.atitem = next(self.genr)
         return True
 
-    def prev_key(self):
+    def next_key(self):
 
         if not self.curs.prev_nodup():
             return False
