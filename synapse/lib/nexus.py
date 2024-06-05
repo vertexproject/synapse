@@ -315,7 +315,7 @@ class NexsRoot(s_base.Base):
         client = self.client
 
         if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta, lock=lock)
+            return await self.eat(nexsiden, event, args, kwargs, meta, s_common.now(), lock=lock)
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
@@ -358,7 +358,7 @@ class NexsRoot(s_base.Base):
 
         return await client.proxy()
 
-    async def eat(self, nexsiden, event, args, kwargs, meta, lock=True):
+    async def eat(self, nexsiden, event, args, kwargs, meta, etime, lock=True):
         '''
         Actually mutate for the given nexsiden instance.
         '''
@@ -369,11 +369,13 @@ class NexsRoot(s_base.Base):
             async with self.applylock:
                 self.reqNotReadOnly()
                 # Keep a reference to the shielded task to ensure it isn't GC'd
-                self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
+                item = (nexsiden, event, args, kwargs, meta, etime)
+                self.applytask = asyncio.create_task(self._eat(item))
                 return await asyncio.shield(self.applytask)
 
         self.reqNotReadOnly()
-        self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
+        item = (nexsiden, event, args, kwargs, meta, etime)
+        self.applytask = asyncio.create_task(self._eat(item))
         return await asyncio.shield(self.applytask)
 
     async def index(self):
@@ -422,7 +424,7 @@ class NexsRoot(s_base.Base):
 
     async def _apply(self, indx, mesg):
 
-        nexsiden, event, args, kwargs, _ = mesg
+        nexsiden, event, args, kwargs, _, _ = mesg
 
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
@@ -580,7 +582,7 @@ class NexsRoot(s_base.Base):
                         await self.fini()
                         return
 
-                    meta = args[-1]
+                    meta = args[4]
                     respiden = meta.get('resp')
                     respfutu = self._futures.get(respiden)
 
