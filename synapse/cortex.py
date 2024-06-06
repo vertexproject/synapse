@@ -6922,7 +6922,10 @@ async def getTempCortex(mods=None):
     '''
     with s_common.getTempDir() as dirn:
         logger.debug(f'Creating temporary cortex as {dirn}')
-        async with await Cortex.anit(dirn) as core:
+        conf = {
+            'health:sysctl:checks': False,
+        }
+        async with await Cortex.anit(dirn, conf=conf) as core:
             if mods:
                 for mod in mods:
                     await core.loadCoreModule(mod)
