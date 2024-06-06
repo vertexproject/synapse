@@ -285,7 +285,7 @@ When deploying updates, we suggest deploying updates to the entire ecosystem in 
 
 #. AHA, Axon, and the JSONStor services:
 
-    This order ensures that the AHA service, Axon, and JSONSTor services are all updated first.
+    This order ensures that the AHA service, Axon, and JSONStor services are all updated first.
 
 #. Cortex:
 
@@ -322,7 +322,7 @@ Release Cadence
 ~~~~~~~~~~~~~~~
 
 Vertex does not follow a strict release cadence for Synapse, Advanced Power-Ups, or Rapid Power-Ups. As we develop new
-functionality and address issues, we will release new versions of Synapse and Power-Ups on a as-needed basis.
+functionality and address issues, we will release new versions of Synapse and Power-Ups on an as-needed basis.
 We recommend that users and organizations adopt an upgrade cycle that works for their operational needs.
 
 .. _devops-task-logging:
