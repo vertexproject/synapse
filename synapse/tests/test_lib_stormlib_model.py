@@ -400,3 +400,430 @@ class StormlibModelTest(s_test.SynTest):
 
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
+
+    async def test_model_migration_s_itSecCpe_2_170_0(self):
+
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
+            # Migrate it:sec:cpe nodes with a valid CPE2.3, valid CPE2.2
+            q = 'it:sec:cpe +#test.cpe.23valid +#test.cpe.22valid'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(
+                [
+                    ('it:sec:cpe', 'cpe:2.3:a:abine:donottrackme_-_mobile_privacy:1.1.8:*:*:*:*:android:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:a:01generator:pireospay:-:*:*:*:*:prestashop:*:*')
+                ],
+                [node.ndef for node in nodes]
+            )
+
+            q = '''
+            it:sec:cpe +#test.cpe.23valid +#test.cpe.22valid
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            $node.data.load(migration.s.itSecCpe_2_170_0)
+            '''
+            nodes = await core.nodes(q)
+
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.none(data.get('reason'))
+
+            data = nodes[1].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.none(data.get('reason'))
+
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
+            # Migrate it:sec:cpe nodes with a valid CPE2.3, invalid CPE2.2
+            q = '''
+            it:sec:cpe +#test.cpe.23valid +#test.cpe.22invalid
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq(
+                [
+                    ('it:sec:cpe', 'cpe:2.3:a:1c:1c\\:enterprise:-:*:*:*:*:*:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\%28aazf.15\\%29co:*:*:*:*:*:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:a:abinitio:control\\>center:-:*:*:*:*:*:*:*'),
+                ],
+                [node.ndef for node in nodes]
+            )
+
+            q = '''
+            it:sec:cpe +#test.cpe.23valid +#test.cpe.22invalid
+            $node.data.load(migration.s.itSecCpe_2_170_0)
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['v2_2', 'product'])
+            self.eq(nodes[0].get('v2_2'), 'cpe:/a:1c:1c%3aenterprise:-')
+            self.eq(nodes[0].get('product'), '1c:enterprise')
+
+            data = nodes[1].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.none(data.get('valu'))
+            self.eq(data['updated'], ['v2_2', 'version'])
+            self.eq(nodes[1].get('v2_2'), 'cpe:/o:zyxel:nas542_firmware:5.21%2528aazf.15%2529co')
+            self.eq(nodes[1].get('version'), '5.21%28aazf.15%29co')
+
+            data = nodes[2].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['v2_2', 'product'])
+            self.eq(nodes[2].get('v2_2'), 'cpe:/a:abinitio:control%3ecenter:-')
+            self.eq(nodes[2].get('product'), 'control>center')
+
+            # The migration of this node was not correct because the CPE2.3 string (primary property) is valid but was
+            # not created correctly due to a bad CPE2.2 input value. Now we update :v2_2 to be correct, and re-run the
+            # migration. This time, we specify `prefer_v22=True` and `force=True` so the migration will use the updated
+            # :v2_2 prop for reparsing the strings. Force will cause the migration to continue past the check where both
+            # the primary property and :v2_2 are valid.
+            q = '''
+            it:sec:cpe:product=nas542_firmware [ :v2_2="cpe:/o:zyxel:nas542_firmware:5.21%28aazf.15%29co" ]
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node, prefer_v22=$lib.true, force=$lib.true)
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift the updated node and check the migration did what was expected.
+            q = '''
+            it:sec:cpe:product=nas542_firmware
+            $node.data.load(migration.s.itSecCpe_2_170_0)
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['version'])
+            self.eq(data['valu'], 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\(aazf.15\\)co:*:*:*:*:*:*:*')
+            self.eq(nodes[0].get('v2_2'), 'cpe:/o:zyxel:nas542_firmware:5.21%28aazf.15%29co')
+            self.eq(nodes[0].get('version'), '5.21(aazf.15)co')
+
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
+            # Migrate it:sec:cpe nodes with a invalid CPE2.3, valid CPE2.2
+            q = '''
+            it:sec:cpe +#test.cpe.23invalid +#test.cpe.22valid
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            '''
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq(
+                [
+                    ('it:sec:cpe', 'cpe:2.3:h:d\\-link:dir\\-850l:*:*:*:*:*:*:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*'),
+                ],
+                [node.ndef for node in nodes]
+            )
+
+            q = '''
+            it:sec:cpe +#test.cpe.23invalid +#test.cpe.22valid
+            $node.data.load(migration.s.itSecCpe_2_170_0)
+            '''
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['vendor', 'product'])
+            self.eq(data['valu'], 'cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*')
+            self.eq(nodes[0].get('vendor'), 'd-link')
+            self.eq(nodes[0].get('product'), 'dir-850l')
+
+            data = nodes[1].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['product', 'update', 'edition', 'target_sw'])
+            self.eq(data['valu'], 'cpe:2.3:a:acurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*')
+            self.eq(nodes[1].get('product'), 'under_construction_/_maintenance_mode')
+            self.eq(nodes[1].get('update'), '*')
+            self.eq(nodes[1].get('edition'), '*')
+            self.eq(nodes[1].get('target_sw'), 'wordpress')
+
+            data = nodes[2].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['update', 'edition', 'sw_edition', 'target_sw'])
+            self.eq(data['valu'], 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*')
+            self.eq(nodes[2].get('update'), '*')
+            self.eq(nodes[2].get('edition'), '*')
+            self.eq(nodes[2].get('sw_edition'), 'premium')
+            self.eq(nodes[2].get('target_sw'), 'wordpress')
+
+            data = nodes[3].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['version'])
+            self.eq(data['valu'], 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*')
+            self.eq(nodes[3].get('version'), '5.21(aazf.14)c0')
+
+        async with self.getRegrCore('itSecCpe_2_170_0') as core:
+            # Migrate it:sec:cpe nodes with a invalid CPE2.3, invalid CPE2.2
+            q = '''
+            it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            '''
+            msgs = await core.stormlist(q)
+            mesg = 'itSecCpe_2_170_0(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): '
+            mesg += 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.'
+            self.stormIsInWarn(mesg, msgs)
+
+            ndefs = [m[1][0] for m in msgs if m[0] == 'node']
+            self.eq(
+                [
+                    ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*'),
+                    ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
+                ],
+                ndefs
+            )
+
+            q = '''
+            it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid
+            $node.data.load(migration.s.itSecCpe_2_170_0)
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            for node in nodes:
+                data = node.nodedata['migration.s.itSecCpe_2_170_0']
+                self.eq(data, {
+                    'status': 'failed',
+                    'reason': 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.',
+                })
+
+            # Now update the :v2_2 on one of the nodes and migrate again
+            q = '''
+            it:sec:cpe:version^=8.2p1 [ :v2_2="cpe:/a:openbsd:openssh:8.2p1_ubuntu-4ubuntu0.2" ]
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            q = '''
+            it:sec:cpe:version^=8.2p1
+            $node.data.load(migration.s.itSecCpe_2_170_0)
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            data = nodes[0].nodedata['migration.s.itSecCpe_2_170_0']
+            self.nn(data)
+            self.eq(data['status'], 'success')
+            self.eq(data['updated'], ['version'])
+            self.eq(data['valu'], 'cpe:2.3:a:openbsd:openssh:8.2p1_ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
+            self.eq(nodes[0].get('version'), '8.2p1_ubuntu-4ubuntu0.2')
+
+            # Run the migration again to make sure we identify already migrated
+            # nodes correctly and bail early.
+            q = '''
+            it:sec:cpe:version^=8.2p1
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint(f'DEBUG: itSecCpe_2_170_0(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): Node already migrated.', msgs)
+
+            q = '''
+            it:sec:cpe:version^=8.2p1
+            $lib.debug=$lib.true
+            $lib.model.migration.s.itSecCpe_2_170_0($node, force=$lib.true)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint(f'DEBUG: itSecCpe_2_170_0(it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*): No property updates required.', msgs)
+
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.model.migration.s.itSecCpe_2_170_0(newp)')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('[ inet:fqdn=vertex.link ] $lib.model.migration.s.itSecCpe_2_170_0($node)')
+
+    async def test_stormlib_model_migrations_risk_hasvuln_vulnerable(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+            await core.nodes('$lib.model.ext.addFormProp(risk:hasvuln, _test, (ps:contact, ({})), ({}))')
+
+            await core.nodes('[ risk:vuln=* it:prod:softver=* +#test ]')
+
+            opts = {
+                'vars': {
+                    'guid00': (guid00 := 'c6f158a4d8e267a023b06415a04bf583'),
+                    'guid01': (guid01 := 'e98f7eada5f5057bc3181ab3fab1f7d5'),
+                    'guid02': (guid02 := '99b27f37f5cc1681ad0617e7c97a4094'),
+                }
+            }
+
+            # nodes with 1 vulnerable node get matching guids
+            # all data associated with hasvuln (except ext props) are migrated
+
+            nodes = await core.nodes('''
+                [ risk:hasvuln=$guid00
+                    :software={ it:prod:softver#test }
+                    :vuln={ risk:vuln#test }
+                    :_test={[ ps:contact=* ]}
+                    .seen=(2010, 2011)
+                    +#test=(2012, 2013)
+                    +#test.foo:test=hi
+                    <(seen)+ {[ meta:source=* :name=foo ]}
+                    +(refs)> {[ ps:contact=* :name=bar ]}
+                ]
+                $node.data.set(baz, bam)
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            ''', opts=opts)
+            self.len(1, nodes)
+            self.eq(guid00, nodes[0].ndef[1])
+            self.eq([
+                ('test', (s_time.parse('2012'), s_time.parse('2013'))),
+                ('test.foo', (None, None))
+            ], nodes[0].getTags())
+            self.eq('hi', nodes[0].getTagProp('test.foo', 'test'))
+            self.eq('bam', await nodes[0].getData('baz'))
+
+            self.len(1, await core.nodes('risk:vulnerable#test <(seen)- meta:source +:name=foo'))
+            self.len(1, await core.nodes('risk:vulnerable#test -(refs)> ps:contact +:name=bar'))
+            self.len(1, await core.nodes('risk:vulnerable#test :vuln -> risk:vuln +#test'))
+            self.len(1, await core.nodes('risk:vulnerable#test :node -> * +it:prod:softver +#test'))
+
+            # migrate guids - node existence not required
+
+            nodes = await core.nodes('''
+                [ risk:hasvuln=$guid01
+                    :software=$lib.guid()
+                    :vuln=$lib.guid()
+                ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            ''', opts=opts)
+            self.len(1, nodes)
+            self.eq(guid01, nodes[0].ndef[1])
+            self.nn(nodes[0].get('node'))
+            self.nn(nodes[0].get('vuln'))
+
+            # multi-prop - unique guids by prop
+
+            nodes = await core.nodes('''
+                [ risk:hasvuln=$guid02
+                    :hardware={[ it:prod:hardware=* ]}
+                    :host={[ it:host=* ]}
+                    :item={[ mat:item=* ]}
+                    :org={[ ou:org=* ]}
+                    :person={[ ps:person=* ]}
+                    :place={[ geo:place=* ]}
+                    :software={ it:prod:softver#test }
+                    :spec={[ mat:spec=* ]}
+                    :vuln={ risk:vuln#test }
+                    +#test2
+                ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            ''', opts=opts)
+            self.len(8, nodes)
+            self.false(any(n.ndef[1] == guid02 for n in nodes))
+            self.true(all(n.hasTag('test2') for n in nodes))
+            nodes.sort(key=lambda n: n.get('node'))
+            self.eq(
+                ['geo:place', 'it:host', 'it:prod:hardware', 'it:prod:softver',
+                 'mat:item', 'mat:spec', 'ou:org', 'ps:person'],
+                [n.get('node')[0] for n in nodes]
+            )
+
+            self.len(2, await core.nodes('it:prod:softver#test -> risk:vulnerable +{ :vuln -> risk:vuln +#test }'))
+
+            # nodata
+
+            self.len(1, await core.nodes('risk:vulnerable=$guid00 $node.data.pop(baz)', opts=opts))
+
+            nodes = await core.nodes('''
+                risk:hasvuln=$guid00 $n=$node
+                -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n, nodata=$lib.true) }
+            ''', opts=opts)
+            self.len(1, nodes)
+            self.none(await nodes[0].getData('baz'))
+
+            # no-ops
+
+            self.len(0, await core.nodes('''
+                [ risk:hasvuln=* ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            '''))
+
+            self.len(0, await core.nodes('''
+                [ risk:hasvuln=* :vuln={[ risk:vuln=* ]} ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            '''))
+
+            self.len(0, await core.nodes('''
+                [ risk:hasvuln=* :host={[ it:host=* ]} ]
+                $n=$node -> { yield $lib.model.migration.s.riskHasVulnToVulnerable($n) }
+            '''))
+
+            # perms
+
+            lowuser = await core.auth.addUser('low')
+            aslow = {'user': lowuser.iden}
+
+            await lowuser.addRule((True, ('node', 'tag', 'add')))
+
+            await core.nodes('''
+                [ risk:hasvuln=*
+                    :vuln={[ risk:vuln=* ]}
+                    :host={[ it:host=* ]}
+                    .seen=2010
+                    +#test.low
+                ]
+            ''')
+
+            scmd = '''
+                risk:hasvuln#test.low $n=$node
+                -> {
+                   yield $lib.model.migration.s.riskHasVulnToVulnerable($n)
+                }
+            '''
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.add.risk:vulnerable', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.')))
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.prop.set.risk:vulnerable.vuln', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.')))
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.prop.set.risk:vulnerable.node', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.')))
+
+            with self.raises(s_exc.AuthDeny) as ectx:
+                await core.nodes(scmd, opts=aslow)
+            self.eq(perm := 'node.prop.set.risk:vulnerable..seen', ectx.exception.errinfo['perm'])
+            await lowuser.addRule((True, perm.split('.', maxsplit=4)))
+
+            self.len(1, await core.nodes(scmd, opts=aslow))
+
+            # bad inputs
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('[ it:host=* ] $lib.model.migration.s.riskHasVulnToVulnerable($node)')
+            self.isin('only accepts risk:hasvuln nodes', ectx.exception.errinfo['mesg'])
+
+            with self.raises(s_exc.BadArg) as ectx:
+                await core.nodes('$lib.model.migration.s.riskHasVulnToVulnerable(newp)')
+            self.isin('must be a node', ectx.exception.errinfo['mesg'])

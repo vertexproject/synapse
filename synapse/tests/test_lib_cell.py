@@ -1,6 +1,7 @@
 import os
 import ssl
 import sys
+import json
 import time
 import base64
 import signal
@@ -33,6 +34,7 @@ import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
+import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.backup as s_tools_backup
 
@@ -2611,3 +2613,113 @@ class CellTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)
+
+    async def test_cell_check_sysctl(self):
+        sysctls = s_linux.getSysctls()
+
+        sysvals = s_cell.Cell.SYSCTL_VALS.copy()
+        sysvals['vm.dirty_expire_centisecs'] += 1
+        sysvals['vm.dirty_writeback_centisecs'] += 1
+
+        # Detect and report incorrect values
+        with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+            with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
+                async with self.getTestCore():
+                    pass
+
+        stream.seek(0)
+        data = stream.getvalue()
+        raw_mesgs = [m for m in data.split('\\n') if m]
+        msgs = [json.loads(m) for m in raw_mesgs]
+
+        self.len(1, msgs)
+
+        mesg = f'Sysctl values different than expected: {", ".join(sysvals)}. '
+        mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
+        mesg += 'for information about these sysctl parameters.'
+        self.eq(msgs[0]['message'], mesg)
+        self.eq(msgs[0]['sysctls'], [
+            {'name': 'vm.dirty_expire_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_expire_centisecs']},
+            {'name': 'vm.dirty_writeback_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_writeback_centisecs']},
+        ])
+
+        # Copy the current sysctl valus to the cell so the check passes
+        sysvals = {
+            'vm.dirty_expire_centisecs': sysctls['vm.dirty_expire_centisecs'],
+            'vm.dirty_writeback_centisecs': sysctls['vm.dirty_writeback_centisecs'],
+        }
+
+        # Detect correct values and stop the task
+        with self.getLoggerStream('synapse.lib.cell') as stream:
+            with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
+                async with self.getTestCore():
+                    pass
+
+        stream.seek(0)
+        data = stream.read()
+        self.len(0, data)
+
+        # Disable the sysctl check and don't check at all
+        with self.getLoggerStream('synapse.lib.cell') as stream:
+            conf = {'health:sysctl:checks': False}
+            async with self.getTestCore(conf=conf):
+                pass
+
+        stream.seek(0)
+        data = stream.read()
+        self.len(0, data, msg=data)
+
+    async def test_cell_version_regression(self):
+        oldver = (0, 1, 0)
+        newver = (0, 2, 0)
+
+        class TestCell(s_cell.Cell):
+            VERSION = newver
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(TestCell, dirn=dirn):
+                pass
+
+            with self.raises(s_exc.BadVersion) as exc:
+                with mock.patch.object(TestCell, 'VERSION', oldver):
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                        async with self.getTestCell(TestCell, dirn=dirn):
+                            pass
+
+            mesg = f'Cell version regression (testcell) is not allowed! Stored version: {newver}, current version: {oldver}.'
+            self.eq(exc.exception.get('mesg'), mesg)
+            self.eq(exc.exception.get('currver'), oldver)
+            self.eq(exc.exception.get('lastver'), newver)
+
+            stream.seek(0)
+            data = stream.read()
+            self.isin(mesg, data)
+
+            async with self.getTestCell(TestCell, dirn=dirn):
+                pass
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                pass
+
+            synver = list(s_version.version)
+            synver[1] -= 1
+            synver = tuple(synver)
+
+            with self.raises(s_exc.BadVersion) as exc:
+                with mock.patch.object(s_version, 'version', synver):
+                    with self.getLoggerStream('synapse.lib.cell') as stream:
+                        async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                            pass
+
+            mesg = f'Synapse version regression (cell) is not allowed! Stored version: {s_version.version}, current version: {synver}.'
+            self.eq(exc.exception.get('mesg'), mesg)
+            self.eq(exc.exception.get('currver'), synver)
+            self.eq(exc.exception.get('lastver'), s_version.version)
+
+            stream.seek(0)
+            data = stream.read()
+            self.isin(mesg, data)
+
+            async with self.getTestCell(s_cell.Cell, dirn=dirn):
+                pass

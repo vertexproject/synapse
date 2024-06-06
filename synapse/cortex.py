@@ -3866,7 +3866,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     with open(idenpath, 'w') as fd:
                         fd.write(jsoniden)
 
-            conf = {'cell:guid': jsoniden}
+            # Disable sysctl checks for embedded jsonstor server
+            conf = {'cell:guid': jsoniden, 'health:sysctl:checks': False}
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
 
         self.onfini(self.jsonstor)
@@ -3943,7 +3944,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
-            conf = {}
+            # Disable sysctl checks for embedded axon server
+            conf = {'health:sysctl:checks': False}
 
             proxyurl = self.conf.get('http:proxy')
             if proxyurl is not None:
@@ -4493,6 +4495,87 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pack = await view.pack()
         await self.feedBeholder('view:add', pack, gates=[iden])
         return pack
+
+    async def delViewWithLayer(self, iden):
+        '''
+        Delete a Cortex View and its write Layer if not in use by other View stacks.
+
+        Note:
+            Any children of the View will have their parent View updated to
+            the deleted View's parent (if present). The deleted View's write Layer
+            will also be removed from any child Views which contain it in their
+            Layer stack. If the Layer is used in Views which are not children of
+            the deleted View, the Layer will be preserved, otherwise it will be
+            deleted as well.
+        '''
+        view = self.views.get(iden)
+        if view is None:
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
+
+        if view.info.get('protected'):
+            mesg = f'Cannot delete view ({iden}) that has protected set.'
+            raise s_exc.CantDelView(mesg=mesg)
+
+        layriden = view.layers[0].iden
+        pareiden = None
+        if view.parent is not None:
+            pareiden = view.parent.iden
+
+        return await self._push('view:delwithlayer', iden, layriden, newparent=pareiden)
+
+    @s_nexus.Pusher.onPush('view:delwithlayer', passitem=True)
+    async def _delViewWithLayer(self, viewiden, layriden, nexsitem, newparent=None):
+
+        if viewiden == self.view.iden:
+            raise s_exc.SynErr(mesg='Cannot delete the main view')
+
+        if (view := self.views.get(viewiden)) is not None:
+
+            await self.hive.pop(('cortex', 'views', viewiden))
+            await view.delete()
+
+            self._calcViewsByLayer()
+            await self.feedBeholder('view:del', {'iden': viewiden}, gates=[viewiden])
+            await self.auth.delAuthGate(viewiden)
+
+        if newparent is not None:
+            newview = self.views.get(newparent)
+
+        layrinuse = False
+        for view in self.viewsbylayer[layriden]:
+            if not view.isForkOf(viewiden):
+                layrinuse = True
+                continue
+
+            view.layers = [lyr for lyr in view.layers if lyr.iden != layriden]
+            await view.info.set('layers', [lyr.iden for lyr in view.layers])
+
+            if view.parent.iden == viewiden:
+                if newparent is None:
+                    view.parent = None
+                    await view.info.pop('parent')
+                else:
+                    view.parent = newview
+                    await view.info.set('parent', newparent)
+
+        if not layrinuse and (layr := self.layers.get(layriden)) is not None:
+            del self.layers[layriden]
+
+            for pdef in layr.layrinfo.get('pushs', {}).values():
+                await self.delActiveCoro(pdef.get('iden'))
+
+            for pdef in layr.layrinfo.get('pulls', {}).values():
+                await self.delActiveCoro(pdef.get('iden'))
+
+            await self.feedBeholder('layer:del', {'iden': layriden}, gates=[layriden])
+            await self.auth.delAuthGate(layriden)
+            self.dynitems.pop(layriden)
+
+            await self.hive.pop(('cortex', 'layers', layriden))
+
+            await layr.delete()
+
+            layr.deloffs = nexsitem[0]
 
     async def delView(self, iden):
         view = self.views.get(iden)
@@ -5156,12 +5239,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return dmon
 
+    @s_cell.from_leader
     async def getStormDmon(self, iden):
         return self.stormdmons.getDmonDef(iden)
 
+    @s_cell.from_leader
     async def getStormDmons(self):
         return self.stormdmons.getDmonDefs()
 
+    @s_cell.from_leader
     async def getStormDmonLog(self, iden):
         return self.stormdmons.getDmonRunlog(iden)
 

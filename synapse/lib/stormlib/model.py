@@ -5,6 +5,19 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.models.infotech as s_infotech
+
+RISK_HASVULN_VULNPROPS = (
+    'hardware',
+    'host',
+    'item',
+    'org',
+    'person',
+    'place',
+    'software',
+    'spec',
+)
+
 stormcmds = [
     {
         'name': 'model.edge.set',
@@ -694,8 +707,58 @@ class LibModelDeprecated(s_stormtypes.Lib):
         gatekeys = ((self.runt.user.iden, ('model', 'deprecated', 'lock'), None),)
         await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
+class MigrationEditorMixin:
+    '''
+    Mixin helpers for migrating data within an editor context.
+    '''
+
+    async def copyData(self, src, proto, overwrite=False):
+
+        async for name in src.iterDataKeys():
+            if overwrite or not await proto.hasData(name):
+                self.runt.layerConfirm(('node', 'data', 'set', name))
+                valu = await src.getData(name)
+                await proto.setData(name, valu)
+
+    async def copyEdges(self, editor, src, proto):
+
+        verbs = set()
+
+        async for (verb, n2iden) in src.iterEdgesN1():
+
+            if verb not in verbs:
+                self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                verbs.add(verb)
+
+            if await self.runt.snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
+                await proto.addEdge(verb, n2iden)
+
+        dstiden = proto.iden()
+
+        async for (verb, n1iden) in src.iterEdgesN2():
+
+            if verb not in verbs:
+                self.runt.layerConfirm(('node', 'edge', 'add', verb))
+                verbs.add(verb)
+
+            n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+            if n1proto is not None:
+                await n1proto.addEdge(verb, dstiden)
+
+    async def copyTags(self, src, proto, overwrite=False):
+
+        for name, valu in src.tags.items():
+            self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
+            await proto.addTag(name, valu=valu)
+
+        for tagname, tagprops in src.tagprops.items():
+            for propname, valu in tagprops.items():
+                if overwrite or not proto.hasTagProp(tagname, propname):
+                    await proto.setTagProp(tagname, propname, valu) # use tag perms
+
+
 @s_stormtypes.registry.registerLib
-class LibModelMigration(s_stormtypes.Lib):
+class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
     '''
     A Storm library containing migration tools.
     '''
@@ -745,14 +808,8 @@ class LibModelMigration(s_stormtypes.Lib):
         overwrite = await s_stormtypes.tobool(overwrite)
 
         async with self.runt.snap.getEditor() as editor:
-
             proto = editor.loadNode(dst)
-
-            async for name in src.iterDataKeys():
-                if overwrite or not await dst.hasData(name):
-                    self.runt.layerConfirm(('node', 'data', 'set', name))
-                    valu = await src.getData(name)
-                    await proto.setData(name, valu)
+            await self.copyData(src, proto, overwrite=overwrite)
 
     async def _methCopyEdges(self, src, dst):
 
@@ -764,30 +821,8 @@ class LibModelMigration(s_stormtypes.Lib):
         snap = self.runt.snap
 
         async with snap.getEditor() as editor:
-
             proto = editor.loadNode(dst)
-            verbs = set()
-
-            async for (verb, n2iden) in src.iterEdgesN1():
-
-                if verb not in verbs:
-                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
-                    verbs.add(verb)
-
-                if await snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
-                    await proto.addEdge(verb, n2iden)
-
-            dstiden = s_common.ehex(dst.buid)
-
-            async for (verb, n1iden) in src.iterEdgesN2():
-
-                if verb not in verbs:
-                    self.runt.layerConfirm(('node', 'edge', 'add', verb))
-                    verbs.add(verb)
-
-                n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
-                if n1proto is not None:
-                    await n1proto.addEdge(verb, dstiden)
+            await self.copyEdges(editor, src, proto)
 
     async def _methCopyTags(self, src, dst, overwrite=False):
 
@@ -801,14 +836,278 @@ class LibModelMigration(s_stormtypes.Lib):
         snap = self.runt.snap
 
         async with snap.getEditor() as editor:
-
             proto = editor.loadNode(dst)
+            await self.copyTags(src, proto, overwrite=overwrite)
 
-            for name, valu in src.tags.items():
-                self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
-                await proto.addTag(name, valu=valu)
+@s_stormtypes.registry.registerLib
+class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
+    '''
+    A Storm library for selectively migrating nodes in the current view.
+    '''
+    _storm_locals = (
+        {'name': 'itSecCpe_2_170_0',
+         'desc': '''
+            Versions of Synapse prior to v2.169.0 did not correctly parse and
+            convert CPE strings from 2.2 -> 2.3 or 2.3 -> 2.2. This migration
+            attempts to re-normalize `it:sec:cpe` nodes that may be fixable.
 
-            for tagname, tagprops in src.tagprops.items():
-                for propname, valu in tagprops.items():
-                    if overwrite or not dst.hasTagProp(tagname, propname):
-                        await proto.setTagProp(tagname, propname, valu) # use tag perms
+            NOTE: It is highly recommended to test the `it:sec:cpe` migrations
+            in a fork first and confirm the migration was successful without any
+            issues. Then run the migration in view deporder to migrate the
+            entire cortex. E.g.::
+
+                for $view in $lib.view.list(deporder=$lib.true) {
+                    view.exec $view.iden {
+                        for $n in $lib.layer.get().liftByProp(it:sec:cpe) {
+                            $lib.model.migration.s.itSecCpe_2_170_0($n)
+                        }
+                    }
+                }
+
+            Upon completion of the migration, nodedata will contain a
+            `migration.s.itSecCpe_2_170_0` dict with information about the
+            migration status. This dict may contain the following:
+
+                - `status`: (required str) "success" or "failed"
+                - `reason`: (optional str) if "status" is "failed", this key will
+                  explain why the migration failed.
+                - `valu`: (optional str) if this key is present, it will contain
+                  an updated CPE2.3 string since the primary property cannot be
+                  changed.
+                - `updated`: (optional list[str]) A list of properties that were
+                  updated by the migration.
+
+            Failed or incorrect migrations may be helped by updating the :v2_2
+            property to be a valid CPE2.2 string and then re-running the
+            migration with `force=$lib.true`. If the primary property (CPE2.3)
+            is valid but incorrect, users may update the :v2_2 property and then
+            run the migration with `prefer_v22=$lib.true` to make the migration
+            use the `:v2_2` string instead of the primary property for the
+            migration process.
+         ''',
+         'type': {'type': 'function', '_funcname': '_itSecCpe_2_170_0',
+                  'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
+                      {'name': 'prefer_v22', 'type': 'bool', 'default': False,
+                       'desc': '''
+                        Try to renormalize using the :v2_2 prop instead of the
+                        primary property. This can be especially useful when the
+                        primary property is a valid but incorrect CPE string.
+                        '''},
+                      {'name': 'force', 'type': 'bool', 'default': False,
+                       'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
+        {'name': 'riskHasVulnToVulnerable', 'desc': '''
+            Create a risk:vulnerable node from the provided risk:hasvuln node.
+
+            Edits will be made to the risk:vulnerable node in the current write layer.
+
+            If multiple vulnerable properties are set on the risk:hasvuln node
+            multiple risk:vulnerable nodes will be created (each with a unique guid).
+            Otherwise, a single risk:vulnerable node will be created with the same guid
+            as the provided risk:hasvuln node. Extended properties will not be migrated.
+
+            Tags, tag properties, edges, and node data will be copied
+            to the risk:vulnerable node. However, existing tag properties and
+            node data will not be overwritten.
+        ''',
+        'type': {'type': 'function', '_funcname': '_riskHasVulnToVulnerable',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The risk:hasvuln node to migrate.'},
+                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                       'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
+                 ),
+                 'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
+    )
+    _storm_lib_path = ('model', 'migration', 's')
+
+    def getObjLocals(self):
+        return {
+            'itSecCpe_2_170_0': self._itSecCpe_2_170_0,
+            'riskHasVulnToVulnerable': self._riskHasVulnToVulnerable,
+        }
+
+    async def _itSecCpe_2_170_0(self, n, prefer_v22=False, force=False):
+
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.s.itSecCpe_2_170_0() argument must be a node.')
+
+        if n.form.name != 'it:sec:cpe':
+            raise s_exc.BadArg(f'itSecCpeFix only accepts it:sec:cpe nodes, not {n.form.name}')
+
+        prefer_v22 = await s_stormtypes.tobool(prefer_v22)
+        force = await s_stormtypes.tobool(force)
+
+        layr = self.runt.snap.wlyr
+        # We only need to check :v2_2 since that's the only property that's
+        # writable. Everthing else is readonly. And we can do it here once
+        # instead of in the loop below which will cause a perf hit.
+        self.runt.confirmPropSet(n.form.prop('v2_2'), layriden=layr.iden)
+
+        curv = n.repr()
+        reprvalu = f'it:sec:cpe={curv}'
+
+        nodedata = await n.getData('migration.s.itSecCpe_2_170_0', {})
+        if nodedata.get('status') == 'success' and not force:
+            if self.runt.debug:
+                mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node already migrated.'
+                await self.runt.printf(mesg)
+            return True
+
+        modl = self.runt.model.type('it:sec:cpe')
+
+        valu23 = None
+        valu22 = None
+        invalid = ''
+
+        # Check the primary property for validity.
+        cpe23 = s_infotech.cpe23_regex.match(curv)
+        if cpe23 is not None and cpe23.group() == curv:
+            valu23 = curv
+
+        # Check the v2_2 property for validity.
+        v2_2 = n.props.get('v2_2')
+        if v2_2 is not None:
+            rgx = s_infotech.cpe22_regex.match(v2_2)
+            if rgx is not None and rgx.group() == v2_2:
+                valu22 = v2_2
+
+        async with self.runt.snap.getNodeEditor(n) as proto:
+
+            # If both values are populated, this node is valid
+            if valu23 is not None and valu22 is not None and not force:
+                if self.runt.debug:
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node is valid, no migration necessary.'
+                    await self.runt.printf(mesg)
+
+                await proto.setData('migration.s.itSecCpe_2_170_0', {
+                    'status': 'success',
+                })
+
+                return True
+
+            if valu23 is None and valu22 is None:
+                reason = 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.'
+                # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
+                # we can do here so log, mark, and go around.
+                mesg = f'itSecCpe_2_170_0({reprvalu}): {reason}'
+                await self.runt.warn(mesg)
+
+                await proto.setData('migration.s.itSecCpe_2_170_0', {
+                    'status': 'failed',
+                    'reason': reason,
+                })
+
+                return False
+
+            if prefer_v22:
+                valu = valu22 or valu23
+            else:
+                valu = valu23 or valu22
+
+            # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
+            norm, info = modl.norm(valu)
+            subs = info.get('subs')
+
+            edits = []
+            nodedata = {'status': 'success'}
+
+            if norm != curv:
+                # The re-normed value is not the same as the current value.
+                # Since we can't change the primary property, store the
+                # updated value in nodedata.
+                if self.runt.debug:
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Stored updated primary property value to nodedata: {curv} -> {norm}.'
+                    await self.runt.printf(mesg)
+
+                nodedata['valu'] = norm
+
+            # Iterate over the existing properties
+            for propname, propcurv in n.props.items():
+                subscurv = subs.get(propname)
+                if subscurv is None:
+                    continue
+
+                if propname == 'v2_2' and isinstance(subscurv, list):
+                    subscurv = s_infotech.zipCpe22(subscurv)
+
+                # Values are the same, go around
+                if propcurv == subscurv:
+                    continue
+
+                nodedata.setdefault('updated', [])
+                nodedata['updated'].append(propname)
+
+                # Update the existing property with the re-normalized property value.
+                await proto.set(propname, subscurv, ignore_ro=True)
+
+            await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
+
+            if self.runt.debug:
+                if nodedata.get('updated'):
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Updated properties: {", ".join(nodedata["updated"])}.'
+                    await self.runt.printf(mesg)
+                else:
+                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): No property updates required.'
+                    await self.runt.printf(mesg)
+
+            return True
+
+    async def _riskHasVulnToVulnerable(self, n, nodata=False):
+
+        nodata = await s_stormtypes.tobool(nodata)
+
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.s.riskHasVulnToVulnerable() argument must be a node.')
+
+        if n.form.name != 'risk:hasvuln':
+            mesg = f'$lib.model.migration.s.riskHasVulnToVulnerable() only accepts risk:hasvuln nodes, not {n.form.name}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retidens = []
+
+        if not (vuln := n.get('vuln')):
+            return retidens
+
+        props = {
+            'vuln': vuln,
+        }
+
+        links = {prop: valu for prop in RISK_HASVULN_VULNPROPS if (valu := n.get(prop)) is not None}
+
+        match len(links):
+            case 0:
+                return retidens
+            case 1:
+                guid = n.ndef[1]
+            case _:
+                guid = None
+
+        riskvuln = self.runt.model.form('risk:vulnerable')
+
+        self.runt.layerConfirm(riskvuln.addperm)
+        self.runt.confirmPropSet(riskvuln.props['vuln'])
+        self.runt.confirmPropSet(riskvuln.props['node'])
+
+        if (seen := n.get('.seen')):
+            self.runt.confirmPropSet(riskvuln.props['.seen'])
+            props['.seen'] = seen
+
+        async with self.runt.snap.getEditor() as editor:
+
+            for prop, valu in links.items():
+
+                pguid = guid if guid is not None else s_common.guid((guid, prop))
+                pprops = props | {'node': (n.form.props[prop].type.name, valu)}
+
+                proto = await editor.addNode('risk:vulnerable', pguid, props=pprops)
+                retidens.append(proto.iden())
+
+                await self.copyTags(n, proto, overwrite=False)
+                await self.copyEdges(editor, n, proto)
+
+                if not nodata:
+                    await self.copyData(n, proto, overwrite=False)
+
+        return retidens

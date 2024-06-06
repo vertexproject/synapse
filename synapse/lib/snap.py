@@ -183,6 +183,15 @@ class ProtoNode:
 
         return s_common.novalu
 
+    async def hasData(self, name):
+        if name in self.nodedata:
+            return True
+
+        if self.node is not None:
+            return await self.node.hasData(name)
+
+        return False
+
     async def setData(self, name, valu):
 
         if await self.getData(name) == valu:
@@ -287,6 +296,15 @@ class ProtoNode:
         if self.node is not None:
             return self.node.getTagProp(tag, name)
 
+    def hasTagProp(self, tag, name):
+        if (tag, name) in self.tagprops:
+            return True
+
+        if self.node is not None:
+            return self.node.hasTagProp(tag, name)
+
+        return False
+
     async def setTagProp(self, tag, name, valu):
 
         tagnode = await self.addTag(tag)
@@ -322,7 +340,7 @@ class ProtoNode:
         if self.node is not None:
             return self.node.get(name)
 
-    async def _set(self, prop, valu, norminfo=None):
+    async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
@@ -360,7 +378,7 @@ class ProtoNode:
         if curv == valu:
             return False
 
-        if prop.info.get('ro') and curv is not None:
+        if not ignore_ro and prop.info.get('ro') and curv is not None:
             mesg = f'Property is read only: {prop.full}.'
             await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg)
             return False
@@ -372,12 +390,12 @@ class ProtoNode:
 
         return valu, norminfo
 
-    async def set(self, name, valu, norminfo=None):
+    async def set(self, name, valu, norminfo=None, ignore_ro=False):
         prop = self.form.props.get(name)
         if prop is None:
             return False
 
-        retn = await self._set(prop, valu, norminfo=norminfo)
+        retn = await self._set(prop, valu, norminfo=norminfo, ignore_ro=ignore_ro)
         if retn is False:
             return False
 

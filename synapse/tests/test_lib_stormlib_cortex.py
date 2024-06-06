@@ -1280,6 +1280,12 @@ for $i in $values {
             return ( ($api.iden) )'''
             iden06 = await core.callStorm(q)
 
+            # attempt to JSON decode non-JSON request
+            q = '''$api = $lib.cortex.httpapi.add(bad07)
+            $api.methods.get = ${ $foo = $request.json() }
+            return ( ($api.iden) )'''
+            iden07 = await core.callStorm(q)
+
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad00')
                 self.eq(resp.status, 500)
@@ -1328,6 +1334,15 @@ for $i in $values {
                     self.true(await stream.wait(timeout=6))
                     self.eq(resp.status, 201)
                     self.eq(await resp.json(), {})
+
+                with self.getAsyncLoggerStream('synapse.lib.httpapi',
+                                               f'Error executing Extended HTTP API {iden07}: StormRuntimeError') as stream:
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/bad07')
+                    self.true(await stream.wait(timeout=6))
+                    self.eq(resp.status, 500)
+                    data = await resp.json()
+                    self.eq(data.get('code'), 'StormRuntimeError')
+                    self.isin('Failed to decode request body as JSON: Expecting value', data.get('mesg'))
 
     async def test_cortex_httpapi_dynamic(self):
 

@@ -6721,6 +6721,20 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'getStorNodesByForm', 'desc': '''
+            Get buid, sode tuples representing the data stored in the layer for a given form.
+
+            Notes:
+                The storage nodes represent **only** the data stored in the layer
+                and may not represent whole nodes. If the only data stored in the layer for
+                a given buid is an N2 edge reference, a storage node will not be returned.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNodesByForm',
+                  'args': (
+                      {'name': 'form', 'type': 'str',
+                       'desc': 'The name of the form to get storage nodes for.'},
+                   ),
+                  'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
         {'name': 'getMirrorStatus', 'desc': '''
             Return a dictionary of the mirror synchronization status for the layer.
             ''',
@@ -6902,6 +6916,7 @@ class Layer(Prim):
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
+            'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
             'getMirrorStatus': self.getMirrorStatus,
@@ -7199,6 +7214,19 @@ class Layer(Prim):
             yield item
 
     @stormfunc(readonly=True)
+    async def getStorNodesByForm(self, form):
+        form = await tostr(form)
+        if self.runt.snap.core.model.form(form) is None:
+            raise s_exc.NoSuchForm.init(form)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        async for item in layr.getStorNodesByForm(form):
+            yield item
+
+    @stormfunc(readonly=True)
     async def getEdges(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
@@ -7452,6 +7480,12 @@ class View(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new view.', 'default': None, },
                   ),
                   'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
+        {'name': 'insertParentFork', 'desc': 'Insert a new View between a forked View and its parent.',
+         'type': {'type': 'function', '_funcname': '_methViewInsertParentFork',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
+                  ),
+                  'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
         {'name': 'pack', 'desc': 'Get the View definition.',
          'type': {'type': 'function', '_funcname': '_methViewPack',
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the View definition.', }}},
@@ -7653,7 +7687,6 @@ class View(Prim):
         return {
             'set': self._methViewSet,
             'get': self._methViewGet,
-            'fork': self._methViewFork,
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
@@ -7667,6 +7700,9 @@ class View(Prim):
             'getPropCount': self._methGetPropCount,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
+
+            'fork': self._methViewFork,
+            'insertParentFork': self._methViewInsertParentFork,
 
             'getMerges': self.getMerges,
             'delMergeVote': self.delMergeVote,
@@ -7916,6 +7952,27 @@ class View(Prim):
         view = self.runt.snap.core.reqView(viewiden)
 
         newv = await view.fork(ldef=ldef, vdef=vdef)
+
+        return View(self.runt, newv, path=self.path)
+
+    async def _methViewInsertParentFork(self, name=None):
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+
+        name = await tostr(name, noneok=True)
+
+        self.runt.reqAdmin(gateiden=viewiden)
+
+        view = self.runt.snap.core.reqView(viewiden)
+        if not view.isafork():
+            mesg = f'View ({viewiden}) is not a fork, cannot insert a new fork between it and parent.'
+            raise s_exc.BadState(mesg=mesg)
+
+        self.runt.confirm(('view', 'add'))
+        self.runt.confirm(('view', 'read'), gateiden=view.parent.iden)
+        self.runt.confirm(('view', 'fork'), gateiden=view.parent.iden)
+
+        newv = await view.insertParentFork(useriden, name=name)
 
         return View(self.runt, newv, path=self.path)
 
