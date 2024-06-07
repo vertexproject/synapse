@@ -4548,7 +4548,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             view.layers = [lyr for lyr in view.layers if lyr.iden != layriden]
-            await view.info.set('layers', [lyr.iden for lyr in view.layers])
+            layridens = [lyr.iden for lyr in view.layers]
+            await view.info.set('layers', layridens)
+
+            mesg = {'iden': view.iden, 'layers': layridens}
+            await self.feedBeholder('view:setlayers', mesg, gates=[view.iden, layridens[0]])
 
             if view.parent.iden == viewiden:
                 if newparent is None:
@@ -4557,6 +4561,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 else:
                     view.parent = newview
                     await view.info.set('parent', newparent)
+
+                mesg = {'iden': view.iden, 'name': 'parent', 'valu': newparent}
+                await self.feedBeholder('view:set', mesg, gates=[view.iden, layridens[0]])
 
         if not layrinuse and (layr := self.layers.get(layriden)) is not None:
             del self.layers[layriden]
