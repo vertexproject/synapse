@@ -14,15 +14,15 @@ This guide will also walk you through deploying all Synapse services using TLS t
 servers and clients using client-certificates to minimize the need for secrets management by eliminating
 passwords from all telepath URLs.
 
-For the purposes of this guide, we will use ``docker-compose`` as a light-weight orchestration mechanism.
+For the purposes of this guide, we will use ``docker compose`` as a light-weight orchestration mechanism.
 The steps, configurations, and volume mapping guidance given in this guide apply equally to other container
 orchestration mechanisms such as Kubernetes but for simplicity's sake, this guide will only cover
-``docker-compose`` based deployments.
+``docker compose`` based deployments.
 
 .. note::
     Due to `known networking limitations of docker on Mac`_ we do **not** support or recommend the use
     of Docker for Mac for testing or deploying production Synapse instances. Containers run within
-    separate ``docker-compose`` commands will not be able to reliably communicate with each other.
+    separate ``docker compose`` commands will not be able to reliably communicate with each other.
 
 Synapse services **require persistent storage**. Each ``docker`` container expects persistent storage to be available
 within the directory ``/vertex/storage`` which should be a persistent mapped volume. Only one container may run from a
@@ -97,7 +97,6 @@ Create the container directory::
 
 Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       aha:
         user: "999"
@@ -121,20 +120,20 @@ Change ownership of the storage directory to the user you will use to run the co
 
     chown -R 999 /srv/syn/aha/storage
 
-Start the container using ``docker-compose``::
+Start the container using ``docker compose``::
 
-    docker-compose -f /srv/syn/aha/docker-compose.yaml pull
-    docker-compose -f /srv/syn/aha/docker-compose.yaml up -d
+    docker compose --file /srv/syn/aha/docker-compose.yaml pull
+    docker compose --file /srv/syn/aha/docker-compose.yaml up -d
 
 To view the container logs at any time you may run the following command on the *host* from the
 ``/srv/syn/aha`` directory::
 
-    docker-compose logs -f
+    docker compose logs -f
 
-You may also execute a shell inside the container using ``docker-compose`` from the ``/srv/syn/aha``
+You may also execute a shell inside the container using ``docker compose`` from the ``/srv/syn/aha``
 directory on the *host*. This will be necessary for some of the additional provisioning steps::
 
-    docker-compose exec aha /bin/bash
+    docker compose exec aha /bin/bash
 
 
 .. _deploy_axon:
@@ -179,7 +178,6 @@ Create the container directory::
 
 Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       00.axon:
         user: "999"
@@ -199,8 +197,8 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 
 Start the container::
 
-    docker-compose --file /srv/syn/00.axon/docker-compose.yaml pull
-    docker-compose --file /srv/syn/00.axon/docker-compose.yaml up -d
+    docker compose --file /srv/syn/00.axon/docker-compose.yaml pull
+    docker compose --file /srv/syn/00.axon/docker-compose.yaml up -d
 
 Deploy JSONStor Service
 =======================
@@ -224,7 +222,6 @@ Create the container directory::
 
 Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       00.jsonstor:
         user: "999"
@@ -244,8 +241,8 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
 
 Start the container::
 
-    docker-compose --file /srv/syn/00.jsonstor/docker-compose.yaml pull
-    docker-compose --file /srv/syn/00.jsonstor/docker-compose.yaml up -d
+    docker compose --file /srv/syn/00.jsonstor/docker-compose.yaml pull
+    docker compose --file /srv/syn/00.jsonstor/docker-compose.yaml up -d
 
 Deploy Cortex Service
 =====================
@@ -269,7 +266,6 @@ Create the container directory::
 
 Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       00.cortex:
         user: "999"
@@ -295,12 +291,12 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
 
 Start the container::
 
-    docker-compose --file /srv/syn/00.cortex/docker-compose.yaml pull
-    docker-compose --file /srv/syn/00.cortex/docker-compose.yaml up -d
+    docker compose --file /srv/syn/00.cortex/docker-compose.yaml pull
+    docker compose --file /srv/syn/00.cortex/docker-compose.yaml up -d
 
 Remember, you can view the container logs in real-time using::
 
-    docker-compose --file /srv/syn/00.cortex/docker-compose.yaml logs -f
+    docker compose --file /srv/syn/00.cortex/docker-compose.yaml logs -f
 
 .. _deployment-guide-mirror:
 
@@ -326,7 +322,6 @@ Create the container storage directory::
 
 Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       01.cortex:
         user: "999"
@@ -348,8 +343,8 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
 
 Start the container::
 
-    docker-compose --file /srv/syn/01.cortex/docker-compose.yaml pull
-    docker-compose --file /srv/syn/01.cortex/docker-compose.yaml up -d
+    docker compose --file /srv/syn/01.cortex/docker-compose.yaml pull
+    docker compose --file /srv/syn/01.cortex/docker-compose.yaml up -d
 
 .. note::
 
