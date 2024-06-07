@@ -55,7 +55,6 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.lib.crypto.passwd as s_passwd
-import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.backup as s_t_backup
 
@@ -1465,7 +1464,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _runSysctlLoop(self):
         while not self.isfini:
             fixvals = []
-            sysctls = s_linux.getSysctls()
+            sysctls = s_thisplat.getSysctls()
 
             for name, valu in self.SYSCTL_VALS.items():
                 if (sysval := sysctls.get(name)) != valu:
@@ -1484,7 +1483,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             extra = await self.getLogExtra(sysctls=fixvals)
             logger.warning(mesg, extra=extra)
 
-            await asyncio.sleep(self.SYSCTL_CHECK_FREQ)
+            await self.waitfini(self.SYSCTL_CHECK_FREQ)
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')

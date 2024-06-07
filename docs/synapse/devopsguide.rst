@@ -64,7 +64,7 @@ the backup tool by executing a shell **inside** the docker container.  For examp
 a backup of the Cortex we would::
 
     cd /srv/syn/00.cortex
-    docker-compose exec 00.cortex /bin/bash
+    docker compose exec 00.cortex /bin/bash
 
 And from the shell executed within the container::
 
@@ -115,15 +115,15 @@ simple. For a production deployment similar to the one described in :ref:`deploy
 the backup file as described in :ref:`devops-task-backup`::
 
     cd /srv/syn/00.cortex
-    docker-compose down
+    docker compose down
     mv storage storage.broken
     cp -R /nfs/backups/00.cortex/20220422094622 storage
-    docker-compose up -d
+    docker compose up -d
 
 Then you can tail the logs to ensure the service is fully restored::
 
     cd /srv/syn/00.cortex
-    docker-compose logs -f
+    docker compose logs -f
 
 .. _devops-task-promote:
 
@@ -138,7 +138,7 @@ To gracefully promote a mirror which was deployed in a similar fashion to the on
 you can use the built-in promote tool ``synapse.tools.promote``. Begin by executing a shell within the mirror container::
 
     cd /srv/syn/01.cortex
-    docker-compose exec 01.cortex /bin/bash
+    docker compose exec 01.cortex /bin/bash
 
 And from the shell executed within the container::
 
@@ -163,24 +163,29 @@ services which have mirrors deployed, you must ensure that the mirrors are updat
 change messages can be consumed. If you are using a mirrors-of-mirrors tree topology, the update should be deployed in
 a "leafs first" order.
 
+.. note::
+
+    A service mirror will enter into read-only mode if they detect that their leader is a higher version than they are.
+
 Continuing with our previous example from the :ref:`deploymentguide` we would update the mirror ``01.cortex`` first::
 
     cd /srv/syn/01.cortex
-    docker-compose pull
-    docker-compose down
-    docker-compose up -d
+    docker compose pull
+    docker compose down
+    docker compose up -d
 
 After ensuring that the mirror has come back online and is fully operational, we will update the leader which may
 include a :ref:`datamigration` while it comes back online::
 
     cd /srv/syn/00.cortex
-    docker-compose pull
-    docker-compose down
-    docker-compose up -d
+    docker compose pull
+    docker compose down
+    docker compose up -d
 
 .. note::
 
-    Once a Synapse service update has been deployed, you may **NOT** revert to a previous version!
+    Once a Synapse service update has been deployed, you may **NOT** revert to a previous version! Reverting services
+    to prior versions is not supported.
 
 .. _datamigration:
 
@@ -203,6 +208,9 @@ Once complete, a WARNING level log message will be issued::
 .. note::
 
     Please ensure you have a tested backup available before applying these updates.
+
+Synapse Services may have additional data migrations applied during updates as well. These will always be noted in the
+Changelog for an individual service.
 
 .. _modelflagday:
 
@@ -230,6 +238,92 @@ environment to help identify any tweaks that may be necessary due to the updated
 .. note::
 
     Please ensure you have a tested backup available before applying these updates.
+
+Low Downtime Updates
+~~~~~~~~~~~~~~~~~~~~
+
+For services that are deployed in a mirror configuration, service upgrades can be performed with minimal downtime.
+
+#. Update the service mirrors.
+#. Use the Synapse ``synapse.tools.promote`` tool to promote a service as a mirror. This will start any data migrations
+   which need to happen. Cortex data model migrations will be checked and executed as well.
+#. Update the old service leader.
+
+Continuing with our previous example from the :ref:`deploymentguide` we would update the mirror ``01.cortex`` first::
+
+    cd /srv/syn/01.cortex
+    docker compose pull
+    docker compose down
+    docker compose up -d
+
+Then we would promote the mirror to being a leader. This promotion will also start any data migrations that need to
+be performed::
+
+    cd /srv/syn/01.cortex
+    docker compose exec 01.cortex python -m synapse.tools.promote
+
+After the promotion is completed, the previous leader can be updated. Since it is now mirroring ``01.cortex``, it will
+start to replicate any changes from the leader once it comes online, including any data migrations that are being
+performed::
+
+    cd /srv/syn/00.cortex
+    docker compose pull
+    docker compose down
+    docker compose up -d
+
+Restarting the old leader ensures that any services previously talking to ``aha://cortex...`` will automatically
+reconnect to the new leader.
+
+Update Sequencing
+~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    Some of the services mentioned here are part of our commercial offering.
+
+When deploying updates, we suggest deploying updates to the entire ecosystem in the following order:
+
+#. AHA, Axon, and the JSONStor services:
+
+    This order ensures that the AHA service, Axon, and JSONStor services are all updated first.
+
+#. Cortex:
+
+    Next, the Cortex should be updated. It may use new or updated APIs from the previous services.
+
+#. Search and Metrics services:
+
+    The Search and Metrics updates, in turn, may use new or updated APIs from the Cortex.
+
+#. Optic:
+
+    The Optic service may use new or updated APIs from the previous services. Optic has its own version
+    requirements for communicating with the Cortex and will not work if that version requirement is unmet.
+
+#. Any remaining Advanced Power-Ups:
+
+    Remaining Advanced Power-Ups would provide new or updated functionality to other services.
+
+#. Any Rapid Power-Ups:
+
+    Some Rapid Power-Ups may integrate with Advanced Power-Ups to provide additional functionality. Having the Advanced
+    Power-Ups updated ensures that any optional dependencies that the Rapid Power-Ups may have would be met.
+
+Updating Rapid Power-Ups
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+When updating Rapid Power-Ups, the ``vertex.pkg.upgrade`` command can be used to upgrade all installed packages, or to
+upgrade individual packages.
+
+If you are using the Optic UI for managing Rapid Power-Ups, you can use it to review available upgrades and review
+their changelogs prior to upgrading. It can also be used to update all available Rapid Power-Ups for you at once.
+
+Release Cadence
+~~~~~~~~~~~~~~~
+
+Vertex does not follow a strict release cadence for Synapse, Advanced Power-Ups, or Rapid Power-Ups. As we develop new
+functionality and address issues, we will release new versions of Synapse and Power-Ups on an as-needed basis.
+We recommend that users and organizations adopt an upgrade cycle that works for their operational needs.
 
 .. _devops-task-logging:
 
@@ -481,7 +575,6 @@ Create the container directory::
 
 Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       01.axon:
         user: "999"
@@ -535,7 +628,6 @@ Create the container directory::
 
 Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
 
-    version: "3.3"
     services:
       02.cortex:
         user: "999"
@@ -600,7 +692,6 @@ that it is deprecated. Deprecated functionality is also noted in service changel
 in your environment, you can set the ``PYTHONWARNINGS`` environment variable to display them.
 The following shows this being enabled for a Cortex deployment::
 
-    version: "3.3"
     services:
       00.cortex:
         user: "999"
@@ -647,10 +738,9 @@ file:
 .. literalinclude:: devguides/certbot.sh
     :language: bash
 
-That directory will be mounted at ``/vertex/boothooks``. The following docker-compose file shows mounting that
+That directory will be mounted at ``/vertex/boothooks``. The following Compose file shows mounting that
 directory into the container and setting environment variables for the script to use::
 
-  version: "3.3"
   services:
     00.cortex:
       image: vertexproject/synapse-cortex:v2.x.x
@@ -714,7 +804,6 @@ Running this with a ``docker build`` command can be used to create the image ``c
 
 That custom user can then be used to run the Cortex::
 
-    version: "3.3"
     services:
       00.cortex:
         user: "8888"
