@@ -649,6 +649,42 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
 
+    async def test_lmdbslab_scanback(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                foodup = slab.initdb('foodup', dupsort=True)
+                foonodup = slab.initdb('foonodup', dupsort=False)
+
+                for db in (foodup, foonodup):
+                    slab.put(b'\x01', b'foo', db=db)
+                    slab.put(b'\x01\x01', b'bar', db=db)
+                    slab.put(b'\x01\x03', b'baz', db=db)
+                    slab.put(b'\x02', b'faz', db=db)
+
+                items = list(slab.scanByPrefBack(b'\x01', db=foonodup))
+                self.eq(items, (
+                    (b'\x01\x03', b'baz'),
+                    (b'\x01\x01', b'bar'),
+                    (b'\x01', b'foo')
+                ))
+
+                self.eq((), list(slab.scanByPrefBack(b'\x00', db=foonodup)))
+
+                slab.put(b'\x01\x03', b'waz', db=foodup)
+
+                items = list(slab.scanByPrefBack(b'\x01', db=foodup))
+                self.eq(items, (
+                    (b'\x01\x03', b'waz'),
+                    (b'\x01\x03', b'baz'),
+                    (b'\x01\x01', b'bar'),
+                    (b'\x01', b'foo')
+                ))
+
     async def test_lmdbslab_count_empty(self):
 
         with self.getTestDir() as dirn:
