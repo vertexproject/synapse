@@ -4137,7 +4137,7 @@ class Layer(s_nexus.Pusher):
 
         for lkey, buid in self.layrslab.scanByFull(db=self.bytag):
             abrv = lkey[:8]
-            abrvs = tags.get(buid, [])
+            abrvs = list(tags.get(buid, []))
             abrvs.append(abrv)
             await tags.set(buid, abrvs)
 
