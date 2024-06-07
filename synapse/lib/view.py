@@ -708,7 +708,10 @@ class View(s_nexus.Pusher):  # type: ignore
         layers.extend(view.layers)
 
         self.layers = layers
-        await self.info.set('layers', [layr.iden for layr in layers])
+        layridens = [layr.iden for layr in layers]
+        await self.info.set('layers', layridens)
+
+        await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layridens}, gates=[self.iden, layridens[0]])
 
     async def pack(self):
         d = {'iden': self.iden}
