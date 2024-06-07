@@ -4102,13 +4102,11 @@ class Layer(s_nexus.Pusher):
             if form is None:
                 continue
 
-            for _ in self.layrslab.scanByPref(abrv, db=self.byprop):
+            if self.layrslab.prefexists(abrv, db=self.byprop):
                 if prop:
                     yield ('node', 'prop', 'set', f'{form}:{prop}')
                 else:
                     yield ('node', 'add', form)
-
-                break
 
         # tagprops
         for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
@@ -4116,9 +4114,8 @@ class Layer(s_nexus.Pusher):
             if None in info or len(info) != 3:
                 continue
 
-            for _ in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+            if self.layrslab.prefexists(abrv, db=self.bytagprop):
                 yield ('node', 'tag', 'add', *info[1].split('.'))
-                break
 
         # nodedata
         for abrv in self.dataslab.scanKeys(db=self.dataname):
@@ -4151,7 +4148,8 @@ class Layer(s_nexus.Pusher):
             seen = {}
 
             if len(abrvs) == 1:
-                # IF there's only one tag abrv, then it's a leaf by default
+                # Easy optimization: If there's only one tag abrv, then it's a
+                # leaf by default
                 key = tagPartsByAbrv(abrv)
                 if key not in tagperms:
                     yield ('node', 'tag', 'add', *key)
