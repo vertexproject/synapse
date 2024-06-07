@@ -4107,6 +4107,8 @@ class Layer(s_nexus.Pusher):
                 else:
                     yield ('node', 'add', form)
 
+            await asyncio.sleep(0)
+
         # tagprops
         for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
             info = s_msgpack.un(byts)
@@ -4116,14 +4118,20 @@ class Layer(s_nexus.Pusher):
             if self.layrslab.prefexists(abrv, db=self.bytagprop):
                 yield ('node', 'tag', 'add', *info[1].split('.'))
 
+            await asyncio.sleep(0)
+
         # nodedata
         for abrv in self.dataslab.scanKeys(db=self.dataname):
             name, _ = self.getAbrvProp(abrv)
             yield ('node', 'data', 'set', name)
 
+            await asyncio.sleep(0)
+
         # edges
         for verb in self.layrslab.scanKeys(db=self.byverb):
             yield ('node', 'edge', 'add', verb.decode())
+
+            await asyncio.sleep(0)
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
@@ -4135,6 +4143,7 @@ class Layer(s_nexus.Pusher):
                 abrvs = list(tags.get(buid, []))
                 abrvs.append(abrv)
                 await tags.set(buid, abrvs)
+
                 await asyncio.sleep(0)
 
             # Iterate over each node and it's tags
