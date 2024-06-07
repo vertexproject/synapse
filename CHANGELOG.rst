@@ -7,6 +7,32 @@ Synapse Changelog
 *****************
 
 
+v2.171.0 - 2024-06-07
+=====================
+
+Features and Enhancements
+-------------------------
+- Update ``synapse.test.utils.SynTest`` helpers to disable sysctl checks
+  for test services by default.
+  (`#3741 <https://github.com/vertexproject/synapse/pull/3741>`_)
+
+Bugfixes
+--------
+- Fix a bug in the ``str`` type normalization routine for handling floating
+  point values. The floating point values are now also run through the
+  string norming logic.
+  (`#3742 <https://github.com/vertexproject/synapse/pull/3742>`_)
+- Fix a key positioning error in the LMDBSlab when scanning backwards
+  by prefix.
+  (`#3739 <https://github.com/vertexproject/synapse/pull/3739>`_)
+
+Improved Documentation
+----------------------
+- Update Devops documentation to add additional information about low downtime
+  service updates, Rapid Power-Up updates, and release cadence information.
+  Update references from ``docker-compose`` to use ``docker compose``.
+  (`#3722 <https://github.com/vertexproject/synapse/pull/3722>`_)
+
 v2.170.0 - 2024-06-04
 =====================
 
