@@ -1303,8 +1303,8 @@ class View(s_nexus.Pusher):  # type: ignore
         self.parent = self.core.reqView(forkiden)
         await self.info.set('parent', forkiden)
 
-        mesg = {'iden': view.iden, 'name': 'parent', 'valu': forkiden}
-        await self.feedBeholder('view:set', mesg, gates=[self.iden, self.layers[0].iden])
+        mesg = {'iden': self.iden, 'name': 'parent', 'valu': forkiden}
+        await self.core.feedBeholder('view:set', mesg, gates=[self.iden, self.layers[0].iden])
 
         await self._calcForkLayers()
 
