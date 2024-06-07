@@ -78,7 +78,6 @@ import synapse.lib.cell as s_cell
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
-import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
@@ -4128,51 +4127,43 @@ class Layer(s_nexus.Pusher):
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
-        tags = await s_spooled.Dict.anit(cell=self.core)
+        async with self.core.getSpooledDict() as tags:
 
-        @s_cache.memoize()
-        def tagPartsByAbrv(abrv):
-            name = self.tagabrv.abrvToName(abrv)
-            return tuple(name.split('.'))
+            # Collect all tag abrvs for all nodes in the layer
+            for lkey, buid in self.layrslab.scanByFull(db=self.bytag):
+                abrv = lkey[:8]
+                abrvs = list(tags.get(buid, []))
+                abrvs.append(abrv)
+                await tags.set(buid, abrvs)
+                await asyncio.sleep(0)
 
-        for lkey, buid in self.layrslab.scanByFull(db=self.bytag):
-            abrv = lkey[:8]
-            abrvs = list(tags.get(buid, []))
-            abrvs.append(abrv)
-            await tags.set(buid, abrvs)
+            # Iterate over each node and it's tags
+            for buid, abrvs in tags.items():
+                seen = {}
 
-        # Perms we've already yielded
-        tagperms = await s_spooled.Set.anit(cell=self.core)
-
-        for buid, abrvs in tags.items():
-            seen = {}
-
-            if len(abrvs) == 1:
-                # Easy optimization: If there's only one tag abrv, then it's a
-                # leaf by default
-                key = tagPartsByAbrv(abrv)
-                if key not in tagperms:
+                if len(abrvs) == 1:
+                    # Easy optimization: If there's only one tag abrv, then it's a
+                    # leaf by default
+                    name = self.tagabrv.abrvToName(abrv)
+                    key = tuple(name.split('.'))
                     yield ('node', 'tag', 'add', *key)
-                    await tagperms.add(key)
 
-            else:
-                for abrv in abrvs:
-                    parts = tagPartsByAbrv(abrv)
-                    for idx in range(1, len(parts) + 1):
-                        key = tuple(parts[:idx])
-                        seen.setdefault(key, 0)
-                        seen[key] += 1
+                else:
+                    for abrv in abrvs:
+                        name = self.tagabrv.abrvToName(abrv)
+                        parts = tuple(name.split('.'))
+                        for idx in range(1, len(parts) + 1):
+                            key = tuple(parts[:idx])
+                            seen.setdefault(key, 0)
+                            seen[key] += 1
 
-                for key, count in seen.items():
-                    if count == 1 and key not in tagperms:
-                        yield ('node', 'tag', 'add', *key)
-                        await tagperms.add(key)
+                    for key, count in seen.items():
+                        if count == 1:
+                            yield ('node', 'tag', 'add', *key)
 
-    async def iterLayerDelPerms(self): # pragma: no cover
-        # TODO: Implement me for Syn3.x
-        pass
+                await asyncio.sleep(0)
 
-    async def iterLayerWipePerms(self):
+    async def iterLayerDelPerms(self):
         async for perm in self.iterLayerAddPerms():
             if perm[:2] == ('node', 'add'):
                 yield ('node', 'del', *perm[2:])

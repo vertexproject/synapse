@@ -1977,7 +1977,7 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'tag', 'add', 'foo', 'bar'),
                 }, set(perms))
 
-                perms = [perm async for perm in layr.iterLayerWipePerms()]
+                perms = [perm async for perm in layr.iterLayerDelPerms()]
                 self.eq({
                     ('node', 'del', 'syn:tag'),
                     ('node', 'del', 'test:str'),

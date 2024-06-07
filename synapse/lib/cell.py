@@ -4142,6 +4142,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
 
+    @contextlib.asynccontextmanager
+    async def getSpooledDict(self):
+        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as sdict:
+            yield sdict
+
     async def addSignalHandlers(self):
         await s_base.Base.addSignalHandlers(self)
 

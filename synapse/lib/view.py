@@ -1451,7 +1451,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         layer = self.layers[0]
-        async for perm in layer.iterLayerWipePerms():
+        async for perm in layer.iterLayerDelPerms():
             self._confirm(user, perm)
             await asyncio.sleep(0)
 
