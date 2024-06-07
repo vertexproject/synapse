@@ -18,13 +18,15 @@ Features and Enhancements
 
 Bugfixes
 --------
+- Fix a key positioning error in the LMDBSlab when scanning backwards
+  by prefix.
+  (`#3739 <https://github.com/vertexproject/synapse/pull/3739>`_)
 - Fix a bug in the ``str`` type normalization routine for handling floating
   point values. The floating point values are now also run through the
   string norming logic.
   (`#3742 <https://github.com/vertexproject/synapse/pull/3742>`_)
-- Fix a key positioning error in the LMDBSlab when scanning backwards
-  by prefix.
-  (`#3739 <https://github.com/vertexproject/synapse/pull/3739>`_)
+- Add missing beholder messages for view layer modifications.
+  (`#3743 <https://github.com/vertexproject/synapse/pull/3743>`_)
 
 Improved Documentation
 ----------------------
