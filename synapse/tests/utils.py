@@ -96,6 +96,18 @@ def norm(z):
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
 
+async def waitForBehold(core, events):
+    async for mesg in core.behold():
+        for event in list(events):
+            for key, valu in event.items():
+                if mesg.get(key) != valu:
+                    break
+            else:
+                events.remove(event)
+
+        if len(events) == 0:
+            break
+
 @contextlib.asynccontextmanager
 async def matchContexts(testself):
     origenter = s_base.Base.__aenter__
