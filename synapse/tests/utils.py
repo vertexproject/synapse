@@ -1286,10 +1286,9 @@ class SynTest(unittest.TestCase):
             s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
-            conf = {'layer:lmdb:map_async': True,
-                    'nexslog:en': True,
-                    'layers:logedits': True,
-                    }
+            conf = {
+                'health:sysctl:checks': False,
+            }
 
         conf = copy.deepcopy(conf)
 
@@ -1332,7 +1331,9 @@ class SynTest(unittest.TestCase):
     async def getTestJsonStor(self, dirn=None, conf=None):
 
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
         conf = copy.deepcopy(conf)
 
         with self.withNexusReplay():
@@ -1355,7 +1356,9 @@ class SynTest(unittest.TestCase):
             s_cryotank.CryoCell: Test cryocell.
         '''
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
         conf = copy.deepcopy(conf)
 
         with self.withNexusReplay():
@@ -1399,7 +1402,9 @@ class SynTest(unittest.TestCase):
         Get a test Cell.
         '''
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
 
         conf = copy.deepcopy(conf)
 
@@ -1438,7 +1443,9 @@ class SynTest(unittest.TestCase):
     async def getTestAha(self, conf=None, dirn=None):
 
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
         conf = copy.deepcopy(conf)
 
         with self.withNexusReplay():
@@ -1512,7 +1519,9 @@ class SynTest(unittest.TestCase):
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
 
         conf['aha:provision'] = onetime
 
