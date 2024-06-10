@@ -2680,45 +2680,57 @@ class CellTest(s_t_utils.SynTest):
                         self.none(await core0.callStorm('return($lib.user.profile.get(bar))'))
 
     async def test_cell_hive_migration(self):
-        async with self.getRegrCore('hive-migration') as core:
-            visi = await core.auth.getUserByName('visi')
-            asvisi = {'user': visi.iden}
 
-            valu = await core.callStorm('return($lib.user.vars.get(foovar))', opts=asvisi)
-            self.eq('barvalu', valu)
+        with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
 
-            valu = await core.callStorm('return($lib.user.profile.get(fooprof))', opts=asvisi)
-            self.eq('barprof', valu)
+            async with self.getRegrCore('hive-migration') as core:
+                visi = await core.auth.getUserByName('visi')
+                asvisi = {'user': visi.iden}
 
-            msgs = await core.stormlist('cron.list')
-            self.stormIsInPrint('visi       4f179a4e', msgs)
-            self.stormIsInPrint('[tel:mob:telem=*]', msgs)
+                valu = await core.callStorm('return($lib.user.vars.get(foovar))', opts=asvisi)
+                self.eq('barvalu', valu)
 
-            msgs = await core.stormlist('dmon.list')
-            self.stormIsInPrint('5baea074cdab6631a86787faa2ca6586:  (foodmon             ): running', msgs)
+                valu = await core.callStorm('return($lib.user.profile.get(fooprof))', opts=asvisi)
+                self.eq('barprof', valu)
 
-            msgs = await core.stormlist('trigger.list')
-            self.stormIsInPrint('visi       64e59ed3aa2eff46325972f636cc26a1', msgs)
-            self.stormIsInPrint('[ +#count test:str=$tag ]', msgs)
+                msgs = await core.stormlist('cron.list')
+                self.stormIsInPrint('visi       8437c35a', msgs)
+                self.stormIsInPrint('[tel:mob:telem=*]', msgs)
 
-            msgs = await core.stormlist('testcmd0 foo')
-            self.stormIsInPrint('foo haha', msgs)
+                msgs = await core.stormlist('dmon.list')
+                self.stormIsInPrint('0973342044469bc40b577969028c5079:  (foodmon             ): running', msgs)
 
-            msgs = await core.stormlist('testcmd1')
-            self.stormIsInPrint('hello', msgs)
+                msgs = await core.stormlist('trigger.list')
+                self.stormIsInPrint('visi       27f5dc524e7c3ee8685816ddf6ca1326', msgs)
+                self.stormIsInPrint('[ +#count test:str=$tag ]', msgs)
 
-            msgs = await core.stormlist('model.deprecated.locks')
-            self.stormIsInPrint('ou:hasalias', msgs)
+                msgs = await core.stormlist('testcmd0 foo')
+                self.stormIsInPrint('foo haha', msgs)
 
-            nodes = await core.nodes('_visi:int')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('tick'), 1577836800000,)
-            self.eq(node.get('._woot'), 5)
-            self.nn(node.getTagProp('test', 'score'), 6)
+                msgs = await core.stormlist('testcmd1')
+                self.stormIsInPrint('hello', msgs)
 
-            with self.raises(s_exc.BadTag):
-                await core.nodes('[ it:dev:str=foo +#test.newp ]')
+                msgs = await core.stormlist('model.deprecated.locks')
+                self.stormIsInPrint('ou:hasalias', msgs)
+
+                nodes = await core.nodes('_visi:int')
+                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.get('tick'), 1577836800000,)
+                self.eq(node.get('._woot'), 5)
+                self.nn(node.getTagProp('test', 'score'), 6)
+
+                with self.raises(s_exc.BadTag):
+                    await core.nodes('[ it:dev:str=foo +#test.newp ]')
+
+        stream.seek(0)
+        data = stream.getvalue()
+        newprole = s_common.guid('newprole')
+        newpuser = s_common.guid('newpuser')
+
+        self.isin(f'Unknown user {newpuser} on gate', data)
+        self.isin(f'Unknown role {newprole} on gate', data)
+        self.isin(f'Unknown role {newprole} on user', data)
 
     async def test_cell_check_sysctl(self):
         sysctls = s_linux.getSysctls()

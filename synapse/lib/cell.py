@@ -1289,6 +1289,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceNetwork()
 
     async def _storCellHiveMigration(self):
+        logger.warning(f'migrating Cell ({self.getCellType()}) info out of hive')
+
         async with await self.hive.open(('cellvers',)) as versnode:
             versdict = await versnode.dict()
             for key, valu in versdict.items():
@@ -1299,47 +1301,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for key, valu in infodict.items():
                 self.cellinfo.set(key, valu)
 
+        logger.warning(f'...Cell ({self.getCellType()}) info migration complete!')
+
     async def _storCellAuthMigration(self):
         if self.conf.get('auth:ctor') is not None:
             return
 
+        logger.warning(f'migrating Cell ({self.getCellType()}) auth out of hive')
+
         authkv = self.slab.getSafeKeyVal('auth')
 
         async with await self.hive.open(('auth',)) as rootnode:
-
-            gateroles = {}
-            gateusers = {}
-
-            gatekv = authkv.getSubKeyVal('gate:info:')
-            async with await rootnode.open(('authgates',)) as authgates:
-                for gateiden, node in authgates:
-                    gateinfo = {
-                        'iden': gateiden,
-                        'type': node.valu
-                    }
-                    gatekv.set(gateiden, gateinfo)
-
-                    async with await node.open(('users',)) as usernodes:
-                        for useriden, usernode in usernodes:
-                            userinfo = await usernode.dict()
-                            userdict = userinfo.pack()
-                            userdict['iden'] = useriden
-                            userdict.setdefault('admin', False)
-                            authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
-
-                            gateusers.setdefault(useriden, {})
-                            gateusers[useriden][gateiden] = userdict
-
-                    async with await node.open(('roles',)) as rolenodes:
-                        for roleiden, rolenode in rolenodes:
-                            roleinfo = await rolenode.dict()
-                            roledict = roleinfo.pack()
-                            roledict['iden'] = roleiden
-                            roledict.setdefault('admin', False)
-                            authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
-
-                            gateroles.setdefault(roleiden, {})
-                            gateroles[roleiden][gateiden] = roledict
 
             rolekv = authkv.getSubKeyVal('role:info:')
             rolenamekv = authkv.getSubKeyVal('role:name:')
@@ -1351,7 +1323,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                     roleinfo['iden'] = iden
                     roleinfo['name'] = node.valu
-                    roleinfo['authgates'] = gateroles.get(iden, {})
+                    roleinfo['authgates'] = {}
                     roleinfo.setdefault('admin', False)
                     roleinfo.setdefault('rules', ())
 
@@ -1368,13 +1340,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                     userinfo['iden'] = iden
                     userinfo['name'] = node.valu
-                    userinfo['authgates'] = gateusers.get(iden, {})
+                    userinfo['authgates'] = {}
                     userinfo.setdefault('admin', False)
-                    userinfo.setdefault('roles', ())
                     userinfo.setdefault('ruler', ())
                     userinfo.setdefault('locked', False)
                     userinfo.setdefault('passwd', None)
                     userinfo.setdefault('archived', False)
+
+                    realroles = []
+                    for userrole in userinfo.get('roles', ()):
+                        if rolekv.get(userrole) is None:
+                            mesg = f'Unknown role {userrole} on user {iden} during migration, ignoring.'
+                            logger.warning(mesg)
+                            continue
+
+                        realroles.append(userrole)
+
+                    userinfo['roles'] = tuple(realroles)
 
                     userkv.set(iden, userinfo)
                     usernamekv.set(node.valu, iden)
@@ -1388,6 +1370,49 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     async with await node.open(('profile',)) as profnodes:
                         for name, profnode in profnodes:
                             profkv.set(name, profnode.valu)
+
+            gatekv = authkv.getSubKeyVal('gate:info:')
+            async with await rootnode.open(('authgates',)) as authgates:
+                for gateiden, node in authgates:
+                    gateinfo = {
+                        'iden': gateiden,
+                        'type': node.valu
+                    }
+                    gatekv.set(gateiden, gateinfo)
+
+                    async with await node.open(('users',)) as usernodes:
+                        for useriden, usernode in usernodes:
+                            if (user := userkv.get(useriden)) is None:
+                                mesg = f'Unknown user {useriden} on gate {gateiden} during migration, ignoring.'
+                                logger.warning(mesg)
+                                continue
+
+                            userinfo = await usernode.dict()
+                            userdict = userinfo.pack()
+                            userdict['iden'] = useriden
+                            userdict.setdefault('admin', False)
+                            authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
+
+                            user['authgates'][gateiden] = userdict
+                            userkv.set(useriden, user)
+
+                    async with await node.open(('roles',)) as rolenodes:
+                        for roleiden, rolenode in rolenodes:
+                            if (role := rolekv.get(roleiden)) is None:
+                                mesg = f'Unknown role {roleiden} on gate {gateiden} during migration, ignoring.'
+                                logger.warning(mesg)
+                                continue
+
+                            roleinfo = await rolenode.dict()
+                            roledict = roleinfo.pack()
+                            roledict['iden'] = roleiden
+                            roledict.setdefault('admin', False)
+                            authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
+
+                            role['authgates'][gateiden] = roledict
+                            rolekv.set(roleiden, role)
+
+        logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
     def getPermDef(self, perm):
         perm = tuple(perm)

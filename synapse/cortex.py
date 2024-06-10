@@ -1016,6 +1016,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _storCortexHiveMigration(self):
 
+        logger.warning('migrating Cortex data out of hive')
+
         viewdefs = self.cortexdata.getSubKeyVal('view:info:')
         async with await self.hive.open(('cortex', 'views')) as viewnodes:
             for iden, node in viewnodes:
@@ -1069,6 +1071,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async with await self.hive.open(hivepath) as hivenode:
                 for name, node in hivenode:
                     subkv.set(name, node.valu)
+
+        logger.warning('...Cortex data migration complete!')
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():
