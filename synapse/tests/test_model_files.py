@@ -26,6 +26,7 @@ class FileTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'guid:0101')
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
             self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
+            self.raises(s_exc.BadTypeValu, fbyts.norm, 1.23)
 
             nodes = await core.nodes('''
                 [ file:bytes=$byts
