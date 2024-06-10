@@ -194,10 +194,6 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
 
-        if self.hasKids():
-            mesg = 'Cannot add a merge request to a view with children.'
-            raise s_exc.BadState(mesg=mesg)
-
         s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
@@ -450,8 +446,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
-            await self.core.delView(self.iden)
-            await self.core.delLayer(self.layers[0].iden)
+            await self.core.delViewWithLayer(self.iden)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')
@@ -716,6 +711,8 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = layers
         self.info['layers'] = [layr.iden for layr in layers]
         self.core.viewdefs.set(self.iden, self.info)
+
+        await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layridens}, gates=[self.iden, self.layers[0].iden])
 
     async def pack(self):
         d = {'iden': self.iden}
@@ -1114,10 +1111,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 mesg = 'Circular dependency of view parents is not supported.'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if parent.getMergeRequest() is not None:
-                mesg = 'You may not set the parent to a view with a pending merge request.'
-                raise s_exc.BadState(mesg=mesg)
-
             if self.parent is not None:
                 if self.parent.iden == parent.iden:
                     return valu
@@ -1309,6 +1302,9 @@ class View(s_nexus.Pusher):  # type: ignore
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
 
+        if self.getMergeRequest() is not None:
+            await self._delMergeRequest()
+
         await self.core._addLayer(ldef, nexsitem)
         await self.core._addView(vdef)
 
@@ -1316,6 +1312,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.info['parent'] = forkiden
         self.parent = self.core.reqView(forkiden)
         self.core.viewdefs.set(self.iden, self.info)
+
+        mesg = {'iden': self.iden, 'name': 'parent', 'valu': forkiden}
+        await self.core.feedBeholder('view:set', mesg, gates=[self.iden, self.layers[0].iden])
 
         await self._calcForkLayers()
 
@@ -1365,10 +1364,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if vdef is None:
             vdef = {}
-
-        if self.getMergeRequest() is not None:
-            mesg = 'Cannot fork a view which has a merge request.'
-            raise s_exc.BadState(mesg=mesg)
 
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')
@@ -1460,10 +1455,9 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         async with await self.parent.snap(user=user) as snap:
-            async for nodeedit in fromlayr.iterLayerNodeEdits():
-                for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                    self.parent._confirm(user, perm)
-                    await asyncio.sleep(0)
+            async for perm in fromlayr.iterLayerAddPerms():
+                self.parent._confirm(user, perm)
+                await asyncio.sleep(0)
 
     async def wipeAllowed(self, user=None):
         '''
@@ -1472,10 +1466,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin():
             return
 
-        async for nodeedit in self.layers[0].iterWipeNodeEdits():
-            for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                self._confirm(user, perm)
-                await asyncio.sleep(0)
+        layer = self.layers[0]
+        async for perm in layer.iterLayerDelPerms():
+            self._confirm(user, perm)
+            await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 

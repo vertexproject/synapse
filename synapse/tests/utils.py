@@ -96,6 +96,18 @@ def norm(z):
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
 
+async def waitForBehold(core, events):
+    async for mesg in core.behold():
+        for event in list(events):
+            for key, valu in event.items():
+                if mesg.get(key) != valu:
+                    break
+            else:
+                events.remove(event)
+
+        if len(events) == 0:
+            break
+
 @contextlib.asynccontextmanager
 async def matchContexts(testself):
     origenter = s_base.Base.__aenter__
@@ -1286,10 +1298,9 @@ class SynTest(unittest.TestCase):
             s_cortex.Cortex: A Cortex object.
         '''
         if conf is None:
-            conf = {'layer:lmdb:map_async': True,
-                    'nexslog:en': True,
-                    'layers:logedits': True,
-                    }
+            conf = {
+                'health:sysctl:checks': False,
+            }
 
         conf = copy.deepcopy(conf)
 
@@ -1332,7 +1343,9 @@ class SynTest(unittest.TestCase):
     async def getTestJsonStor(self, dirn=None, conf=None):
 
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
         conf = copy.deepcopy(conf)
 
         with self.withNexusReplay():
@@ -1355,7 +1368,9 @@ class SynTest(unittest.TestCase):
             s_cryotank.CryoCell: Test cryocell.
         '''
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
         conf = copy.deepcopy(conf)
 
         with self.withNexusReplay():
@@ -1399,7 +1414,9 @@ class SynTest(unittest.TestCase):
         Get a test Cell.
         '''
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
 
         conf = copy.deepcopy(conf)
 
@@ -1438,7 +1455,9 @@ class SynTest(unittest.TestCase):
     async def getTestAha(self, conf=None, dirn=None):
 
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
         conf = copy.deepcopy(conf)
 
         with self.withNexusReplay():
@@ -1512,7 +1531,9 @@ class SynTest(unittest.TestCase):
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
         if conf is None:
-            conf = {}
+            conf = {
+                'health:sysctl:checks': False,
+            }
 
         conf['aha:provision'] = onetime
 

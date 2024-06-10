@@ -55,7 +55,6 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.lib.crypto.passwd as s_passwd
-import synapse.lib.platforms.linux as s_linux
 
 import synapse.tools.backup as s_t_backup
 
@@ -111,6 +110,25 @@ def adminapi(log=False):
         return wrapped
 
     return decrfunc
+
+def from_leader(func):
+    '''
+    Decorator used to indicate that the decorated method must call up to the
+    leader to perform it's work.
+
+    This only works on Cell classes and subclasses. The decorated method name
+    MUST be the same as the telepath API name.
+    '''
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if not self.isactive:
+            proxy = await self.nexsroot.client.proxy()
+            api = getattr(proxy, func.__name__)
+            return await api(*args, **kwargs)
+
+        return await func(self, *args, **kwargs)
+
+    return wrapper
 
 async def _doIterBackup(path, chunksize=1024):
     '''
@@ -1597,7 +1615,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _runSysctlLoop(self):
         while not self.isfini:
             fixvals = []
-            sysctls = s_linux.getSysctls()
+            sysctls = s_thisplat.getSysctls()
 
             for name, valu in self.SYSCTL_VALS.items():
                 if (sysval := sysctls.get(name)) != valu:
@@ -1616,7 +1634,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             extra = await self.getLogExtra(sysctls=fixvals)
             logger.warning(mesg, extra=extra)
 
-            await asyncio.sleep(self.SYSCTL_CHECK_FREQ)
+            await self.waitfini(self.SYSCTL_CHECK_FREQ)
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -4298,6 +4316,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getSpooledSet(self):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
+
+    @contextlib.asynccontextmanager
+    async def getSpooledDict(self):
+        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as sdict:
+            yield sdict
 
     async def addSignalHandlers(self):
         await s_base.Base.addSignalHandlers(self)

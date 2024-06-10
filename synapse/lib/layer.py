@@ -75,6 +75,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.gis as s_gis
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
@@ -107,6 +108,7 @@ reqValidLdef = s_config.getJsValidator({
 })
 
 WINDOW_MAXSIZE = 10_000
+MIGR_COMMIT_SIZE = 1_000
 
 class LayerApi(s_cell.CellApi):
 
@@ -2612,7 +2614,7 @@ class Layer(s_nexus.Pusher):
             venc = lkey[32:]
 
             putkeys.append((n1buid + n2buid, venc))
-            if len(putkeys) > 1000:
+            if len(putkeys) > MIGR_COMMIT_SIZE:
                 commit()
 
         if len(putkeys):
@@ -2622,6 +2624,33 @@ class Layer(s_nexus.Pusher):
         self.layrvers = 10
 
         logger.warning(f'...complete!')
+
+    async def _layrV10toV11(self):
+
+        logger.warning(f'Adding byform index to layer {self.iden}')
+
+        def commit():
+            self.layrslab.putmulti(putkeys, db=self.byform)
+            putkeys.clear()
+
+        putkeys = []
+        async for buid, sode in self.getStorNodes():
+            if not (form := sode.get('form')):
+                continue
+
+            abrv = self.setPropAbrv(form, None)
+            putkeys.append((abrv, buid))
+
+            if len(putkeys) > MIGR_COMMIT_SIZE:
+                commit()
+
+        if putkeys:
+            commit()
+
+        self.meta.set('version', 11)
+        self.layrvers = 11
+
+        logger.warning('...complete!')
 
     async def _initSlabs(self, slabopts):
 
@@ -2659,6 +2688,7 @@ class Layer(s_nexus.Pusher):
         self.edgesn1n2 = self.layrslab.initdb('edgesn1n2', dupsort=True)
 
         self.bytag = self.layrslab.initdb('bytag', dupsort=True)
+        self.byform = self.layrslab.initdb('byform', dupsort=True)
         self.byprop = self.layrslab.initdb('byprop', dupsort=True)
         self.byarray = self.layrslab.initdb('byarray', dupsort=True)
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
@@ -2684,7 +2714,7 @@ class Layer(s_nexus.Pusher):
         await self._initSlabs(slabopts)
 
         if self.fresh:
-            self.meta.set('version', 10)
+            self.meta.set('version', 11)
 
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
@@ -2719,8 +2749,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 10:
             await self._layrV9toV10()
 
-        if self.layrvers != 10:
-            mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
+        if self.layrvers < 11:
+            await self._layrV10toV11()
+
+        if self.layrvers != 11:
+            mesg = f'Got layer version {self.layrvers}.  Expected 11.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
@@ -3325,6 +3358,11 @@ class Layer(s_nexus.Pusher):
             return
 
         # no more refs in this layer.  time to pop it...
+        try:
+            abrv = self.getPropAbrv(sode.get('form'), None)
+            self.layrslab.delete(abrv, val=buid, db=self.byform)
+        except s_exc.NoSuchAbrv:
+            pass
         self.dirty.pop(buid, None)
         self.buidcache.pop(buid, None)
         self.layrslab.delete(buid, db=self.bybuidv3)
@@ -3345,10 +3383,13 @@ class Layer(s_nexus.Pusher):
         if sode.get('valu') == valt:
             return ()
 
+        abrv = self.setPropAbrv(form, None)
+
+        if sode.get('form') is None:
+            self.layrslab.put(abrv, buid, db=self.byform)
+
         sode['valu'] = valt
         self.setSodeDirty(buid, sode, form)
-
-        abrv = self.setPropAbrv(form, None)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3469,6 +3510,10 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
+        if sode.get('form') is None:
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
 
@@ -3563,6 +3608,9 @@ class Layer(s_nexus.Pusher):
             if oldv == valu:
                 return ()
 
+        if sode.get('form') is None:
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         sode['tags'][tag] = valu
         self.setSodeDirty(buid, sode, form)
 
@@ -3626,6 +3674,10 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
                     self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
+        if sode.get('form') is None:
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
+
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
         sode['tagprops'][tag][prop] = (valu, stortype)
@@ -3684,6 +3736,8 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
 
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
@@ -3731,6 +3785,8 @@ class Layer(s_nexus.Pusher):
         # a bit of special case...
         if sode.get('form') is None:
             self.setSodeDirty(buid, sode, form)
+            formabrv = self.setPropAbrv(form, None)
+            self.layrslab.put(formabrv, buid, db=self.byform)
 
         self.layrslab.put(venc, buid + n2buid, db=self.byverb)
         self.layrslab.put(n1key, n2buid, db=self.edgesn1)
@@ -4040,6 +4096,92 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0]
 
+    async def iterLayerAddPerms(self):
+
+        # nodes & props
+        async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
+            form, prop = s_msgpack.un(byts)
+            if form is None:
+                continue
+
+            if self.layrslab.prefexists(abrv, db=self.byprop):
+                if prop:
+                    yield ('node', 'prop', 'set', f'{form}:{prop}')
+                else:
+                    yield ('node', 'add', form)
+
+        # tagprops
+        async for byts, abrv in s_coro.pause(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
+            info = s_msgpack.un(byts)
+            if None in info or len(info) != 3:
+                continue
+
+            if self.layrslab.prefexists(abrv, db=self.bytagprop):
+                yield ('node', 'tag', 'add', *info[1].split('.'))
+
+        # nodedata
+        async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname)):
+            name, _ = self.getAbrvProp(abrv)
+            yield ('node', 'data', 'set', name)
+
+        # edges
+        async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb)):
+            yield ('node', 'edge', 'add', verb.decode())
+
+        # tags
+        # NB: tag perms should be yielded for every leaf on every node in the layer
+        async with self.core.getSpooledDict() as tags:
+
+            # Collect all tag abrvs for all nodes in the layer
+            async for lkey, buid in s_coro.pause(self.layrslab.scanByFull(db=self.bytag)):
+                abrv = lkey[:8]
+                abrvs = list(tags.get(buid, []))
+                abrvs.append(abrv)
+                await tags.set(buid, abrvs)
+
+            # Iterate over each node and it's tags
+            async for buid, abrvs in s_coro.pause(tags.items()):
+                seen = {}
+
+                if len(abrvs) == 1:
+                    # Easy optimization: If there's only one tag abrv, then it's a
+                    # leaf by default
+                    name = self.tagabrv.abrvToName(abrv)
+                    key = tuple(name.split('.'))
+                    yield ('node', 'tag', 'add', *key)
+
+                else:
+                    for abrv in abrvs:
+                        name = self.tagabrv.abrvToName(abrv)
+                        parts = tuple(name.split('.'))
+                        for idx in range(1, len(parts) + 1):
+                            key = tuple(parts[:idx])
+                            seen.setdefault(key, 0)
+                            seen[key] += 1
+
+                    for key, count in seen.items():
+                        if count == 1:
+                            yield ('node', 'tag', 'add', *key)
+
+    async def iterLayerDelPerms(self):
+        async for perm in self.iterLayerAddPerms():
+            if perm[:2] == ('node', 'add'):
+                yield ('node', 'del', *perm[2:])
+                continue
+
+            match perm[:3]:
+                case ('node', 'prop', 'set'):
+                    yield ('node', 'prop', 'del', *perm[3:])
+
+                case ('node', 'tag', 'add'):
+                    yield ('node', 'tag', 'del', *perm[3:])
+
+                case ('node', 'data', 'set'):
+                    yield ('node', 'data', 'pop', *perm[3:])
+
+                case ('node', 'edge', 'add'):
+                    yield ('node', 'edge', 'del', *perm[3:])
+
     async def iterLayerNodeEdits(self):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
@@ -4209,6 +4351,20 @@ class Layer(s_nexus.Pusher):
                 continue
 
             yield buid, s_msgpack.un(byts)
+            await asyncio.sleep(0)
+
+    async def getStorNodesByForm(self, form):
+        '''
+        Yield (buid, sode) tuples for nodes of a given form with props/tags/tagprops/edges/nodedata in this layer.
+        '''
+        try:
+            abrv = self.getPropAbrv(form, None)
+        except s_exc.NoSuchAbrv:
+            return
+
+        for _, buid in self.layrslab.scanByDups(abrv, db=self.byform):
+            sode = await self.getStorNode(buid)
+            yield buid, sode
             await asyncio.sleep(0)
 
     async def iterNodeEditLog(self, offs=0):
@@ -4384,79 +4540,3 @@ def getFlatEdits(nodeedits):
         addedits(buid, form, edits)
 
     return [(k[0], k[1], v) for (k, v) in editsbynode.items()]
-
-def getNodeEditPerms(nodeedits):
-    '''
-    Yields (offs, perm) tuples that can be used in user.allowed()
-    '''
-    tags = []
-    tagadds = []
-
-    for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
-
-        tags.clear()
-        tagadds.clear()
-
-        for editoffs, (edit, info, _) in enumerate(edits):
-
-            permoffs = (nodeoffs, editoffs)
-
-            if edit == EDIT_NODE_ADD:
-                yield (permoffs, ('node', 'add', form))
-                continue
-
-            if edit == EDIT_NODE_DEL:
-                yield (permoffs, ('node', 'del', form))
-                continue
-
-            if edit == EDIT_PROP_SET:
-                yield (permoffs, ('node', 'prop', 'set', f'{form}:{info[0]}'))
-                continue
-
-            if edit == EDIT_PROP_DEL:
-                yield (permoffs, ('node', 'prop', 'del', f'{form}:{info[0]}'))
-                continue
-
-            if edit == EDIT_TAG_SET:
-                if info[1] != (None, None):
-                    tagadds.append(info[0])
-                    yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
-                else:
-                    tags.append((len(info[0]), editoffs, info[0]))
-                continue
-
-            if edit == EDIT_TAG_DEL:
-                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_TAGPROP_SET:
-                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_TAGPROP_DEL:
-                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_NODEDATA_SET:
-                yield (permoffs, ('node', 'data', 'set', info[0]))
-                continue
-
-            if edit == EDIT_NODEDATA_DEL:
-                yield (permoffs, ('node', 'data', 'pop', info[0]))
-                continue
-
-            if edit == EDIT_EDGE_ADD:
-                yield (permoffs, ('node', 'edge', 'add', info[0]))
-                continue
-
-            if edit == EDIT_EDGE_DEL:
-                yield (permoffs, ('node', 'edge', 'del', info[0]))
-                continue
-
-        for _, editoffs, tag in sorted(tags, reverse=True):
-            look = tag + '.'
-            if any([tagadd.startswith(look) for tagadd in tagadds]):
-                continue
-
-            yield ((nodeoffs, editoffs), ('node', 'tag', 'add', *tag.split('.')))
-            tagadds.append(tag)

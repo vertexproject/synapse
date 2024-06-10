@@ -1512,6 +1512,10 @@ class Slab(s_base.Base):
                 if not scan.set_range(nextbyts):
                     return
 
+                if scan.atitem[0] == nextbyts:
+                    if not scan.next_key():
+                        return
+
             except OverflowError:
                 if not scan.first():
                     return
@@ -1953,6 +1957,19 @@ class ScanBack(Scan):
 
         self.genr = self.iterfunc()
         self.atitem = next(self.genr)
+        return True
+
+    def next_key(self):
+
+        if not self.curs.prev_nodup():
+            return False
+
+        if self.dupsort:
+            self.curs.last_dup()
+
+        self.genr = self.iterfunc()
+        self.atitem = next(self.genr)
+
         return True
 
     def set_range(self, lkey):

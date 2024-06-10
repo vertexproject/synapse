@@ -769,21 +769,15 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.add.test:str', cm.exception.errinfo['perm'])
-
-            await core.addUserRule(useriden, (True, ('node', 'add')), gateiden=baselayr)
-
-            with self.raises(s_exc.AuthDeny) as cm:
-                await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.prop.set.test:str:.created', cm.exception.errinfo['perm'])
+            self.eq('node.prop.set.syn:tag:base', cm.exception.errinfo['perm'])
 
             await core.addUserRule(useriden, (True, ('node', 'prop', 'set')), gateiden=baselayr)
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
+            self.eq('node.add.syn:tag', cm.exception.errinfo['perm'])
 
-            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
+            await core.addUserRule(useriden, (True, ('node', 'add')), gateiden=baselayr)
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
@@ -796,6 +790,12 @@ class ViewTest(s_t_utils.SynTest):
             self.eq('node.data.set.foo', cm.exception.errinfo['perm'])
 
             await core.addUserRule(useriden, (True, ('node', 'data', 'set')), gateiden=baselayr)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
 
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
 
@@ -859,9 +859,19 @@ class ViewTest(s_t_utils.SynTest):
             msgs = await core.stormlist('auth.user.addrule visi node --gate $lib.view.get().layers.0.iden')
             self.stormHasNoWarnErr(msgs)
 
+            opts = {'vars': {'role': role.iden}}
+            quorum = await core.callStorm('return($lib.view.get().set(quorum, ({"count": 1, "roles": [$role]})))', opts=opts)
+
             forkopts = {'view': view02.iden}
+            await core.callStorm('return($lib.view.get().setMergeRequest(comment=woot))', opts=forkopts)
+
+            merging = 'return($lib.view.get().getMergingViews()) '
+            self.eq([view02.iden], await core.callStorm(merging))
+
             q = 'return($lib.view.get().insertParentFork(name=staging).iden)'
             newiden = await core.callStorm(q, opts=forkopts)
+
+            self.eq([], await core.callStorm(merging))
 
             view01 = core.getView(newiden)
 
