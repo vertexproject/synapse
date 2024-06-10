@@ -708,8 +708,10 @@ class View(s_nexus.Pusher):  # type: ignore
         # Add all of the bottom view's layers.
         layers.extend(view.layers)
 
+        layridens = [layr.iden for layr in layers]
+
         self.layers = layers
-        self.info['layers'] = [layr.iden for layr in layers]
+        self.info['layers'] = layridens
         self.core.viewdefs.set(self.iden, self.info)
 
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layridens}, gates=[self.iden, self.layers[0].iden])
