@@ -44,11 +44,10 @@ async def pause(genr, iterations=1000):
 
     async for out in agen(genr):
         yield out
+        idx += 1
 
         if idx % iterations == 0:
             await asyncio.sleep(0)
-
-        idx += 1
 
     return
 
