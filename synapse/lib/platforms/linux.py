@@ -13,6 +13,14 @@ import synapse.lib.platforms.common as s_pcommon
 
 meminfo_total_fallback_log = False
 
+EXP_SYSCTL_VALS = {
+    'vm.swappiness': 10,
+    'vm.dirty_expire_centisecs': 20,
+    'vm.dirty_writeback_centisecs': 20,
+    'vm.dirty_background_ratio': 2,
+    'vm.dirty_ratio': 4,
+}
+
 def initHostInfo():
     return {
         'format': 'elf',

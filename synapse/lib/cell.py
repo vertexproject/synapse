@@ -1074,8 +1074,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSTRING = s_version.verstring
 
     SYSCTL_VALS = {
-        'vm.dirty_expire_centisecs': 20,
-        'vm.dirty_writeback_centisecs': 20,
+        k: s_thisplat.EXP_SYSCTL_VALS[k]
+        for k in (
+            'vm.dirty_expire_centisecs',
+            'vm.dirty_writeback_centisecs',
+        )
     }
     SYSCTL_CHECK_FREQ = 60.0
 
