@@ -1932,28 +1932,7 @@ class LayerTest(s_t_utils.SynTest):
                     $node.data.set(foo, bar)
                 ''', opts=opts)
 
-                perms = [perm async for perm in layr.iterLayerAddPerms()]
-                self.eq({
-                    ('node', 'add', 'syn:tag'),
-                    ('node', 'add', 'test:str'),
-
-                    ('node', 'prop', 'set', 'test:str:hehe'),
-                    ('node', 'prop', 'set', 'test:str:.created'),
-
-                    ('node', 'prop', 'set', 'syn:tag:up'),
-                    ('node', 'prop', 'set', 'syn:tag:base'),
-                    ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag:.created'),
-
-                    ('node', 'tag', 'add', 'foo'),
-                    ('node', 'tag', 'add', 'bar'),
-                    ('node', 'tag', 'add', 'foo', 'bar'),
-                    ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
-
-                    ('node', 'data', 'set', 'foo'),
-
-                    ('node', 'edge', 'add', 'refs'),
-                }, set(perms))
+                await layr.confirmLayerEditPerms(core.auth.rootuser)
 
                 await core.nodes('''
                     test:str=foo
@@ -1962,35 +1941,8 @@ class LayerTest(s_t_utils.SynTest):
                     | delnode
                 ''', opts=opts)
 
-                perms = [perm async for perm in layr.iterLayerAddPerms()]
-                self.eq({
-                    ('node', 'add', 'syn:tag'),
-                    ('node', 'add', 'test:str'),
-
-                    ('node', 'prop', 'set', 'test:str:.created'),
-
-                    ('node', 'prop', 'set', 'syn:tag:up'),
-                    ('node', 'prop', 'set', 'syn:tag:base'),
-                    ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag:.created'),
-
-                    ('node', 'tag', 'add', 'foo', 'bar'),
-                }, set(perms))
-
-                perms = [perm async for perm in layr.iterLayerDelPerms()]
-                self.eq({
-                    ('node', 'del', 'syn:tag'),
-                    ('node', 'del', 'test:str'),
-
-                    ('node', 'prop', 'del', 'test:str:.created'),
-
-                    ('node', 'prop', 'del', 'syn:tag:up'),
-                    ('node', 'prop', 'del', 'syn:tag:base'),
-                    ('node', 'prop', 'del', 'syn:tag:depth'),
-                    ('node', 'prop', 'del', 'syn:tag:.created'),
-
-                    ('node', 'tag', 'del', 'foo', 'bar'),
-                }, set(perms))
+                await layr.confirmLayerEditPerms(core.auth.rootuser)
+                await layr.confirmLayerEditPerms(core.auth.rootuser, delete=True)
 
     async def test_layer_v9(self):
         async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:
