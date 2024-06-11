@@ -1041,7 +1041,11 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = layers
         self.wlyr = layers[0]
         self.clearCache()
-        await self.info.set('layers', [layr.iden for layr in layers])
+
+        layridens = [layr.iden for layr in layers]
+        await self.info.set('layers', layridens)
+
+        await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layridens}, gates=[self.iden, layridens[0]])
 
     async def pack(self):
         d = {'iden': self.iden}
@@ -1838,6 +1842,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.parent = self.core.reqView(forkiden)
         await self.info.set('parent', forkiden)
 
+        mesg = {'iden': self.iden, 'name': 'parent', 'valu': forkiden}
+        await self.core.feedBeholder('view:set', mesg, gates=[self.iden, self.layers[0].iden])
+
         await self._calcForkLayers()
 
         for view in self.core.views.values():
@@ -2057,10 +2064,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
-        async for nodeedit in self.wlyr.iterLayerNodeEdits():
-            for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                self.parent._confirm(user, perm)
-                await asyncio.sleep(0)
+        async for perm in self.wlyr.iterLayerAddPerms():
+            self.parent._confirm(user, perm)
+            await asyncio.sleep(0)
 
     async def wipeAllowed(self, user=None):
         '''
@@ -2069,10 +2075,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin():
             return
 
-        async for nodeedit in self.wlyr.iterWipeNodeEdits():
-            for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                self._confirm(user, perm)
-                await asyncio.sleep(0)
+        async for perm in self.wlyr.iterLayerDelPerms():
+            self._confirm(user, perm)
+            await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 

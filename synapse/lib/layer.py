@@ -4577,6 +4577,92 @@ class Layer(s_nexus.Pusher):
                 for _, nid in self.layrslab.scanByPref(lkey, db=self.indxdb):
                     yield (nid, tombtype, tombinfo)
 
+    async def iterLayerAddPerms(self):
+
+        # nodes & props
+        async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
+            form, prop = s_msgpack.un(byts)
+            if form is None:
+                continue
+
+            if self.layrslab.prefexists(abrv, db=self.byprop):
+                if prop:
+                    yield ('node', 'prop', 'set', f'{form}:{prop}')
+                else:
+                    yield ('node', 'add', form)
+
+        # tagprops
+        async for byts, abrv in s_coro.pause(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
+            info = s_msgpack.un(byts)
+            if None in info or len(info) != 3:
+                continue
+
+            if self.layrslab.prefexists(abrv, db=self.bytagprop):
+                yield ('node', 'tag', 'add', *info[1].split('.'))
+
+        # nodedata
+        async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname)):
+            name, _ = self.getAbrvProp(abrv)
+            yield ('node', 'data', 'set', name)
+
+        # edges
+        async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb)):
+            yield ('node', 'edge', 'add', verb.decode())
+
+        # tags
+        # NB: tag perms should be yielded for every leaf on every node in the layer
+        async with self.core.getSpooledDict() as tags:
+
+            # Collect all tag abrvs for all nodes in the layer
+            async for lkey, buid in s_coro.pause(self.layrslab.scanByFull(db=self.bytag)):
+                abrv = lkey[:8]
+                abrvs = list(tags.get(buid, []))
+                abrvs.append(abrv)
+                await tags.set(buid, abrvs)
+
+            # Iterate over each node and it's tags
+            async for buid, abrvs in s_coro.pause(tags.items()):
+                seen = {}
+
+                if len(abrvs) == 1:
+                    # Easy optimization: If there's only one tag abrv, then it's a
+                    # leaf by default
+                    name = self.tagabrv.abrvToName(abrv)
+                    key = tuple(name.split('.'))
+                    yield ('node', 'tag', 'add', *key)
+
+                else:
+                    for abrv in abrvs:
+                        name = self.tagabrv.abrvToName(abrv)
+                        parts = tuple(name.split('.'))
+                        for idx in range(1, len(parts) + 1):
+                            key = tuple(parts[:idx])
+                            seen.setdefault(key, 0)
+                            seen[key] += 1
+
+                    for key, count in seen.items():
+                        if count == 1:
+                            yield ('node', 'tag', 'add', *key)
+
+    async def iterLayerDelPerms(self):
+        async for perm in self.iterLayerAddPerms():
+            if perm[:2] == ('node', 'add'):
+                yield ('node', 'del', *perm[2:])
+                continue
+
+            match perm[:3]:
+                case ('node', 'prop', 'set'):
+                    yield ('node', 'prop', 'del', *perm[3:])
+
+                case ('node', 'tag', 'add'):
+                    yield ('node', 'tag', 'del', *perm[3:])
+
+                case ('node', 'data', 'set'):
+                    yield ('node', 'data', 'pop', *perm[3:])
+
+                case ('node', 'edge', 'add'):
+                    yield ('node', 'edge', 'del', *perm[3:])
+
     async def iterLayerNodeEdits(self):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
@@ -4849,79 +4935,3 @@ class Layer(s_nexus.Pusher):
         self.isdeleted = True
         await self.fini()
         shutil.rmtree(self.dirn, ignore_errors=True)
-
-def getNodeEditPerms(nodeedits):
-    '''
-    Yields (offs, perm) tuples that can be used in user.allowed()
-    '''
-    tags = []
-    tagadds = []
-
-    for nodeoffs, (nid, form, edits) in enumerate(nodeedits):
-
-        tags.clear()
-        tagadds.clear()
-
-        for editoffs, (edit, info) in enumerate(edits):
-
-            permoffs = (nodeoffs, editoffs)
-
-            if edit == EDIT_NODE_ADD:
-                yield (permoffs, ('node', 'add', form))
-                continue
-
-            if edit == EDIT_NODE_DEL or edit == EDIT_NODE_TOMB:
-                yield (permoffs, ('node', 'del', form))
-                continue
-
-            if edit == EDIT_PROP_SET:
-                yield (permoffs, ('node', 'prop', 'set', f'{form}:{info[0]}'))
-                continue
-
-            if edit == EDIT_PROP_DEL or edit == EDIT_PROP_TOMB:
-                yield (permoffs, ('node', 'prop', 'del', f'{form}:{info[0]}'))
-                continue
-
-            if edit == EDIT_TAG_SET:
-                if info[1] != (None, None):
-                    tagadds.append(info[0])
-                    yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
-                else:
-                    tags.append((len(info[0]), editoffs, info[0]))
-                continue
-
-            if edit == EDIT_TAG_DEL or edit == EDIT_TAG_TOMB:
-                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_TAGPROP_SET:
-                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_TAGPROP_DEL or edit == EDIT_TAGPROP_TOMB:
-                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
-                continue
-
-            if edit == EDIT_NODEDATA_SET:
-                yield (permoffs, ('node', 'data', 'set', info[0]))
-                continue
-
-            if edit == EDIT_NODEDATA_DEL or edit == EDIT_NODEDATA_TOMB:
-                yield (permoffs, ('node', 'data', 'pop', info[0]))
-                continue
-
-            if edit == EDIT_EDGE_ADD:
-                yield (permoffs, ('node', 'edge', 'add', info[0]))
-                continue
-
-            if edit == EDIT_EDGE_DEL or edit == EDIT_EDGE_TOMB:
-                yield (permoffs, ('node', 'edge', 'del', info[0]))
-                continue
-
-        for _, editoffs, tag in sorted(tags, reverse=True):
-            look = tag + '.'
-            if any([tagadd.startswith(look) for tagadd in tagadds]):
-                continue
-
-            yield ((nodeoffs, editoffs), ('node', 'tag', 'add', *tag.split('.')))
-            tagadds.append(tag)

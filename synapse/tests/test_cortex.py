@@ -6132,7 +6132,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             coros = len(core.activecoros)
 
+            layridens = [lyr.iden for lyr in view4.layers if lyr.iden != view3.layers[0].iden]
+            events = [
+                {'event': 'view:setlayers', 'info': {'iden': view4.iden, 'layers': layridens}},
+                {'event': 'view:set', 'info': {'iden': view4.iden, 'name': 'parent', 'valu': None}}
+            ]
+            task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+
             await core.delViewWithLayer(view3_iden)
+
+            await asyncio.wait_for(task, timeout=1)
 
             # push/pull activecoros have been deleted
             self.len(coros - 2, core.activecoros)

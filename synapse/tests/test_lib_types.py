@@ -1144,6 +1144,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('hehe', enums.norm('hehe')[0])
         self.eq('haha', enums.norm('haha')[0])
         self.eq('zork', enums.norm('zork')[0])
+        self.raises(s_exc.BadTypeValu, enums.norm, 1.23)
         self.raises(s_exc.BadTypeValu, enums.norm, 'zing')
 
         strsubs = model.type('str').clone({'regex': r'(?P<first>[ab]+)(?P<last>[zx]+)'})
