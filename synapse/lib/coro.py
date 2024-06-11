@@ -39,18 +39,6 @@ async def agen(item):
     for x in item:
         yield x
 
-async def pause(genr, iterations=1000):
-    idx = 0
-
-    async for out in agen(genr):
-        yield out
-        idx += 1
-
-        if idx % iterations == 0:
-            await asyncio.sleep(0)
-
-    return
-
 def executor(func, *args, **kwargs):
     '''
     Execute a non-coroutine function in the ioloop executor pool.

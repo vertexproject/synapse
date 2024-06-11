@@ -4097,7 +4097,7 @@ class Layer(s_nexus.Pusher):
     async def iterLayerAddPerms(self):
 
         # nodes & props
-        async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
+        for idx, (byts, abrv) in enumerate(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
             form, prop = s_msgpack.un(byts)
             if form is None:
                 continue
@@ -4108,8 +4108,11 @@ class Layer(s_nexus.Pusher):
                 else:
                     yield ('node', 'add', form)
 
+            if idx % 1000 == 0:
+                await asyncio.sleep(0)
+
         # tagprops
-        async for byts, abrv in s_coro.pause(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
+        for idx, (byts, abrv) in enumerate(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
             info = s_msgpack.un(byts)
             if None in info or len(info) != 3:
                 continue
@@ -4117,28 +4120,40 @@ class Layer(s_nexus.Pusher):
             if self.layrslab.prefexists(abrv, db=self.bytagprop):
                 yield ('node', 'tag', 'add', *info[1].split('.'))
 
+            if idx % 1000 == 0:
+                await asyncio.sleep(0)
+
         # nodedata
-        async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname)):
+        for idx, abrv in enumerate(self.dataslab.scanKeys(db=self.dataname)):
             name, _ = self.getAbrvProp(abrv)
             yield ('node', 'data', 'set', name)
 
+            if idx % 1000 == 0:
+                await asyncio.sleep(0)
+
         # edges
-        async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb)):
+        for idx, verb in enumerate(self.layrslab.scanKeys(db=self.byverb)):
             yield ('node', 'edge', 'add', verb.decode())
+
+            if idx % 1000 == 0:
+                await asyncio.sleep(0)
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
         async with self.core.getSpooledDict() as tags:
 
             # Collect all tag abrvs for all nodes in the layer
-            async for lkey, buid in s_coro.pause(self.layrslab.scanByFull(db=self.bytag)):
+            for idx, (lkey, buid) in enumerate(self.layrslab.scanByFull(db=self.bytag)):
                 abrv = lkey[:8]
                 abrvs = list(tags.get(buid, []))
                 abrvs.append(abrv)
                 await tags.set(buid, abrvs)
 
+            if idx % 1000 == 0:
+                await asyncio.sleep(0)
+
             # Iterate over each node and it's tags
-            async for buid, abrvs in s_coro.pause(tags.items()):
+            for idx, (buid, abrvs) in enumerate(tags.items()):
                 seen = {}
 
                 if len(abrvs) == 1:
@@ -4160,6 +4175,9 @@ class Layer(s_nexus.Pusher):
                     for key, count in seen.items():
                         if count == 1:
                             yield ('node', 'tag', 'add', *key)
+
+                if idx % 1000 == 0:
+                    await asyncio.sleep(0)
 
     async def iterLayerDelPerms(self):
         async for perm in self.iterLayerAddPerms():
