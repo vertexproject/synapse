@@ -1634,8 +1634,6 @@ class Slab(s_base.Base):
                 if fixvals:
                     fixnames = [k['name'] for k in fixvals]
                     mesg = f'Sysctl values may not be set for optimal performance: {", ".join(fixnames)}. '
-                    mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
-                    mesg += 'for information about these sysctl parameters.'
                     logger.warning(mesg, extra={'synapse': {'sysctls': fixvals}})
 
         self._initCoXact()
