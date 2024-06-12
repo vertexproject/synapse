@@ -4124,18 +4124,18 @@ class Layer(s_nexus.Pusher):
         if not allow_forms or not allow_props:
             async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
                 form, prop = s_msgpack.un(byts)
-                if form is None:
+                if form is None: # pragma: no cover
                     continue
 
                 if self.layrslab.prefexists(abrv, db=self.byprop):
                     if prop and not allow_props:
                         realform = self.core.model.form(form)
-                        if not realform:
+                        if not realform: # pragma: no cover
                             mesg = f'Invalid form: {form}'
                             raise s_exc.NoSuchForm(mesg=mesg, form=form)
 
                         realprop = realform.prop(prop)
-                        if not realprop:
+                        if not realprop: # pragma: no cover
                             mesg = f'Invalid prop: {form}:{prop}'
                             raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
 
