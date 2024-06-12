@@ -1067,17 +1067,6 @@ class HiveUser(HiveRuler):
         return info
 
     def confirm(self, perm, default=None, gateiden=None):
-        # PROP_SET_PREFIX = ('node', 'prop', 'set')
-        # PROP_DEL_PREFIX = ('node', 'prop', 'del')
-
-        # if perm[:len(PROP_SET_PREFIX)] == PROP_SET_PREFIX:
-        #     prop = perm[len(PROP_SET_PREFIX):]
-        #     self._confirmPropSet(prop, layriden=gateiden)
-
-        # elif perm[:len(PROP_DEL_PREFIX)] == PROP_DEL_PREFIX:
-        #     prop = perm[len(PROP_DEL_PREFIX):]
-        #     self._confirmPropDel(prop, layriden=gateiden)
-
         if not self.allowed(perm, default=default, gateiden=gateiden):
             self.raisePermDeny(perm, gateiden=gateiden)
 
