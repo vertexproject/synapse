@@ -1932,7 +1932,8 @@ class LayerTest(s_t_utils.SynTest):
                     $node.data.set(foo, bar)
                 ''', opts=opts)
 
-                await layr.confirmLayerEditPerms(core.auth.rootuser)
+                parent = core.view.layers[0]
+                await layr.confirmLayerEditPerms(core.auth.rootuser, parent.iden)
 
                 await core.nodes('''
                     test:str=foo
@@ -1941,8 +1942,8 @@ class LayerTest(s_t_utils.SynTest):
                     | delnode
                 ''', opts=opts)
 
-                await layr.confirmLayerEditPerms(core.auth.rootuser)
-                await layr.confirmLayerEditPerms(core.auth.rootuser, delete=True)
+                await layr.confirmLayerEditPerms(core.auth.rootuser, parent.iden)
+                await layr.confirmLayerEditPerms(core.auth.rootuser, layr.iden, delete=True)
 
     async def test_layer_v9(self):
         async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:

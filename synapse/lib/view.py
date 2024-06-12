@@ -1444,7 +1444,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin() or user.isAdmin(gateiden=parentlayr.iden):
             return
 
-        await fromlayr.confirmLayerEditPerms(user, gateiden=parentlayr.iden)
+        await fromlayr.confirmLayerEditPerms(user, parentlayr.iden)
 
     async def wipeAllowed(self, user=None):
         '''
@@ -1454,7 +1454,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         layer = self.layers[0]
-        await layer.confirmLayerEditPerms(user, delete=True)
+        await layer.confirmLayerEditPerms(user, layer.iden, delete=True)
 
     async def runTagAdd(self, node, tag, valu):
 

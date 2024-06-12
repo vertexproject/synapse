@@ -4094,10 +4094,7 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0]
 
-    async def confirmLayerEditPerms(self, user, gateiden=None, delete=False):
-        if gateiden is None:
-            gateiden = self.iden
-
+    async def confirmLayerEditPerms(self, user, gateiden, delete=False):
         if user.allowed(('node',), gateiden=gateiden):
             return
 
