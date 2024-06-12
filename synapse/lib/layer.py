@@ -4129,11 +4129,20 @@ class Layer(s_nexus.Pusher):
 
                 if self.layrslab.prefexists(abrv, db=self.byprop):
                     if prop and not allow_props:
-                        oldperm = perm_props + (f'{form}:{prop}',)
-                        newperm = perm_props + (form, prop)
+                        realform = self.core.model.form(form)
+                        if not realform:
+                            mesg = f'Invalid form: {form}'
+                            raise s_exc.NoSuchForm(mesg=mesg, form=form)
 
-                        if not user.allowed(oldperm, gateiden=gateiden):
-                            user.confirm(newperm, gateiden=gateiden)
+                        realprop = realform.prop(prop)
+                        if not realprop:
+                            mesg = f'Invalid prop: {form}:{prop}'
+                            raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
+
+                        if delete:
+                            self.core.confirmPropDel(user, realprop, gateiden)
+                        else:
+                            self.core.confirmPropSet(user, realprop, gateiden)
 
                     elif not prop and not allow_forms:
                         user.confirm(perm_forms + (form,), gateiden=gateiden)
