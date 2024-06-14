@@ -76,6 +76,15 @@ svcobjstatus = (
     (50, 'removed'),
 )
 
+svcaccesstypes = (
+    (10, 'create'),
+    (30, 'read'),
+    (40, 'update'),
+    (50, 'delete'),
+    (60, 'list'),
+    (70, 'execute'),
+)
+
 def getAddrScope(ipv6):
 
     if ipv6.is_loopback:
@@ -1608,34 +1617,35 @@ class InetModule(s_module.CoreModule):
                         ),
                     }),
 
-                    ('inet:service:object', {
-
-                        'doc': 'Properties common to objects within a service platform.',
+                    ('inet:service:base', {
+                        'doc': 'Properties common to most forms within a service platform.',
                         'props': (
 
                             ('id', ('str', {'strip': True}), {
-                                'doc': 'A platform specific ID used to identify the node.'}),
+                                'doc': 'A platform specific ID.'}),
 
-                            ('created', ('time', {}), {
-                                'doc': 'The time when the object was created in the platform.'}),
+                            ('platform', ('inet:service:platform', {}), {
+                                'doc': 'The platform which defines the node.'}),
 
-                            ('removed', ('time', {}), {
-                                'doc': 'The time when the object was removed from the platform.'}),
+                            ('instance', ('inet:service:instance', {}), {
+                                'doc': 'The platform instance which defines the node.'}),
+                        ),
+                    }),
+
+                    ('inet:service:object', {
+
+                        'doc': 'Properties common to objects within a service platform.',
+                        'interfaces': ('inet:service:base',),
+                        'props': (
 
                             ('status', ('inet:service:object:status', {}), {
                                 'doc': 'The status of this object.'}),
 
-                            ('platform', ('inet:service:platform', {}), {
-                                'doc': 'The platform which defines the object.'}),
-
-                            ('instance', ('inet:service:instance', {}), {
-                                'doc': 'The platform instance which defines the object.'}),
+                            ('period', ('ival', {}), {
+                                'doc': 'The period when the object existed.'}),
 
                             ('creator', ('inet:service:account', {}), {
                                 'doc': 'The service account which created the object.'}),
-
-                            ('owner', ('inet:service:account', {}), {
-                                'doc': 'The service account which owns the object.'}),
 
                         ),
                     }),
@@ -1643,11 +1653,8 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:action', {
 
                         'doc': 'Properties common to events within a service platform.',
-                        'interfaces': ('inet:service:object',),
+                        'interfaces': ('inet:service:base',),
                         'props': (
-
-                            ('id', ('str', {'strip': True}), {
-                                'doc': 'A platform specific ID used to identify the action.'}),
 
                             ('time', ('time', {}), {
                                 'doc': 'The time that the account initiated the action.'}),
@@ -1657,6 +1664,9 @@ class InetModule(s_module.CoreModule):
 
                             ('success', ('bool', {}), {
                                 'doc': 'Set to true if the action was successful.'}),
+
+                            ('rule', ('inet:service:rule', {}), {
+                                'doc': 'The rule which allowed or denied the action.'}),
 
                             ('error:code', ('str', {'strip': True}), {
                                 'doc': 'The platform specific error code if the action was unsuccessful.'}),
@@ -3503,11 +3513,8 @@ class InetModule(s_module.CoreModule):
                             'disp': {'hint': 'text'},
                             'doc': 'A description of the service instance.'}),
 
-                        ('created', ('time', {}), {
-                            'doc': 'The time when the instance was created in the platform.'}),
-
-                        ('removed', ('time', {}), {
-                            'doc': 'The time when the instance was removed from the platform.'}),
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the instance existed.'}),
 
                         ('status', ('inet:service:object:status', {}), {
                             'doc': 'The status of this instance.'}),
@@ -3534,7 +3541,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'Current profile details associated with the account.'}),
                     )),
 
-                    ('inet:service:group', {}, (
+                    ('inet:service:group', {}, ( # inet:service:object
 
                         ('id', ('str', {'strip': True}), {
                             'doc': 'A platform specific ID used to identify the group.'}),
@@ -3608,27 +3615,12 @@ class InetModule(s_module.CoreModule):
                         ('method', ('inet:service:login:method:taxonomy', {}), {
                             'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
 
-                        ('session', ('inet:service:session', {}), {
-                            'doc': 'The session generated or refreshed if the login was successful.'}),
-
-                        ('server', ('inet:server', {}), {
-                            'doc': 'The network address of the server which handled the login.'}),
-
-                        ('server:host', ('it:host', {}), {
-                            'doc': 'The server host which authenticated the login.'}),
-
-                        ('client', ('inet:client', {}), {
-                            'doc': 'The network address of the client from the server perspective.'}),
-
-                        ('client:host', ('it:host', {}), {
-                            'doc': 'The client host which initiated the login.'}),
-
                         # TODO ndef based auth proto details
                     )),
 
                     ('inet:service:message', {}, (
 
-                        ('from', ('inet:service:account', {}), {
+                        ('account', ('inet:service:account', {}), {
                             'doc': 'The account which sent the message.'}),
 
                         ('to', ('inet:service:account', {}), {
@@ -3647,8 +3639,8 @@ class InetModule(s_module.CoreModule):
                             'disp': {'hint': 'text'},
                             'doc': 'The text body of the message.'}),
 
-                        ('deleted', ('bool', {}), {
-                            'doc': 'Set to true if the message was deleted.'}),
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The message status.'}),
 
                         ('replyto', ('inet:service:message', {}), {
                             'doc': 'The message that this message was sent in reply to. Used for message threading.'}),
@@ -3660,10 +3652,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'An array of files attached to the message.'}),
 
                         ('place', ('geo:place', {}), {
-                            'doc': 'The place that the message was reportedly sent from.'}),
+                            'doc': 'The place that the message was sent from.'}),
 
                         ('place:name', ('geo:name', {}), {
-                            'doc': 'The name of the place that the message was reportedly sent from.'}),
+                            'doc': 'The name of the place that the message was sent from.'}),
 
                         ('client:address', ('inet:client', {}), {
                             'doc': 'The client address that the message was sent from.'}),
@@ -3680,7 +3672,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:message:link', {}, (
 
-                        ('title', ('str', {}), {
+                        ('title', ('str', {'strip': True}), {
                             'doc': 'The title text for the link.'}),
 
                         ('url', ('inet:url', {}), {
@@ -3744,6 +3736,9 @@ class InetModule(s_module.CoreModule):
 
                         ('resource', ('inet:service:resource', {}), {
                             'doc': 'The resource which the account attempted to access.'}),
+
+                        ('type', ('int', {'enums': svcaccesstypes}), {
+                            'doc': 'The type of access requested.'}),
                     )),
                 ),
             }),

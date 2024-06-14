@@ -450,10 +450,14 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :name="ubuntu-24.10-amd64.vhdx"
                 :published=202405170940
                 :publisher={[ ps:contact=(blackout,) :name=blackout ]}
+                :publisher:account={[ inet:service:account=* :user=visi ]}
+                :parents={[ it:software:image :name=zoom ]}
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.len(1, nodes[0].get('parents'))
+            self.nn(nodes[0].get('publisher:account'))
             self.eq(nodes[0].ndef, ('it:software:image', s_common.guid(('ubuntu', '24.10', 'amd64', 'vhdx'))))
             self.eq(nodes[0].get('name'), 'ubuntu-24.10-amd64.vhdx')
             self.eq(nodes[0].get('published'), 1715938800000)
