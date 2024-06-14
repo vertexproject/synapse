@@ -3120,7 +3120,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :public=$lib.true
                 )
 
-                :from=$blckiden
+                :account=$blckiden
                 :text="omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                 :links+=$linkiden
                 :attachments+=$atchiden
@@ -3145,7 +3145,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(3, nodes)
             for node in nodes:
 
-                self.eq(node.get('from'), blckacct.ndef[1])
+                self.eq(node.get('account'), blckacct.ndef[1])
                 self.eq(node.get('text'), "omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ")
                 self.eq(node.get('links'), [msglink.ndef[1]])
 
@@ -3192,7 +3192,6 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:access=(api, blackout, 1715856900000, vertex, slack)
                 :account=$blckiden
                 :instance=$instiden
-                :owner=$visiiden
                 :platform=$platiden
                 :resource=$rsrciden
                 :success=$lib.true
@@ -3210,7 +3209,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('instance'), platinst.ndef[1])
-            self.eq(nodes[0].get('owner'), visiacct.ndef[1])
             self.eq(nodes[0].get('platform'), platform.ndef[1])
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
