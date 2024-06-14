@@ -980,7 +980,7 @@ class HttpReq(s_stormtypes.StormType):
         try:
             return json.loads(self.rnfo.get('body'))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
-            raise s_exc.StormRuntimeError(mesg='Failed to decode request body as JSON: {e}') from None
+            raise s_exc.StormRuntimeError(mesg=f'Failed to decode request body as JSON: {e}') from None
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSendCode(self, code):

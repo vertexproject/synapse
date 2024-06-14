@@ -3568,6 +3568,114 @@ class StormTypesTest(s_test.SynTest):
             self.eq(counts.get('test:int'), 2)
             self.eq(counts.get('test:guid'), 1)
 
+    async def test_storm_lib_layer_sodebyform(self):
+        async with self.getTestCore() as core:
+
+            await core.nodes('$lib.model.ext.addTagProp(score, (int, ({})), ({}))')
+
+            view_prop = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_tags = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_tagp = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_n1eg = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_n2eg = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_data = await core.callStorm('return($lib.view.get().fork().iden)')
+            view_noop = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            self.len(1, await core.nodes('[ test:str=foo +#base ]'))
+            self.len(1, await core.nodes('test:str=foo [ :hehe=haha ]', opts={'view': view_prop}))
+            self.len(1, await core.nodes('test:str=foo [ +#bar ]', opts={'view': view_tags}))
+            self.len(1, await core.nodes('test:str=foo [ +#base:score=10 ]', opts={'view': view_tagp}))
+            self.len(1, await core.nodes('test:str=foo [ +(bam)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(bam)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo $node.data.set(hehe, haha)', opts={'view': view_data}))
+
+            scmd = '''
+                $sodes = ([])
+                for $sode in $lib.layer.get().getStorNodesByForm($form) {
+                    $sodes.append($sode)
+                }
+                return($sodes)
+            '''
+            opts = {'vars': {'form': 'test:str'}}
+
+            self.len(1, await core.callStorm(scmd, opts=opts))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_prop}))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_tags}))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_tagp}))
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_n1eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n2eg})) # n2-only sode not added
+            self.len(1, await core.callStorm(scmd, opts={**opts, 'view': view_data}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_noop}))
+
+            self.len(1, await core.nodes('test:str=foo [ -:hehe ]', opts={'view': view_prop}))
+            self.len(1, await core.nodes('test:str=foo [ -#bar ]', opts={'view': view_tags}))
+            self.len(1, await core.nodes('test:str=foo [ -#base:score ]', opts={'view': view_tagp}))
+            self.len(1, await core.nodes('test:str=foo [ -(bam)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(bam)- {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo $node.data.pop(hehe)', opts={'view': view_data}))
+
+            self.len(1, await core.callStorm(scmd, opts=opts))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_prop}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tags}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tagp}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n1eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n2eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_data}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_noop}))
+
+            self.len(1, await core.nodes('''
+                test:str=foo [
+                    :hehe=lol
+                    +#baz
+                    +#base:score=11
+                    +(bar)> {[ test:int=2 ]}
+                    <(bar)+ {[ test:int=1 ]}
+                ]
+                $node.data.set(haha, lol)
+            '''))
+            self.len(1, await core.nodes('test:str=foo [ :hehe=lol ]', opts={'view': view_prop}))
+            self.len(1, await core.nodes('test:str=foo [ +#baz ]', opts={'view': view_tags}))
+            self.len(1, await core.nodes('test:str=foo [ +#base:score=11 ]', opts={'view': view_tagp}))
+            self.len(1, await core.nodes('test:str=foo [ +(bar)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(bar)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo $node.data.set(haha, lol)', opts={'view': view_data}))
+
+            self.len(1, await core.callStorm(scmd, opts=opts))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_prop}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tags}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_tagp}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n1eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_n2eg}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_data}))
+            self.len(0, await core.callStorm(scmd, opts={**opts, 'view': view_noop}))
+
+            self.len(1, await core.nodes('''
+                test:str=foo [
+                    -:hehe
+                    -#baz
+                    -#base:score -#base
+                    -(bar)> { test:int=2 }
+                    <(bar)- { test:int=1 }
+                ]
+                $node.data.pop(haha)
+            '''))
+            self.len(1, await core.callStorm(scmd, opts=opts))
+
+            await core.nodes('test:str=foo delnode')
+            self.len(0, await core.callStorm(scmd, opts=opts))
+
+            # sad
+
+            await self.asyncraises(s_exc.NoSuchForm, core.callStorm(scmd, opts={'vars': {'form': 'newp:newp'}}))
+
+            lowuser = await core.auth.addUser('low')
+            lowopts = opts | {'user': lowuser.iden, 'view': view_prop}
+
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=lowopts))
+
+            await lowuser.addRule((True, ('view', 'read')), gateiden=view_prop)
+            await core.callStorm(scmd, opts=lowopts)
+
     async def test_storm_lib_layer_upstream(self):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
@@ -6596,11 +6704,10 @@ words\tword\twrd'''
             self.nn(await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts))
             self.eq([fork.iden], await core.callStorm(merging))
 
-            # confirm that you may not re-parent to a view with a merge request
+            # confirm that you may re-parent to a view with a merge request
             layr = await core.addLayer()
             vdef = await core.addView({'layers': (layr['iden'],)})
-            with self.raises(s_exc.BadState):
-                await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
+            await core.getView(vdef['iden']).setViewInfo('parent', fork.iden)
 
             opts = {'view': fork.iden, 'user': visi.iden}
             self.nn(await core.callStorm('return($lib.view.get().setMergeVote(approved=(false)))', opts=opts))
@@ -6650,28 +6757,53 @@ words\tword\twrd'''
 
             self.eq([], await core.callStorm(merging))
 
-            # test coverage for bad state for merge request
-            fork00 = await core.getView().fork()
-            fork01 = await core.getView(fork00['iden']).fork()
+            # merge a view with a fork
+            mainview = core.getView()
+            fork00 = await mainview.fork()
+            midfork = core.getView(fork00['iden'])
 
-            opts = {'view': fork00['iden']}
-            with self.raises(s_exc.BadState):
-                await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+            fork01 = await midfork.fork()
+            fork01_iden = fork01['iden']
+            self.true(midfork.hasKids())
+
+            opts = {'view': midfork.iden}
+            await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
+
+            self.eq([midfork.iden], await core.callStorm(merging))
+
+            layridens = [lyr['iden'] for lyr in fork01['layers'] if lyr['iden'] != midfork.layers[0].iden]
+            events = [
+                {'event': 'view:setlayers', 'info': {'iden': fork01_iden, 'layers': layridens}},
+                {'event': 'view:set', 'info': {'iden': fork01_iden, 'name': 'parent', 'valu': mainview.iden}}
+            ]
+            task = core.schedCoro(s_test.waitForBehold(core, events))
+
+            opts = {'view': midfork.iden, 'user': visi.iden}
+            await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
+
+            self.true(await midfork.waitfini(timeout=12))
+
+            await asyncio.wait_for(task, timeout=5)
 
             self.eq([], await core.callStorm(merging))
 
-            await core.delView(fork01['iden'])
+            leaffork = core.getView(fork01['iden'])
+            self.false(leaffork.hasKids())
+
+            self.len(2, leaffork.layers)
+            self.eq(leaffork.parent, core.getView())
+
+            # test coverage for bad state for merge request
+            opts = {'view': fork01['iden']}
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
-            self.eq([fork00['iden']], await core.callStorm(merging))
+            self.eq([fork01['iden']], await core.callStorm(merging))
 
             core.getView().layers[0].readonly = True
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
             core.getView().layers[0].readonly = False
-
-            with self.raises(s_exc.BadState):
-                await core.callStorm('return($lib.view.get().fork())', opts=opts)
+            await core.callStorm('return($lib.view.get().fork())', opts=opts)
 
             # setup a new merge and make a mirror...
             forkdef = await core.getView().fork()
@@ -6681,7 +6813,7 @@ words\tword\twrd'''
             await core.stormlist('[ inet:ipv4=5.5.5.5 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
-            self.eq(set([fork.iden, fork00['iden']]), set(await core.callStorm(merging)))
+            self.eq(set([fork.iden, fork01['iden']]), set(await core.callStorm(merging)))
 
             # hamstring the runViewMerge method on the new view
             async def fake():

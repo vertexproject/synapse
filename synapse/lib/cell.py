@@ -109,6 +109,25 @@ def adminapi(log=False):
 
     return decrfunc
 
+def from_leader(func):
+    '''
+    Decorator used to indicate that the decorated method must call up to the
+    leader to perform it's work.
+
+    This only works on Cell classes and subclasses. The decorated method name
+    MUST be the same as the telepath API name.
+    '''
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if not self.isactive:
+            proxy = await self.nexsroot.client.proxy()
+            api = getattr(proxy, func.__name__)
+            return await api(*args, **kwargs)
+
+        return await func(self, *args, **kwargs)
+
+    return wrapper
+
 async def _doIterBackup(path, chunksize=1024):
     '''
     Create tarball and stream bytes.
@@ -924,6 +943,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'minimum': 0,
             'maximum': 100,
         },
+        'health:sysctl:checks': {
+            'default': True,
+            'description': 'Enable sysctl parameter checks and warn if values are not optimal.',
+            'type': 'boolean',
+        },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
@@ -1048,6 +1072,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     COMMIT = s_version.commit
     VERSION = s_version.version
     VERSTRING = s_version.verstring
+
+    SYSCTL_VALS = {
+        'vm.dirty_expire_centisecs': 20,
+        'vm.dirty_writeback_centisecs': 20,
+    }
+    SYSCTL_CHECK_FREQ = 60.0
 
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
@@ -1177,16 +1207,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.cellinfo = await node.dict()
         self.onfini(node)
 
+        # Check the cell version didn't regress
+        if (lastver := self.cellinfo.get('cell:version')) is not None and self.VERSION < lastver:
+            mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
+            logger.error(mesg)
+            raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
+
+        await self.cellinfo.set('cell:version', self.VERSION)
+
+        # Check the synapse version didn't regress
+        if (lastver := self.cellinfo.get('synapse:version')) is not None and s_version.version < lastver:
+            mesg = f'Synapse version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {s_version.version}.'
+            logger.error(mesg)
+            raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
+
+        await self.cellinfo.set('synapse:version', s_version.version)
+
         node = await self.hive.open(('cellvers',))
         self.cellvers = await node.dict(nexs=True)
-
-        if self.inaugural:
-            await self.cellinfo.set('synapse:version', s_version.version)
-
-        synvers = self.cellinfo.get('synapse:version')
-
-        if synvers is None or synvers < s_version.version:
-            await self.cellinfo.set('synapse:version', s_version.version)
 
         self.auth = await self._initCellAuth()
 
@@ -1216,6 +1254,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
+
+        if self.conf.get('health:sysctl:checks'):
+            self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
         await self._initAhaRegistry()
@@ -1419,6 +1460,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
+
+    async def _runSysctlLoop(self):
+        while not self.isfini:
+            fixvals = []
+            sysctls = s_thisplat.getSysctls()
+
+            for name, valu in self.SYSCTL_VALS.items():
+                if (sysval := sysctls.get(name)) != valu:
+                    fixvals.append({'name': name, 'expected': valu, 'actual': sysval})
+
+            if not fixvals:
+                # All sysctl parameters have been set to recommended values, no
+                # need to keep checking.
+                break
+
+            fixnames = [k['name'] for k in fixvals]
+            mesg = f'Sysctl values different than expected: {", ".join(fixnames)}. '
+            mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
+            mesg += 'for information about these sysctl parameters.'
+
+            extra = await self.getLogExtra(sysctls=fixvals)
+            logger.warning(mesg, extra=extra)
+
+            await self.waitfini(self.SYSCTL_CHECK_FREQ)
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -4076,6 +4141,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getSpooledSet(self):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
+
+    @contextlib.asynccontextmanager
+    async def getSpooledDict(self):
+        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as sdict:
+            yield sdict
 
     async def addSignalHandlers(self):
         await s_base.Base.addSignalHandlers(self)

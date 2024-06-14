@@ -1,13 +1,17 @@
+import json
 import hashlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.const as s_const
+import synapse.lib.scrape as s_scrape
 
 import synapse.models.crypto as s_m_crypto
 
+import synapse.tests.files as s_t_files
 import synapse.tests.utils as s_t_utils
+import synapse.tests.test_lib_scrape as s_t_scrape
 
 class InfotechModelTest(s_t_utils.SynTest):
 
@@ -28,28 +32,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('desc'), 'omgwtfbbq')
             self.eq(nodes[0].get('url'), 'https://cwe.mitre.org/data/definitions/120.html')
             self.eq(nodes[0].get('parents'), ('CWE-119',))
-
-            self.eq(r'foo\:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
-
-            with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=asdf]')
-
-            with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
-
-            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
-
-            nodes = await core.nodes('''[
-                it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
-            ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*'))
-            self.eq(nodes[0].get('part'), 'a')
-            self.eq(nodes[0].get('vendor'), 'microsoft')
-            self.eq(nodes[0].get('product'), 'internet_explorer')
-            self.eq(nodes[0].get('version'), '8.0.6001')
-            self.eq(nodes[0].get('update'), 'beta')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:group=G0100
@@ -76,6 +58,42 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('software'), ('S0100', 'S0200'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
             self.eq(nodes[0].get('isnow'), 'G0110')
+
+            desc = 'A database and set of services that allows administrators to manage permissions, access to network '
+            desc += 'resources, and stored data objects (user, group, application, or devices)(Citation: Microsoft AD '
+            desc += 'DS Getting Started)'
+            refs = (
+                'https://attack.mitre.org/datasources/DS0026',
+                'https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/ad-ds-getting-started',
+            )
+            q = f'''
+            [ it:mitre:attack:datasource=DS0026
+                :name="Active Directory"
+                :description="{desc}"
+                :references=({",".join(refs)})
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:mitre:attack:datasource', 'DS0026'))
+            self.eq(nodes[0].get('name'), 'active directory')
+            self.eq(nodes[0].get('description'), desc)
+            self.eq(nodes[0].get('references'), refs)
+
+            q = f'''
+            [ it:mitre:attack:data:component=(DS0026, "Active Directory Credential Request")
+                :name="Active Directory Credential Request"
+                :description="{desc}"
+                :datasource=DS0026
+            ] -+> it:mitre:attack:datasource
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].get('name'), 'active directory credential request')
+            self.eq(nodes[0].get('description'), desc)
+            self.eq(nodes[0].get('datasource'), 'DS0026')
+            self.eq(nodes[1].ndef, ('it:mitre:attack:datasource', 'DS0026'))
+            dcguid = nodes[0].ndef[1]
 
             nodes = await core.nodes('''[
                 it:mitre:attack:tactic=TA0100
@@ -107,8 +125,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :isnow=T1110
                     :tactics=(TA0200,TA0100,TA0100)
                     :matrix=enterprise
-            ]''')
-            self.len(1, nodes)
+                    :data:components+={ it:mitre:attack:data:component=(DS0026, "Active Directory Credential Request") }
+            ] -+> it:mitre:attack:data:component
+            ''')
+            self.len(2, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
             self.eq(nodes[0].get('name'), 'lockpicking')
             self.eq(nodes[0].get('desc'), 'speedhackers')
@@ -120,6 +140,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('status'), 'deprecated')
             self.eq(nodes[0].get('isnow'), 'T1110')
             self.eq(nodes[0].get('matrix'), 'enterprise')
+            self.eq(nodes[0].get('data:components'), [dcguid])
+            self.eq(nodes[1].ndef, ('it:mitre:attack:data:component', dcguid))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100
@@ -1066,24 +1088,28 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
                 it:prod:hardware=*
+                    :manufacturer={ gen.ou.org dell }
+                    :manufacturer:name=dell
                     :make=dell
                     :model=XPS13
                     :version=alpha
                     :type=pc.laptop
                     :desc=WootWoot
                     :released=20220202
-                    :cpe=cpe:2.3:h:dell:xps13::::::::
+                    :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
                     :parts = (*, *)
             ]''')
             self.eq('WootWoot', nodes[0].props['desc'])
             self.eq('dell', nodes[0].props['make'])
             self.eq('xps13', nodes[0].props['model'])
             self.eq('alpha', nodes[0].props['version'])
-            self.eq('cpe:2.3:h:dell:xps13::::::::', nodes[0].props['cpe'])
+            self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].props['cpe'])
             self.eq(1643760000000, nodes[0].props['released'])
             self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
             self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
             self.len(2, await core.nodes('it:prod:hardware:make=dell -> it:prod:hardware'))
+            self.eq('dell', nodes[0].props['manufacturer:name'])
+            self.len(1, await core.nodes('it:prod:hardware -> ou:org +:name=dell'))
 
             nodes = await core.nodes('''[
                 it:prod:component=*
@@ -1649,6 +1675,51 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_infotech_cpes(self):
 
         async with self.getTestCore() as core:
+            self.eq(r'foo:bar', core.model.type('it:sec:cpe').norm(r'cpe:2.3:a:foo\:bar:*:*:*:*:*:*:*:*:*')[1]['subs']['vendor'])
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=asdf]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('[ it:sec:cpe="cpe:2.3:a:vendor001:product-foo" :v2_2="cpe:/a:vendor:product\\foo" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('[ it:sec:cpe="cpe:/a:vend🙃:prod:vers" ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
+
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+
+            nodes = await core.nodes('''[
+                it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*'))
+            self.eq(nodes[0].get('part'), 'a')
+            self.eq(nodes[0].get('vendor'), 'microsoft')
+            self.eq(nodes[0].get('product'), 'internet_explorer')
+            self.eq(nodes[0].get('version'), '8.0.6001')
+            self.eq(nodes[0].get('update'), 'beta')
+
+            nodes = await core.nodes("[ it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*' ]")
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*'))
+            self.eq(nodes[0].get('part'), 'a')
+            self.eq(nodes[0].get('product'), 'openssh')
+            self.eq(nodes[0].get('vendor'), 'openbsd')
+            self.eq(nodes[0].get('version'), '7.4')
+            self.eq(nodes[0].get('v2_2'), 'cpe:/a:openbsd:openssh:7.4')
+
+            nodes = await core.nodes(r'[ it:sec:cpe="cpe:2.3:o:cisco:ios:12.1\(22\)ea1a:*:*:*:*:*:*:*" ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:sec:cpe', r'cpe:2.3:o:cisco:ios:12.1\(22\)ea1a:*:*:*:*:*:*:*'))
+            self.eq(nodes[0].get('part'), 'o')
+            self.eq(nodes[0].get('product'), 'ios')
+            self.eq(nodes[0].get('vendor'), 'cisco')
+            self.eq(nodes[0].get('version'), '12.1(22)ea1a')
+            self.eq(nodes[0].get('v2_2'), 'cpe:/o:cisco:ios:12.1%2822%29ea1a')
 
             cpe23 = core.model.type('it:sec:cpe')
             cpe22 = core.model.type('it:sec:cpe:v2_2')
@@ -1675,6 +1746,95 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:/a:vertex:synapse'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+
+            # Test cpe22 -> cpe23 escaping logic
+            norm, info = cpe23.norm('cpe:/a:%21')
+            self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:%5c%21')
+            self.eq(norm, 'cpe:2.3:a:\\!:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:%5cb')
+            self.eq(norm, 'cpe:2.3:a:\\\\b:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:b%5c')
+            self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:b%5c%5c')
+            self.eq(norm, 'cpe:2.3:a:b\\\\:*:*:*:*:*:*:*:*:*')
+
+            norm, info = cpe23.norm('cpe:/a:b%5c%5cb')
+            self.eq(norm, 'cpe:2.3:a:b\\\\b:*:*:*:*:*:*:*:*:*')
+
+            # Examples based on customer reports
+            q = '''
+            [
+                it:sec:cpe="cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~"
+                it:sec:cpe="cpe:/a:1c:1c%3aenterprise:-"
+                it:sec:cpe="cpe:/a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~"
+                it:sec:cpe="cpe:/o:zyxel:nas326_firmware:5.21%28aazf.14%29c0"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            # Examples based on customer reports
+            q = '''
+            [
+                it:sec:cpe="cpe:2.3:a:x1c:1c\\:enterprise:-:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"
+                it:sec:cpe="cpe:2.3:o:xzyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*"
+                it:sec:cpe="cpe:2.3:a:vendor:product\\%45:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+                it:sec:cpe="cpe:2.3:a:vendor2:product\\%23:version:update:edition:lng:sw_edition:target_sw:target_hw:other"
+            ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), 'product%45')
+
+            nodes = await core.nodes('it:sec:cpe:vendor=vendor2')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('product'), 'product%23')
+
+            # Test 2.2->2.3 and 2.3->2.2 conversions
+            filename = s_t_files.getAssetPath('cpedata.json')
+            with open(filename, 'r') as fp:
+                cpedata = json.load(fp)
+
+            for (_cpe22, _cpe23) in cpedata:
+                # Convert cpe22 -> cpe23
+                norm, info = cpe23.norm(_cpe22)
+                self.eq(norm, _cpe23)
+
+                norm, info = cpe23.norm(_cpe23)
+                self.eq(norm, _cpe23)
+
+                # No escaped characters in the secondary props
+                for name, valu in info.items():
+                    if name == 'v2_2':
+                        continue
+
+                    self.notin('\\', valu)
+
+                # Norm cpe23 and check the cpe22 conversion
+                norm, info = cpe23.norm(_cpe23)
+                v2_2 = info['subs']['v2_2']
+
+                norm, info = cpe22.norm(v2_2)
+                self.eq(norm, _cpe22)
+
+    async def test_cpe_scrape_one_to_one(self):
+
+        async with self.getTestCore() as core:
+            q = '[it:sec:cpe=$valu]'
+            for _, valu in s_scrape.scrape(s_t_scrape.cpedata, ptype='it:sec:cpe'):
+                nodes = await core.nodes(q, opts={'vars': {'valu': valu}})
+                self.len(1, nodes)
+                node = nodes[0]
+                self.eq(node.ndef[1], valu.lower())
 
     async def test_infotech_c2config(self):
         async with self.getTestCore() as core:

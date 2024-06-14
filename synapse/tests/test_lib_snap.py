@@ -584,7 +584,10 @@ class SnapTest(s_t_utils.SynTest):
     async def test_snap_editor(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
+
+            await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
+            await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} +#foo ]')
+
             root = core.auth.rootuser
             async with await core.view.snap(user=root) as snap:
                 async with snap.getEditor() as editor:
@@ -608,6 +611,14 @@ class SnapTest(s_t_utils.SynTest):
                     self.len(1, nodeedits)
                     self.len(1, nodeedits[0][2])
 
+                    self.false(await news.hasData('foo'))
+                    await news.setData('foo', 'bar')
+                    self.true(await news.hasData('foo'))
+
+                    self.false(news.hasTagProp('foo', 'test'))
+                    await news.setTagProp('foo', 'test', 'bar')
+                    self.true(news.hasTagProp('foo', 'test'))
+
                 async with snap.getEditor() as editor:
                     news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
 
@@ -628,6 +639,10 @@ class SnapTest(s_t_utils.SynTest):
                     self.false(await news.delEdge(1, s_common.ehex(fqdn.buid)))
                     self.false(await news.delEdge('pwns', 1))
                     self.false(await news.delEdge('pwns', 'bar'))
+
+                    self.true(await news.hasData('foo'))
+
+                    self.true(news.hasTagProp('foo', 'test'))
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 

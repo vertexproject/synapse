@@ -196,10 +196,6 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _setMergeRequest(self, mergeinfo):
         self.reqParentQuorum()
 
-        if self.hasKids():
-            mesg = 'Cannot add a merge request to a view with children.'
-            raise s_exc.BadState(mesg=mesg)
-
         s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
         self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
@@ -450,8 +446,7 @@ class View(s_nexus.Pusher):  # type: ignore
             await self.core.feedBeholder('view:merge:fini', {'view': self.iden, 'merge': merge, 'merge': merge, 'votes': votes})
 
             # remove the view and top layer
-            await self.core.delView(self.iden)
-            await self.core.delLayer(self.layers[0].iden)
+            await self.core.delViewWithLayer(self.iden)
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error while merging view: {self.iden}')
@@ -713,7 +708,10 @@ class View(s_nexus.Pusher):  # type: ignore
         layers.extend(view.layers)
 
         self.layers = layers
-        await self.info.set('layers', [layr.iden for layr in layers])
+        layridens = [layr.iden for layr in layers]
+        await self.info.set('layers', layridens)
+
+        await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layridens}, gates=[self.iden, layridens[0]])
 
     async def pack(self):
         d = {'iden': self.iden}
@@ -1112,10 +1110,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 mesg = 'Circular dependency of view parents is not supported.'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if parent.getMergeRequest() is not None:
-                mesg = 'You may not set the parent to a view with a pending merge request.'
-                raise s_exc.BadState(mesg=mesg)
-
             if self.parent is not None:
                 if self.parent.iden == parent.iden:
                     return valu
@@ -1254,6 +1248,95 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 todo.append(child)
 
+    async def insertParentFork(self, useriden, name=None):
+        '''
+        Insert a new View between a forked View and its parent.
+
+        Returns:
+            New view definition with the same perms as the current fork.
+        '''
+        if not self.isafork():
+            mesg = f'View ({self.iden}) is not a fork, cannot insert a new fork between it and parent.'
+            raise s_exc.BadState(mesg=mesg)
+
+        ctime = s_common.now()
+        layriden = s_common.guid()
+
+        ldef = {
+            'iden': layriden,
+            'created': ctime,
+            'creator': useriden,
+            'lockmemory': self.core.conf.get('layers:lockmemory'),
+            'logedits': self.core.conf.get('layers:logedits'),
+            'readonly': False
+        }
+
+        vdef = {
+            'iden': s_common.guid(),
+            'created': ctime,
+            'creator': useriden,
+            'parent': self.parent.iden,
+            'layers': [layriden] + [lyr.iden for lyr in self.parent.layers]
+        }
+
+        if name is not None:
+            vdef['name'] = name
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        return await self._push('view:forkparent', ldef, vdef)
+
+    @s_nexus.Pusher.onPush('view:forkparent', passitem=True)
+    async def _insertParentFork(self, ldef, vdef, nexsitem):
+
+        s_layer.reqValidLdef(ldef)
+        s_schemas.reqValidView(vdef)
+
+        if self.getMergeRequest() is not None:
+            await self._delMergeRequest()
+
+        await self.core._addLayer(ldef, nexsitem)
+        await self.core._addView(vdef)
+
+        forkiden = vdef.get('iden')
+        self.parent = self.core.reqView(forkiden)
+        await self.info.set('parent', forkiden)
+
+        mesg = {'iden': self.iden, 'name': 'parent', 'valu': forkiden}
+        await self.core.feedBeholder('view:set', mesg, gates=[self.iden, self.layers[0].iden])
+
+        await self._calcForkLayers()
+
+        for view in self.core.views.values():
+            if view.isForkOf(self.iden):
+                await view._calcForkLayers()
+
+        self.core._calcViewsByLayer()
+
+        authgate = await self.core.getAuthGate(self.iden)
+        if authgate is None:  # pragma: no cover
+            return await self.parent.pack()
+
+        for userinfo in authgate.get('users'):
+            useriden = userinfo.get('iden')
+            if (user := self.core.auth.user(useriden)) is None:  # pragma: no cover
+                logger.warning(f'View {self.iden} AuthGate refers to unknown user {useriden}')
+                continue
+
+            await user.setRules(userinfo.get('rules'), gateiden=forkiden, nexs=False)
+            await user.setAdmin(userinfo.get('admin'), gateiden=forkiden, logged=False)
+
+        for roleinfo in authgate.get('roles'):
+            roleiden = roleinfo.get('iden')
+            if (role := self.core.auth.role(roleiden)) is None:  # pragma: no cover
+                logger.warning(f'View {self.iden} AuthGate refers to unknown role {roleiden}')
+                continue
+
+            await role.setRules(roleinfo.get('rules'), gateiden=forkiden, nexs=False)
+
+        return await self.parent.pack()
+
     async def fork(self, ldef=None, vdef=None):
         '''
         Make a new view inheriting from this view with the same layers and a new write layer on top
@@ -1271,10 +1354,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if vdef is None:
             vdef = {}
-
-        if self.getMergeRequest() is not None:
-            mesg = 'Cannot fork a view which has a merge request.'
-            raise s_exc.BadState(mesg=mesg)
 
         ldef = await self.core.addLayer(ldef)
         layriden = ldef.get('iden')
@@ -1366,10 +1445,9 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         async with await self.parent.snap(user=user) as snap:
-            async for nodeedit in fromlayr.iterLayerNodeEdits():
-                for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                    self.parent._confirm(user, perm)
-                    await asyncio.sleep(0)
+            async for perm in fromlayr.iterLayerAddPerms():
+                self.parent._confirm(user, perm)
+                await asyncio.sleep(0)
 
     async def wipeAllowed(self, user=None):
         '''
@@ -1378,10 +1456,10 @@ class View(s_nexus.Pusher):  # type: ignore
         if user is None or user.isAdmin():
             return
 
-        async for nodeedit in self.layers[0].iterWipeNodeEdits():
-            for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                self._confirm(user, perm)
-                await asyncio.sleep(0)
+        layer = self.layers[0]
+        async for perm in layer.iterLayerDelPerms():
+            self._confirm(user, perm)
+            await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu):
 

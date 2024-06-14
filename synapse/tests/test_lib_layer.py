@@ -9,12 +9,15 @@ import synapse.telepath as s_telepath
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
 
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 
 from synapse.tests.utils import alist
+
+from unittest import mock
 
 async def iterPropForm(self, form=None, prop=None):
     bad_valu = [(b'foo', "bar"), (b'bar', ('bar',)), (b'biz', 4965), (b'baz', (0, 56))]
@@ -26,7 +29,7 @@ class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
-            self.eq(layr.layrvers, 10)
+            self.eq(layr.layrvers, 11)
 
     async def test_layer_verify(self):
 
@@ -1530,6 +1533,57 @@ class LayerTest(s_t_utils.SynTest):
             verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
             self.len(0, verbs)
 
+    async def test_layer_v11(self):
+
+        try:
+
+            oldv = s_layer.MIGR_COMMIT_SIZE
+            s_layer.MIGR_COMMIT_SIZE = 1
+
+            async with self.getRegrCore('layer-v11') as core:
+
+                wlyrs_byview = await core.callStorm('''
+                    $wlyrs = ({})
+                    for $view in $lib.view.list() {
+                        $wlyrs.($view.get(name)) = $view.layers.0.iden
+                    }
+                    return($wlyrs)
+                ''')
+                self.len(8, wlyrs_byview)
+
+                layr = core.getLayer(iden=wlyrs_byview['default'])
+                await self.agenlen(2, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('syn:tag'))
+
+                layr = core.getLayer(iden=wlyrs_byview['prop'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+
+                layr = core.getLayer(iden=wlyrs_byview['tags'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('syn:tag'))
+
+                layr = core.getLayer(iden=wlyrs_byview['tagp'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(0, layr.getStorNodesByForm('syn:tag'))
+
+                layr = core.getLayer(iden=wlyrs_byview['n1eg'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('test:int'))
+
+                layr = core.getLayer(iden=wlyrs_byview['n2eg'])
+                await self.agenlen(0, layr.getStorNodesByForm('test:str'))
+                await self.agenlen(1, layr.getStorNodesByForm('test:int'))
+
+                layr = core.getLayer(iden=wlyrs_byview['data'])
+                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
+
+                layr = core.getLayer(iden=wlyrs_byview['noop'])
+                await self.agenlen(0, layr.getStorNodes())
+                await self.agenlen(0, layr.getStorNodesByForm('test:str'))
+
+        finally:
+            s_layer.MIGR_COMMIT_SIZE = oldv
+
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
             self.true(core.getLayer().logedits)
@@ -1846,74 +1900,97 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_edit_perms(self):
 
-        async with self.getTestCore() as core:
+        class Dict(s_spooled.Dict):
+            async def __anit__(self, dirn=None, size=1, cell=None):
+                await super().__anit__(dirn=dirn, size=size, cell=cell)
 
-            viewiden = await core.callStorm('''
-                $lyr = $lib.layer.add()
-                $view = $lib.view.add(($lyr.iden,))
-                return($view.iden)
-            ''')
+        with mock.patch('synapse.lib.spooled.Dict', Dict):
+            async with self.getTestCore() as core:
 
-            opts = {'view': viewiden}
+                viewiden = await core.callStorm('''
+                    $lyr = $lib.layer.add()
+                    $view = $lib.view.add(($lyr.iden,))
+                    return($view.iden)
+                ''')
 
-            await core.addTagProp('score', ('int', {}), {})
+                layr = core.views[viewiden].layers[0]
 
-            await core.nodes('[ test:str=bar ]', opts=opts)
+                opts = {'view': viewiden}
 
-            await core.nodes('''
-                [ test:str=foo
-                    :hehe=bar
-                    +#foo:score=2
-                    +#foo.bar
-                    <(refs)+ { test:str=bar }
-                ]
-                $node.data.set(foo, bar)
-            ''', opts=opts)
+                await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('''
-                test:str=foo
-                [ <(refs)- { test:str=bar } ]
-                $node.data.pop(foo)
-                | delnode
-            ''', opts=opts)
+                await core.nodes('[ test:str=bar +#foo.bar ]', opts=opts)
 
-            layr = core.views[viewiden].layers[0]
+                await core.nodes('''
+                    [ test:str=foo
+                        :hehe=bar
+                        +#foo:score=2
+                        +#foo.bar.baz
+                        +#bar:score=2
+                        <(refs)+ { test:str=bar }
+                    ]
+                    $node.data.set(foo, bar)
+                ''', opts=opts)
 
-            nodeedits = []
-            async for _, edits, _ in layr.iterNodeEditLog():
-                nodeedits.extend(edits)
+                perms = [perm async for perm in layr.iterLayerAddPerms()]
+                self.eq({
+                    ('node', 'add', 'syn:tag'),
+                    ('node', 'add', 'test:str'),
 
-            perms = [perm for permoffs, perm in s_layer.getNodeEditPerms(nodeedits)]
+                    ('node', 'prop', 'set', 'test:str:hehe'),
+                    ('node', 'prop', 'set', 'test:str:.created'),
 
-            self.eq({
-                ('node', 'add', 'test:str'),
-                ('node', 'del', 'test:str'),
+                    ('node', 'prop', 'set', 'syn:tag:up'),
+                    ('node', 'prop', 'set', 'syn:tag:base'),
+                    ('node', 'prop', 'set', 'syn:tag:depth'),
+                    ('node', 'prop', 'set', 'syn:tag:.created'),
 
-                ('node', 'add', 'syn:tag'),
+                    ('node', 'tag', 'add', 'foo'),
+                    ('node', 'tag', 'add', 'bar'),
+                    ('node', 'tag', 'add', 'foo', 'bar'),
+                    ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
 
-                ('node', 'prop', 'set', 'test:str:.created'),
-                ('node', 'prop', 'del', 'test:str:.created'),
+                    ('node', 'data', 'set', 'foo'),
 
-                ('node', 'prop', 'set', 'test:str:hehe'),
-                ('node', 'prop', 'del', 'test:str:hehe'),
+                    ('node', 'edge', 'add', 'refs'),
+                }, set(perms))
 
-                ('node', 'prop', 'set', 'syn:tag:up'),
-                ('node', 'prop', 'set', 'syn:tag:base'),
-                ('node', 'prop', 'set', 'syn:tag:depth'),
-                ('node', 'prop', 'set', 'syn:tag:.created'),
+                await core.nodes('''
+                    test:str=foo
+                    [ <(refs)- { test:str=bar } ]
+                    $node.data.pop(foo)
+                    | delnode
+                ''', opts=opts)
 
-                ('node', 'tag', 'add', 'foo'),
-                ('node', 'tag', 'del', 'foo'),
+                perms = [perm async for perm in layr.iterLayerAddPerms()]
+                self.eq({
+                    ('node', 'add', 'syn:tag'),
+                    ('node', 'add', 'test:str'),
 
-                ('node', 'tag', 'add', 'foo', 'bar'),
-                ('node', 'tag', 'del', 'foo', 'bar'),
+                    ('node', 'prop', 'set', 'test:str:.created'),
 
-                ('node', 'data', 'set', 'foo'),
-                ('node', 'data', 'pop', 'foo'),
+                    ('node', 'prop', 'set', 'syn:tag:up'),
+                    ('node', 'prop', 'set', 'syn:tag:base'),
+                    ('node', 'prop', 'set', 'syn:tag:depth'),
+                    ('node', 'prop', 'set', 'syn:tag:.created'),
 
-                ('node', 'edge', 'add', 'refs'),
-                ('node', 'edge', 'del', 'refs'),
-            }, set(perms))
+                    ('node', 'tag', 'add', 'foo', 'bar'),
+                }, set(perms))
+
+                perms = [perm async for perm in layr.iterLayerDelPerms()]
+                self.eq({
+                    ('node', 'del', 'syn:tag'),
+                    ('node', 'del', 'test:str'),
+
+                    ('node', 'prop', 'del', 'test:str:.created'),
+
+                    ('node', 'prop', 'del', 'syn:tag:up'),
+                    ('node', 'prop', 'del', 'syn:tag:base'),
+                    ('node', 'prop', 'del', 'syn:tag:depth'),
+                    ('node', 'prop', 'del', 'syn:tag:.created'),
+
+                    ('node', 'tag', 'del', 'foo', 'bar'),
+                }, set(perms))
 
     async def test_layer_v9(self):
         async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:

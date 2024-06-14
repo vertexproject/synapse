@@ -939,6 +939,26 @@ class TypesTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
             self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
+            ndef = core.model.type('test:ndef:formfilter1')
+            ndef.norm(('inet:ipv4', '1.2.3.4'))
+            ndef.norm(('inet:ipv6', '::1'))
+
+            with self.raises(s_exc.BadTypeValu):
+                ndef.norm(('inet:fqdn', 'newp.com'))
+
+            ndef = core.model.type('test:ndef:formfilter2')
+            ndef.norm(('ou:orgtype', 'foo'))
+
+            with self.raises(s_exc.BadTypeValu):
+                ndef.norm(('inet:fqdn', 'newp.com'))
+
+            ndef = core.model.type('test:ndef:formfilter3')
+            ndef.norm(('inet:ipv4', '1.2.3.4'))
+            ndef.norm(('file:mime:msdoc', s_common.guid()))
+
+            with self.raises(s_exc.BadTypeValu):
+                ndef.norm(('inet:fqdn', 'newp.com'))
+
     async def test_nodeprop(self):
         async with self.getTestCore() as core:
             t = core.model.type('nodeprop')
@@ -1067,6 +1087,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('hehe', enums.norm('hehe')[0])
         self.eq('haha', enums.norm('haha')[0])
         self.eq('zork', enums.norm('zork')[0])
+        self.raises(s_exc.BadTypeValu, enums.norm, 1.23)
         self.raises(s_exc.BadTypeValu, enums.norm, 'zing')
 
         strsubs = model.type('str').clone({'regex': r'(?P<first>[ab]+)(?P<last>[zx]+)'})

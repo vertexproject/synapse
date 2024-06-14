@@ -19,6 +19,8 @@ import synapse.lib.version as s_version
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
+import synapse.tools.backup as s_tools_backup
+
 class StormTest(s_t_utils.SynTest):
 
     async def test_lib_storm_jsonexpr(self):
@@ -2041,6 +2043,90 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq((1, 6), await core.callStorm('return($lib.queue.gen(foo).get(1))'))
 
+    async def test_storm_dmon_query_state(self):
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+            dirn02 = s_common.gendir(dirn, 'core02')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                msgs = await core00.stormlist('[ inet:ipv4=1.2.3.4 ]')
+                self.stormHasNoWarnErr(msgs)
+
+            s_tools_backup.backup(dirn00, dirn01)
+            s_tools_backup.backup(dirn00, dirn02)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                conf01 = {'mirror': core00.getLocalUrl()}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    conf02 = {'mirror': core01.getLocalUrl()}
+
+                    async with self.getTestCore(dirn=dirn02, conf=conf02) as core02:
+
+                        await core02.sync()
+
+                        nodes = await core01.nodes('inet:ipv4')
+                        self.len(1, nodes)
+                        self.eq(nodes[0].ndef, ('inet:ipv4', 16909060))
+
+                        q = '''
+                        $lib.queue.gen(dmonloop)
+                        return(
+                            $lib.dmon.add(${
+                                $queue = $lib.queue.get(dmonloop)
+                                while $lib.true {
+                                    ($offs, $mesg) = $queue.get()
+
+                                    switch $mesg.0 {
+                                        "print": { $lib.print($mesg.1) }
+                                        "warn": { $lib.warn($mesg.1) }
+                                        "leave": {
+                                            $lib.print(leaving)
+                                            break
+                                        }
+                                        *: { continue }
+                                    }
+
+                                    $queue.cull($offs)
+                                }
+                            }, name=dmonloop)
+                        )
+                        '''
+                        ddef = await core02.callStorm(q)
+                        self.nn(ddef['iden'])
+
+                        dmons = await core02.getStormDmons()
+                        self.len(1, dmons)
+                        self.eq(dmons[0]['iden'], ddef['iden'])
+
+                        info = await core02.getStormDmon(ddef['iden'])
+                        self.eq(info['iden'], ddef['iden'])
+                        self.eq(info['name'], 'dmonloop')
+                        self.eq(info['status'], 'running')
+
+                        await core02.callStorm('$lib.queue.get(dmonloop).put((print, printfoo))')
+                        await core02.callStorm('$lib.queue.get(dmonloop).put((warn, warnfoo))')
+
+                        info = await core02.getStormDmon(ddef['iden'])
+                        self.eq(info['status'], 'running')
+
+                        logs = await core02.getStormDmonLog(ddef['iden'])
+                        msgs = [k[1] for k in logs]
+                        self.stormIsInPrint('printfoo', msgs)
+                        self.stormIsInWarn('warnfoo', msgs)
+
+                        await core02.callStorm('$lib.queue.get(dmonloop).put((leave,))')
+
+                        info = await core02.getStormDmon(ddef['iden'])
+                        self.eq(info['status'], 'sleeping')
+
+                        logs = await core02.getStormDmonLog(ddef['iden'])
+                        msgs = [k[1] for k in logs]
+                        self.stormIsInPrint('leaving', msgs)
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
@@ -3097,6 +3183,38 @@ class StormTest(s_t_utils.SynTest):
             q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | for $n in $x { yield $n.iden() }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
+
+    async def test_storm_viewexec(self):
+
+        async with self.getTestCore() as core:
+
+            view = await core.callStorm('return( $lib.view.get().iden )')
+            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
+
+            await core.addStormPkg({
+                'name': 'testpkg',
+                'version': (0, 0, 1),
+                'modules': (
+                    {'name': 'priv.exec',
+                     'asroot:perms': [['power-ups', 'testpkg']],
+                     'modconf': {'viewiden': fork},
+                     'storm': '''
+                        function asroot () {
+                            view.exec $modconf.viewiden { $foo=bar } | return($foo)
+                        }
+                     '''},
+                ),
+            })
+
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            await core.stormlist('auth.user.addrule visi power-ups.testpkg')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return(woot)', opts={'user': visi.iden, 'view': fork})
+
+            self.eq('bar', await core.callStorm('return($lib.import(priv.exec).asroot())', opts=asvisi))
 
     async def test_storm_argv_parser(self):
 

@@ -7,6 +7,142 @@ Synapse Changelog
 *****************
 
 
+v2.171.0 - 2024-06-07
+=====================
+
+Features and Enhancements
+-------------------------
+- Update ``synapse.test.utils.SynTest`` helpers to disable sysctl checks
+  for test services by default.
+  (`#3741 <https://github.com/vertexproject/synapse/pull/3741>`_)
+
+Bugfixes
+--------
+- Fix a key positioning error in the LMDBSlab when scanning backwards
+  by prefix.
+  (`#3739 <https://github.com/vertexproject/synapse/pull/3739>`_)
+- Fix a bug in the ``str`` type normalization routine for handling floating
+  point values. The floating point values are now also run through the
+  string norming logic.
+  (`#3742 <https://github.com/vertexproject/synapse/pull/3742>`_)
+- Add missing beholder messages for view layer modifications.
+  (`#3743 <https://github.com/vertexproject/synapse/pull/3743>`_)
+
+Improved Documentation
+----------------------
+- Update Devops documentation to add additional information about low downtime
+  service updates, Rapid Power-Up updates, and release cadence information.
+  Update references from ``docker-compose`` to use ``docker compose``.
+  (`#3722 <https://github.com/vertexproject/synapse/pull/3722>`_)
+
+v2.170.0 - 2024-06-04
+=====================
+
+Automatic Migrations
+--------------------
+- Populate an additional index of buids by form in Layers.
+  (`#3729 <https://github.com/vertexproject/synapse/pull/3729>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Updates to the ``infotech`` and ``file`` models.
+  (`#3702 <https://github.com/vertexproject/synapse/pull/3702>`_)
+  (`#3725 <https://github.com/vertexproject/synapse/pull/3725>`_)
+  (`#3732 <https://github.com/vertexproject/synapse/pull/3732>`_)
+
+  **New Forms**
+
+  ``file:mime:lnk``
+    Metadata pulled from a Windows shortcut or LNK file.
+
+  ``it:mitre:attack:datasource``
+    A MITRE ATT&CK Datasource ID.
+
+  ``it:mitre:attack:data:component``
+    A MITRE ATT&CK data component.
+
+  **New Properties**
+
+  ``it:mitre:attack:technique``
+    The form had the following property added to it:
+
+    ``data:components``
+      An array of MITRE ATT&CK data components that detect the ATT&CK technique.
+
+  ``it:prod:hardware``
+    The form had the following properties added to it:
+
+    ``manufacturer``
+      The organization that manufactures this hardware.
+
+    ``manufacturer:name``
+      The name of the organization that manufactures this hardware.
+
+  **Deprecated Properties**
+
+  ``it:prod:hardware``
+    The ``it:prod:hardware`` form had the following property marked as deprecated:
+
+    * ``make``
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.model.migration.s.riskHasVulnToVulnerable`` migration helper
+  to create ``risk:vulnerable`` nodes from ``risk:hasvuln`` nodes.
+  (`#3734 <https://github.com/vertexproject/synapse/pull/3734>`_)
+- Added ``$lib.model.migration.s.itSecCpe_2_170_0()`` migration helper to update
+  ``it:sec:cpe`` nodes created before this release. Details about the migration
+  helper can be found in the help (``help -v $lib.model.migration.s.itSecCpe_2_170_0``)
+  (`#3515 <https://github.com/vertexproject/synapse/pull/3515>`_)
+- Update Storm lift optimization for tag filters to also allow hinting
+  based on runtsafe variable values.
+  (`#3733 <https://github.com/vertexproject/synapse/pull/3733>`_)
+- Log an info message with the current Cell and Synapse version on startup.
+  (`#3723 <https://github.com/vertexproject/synapse/pull/3723>`_)
+- Add per-Cell version checks to prevent accidental downgrades of services.
+  (`#3728 <https://github.com/vertexproject/synapse/pull/3728>`_)
+- Add a check to Cells that will warn when performance related sysctl values
+  are not configured correctly on the host. This warning can be disabled with
+  the ``health:sysctl:checks`` configuration option.
+  (`#3712 <https://github.com/vertexproject/synapse/pull/3712>`_)
+- Add ``forms`` and ``interfaces`` type options to the ``ndef`` type, which
+  require the value to be one of the specified forms, or inherit one of the
+  specified interfaces.
+  (`#3724 <https://github.com/vertexproject/synapse/pull/3724>`_)
+- Add support for pivoting from an ``ndef`` secondary prop to specific form. 
+  (`#3715 <https://github.com/vertexproject/synapse/pull/3715>`_)
+- Add support for pivoting to or from ``ndef`` array properties.
+  (`#3720 <https://github.com/vertexproject/synapse/pull/3720>`_)
+- Add an index of buids by form to Layers. A ``getStorNodesByForm()`` API has
+  been added to Storm Layer objects to retrieve storage nodes using this index.
+  (`#3729 <https://github.com/vertexproject/synapse/pull/3729>`_)
+- Storm Dmon APIs called on a Cortex mirror now call up to the leader to
+  retrieve their result.
+  (`#3735 <https://github.com/vertexproject/synapse/pull/3735>`_)
+- Add a ``insertParentFork()`` API on Storm View objects to insert a new
+  View between an existing fork and its parent View.
+  (`#3731 <https://github.com/vertexproject/synapse/pull/3731>`_)
+- Quorum merge requests are now allowed on Views which have forks.
+  (`#3738 <https://github.com/vertexproject/synapse/pull/3738>`_)
+
+Bugfixes
+--------
+- Fix a formatting issue in an error message that could be raised during
+  JSON decoding in a Storm ``http:api:request`` object.
+  (`#3730 <https://github.com/vertexproject/synapse/pull/3730>`_)
+- Fix an issue where ``inet:url`` norming did not handle IPv6 addresses
+  in the host portion of the URL correctly.
+  (`#3727 <https://github.com/vertexproject/synapse/pull/3727>`_)
+- Fix an issue where executing the ``view.exec`` command from within a
+  privileged Storm runtime still checked user permissions for the specified
+  view.
+  (`#3726 <https://github.com/vertexproject/synapse/pull/3726>`_)
+- Update logic for parsing CPE 2.2 and CPE 2.3 strings to be more compliant with
+  the specification. This resulted in better conversions from CPE 2.2 to CPE 2.3
+  and CPE 2.3 to CPE 2.2.
+  (`#3515 <https://github.com/vertexproject/synapse/pull/3515>`_)
+
 v2.169.0 - 2024-05-10
 =====================
 
@@ -96,7 +232,7 @@ Bugfixes
   flag as well. Previously this flag was not cleared, and offline services
   could still report as ``ready``.
   (`#3705 <https://github.com/vertexproject/synapse/pull/3705>`_)
-- Add misisng sleep statements to callers of ``Layer.syncNodeEdits2()``.
+- Add missing sleep statements to callers of ``Layer.syncNodeEdits2()``.
   (`#3700 <https://github.com/vertexproject/synapse/pull/3700>`_)
 
 Improved Documentation
