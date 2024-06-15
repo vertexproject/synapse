@@ -56,6 +56,9 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
+        self.subindx = {}
+        self.subtypes = {}
+
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
         self.setCmprCtor('~=', self._ctorCmprRe)
@@ -81,8 +84,6 @@ class Type:
     def _storLiftSafe(self, cmpr, valu):
         try:
             return self.storlifts['=']('=', valu)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
         except Exception:
             return ()
 
@@ -115,9 +116,21 @@ class Type:
 
         return func(cmpr, valu)
 
-    def getStorNode(self, form):
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+    def getSubType(self, name, valu):
+        (subtype, getr) = self.subtypes.get(name, (None, None))
+        if subtype is None:
+            raise s_exc.NoSuchType(name=name, valu=valu, mesg=f'Invalid subtype {name} for type {self.name}')
+
+        return (subtype, getr(valu))
+
+    def getSubIndx(self, name):
+        indx = self.subindx.get(name, s_common.novalu)
+        if indx is s_common.novalu:
+            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for type {self.name}')
+
+        return indx
+
+    def getRuntPode(self):
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
         props = {
@@ -132,15 +145,8 @@ class Type:
         if self.subof is not None:
             props['subof'] = self.subof
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
+        return (('syn:type', self.name), {
+            'props': props,
         })
 
     def getCompOffs(self, name):
@@ -426,7 +432,7 @@ class Array(Type):
         if self.arraytype.deprecated:
             if self.info.get('custom'):
                 mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
-                       f'which will be removed in 3.0.0'
+                       f'which will be removed in 4.0.0'
                 logger.warning(mesg)
 
         self.setNormFunc(str, self._normPyStr)
@@ -578,7 +584,7 @@ class FieldHelper(collections.defaultdict):
             _type = basetype.clone(opts)
         if _type.deprecated:
             mesg = f'The type {self.tname} field {key} uses a deprecated ' \
-                   f'type {_type.name} which will removed in 3.0.0'
+                   f'type {_type.name} which will removed in 4.0.0'
             logger.warning(mesg)
         self.setdefault(key, _type)
         return _type
@@ -1190,12 +1196,31 @@ class Ival(Type):
         self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.timetype = self.modl.type('time')
+        self.duratype = self.modl.type('duration')
+
+        self.subtypes.update({
+            'min': (self.timetype, self._getMin),
+            'max': (self.timetype, self._getMax),
+            'duration': (self.duratype, self._getDuration),
+        })
+
+        self.subindx.update({
+            'min': None,
+            'max': s_layer.INDX_IVAL_MAX,
+            'duration': s_layer.INDX_IVAL_DURATION
+        })
+
+        self.tagsubindx = {
+            'min': s_layer.INDX_TAG,
+            'max': s_layer.INDX_TAG_MAX,
+            'duration': s_layer.INDX_TAG_DURATION
+        }
 
         # Range stuff with ival's don't make sense
-        # self.indxcmpr.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
+
         # _ctorCmprAt implements its own custom norm-style resolution
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -1206,6 +1231,16 @@ class Ival(Type):
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
+
+        for part in ('min', 'max'):
+            self.storlifts[f'{part}@='] = self._storLiftPartAt
+
+        for part in ('min', 'max'):
+            for oper in ('=', '<', '>', '<=', '>='):
+                self.storlifts[f'{part}{oper}'] = self._storLiftPart
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.storlifts[f'duration{oper}'] = self._storLiftDuration
 
     def _storLiftAt(self, cmpr, valu):
 
@@ -1257,6 +1292,54 @@ class Ival(Type):
             return True
 
         return cmpr
+
+    def _storLiftPart(self, cmpr, valu):
+        norm, _ = self.timetype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
+    def _storLiftPartAt(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            return self._storLiftNorm(cmpr, valu)
+
+        ticktock = self.timetype.getTickTock(valu)
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
+
+    def _storLiftDuration(self, cmpr, valu):
+        norm, _ = self.duratype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
+    def _getMin(self, valu):
+        if valu is None:
+            return None
+        return valu[0]
+
+    def _getMax(self, valu):
+        if valu is None:
+            return None
+        return valu[1]
+
+    def _getDuration(self, valu):
+        if valu is None:
+            return None
+
+        if valu[1] == self.futsize:
+            return self.duratype.maxval
+
+        return valu[1] - valu[0]
+
+    def getTagSubIndx(self, name):
+        indx = self.tagsubindx.get(name, s_common.novalu)
+        if indx is s_common.novalu:
+            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for tag ival')
+
+        return indx
 
     def _normPyInt(self, valu):
         minv, _ = self.timetype._normPyInt(valu)
@@ -1402,11 +1485,21 @@ class Loc(Type):
 
 class Ndef(Type):
 
-    stortype = s_layer.STOR_TYPE_MSGP
+    stortype = s_layer.STOR_TYPE_NDEF
 
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+
+        self.storlifts |= {
+            'form=': self._storLiftForm
+        }
+
+        nameopts = {'lower': True, 'strip': True}
+        self.formnametype = Str(self.modl, 'formname', {}, nameopts)
+        self.subtypes |= {
+            'form': (self.formnametype, self._getForm),
+        }
 
         self.formfilter = None
 
@@ -1432,6 +1525,20 @@ class Ndef(Type):
                 return True
 
             self.formfilter = filtfunc
+
+    def _storLiftForm(self, cmpr, valu):
+        valu = valu.lower().strip()
+        if self.modl.form(valu) is None:
+            raise s_exc.NoSuchForm.init(valu)
+
+        return (
+            (cmpr, valu, self.stortype),
+        )
+
+    def _getForm(self, valu):
+        if valu is None:
+            return None
+        return valu[0]
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)
@@ -1472,106 +1579,6 @@ class Ndef(Type):
 
         repv = form.type.repr(formvalu)
         return (formname, repv)
-
-class Edge(Type):
-
-    stortype = s_layer.STOR_TYPE_MSGP
-
-    def getCompOffs(self, name):
-        return self.fieldoffs.get(name)
-
-    def postTypeInit(self):
-
-        self.deprecated = True
-
-        self.fieldoffs = {'n1': 0, 'n2': 1}
-
-        self.ndeftype = self.modl.types.get('ndef')  # type: Ndef
-
-        self.n1forms = None
-        self.n2forms = None
-
-        self.n1forms = self.opts.get('n1:forms', None)
-        self.n2forms = self.opts.get('n2:forms', None)
-
-        self.setNormFunc(list, self._normPyTuple)
-        self.setNormFunc(tuple, self._normPyTuple)
-
-    def _initEdgeBase(self, n1, n2):
-
-        subs = {}
-
-        n1, info = self.ndeftype.norm(n1)
-
-        if self.n1forms is not None:
-            if n1[0] not in self.n1forms:
-                raise s_exc.BadTypeValu(valu=n1[0], name=self.name, mesg='Invalid source node for edge type')
-
-        subs['n1'] = n1
-        subs['n1:form'] = n1[0]
-
-        n2, info = self.ndeftype.norm(n2)
-
-        if self.n2forms is not None:
-            if n2[0] not in self.n2forms:
-                raise s_exc.BadTypeValu(valu=n2[0], name=self.name, mesg='Invalid dest node for edge type')
-
-        subs['n2'] = n2
-        subs['n2:form'] = n2[0]
-
-        return (n1, n2), {'subs': subs}
-
-    def _normPyTuple(self, valu):
-
-        if len(valu) != 2:
-            mesg = 'edge requires (ndef, ndef)'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
-
-        n1, n2 = valu
-        return self._initEdgeBase(n1, n2)
-
-    def repr(self, norm):
-        n1, n2 = norm
-        n1repr = self.ndeftype.repr(n1)
-        n2repr = self.ndeftype.repr(n2)
-        return (n1repr, n2repr)
-
-class TimeEdge(Edge):
-
-    stortype = s_layer.STOR_TYPE_MSGP
-
-    def getCompOffs(self, name):
-        return self.fieldoffs.get(name)
-
-    def postTypeInit(self):
-        Edge.postTypeInit(self)
-        self.fieldoffs['time'] = 2
-
-    def _normPyTuple(self, valu):
-
-        if len(valu) != 3:
-            mesg = f'timeedge requires (ndef, ndef, time), got {valu}'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
-
-        n1, n2, tick = valu
-
-        tick, info = self.modl.types.get('time').norm(tick)
-
-        (n1, n2), info = self._initEdgeBase(n1, n2)
-
-        info['subs']['time'] = tick
-
-        return (n1, n2, tick), info
-
-    def repr(self, norm):
-
-        n1, n2, tick = norm
-
-        n1repr = self.ndeftype.repr(n1)
-        n2repr = self.ndeftype.repr(n2)
-        trepr = self.modl.type('time').repr(tick)
-
-        return (n1repr, n2repr, trepr)
 
 class Data(Type):
 
@@ -2018,6 +2025,8 @@ class Duration(IntBase):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
+        self.maxval = 2 ** ((8 * 8) - 1)
+
     def _normPyInt(self, valu):
         return valu, {}
 
@@ -2027,6 +2036,9 @@ class Duration(IntBase):
         if not text:
             mesg = 'Duration string must have non-zero length.'
             raise s_exc.BadTypeValu(mesg=mesg)
+
+        if text == '?':
+            return self.maxval, {}
 
         dura = 0
 

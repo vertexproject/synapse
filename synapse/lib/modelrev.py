@@ -14,31 +14,7 @@ class ModelRev:
 
     def __init__(self, core):
         self.core = core
-        self.revs = (
-            ((0, 2, 1), self.revModel20210126),
-            ((0, 2, 2), self.revModel20210312),
-            ((0, 2, 3), self.revModel20210528),
-            ((0, 2, 5), self.revModel20210801),
-            ((0, 2, 6), self.revModel20211112),
-            ((0, 2, 7), self.revModel20220307),
-            ((0, 2, 8), self.revModel20220315),
-            ((0, 2, 9), self.revModel20220509),
-            ((0, 2, 10), self.revModel20220706),
-            ((0, 2, 11), self.revModel20220803),
-            ((0, 2, 12), self.revModel20220901),
-            ((0, 2, 13), self.revModel20221025),
-            ((0, 2, 14), self.revModel20221123),
-            ((0, 2, 15), self.revModel20221212),
-            ((0, 2, 16), self.revModel20221220),
-            ((0, 2, 17), self.revModel20230209),
-            ((0, 2, 18), self.revModel_0_2_18),
-            ((0, 2, 19), self.revModel_0_2_19),
-            ((0, 2, 20), self.revModel_0_2_20),
-            ((0, 2, 21), self.revModel_0_2_21),
-            ((0, 2, 22), self.revModel_0_2_22),
-            ((0, 2, 23), self.revModel_0_2_23),
-            ((0, 2, 24), self.revModel_0_2_24),
-        )
+        self.revs = ()
 
     async def _uniqSortArray(self, todoprops, layers):
 
@@ -66,15 +42,15 @@ class ModelRev:
 
                 stortype = prop.type.stortype | s_layer.STOR_FLAG_ARRAY
 
-                async for buid, propvalu in layr.iterPropRows(formname, propreln):
+                async for nid, propvalu in layr.iterPropRows(formname, propreln):
 
                     uniqvalu = sortuniq(propvalu)
                     if uniqvalu == propvalu:
                         continue
 
                     nodeedits.append(
-                        (buid, formname, (
-                            (s_layer.EDIT_PROP_SET, (propreln, uniqvalu, propvalu, stortype), ()),
+                        (nid, formname, (
+                            (s_layer.EDIT_PROP_SET, (propreln, uniqvalu, propvalu, stortype)),
                         )),
                     )
 
@@ -83,679 +59,6 @@ class ModelRev:
 
                 if nodeedits:
                     await save()
-
-    async def revModel20211112(self, layers):
-        # uniq and sort several array types
-        todoprops = (
-            'biz:rfp:requirements',
-
-            'crypto:x509:cert:ext:sans',
-            'crypto:x509:cert:ext:crls',
-            'crypto:x509:cert:identities:fqdns',
-            'crypto:x509:cert:identities:emails',
-            'crypto:x509:cert:identities:ipv4s',
-            'crypto:x509:cert:identities:ipv6s',
-            'crypto:x509:cert:identities:urls',
-            'crypto:x509:cert:crl:urls',
-
-            'inet:whois:iprec:contacts',
-            'inet:whois:iprec:links',
-            'inet:whois:ipcontact:roles',
-            'inet:whois:ipcontact:links',
-            'inet:whois:ipcontact:contacts',
-
-            'it:account:groups',
-            'it:group:groups',
-
-            'it:reveng:function:impcalls',
-            'it:reveng:filefunc:funccalls',
-
-            'it:sec:cve:references',
-
-            'risk:vuln:cwes',
-
-            'tel:txtmesg:recipients',
-        )
-        await self._uniqSortArray(todoprops, layers)
-
-    async def revModel20210801(self, layers):
-
-        # uniq and sort several array types
-        todoprops = (
-            'edu:course:prereqs',
-            'edu:class:assistants',
-
-            'ou:org:subs',
-            'ou:org:names',
-            'ou:org:dns:mx',
-            'ou:org:locations',
-            'ou:org:industries',
-
-            'ou:industry:sic',
-            'ou:industry:subs',
-            'ou:industry:isic',
-            'ou:industry:naics',
-
-            'ou:preso:sponsors',
-            'ou:preso:presenters',
-
-            'ou:conference:sponsors',
-            'ou:conference:event:sponsors',
-            'ou:conference:attendee:roles',
-            'ou:conference:event:attendee:roles',
-
-            'ou:contract:types',
-            'ou:contract:parties',
-            'ou:contract:requirements',
-            'ou:position:reports',
-
-            'ps:person:names',
-            'ps:person:nicks',
-            'ps:persona:names',
-            'ps:persona:nicks',
-            'ps:education:classes',
-            'ps:contactlist:contacts',
-        )
-        await self._uniqSortArray(todoprops, layers)
-
-    async def revModel20210528(self, layers):
-
-        cmdtype = self.core.model.type('it:cmd')
-        cmdprop = self.core.model.prop('it:exec:proc:cmd')
-
-        for layr in layers:
-
-            done = set()
-            nodeedits = []
-
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                done.clear()
-                nodeedits.clear()
-
-            async for buid, propvalu in layr.iterPropRows('it:exec:proc', 'cmd'):
-
-                cmdnorm = cmdtype.norm(propvalu)[0]
-
-                if cmdnorm != propvalu:
-                    nodeedits.append(
-                        (buid, 'it:exec:proc', (
-                            (s_layer.EDIT_PROP_SET, ('cmd', cmdnorm, propvalu, s_layer.STOR_TYPE_UTF8), ()),
-                        )),
-                    )
-
-                if cmdnorm not in done:
-                    cmdbuid = s_common.buid(('it:cmd', cmdnorm))
-                    nodeedits.append(
-                        (cmdbuid, 'it:cmd', (
-                            (s_layer.EDIT_NODE_ADD, (cmdnorm, s_layer.STOR_TYPE_UTF8), ()),
-                        )),
-                    )
-                    done.add(cmdnorm)
-
-                if len(nodeedits) >= 1000:
-                    await save()
-
-            if nodeedits:
-                await save()
-
-    async def revModel20210312(self, layers):
-
-        ipv4type = self.core.model.type('inet:ipv4')
-        ipv6type = self.core.model.type('inet:ipv6')
-
-        for layr in layers:
-
-            nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            async for buid, propvalu in layr.iterPropRows('inet:web:acct', 'signup:client:ipv6'):
-
-                ipv6text = ipv6type.norm(ipv4type.repr(propvalu))[0]
-                nodeedits.append(
-                    (buid, 'inet:web:acct', (
-                        (s_layer.EDIT_PROP_SET, ('signup:client:ipv6', ipv6text, propvalu, s_layer.STOR_TYPE_IPV6), ()),
-                    )),
-                )
-
-                if len(nodeedits) >= 1000:
-                    await save()
-
-            if nodeedits:
-                await save()
-
-    async def revModel20210126(self, layers):
-
-        for layr in layers:
-
-            nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-            # uniq values of some array types....
-            def uniq(valu):
-                return tuple({v: True for v in valu}.keys())
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            stortype = s_layer.STOR_TYPE_GUID | s_layer.STOR_FLAG_ARRAY
-            async for buid, propvalu in layr.iterPropRows('ou:org', 'industries'):
-
-                uniqvalu = uniq(propvalu)
-                if uniqvalu == propvalu:
-                    continue
-
-                nodeedits.append(
-                    (buid, 'ou:org', (
-                        (s_layer.EDIT_PROP_SET, ('industries', uniqvalu, propvalu, stortype), ()),
-                    )),
-                )
-
-                if len(nodeedits) >= 1000:
-                    await save()
-
-            if nodeedits:
-                await save()
-
-    async def _normHugeProp(self, layers, prop):
-
-        proptype = prop.type
-        propname = prop.name
-        formname = prop.form.name
-        stortype = prop.type.stortype
-
-        for layr in layers:
-
-            nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            async for buid, propvalu in layr.iterPropRows(formname, propname):
-
-                try:
-                    newval = proptype.norm(propvalu)[0]
-                except s_exc.BadTypeValu as e:
-                    oldm = e.errinfo.get('mesg')
-                    logger.warning(f'Bad prop value {propname}={propvalu!r} : {oldm}')
-                    continue
-
-                if newval == propvalu:
-                    continue
-
-                nodeedits.append(
-                    (buid, formname, (
-                        (s_layer.EDIT_PROP_SET, (propname, newval, None, stortype), ()),
-                    )),
-                )
-
-                if len(nodeedits) >= 1000:
-                    await save()
-
-            if nodeedits:
-                await save()
-
-    async def _normHugeTagProps(self, layr, tagprops):
-
-        nodeedits = []
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-        async def save():
-            await layr.storNodeEdits(nodeedits, meta)
-            nodeedits.clear()
-
-        for form, tag, prop in layr.getTagProps():
-            if form is None or prop not in tagprops:
-                continue
-
-            tptyp = self.core.model.tagprops[prop]
-            stortype = tptyp.type.stortype
-
-            async for buid, propvalu in layr.iterTagPropRows(tag, prop, form):
-
-                try:
-                    newval = tptyp.type.norm(propvalu)[0]
-                except s_exc.BadTypeValu as e:
-                    oldm = e.errinfo.get('mesg')
-                    logger.warning(f'Bad prop value {tag}:{prop}={propvalu!r} : {oldm}')
-                    continue
-
-                if newval == propvalu:
-                    continue
-
-                nodeedits.append(
-                    (buid, form, (
-                        (s_layer.EDIT_TAGPROP_SET, (tag, prop, newval, None, stortype), ()),
-                    )),
-                )
-
-                if len(nodeedits) >= 1000:
-                    await save()
-
-            if nodeedits:
-                await save()
-
-    async def revModel20220307(self, layers):
-
-        for name, prop in self.core.model.props.items():
-            if prop.form is None:
-                continue
-
-            stortype = prop.type.stortype
-            if stortype & s_layer.STOR_FLAG_ARRAY:
-                stortype = stortype & 0x7fff
-
-            if stortype == s_layer.STOR_TYPE_HUGENUM:
-                await self._normHugeProp(layers, prop)
-
-        tagprops = set()
-        for name, prop in self.core.model.tagprops.items():
-            if prop.type.stortype == s_layer.STOR_TYPE_HUGENUM:
-                tagprops.add(prop.name)
-
-        for layr in layers:
-            await self._normHugeTagProps(layr, tagprops)
-
-    async def revModel20220315(self, layers):
-
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-        nodeedits = []
-        for layr in layers:
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            for formname, propname in (
-                    ('geo:place', 'name'),
-                    ('crypto:currency:block', 'hash'),
-                    ('crypto:currency:transaction', 'hash')):
-
-                prop = self.core.model.prop(f'{formname}:{propname}')
-                async for buid, propvalu in layr.iterPropRows(formname, propname):
-                    try:
-                        norm = prop.type.norm(propvalu)[0]
-                    except s_exc.BadTypeValu as e: # pragma: no cover
-                        oldm = e.errinfo.get('mesg')
-                        logger.warning(f'error re-norming {formname}:{propname}={propvalu} : {oldm}')
-                        continue
-
-                    if norm == propvalu:
-                        continue
-
-                    nodeedits.append(
-                        (buid, formname, (
-                            (s_layer.EDIT_PROP_SET, (propname, norm, propvalu, prop.type.stortype), ()),
-                        )),
-                    )
-
-                    if len(nodeedits) >= 1000:  # pragma: no cover
-                        await save()
-
-                if nodeedits:
-                    await save()
-
-        layridens = [layr.iden for layr in layers]
-
-        storm_geoplace_to_geoname = '''
-        $layers = $lib.set()
-        $layers.adds($layridens)
-        for $view in $lib.view.list(deporder=$lib.true) {
-            if (not $layers.has($view.layers.0.iden)) { continue }
-            view.exec $view.iden {
-                yield $lib.layer.get().liftByProp(geo:place:name)
-                [ geo:name=:name ]
-            }
-        }
-        '''
-
-        storm_crypto_txin = '''
-        $layers = $lib.set()
-        $layers.adds($layridens)
-        for $view in $lib.view.list(deporder=$lib.true) {
-            if (not $layers.has($view.layers.0.iden)) { continue }
-            view.exec $view.iden {
-
-                function addInputXacts() {
-                    yield $lib.layer.get().liftByProp(crypto:payment:input)
-                    -:transaction $xact = $lib.null
-                    { -> crypto:currency:transaction $xact=$node.value() }
-                    if $xact {
-                        [ :transaction=$xact ]
-                    }
-                    fini { return() }
-                }
-
-                function addOutputXacts() {
-                    yield $lib.layer.get().liftByProp(crypto:payment:output)
-                    -:transaction $xact = $lib.null
-                    { -> crypto:currency:transaction $xact=$node.value() }
-                    if $xact {
-                        [ :transaction=$xact ]
-                    }
-                    fini { return() }
-                }
-
-                function wipeInputsArray() {
-                    yield $lib.layer.get().liftByProp(crypto:currency:transaction:inputs)
-                    [ -:inputs ]
-                    fini { return() }
-                }
-
-                function wipeOutputsArray() {
-                    yield $lib.layer.get().liftByProp(crypto:currency:transaction:outputs)
-                    [ -:outputs ]
-                    fini { return() }
-                }
-
-                $addInputXacts()
-                $addOutputXacts()
-                $wipeInputsArray()
-                $wipeOutputsArray()
-            }
-        }
-        '''
-
-        storm_crypto_lockout = '''
-        model.deprecated.lock crypto:currency:transaction:inputs
-        | model.deprecated.lock crypto:currency:transaction:outputs
-        '''
-
-        logger.debug('Making geo:name nodes from geo:place:name values.')
-        opts = {'vars': {'layridens': layridens}}
-        await self.runStorm(storm_geoplace_to_geoname, opts=opts)
-        logger.debug('Update crypto:currency:transaction :input and :output property use.')
-        await self.runStorm(storm_crypto_txin, opts=opts)
-        logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
-        await self.runStorm(storm_crypto_lockout)
-
-    async def revModel20220509(self, layers):
-
-        await self._normPropValu(layers, 'ou:industry:name')
-        await self._propToForm(layers, 'ou:industry:name', 'ou:industryname')
-
-        await self._normPropValu(layers, 'it:prod:soft:name')
-        await self._normPropValu(layers, 'it:prod:soft:names')
-        await self._normPropValu(layers, 'it:prod:softver:name')
-        await self._normPropValu(layers, 'it:prod:softver:names')
-        await self._normPropValu(layers, 'it:mitre:attack:software:name')
-        await self._normPropValu(layers, 'it:mitre:attack:software:names')
-
-        await self._propToForm(layers, 'it:prod:soft:name', 'it:prod:softname')
-        await self._propToForm(layers, 'it:prod:softver:name', 'it:prod:softname')
-        await self._propToForm(layers, 'it:mitre:attack:software:name', 'it:prod:softname')
-
-        await self._propArrayToForm(layers, 'it:prod:soft:names', 'it:prod:softname')
-        await self._propArrayToForm(layers, 'it:prod:softver:names', 'it:prod:softname')
-        await self._propArrayToForm(layers, 'it:mitre:attack:software:names', 'it:prod:softname')
-
-    async def revModel20220706(self, layers):
-        await self._propToForm(layers, 'it:av:sig:name', 'it:av:signame')
-        await self._propToForm(layers, 'it:av:filehit:sig:name', 'it:av:signame')
-
-    async def revModel20220803(self, layers):
-
-        await self._normPropValu(layers, 'ps:contact:title')
-        await self._propToForm(layers, 'ps:contact:title', 'ou:jobtitle')
-
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-        valid = regex.compile(r'^[0-9a-f]{40}$')
-        repl = regex.compile(r'[\s:]')
-
-        nodeedits = []
-        for layr in layers:
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            formname = 'crypto:x509:cert'
-            prop = self.core.model.prop('crypto:x509:cert:serial')
-
-            async def movetodata(buid, valu):
-                nodeedits.append(
-                    (buid, formname, (
-                        (s_layer.EDIT_PROP_DEL, (prop.name, valu, prop.type.stortype), ()),
-                        (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_10', {'serial': valu}, None), ()),
-                    )),
-                )
-                if len(nodeedits) >= 1000:
-                    await save()
-
-            async for buid, propvalu in layr.iterPropRows(formname, prop.name):
-
-                if not isinstance(propvalu, str):  # pragma: no cover
-                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} '
-                                   f'for node {s_common.ehex(buid)} : invalid prop type')
-                    await movetodata(buid, propvalu)
-                    continue
-
-                if valid.match(propvalu):
-                    continue
-
-                newv = repl.sub('', propvalu)
-
-                try:
-                    newv = int(newv)
-                except ValueError:
-                    try:
-                        newv = int(newv, 16)
-                    except ValueError:
-                        logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} '
-                                       f'for node {s_common.ehex(buid)} : invalid prop value')
-                        await movetodata(buid, propvalu)
-                        continue
-
-                try:
-                    newv = s_common.ehex(newv.to_bytes(20, 'big', signed=True))
-                    norm, info = prop.type.norm(newv)
-
-                except (OverflowError, s_exc.BadTypeValu):
-                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} '
-                                   f'for node {s_common.ehex(buid)} : invalid prop value')
-                    await movetodata(buid, propvalu)
-                    continue
-
-                nodeedits.append(
-                    (buid, formname, (
-                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
-                    )),
-                )
-
-                if len(nodeedits) >= 1000:
-                    await save()
-
-            if nodeedits:
-                await save()
-
-    async def revModel20220901(self, layers):
-
-        await self._normPropValu(layers, 'pol:country:name')
-        await self._propToForm(layers, 'pol:country:name', 'geo:name')
-
-        await self._normPropValu(layers, 'risk:alert:type')
-        await self._propToForm(layers, 'risk:alert:type', 'risk:alert:taxonomy')
-
-    async def revModel20221025(self, layers):
-        await self._propToForm(layers, 'risk:tool:software:type', 'risk:tool:software:taxonomy')
-
-    async def revModel20221123(self, layers):
-        await self._normPropValu(layers, 'inet:flow:dst:softnames')
-        await self._normPropValu(layers, 'inet:flow:src:softnames')
-
-        await self._propArrayToForm(layers, 'inet:flow:dst:softnames', 'it:prod:softname')
-        await self._propArrayToForm(layers, 'inet:flow:src:softnames', 'it:prod:softname')
-
-    async def revModel20221212(self, layers):
-
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-        props = [
-            'ou:contract:award:price',
-            'ou:contract:budget:price'
-        ]
-
-        nodeedits = []
-        for layr in layers:
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            for propname in props:
-                prop = self.core.model.prop(propname)
-
-                async def movetodata(buid, valu):
-                    (retn, data) = await layr.getNodeData(buid, 'migration:0_2_15')
-                    if retn:
-                        data[prop.name] = valu
-                    else:
-                        data = {prop.name: valu}
-
-                    nodeedits.append(
-                        (buid, prop.form.name, (
-                            (s_layer.EDIT_PROP_DEL, (prop.name, valu, s_layer.STOR_TYPE_UTF8), ()),
-                            (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_15', data, None), ()),
-                        )),
-                    )
-                    if len(nodeedits) >= 1000:
-                        await save()
-
-                async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
-                    try:
-                        norm, info = prop.type.norm(propvalu)
-                    except s_exc.BadTypeValu as e:
-                        oldm = e.errinfo.get('mesg')
-                        logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
-                        await movetodata(buid, propvalu)
-                        continue
-
-                    nodeedits.append(
-                        (buid, prop.form.name, (
-                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, s_layer.STOR_TYPE_UTF8), ()),
-                            (s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ()),
-                        )),
-                    )
-
-                    if len(nodeedits) >= 1000:  # pragma: no cover
-                        await save()
-
-                if nodeedits:
-                    await save()
-
-    async def revModel20221220(self, layers):
-        todoprops = (
-            'risk:tool:software:soft:names',
-            'risk:tool:software:techniques'
-        )
-        await self._uniqSortArray(todoprops, layers)
-
-    async def revModel20230209(self, layers):
-
-        await self._normFormSubs(layers, 'inet:http:cookie')
-
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-        nodeedits = []
-        for layr in layers:
-
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
-
-            prop = self.core.model.prop('risk:vuln:cvss:av')
-            propname = prop.name
-            formname = prop.form.name
-            stortype = prop.type.stortype
-
-            oldvalu = 'V'
-            newvalu = 'P'
-
-            async for buid, propvalu in layr.iterPropRows(formname, propname, stortype=stortype, startvalu=oldvalu):
-
-                if propvalu != oldvalu:  # pragma: no cover
-                    break
-
-                nodeedits.append(
-                    (buid, formname, (
-                        (s_layer.EDIT_PROP_DEL, (propname, propvalu, stortype), ()),
-                        (s_layer.EDIT_PROP_SET, (propname, newvalu, None, stortype), ()),
-                    )),
-                )
-
-                if len(nodeedits) >= 1000:  # pragma: no cover
-                    await save()
-
-            if nodeedits:
-                await save()
-
-    async def revModel_0_2_18(self, layers):
-        await self._propToForm(layers, 'file:bytes:mime:pe:imphash', 'hash:md5')
-        await self._normPropValu(layers, 'ou:goal:type')
-        await self._propToForm(layers, 'ou:goal:type', 'ou:goal:type:taxonomy')
-
-        await self._normPropValu(layers, 'ou:goal:name')
-        await self._propToForm(layers, 'ou:goal:name', 'ou:goalname')
-
-    async def revModel_0_2_19(self, layers):
-        await self._normPropValu(layers, 'ou:campaign:name')
-        await self._propToForm(layers, 'ou:campaign:name', 'ou:campname')
-        await self._normPropValu(layers, 'risk:vuln:type')
-        await self._propToForm(layers, 'risk:vuln:type', 'risk:vuln:type:taxonomy')
-
-    async def revModel_0_2_20(self, layers):
-        await self._normFormSubs(layers, 'inet:url', liftprop='user')
-        await self._propToForm(layers, 'inet:url:user', 'inet:user')
-        await self._propToForm(layers, 'inet:url:passwd', 'inet:passwd')
-
-        await self._updatePropStortype(layers, 'file:bytes:mime:pe:imphash')
-
-    async def revModel_0_2_21(self, layers):
-        await self._normPropValu(layers, 'risk:vuln:cvss:v2')
-        await self._normPropValu(layers, 'risk:vuln:cvss:v3')
-
-        await self._normPropValu(layers, 'risk:vuln:name')
-        await self._propToForm(layers, 'risk:vuln:name', 'risk:vulnname')
-
-    async def revModel_0_2_22(self, layers):
-        await self._normFormSubs(layers, 'inet:ipv4', cmprvalu='100.64.0.0/10')
-
-    async def revModel_0_2_23(self, layers):
-        await self._normFormSubs(layers, 'inet:ipv6')
-
-    async def revModel_0_2_24(self, layers):
-        await self._normPropValu(layers, 'risk:mitigation:name')
-        await self._normPropValu(layers, 'it:mitre:attack:technique:name')
-        await self._normPropValu(layers, 'it:mitre:attack:mitigation:name')
-
-        formprops = {}
-        for prop in self.core.model.getPropsByType('velocity'):
-            formname = prop.form.name
-            if formname not in formprops:
-                formprops[formname] = []
-
-            formprops[formname].append(prop)
-
-        for prop in self.core.model.getArrayPropsByType('velocity'):
-            formname = prop.form.name
-            if formname not in formprops:
-                formprops[formname] = []
-
-            formprops[formname].append(prop)
-
-        for form, props in formprops.items():
-            await self._normVelocityProps(layers, form, props)
 
     async def runStorm(self, text, opts=None):
         '''
@@ -822,7 +125,7 @@ class ModelRev:
 
         for revvers, revmeth in self.revs:
 
-            todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
+            todo = [lyr for lyr in layers if await lyr.getModelVers() < revvers]
             if not todo:
                 continue
 
@@ -847,18 +150,18 @@ class ModelRev:
 
             prop = self.core.model.prop(propfull)
 
-            async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
+            async for nid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
                     norm, info = prop.type.norm(propvalu)
                 except s_exc.BadTypeValu as e:
                     nodeedits.append(
-                        (buid, prop.form.name, (
-                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
-                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                        (nid, prop.form.name, (
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None)),
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype)),
                         )),
                     )
                     oldm = e.errinfo.get('mesg')
-                    iden = s_common.ehex(buid)
+                    iden = s_common.ehex(self.core.getBuidByNid(nid))
                     logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
                                    extra={'synapse': {'node': iden, 'layer': layr.iden}})
                     continue
@@ -867,8 +170,8 @@ class ModelRev:
                     continue
 
                 nodeedits.append(
-                    (buid, prop.form.name, (
-                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                    (nid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype)),
                     )),
                 )
 
@@ -958,7 +261,7 @@ class ModelRev:
             prop = self.core.model.prop(propfull)
             stortype = prop.type.stortype
 
-            async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
+            async for lkey, nid, sode in layr.liftByProp(prop.form.name, prop.name):
 
                 props = sode.get('props')
 
@@ -971,8 +274,8 @@ class ModelRev:
                     continue
 
                 nodeedits.append(
-                    (buid, prop.form.name, (
-                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype), ()),
+                    (nid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype)),
                     )),
                 )
 
@@ -1029,7 +332,7 @@ class ModelRev:
                 cmprvals = form.type.getStorCmprs(cmpr, cmprvalu)
                 genr = layr.liftByPropValu(form.name, liftprop, cmprvals)
 
-            async for _, buid, sode in genr:
+            async for _, nid, sode in genr:
 
                 sodevalu = sode.get('valu')
                 if sodevalu is None: # pragma: no cover
@@ -1078,12 +381,12 @@ class ModelRev:
                         if subcurv == subnorm:
                             continue
 
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype)))
 
                     if not edits: # pragma: no cover
                         continue
 
-                    nodeedits.append((buid, formname, edits))
+                    nodeedits.append((nid, formname, edits))
 
                     if len(nodeedits) >= 1000:  # pragma: no cover
                         await save()

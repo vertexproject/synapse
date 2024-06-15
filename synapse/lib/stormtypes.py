@@ -515,7 +515,7 @@ class Lib(StormType):
         StormType.__init__(self)
         self.runt = runt
         self.name = name
-        self.auth = runt.snap.core.auth
+        self.auth = runt.view.core.auth
         self.addLibFuncs()
 
     def addLibFuncs(self):
@@ -525,7 +525,7 @@ class Lib(StormType):
 
         if self._storm_query is not None:
 
-            query = await self.runt.snap.core.getStormQuery(self._storm_query)
+            query = await self.runt.view.core.getStormQuery(self._storm_query)
             self.modrunt = await self.runt.getModRuntime(query)
 
             self.runt.onfini(self.modrunt)
@@ -561,7 +561,7 @@ class Lib(StormType):
 
         path = self.name + (name,)
 
-        slib = self.runt.snap.core.getStormLib(path)
+        slib = self.runt.view.core.getStormLib(path)
         if slib is None:
             raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name)
 
@@ -639,12 +639,12 @@ class LibPkg(Lib):
         self.runt.confirm(('pkg', 'add'), None)
         pkgdef = await toprim(pkgdef)
         verify = await tobool(verify)
-        await self.runt.snap.core.addStormPkg(pkgdef, verify=verify)
+        await self.runt.view.core.addStormPkg(pkgdef, verify=verify)
 
     @stormfunc(readonly=True)
     async def _libPkgGet(self, name):
         name = await tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
+        pkgdef = await self.runt.view.core.getStormPkg(name)
         if pkgdef is None:
             return None
 
@@ -653,24 +653,24 @@ class LibPkg(Lib):
     @stormfunc(readonly=True)
     async def _libPkgHas(self, name):
         name = await tostr(name)
-        pkgdef = await self.runt.snap.core.getStormPkg(name)
+        pkgdef = await self.runt.view.core.getStormPkg(name)
         if pkgdef is None:
             return False
         return True
 
     async def _libPkgDel(self, name):
         self.runt.confirm(('pkg', 'del'), None)
-        await self.runt.snap.core.delStormPkg(name)
+        await self.runt.view.core.delStormPkg(name)
 
     @stormfunc(readonly=True)
     async def _libPkgList(self):
-        pkgs = await self.runt.snap.core.getStormPkgs()
+        pkgs = await self.runt.view.core.getStormPkgs()
         return list(sorted(pkgs, key=lambda x: x.get('name')))
 
     @stormfunc(readonly=True)
     async def _libPkgDeps(self, pkgdef):
         pkgdef = await toprim(pkgdef)
-        return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
+        return await self.runt.view.core.verifyStormPkgDeps(pkgdef)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -753,7 +753,7 @@ class LibDmon(Lib):
         }
 
     async def _libDmonDel(self, iden):
-        dmon = await self.runt.snap.core.getStormDmon(iden)
+        dmon = await self.runt.view.core.getStormDmon(iden)
         if dmon is None:
             mesg = f'No storm dmon with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -761,20 +761,20 @@ class LibDmon(Lib):
         if dmon.get('user') != self.runt.user.iden:
             self.runt.confirm(('dmon', 'del', iden))
 
-        await self.runt.snap.core.delStormDmon(iden)
+        await self.runt.view.core.delStormDmon(iden)
 
     @stormfunc(readonly=True)
     async def _libDmonGet(self, iden):
-        return await self.runt.snap.core.getStormDmon(iden)
+        return await self.runt.view.core.getStormDmon(iden)
 
     @stormfunc(readonly=True)
     async def _libDmonList(self):
-        return await self.runt.snap.core.getStormDmons()
+        return await self.runt.view.core.getStormDmons()
 
     @stormfunc(readonly=True)
     async def _libDmonLog(self, iden):
         self.runt.confirm(('dmon', 'log'))
-        return await self.runt.snap.core.getStormDmonLog(iden)
+        return await self.runt.view.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, text, name='noname', ddef=None):
 
@@ -791,7 +791,7 @@ class LibDmon(Lib):
         text = await tostr(text)
         ddef = await toprim(ddef)
 
-        viewiden = self.runt.snap.view.iden
+        viewiden = self.runt.view.iden
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         opts = {'vars': varz, 'view': viewiden}
@@ -806,44 +806,44 @@ class LibDmon(Lib):
 
         ddef.setdefault('enabled', True)
 
-        return await self.runt.snap.core.addStormDmon(ddef)
+        return await self.runt.view.core.addStormDmon(ddef)
 
     async def _libDmonBump(self, iden):
         iden = await tostr(iden)
 
-        ddef = await self.runt.snap.core.getStormDmon(iden)
+        ddef = await self.runt.view.core.getStormDmon(iden)
         if ddef is None:
             return False
 
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.bumpStormDmon(iden)
+        await self.runt.view.core.bumpStormDmon(iden)
         return True
 
     async def _libDmonStop(self, iden):
         iden = await tostr(iden)
 
-        ddef = await self.runt.snap.core.getStormDmon(iden)
+        ddef = await self.runt.view.core.getStormDmon(iden)
         if ddef is None:
             return False
 
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        return await self.runt.snap.core.disableStormDmon(iden)
+        return await self.runt.view.core.disableStormDmon(iden)
 
     async def _libDmonStart(self, iden):
         iden = await tostr(iden)
 
-        ddef = await self.runt.snap.core.getStormDmon(iden)
+        ddef = await self.runt.view.core.getStormDmon(iden)
         if ddef is None:
             return False
 
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        return await self.runt.snap.core.enableStormDmon(iden)
+        return await self.runt.view.core.enableStormDmon(iden)
 
 @registry.registerLib
 class LibService(Lib):
@@ -934,17 +934,7 @@ class LibService(Lib):
         '''
         Helper to handle service.get.* permissions
         '''
-        try:
-            self.runt.confirm(('service', 'get', ssvc.iden))
-        except s_exc.AuthDeny as e:
-            try:
-                self.runt.confirm(('service', 'get', ssvc.name))
-            except s_exc.AuthDeny:
-                raise e from None
-            else:
-                # TODO: Remove support for this permission in 3.0.0
-                mesg = 'Use of service.get.<servicename> permissions are deprecated.'
-                await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
+        self.runt.confirm(('service', 'get', ssvc.iden))
 
     async def _libSvcAdd(self, name, url):
         self.runt.confirm(('service', 'add'))
@@ -952,14 +942,14 @@ class LibService(Lib):
             'name': name,
             'url': url,
         }
-        return await self.runt.snap.core.addStormSvc(sdef)
+        return await self.runt.view.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
         self.runt.confirm(('service', 'del'))
-        return await self.runt.snap.core.delStormSvc(iden)
+        return await self.runt.view.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -968,7 +958,7 @@ class LibService(Lib):
 
     @stormfunc(readonly=True)
     async def _libSvcHas(self, name):
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
             return False
         return True
@@ -978,7 +968,7 @@ class LibService(Lib):
         self.runt.confirm(('service', 'list'))
         retn = []
 
-        for ssvc in self.runt.snap.core.getStormSvcs():
+        for ssvc in self.runt.view.core.getStormSvcs():
             sdef = dict(ssvc.sdef)
             sdef['ready'] = ssvc.ready.is_set()
             sdef['svcname'] = ssvc.svcname
@@ -991,7 +981,7 @@ class LibService(Lib):
     async def _libSvcWait(self, name, timeout=None):
         name = await tostr(name)
         timeout = await toint(timeout, noneok=True)
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -1050,7 +1040,7 @@ class LibTags(Lib):
 
         prefix = await tostr(prefix)
         ispart = await tobool(ispart)
-        tagpart = self.runt.snap.core.model.type('syn:tag:part')
+        tagpart = self.runt.view.core.model.type('syn:tag:part')
 
         retn = []
         async for part in toiter(names):
@@ -1416,7 +1406,7 @@ class LibBase(Lib):
         debug = await tobool(debug)
         reqvers = await tostr(reqvers, noneok=True)
 
-        mdef = await self.runt.snap.core.getStormMod(name, reqvers=reqvers)
+        mdef = await self.runt.view.core.getStormMod(name, reqvers=reqvers)
         if mdef is None:
             mesg = f'No storm module named {name} matching version requirement {reqvers}'
             raise s_exc.NoSuchName(mesg=mesg, name=name, reqvers=reqvers)
@@ -1493,11 +1483,11 @@ class LibBase(Lib):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        typeitem = self.runt.snap.core.model.type(name)
+        typeitem = self.runt.view.core.model.type(name)
         if typeitem is None:
             # If a type cannot be found for the form, see if name is a property
             # that has a type we can use
-            propitem = self.runt.snap.core.model.prop(name)
+            propitem = self.runt.view.core.model.prop(name)
             if propitem is None:
                 mesg = f'No type or prop found for name {name}.'
                 raise s_exc.NoSuchType(mesg=mesg)
@@ -1514,11 +1504,11 @@ class LibBase(Lib):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        typeitem = self.runt.snap.core.model.type(name)
+        typeitem = self.runt.view.core.model.type(name)
         if typeitem is None:
             # If a type cannot be found for the form, see if name is a property
             # that has a type we can use
-            propitem = self.runt.snap.core.model.prop(name)
+            propitem = self.runt.view.core.model.prop(name)
             if propitem is None:
                 mesg = f'No type or prop found for name {name}.'
                 raise s_exc.NoSuchType(mesg=mesg)
@@ -1707,7 +1697,7 @@ class LibBase(Lib):
     async def _fire(self, name, **info):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
-        await self.runt.snap.fire('storm:fire', type=name, data=info)
+        await self.runt.bus.fire('storm:fire', type=name, data=info)
 
 @registry.registerLib
 class LibDict(Lib):
@@ -1826,7 +1816,7 @@ class LibDict(Lib):
 
     async def __call__(self, **kwargs):
         s_common.deprecated('$lib.dict()', curv='2.161.0')
-        await self.runt.snap.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
+        await self.runt.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
         return Dict(kwargs)
 
 @registry.registerLib
@@ -2253,18 +2243,6 @@ class LibAxon(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('axon',)
-    _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'axon', 'del'), 'gate': 'cortex',
-            'desc': 'Controls the ability to remove a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'get'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'has'), 'gate': 'cortex',
-            'desc': 'Controls the ability to check if the Axon contains a file.'},
-        {'perm': ('storm', 'lib', 'axon', 'wget'), 'gate': 'cortex',
-            'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
-        {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
-            'desc': 'Controls the ability to push a file from the Axon to a URL.'},
-    )
 
     def getObjLocals(self):
         return {
@@ -2294,28 +2272,25 @@ class LibAxon(Lib):
 
     @stormfunc(readonly=True)
     async def readlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
-        await self.runt.snap.core.getAxon()
+        self.runt.confirm(('axon', 'get'))
+        await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.snap.core.axon.readlines(sha256, errors=errors):
+        async for line in self.runt.view.core.axon.readlines(sha256, errors=errors):
             yield line
 
     @stormfunc(readonly=True)
     async def jsonlines(self, sha256, errors='ignore'):
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
-        await self.runt.snap.core.getAxon()
+        self.runt.confirm(('axon', 'get'))
+        await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.snap.core.axon.jsonlines(sha256):
+        async for line in self.runt.view.core.axon.jsonlines(sha256):
             yield line
 
     async def dels(self, sha256s):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2324,29 +2299,27 @@ class LibAxon(Lib):
 
         hashes = [s_common.uhex(s) for s in sha256s]
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
-        axon = self.runt.snap.core.axon
+        axon = self.runt.view.core.axon
         return await axon.dels(hashes)
 
     async def del_(self, sha256):
 
-        if not self.runt.allowed(('axon', 'del')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        self.runt.confirm(('axon', 'del'))
 
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
-        axon = self.runt.snap.core.axon
+        axon = self.runt.view.core.axon
         return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
                    ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
-        if not self.runt.allowed(('axon', 'wget')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        self.runt.confirm(('axon', 'upload'))
 
         url = await tostr(url)
         method = await tostr(method)
@@ -2366,10 +2339,10 @@ class LibAxon(Lib):
         params = self.strify(params)
         headers = self.strify(headers)
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+        axonvers = self.runt.view.core.axoninfo['synapse']['version']
         if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
 
@@ -2379,7 +2352,7 @@ class LibAxon(Lib):
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
             kwargs['ssl_opts'] = ssl_opts
 
-        axon = self.runt.snap.core.axon
+        axon = self.runt.view.core.axon
         resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
                                timeout=timeout, **kwargs)
         resp['original_url'] = url
@@ -2388,8 +2361,7 @@ class LibAxon(Lib):
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
                    ssl=True, timeout=None, proxy=None, ssl_opts=None):
 
-        if not self.runt.allowed(('axon', 'wput')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        self.runt.confirm(('axon', 'get'))
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
@@ -2408,11 +2380,11 @@ class LibAxon(Lib):
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
-        axon = self.runt.snap.core.axon
+        axon = self.runt.view.core.axon
         sha256byts = s_common.uhex(sha256)
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+        axonvers = self.runt.view.core.axoninfo['synapse']['version']
         if axonvers >= AXON_MINVERS_PROXY:
             kwargs['proxy'] = proxy
 
@@ -2426,7 +2398,7 @@ class LibAxon(Lib):
                                ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
-        gateiden = self.runt.snap.wlyr.iden
+        gateiden = self.runt.view.wlyr.iden
         self.runt.confirm(('node', 'add', 'file:bytes'), gateiden=gateiden)
         self.runt.confirm(('node', 'add', 'inet:urlfile'), gateiden=gateiden)
 
@@ -2451,7 +2423,7 @@ class LibAxon(Lib):
             '.seen': now,
         }
 
-        filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
+        filenode = await self.runt.view.addNode('file:bytes', sha256, props=props)
 
         if not filenode.get('name'):
             info = s_urlhelp.chopurl(original_url)
@@ -2460,7 +2432,7 @@ class LibAxon(Lib):
                 await filenode.set('name', base)
 
         props = {'.seen': now}
-        urlfile = await self.runt.snap.addNode('inet:urlfile', (original_url, sha256), props=props)
+        urlfile = await self.runt.view.addNode('inet:urlfile', (original_url, sha256), props=props)
 
         history = resp.get('history')
         if history is not None:
@@ -2483,7 +2455,7 @@ class LibAxon(Lib):
 
             for valu in redirs:
                 props = {'.seen': now}
-                await self.runt.snap.addNode('inet:urlredir', valu, props=props)
+                await self.runt.view.addNode('inet:urlredir', valu, props=props)
 
         return urlfile
 
@@ -2493,11 +2465,10 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        axon = self.runt.snap.core.axon
+        await self.runt.view.core.getAxon()
+        axon = self.runt.view.core.axon
 
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
@@ -2505,31 +2476,29 @@ class LibAxon(Lib):
     @stormfunc(readonly=True)
     async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
-        await self.runt.snap.core.getAxon()
+        await self.runt.view.core.getAxon()
 
         sha256 = await tostr(sha256)
         dialect = await tostr(dialect)
         fmtparams = await toprim(fmtparams)
-        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect,
+        async for item in self.runt.view.core.axon.csvrows(s_common.uhex(sha256), dialect,
                                                            errors=errors, **fmtparams):
             yield item
             await asyncio.sleep(0)
 
     @stormfunc(readonly=True)
     async def metrics(self):
-        if not self.runt.allowed(('axon', 'has')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
-        return await self.runt.snap.core.axon.metrics()
+        self.runt.confirm(('axon', 'has'))
+        return await self.runt.view.core.axon.metrics()
 
     async def upload(self, genr):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.snap.core.getAxon()
-        async with await self.runt.snap.core.axon.upload() as upload:
+        await self.runt.view.core.getAxon()
+        async with await self.runt.view.core.axon.upload() as upload:
             async for byts in s_coro.agen(genr):
                 await upload.write(byts)
             size, sha256 = await upload.save()
@@ -2543,8 +2512,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.has(s_common.uhex(sha256))
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.has(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
     async def size(self, sha256):
@@ -2552,8 +2521,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.size(s_common.uhex(sha256))
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.size(s_common.uhex(sha256))
 
     async def put(self, byts):
         if not isinstance(byts, bytes):
@@ -2562,8 +2531,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'upload'))
 
-        await self.runt.snap.core.getAxon()
-        size, sha256 = await self.runt.snap.core.axon.put(byts)
+        await self.runt.view.core.getAxon()
+        size, sha256 = await self.runt.view.core.axon.put(byts)
 
         return (size, s_common.ehex(sha256))
 
@@ -2573,165 +2542,8 @@ class LibAxon(Lib):
 
         self.runt.confirm(('axon', 'has'))
 
-        await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
-
-@registry.registerLib
-class LibBytes(Lib):
-    '''
-    A Storm Library for interacting with bytes storage. This Library is deprecated; use ``$lib.axon.*`` instead.
-    '''
-    _storm_locals = (
-        {'name': 'put', 'desc': '''
-            Save the given bytes variable to the Axon the Cortex is configured to use.
-
-            Examples:
-                Save a base64 encoded buffer to the Axon::
-
-                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.bytes.put($buf)
-                         $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
-
-                    size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
-         'type': {'type': 'function', '_funcname': '_libBytesPut',
-                  'args': (
-                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to save.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-        {'name': 'has', 'desc': '''
-            Check if the Axon the Cortex is configured to use has a given sha256 value.
-
-            Examples:
-                Check if the Axon has a given file::
-
-                    # This example assumes the Axon does have the bytes
-                    cli> storm if $lib.bytes.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
-                            $lib.print("Has bytes")
-                        } else {
-                            $lib.print("Does not have bytes")
-                        }
-
-                    Has bytes
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesHas',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the Axon has the file, false if it does not.', }}},
-        {'name': 'size', 'desc': '''
-            Return the size of the bytes stored in the Axon for the given sha256.
-
-            Examples:
-                Get the size for a file given a variable named ``$sha256``::
-
-                    $size = $lib.bytes.size($sha256)
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesSize',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to check.', },
-                  ),
-                  'returns': {'type': ['int', 'null'],
-                              'desc': 'The size of the file or ``null`` if the file is not found.', }}},
-        {'name': 'hashset', 'desc': '''
-            Return additional hashes of the bytes stored in the Axon for the given sha256.
-
-            Examples:
-                Get the md5 hash for a file given a variable named ``$sha256``::
-
-                    $hashset = $lib.bytes.hashset($sha256)
-                    $md5 = $hashset.md5
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesHashset',
-                  'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
-        {'name': 'upload', 'desc': '''
-            Upload a stream of bytes to the Axon as a file.
-
-            Examples:
-                Upload bytes from a generator::
-
-                    ($size, $sha256) = $lib.bytes.upload($getBytesChunks())
-            ''',
-         'type': {'type': 'function', '_funcname': '_libBytesUpload',
-                  'args': (
-                      {'name': 'genr', 'type': 'generator', 'desc': 'A generator which yields bytes.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
-    )
-    _storm_lib_path = ('bytes',)
-
-    def getObjLocals(self):
-        return {
-            'put': self._libBytesPut,
-            'has': self._libBytesHas,
-            'size': self._libBytesSize,
-            'upload': self._libBytesUpload,
-            'hashset': self._libBytesHashset,
-        }
-
-    async def _libBytesUpload(self, genr):
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        async with await self.runt.snap.core.axon.upload() as upload:
-            async for byts in s_coro.agen(genr):
-                await upload.write(byts)
-            size, sha256 = await upload.save()
-            return size, s_common.ehex(sha256)
-
-    @stormfunc(readonly=True)
-    async def _libBytesHas(self, sha256):
-
-        sha256 = await tostr(sha256, noneok=True)
-        if sha256 is None:
-            return None
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('has', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    @stormfunc(readonly=True)
-    async def _libBytesSize(self, sha256):
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('size', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
-
-    async def _libBytesPut(self, byts):
-
-        if not isinstance(byts, bytes):
-            mesg = '$lib.bytes.put() requires a bytes argument'
-            raise s_exc.BadArg(mesg=mesg)
-
-        self.runt.confirm(('axon', 'upload'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('put', byts)
-        size, sha2 = await self.dyncall('axon', todo)
-
-        return (size, s_common.ehex(sha2))
-
-    @stormfunc(readonly=True)
-    async def _libBytesHashset(self, sha256):
-
-        sha256 = await tostr(sha256)
-
-        self.runt.confirm(('axon', 'has'), default=True)
-
-        await self.runt.snap.core.getAxon()
-        todo = s_common.todo('hashset', s_common.uhex(sha256))
-        ret = await self.dyncall('axon', todo)
-        return ret
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.hashset(s_common.uhex(sha256))
 
 @registry.registerLib
 class LibLift(Lib):
@@ -2757,7 +2569,8 @@ class LibLift(Lib):
 
     @stormfunc(readonly=True)
     async def _byNodeData(self, name):
-        async for node in self.runt.snap.nodesByDataName(name):
+        name = await tostr(name)
+        async for node in self.runt.view.nodesByDataName(name):
             yield node
 
 @registry.registerLib
@@ -2820,10 +2633,6 @@ class LibTime(Lib):
                   'returns': {'type': 'str', 'desc': 'The formatted time string.', }}},
         {'name': 'sleep', 'desc': '''
             Pause the processing of data in the storm query.
-
-            Notes:
-                This has the effect of clearing the Snap's cache, so any node lifts performed
-                after the ``$lib.time.sleep(...)`` executes will be lifted directly from storage.
             ''',
          'type': {'type': 'function', '_funcname': '_sleep',
                   'args': (
@@ -2832,10 +2641,6 @@ class LibTime(Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'ticker', 'desc': '''
         Periodically pause the processing of data in the storm query.
-
-        Notes:
-            This has the effect of clearing the Snap's cache, so any node lifts performed
-            after each tick will be lifted directly from storage.
         ''',
          'type': {'type': 'function', '_funcname': '_ticker',
                   'args': (
@@ -2978,7 +2783,7 @@ class LibTime(Lib):
         tick = await toprim(tick)
         timezone = await tostr(timezone)
 
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
 
         norm, info = timetype.norm(tick)
         try:
@@ -2993,76 +2798,76 @@ class LibTime(Lib):
     @stormfunc(readonly=True)
     async def day(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.day(norm)
 
     @stormfunc(readonly=True)
     async def hour(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.hour(norm)
 
     @stormfunc(readonly=True)
     async def year(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.year(norm)
 
     @stormfunc(readonly=True)
     async def month(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.month(norm)
 
     @stormfunc(readonly=True)
     async def minute(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.minute(norm)
 
     @stormfunc(readonly=True)
     async def second(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.second(norm)
 
     @stormfunc(readonly=True)
     async def dayofweek(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.dayofweek(norm)
 
     @stormfunc(readonly=True)
     async def dayofyear(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.dayofyear(norm)
 
     @stormfunc(readonly=True)
     async def dayofmonth(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.dayofmonth(norm)
 
     @stormfunc(readonly=True)
     async def monthofyear(self, tick):
         tick = await toprim(tick)
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         norm, info = timetype.norm(tick)
         return s_time.month(norm) - 1
 
     @stormfunc(readonly=True)
     async def _format(self, valu, format):
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         # Give a times string a shot at being normed prior to formatting.
         try:
             norm, _ = timetype.norm(valu)
@@ -3103,8 +2908,7 @@ class LibTime(Lib):
 
     @stormfunc(readonly=True)
     async def _sleep(self, valu):
-        await self.runt.snap.waitfini(timeout=float(valu))
-        await self.runt.snap.clearCache()
+        await self.runt.waitfini(timeout=float(valu))
 
     async def _ticker(self, tick, count=None):
         if count is not None:
@@ -3115,8 +2919,7 @@ class LibTime(Lib):
         offs = 0
         while True:
 
-            await self.runt.snap.waitfini(timeout=tick)
-            await self.runt.snap.clearCache()
+            await self.runt.waitfini(timeout=tick)
             yield offs
 
             offs += 1
@@ -3336,7 +3139,7 @@ class LibCsv(Lib):
     @stormfunc(readonly=True)
     async def _libCsvEmit(self, *args, table=None):
         row = [await toprim(a) for a in args]
-        await self.runt.snap.fire('csv:row', row=row, table=table)
+        await self.runt.bus.fire('csv:row', row=row, table=table)
 
 @registry.registerLib
 class LibExport(Lib):
@@ -3375,47 +3178,40 @@ class LibExport(Lib):
             mesg = '$lib.export.toaxon() opts argument must be a dictionary.'
             raise s_exc.BadArg(mesg=mesg)
 
-        opts['user'] = self.runt.snap.user.iden
-        opts.setdefault('view', self.runt.snap.view.iden)
-        return await self.runt.snap.core.exportStormToAxon(query, opts=opts)
+        opts['user'] = self.runt.user.iden
+        opts.setdefault('view', self.runt.view.iden)
+        return await self.runt.view.core.exportStormToAxon(query, opts=opts)
 
 @registry.registerLib
 class LibFeed(Lib):
     '''
-    A Storm Library for interacting with Cortex feed functions.
+    A Storm Library for feeding bulk nodes into a Cortex.
     '''
     _storm_locals = (
         {'name': 'genr', 'desc': '''
-            Yield nodes being added to the graph by adding data with a given ingest type.
+            Yield nodes being added to the graph by adding data in nodes format.
 
             Notes:
-                This is using the Runtimes's Snap to call addFeedNodes().
-                This only yields nodes if the feed function yields nodes.
+                This is using the Runtimes's View to call addNodes().
                 If the generator is not entirely consumed there is no guarantee
                 that all of the nodes which should be made by the feed function
                 will be made.
             ''',
          'type': {'type': 'function', '_funcname': '_libGenr',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
-                      {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
+                      {'name': 'data', 'type': 'prim', 'desc': 'Nodes data to ingest', },
                   ),
                   'returns': {'name': 'Yields', 'type': 'node',
-                              'desc': 'Yields Nodes as they are created by the ingest function.', }}},
-        {'name': 'list', 'desc': 'Get a list of feed functions.',
-         'type': {'type': 'function', '_funcname': '_libList',
-                  'returns': {'type': 'list', 'desc': 'A list of feed functions.', }}},
+                              'desc': 'Yields Nodes as they are created.', }}},
         {'name': 'ingest', 'desc': '''
-            Add nodes to the graph with a given ingest type.
+            Add nodes to the graph.
 
             Notes:
-                This is using the Runtimes's Snap to call addFeedData(), after setting
-                the snap.strict mode to False. This will cause node creation and property
-                setting to produce warning messages, instead of causing the Storm Runtime
+                This API will cause errors during node creation and property setting
+                to produce warning messages, instead of causing the Storm Runtime
                 to be torn down.''',
          'type': {'type': 'function', '_funcname': '_libIngest',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
                       {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -3425,7 +3221,6 @@ class LibFeed(Lib):
     def getObjLocals(self):
         return {
             'genr': self._libGenr,
-            'list': self._libList,
             'ingest': self._libIngest,
             'fromAxon': self._fromAxon,
         }
@@ -3442,41 +3237,26 @@ class LibFeed(Lib):
         '''
         sha256 = await tostr(sha256)
         opts = {
-            'user': self.runt.snap.user.iden,
-            'view': self.runt.snap.view.iden,
+            'user': self.runt.user.iden,
+            'view': self.runt.view.iden,
         }
-        return await self.runt.snap.core.feedFromAxon(sha256, opts=opts)
+        return await self.runt.view.core.feedFromAxon(sha256, opts=opts)
 
-    async def _libGenr(self, name, data):
-        name = await tostr(name)
+    async def _libGenr(self, data):
         data = await toprim(data)
 
-        self.runt.layerConfirm(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data',))
 
-        #  small work around for the feed API consistency
-        if name == 'syn.nodes':
-            async for node in self.runt.snap.addNodes(data):
-                yield node
-            return
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            yield node
 
-        await self.runt.snap.addFeedData(name, data)
-
-    @stormfunc(readonly=True)
-    async def _libList(self):
-        todo = ('getFeedFuncs', (), {})
-        return await self.runt.dyncall('cortex', todo)
-
-    async def _libIngest(self, name, data):
-        name = await tostr(name)
+    async def _libIngest(self, data):
         data = await toprim(data)
 
-        self.runt.layerConfirm(('feed:data', *name.split('.')))
+        self.runt.layerConfirm(('feed:data',))
 
-        # TODO this should be a reentrent safe with block
-        strict = self.runt.snap.strict
-        self.runt.snap.strict = False
-        await self.runt.snap.addFeedData(name, data)
-        self.runt.snap.strict = strict
+        async for node in self.runt.view.addNodes(data, user=self.runt.user):
+            await asyncio.sleep(0)
 
 @registry.registerLib
 class LibPipe(Lib):
@@ -3545,7 +3325,7 @@ class LibPipe(Lib):
 
             await pipe.close()
 
-        self.runt.snap.schedCoro(coro())
+        self.runt.schedCoro(coro())
 
         return pipe
 
@@ -3715,7 +3495,7 @@ class LibQueue(Lib):
 
         info = {
             'time': s_common.now(),
-            'creator': self.runt.snap.user.iden,
+            'creator': self.runt.user.iden,
         }
 
         todo = s_common.todo('addCoreQueue', name, info)
@@ -3861,13 +3641,13 @@ class Queue(StormType):
         offs = await toint(offs)
         gatekeys = self._getGateKeys('get')
         await self.runt.reqGateKeys(gatekeys)
-        await self.runt.snap.core.coreQueueCull(self.name, offs)
+        await self.runt.view.core.coreQueueCull(self.name, offs)
 
     @stormfunc(readonly=True)
     async def _methQueueSize(self):
         gatekeys = self._getGateKeys('get')
         await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.snap.core.coreQueueSize(self.name)
+        return await self.runt.view.core.coreQueueSize(self.name)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = await toint(wait)
@@ -3877,14 +3657,14 @@ class Queue(StormType):
         gatekeys = self._getGateKeys('get')
         await self.runt.reqGateKeys(gatekeys)
 
-        async for item in self.runt.snap.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
+        async for item in self.runt.view.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
         gatekeys = self._getGateKeys('put')
         await self.runt.reqGateKeys(gatekeys)
-        return await self.runt.snap.core.coreQueuePuts(self.name, items)
+        return await self.runt.view.core.coreQueuePuts(self.name, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
@@ -3893,7 +3673,7 @@ class Queue(StormType):
         gatekeys = self._getGateKeys('get')
         await self.runt.reqGateKeys(gatekeys)
 
-        return await self.runt.snap.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
+        return await self.runt.view.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
@@ -3903,7 +3683,7 @@ class Queue(StormType):
         await self.runt.reqGateKeys(gatekeys)
 
         # emulate the old behavior on no argument
-        core = self.runt.snap.core
+        core = self.runt.view.core
         if offs is None:
             async for item in core.coreQueueGets(self.name, 0, wait=wait):
                 return await core.coreQueuePop(self.name, item[0])
@@ -4035,7 +3815,7 @@ class ProxyMethod(StormType):
         # TODO: storm types fromprim()
         ret = await self.meth(*args, **kwargs)
         if isinstance(ret, s_telepath.Share):
-            self.runt.snap.onfini(ret)
+            self.runt.bus.onfini(ret)
             return Proxy(self.runt, ret)
         return ret
 
@@ -5152,7 +4932,7 @@ class List(Prim):
         s_common.deprecated('StormType List.length()')
         runt = s_scope.get('runt')
         if runt:
-            await runt.snap.warnonce('StormType List.length() is deprecated. Use the size() method.')
+            await runt.warnonce('StormType List.length() is deprecated. Use the size() method.')
         return len(self)
 
     @stormfunc(readonly=True)
@@ -5855,7 +5635,7 @@ class NodeProps(Prim):
             mesg = f'No prop {self.valu.form.name}:{name}'
             raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
 
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
 
         if valu is undef:
             confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
@@ -5868,7 +5648,7 @@ class NodeProps(Prim):
 
     async def iter(self):
         # Make copies of property values since array types are mutable
-        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.getProps().items())
         for item in items:
             yield item
 
@@ -5881,11 +5661,11 @@ class NodeProps(Prim):
 
     @stormfunc(readonly=True)
     async def list(self):
-        return list(self.valu.props.items())
+        return list(self.valu.getProps().items())
 
     @stormfunc(readonly=True)
     def value(self):
-        return dict(self.valu.props)
+        return self.valu.getProps()
 
 @registry.registerType
 class NodeData(Prim):
@@ -5971,7 +5751,7 @@ class NodeData(Prim):
         if not envl:
             return None
 
-        timetype = self.valu.snap.core.model.type('time')
+        timetype = self.valu.view.core.model.type('time')
 
         asoftick = timetype.norm(asof)[0]
         if envl.get('asof') >= asoftick:
@@ -5995,7 +5775,7 @@ class NodeData(Prim):
 
     async def _setNodeData(self, name, valu):
         name = await tostr(name)
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
@@ -6003,8 +5783,12 @@ class NodeData(Prim):
 
     async def _popNodeData(self, name):
         name = await tostr(name)
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'data', 'pop', name), gateiden=gateiden)
+
+        if self.path is not None:
+            self.path.popData(self.valu.nid, name)
+
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
@@ -6015,8 +5799,10 @@ class NodeData(Prim):
     async def _loadNodeData(self, name):
         name = await tostr(name)
         valu = await self.valu.getData(name)
-        # set the data value into the nodedata dict so it gets sent
-        self.valu.nodedata[name] = valu
+
+        if self.path is not None:
+            # set the data value into the path nodedata dict so it gets sent
+            self.path.setData(self.valu.nid, name, valu)
 
 @registry.registerType
 class Node(Prim):
@@ -6188,29 +5974,41 @@ class Node(Prim):
         reverse = await tobool(reverse)
 
         if reverse:
-            async for edge in self.valu.iterEdgesN2(verb=verb):
-                yield edge
+            async for (verb, n1nid) in self.valu.iterEdgesN2(verb=verb):
+                n1iden = s_common.ehex(self.valu.view.core.getBuidByNid(n1nid))
+                yield (verb, n1iden)
         else:
-            async for edge in self.valu.iterEdgesN1(verb=verb):
-                yield edge
+            async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
+                n2iden = s_common.ehex(self.valu.view.core.getBuidByNid(n2nid))
+                yield (verb, n2iden)
 
     async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)
         iden = await tobuidhex(iden)
 
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        await self.valu.addEdge(verb, iden)
+        nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.valu.addEdge(verb, nid)
 
     async def _methNodeDelEdge(self, verb, iden):
         verb = await tostr(verb)
         iden = await tobuidhex(iden)
 
-        gateiden = self.valu.snap.wlyr.iden
+        gateiden = self.valu.view.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        await self.valu.delEdge(verb, iden)
+        nid = self.valu.view.core.getNidByBuid(s_common.uhex(iden))
+        if nid is None:
+            mesg = f'No node with iden: {iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        await self.valu.delEdge(verb, nid)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
@@ -6221,7 +6019,7 @@ class Node(Prim):
         glob = await tostr(glob, noneok=True)
         leaf = await tobool(leaf)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         if leaf:
             _tags = []
             # brute force rather than build a tree.  faster in small sets.
@@ -6244,7 +6042,7 @@ class Node(Prim):
             mesg = f'Tag globs may not be adjacent: {glob}'
             raise s_exc.BadArg(mesg=mesg)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
         for tag in tags:
@@ -6267,7 +6065,7 @@ class Node(Prim):
 
         if norm:
             normtags = set()
-            tagpart = self.valu.snap.core.model.type('syn:tag:part')
+            tagpart = self.valu.view.core.model.type('syn:tag:part')
 
             async for part in toiter(tags):
                 try:
@@ -6285,13 +6083,13 @@ class Node(Prim):
 
             tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
             curtags = set()
-            for tag in list(self.valu.tags.keys()):
+            for tag in self.valu.getTagNames():
                 parts = tuple(tag.split('.'))
                 if parts[:plen] == prefix:
                     curtags.add(parts)
         else:
             tags = set([tuple(tag.split('.')) for tag in tags if tag])
-            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.getTagNames()])
 
         adds = set([tag for tag in tags if tag not in curtags])
         dels = set()
@@ -6563,9 +6361,9 @@ class LibLayer(Lib):
 
         iden = await tostr(iden, noneok=True)
         if iden is None:
-            iden = self.runt.snap.view.layers[0].iden
+            iden = self.runt.view.wlyr.iden
 
-        ldef = await self.runt.snap.core.getLayerDef(iden=iden)
+        ldef = await self.runt.view.core.getLayerDef(iden=iden)
         if ldef is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -6675,8 +6473,6 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
-                      {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.',
-                       'default': None, },
                       {'name': 'valu', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'A specific value of the property to look up.', },
                   ),
@@ -6726,8 +6522,7 @@ class Layer(Prim):
 
             Notes:
                 The storage nodes represent **only** the data stored in the layer
-                and may not represent whole nodes. If the only data stored in the layer for
-                a given buid is an N2 edge reference, a storage node will not be returned.
+                and may not represent whole nodes.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodesByForm',
                   'args': (
@@ -6865,6 +6660,23 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
+        {'name': 'getTombstones', 'desc': '''
+            Get (iden, tombtype, info) tuples representing tombstones stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getTombstones',
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Tuple of iden, tombstone type, and type specific info.'}}},
+        {'name': 'delTombstone', 'desc': '''
+            Delete a tombstone stored in the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'delTombstone',
+                  'args': (
+                      {'name': 'nid', 'type': 'str', 'desc': 'The node id of the node.'},
+                      {'name': 'tombtype', 'type': 'int', 'desc': 'The tombstone type.'},
+                      {'name': 'tombinfo', 'type': 'list', 'desc': 'The tombstone info to delete.'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the tombstone was deleted, False if not.'}}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -6919,6 +6731,8 @@ class Layer(Prim):
             'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
+            'delTombstone': self.delTombstone,
+            'getTombstones': self.getTombstones,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -6927,15 +6741,15 @@ class Layer(Prim):
         tagname = await tostr(tagname)
         formname = await tostr(formname, noneok=True)
 
-        if formname is not None and self.runt.snap.core.model.form(formname) is None:
+        if formname is not None and self.runt.view.core.model.form(formname) is None:
             raise s_exc.NoSuchForm.init(formname)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
-        async for _, buid, sode in layr.liftByTag(tagname, form=formname):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByTag(tagname, form=formname):
+            yield await self.runt.view._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def liftByProp(self, propname, propvalu=None, propcmpr='='):
@@ -6945,11 +6759,11 @@ class Layer(Prim):
         propcmpr = await tostr(propcmpr)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
 
-        prop = self.runt.snap.core.model.prop(propname)
+        prop = self.runt.view.core.model.prop(propname)
         if prop is None:
             mesg = f'The property {propname} does not exist.'
             raise s_exc.NoSuchProp(mesg=mesg)
@@ -6965,19 +6779,19 @@ class Layer(Prim):
             liftprop = prop.name
 
         if propvalu is None:
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+            async for _, nid, _ in layr.liftByProp(liftform, liftprop):
+                yield await self.runt.view._joinStorNode(nid)
             return
 
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-        async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield await self.runt.view._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def getMirrorStatus(self):
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
         return await layr.getMirrorStatus()
 
     async def _addPull(self, url, offs=0, queue_size=s_const.layer_pdef_qsize, chunk_size=s_const.layer_pdef_csize):
@@ -7073,7 +6887,7 @@ class Layer(Prim):
     async def _methGetFormcount(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
         return await layr.getFormCounts()
 
     @stormfunc(readonly=True)
@@ -7082,31 +6896,30 @@ class Layer(Prim):
         formname = await tostr(formname, noneok=True)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
         return await layr.getTagCount(tagname, formname=formname)
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, maxsize=None, valu=undef):
+    async def _methGetPropCount(self, propname, valu=undef):
         propname = await tostr(propname)
-        maxsize = await toint(maxsize, noneok=True)
 
-        prop = self.runt.snap.core.model.prop(propname)
+        prop = self.runt.view.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
             raise s_exc.NoSuchProp(mesg=mesg)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
         if valu is undef:
             if prop.isform:
-                return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+                return await layr.getPropCount(prop.name, None)
 
             if prop.isuniv:
-                return await layr.getPropCount(None, prop.name, maxsize=maxsize)
+                return await layr.getPropCount(None, prop.name)
 
-            return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
+            return await layr.getPropCount(prop.form.name, prop.name)
 
         valu = await toprim(valu)
         norm, info = prop.type.norm(valu)
@@ -7123,7 +6936,7 @@ class Layer(Prim):
     async def _methGetPropArrayCount(self, propname, valu=undef):
         propname = await tostr(propname)
 
-        prop = self.runt.snap.core.model.prop(propname)
+        prop = self.runt.view.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
             raise s_exc.NoSuchProp(mesg=mesg)
@@ -7134,7 +6947,7 @@ class Layer(Prim):
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
         if valu is undef:
             if prop.isform:
@@ -7163,14 +6976,14 @@ class Layer(Prim):
         propname = await tostr(propname)
         form = await tostr(form, noneok=True)
 
-        prop = self.runt.snap.core.model.getTagProp(propname)
+        prop = self.runt.view.core.model.getTagProp(propname)
         if prop is None:
             mesg = f'No tag property named {propname}'
             raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
         if valu is undef:
             return await layr.getTagPropCount(form, tag, prop.name)
@@ -7202,54 +7015,101 @@ class Layer(Prim):
         nodeid = await tostr(nodeid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(s_common.uhex(nodeid))
+        layr = self.runt.view.core.getLayer(layriden)
+
+        nid = self.runt.view.core.getNidByBuid(s_common.uhex(nodeid))
+        return layr.getStorNode(nid)
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getStorNodes():
-            yield item
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for nid, sode in layr.getStorNodes():
+            yield (s_common.ehex(self.runt.view.core.getBuidByNid(nid)), sode)
 
     @stormfunc(readonly=True)
     async def getStorNodesByForm(self, form):
         form = await tostr(form)
-        if self.runt.snap.core.model.form(form) is None:
+        if self.runt.view.core.model.form(form) is None:
             raise s_exc.NoSuchForm.init(form)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
 
-        async for item in layr.getStorNodesByForm(form):
-            yield item
+        async for nid, sode in layr.getStorNodesByForm(form):
+            yield (s_common.ehex(self.runt.view.core.getBuidByNid(nid)), sode)
 
     @stormfunc(readonly=True)
     async def getEdges(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getEdges():
-            yield item
+        layr = self.runt.view.core.getLayer(layriden)
+        async for n1nid, abrv, n2nid, tomb in layr.getEdges():
+            if tomb:
+                continue
+
+            n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
+            verb = self.runt.view.core.getAbrvIndx(abrv)[0]
+            n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
+            yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
     async def getEdgesByN1(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
-            yield item
+        layr = self.runt.view.core.getLayer(layriden)
+
+        n1nid = self.runt.view.core.getNidByBuid(s_common.uhex(nodeid))
+        async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(n1nid):
+            if tomb:
+                continue
+
+            verb = self.runt.view.core.getAbrvIndx(abrv)[0]
+            yield (verb, s_common.ehex(self.runt.view.core.getBuidByNid(n2nid)))
 
     @stormfunc(readonly=True)
     async def getEdgesByN2(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
-        layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
+        layr = self.runt.view.core.getLayer(layriden)
+
+        n2nid = self.runt.view.core.getNidByBuid(s_common.uhex(nodeid))
+        async for abrv, n1nid, tomb in layr.iterNodeEdgesN2(n2nid):
+            if tomb:
+                continue
+
+            verb = self.runt.view.core.getAbrvIndx(abrv)[0]
+            yield (verb, s_common.ehex(self.runt.view.core.getBuidByNid(n1nid)))
+
+    async def delTombstone(self, nid, tombtype, tombinfo):
+        nid = await toprim(nid)
+        tombtype = await toprim(tombtype)
+        tombinfo = await toprim(tombinfo)
+
+        if not isinstance(nid, bytes):
+            mesg = f'delTombstone() got an invalid type for nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
+
+        if len(nid) != 8:
+            mesg = f'delTombstone() got an invalid nid: {nid}'
+            raise s_exc.BadArg(mesg=mesg, nid=nid)
+
+        return await self.runt.view.delTombstone(nid, tombtype, tombinfo, runt=self.runt)
+
+    @stormfunc(readonly=True)
+    async def getTombstones(self):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        async for item in layr.iterTombstones():
             yield item
 
     @stormfunc(readonly=True)
@@ -7286,13 +7146,13 @@ class Layer(Prim):
         if pushs is not None:
             for iden, pdef in pushs.items():
                 gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
+                pdef['offs'] = await self.runt.view.core.getStormVar(gvar, -1)
 
         pulls = ldef.get('pulls')
         if pulls is not None:
             for iden, pdef in pulls.items():
                 gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
+                pdef['offs'] = await self.runt.view.core.getStormVar(gvar, -1)
 
         return ldef
 
@@ -7309,7 +7169,7 @@ class Layer(Prim):
         config = await toprim(config)
 
         iden = self.valu.get('iden')
-        layr = self.runt.snap.core.getLayer(iden)
+        layr = self.runt.view.core.getLayer(iden)
         async for mesg in layr.verify(config=config):
             yield mesg
 
@@ -7392,8 +7252,8 @@ class LibView(Lib):
     @stormfunc(readonly=True)
     async def _methViewGet(self, iden=None):
         if iden is None:
-            iden = self.runt.snap.view.iden
-        vdef = await self.runt.snap.core.getViewDef(iden)
+            iden = self.runt.view.iden
+        vdef = await self.runt.view.core.getViewDef(iden)
         if vdef is None:
             raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
 
@@ -7402,7 +7262,7 @@ class LibView(Lib):
     @stormfunc(readonly=True)
     async def _methViewList(self, deporder=False):
         deporder = await tobool(deporder)
-        viewdefs = await self.runt.snap.core.getViewDefs(deporder=deporder)
+        viewdefs = await self.runt.view.core.getViewDefs(deporder=deporder)
         return [View(self.runt, vdef, path=self.path) for vdef in viewdefs]
 
 @registry.registerType
@@ -7723,8 +7583,8 @@ class View(Prim):
 
         viewiden = self.valu.get('iden')
 
-        view = self.runt.snap.core.getView(viewiden)
-        layriden = view.layers[0].iden
+        view = self.runt.view.core.getView(viewiden)
+        layriden = view.wlyr.iden
 
         # check that the user can read from the view
         # ( to emulate perms check for being able to run storm at all )
@@ -7736,8 +7596,8 @@ class View(Prim):
                 fullname = f'{form}:{propname}'
                 self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
-        if viewiden == self.runt.snap.view.iden:
-            return await self.runt.snap.addNode(form, valu, props=props)
+        if viewiden == self.runt.view.iden:
+            return await self.runt.view.addNode(form, valu, props=props)
         else:
             await view.addNode(form, valu, props=props, user=self.runt.user)
 
@@ -7764,8 +7624,11 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
-        todo = s_common.todo('getFormCounts')
-        return await self.viewDynCall(todo, ('view', 'read'))
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        return await view.getFormCounts()
 
     @stormfunc(readonly=True)
     async def _methGetPropCount(self, propname, valu=undef):
@@ -7778,7 +7641,7 @@ class View(Prim):
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
 
         return await view.getPropCount(propname, valu=valu)
 
@@ -7795,7 +7658,7 @@ class View(Prim):
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
 
         return await view.getTagPropCount(form, tag, propname, valu=valu)
 
@@ -7810,35 +7673,39 @@ class View(Prim):
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
 
         return await view.getPropArrayCount(propname, valu=valu)
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
         verb = await toprim(verb)
-        todo = s_common.todo('getEdges', verb=verb)
-        async for edge in self.viewDynIter(todo, ('view', 'read')):
-            yield edge
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        if verb is not None:
+            async for n1nid, _, n2nid in view.getEdges(verb=verb):
+                n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
+                n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
+                yield (n1buid, verb, n2buid)
+            return
+
+        async for n1nid, vabrv, n2nid in view.getEdges(verb=verb):
+            n1buid = s_common.ehex(self.runt.view.core.getBuidByNid(n1nid))
+            verb = self.runt.view.core.getAbrvIndx(vabrv)[0]
+            n2buid = s_common.ehex(self.runt.view.core.getBuidByNid(n2nid))
+            yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
     async def _methGetEdgeVerbs(self):
-        todo = s_common.todo('getEdgeVerbs')
-        async for verb in self.viewDynIter(todo, ('view', 'read')):
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        async for verb in view.getEdgeVerbs():
             yield verb
-
-    async def viewDynIter(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        async for item in self.runt.dyniter(viewiden, todo, gatekeys=gatekeys):
-            yield item
-
-    async def viewDynCall(self, todo, perm):
-        useriden = self.runt.user.iden
-        viewiden = self.valu.get('iden')
-        gatekeys = ((useriden, perm, viewiden),)
-        return await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
@@ -7847,7 +7714,7 @@ class View(Prim):
         return self.valu.get(name, defv)
 
     def _reqView(self):
-        return self.runt.snap.core.reqView(self.valu.get('iden'))
+        return self.runt.view.core.reqView(self.valu.get('iden'))
 
     async def _methViewSet(self, name, valu):
 
@@ -7862,7 +7729,7 @@ class View(Prim):
                 valu = await tostr(await toprim(valu), noneok=True)
 
             if name == 'parent' and valu is not None:
-                self.runt.snap.core.reqView(valu, mesg='The parent view must already exist.')
+                self.runt.view.core.reqView(valu, mesg='The parent view must already exist.')
                 self.runt.confirm(('view', 'read'), gateiden=valu)
                 self.runt.confirm(('view', 'fork'), gateiden=valu)
 
@@ -7885,7 +7752,7 @@ class View(Prim):
 
             for layriden in layers:
 
-                layr = self.runt.snap.core.getLayer(layriden)
+                layr = self.runt.view.core.getLayer(layriden)
                 if layr is None:
                     mesg = f'No layer with iden: {layriden}'
                     raise s_exc.NoSuchLayer(mesg=mesg)
@@ -7949,7 +7816,7 @@ class View(Prim):
         if name is not None:
             vdef['name'] = name
 
-        view = self.runt.snap.core.reqView(viewiden)
+        view = self.runt.view.core.reqView(viewiden)
 
         newv = await view.fork(ldef=ldef, vdef=vdef)
 
@@ -7963,7 +7830,7 @@ class View(Prim):
 
         self.runt.reqAdmin(gateiden=viewiden)
 
-        view = self.runt.snap.core.reqView(viewiden)
+        view = self.runt.view.core.reqView(viewiden)
         if not view.isafork():
             mesg = f'View ({viewiden}) is not a fork, cannot insert a new fork between it and parent.'
             raise s_exc.BadState(mesg=mesg)
@@ -7991,7 +7858,7 @@ class View(Prim):
         '''
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
-        view = self.runt.snap.core.getView(viewiden)
+        view = self.runt.view.core.getView(viewiden)
         await view.wipeLayer(useriden=useriden)
 
     async def getMerges(self):
@@ -8009,7 +7876,7 @@ class View(Prim):
             'merge': view.getMergeRequest(),
             'merging': view.merging,
             'votes': [vote async for vote in view.getMergeVotes()],
-            'offset': await view.layers[0].getEditIndx(),
+            'offset': await view.wlyr.getEditIndx(),
         }
         return retn
 
@@ -8202,7 +8069,7 @@ class LibTrigger(Lib):
         exactly one.
         '''
         match = None
-        for view in self.runt.snap.core.listViews():
+        for view in self.runt.view.core.listViews():
             if not allowed(('view', 'read'), gateiden=view.iden):
                 continue
 
@@ -8234,7 +8101,7 @@ class LibTrigger(Lib):
 
         viewiden = tdef.pop('view', None)
         if viewiden is None:
-            viewiden = self.runt.snap.view.iden
+            viewiden = self.runt.view.iden
 
         tdef['view'] = viewiden
         # query is kept to keep this API backwards compatible.
@@ -8302,9 +8169,9 @@ class LibTrigger(Lib):
     @stormfunc(readonly=True)
     async def _methTriggerList(self, all=False):
         if all:
-            views = self.runt.snap.core.listViews()
+            views = self.runt.view.core.listViews()
         else:
-            views = [self.runt.snap.view]
+            views = [self.runt.view]
 
         triggers = []
         for view in views:
@@ -8323,9 +8190,9 @@ class LibTrigger(Lib):
         trigger = None
         try:
             # fast path to our current view
-            trigger = await self.runt.snap.view.getTrigger(iden)
+            trigger = await self.runt.view.getTrigger(iden)
         except s_exc.NoSuchIden:
-            for view in self.runt.snap.core.listViews():
+            for view in self.runt.view.core.listViews():
                 try:
                     trigger = await view.getTrigger(iden)
                 except s_exc.NoSuchIden:
@@ -8416,7 +8283,7 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        viewiden = self.runt.snap.view.iden
+        viewiden = self.runt.view.iden
 
         name = await tostr(name)
         if name in ('async', 'enabled', ):
@@ -8429,7 +8296,7 @@ class Trigger(Prim):
         else:
             self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
 
-        await self.runt.snap.view.setTriggerInfo(trigiden, name, valu)
+        await self.runt.view.setTriggerInfo(trigiden, name, valu)
 
         self.valu[name] = valu
 
@@ -8456,7 +8323,7 @@ class Trigger(Prim):
 
         try:
             s_trigger.reqValidTdef(tdef)
-            await self.runt.snap.core.reqValidStorm(tdef['storm'])
+            await self.runt.view.core.reqValidStorm(tdef['storm'])
         except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
             raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
 
@@ -8561,8 +8428,8 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
-        return await self.runt.snap.core.hasJsonObj(fullpath)
+        fullpath = ('cells', self.runt.view.core.iden) + path
+        return await self.runt.view.core.hasJsonObj(fullpath)
 
     @stormfunc(readonly=True)
     async def get(self, path, prop=None):
@@ -8577,12 +8444,12 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
+        fullpath = ('cells', self.runt.view.core.iden) + path
 
         if prop is None:
-            return await self.runt.snap.core.getJsonObj(fullpath)
+            return await self.runt.view.core.getJsonObj(fullpath)
 
-        return await self.runt.snap.core.getJsonObjProp(fullpath, prop=prop)
+        return await self.runt.view.core.getJsonObjProp(fullpath, prop=prop)
 
     async def set(self, path, valu, prop=None):
 
@@ -8597,13 +8464,13 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
+        fullpath = ('cells', self.runt.view.core.iden) + path
 
         if prop is None:
-            await self.runt.snap.core.setJsonObj(fullpath, valu)
+            await self.runt.view.core.setJsonObj(fullpath, valu)
             return True
 
-        return await self.runt.snap.core.setJsonObjProp(fullpath, prop, valu)
+        return await self.runt.view.core.setJsonObjProp(fullpath, prop, valu)
 
     async def _del(self, path, prop=None):
 
@@ -8617,13 +8484,13 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path
+        fullpath = ('cells', self.runt.view.core.iden) + path
 
         if prop is None:
-            await self.runt.snap.core.delJsonObj(fullpath)
+            await self.runt.view.core.delJsonObj(fullpath)
             return True
 
-        return await self.runt.snap.core.delJsonObjProp(fullpath, prop=prop)
+        return await self.runt.view.core.delJsonObjProp(fullpath, prop=prop)
 
     @stormfunc(readonly=True)
     async def iter(self, path=None):
@@ -8634,13 +8501,13 @@ class LibJsonStor(Lib):
 
         path = await toprim(path)
 
-        fullpath = ('cells', self.runt.snap.core.iden)
+        fullpath = ('cells', self.runt.view.core.iden)
         if path is not None:
             if isinstance(path, str):
                 path = tuple(path.split('/'))
             fullpath += path
 
-        async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
+        async for path, item in self.runt.view.core.getJsonObjs(fullpath):
             yield path, item
 
     @stormfunc(readonly=True)
@@ -8657,19 +8524,19 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+        fullpath = ('cells', self.runt.view.core.iden) + path + (s_common.guid(key),)
 
-        cachetick = await self.runt.snap.core.getJsonObjProp(fullpath, prop='asof')
+        cachetick = await self.runt.view.core.getJsonObjProp(fullpath, prop='asof')
         if cachetick is None:
             return None
 
-        timetype = self.runt.snap.core.model.type('time')
+        timetype = self.runt.view.core.model.type('time')
         asoftick = timetype.norm(asof)[0]
 
         if cachetick >= asoftick:
             if envl:
-                return await self.runt.snap.core.getJsonObj(fullpath)
-            return await self.runt.snap.core.getJsonObjProp(fullpath, prop='data')
+                return await self.runt.view.core.getJsonObj(fullpath)
+            return await self.runt.view.core.getJsonObjProp(fullpath, prop='data')
 
         return None
 
@@ -8687,7 +8554,7 @@ class LibJsonStor(Lib):
             path = tuple(path.split('/'))
 
         cachepath = path + (s_common.guid(key),)
-        fullpath = ('cells', self.runt.snap.core.iden) + cachepath
+        fullpath = ('cells', self.runt.view.core.iden) + cachepath
 
         now = s_common.now()
 
@@ -8697,7 +8564,7 @@ class LibJsonStor(Lib):
             'data': valu,
         }
 
-        await self.runt.snap.core.setJsonObj(fullpath, envl)
+        await self.runt.view.core.setJsonObj(fullpath, envl)
 
         return {
             'asof': now,
@@ -8716,9 +8583,9 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+        fullpath = ('cells', self.runt.view.core.iden) + path + (s_common.guid(key),)
 
-        await self.runt.snap.core.delJsonObj(fullpath)
+        await self.runt.view.core.delJsonObj(fullpath)
         return True
 
 @registry.registerLib
@@ -9086,7 +8953,7 @@ class LibCron(Lib):
 
         view = kwargs.get('view')
         if not view:
-            view = self.runt.snap.view.iden
+            view = self.runt.view.iden
         cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
@@ -9165,7 +9032,7 @@ class LibCron(Lib):
 
         view = kwargs.get('view')
         if not view:
-            view = self.runt.snap.view.iden
+            view = self.runt.view.iden
         cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
@@ -9198,7 +9065,7 @@ class LibCron(Lib):
         iden = cron['iden']
 
         self.runt.confirm(('cron', 'set'), gateiden=iden)
-        return await self.runt.snap.core.moveCronJob(self.runt.user.iden, iden, view)
+        return await self.runt.view.core.moveCronJob(self.runt.user.iden, iden, view)
 
     @stormfunc(readonly=True)
     async def _methCronList(self):
@@ -9292,7 +9159,7 @@ class CronJob(Prim):
         else:
             self.runt.user.confirm(('cron', 'set', name), gateiden=iden)
 
-        self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
+        self.valu = await self.runt.view.core.editCronJob(iden, name, valu)
 
         return self
 
@@ -9309,7 +9176,7 @@ class CronJob(Prim):
         user = self.valu.get('username')
         view = self.valu.get('view')
         if not view:
-            view = self.runt.snap.core.view.iden
+            view = self.runt.view.core.view.iden
 
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')
@@ -9393,7 +9260,7 @@ def fromprim(valu, path=None, basetypes=True):
             return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
-    if isinstance(valu, s_node.Node):
+    if isinstance(valu, s_node.NodeBase):
         return Node(valu, path=path)
 
     if isinstance(valu, s_node.Path):

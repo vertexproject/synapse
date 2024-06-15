@@ -672,7 +672,7 @@ class LibStix(s_stormtypes.Lib):
             ndef = synx.get('synapse_ndef')
             if not ndef:  # pragma: no cover
                 continue
-            node = await self.runt.snap.getNodeByNdef(ndef)
+            node = await self.runt.view.getNodeByNdef(ndef)
             if node:
                 yield node
 
@@ -907,7 +907,7 @@ class LibStixImport(s_stormtypes.Lib):
 
             objconf = config['objects'].get(objtype)
             if objconf is None:
-                await self.runt.snap.warnonce(f'STIX bundle ingest has no object definition for: {objtype}.')
+                await self.runt.warnonce(f'STIX bundle ingest has no object definition for: {objtype}.')
                 continue
 
             objstorm = objconf.get('storm')
@@ -921,7 +921,7 @@ class LibStixImport(s_stormtypes.Lib):
             except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception as e:
-                await self.runt.snap.warn(f'Error during STIX import callback for {objtype}: {e}')
+                await self.runt.warn(f'Error during STIX import callback for {objtype}: {e}')
 
         for rel in relationships:
 
@@ -965,10 +965,10 @@ class LibStixImport(s_stormtypes.Lib):
                 except asyncio.CancelledError: # pragma: no cover
                     raise
                 except Exception as e:
-                    await self.runt.snap.warn(f'Error during STIX import callback for {reltype}: {e}')
+                    await self.runt.warn(f'Error during STIX import callback for {reltype}: {e}')
 
             if not foundone:
-                await self.runt.snap.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
+                await self.runt.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
 
         # attempt to resolve object_refs
         for obj in bundle.get('objects'):
@@ -982,11 +982,11 @@ class LibStixImport(s_stormtypes.Lib):
                 if refsnode is None:
                     continue
 
-                await node.addEdge('refs', refsnode.iden())
+                await node.addEdge('refs', refsnode.nid)
 
         if bundlenode is not None:
             for node in nodesbyid.values():
-                await bundlenode.addEdge('refs', node.iden())
+                await bundlenode.addEdge('refs', node.nid)
                 await asyncio.sleep(0)
             yield bundlenode
 
@@ -998,7 +998,7 @@ class LibStixImport(s_stormtypes.Lib):
 
     async def _callStorm(self, text, varz):
 
-        query = await self.runt.snap.core.getStormQuery(text)
+        query = await self.runt.view.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts={'vars': varz}) as runt:
             try:
                 async for _ in runt.execute():
@@ -1145,7 +1145,7 @@ class LibStixExport(s_stormtypes.Lib):
             config = _DefaultConfig
 
         config = await s_stormtypes.toprim(config)
-        _validateConfig(self.runt.snap.core, config)
+        _validateConfig(self.runt.view.core, config)
 
         return StixBundle(self, self.runt, config)
 
@@ -1409,7 +1409,7 @@ class StixBundle(s_stormtypes.Prim):
         varz['bundle'] = self
 
         opts = {'vars': varz}
-        query = await self.runt.snap.core.getStormQuery(text)
+        query = await self.runt.view.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 
             async def genr():

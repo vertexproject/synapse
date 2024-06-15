@@ -8,6 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import lmdb
+import xxhash
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -174,7 +175,7 @@ class SlabAbrv:
     def __init__(self, slab, name):
 
         self.slab = slab
-        self.name2abrv = slab.initdb(f'{name}:byts2abrv')
+        self.name2abrv = slab.initdb(f'{name}:byts2abrv', dupsort=True, dupfixed=True)
         self.abrv2name = slab.initdb(f'{name}:abrv2byts')
 
         self.offs = 0
@@ -193,11 +194,18 @@ class SlabAbrv:
 
     @s_cache.memoizemethod()
     def bytsToAbrv(self, byts):
-        abrv = self.slab.get(byts, db=self.name2abrv)
-        if abrv is None:
-            raise s_exc.NoSuchAbrv
+        if len(byts) < 256:
+            if (abrv := self.slab.get(byts, db=self.name2abrv)) is None:
+                raise s_exc.NoSuchAbrv
 
-        return abrv
+            return abrv
+
+        indx = byts[:248] + xxhash.xxh64_digest(byts)
+        for (_, abrv) in self.slab.scanByDups(indx, db=self.name2abrv):
+            if self.slab.get(abrv, db=self.abrv2name) == byts:
+                return abrv
+        else:
+            raise s_exc.NoSuchAbrv
 
     def setBytsToAbrv(self, byts):
         try:
@@ -205,22 +213,32 @@ class SlabAbrv:
         except s_exc.NoSuchAbrv:
             pass
 
+        realbyts = byts
+        if len(byts) > 255:
+            byts = byts[:248] + xxhash.xxh64_digest(byts)
+
         abrv = s_common.int64en(self.offs)
 
         self.offs += 1
 
         self.slab.put(byts, abrv, db=self.name2abrv)
-        self.slab.put(abrv, byts, db=self.abrv2name)
+        self.slab.put(abrv, realbyts, db=self.abrv2name)
 
         return abrv
 
-    def names(self):
-        for byts in self.slab.scanKeys(db=self.name2abrv):
-            yield byts.decode()
+    def iterByPref(self, pref):
+        for byts, abrv in self.slab.scanByPref(pref, db=self.name2abrv):
+            if len(byts) == 256:
+                yield self.slab.get(abrv, db=self.abrv2name), abrv
+            else:
+                yield byts, abrv
 
-    def keys(self):
-        for byts in self.slab.scanKeys(db=self.name2abrv):
-            yield byts
+    def items(self):
+        for byts, abrv in self.slab.scanByFull(db=self.name2abrv):
+            if len(byts) == 256:
+                yield self.slab.get(abrv, db=self.abrv2name), abrv
+            else:
+                yield byts, abrv
 
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
@@ -301,6 +319,77 @@ class HotCount(HotKeyVal):
 
     def get(self, name: str, defv=0):
         return self.cache.get(name.encode(), defv)
+
+class LruHotCount(s_base.Base):
+    '''
+    HotCount with size limit and LRU cache for large key sets.
+    '''
+    encode = staticmethod(s_common.signedint64en)
+    decode = staticmethod(s_common.signedint64un)
+
+    async def __anit__(self, slab, name, size=10000, commitsize=100):
+        await s_base.Base.__anit__(self)
+
+        self.slab = slab
+        self.cache = collections.OrderedDict()
+        self.dirty = set()
+        self.db = self.slab.initdb(name)
+        self.maxsize = size
+        self.commitsize = commitsize
+
+        slab.on('commit', self._onSlabCommit)
+
+        self.onfini(self.sync)
+
+    async def _onSlabCommit(self, mesg):
+        if self.dirty:
+            self.sync()
+
+    def sync(self):
+        if not self.dirty:
+            return()
+
+        self.slab.putmulti([(p, self.encode(self.cache[p])) for p in self.dirty], db=self.db)
+        self.dirty.clear()
+
+    def get(self, name, defv=0):
+        if (valu := self.cache.get(name)) is not None:
+            self.cache.move_to_end(name)
+            return valu
+
+        if (valu := self.slab.get(name, db=self.db)) is not None:
+            valu = self.decode(valu)
+        else:
+            valu = defv
+
+        self.cache[name] = valu
+        self.cache.move_to_end(name)
+
+        if len(self.cache) > self.maxsize:
+            self.sync()
+            for _ in range(self.commitsize):
+                self.cache.popitem(last=False)
+
+        return valu
+
+    def inc(self, name, valu=1):
+        self.cache[name] = self.get(name) + valu
+        self.dirty.add(name)
+        self.slab.dirty = True
+
+    def set(self, name, valu):
+        self.cache[name] = valu
+        self.dirty.add(name)
+        self.slab.dirty = True
+
+        self.cache.move_to_end(name)
+
+        if len(self.cache) > self.maxsize:
+            self.sync()
+            for _ in range(self.commitsize):
+                self.cache.popitem(last=False)
+
+        return valu
 
 class MultiQueue(s_base.Base):
     '''
@@ -834,6 +923,11 @@ class Slab(s_base.Base):
         self.onfini(item)
         return item
 
+    async def getLruHotCount(self, name, size=10000, commitsize=100):
+        item = await LruHotCount.anit(self, name, size=size, commitsize=commitsize)
+        self.onfini(item)
+        return item
+
     def getSeqn(self, name):
         return s_slabseqn.SlabSeqn(self, name)
 
@@ -1085,7 +1179,7 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False, integerkey=False, dupfixed=False):
+    def initdb(self, name, dupsort=False, integerkey=False, dupfixed=False, integerdup=False):
 
         if name in self.dbnames:
             return name
@@ -1096,10 +1190,10 @@ class Slab(s_base.Base):
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
                     db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey,
-                                           dupfixed=dupfixed)
+                                           dupfixed=dupfixed, integerdup=integerdup)
                 else:
                     db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey,
-                                           dupfixed=dupfixed)
+                                           dupfixed=dupfixed, integerdup=integerdup)
                     self.dirty = True
                     self.forcecommit()
 

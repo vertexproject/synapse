@@ -7,88 +7,211 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
-import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-class Node:
+class NodeBase:
+
+    def repr(self, name=None, defv=None):
+
+        if name is None:
+            return self.form.type.repr(self.ndef[1])
+
+        prop = self.form.props.get(name)
+        if prop is None:
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
+
+        valu = self.get(name)
+        if valu is None:
+            return defv
+
+        return prop.type.repr(valu)
+
+    def reprs(self):
+        '''
+        Return a dictionary of repr values for props whose repr is different than
+        the system mode value.
+        '''
+        reps = {}
+        props = self.getProps()
+        return self._getPropReprs(props)
+
+    def _reqValidProp(self, name):
+        prop = self.form.prop(name)
+        if prop is None:
+            mesg = f'No property named {name} on form {self.form.name}.'
+            raise s_exc.NoSuchProp(mesg=mesg)
+        return prop
+
+    def _getPropReprs(self, props):
+
+        reps = {}
+        for name, valu in props.items():
+
+            prop = self.form.prop(name)
+            if prop is None:
+                continue
+
+            rval = prop.type.repr(valu)
+            if rval is None or rval == valu:
+                continue
+
+            reps[name] = rval
+
+        return reps
+
+    def _addPodeRepr(self, pode):
+
+        rval = self.repr()
+        if rval is not None and rval != self.ndef[1]:
+            pode[1]['repr'] = rval
+
+        props = pode[1].get('props')
+        if props:
+            pode[1]['reprs'] = self._getPropReprs(props)
+
+        tagprops = pode[1].get('tagprops')
+        if tagprops:
+            pode[1]['tagpropreprs'] = self._getTagPropReprs(tagprops)
+
+    def _getTagPropReprs(self, tagprops):
+
+        reps = collections.defaultdict(dict)
+
+        for tag, propdict in tagprops.items():
+
+            for name, valu in propdict.items():
+
+                prop = self.form.modl.tagprop(name)
+                if prop is None:
+                    continue
+
+                rval = prop.type.repr(valu)
+                if rval is None or rval == valu:
+                    continue
+                reps[tag][name] = rval
+
+        return dict(reps)
+
+    def _getTagTree(self):
+
+        root = (None, {})
+        for tag in self.getTagNames():
+            node = root
+
+            for part in tag.split('.'):
+
+                kidn = node[1].get(part)
+
+                if kidn is None:
+
+                    full = part
+                    if node[0] is not None:
+                        full = f'{node[0]}.{full}'
+
+                    kidn = node[1][part] = (full, {})
+
+                node = kidn
+
+        return root
+
+    def getTagNames(self):
+        return ()
+
+class Node(NodeBase):
     '''
     A Cortex hypergraph node.
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, sode, bylayer=None):
-        self.snap = snap
-        self.sode = sode
+    def __init__(self, view, nid, ndef, soderefs):
+        self.view = view
 
-        self.buid = sode[0]
+        self.nid = nid
+        self.ndef = ndef
 
-        # Tracks which property is retrieved from which layer
-        self.bylayer = bylayer
+        # TODO should we get this from somewhere?
+        self.buid = s_common.buid(ndef)
 
-        # if set, the node is complete.
-        self.ndef = sode[1].get('ndef')
-        self.form = snap.core.model.form(self.ndef[0])
+        # must hang on to these to keep the weakrefs alive
+        self.soderefs = soderefs
 
-        self.props = sode[1].get('props')
-        if self.props is None:
-            self.props = {}
+        self.sodes = [sref.sode for sref in soderefs]
 
-        self.tags = sode[1].get('tags')
-        if self.tags is None:
-            self.tags = {}
-
-        self.tagprops = sode[1].get('tagprops')
-        if self.tagprops is None:
-            self.tagprops = {}
-
-        self.nodedata = sode[1].get('nodedata')
-        if self.nodedata is None:
-            self.nodedata = {}
+        self.form = view.core.model.form(self.ndef[0])
 
     async def getStorNodes(self):
         '''
         Return a list of the raw storage nodes for each layer.
         '''
-        return await self.snap.view.getStorNodes(self.buid)
+        return copy.deepcopy(self.sodes)
 
     def getByLayer(self):
         '''
         Return a dictionary that translates the node's bylayer dict to a primitive.
         '''
-        return s_msgpack.deepcopy(self.bylayer)
+        retn = collections.defaultdict(dict)
+        for indx, sode in enumerate(self.sodes):
+            if sode.get('antivalu') is not None:
+                return(retn)
+
+            iden = self.view.layers[indx].iden
+
+            if sode.get('valu') is not None:
+                retn.setdefault('ndef', iden)
+
+            for prop in sode.get('props', {}).keys():
+                retn['props'].setdefault(prop, iden)
+
+            for prop in sode.get('antiprops', {}).keys():
+                retn['props'].setdefault(prop, iden)
+
+            for tag in sode.get('tags', {}).keys():
+                retn['tags'].setdefault(tag, iden)
+
+            for tag in sode.get('antitags', {}).keys():
+                retn['tags'].setdefault(tag, iden)
+
+            for tag, props in sode.get('tagprops', {}).items():
+                if len(props) > 0 and tag not in retn['tagprops']:
+                    retn['tagprops'][tag] = {}
+
+                for prop in props.keys():
+                    retn['tagprops'][tag].setdefault(prop, iden)
+
+            for tag, props in sode.get('antitagprops', {}).items():
+                if len(props) > 0 and tag not in retn['tagprops']:
+                    retn['tagprops'][tag] = {}
+
+                for prop in props.keys():
+                    retn['tagprops'][tag].setdefault(prop, iden)
+
+        return(retn)
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def addEdge(self, verb, n2iden):
-        if self.form.isrunt:
-            mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
-            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
+    async def addEdge(self, verb, n2nid):
+        async with self.view.getNodeEditor(self) as editor:
+            return await editor.addEdge(verb, n2nid)
 
-        async with self.snap.getNodeEditor(self) as editor:
-            return await editor.addEdge(verb, n2iden)
-
-    async def delEdge(self, verb, n2iden):
-        if self.form.isrunt:
-            mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
-            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
-
-        async with self.snap.getNodeEditor(self) as editor:
-            return await editor.delEdge(verb, n2iden)
+    async def delEdge(self, verb, n2nid):
+        async with self.view.getNodeEditor(self) as editor:
+            return await editor.delEdge(verb, n2nid)
 
     async def iterEdgesN1(self, verb=None):
-        async for edge in self.snap.iterNodeEdgesN1(self.buid, verb=verb):
+        async for edge in self.view.iterNodeEdgesN1(self.nid, verb=verb, stop=self.lastlayr()):
             yield edge
 
     async def iterEdgesN2(self, verb=None):
-        async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
+        async for edge in self.view.iterNodeEdgesN2(self.nid, verb=verb):
             yield edge
 
-    async def iterEdgeVerbs(self, n2buid):
-        async for verb in self.snap.iterEdgeVerbs(self.buid, n2buid):
+    async def iterEdgeVerbs(self, n2nid):
+        async for verb in self.view.iterEdgeVerbs(self.nid, n2nid, stop=self.lastlayr()):
             yield verb
 
     async def storm(self, runt, text, opts=None, path=None):
@@ -101,7 +224,7 @@ class Node:
         Note:
             If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
         '''
-        query = await self.snap.core.getStormQuery(text)
+        query = await self.view.core.getStormQuery(text)
 
         if opts is None:
             opts = {}
@@ -139,23 +262,17 @@ class Node:
             (tuple): An (ndef, info) node tuple.
         '''
 
-        node = (self.ndef, {
+        pode = (self.ndef, {
             'iden': self.iden(),
-            'tags': self.tags,
-            'props': self.props,
-            'tagprops': self.tagprops,
-            'nodedata': self.nodedata,
+            'tags': self._getTagsDict(),
+            'props': self.getProps(),
+            'tagprops': self._getTagPropsDict(),
         })
+
         if dorepr:
+            self._addPodeRepr(pode)
 
-            rval = self.repr()
-            if rval is not None and rval != self.ndef[1]:
-                node[1]['repr'] = self.repr()
-
-            node[1]['reprs'] = self.reprs()
-            node[1]['tagpropreprs'] = self.tagpropreprs()
-
-        return node
+        return pode
 
     async def getEmbeds(self, embeds):
         '''
@@ -165,7 +282,7 @@ class Node:
         cache = {}
         async def walk(n, p):
 
-            valu = n.props.get(p)
+            valu = n.get(p)
             if valu is None:
                 return None
 
@@ -180,7 +297,7 @@ class Node:
 
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:
-                step = cache[buid] = await node.snap.getNodeByBuid(buid)
+                step = cache[buid] = await node.view.getNodeByBuid(buid)
 
             return step
 
@@ -203,7 +320,7 @@ class Node:
                 embdnode['*'] = s_common.ehex(node.buid)
 
             for relp in relprops:
-                embdnode[relp] = node.props.get(relp)
+                embdnode[relp] = node.get(relp)
 
         return retn
 
@@ -216,21 +333,21 @@ class Node:
         refs = self.form.getRefsOut()
 
         for name, dest in refs.get('prop', ()):
-            valu = self.props.get(name)
+            valu = self.get(name)
             if valu is None:
                 continue
 
             retn.append((name, (dest, valu)))
 
         for name in refs.get('ndef', ()):
-            valu = self.props.get(name)
+            valu = self.get(name)
             if valu is None:
                 continue
             retn.append((name, valu))
 
         for name, dest in refs.get('array', ()):
 
-            valu = self.props.get(name)
+            valu = self.get(name)
             if valu is None:
                 continue
 
@@ -238,7 +355,7 @@ class Node:
                 retn.append((name, (dest, item)))
 
         for name in refs.get('ndefarray', ()):
-            if (valu := self.props.get(name)) is None:
+            if (valu := self.get(name)) is None:
                 continue
 
             for item in valu:
@@ -258,171 +375,307 @@ class Node:
         Returns:
             (bool): True if the property was changed.
         '''
-        if self.snap.readonly:
+        if self.view.readonly:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        prop = self.form.props.get(name)
-        if prop is None:
-            mesg = f'No property named {name} on form {self.form.name}.'
-            await self.snap._raiseOnStrict(s_exc.NoSuchProp, mesg)
-            return False
-
-        if self.form.isrunt:
-            if prop.info.get('ro'):
-                mesg = f'Cannot set read-only props on runt nodes: {repr(valu)[:256]}'
-                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name)
-
-            await self.snap.core.runRuntPropSet(self, prop, valu)
-            return True
-
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             return await editor.set(name, valu)
 
     def has(self, name):
-        return name in self.props
 
-    def get(self, name):
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return False
+
+            props = sode.get('props')
+            if props is None:
+                continue
+
+            if props.get(name) is not None:
+                return True
+
+        return False
+
+    def lastlayr(self):
+        for indx, sode in enumerate(self.sodes):
+            if sode.get('antivalu') is not None:
+                return indx
+
+    def istomb(self):
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return True
+
+            if (valu := sode.get('valu')) is not None:
+                return False
+
+        return False
+
+    def hasvalu(self):
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (valu := sode.get('valu')) is not None:
+                return True
+
+        return False
+
+    def get(self, name, defv=None):
         '''
-        Return a secondary property value from the Node.
+        Return a secondary property or tag value from the Node.
+
+        Args:
+            name (str): The name of a secondary property or tag.
+
+        Returns:
+            (obj): The secondary property or tag value, or None.
+        '''
+        if name.startswith('#'):
+            return self.getTag(name[1:], defval=defv)
+
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defv
+
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return defv
+
+            if (item := sode.get('props')) is None:
+                continue
+
+            if (valt := item.get(name)) is not None:
+                return valt[0]
+
+        return defv
+
+    def getWithLayer(self, name, defv=None):
+        '''
+        Return a secondary property value from the Node with the index of the sode.
 
         Args:
             name (str): The name of a secondary property.
 
         Returns:
             (obj): The secondary property value or None.
+            (int): Index of the sode or None.
         '''
-        if name.startswith('#'):
-            return self.tags.get(name[1:])
-        return self.props.get(name)
+        for indx, sode in enumerate(self.sodes):
+            if sode.get('antivalu') is not None:
+                return defv, None
 
-    async def _getPropDelEdits(self, name, init=False):
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return defv, None
 
-        prop = self.form.prop(name)
-        if prop is None:
-            if self.snap.strict:
-                mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.form.name)
-            await self.snap.warn(f'No Such Property: {name}')
-            return ()
+            if (item := sode.get('props')) is None:
+                continue
 
-        if not init:
+            if (valt := item.get(name)) is not None:
+                return valt[0], indx
 
-            if prop.info.get('ro'):
-                if self.snap.strict:
-                    raise s_exc.ReadOnlyProp(name=name)
-                await self.snap.warn(f'Property is read-only: {name}')
-                return ()
+        return defv, None
 
-        curv = self.props.get(name, s_common.novalu)
-        if curv is s_common.novalu:
-            return ()
+    def getFromLayers(self, name, strt=0, stop=None, defv=None):
+        for sode in self.sodes[strt:stop]:
+            if sode.get('antivalu') is not None:
+                return defv
 
-        edits = (
-            (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
-        )
-        return edits
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return defv
+
+            if (item := sode.get('props')) is None:
+                continue
+
+            if (valt := item.get(name)) is not None:
+                return valt[0]
+
+        return defv
+
+    def hasInLayers(self, name, strt=0, stop=None):
+        for sode in self.sodes[strt:stop]:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return False
+
+            if (item := sode.get('props')) is None:
+                continue
+
+            if (valt := item.get(name)) is not None:
+                return True
+
+        return False
 
     async def pop(self, name, init=False):
         '''
         Remove a property from a node and return the value
         '''
-        if self.form.isrunt:
-            prop = self.form.prop(name)
-            if prop.info.get('ro'):
-                raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
-                                       form=self.form.full, prop=name)
-            return await self.snap.core.runRuntPropDel(self, prop)
-
-        edits = await self._getPropDelEdits(name, init=init)
-        if not edits:
-            return False
-
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
-        return True
-
-    def repr(self, name=None, defv=None):
-
-        if name is None:
-            return self.form.type.repr(self.ndef[1])
-
-        prop = self.form.props.get(name)
-        if prop is None:
-            mesg = f'No property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
-
-        valu = self.props.get(name)
-        if valu is None:
-            return defv
-
-        return prop.type.repr(valu)
-
-    def reprs(self):
-        '''
-        Return a dictionary of repr values for props whose repr is different than
-        the system mode value.
-        '''
-        reps = {}
-
-        for name, valu in self.props.items():
-
-            prop = self.form.prop(name)
-            if prop is None:
-                continue
-
-            rval = prop.type.repr(valu)
-            if rval is None or rval == valu:
-                continue
-
-            reps[name] = rval
-
-        return reps
-
-    def tagpropreprs(self):
-        '''
-        Return a dictionary of repr values for tagprops whose repr is different than
-        the system mode value.
-        '''
-        reps = collections.defaultdict(dict)
-
-        for tag, propdict in self.tagprops.items():
-            for name, valu in propdict.items():
-
-                prop = self.form.modl.tagprop(name)
-                if prop is None:
-                    continue
-
-                rval = prop.type.repr(valu)
-                if rval is None or rval == valu:
-                    continue
-                reps[tag][name] = rval
-
-        return dict(reps)
+        async with self.view.getNodeEditor(self) as protonode:
+            return await protonode.pop(name)
 
     def hasTag(self, name):
         name = s_chop.tag(name)
-        return name in self.tags
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (tagtomb := sode.get('antitags')) is not None and tagtomb.get(name):
+                return False
+
+            if (tags := sode.get('tags')) is None:
+                continue
+
+            if tags.get(name) is not None:
+                return True
+
+        return False
+
+    def hasTagInLayers(self, name, strt=0, stop=None):
+        name = s_chop.tag(name)
+        for sode in self.sodes[strt:stop]:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (tagtomb := sode.get('antitags')) is not None and tagtomb.get(name):
+                return False
+
+            if (tags := sode.get('tags')) is None:
+                continue
+
+            if tags.get(name) is not None:
+                return True
+
+        return False
 
     def getTag(self, name, defval=None):
         name = s_chop.tag(name)
-        return self.tags.get(name, defval)
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defval
+
+            if (tagtomb := sode.get('antitags')) is not None and tagtomb.get(name):
+                return defval
+
+            if (tags := sode.get('tags')) is None:
+                continue
+
+            if (valu := tags.get(name)) is not None:
+                return valu
+
+        return defval
+
+    def getTagFromLayers(self, name, strt=0, stop=None, defval=None):
+        name = s_chop.tag(name)
+        for sode in self.sodes[strt:stop]:
+            if sode.get('antivalu') is not None:
+                return defval
+
+            if (tagtomb := sode.get('antitags')) is not None and tagtomb.get(name):
+                return defval
+
+            if (tags := sode.get('tags')) is None:
+                continue
+
+            if (valu := tags.get(name)) is not None:
+                return valu
+
+        return defval
+
+    def getTagNames(self):
+        names = self._getTagsDict()
+        return list(sorted(names.keys()))
 
     def getTags(self, leaf=False):
 
+        tags = self._getTagsDict()
         if not leaf:
-            return list(self.tags.items())
+            return list(tags.items())
 
         # longest first
         retn = []
 
         # brute force rather than build a tree.  faster in small sets.
-        for _, tag, valu in sorted([(len(t), t, v) for (t, v) in self.tags.items()], reverse=True):
+        for _, tag, valu in sorted([(len(t), t, v) for (t, v) in tags.items()], reverse=True):
 
             look = tag + '.'
             if any([r.startswith(look) for (r, rv) in retn]):
                 continue
 
             retn.append((tag, valu))
+
+        return retn
+
+    def getPropNames(self):
+        return list(self.getProps().keys())
+
+    def getProps(self):
+        retn = {}
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (proptomb := sode.get('antiprops')) is not None:
+                for name in proptomb.keys():
+                    retn.pop(name, None)
+
+            if (props := sode.get('props')) is None:
+                continue
+
+            for name, valt in props.items():
+                retn[name] = valt[0]
+
+        return retn
+
+    def _getTagsDict(self):
+        retn = {}
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (tagtomb := sode.get('antitags')) is not None:
+                for name in tagtomb.keys():
+                    retn.pop(name, None)
+
+            if (tags := sode.get('tags')) is None:
+                continue
+
+            for name, valu in tags.items():
+                retn[name] = valu
+
+        return retn
+
+    def _getTagPropsDict(self):
+
+        retn = collections.defaultdict(dict)
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                retn.clear()
+                continue
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                for tagname, antiprops in antitags.items():
+                    for propname in antiprops.keys():
+                        retn[tagname].pop(propname, None)
+
+                        if len(retn[tagname]) == 0:
+                            retn.pop(tagname)
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            for tagname, propvals in tagprops.items():
+                for propname, valt in propvals.items():
+                    retn[tagname][propname] = valt[0]
 
         return retn
 
@@ -438,162 +691,170 @@ class Node:
         Returns:
             None: This returns None.
         '''
-        if self.form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
-                                   form=self.form.full, tag=tag)
-
-        async with self.snap.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self) as protonode:
             await protonode.addTag(tag, valu=valu)
-
-    def _getTagTree(self):
-
-        root = (None, {})
-        for tag in self.tags.keys():
-
-            node = root
-
-            for part in tag.split('.'):
-
-                kidn = node[1].get(part)
-
-                if kidn is None:
-
-                    full = part
-                    if node[0] is not None:
-                        full = f'{node[0]}.{full}'
-
-                    kidn = node[1][part] = (full, {})
-
-                node = kidn
-
-        return root
-
-    async def _getTagDelEdits(self, tag, init=False):
-
-        path = s_chop.tagpath(tag)
-
-        name = '.'.join(path)
-
-        if self.form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
-                                   form=self.form.full, tag=tag)
-
-        pref = name + '.'
-        exists = self.tags.get(name, s_common.novalu) is not s_common.novalu
-
-        todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
-
-        # only prune when we're actually deleting a tag
-        if len(path) > 1 and exists:
-
-            parent = '.'.join(path[:-1])
-
-            # retrieve a list of prunable tags
-            prune = await self.snap.core.getTagPrune(parent)
-            if prune:
-
-                tree = self._getTagTree()
-
-                for prunetag in reversed(prune):
-
-                    node = tree
-                    for step in prunetag.split('.'):
-
-                        node = node[1].get(step)
-                        if node is None:
-                            break
-
-                    if node is not None and len(node[1]) == 1:
-                        todel.append((len(node[0]), node[0]))
-                        continue
-
-                    break
-
-        todel.sort(reverse=True)
-
-        # order matters...
-        edits = []
-
-        for _, subtag in todel:
-
-            edits.extend(self._getTagPropDel(subtag))
-            edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
-
-        edits.extend(self._getTagPropDel(name))
-        if exists:
-            edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
-
-        return edits
 
     async def delTag(self, tag, init=False):
         '''
         Delete a tag from the node.
         '''
-        edits = await self._getTagDelEdits(tag, init=init)
-        if edits:
-            nodeedit = (self.buid, self.form.name, edits)
-            await self.snap.applyNodeEdit(nodeedit, nodecache={self.buid: self})
-
-    def _getTagPropDel(self, tag):
-
-        edits = []
-        for tagprop in self.getTagProps(tag):
-
-            prop = self.snap.core.model.getTagProp(tagprop)
-
-            if prop is None:  # pragma: no cover
-                logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
-                continue
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype), ()))
-
-        return edits
+        async with self.view.getNodeEditor(self) as editor:
+            await editor.delTag(tag)
 
     def getTagProps(self, tag):
-        propdict = self.tagprops.get(tag)
-        if not propdict:
-            return []
-        return list(propdict.keys())
+
+        propnames = set()
+
+        for sode in reversed(self.sodes):
+            if sode.get('antivalu') is not None:
+                propnames.clear()
+                continue
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None:
+                    propnames.difference_update(antiprops.keys())
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            propnames.update(propvals.keys())
+
+        return list(propnames)
+
+    def getTagPropsWithLayer(self, tag):
+
+        props = {}
+
+        for indx in range(len(self.sodes) - 1, -1, -1):
+            sode = self.sodes[indx]
+
+            if sode.get('antivalu') is not None:
+                props.clear()
+                continue
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None:
+                    for propname in antiprops.keys():
+                        props.pop(propname, None)
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            for propname in propvals.keys():
+                props[propname] = indx
+
+        return list(props.items())
 
     def hasTagProp(self, tag, prop):
         '''
         Check if a #foo.bar:baz tag property exists on the node.
         '''
-        return tag in self.tagprops and prop in self.tagprops[tag]
+        # TODO discuss caching these while core.nexusoffset is stable?
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
+                    return False
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            if prop in propvals:
+                return True
+
+        return False
+
+    def hasTagPropInLayers(self, tag, prop, strt=0, stop=None):
+        '''
+        Check if a #foo.bar:baz tag property exists in specific layers on the node.
+        '''
+        # TODO discuss caching these while core.nexusoffset is stable?
+        for sode in self.sodes[strt:stop]:
+            if sode.get('antivalu') is not None:
+                return False
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
+                    return False
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            if prop in propvals:
+                return True
+
+        return False
 
     def getTagProp(self, tag, prop, defval=None):
         '''
         Return the value (or defval) of the given tag property.
         '''
-        propdict = self.tagprops.get(tag)
-        if propdict:
-            return propdict.get(prop, defval)
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defval
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
+                    return defval
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            if (valt := propvals.get(prop)) is not None:
+                return valt[0]
+
         return defval
+
+    def getTagPropWithLayer(self, tag, prop, defval=None):
+        '''
+        Return the value (or defval) of the given tag property.
+        '''
+        for indx, sode in enumerate(self.sodes):
+            if sode.get('antivalu') is not None:
+                return defval, None
+
+            if (antitags := sode.get('antitagprops')) is not None:
+                if (antiprops := antitags.get(tag)) is not None and prop in antiprops:
+                    return defval, None
+
+            if (tagprops := sode.get('tagprops')) is None:
+                continue
+
+            if (propvals := tagprops.get(tag)) is None:
+                continue
+
+            if (valt := propvals.get(prop)) is not None:
+                return valt[0], indx
+
+        return defval, None
 
     async def setTagProp(self, tag, name, valu):
         '''
         Set the value of the given tag property.
         '''
-        async with self.snap.getNodeEditor(self) as editor:
+        async with self.view.getNodeEditor(self) as editor:
             await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
-        prop = self.snap.core.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(name=name)
-
-        propdict = self.tagprops.get(tag)
-        if not propdict:
-            return False
-
-        curv = propdict.get(name, s_common.novalu)
-        if curv is s_common.novalu:
-            return False
-
-        edits = (
-            (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
-        )
-
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits), nodecache={self.buid: self})
+        async with self.view.getNodeEditor(self) as editor:
+            await editor.delTagProp(tag, name)
 
     async def delete(self, force=False):
         '''
@@ -618,15 +879,7 @@ class Node:
                 * delete primary property from storage
 
         '''
-
         formname, formvalu = self.ndef
-
-        if self.form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
-                                   form=formname, valu=formvalu)
-
-        # top level tags will cause delete cascades
-        tags = [t for t in self.tags.keys() if len(t.split('.')) == 1]
 
         # check for any nodes which reference us...
         if not force:
@@ -634,75 +887,110 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                async for _ in self.snap.nodesByTag(self.ndef[1]):  # NOQA
+                async for _ in self.view.nodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
-                    return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
-                                                          iden=self.iden())
+                    raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-            async for refr in self.snap.nodesByPropTypeValu(formname, formvalu):
+            async for refr in self.view.nodesByPropTypeValu(formname, formvalu):
 
-                if refr.buid == self.buid:
+                if refr.nid == self.nid:
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
-                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
-                                                      iden=self.iden())
+                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
             async for edge in self.iterEdgesN2():
 
-                if self.iden() == edge[1]:
+                if self.nid == edge[1]:
                     continue
 
                 mesg = 'Other nodes still have light edges to this node.'
-                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
-                                                      iden=self.iden())
+                raise s_exc.CantDelNode(mesg=mesg, form=formname, iden=self.iden())
 
-        edits = []
-        for tag in tags:
-            edits.extend(await self._getTagDelEdits(tag, init=True))
+        async with self.view.getNodeEditor(self) as protonode:
+            await protonode.delete()
 
-        for name in self.props.keys():
-            edits.extend(await self._getPropDelEdits(name, init=True))
-
-        edits.append(
-            (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
-        )
-
-        await self.snap.applyNodeEdit((self.buid, formname, edits))
-        self.snap.livenodes.pop(self.buid, None)
+        self.view.clearCachedNode(self.nid)
 
     async def hasData(self, name):
-        if name in self.nodedata:
-            return True
-        return await self.snap.hasNodeData(self.buid, name)
+        return await self.view.hasNodeData(self.nid, name, stop=self.lastlayr())
 
     async def getData(self, name, defv=None):
-        valu = self.nodedata.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
-        return await self.snap.getNodeData(self.buid, name, defv=defv)
+        return await self.view.getNodeData(self.nid, name, defv=defv, stop=self.lastlayr())
 
     async def setData(self, name, valu):
-        async with self.snap.getNodeEditor(self) as protonode:
+        async with self.view.getNodeEditor(self) as protonode:
             await protonode.setData(name, valu)
 
     async def popData(self, name):
-        retn = await self.snap.getNodeData(self.buid, name)
-
-        edits = (
-            (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
-        )
-        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
-
-        return retn
+        async with self.view.getNodeEditor(self) as protonode:
+            return await protonode.popData(name)
 
     async def iterData(self):
-        async for item in self.snap.iterNodeData(self.buid):
+        async for item in self.view.iterNodeData(self.nid):
             yield item
 
     async def iterDataKeys(self):
-        async for name in self.snap.iterNodeDataKeys(self.buid):
+        async for name in self.view.iterNodeDataKeys(self.nid):
             yield name
+
+class RuntNode(NodeBase):
+    '''
+    Runtime node instances are a separate class to minimize isrunt checking in
+    real node code.
+    '''
+    def __init__(self, view, pode):
+        self.view = view
+        self.ndef = pode[0]
+        self.pode = pode
+        self.buid = s_common.buid(self.ndef)
+        self.form = view.core.model.form(self.ndef[0])
+
+        self.nid = self.buid
+
+    def get(self, name, defv=None):
+        return self.pode[1]['props'].get(name, defv)
+
+    def has(self, name):
+        return self.pode[1]['props'].get(name) is not None
+
+    def iden(self):
+        return s_common.ehex(s_common.buid(self.ndef))
+
+    def pack(self, dorepr=False):
+        pode = s_msgpack.deepcopy(self.pode)
+        if dorepr:
+            self._addPodeRepr(pode)
+        return pode
+
+    async def set(self, name, valu):
+        prop = self._reqValidProp(name)
+        norm = prop.type.norm(valu)[0]
+        return await self.view.core.runRuntPropSet(self, prop, norm)
+
+    async def pop(self, name, init=False):
+        prop = self._reqValidProp(name)
+        return await self.view.core.runRuntPropDel(self, prop)
+
+    async def addTag(self, name, valu=None):
+        mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def addEdge(self, verb, n2nid):
+        mesg = f'You can not add an edge to a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def delEdge(self, verb, n2nid):
+        mesg = f'You can not delete an edge from a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def delTag(self, name, valu=None):
+        mesg = f'You can not remove a tag from a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def delete(self, force=False):
+        mesg = f'You can not delete a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
 
 class Path:
     '''
@@ -728,6 +1016,7 @@ class Path:
         }
 
         self.metadata = {}
+        self.nodedata = collections.defaultdict(dict)
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -766,6 +1055,24 @@ class Path:
         if path:
             info['nodes'] = [node.iden() for node in self.nodes]
         return info
+
+    def setData(self, nid, name, valu):
+        self.nodedata[nid][name] = valu
+
+    def popData(self, nid, name, defv=None):
+        if (nodedata := self.nodedata.get(nid, s_common.novalu)) is s_common.novalu:
+            return defv
+
+        return nodedata.pop(name, defv)
+
+    def getData(self, nid, name=None, defv=None):
+        if (nodedata := self.nodedata.get(nid, s_common.novalu)) is s_common.novalu:
+            return defv
+
+        if name is not None:
+            return nodedata.get(name, defv)
+
+        return nodedata
 
     def fork(self, node):
 
@@ -877,6 +1184,10 @@ def _tagscommon(pode, leafonly):
     Return either all the leaf tags or all the leaf tags and all the internal tags with values
     '''
     retn = []
+
+    tags = pode[1].get('tags')
+    if tags is None:
+        return retn
 
     # brute force rather than build a tree.  faster in small sets.
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):

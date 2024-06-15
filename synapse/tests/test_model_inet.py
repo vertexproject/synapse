@@ -1,4 +1,3 @@
-import copy
 import logging
 
 import synapse.exc as s_exc
@@ -12,10 +11,16 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_model_inet_basics(self):
         async with self.getTestCore() as core:
             self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#foo·bar"]'))  # note the interpunct
+            self.len(1, await core.nodes('[ inet:web:hashtag="#fo·o·······b·ar"]'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="foo" ]')
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="#foo bar" ]')
+            with self.raises(s_exc.BadTypeValu):
+                self.len(1, await core.nodes('[ inet:web:hashtag="#·bar"]'))
+            with self.raises(s_exc.BadTypeValu):
+                self.len(1, await core.nodes('[ inet:web:hashtag="#foo·"]'))
 
             nodes = await core.nodes('''
                 [ inet:web:instance=(foo,)
@@ -1360,29 +1365,32 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
-            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
-            url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
-            expected = (url, {'subs': {
-                'proto': 'http',
-                'path': '/hehe\udcfestuff.asp',
-                'port': 80,
-                'params': '',
-                'fqdn': 'www.googlesites.com',
-                'base': url
-            }})
-            self.eq(valu, expected)
 
-            url = 'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
-            valu = t.norm(url)
-            expected = (url, {'subs': {
-                'base': url,
-                'proto': 'https',
-                'path': '/600x400/000/fff.png&text=cat@bam.com',
-                'port': 443,
-                'params': '',
-                'fqdn': 'dummyimage.com'
-            }})
-            self.eq(valu, expected)
+            for proto in ('http', 'hxxp', 'hXXp'):
+                url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
+                valu = t.norm(f'{proto}://www.googlesites.com/hehe\udcfestuff.asp')
+                expected = (url, {'subs': {
+                    'proto': 'http',
+                    'path': '/hehe\udcfestuff.asp',
+                    'port': 80,
+                    'params': '',
+                    'fqdn': 'www.googlesites.com',
+                    'base': url
+                }})
+                self.eq(valu, expected)
+
+            for proto in ('https', 'hxxps', 'hXXps'):
+                url = f'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
+                valu = t.norm(f'{proto}://dummyimage.com/600x400/000/fff.png&text=cat@bam.com')
+                expected = (url, {'subs': {
+                    'base': url,
+                    'proto': 'https',
+                    'path': '/600x400/000/fff.png&text=cat@bam.com',
+                    'port': 443,
+                    'params': '',
+                    'fqdn': 'dummyimage.com'
+                }})
+                self.eq(valu, expected)
 
             url = 'http://0.0.0.0/index.html?foo=bar'
             valu = t.norm(url)
@@ -1923,11 +1931,11 @@ class InetModelTest(s_t_utils.SynTest):
             url = await core.nodes('inet:url')
             self.len(1, url)
             url = url[0]
-            self.eq(443, url.props['port'])
-            self.eq('', url.props['params'])
-            self.eq('vertex.link', url.props['fqdn'])
-            self.eq('https', url.props['proto'])
-            self.eq('https://vertex.link/a_cool_program.exe', url.props['base'])
+            self.eq(443, url.get('port'))
+            self.eq('', url.get('params'))
+            self.eq('vertex.link', url.get('fqdn'))
+            self.eq('https', url.get('proto'))
+            self.eq('https://vertex.link/a_cool_program.exe', url.get('base'))
 
     async def test_url_mirror(self):
         url0 = 'http://vertex.link'

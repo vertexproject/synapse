@@ -195,13 +195,14 @@ class Query(AstNode):
 
     async def run(self, runt, genr):
 
-        async with contextlib.AsyncExitStack() as stack:
-            for oper in self.kids:
-                genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
+        with s_scope.enter({'runt': runt}):
+            async with contextlib.AsyncExitStack() as stack:
+                for oper in self.kids:
+                    genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
 
-            async for node, path in genr:
-                runt.tick()
-                yield node, path
+                async for node, path in genr:
+                    runt.tick()
+                    yield node, path
 
     async def iterNodePaths(self, runt, genr=None):
 
@@ -245,12 +246,12 @@ class Lookup(Query):
             try:
                 if self.autoadd:
                     runt.layerConfirm(('node', 'add', form))
-                    return await runt.snap.addNode(form, valu)
+                    return await runt.view.addNode(form, valu)
                 else:
                     norm, info = runt.model.form(form).type.norm(valu)
-                    node = await runt.snap.getNodeByNdef((form, norm))
+                    node = await runt.view.getNodeByNdef((form, norm))
                     if node is None:
-                        await runt.snap.fire('look:miss', ndef=(form, norm))
+                        await runt.bus.fire('look:miss', ndef=(form, norm))
                     return node
             except s_exc.BadTypeValu:
                 return None
@@ -274,17 +275,18 @@ class Lookup(Query):
         if len(self.kids) > 1:
             realgenr = self.kids[1].run(runt, realgenr)
 
-        async for node, path in realgenr:
-            yield node, path
+        with s_scope.enter({'runt': runt}):
+            async for node, path in realgenr:
+                yield node, path
 
 class Search(Query):
 
     async def run(self, runt, genr):
 
-        view = runt.snap.view
+        view = runt.view
 
         if not view.core.stormiface_search:
-            await runt.snap.warn('Storm search interface is not enabled!')
+            await runt.warn('Storm search interface is not enabled!')
             return
 
         async def searchgenr():
@@ -296,7 +298,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            async with await s_spooled.Set.anit(dirn=runt.snap.core.dirn, cell=runt.snap.core) as buidset:
+            async with await s_spooled.Set.anit(dirn=runt.view.core.dirn, cell=runt.view.core) as buidset:
 
                 todo = s_common.todo('search', tokns)
                 async for (prio, buid) in view.mergeStormIface('search', todo):
@@ -305,7 +307,7 @@ class Search(Query):
                         continue
 
                     await buidset.add(buid)
-                    node = await runt.snap.getNodeByBuid(buid)
+                    node = await runt.view.getNodeByBuid(buid)
                     if node is not None:
                         yield node, runt.initPath(node)
 
@@ -313,8 +315,9 @@ class Search(Query):
         if len(self.kids) > 1:
             realgenr = self.kids[1].run(runt, realgenr)
 
-        async for node, path in realgenr:
-            yield node, path
+        with s_scope.enter({'runt': runt}):
+            async for node, path in realgenr:
+                yield node, path
 
 class SubGraph:
     '''
@@ -368,12 +371,15 @@ class SubGraph:
         self.omits = {}
         self.rules = rules
 
+        self.graphnodes = set([s_common.uhex(b) for b in rules.get('graphnodes', ())])
+        self.maxsize = min(rules.get('maxsize', 100000), 100000)
+
         self.rules.setdefault('forms', {})
         self.rules.setdefault('pivots', ())
         self.rules.setdefault('filters', ())
         self.rules.setdefault('existing', ())
 
-        self.rules.setdefault('refs', False)
+        self.rules.setdefault('refs', True)
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
         self.rules.setdefault('maxsize', 100000)
@@ -384,13 +390,13 @@ class SubGraph:
 
     async def omit(self, runt, node):
 
-        answ = self.omits.get(node.buid)
+        answ = self.omits.get(node.nid)
         if answ is not None:
             return answ
 
         for filt in self.rules.get('filters'):
             if await node.filter(runt, filt):
-                self.omits[node.buid] = True
+                self.omits[node.nid] = True
                 return True
 
         rules = self.rules['forms'].get(node.form.name)
@@ -398,15 +404,15 @@ class SubGraph:
             rules = self.rules['forms'].get('*')
 
         if rules is None:
-            self.omits[node.buid] = False
+            self.omits[node.nid] = False
             return False
 
         for filt in rules.get('filters', ()):
             if await node.filter(runt, filt):
-                self.omits[node.buid] = True
+                self.omits[node.nid] = True
                 return True
 
-        self.omits[node.buid] = False
+        self.omits[node.nid] = False
         return False
 
     async def pivots(self, runt, node, path, existing):
@@ -414,7 +420,7 @@ class SubGraph:
         if self.rules.get('refs'):
 
             for propname, ndef in node.getNodeRefs():
-                pivonode = await node.snap.getNodeByNdef(ndef)
+                pivonode = await node.view.getNodeByNdef(ndef)
                 if pivonode is None:  # pragma: no cover
                     await asyncio.sleep(0)
                     continue
@@ -423,7 +429,7 @@ class SubGraph:
 
             for iden in existing:
                 buid = s_common.uhex(iden)
-                othr = await node.snap.getNodeByBuid(buid)
+                othr = await node.view.getNodeByBuid(buid)
                 for propname, ndef in othr.getNodeRefs():
                     if ndef == node.ndef:
                         yield (othr, path, {'type': 'prop', 'prop': propname, 'reverse': True})
@@ -450,17 +456,17 @@ class SubGraph:
                 yield (n, p, {'type': 'rules', 'scope': scope, 'index': indx})
                 indx += 1
 
-    async def _edgefallback(self, runt, results, node):
-        async for buid01 in results:
+    async def _edgefallback(self, runt, results, resultidens, node):
+        async for nid01 in results:
             await asyncio.sleep(0)
+            iden01 = resultidens.get(nid01)
 
-            iden01 = s_common.ehex(buid01)
-            async for verb in node.iterEdgeVerbs(buid01):
+            async for verb in node.iterEdgeVerbs(nid01):
                 await asyncio.sleep(0)
                 yield (iden01, {'type': 'edge', 'verb': verb})
 
             # for existing nodes, we need to add n2 -> n1 edges in reverse
-            async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+            async for verb in runt.view.iterEdgeVerbs(nid01, node.nid):
                 await asyncio.sleep(0)
                 yield (iden01, {'type': 'edge', 'verb': verb, 'reverse': True})
 
@@ -481,63 +487,50 @@ class SubGraph:
         todo = collections.deque()
 
         async with contextlib.AsyncExitStack() as stack:
-            core = runt.snap.core
+            core = runt.view.core
 
             done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            resultsidens = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
             revedge = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
-            edgecounts = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
             n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
-            n2delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
             # load the existing graph as already done
-            [await results.add(s_common.uhex(b)) for b in existing]
+            for iden in existing:
+                nid = runt.view.core.getNidByBuid(s_common.uhex(iden))
+                if nid is None:
+                    continue
 
-            if doedges:
-                for b in existing:
-                    ecnt = 0
-                    cache = collections.defaultdict(list)
-                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(s_common.uhex(b)):
-                        await asyncio.sleep(0)
+                await results.add(nid)
+                await resultsidens.set(nid, iden)
 
-                        if s_common.uhex(n2iden) in results:
-                            continue
-
-                        ecnt += 1
-                        if ecnt > edgelimit:
-                            break
-
-                        cache[n2iden].append(verb)
-
-                    if ecnt > edgelimit:
-                        # don't let it into the cache.
+                if doedges:
+                    if runt.view.getEdgeCount(nid) > edgelimit:
                         # We've hit a potential death star and need to deal with it specially
-                        await n1delayed.add(b)
+                        await n1delayed.add(nid)
                         continue
 
-                    for n2iden, verbs in cache.items():
+                    async for verb, n2nid in runt.view.iterNodeEdgesN1(nid):
                         await asyncio.sleep(0)
-                        if n2delayed.has(n2iden):
+
+                        if n2nid in results:
                             continue
 
-                        if not revedge.has(n2iden):
-                            await revedge.set(n2iden, {})
-
-                        re = revedge.get(n2iden)
-                        if b not in re:
-                            re[b] = []
-
-                        count = edgecounts.get(n2iden, defv=0) + len(verbs)
-                        if count > edgelimit:
-                            await n2delayed.add(n2iden)
-                            revedge.pop(n2iden)
+                        if (re := revedge.get(n2nid)) is None:
+                            re = {nid: [verb]}
+                        elif nid not in re:
+                            re[nid] = [verb]
                         else:
-                            await edgecounts.set(n2iden, count)
-                            re[b] += verbs
-                            await revedge.set(n2iden, re)
+                            re[nid].append(verb)
+
+                        await revedge.set(n2nid, re)
+
+                        if not resultsidens.get(n2nid):
+                            n2iden = s_common.ehex(runt.view.core.getBuidByNid(n2nid))
+                            await resultsidens.set(n2nid, n2iden)
 
             async def todogenr():
 
@@ -553,52 +546,52 @@ class SubGraph:
 
                 await asyncio.sleep(0)
 
-                buid = node.buid
-                if buid in done:
+                nid = node.nid
+                if nid in done:
                     continue
 
                 count += 1
 
                 if count > maxsize:
-                    await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
+                    await runt.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
                     break
 
-                await done.add(buid)
-                intodo.discard(buid)
+                await done.add(nid)
+                intodo.discard(nid)
 
                 omitted = False
                 if dist > 0 or filterinput:
                     omitted = await self.omit(runt, node)
 
-                if omitted and not yieldfiltered:
-                    continue
+                    if omitted and not yieldfiltered:
+                        continue
 
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
                 nodeiden = node.iden()
-                edges = list(revpivs.get(buid, defv=()))
+                edges = list(revpivs.get(nid, defv=()))
                 async for pivn, pivp, pinfo in self.pivots(runt, node, path, existing):
 
                     await asyncio.sleep(0)
 
-                    if results.has(pivn.buid):
+                    if results.has(pivn.nid):
                         edges.append((pivn.iden(), pinfo))
                     else:
                         pinfo['reverse'] = True
-                        pivedges = revpivs.get(pivn.buid, defv=())
-                        await revpivs.set(pivn.buid, pivedges + ((nodeiden, pinfo),))
+                        pivedges = revpivs.get(pivn.nid, defv=())
+                        await revpivs.set(pivn.nid, pivedges + ((nodeiden, pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:
                         continue
 
                     # no need to pivot to nodes we already did
-                    if pivn.buid in done:
+                    if pivn.nid in done:
                         continue
 
                     # no need to queue up todos that are already in todo
-                    if pivn.buid in intodo:
+                    if pivn.nid in intodo:
                         continue
 
                     # no need to pivot to existing nodes
@@ -608,73 +601,54 @@ class SubGraph:
                     # do we have room to go another degree out?
                     if degrees is None or dist < degrees:
                         todo.append((pivn, pivp, dist + 1))
-                        await intodo.add(pivn.buid)
+                        await intodo.add(pivn.nid)
 
                 if doedges:
-                    ecnt = 0
-                    cache = collections.defaultdict(list)
-                    await results.add(buid)
-                    # Try to lift and cache the potential edges for a node so that if we end up
-                    # seeing n2 later, we won't have to go back and check for it
-                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
-                        await asyncio.sleep(0)
-                        if ecnt > edgelimit:
-                            break
+                    await results.add(nid)
+                    await resultsidens.set(nid, nodeiden)
 
-                        ecnt += 1
-                        cache[n2iden].append(verb)
-
-                    if ecnt > edgelimit:
+                    if runt.view.getEdgeCount(nid) > edgelimit:
                         # The current node in the pipeline has too many edges from it, so it's
                         # less prohibitive to just check against the graph
-                        await n1delayed.add(nodeiden)
-                        async for e in self._edgefallback(runt, results, node):
+                        await n1delayed.add(nid)
+                        async for e in self._edgefallback(runt, results, resultsidens, node):
                             edges.append(e)
+
                     else:
-                        for n2iden, verbs in cache.items():
+                        # Try to lift and cache the potential edges for a node so that if we end up
+                        # seeing n2 later, we won't have to go back and check for it
+                        async for verb, n2nid in runt.view.iterNodeEdgesN1(nid):
                             await asyncio.sleep(0)
 
-                            if n2delayed.has(n2iden):
-                                continue
-
-                            if not revedge.has(n2iden):
-                                await revedge.set(n2iden, {})
-
-                            re = revedge.get(n2iden)
-                            if nodeiden not in re:
-                                re[nodeiden] = []
-
-                            count = edgecounts.get(n2iden, defv=0) + len(verbs)
-                            if count > edgelimit:
-                                await n2delayed.add(n2iden)
-                                revedge.pop(n2iden)
+                            if (re := revedge.get(n2nid)) is None:
+                                re = {nid: [verb]}
+                            elif nid not in re:
+                                re[nid] = [verb]
                             else:
-                                await edgecounts.set(n2iden, count)
-                                re[nodeiden] += verbs
-                                await revedge.set(n2iden, re)
+                                re[nid].append(verb)
 
-                        if revedge.has(nodeiden):
-                            for n2iden, verbs in revedge.get(nodeiden).items():
+                            await revedge.set(n2nid, re)
+
+                            if not resultsidens.get(n2nid):
+                                n2iden = s_common.ehex(runt.view.core.getBuidByNid(n2nid))
+                                await resultsidens.set(n2nid, n2iden)
+
+                            if n2nid in results:
+                                n2iden = resultsidens.get(n2nid)
+                                edges.append((n2iden, {'type': 'edge', 'verb': verb}))
+
+                        if revedge.has(nid):
+                            for n2nid, verbs in revedge.get(nid).items():
+                                n2iden = resultsidens.get(n2nid)
+
                                 for verb in verbs:
                                     await asyncio.sleep(0)
                                     edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
-                        if n2delayed.has(nodeiden):
-                            async for buid01 in results:
-                                async for verb in runt.snap.iterEdgeVerbs(buid01, buid):
-                                    await asyncio.sleep(0)
-                                    edges.append((s_common.ehex(buid01), {'type': 'edge', 'verb': verb, 'reverse': True}))
-                        for n2iden, verbs in cache.items():
-                            if s_common.uhex(n2iden) not in results:
-                                continue
+                        async for n1nid in n1delayed:
+                            n1iden = resultsidens.get(n1nid)
 
-                            for v in verbs:
-                                await asyncio.sleep(0)
-                                edges.append((n2iden, {'type': 'edge', 'verb': v}))
-
-                        async for n1iden in n1delayed:
-                            n1buid = s_common.uhex(n1iden)
-                            async for verb in runt.snap.iterEdgeVerbs(n1buid, buid):
+                            async for verb in runt.view.iterEdgeVerbs(n1nid, nid):
                                 await asyncio.sleep(0)
                                 edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
@@ -1165,7 +1139,7 @@ class CmdOper(Oper):
 
         name = self.kids[0].value()
 
-        ctor = runt.snap.core.getStormCmd(name)
+        ctor = runt.view.core.getStormCmd(name)
         if ctor is None:
             mesg = f'Storm command ({name}) not found.'
             exc = s_exc.NoSuchName(name=name, mesg=mesg)
@@ -1466,7 +1440,7 @@ class YieldValu(Oper):
 
     async def yieldFromValu(self, runt, valu):
 
-        viewiden = runt.snap.view.iden
+        viewiden = runt.view.iden
 
         # there is nothing in None... ;)
         if valu is None:
@@ -1476,7 +1450,7 @@ class YieldValu(Oper):
         # ( most common case will be stormtypes libs agenr -> iden|buid )
         # buid list -> nodes
         if isinstance(valu, bytes):
-            node = await runt.snap.getNodeByBuid(valu)
+            node = await runt.view.getNodeByBuid(valu)
             if node is not None:
                 yield node
 
@@ -1490,7 +1464,7 @@ class YieldValu(Oper):
                 mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
                 raise self.kids[0].addExcInfo(s_exc.BadLiftValu(mesg=mesg))
 
-            node = await runt.snap.getNodeByBuid(buid)
+            node = await runt.view.getNodeByBuid(buid)
             if node is not None:
                 yield node
 
@@ -1522,15 +1496,15 @@ class YieldValu(Oper):
 
         if isinstance(valu, s_stormtypes.Node):
             valu = valu.valu
-            if valu.snap.view.iden != viewiden:
-                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.snap.view.iden} expected {viewiden}'
+            if valu.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
                 raise s_exc.BadLiftValu(mesg=mesg)
             yield valu
             return
 
         if isinstance(valu, s_node.Node):
-            if valu.snap.view.iden != viewiden:
-                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.snap.view.iden} expected {viewiden}'
+            if valu.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
                 raise s_exc.BadLiftValu(mesg=mesg)
             yield valu
             return
@@ -1544,8 +1518,8 @@ class YieldValu(Oper):
         if isinstance(valu, s_stormtypes.Prim):
             async with contextlib.aclosing(valu.nodes()) as genr:
                 async for node in genr:
-                    if node.snap.view.iden != viewiden:
-                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.snap.view.iden} expected {viewiden}'
+                    if node.view.iden != viewiden:
+                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.view.iden} expected {viewiden}'
                         raise s_exc.BadLiftValu(mesg=mesg)
                     yield node
                 return
@@ -1561,12 +1535,16 @@ class LiftTag(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await toprim(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse):
+            async for node in runt.view.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTag(tag, reverse=self.reverse):
+        subtype = None
+        if len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
+
+        async for node in runt.view.nodesByTag(tag, reverse=self.reverse, subtype=subtype):
             yield node
 
 class LiftByArray(LiftOper):
@@ -1581,7 +1559,7 @@ class LiftByArray(LiftOper):
 
         prop = runt.model.props.get(name)
         if prop is not None:
-            async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+            async for node in runt.view.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
                 yield node
             return
 
@@ -1595,11 +1573,11 @@ class LiftByArray(LiftOper):
 
         relname = props[0].name
         def cmprkey(node):
-            return node.props.get(relname)
+            return node.get(relname)
 
         genrs = []
         for prop in props:
-            genrs.append(runt.snap.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
+            genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -1617,12 +1595,16 @@ class LiftTagProp(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse):
+            async for node in runt.view.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTagProp(None, tag, prop, reverse=self.reverse):
+        subtype = None
+        if len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
+
+        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, subtype=subtype):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -1647,12 +1629,17 @@ class LiftFormTagProp(LiftOper):
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             for form in forms:
-                genrs.append(runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
+                genrs.append(runt.view.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
 
-        else:
+        elif len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
 
             for form in forms:
-                genrs.append(runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse))
+                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse, subtype=subtype))
+
+        else:
+            for form in forms:
+                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -1666,7 +1653,7 @@ class LiftTagTag(LiftOper):
 
         tagname = await self.kids[0].compute(runt, path)
 
-        node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
+        node = await runt.view.getNodeByNdef(('syn:tag', tagname))
         if node is None:
             return
 
@@ -1674,11 +1661,11 @@ class LiftTagTag(LiftOper):
         if len(self.kids) == 3:
             cmpr = await self.kids[1].compute(runt, path)
             valu = await toprim(await self.kids[2].compute(runt, path))
-            genr = runt.snap.nodesByTagValu(tagname, cmpr, valu, reverse=self.reverse)
+            genr = runt.view.nodesByTagValu(tagname, cmpr, valu, reverse=self.reverse)
 
         else:
 
-            genr = runt.snap.nodesByTag(tagname, reverse=self.reverse)
+            genr = runt.view.nodesByTag(tagname, reverse=self.reverse)
 
         done = set([tagname])
         todo = collections.deque([genr])
@@ -1694,7 +1681,7 @@ class LiftTagTag(LiftOper):
                     tagname = node.ndef[1]
                     if tagname not in done:
                         done.add(tagname)
-                        todo.append(runt.snap.nodesByTag(tagname, reverse=self.reverse))
+                        todo.append(runt.view.nodesByTag(tagname, reverse=self.reverse))
 
                     continue
 
@@ -1709,6 +1696,7 @@ class LiftFormTag(LiftOper):
 
         forms = runt.model.reqFormsByLook(formname, self.kids[0].addExcInfo)
 
+        genrs = []
         tag = await self.kids[1].compute(runt, path)
 
         if len(self.kids) == 4:
@@ -1717,26 +1705,47 @@ class LiftFormTag(LiftOper):
             valu = await toprim(await self.kids[3].compute(runt, path))
 
             for form in forms:
-                async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
-                    yield node
+                genrs.append(runt.view.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse))
 
-            return
+            def cmprkey(node):
+                return node.getTag(tag, defval=(0, 0))
 
-        for form in forms:
-            async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
-                yield node
+        elif len(self.kids) == 3:
+            ptyp = runt.model.type('ival')
+            subtype = await self.kids[2].compute(runt, path)
+            if (styp := ptyp.subtypes.get(subtype)) is None:
+                raise s_exc.NoSuchType(name=subtype, mesg=f'Invalid subtype {subtype} for tag ival.')
+            (ptyp, getr) = styp
+
+            for form in forms:
+                genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, subtype=subtype))
+
+            def cmprkey(node):
+                return getr(node.getTag(tag, defval=(0, 0)))
+
+        else:
+            for form in forms:
+                genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse))
+
+            def cmprkey(node):
+                return node.getTag(tag, defval=(0, 0))
+
+        async for node in s_common.merggenr2(genrs, cmprkey=cmprkey, reverse=self.reverse):
+            yield node
 
 class LiftProp(LiftOper):
 
     async def lift(self, runt, path):
 
-        assert len(self.kids) == 1
-
         name = await tostr(await self.kids[0].compute(runt, path))
+
+        subtype = None
+        if len(self.kids) == 2:
+            subtype = await self.kids[1].compute(runt, path)
 
         prop = runt.model.props.get(name)
         if prop is not None:
-            async for node in self.proplift(prop, runt, path):
+            async for node in self.proplift(prop, runt, path, subtype=subtype):
                 yield node
             return
 
@@ -1748,13 +1757,13 @@ class LiftProp(LiftOper):
 
         if len(props) == 1 or props[0].isform:
             for prop in props:
-                async for node in self.proplift(prop, runt, path):
+                async for node in self.proplift(prop, runt, path, subtype=subtype):
                     yield node
             return
 
         relname = props[0].name
         def cmprkey(node):
-            return node.props.get(relname)
+            return node.get(relname)
 
         genrs = []
         for prop in props:
@@ -1763,15 +1772,15 @@ class LiftProp(LiftOper):
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
 
-    async def proplift(self, prop, runt, path):
+    async def proplift(self, prop, runt, path, subtype=None):
 
         # check if we can optimize a form lift
-        if prop.isform:
+        if subtype is None and prop.isform:
 
             async for hint in self.getRightHints(runt, path):
                 if hint[0] == 'tag':
                     tagname = hint[1].get('name')
-                    async for node in runt.snap.nodesByTag(tagname, form=prop.full, reverse=self.reverse):
+                    async for node in runt.view.nodesByTag(tagname, form=prop.full, reverse=self.reverse):
                         yield node
                     return
 
@@ -1794,7 +1803,7 @@ class LiftProp(LiftOper):
                     if cmpr is not None and valu is not None:
                         try:
                             # try lifting by valu but no guarantee a cmpr is available
-                            async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse):
+                            async for node in runt.view.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse):
                                 yield node
                             return
                         except asyncio.CancelledError:  # pragma: no cover
@@ -1802,11 +1811,11 @@ class LiftProp(LiftOper):
                         except:
                             pass
 
-                    async for node in runt.snap.nodesByProp(fullname, reverse=self.reverse):
+                    async for node in runt.view.nodesByProp(fullname, reverse=self.reverse):
                         yield node
                     return
 
-        async for node in runt.snap.nodesByProp(prop.full, reverse=self.reverse):
+        async for node in runt.view.nodesByProp(prop.full, reverse=self.reverse, subtype=subtype):
             yield node
 
     async def getRightHints(self, runt, path):
@@ -1849,17 +1858,17 @@ class LiftPropBy(LiftOper):
         try:
             if len(props) == 1:
                 prop = props[0]
-                async for node in runt.snap.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse):
+                async for node in runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse):
                     yield node
                 return
 
             relname = props[0].name
             def cmprkey(node):
-                return node.props.get(relname)
+                return node.get(relname)
 
             genrs = []
             for prop in props:
-                genrs.append(runt.snap.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse))
+                genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse))
 
             async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node
@@ -1912,19 +1921,9 @@ class PivotOut(PivotOper):
         # <syn:tag> -> * is "from tags to nodes with tags"
         if node.form.name == 'syn:tag':
 
-            async for pivo in runt.snap.nodesByTag(node.ndef[1]):
+            async for pivo in runt.view.nodesByTag(node.ndef[1]):
                 yield pivo, path.fork(pivo)
 
-            return
-
-        if isinstance(node.form.type, s_types.Edge):
-            n2def = node.get('n2')
-            pivo = await runt.snap.getNodeByNdef(n2def)
-            if pivo is None:  # pragma: no cover
-                logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
-                return
-
-            yield pivo, path.fork(pivo)
             return
 
         for name, prop in node.form.props.items():
@@ -1935,7 +1934,7 @@ class PivotOut(PivotOper):
 
             # if the outbound prop is an ndef...
             if isinstance(prop.type, s_types.Ndef):
-                pivo = await runt.snap.getNodeByNdef(valu)
+                pivo = await runt.view.getNodeByNdef(valu)
                 if pivo is None:
                     continue
 
@@ -1945,14 +1944,14 @@ class PivotOut(PivotOper):
             if isinstance(prop.type, s_types.Array):
                 if isinstance(prop.type.arraytype, s_types.Ndef):
                     for item in valu:
-                        if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
+                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
                             yield pivo, path.fork(pivo)
                     continue
 
                 typename = prop.type.opts.get('type')
                 if runt.model.forms.get(typename) is not None:
                     for item in valu:
-                        async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
+                        async for pivo in runt.view.nodesByPropValu(typename, '=', item):
                             yield pivo, path.fork(pivo)
 
             form = runt.model.forms.get(prop.type.name)
@@ -1960,16 +1959,16 @@ class PivotOut(PivotOper):
                 continue
 
             if prop.isrunt:
-                async for pivo in runt.snap.nodesByPropValu(form.name, '=', valu):
+                async for pivo in runt.view.nodesByPropValu(form.name, '=', valu):
                     yield pivo, path.fork(pivo)
                 continue
 
-            pivo = await runt.snap.getNodeByNdef((form.name, valu))
+            pivo = await runt.view.getNodeByNdef((form.name, valu))
             if pivo is None:  # pragma: no cover
                 continue
 
             # avoid self references
-            if pivo.buid == node.buid:
+            if pivo.nid == node.nid:
                 continue
 
             yield pivo, path.fork(pivo)
@@ -1986,8 +1985,8 @@ class N1WalkNPivo(PivotOut):
             async for item in self.getPivsOut(runt, node, path):
                 yield item
 
-            async for (verb, iden) in node.iterEdgesN1():
-                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+            async for (verb, n2nid) in node.iterEdgesN1():
+                wnode = await runt.view.getNodeByNid(n2nid)
                 if wnode is not None:
                     yield wnode, path.fork(wnode)
 
@@ -2052,7 +2051,7 @@ class PivotToTags(PivotOper):
                     await asyncio.sleep(0)
                     continue
 
-                pivo = await runt.snap.getNodeByNdef(('syn:tag', name))
+                pivo = await runt.view.getNodeByNdef(('syn:tag', name))
                 if pivo is None:
                     continue
 
@@ -2075,26 +2074,19 @@ class PivotIn(PivotOper):
 
     async def getPivsIn(self, runt, node, path):
 
-        # if it's a graph edge, use :n1
-        if isinstance(node.form.type, s_types.Edge):
-
-            ndef = node.get('n1')
-
-            pivo = await runt.snap.getNodeByNdef(ndef)
-            if pivo is not None:
-                yield pivo, path.fork(pivo)
-
-            return
-
         name, valu = node.ndef
 
         for prop in runt.model.getPropsByType(name):
-            async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+            async for pivo in runt.view.nodesByPropValu(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
         for prop in runt.model.getArrayPropsByType(name):
-            async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
+            async for pivo in runt.view.nodesByPropArray(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
+
+        async for refsnid in runt.view.getNdefRefs(node.buid):
+            pivo = await runt.view.getNodeByNid(refsnid)
+            yield pivo, path.fork(pivo)
 
 class N2WalkNPivo(PivotIn):
 
@@ -2108,60 +2100,10 @@ class N2WalkNPivo(PivotIn):
             async for item in self.getPivsIn(runt, node, path):
                 yield item
 
-            async for (verb, iden) in node.iterEdgesN2():
-                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+            async for (verb, n1nid) in node.iterEdgesN2():
+                wnode = await runt.view.getNodeByNid(n1nid)
                 if wnode is not None:
                     yield wnode, path.fork(wnode)
-
-class PivotInFrom(PivotOper):
-    '''
-    <- foo:edge
-    '''
-
-    async def run(self, runt, genr):
-
-        name = self.kids[0].value()
-
-        form = runt.model.forms.get(name)
-        if form is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(name))
-
-        # <- edge
-        if isinstance(form.type, s_types.Edge):
-
-            full = form.name + ':n2'
-
-            async for node, path in genr:
-
-                if self.isjoin:
-                    yield node, path
-
-                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
-                    yield pivo, path.fork(pivo)
-
-            return
-
-        # edge <- form
-        async for node, path in genr:
-
-            if self.isjoin:
-                yield node, path
-
-            if not isinstance(node.form.type, s_types.Edge):
-                mesg = f'Pivot in from a specific form cannot be used with nodes of type {node.form.type.name}'
-                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=node.form.type.name))
-
-            # dont bother traversing edges to the wrong form
-            if node.get('n1:form') != form.name:
-                continue
-
-            n1def = node.get('n1')
-
-            pivo = await runt.snap.getNodeByNdef(n1def)
-            if pivo is None:
-                continue
-
-            yield pivo, path.fork(pivo)
 
 class FormPivot(PivotOper):
     '''
@@ -2174,7 +2116,7 @@ class FormPivot(PivotOper):
         if isinstance(prop.type, s_types.Ndef):
 
             async def pgenr(node, strict=True):
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', node.ndef):
+                async for pivo in runt.view.nodesByPropValu(prop.full, '=', node.ndef):
                     yield pivo
 
         elif not prop.isform:
@@ -2185,23 +2127,14 @@ class FormPivot(PivotOper):
             async def pgenr(node, strict=True):
                 if isarray:
                     if isinstance(prop.type.arraytype, s_types.Ndef):
-                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef)
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef)
                     else:
-                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef[1])
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1])
                 else:
-                    ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1])
+                    ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1])
 
                 # TODO cache/bypass normalization in loop!
                 async for pivo in ngenr:
-                    yield pivo
-
-        # if dest form is a subtype of a graph "edge", use N1 automatically
-        elif isinstance(prop.type, s_types.Edge):
-
-            full = prop.name + ':n1'
-
-            async def pgenr(node, strict=True):
-                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
                     yield pivo
 
         else:
@@ -2214,20 +2147,7 @@ class FormPivot(PivotOper):
 
                 # <syn:tag> -> <form> is "from tags to nodes" pivot
                 if node.form.name == 'syn:tag' and prop.isform:
-                    async for pivo in runt.snap.nodesByTag(node.ndef[1], form=prop.name):
-                        yield pivo
-
-                    return
-
-                # if the source node is a graph edge, use n2
-                if isinstance(node.form.type, s_types.Edge):
-
-                    n2def = node.get('n2')
-                    if n2def[0] != destform.name:
-                        return
-
-                    pivo = await runt.snap.getNodeByNdef(node.get('n2'))
-                    if pivo:
+                    async for pivo in runt.view.nodesByTag(node.ndef[1], form=prop.name):
                         yield pivo
 
                     return
@@ -2246,7 +2166,7 @@ class FormPivot(PivotOper):
 
                     refsvalu = node.get(refsname)
                     if refsvalu is not None:
-                        async for pivo in runt.snap.nodesByPropValu(refsform, '=', refsvalu):
+                        async for pivo in runt.view.nodesByPropValu(refsform, '=', refsvalu):
                             yield pivo
 
                 for refsname, refsform in refs.get('array'):
@@ -2259,7 +2179,7 @@ class FormPivot(PivotOper):
                     refsvalu = node.get(refsname)
                     if refsvalu is not None:
                         for refselem in refsvalu:
-                            async for pivo in runt.snap.nodesByPropValu(destform.name, '=', refselem):
+                            async for pivo in runt.view.nodesByPropValu(destform.name, '=', refselem):
                                 yield pivo
 
                 for refsname in refs.get('ndef'):
@@ -2268,7 +2188,7 @@ class FormPivot(PivotOper):
 
                     refsvalu = node.get(refsname)
                     if refsvalu is not None and refsvalu[0] == destform.name:
-                        pivo = await runt.snap.getNodeByNdef(refsvalu)
+                        pivo = await runt.view.getNodeByNdef(refsvalu)
                         if pivo is not None:
                             yield pivo
 
@@ -2279,7 +2199,7 @@ class FormPivot(PivotOper):
                     if (refsvalu := node.get(refsname)) is not None:
                         for aval in refsvalu:
                             if aval[0] == destform.name:
-                                if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
+                                if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
                                     yield pivo
 
                 #########################################################################
@@ -2295,7 +2215,7 @@ class FormPivot(PivotOper):
                     found = True
 
                     refsprop = destform.props.get(refsname)
-                    async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef[1]):
+                    async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node.ndef[1]):
                         yield pivo
 
                 # "reverse" array references...
@@ -2307,7 +2227,7 @@ class FormPivot(PivotOper):
                     found = True
 
                     destprop = destform.props.get(refsname)
-                    async for pivo in runt.snap.nodesByPropArray(destprop.full, '=', node.ndef[1]):
+                    async for pivo in runt.view.nodesByPropArray(destprop.full, '=', node.ndef[1]):
                         yield pivo
 
                 # "reverse" ndef references...
@@ -2316,7 +2236,7 @@ class FormPivot(PivotOper):
                     found = True
 
                     refsprop = destform.props.get(refsname)
-                    async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef):
+                    async for pivo in runt.view.nodesByPropValu(refsprop.full, '=', node.ndef):
                         yield pivo
 
                 for refsname in refs.get('ndefarray'):
@@ -2324,7 +2244,7 @@ class FormPivot(PivotOper):
                     found = True
 
                     refsprop = destform.props.get(refsname)
-                    async for pivo in runt.snap.nodesByPropArray(refsprop.full, '=', node.ndef):
+                    async for pivo in runt.view.nodesByPropArray(refsprop.full, '=', node.ndef):
                         yield pivo
 
                 if strict and not found:
@@ -2384,7 +2304,7 @@ class FormPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
-                await runt.snap.warn(mesg, **items)
+                await runt.warn(mesg, **items)
 
 class PropPivotOut(PivotOper):
     '''
@@ -2415,7 +2335,7 @@ class PropPivotOut(PivotOper):
             if prop.type.isarray:
                 if isinstance(prop.type.arraytype, s_types.Ndef):
                     for item in valu:
-                        if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
+                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
                             yield pivo, path.fork(pivo)
                     continue
 
@@ -2423,12 +2343,12 @@ class PropPivotOut(PivotOper):
                 if runt.model.forms.get(fname) is None:
                     if not warned:
                         mesg = f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.'
-                        await runt.snap.warn(mesg)
+                        await runt.warn(mesg)
                         warned = True
                     continue
 
                 for item in valu:
-                    async for pivo in runt.snap.nodesByPropValu(fname, '=', item):
+                    async for pivo in runt.view.nodesByPropValu(fname, '=', item):
                         yield pivo, path.fork(pivo)
 
                 continue
@@ -2436,7 +2356,7 @@ class PropPivotOut(PivotOper):
             # ndef pivot out syntax...
             # :ndef -> *
             if isinstance(prop.type, s_types.Ndef):
-                pivo = await runt.snap.getNodeByNdef(valu)
+                pivo = await runt.view.getNodeByNdef(valu)
                 if pivo is None:
                     logger.warning(f'Missing node corresponding to ndef {valu}')
                     continue
@@ -2447,12 +2367,12 @@ class PropPivotOut(PivotOper):
             fname = prop.type.name
             if prop.modl.form(fname) is None:
                 if warned is False:
-                    await runt.snap.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.')
+                    await runt.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.')
                     warned = True
                 continue
 
             ndef = (fname, valu)
-            pivo = await runt.snap.getNodeByNdef(ndef)
+            pivo = await runt.view.getNodeByNdef(ndef)
             # A node explicitly deleted in the graph or missing from a underlying layer
             # could cause this lift to return None.
             if pivo:
@@ -2466,43 +2386,43 @@ class PropPivot(PivotOper):
 
     def pivogenr(self, runt, prop):
 
-        async def pgenr(node, srcprop, valu, strict=True):
+        async def pgenr(node, srctype, valu, strict=True):
 
             # TODO cache/bypass normalization in loop!
 
             # pivoting from an array prop to a non-array prop needs an extra loop
-            if srcprop.type.isarray and not prop.type.isarray:
-                if isinstance(srcprop.type.arraytype, s_types.Ndef) and prop.isform:
+            if srctype.isarray and not prop.type.isarray:
+                if isinstance(srctype.arraytype, s_types.Ndef) and prop.isform:
                     for aval in valu:
                         if aval[0] != prop.form.name:
                             continue
 
-                        if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
+                        if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
                             yield pivo
                     return
 
                 for arrayval in valu:
-                    async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
+                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', arrayval):
                         yield pivo
 
                 return
 
-            if isinstance(srcprop.type, s_types.Ndef) and prop.isform:
+            if isinstance(srctype, s_types.Ndef) and prop.isform:
                 if valu[0] != prop.form.name:
                     return
 
-                pivo = await runt.snap.getNodeByNdef(valu)
+                pivo = await runt.view.getNodeByNdef(valu)
                 if pivo is None:
-                    await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
+                    await runt.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
                     return
                 yield pivo
 
                 return
 
-            if prop.type.isarray and not srcprop.type.isarray:
-                genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+            if prop.type.isarray and not srctype.isarray:
+                genr = runt.view.nodesByPropArray(prop.full, '=', valu)
             else:
-                genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+                genr = runt.view.nodesByPropValu(prop.full, '=', valu)
 
             async for pivo in genr:
                 yield pivo
@@ -2529,9 +2449,9 @@ class PropPivot(PivotOper):
 
                 pgenrs.append(self.pivogenr(runt, prop))
 
-            async def listpivot(node, srcprop, valu):
+            async def listpivot(node, srctype, valu):
                 for pgenr in pgenrs:
-                    async for pivo in pgenr(node, srcprop, valu, strict=False):
+                    async for pivo in pgenr(node, srctype, valu, strict=False):
                         yield pivo
 
             return listpivot
@@ -2552,14 +2472,14 @@ class PropPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            srcprop, valu = await self.kids[0].getPropAndValu(runt, path)
+            srctype, valu = await self.kids[0].getTypeAndValu(runt, path)
             if valu is None:
                 # all filters must sleep
                 await asyncio.sleep(0)
                 continue
 
             try:
-                async for pivo in pgenr(node, srcprop, valu):
+                async for pivo in pgenr(node, srctype, valu):
                     yield pivo, path.fork(pivo)
 
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
@@ -2569,7 +2489,7 @@ class PropPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                await runt.snap.warn(mesg, **items)
+                await runt.warn(mesg, **items)
 
 class Value(AstNode):
     '''
@@ -2847,13 +2767,13 @@ class TagCond(Cond):
         async def cond(node, path):
             name = await self.kids[0].compute(runt, path)
             if name == '*':
-                return bool(node.tags)
+                return bool(node.getTagNames())
 
             if '*' in name:
                 reobj = s_cache.getTagGlobRegx(name)
-                return any(reobj.fullmatch(p) for p in node.tags)
+                return any(reobj.fullmatch(p) for p in node.getTagNames())
 
-            return node.tags.get(name) is not None
+            return node.getTag(name) is not None
 
         return cond
 
@@ -2911,7 +2831,7 @@ class HasRelPropCond(Cond):
                 exc = s_exc.NoSuchForm.init(prop.type.name)
                 raise self.kids[0].addExcInfo(exc)
 
-            node = await runt.snap.getNodeByNdef((form.name, valu))
+            node = await runt.view.getNodeByNdef((form.name, valu))
             if node is None:
                 return False
 
@@ -2944,11 +2864,13 @@ class HasTagPropCond(Cond):
             name = await self.kids[1].compute(runt, path)
 
             if tag == '*':
-                return any(name in props for props in node.tagprops.values())
+                tagprops = node._getTagPropsDict()
+                return any(name in props for props in tagprops.values())
 
             if '*' in tag:
                 reobj = s_cache.getTagGlobRegx(tag)
-                for tagname, props in node.tagprops.items():
+                tagprops = node._getTagPropsDict()
+                for tagname, props in tagprops.items():
                     if reobj.fullmatch(tagname) and name in props:
                         return True
 
@@ -3019,6 +2941,11 @@ class ArrayCond(Cond):
         name = await self.kids[0].compute(runt, None)
         cmpr = await self.kids[1].compute(runt, None)
 
+        cmprname = None
+        if isinstance(self.kids[1], ByNameCmpr):
+            cmprname = self.kids[1].getName()
+            realcmpr = self.kids[1].getCmpr()
+
         async def cond(node, path):
 
             prop = node.form.props.get(name)
@@ -3029,17 +2956,32 @@ class ArrayCond(Cond):
                 mesg = f'Array filter syntax is invalid for non-array prop {name}.'
                 raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
 
-            ctor = prop.type.arraytype.getCmprCtor(cmpr)
+            ptyp = prop.type.arraytype
+
+            propcmpr = cmpr
+            if (subtype := ptyp.subtypes.get(cmprname)) is not None:
+                (ptyp, getr) = subtype
+                propcmpr = realcmpr
+
+            ctor = ptyp.getCmprCtor(propcmpr)
+            if ctor is None:
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=propcmpr, name=ptyp.name))
 
             items = node.get(name)
             if items is None:
                 return False
 
             val2 = await self.kids[2].compute(runt, path)
-            for item in items:
-                if ctor(val2)(item):
-                    return True
 
+            if subtype is not None:
+                for item in items:
+                    item = getr(item)
+                    if ctor(val2)(item):
+                        return True
+            else:
+                for item in items:
+                    if ctor(val2)(item):
+                        return True
             return False
 
         return cond
@@ -3051,11 +2993,20 @@ class AbsPropCond(Cond):
         name = await self.kids[0].compute(runt, None)
         cmpr = await self.kids[1].compute(runt, None)
 
+        subtype = None
+
         prop = runt.model.props.get(name)
         if prop is not None:
-            ctor = prop.type.getCmprCtor(cmpr)
+            ptyp = prop.type
+            if isinstance(self.kids[1], ByNameCmpr):
+                cmprname = self.kids[1].getName()
+                if (subtype := prop.type.subtypes.get(cmprname)) is not None:
+                    (ptyp, getr) = subtype
+                    cmpr = self.kids[1].getCmpr()
+
+            ctor = ptyp.getCmprCtor(cmpr)
             if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
             if prop.isform:
 
@@ -3065,8 +3016,10 @@ class AbsPropCond(Cond):
                         return False
 
                     val1 = node.ndef[1]
-                    val2 = await self.kids[2].compute(runt, path)
+                    if subtype is not None:
+                        val1 = getr(val1)
 
+                    val2 = await self.kids[2].compute(runt, path)
                     return ctor(val2)(val1)
 
                 return cond
@@ -3079,6 +3032,9 @@ class AbsPropCond(Cond):
                 if val1 is None:
                     return False
 
+                if subtype is not None:
+                    val1 = getr(val1)
+
                 val2 = await self.kids[2].compute(runt, path)
                 return ctor(val2)(val1)
 
@@ -3090,14 +3046,24 @@ class AbsPropCond(Cond):
             prop = runt.model.props.get(proplist[0])
             relname = prop.name
 
-            ctor = prop.type.getCmprCtor(cmpr)
+            ptyp = prop.type
+            if isinstance(self.kids[1], ByNameCmpr):
+                cmprname = self.kids[1].getName()
+                if (subtype := prop.type.subtypes.get(cmprname)) is not None:
+                    (ptyp, getr) = subtype
+                    cmpr = self.kids[1].getCmpr()
+
+            ctor = ptyp.getCmprCtor(cmpr)
             if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
             async def cond(node, path):
                 val1 = node.get(relname)
                 if val1 is None:
                     return False
+
+                if subtype is not None:
+                    val1 = getr(val1)
 
                 val2 = await self.kids[2].compute(runt, path)
                 return ctor(val2)(val1)
@@ -3112,12 +3078,20 @@ class TagValuCond(Cond):
 
         lnode, cnode, rnode = self.kids
 
-        ival = runt.model.type('ival')
-
         cmpr = await cnode.compute(runt, None)
-        cmprctor = ival.getCmprCtor(cmpr)
+
+        ptyp = runt.model.type('ival')
+        subtype = None
+
+        if isinstance(cnode, ByNameCmpr):
+            cmprname = cnode.getName()
+            if (subtype := ptyp.subtypes.get(cmprname)) is not None:
+                (ptyp, getr) = subtype
+                cmpr = cnode.getCmpr()
+
+        cmprctor = ptyp.getCmprCtor(cmpr)
         if cmprctor is None:
-            raise cnode.addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name))
+            raise cnode.addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
@@ -3127,7 +3101,12 @@ class TagValuCond(Cond):
                     raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
 
                 valu = await rnode.compute(runt, path)
-                return cmprctor(valu)(node.tags.get(name))
+
+                tval = node.getTag(name)
+                if subtype is not None:
+                    tval = getr(tval)
+
+                return cmprctor(valu)(tval)
 
             return cond
 
@@ -3140,14 +3119,22 @@ class TagValuCond(Cond):
             cmpr = cmprctor(valu)
 
             async def cond(node, path):
-                return cmpr(node.tags.get(name))
+                tval = node.getTag(name)
+                if subtype is not None:
+                    tval = getr(tval)
+                return cmpr(tval)
 
             return cond
 
         # it's a runtime value...
         async def cond(node, path):
-            valu = await self.kids[2].compute(runt, path)
-            return cmprctor(valu)(node.tags.get(name))
+            valu = await rnode.compute(runt, path)
+
+            tval = node.getTag(name)
+            if subtype is not None:
+                tval = getr(tval)
+
+            return cmprctor(valu)(tval)
 
         return cond
 
@@ -3160,9 +3147,14 @@ class RelPropCond(Cond):
         cmpr = await self.kids[1].compute(runt, None)
         valukid = self.kids[2]
 
+        cmprname = None
+        if isinstance(self.kids[1], ByNameCmpr):
+            cmprname = self.kids[1].getName()
+            realcmpr = self.kids[1].getCmpr()
+
         async def cond(node, path):
 
-            prop, valu = await self.kids[0].getPropAndValu(runt, path)
+            vtyp, valu = await self.kids[0].getTypeAndValu(runt, path)
             if valu is None:
                 return False
 
@@ -3173,9 +3165,14 @@ class RelPropCond(Cond):
             if xval is None:
                 return False
 
-            ctor = prop.type.getCmprCtor(cmpr)
+            propcmpr = cmpr
+            if cmprname is not None and cmprname in vtyp.subtypes:
+                (vtyp, valu) = vtyp.getSubType(cmprname, valu)
+                propcmpr = realcmpr
+
+            ctor = vtyp.getCmprCtor(propcmpr)
             if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=propcmpr, name=vtyp.name))
 
             func = ctor(xval)
             return func(valu)
@@ -3208,7 +3205,12 @@ class TagPropCond(Cond):
 
     async def getCondEval(self, runt):
 
-        cmpr = await self.kids[2].compute(runt, None)
+        fullcmpr = await self.kids[2].compute(runt, None)
+
+        cmprname = None
+        if isinstance(self.kids[2], ByNameCmpr):
+            cmprname = self.kids[2].getName()
+            subcmpr = self.kids[2].getCmpr()
 
         async def cond(node, path):
 
@@ -3224,16 +3226,29 @@ class TagPropCond(Cond):
                 mesg = f'No such tag property: {name}'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=name, mesg=mesg))
 
-            # TODO cache on (cmpr, valu) for perf?
-            valu = await self.kids[3].compute(runt, path)
-
-            ctor = prop.type.getCmprCtor(cmpr)
-            if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
-
             curv = node.getTagProp(tag, name)
             if curv is None:
                 return False
+
+            # TODO cache on (cmpr, valu) for perf?
+            valu = await self.kids[3].compute(runt, path)
+
+            cmpr = fullcmpr
+            ptyp = prop.type
+            subtype = None
+
+            if cmprname is not None:
+                if (subtype := ptyp.subtypes.get(cmprname)) is not None:
+                    (ptyp, getr) = subtype
+                    cmpr = subcmpr
+
+            ctor = ptyp.getCmprCtor(cmpr)
+            if ctor is None:
+                raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
+
+            if subtype is not None:
+                curv = getr(curv)
+
             return ctor(valu)(curv)
 
         return cond
@@ -3259,11 +3274,6 @@ class FiltOper(Oper):
             else:
                 # all filters must sleep
                 await asyncio.sleep(0)
-
-class FiltByArray(FiltOper):
-    '''
-    +:foo*[^=visi]
-    '''
 
 class ArgvQuery(Value):
 
@@ -3291,12 +3301,16 @@ class PropValue(Value):
     def isRuntSafeAtom(self, runt):
         return False
 
-    async def getPropAndValu(self, runt, path):
+    async def getTypeAndValu(self, runt, path):
         if not path:
             return None, None
 
         propname = await self.kids[0].compute(runt, path)
         name = await tostr(propname)
+
+        subtype = None
+        if len(self.kids) > 1:
+            subtype = await self.kids[1].compute(runt, path)
 
         ispiv = name.find('::') != -1
         if not ispiv:
@@ -3310,11 +3324,14 @@ class PropValue(Value):
                 raise self.kids[0].addExcInfo(exc)
 
             valu = path.node.get(name)
+            if subtype is not None:
+                return prop.type.getSubType(subtype, valu)
+
             if isinstance(valu, (dict, list, tuple)):
                 # these get special cased because changing them affects the node
                 # while it's in the pipeline but the modification doesn't get stored
                 valu = s_msgpack.deepcopy(valu)
-            return prop, valu
+            return prop.type, valu
 
         # handle implicit pivot properties
         names = name.split('::')
@@ -3337,22 +3354,25 @@ class PropValue(Value):
                 raise self.kids[0].addExcInfo(exc)
 
             if i >= imax:
+                if subtype is not None:
+                    return prop.type.getSubType(subtype, valu)
+
                 if isinstance(valu, (dict, list, tuple)):
                     # these get special cased because changing them affects the node
                     # while it's in the pipeline but the modification doesn't get stored
                     valu = s_msgpack.deepcopy(valu)
-                return prop, valu
+                return prop.type, valu
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
                 raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 
-            node = await runt.snap.getNodeByNdef((form.name, valu))
+            node = await runt.view.getNodeByNdef((form.name, valu))
             if node is None:
                 return None, None
 
     async def compute(self, runt, path):
-        prop, valu = await self.getPropAndValu(runt, path)
+        ptyp, valu = await self.getTypeAndValu(runt, path)
         return valu
 
 class RelPropValue(PropValue):
@@ -3370,8 +3390,15 @@ class TagValue(Value):
         return False
 
     async def compute(self, runt, path):
-        valu = await self.kids[0].compute(runt, path)
-        return path.node.getTag(valu)
+        name = await self.kids[0].compute(runt, path)
+
+        valu = path.node.getTag(name)
+
+        if len(self.kids) > 1:
+            subtype = await self.kids[1].compute(runt, path)
+            (_, valu) = runt.model.type('ival').getSubType(subtype, valu)
+
+        return valu
 
 class TagProp(Value):
 
@@ -3391,7 +3418,19 @@ class FormTagProp(Value):
 class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
-        return path.node.getTagProp(tag, prop)
+
+        tprop = runt.model.getTagProp(prop)
+        if tprop is None:
+            mesg = f'No such tag property: {prop}'
+            raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=prop, mesg=mesg))
+
+        valu = path.node.getTagProp(tag, prop)
+
+        if len(self.kids) > 1:
+            subtype = await self.kids[1].compute(runt, path)
+            (_, valu) = tprop.type.getSubType(subtype, valu)
+
+        return valu
 
 class CallArgs(Value):
 
@@ -3403,6 +3442,13 @@ class CallKwarg(CallArgs):
 
 class CallKwargs(CallArgs):
     pass
+
+class SubProp(Value):
+    def prepare(self):
+        self.valu = self.kids[0].value()
+
+    async def compute(self, runt, path):
+        return self.valu
 
 class VarValue(Value):
 
@@ -3645,7 +3691,7 @@ class TagName(Value):
                 mesg = 'Invalid value type for tag name, tag names must be strings.'
                 raise s_exc.BadTypeValu(mesg=mesg)
 
-            normtupl = await runt.snap.getTagNorm(valu)
+            normtupl = runt.view.core.getTagNorm(valu)
             return normtupl[0]
 
         vals = []
@@ -3656,7 +3702,7 @@ class TagName(Value):
                 raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             part = await tostr(part)
-            partnorm = await runt.snap.getTagNorm(part)
+            partnorm = runt.view.core.getTagNorm(part)
             vals.append(partnorm[0])
 
         return '.'.join(vals)
@@ -3680,7 +3726,7 @@ class TagName(Value):
                         mesg = 'Invalid value type for tag name, tag names must be strings.'
                         raise s_exc.BadTypeValu(mesg=mesg)
 
-                    normtupl = await runt.snap.getTagNorm(valu)
+                    normtupl = runt.view.core.getTagNorm(valu)
                     if normtupl is None:
                         continue
 
@@ -3697,7 +3743,7 @@ class TagName(Value):
                 raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
 
             part = await tostr(part)
-            partnorm = await runt.snap.getTagNorm(part)
+            partnorm = runt.view.core.getTagNorm(part)
             vals.append(partnorm[0])
 
         return ('.'.join(vals),)
@@ -3816,11 +3862,17 @@ class VarList(Const):
 class Cmpr(Const):
     pass
 
+class ByNameCmpr(Const):
+    def getName(self):
+        return self.kids[0].valu
+
+    def getCmpr(self):
+        return self.kids[1].valu
+
 class Bool(Const):
     pass
 
 class EmbedQuery(Const):
-
     runtopaque = True
 
     def validate(self, runt):
@@ -3957,7 +4009,7 @@ class EditNodeAdd(Edit):
 
             for valu in form.type.getTypeVals(vals):
                 try:
-                    newn = await runt.snap.addNode(form.name, valu)
+                    newn = await runt.view.addNode(form.name, valu)
                 except self.excignore:
                     pass
                 else:
@@ -4032,7 +4084,7 @@ class EditNodeAdd(Edit):
                 try:
                     for valu in form.type.getTypeVals(valu):
                         try:
-                            node = await runt.snap.addNode(formname, valu)
+                            node = await runt.view.addNode(formname, valu)
                         except self.excignore:
                             continue
 
@@ -4073,7 +4125,7 @@ class EditPropSet(Edit):
             prop = node.form.props.get(name)
             if prop is None:
                 if (exc := await s_stormtypes.typeerr(propname, str)) is None:
-                    mesg = f'No property named {name}.'
+                    mesg = f'No property named {name} on form {node.form.name}.'
                     exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
                 raise self.kids[0].addExcInfo(exc)
@@ -4133,7 +4185,11 @@ class EditPropSet(Edit):
                         valu, _ = prop.type.norm(valu)
                         valu = prop.type.merge(oldv, valu)
 
-                await node.set(name, valu)
+                if node.form.isrunt:
+                    await node.set(name, valu)
+                else:
+                    async with runt.view.getNodeEditor(node, runt=runt) as protonode:
+                        await protonode.set(name, valu)
 
             except excignore:
                 pass
@@ -4216,9 +4272,8 @@ class N1Walk(Oper):
         return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN1(verb=verb):
-            buid = s_common.uhex(iden)
-            walknode = await runt.snap.getNodeByBuid(buid)
+        async for _, nid in node.iterEdgesN1(verb=verb):
+            walknode = await runt.view.getNodeByNid(nid)
             if walknode is not None:
                 yield walknode
 
@@ -4330,9 +4385,8 @@ class N1Walk(Oper):
 class N2Walk(N1Walk):
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN2(verb=verb):
-            buid = s_common.uhex(iden)
-            walknode = await runt.snap.getNodeByBuid(buid)
+        async for _, nid in node.iterEdgesN2(verb=verb):
+            walknode = await runt.view.getNodeByNid(nid)
             if walknode is not None:
                 yield walknode
 
@@ -4366,7 +4420,7 @@ class EditEdgeAdd(Edit):
                 mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
 
-            iden = node.iden()
+            nid = node.nid
             verb = await tostr(await self.kids[0].compute(runt, path))
 
             allowed(verb)
@@ -4379,10 +4433,10 @@ class EditEdgeAdd(Edit):
                             mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                        await subn.addEdge(verb, iden)
+                        await subn.addEdge(verb, nid)
 
                 else:
-                    async with node.snap.getEditor() as editor:
+                    async with runt.view.getEditor(runt=runt) as editor:
                         proto = editor.loadNode(node)
 
                         async for subn, subp in subr.execute():
@@ -4390,13 +4444,13 @@ class EditEdgeAdd(Edit):
                                 mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                            await proto.addEdge(verb, subn.iden())
+                            await proto.addEdge(verb, subn.nid)
                             await asyncio.sleep(0)
 
                             if len(proto.edges) >= 1000:
                                 nodeedits = editor.getNodeEdits()
                                 if nodeedits:
-                                    await node.snap.applyNodeEdits(nodeedits)
+                                    await runt.view.saveNodeEdits(nodeedits, editor.getEditorMeta())
                                 proto.edges.clear()
 
             yield node, path
@@ -4430,7 +4484,7 @@ class EditEdgeDel(Edit):
                 mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
 
-            iden = node.iden()
+            nid = node.nid
             verb = await tostr(await self.kids[0].compute(runt, path))
 
             allowed(verb)
@@ -4441,10 +4495,10 @@ class EditEdgeDel(Edit):
                         if subn.form.isrunt:
                             mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-                        await subn.delEdge(verb, iden)
+                        await subn.delEdge(verb, nid)
 
                 else:
-                    async with node.snap.getEditor() as editor:
+                    async with runt.view.getEditor(runt=runt) as editor:
                         proto = editor.loadNode(node)
 
                         async for subn, subp in subr.execute():
@@ -4452,13 +4506,13 @@ class EditEdgeDel(Edit):
                                 mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                            await proto.delEdge(verb, subn.iden())
+                            await proto.delEdge(verb, subn.nid)
                             await asyncio.sleep(0)
 
                             if len(proto.edgedels) >= 1000:
                                 nodeedits = editor.getNodeEdits()
                                 if nodeedits:
-                                    await node.snap.applyNodeEdits(nodeedits)
+                                    await runt.view.saveNodeEdits(nodeedits, editor.getEditorMeta())
                                 proto.edgedels.clear()
 
             yield node, path
@@ -4519,7 +4573,7 @@ class EditTagDel(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[0].computeTagArray(runt, path, excignore=(s_exc.BadTypeValu,))
+            names = await self.kids[0].computeTagArray(runt, path, excignore=(s_exc.BadTypeValu, s_exc.BadTag))
 
             for name in names:
 

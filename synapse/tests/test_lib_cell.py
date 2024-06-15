@@ -591,7 +591,7 @@ class CellTest(s_t_utils.SynTest):
                 yielded = False
                 async for offset, data in prox.getNexusChanges(offs):
                     yielded = True
-                    nexsiden, act, args, kwargs, meta = data
+                    nexsiden, act, args, kwargs, meta, _ = data
                     if nexsiden == 'auth:auth' and act == 'user:add':
                         retn.append(args)
                         break
@@ -1226,7 +1226,7 @@ class CellTest(s_t_utils.SynTest):
 
         with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
             with self.getTestDir() as dirn:
-                async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                async with await s_cell.Cell.initFromArgv([dirn, '--telepath', 'tcp://127.0.0.1:0', '--https', '0']) as cell:
                     await cell.auth.addUser('visi1')
                     await cell.auth.addUser('visi2')
                     await cell.auth.addUser('visi3')
@@ -1985,56 +1985,6 @@ class CellTest(s_t_utils.SynTest):
                                         await bcree01.sync()
                                         self.len(1, await bcree01.nodes('[inet:asn=8675]'))
                                         self.len(1, await bcree00.nodes('inet:asn=8675'))
-
-    async def test_passwd_regression(self):
-        # Backwards compatibility test for shadowv2
-        # Cell was created prior to the shadowv2 password change.
-        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
-            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:  # type: s_cell.Cell
-                root = await cell.auth.getUserByName('root')
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, tuple)
-                self.len(2, shadow)
-
-                # Old password works and is migrated to the new password scheme
-                self.false(await root.tryPasswd('newp'))
-                self.true(await root.tryPasswd('root'))
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, dict)
-                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
-
-                # Logging back in works
-                self.true(await root.tryPasswd('root'))
-
-                user = await cell.auth.getUserByName('user')
-
-                # User can login with their regular password.
-                shadow = user.info.get('passwd')
-                self.isinstance(shadow, tuple)
-                self.true(await user.tryPasswd('secret1234'))
-                shadow = user.info.get('passwd')
-                self.isinstance(shadow, dict)
-
-                # User has a 10 year duration onepass value available.
-                onepass = '0f327906fe0221a7f582744ad280e1ca'
-                self.true(await user.tryPasswd(onepass))
-                self.false(await user.tryPasswd(onepass))
-
-                # Passwords can be changed as well.
-                await user.setPasswd('hehe')
-                self.true(await user.tryPasswd('hehe'))
-                self.false(await user.tryPasswd('secret1234'))
-
-        # Pre-nexus changes of root via auth:passwd work too.
-        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
-            conf = {'auth:passwd': 'supersecretpassword'}
-            async with self.getTestCell(s_cell.Cell, dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
-                root = await cell.auth.getUserByName('root')
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, dict)
-                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
-                self.false(await root.tryPasswd('root'))
-                self.true(await root.tryPasswd('supersecretpassword'))
 
     async def test_cell_minspace(self):
 

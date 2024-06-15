@@ -3,6 +3,7 @@ import copy
 import json
 import pprint
 import logging
+import argparse
 import contextlib
 import collections
 
@@ -16,10 +17,9 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
+import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.stormhttp as s_stormhttp
-
-import synapse.cmds.cortex as s_cmds_cortex
 
 import synapse.tools.storm as s_storm
 import synapse.tools.genpkg as s_genpkg
@@ -30,6 +30,12 @@ re_directive = regex.compile(r'^\.\.\s(storm.*|[^:])::(?:\s(.*)$|$)')
 logger = logging.getLogger(__name__)
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
+
+stormopts = argparse.ArgumentParser()
+stormopts.add_argument('--hide-query', default=False, action='store_true')
+stormopts.add_argument('--hide-tags', default=False, action='store_true')
+stormopts.add_argument('--hide-props', default=False, action='store_true')
+stormopts.add_argument('query', nargs='+')
 
 class OutPutRst(s_output.OutPutStr):
     '''
@@ -48,167 +54,14 @@ class OutPutRst(s_output.OutPutStr):
 
         return s_output.OutPutStr.printf(self, mesg, addnl)
 
-
-class StormOutput(s_cmds_cortex.StormCmd):
-    '''
-    Produce standard output from a stream of storm runtime messages.
-    Must be instantiated for a single query with a rstorm context.
-    '''
-
-    _cmd_syntax = (
-        ('--hide-query', {}),
-    ) + s_cmds_cortex.StormCmd._cmd_syntax
-
-    def __init__(self, core, ctx, stormopts=None, opts=None):
-        if opts is None:
-            opts = {}
-
-        s_cmds_cortex.StormCmd.__init__(self, None, **opts)
-
-        self.stormopts = stormopts or {}
-
-        # hide a few mesg types by default
-        for mtype in ('init', 'fini', 'node:edits', 'node:edits:count', ):
-            self.cmdmeths[mtype] = self._silence
-
-        self.core = core
-        self.ctx = ctx
-        self.lines = []
-        self.prefix = '    '
-
-    async def runCmdLine(self, line):
-        opts = self.getCmdOpts(f'storm {line}')
-        return await self.runCmdOpts(opts)
-
-    def _printNodeProp(self, name, valu):
-        base = f'        {name} = '
-        if '\n' in valu:
-            parts = collections.deque(valu.split('\n'))
-            ws = ' ' * len(base)
-            self.printf(f'{base}{parts.popleft()}')
-            while parts:
-                part = parts.popleft()
-                self.printf(f'{ws}{part}')
-
-        else:
-            self.printf(f'{base}{valu}')
-
-    async def _mockHttp(self, *args, **kwargs):
-        info = {
-            'code': 200,
-            'body': '{}',
-        }
-
-        resp = self.ctx.get('mock-http')
-        if resp:
-            body = resp.get('body')
-
-            if isinstance(body, (dict, list)):
-                body = json.dumps(body)
-
-            info = {
-                'code': resp.get('code', 200),
-                'body': body.encode(),
-            }
-
-        return s_stormhttp.HttpResp(info)
-
-    @contextlib.contextmanager
-    def _shimHttpCalls(self, vcr_kwargs):
-        path = self.ctx.get('mock-http-path')
-        if not vcr_kwargs:
-            vcr_kwargs = {}
-
-        if path:
-            path = os.path.abspath(path)
-            # try it as json first (since yaml can load json...). if it parses, we're old school
-            # if it doesn't, either it doesn't exist/we can't read it/we can't parse it.
-            # in any of those cases, default to using vcr
-            try:
-                with open(path, 'r') as fd:
-                    byts = json.load(fd)
-            except (FileNotFoundError, json.decoder.JSONDecodeError):
-                byts = None
-
-            if not byts:
-                recorder = vcr.VCR(**vcr_kwargs)
-                vcrcb = self.ctx.get('storm-vcr-callback', None)
-                if vcrcb:
-                    vcrcb(recorder)
-                with recorder.use_cassette(os.path.abspath(path)) as cass:
-                    yield cass
-                    self.ctx.pop('mock-http-path', None)
-            else:  # backwards compat
-                if not os.path.isfile(path):
-                    raise s_exc.NoSuchFile(mesg='Storm HTTP mock filepath does not exist', path=path)
-                self.ctx['mock-http'] = byts
-                with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
-                    yield
-        else:
-            yield
-
-    def printf(self, mesg, addnl=True, color=None):
-        line = f'{self.prefix}{mesg}'
-        if '\n' in line:
-            logger.debug(f'Newline found in [{mesg}]')
-            parts = line.split('\n')
-            mesg0 = '\n'.join([self.prefix + part for part in parts[1:]])
-            line = '\n'.join((parts[0], mesg0))
-
-        self.lines.append(line)
-        return line
-
-    def _silence(self, mesg, opts):
-        pass
-
-    def _onErr(self, mesg, opts):
-        # raise on err for rst
-        if self.ctx.pop('storm-fail', None):
-            s_cmds_cortex.StormCmd._onErr(self, mesg, opts)
-            return
-        raise s_exc.StormRuntimeError(mesg=mesg)
-
-    async def runCmdOpts(self, opts):
-
-        text = opts.get('query')
-
-        if not opts.get('hide-query'):
-            self.printf(f'> {text}')
-
-        stormopts = copy.deepcopy(self.stormopts)
-
-        stormopts.setdefault('repr', True)
-        stormopts.setdefault('path', opts.get('path', False))
-
-        hide_unknown = True
-
-        # Let this raise on any errors
-        with self._shimHttpCalls(self.ctx.get('storm-vcr-opts')):
-            async for mesg in self.core.storm(text, opts=stormopts):
-
-                if opts.get('debug'):
-                    self.printf(pprint.pformat(mesg))
-                    continue
-
-                try:
-                    func = self.cmdmeths[mesg[0]]
-                except KeyError:  # pragma: no cover
-                    if hide_unknown:
-                        continue
-                    self.printf(repr(mesg), color=s_cmds_cortex.UNKNOWN_COLOR)
-                else:
-                    func(mesg, opts)
-
-        return '\n'.join(self.lines)
-
 class StormCliOutput(s_storm.StormCli):
 
     async def __anit__(self, item, outp=s_output.stdout, opts=None):
         await s_storm.StormCli.__anit__(self, item, outp, opts)
         self.ctx = {}
+        self.echoline = True
         self._print_skips.append('init')
         self._print_skips.append('fini')
-        self._print_skips.append('prov:new')  # TODO: Remove in v3.0.0
         self._print_skips.append('node:edits')
         self._print_skips.append('node:edits:count')
 
@@ -274,7 +127,11 @@ class StormCliOutput(s_storm.StormCli):
                 byts = None
 
             if not byts:
-                with vcr.use_cassette(os.path.abspath(path), **vcr_kwargs) as cass:
+                recorder = vcr.VCR(**vcr_kwargs)
+                if (vcrcb := self.ctx.get('storm-vcr-callback')) is not None:
+                    vcrcb(recorder)
+
+                with recorder.use_cassette(os.path.abspath(path), **vcr_kwargs) as cass:
                     yield cass
                     self.ctx.pop('mock-http-path', None)
             else:  # backwards compat
@@ -288,8 +145,6 @@ class StormCliOutput(s_storm.StormCli):
 
     async def runRstCmdLine(self, text, ctx, stormopts=None):
         self.ctx = ctx
-
-        self.printf(self.cmdprompt + text)
 
         with self._shimHttpCalls(self.ctx.get('storm-vcr-opts')):
 
@@ -371,18 +226,41 @@ class StormRst(s_base.Base):
             text (str): A valid Storm query.
         '''
         core = self._reqCore()
+        outp = OutPutRst()
         text = self._getStormMultiline(text)
 
         self._printf('::\n')
         self._printf('\n')
 
-        soutp = StormOutput(core, self.context, stormopts=self.context.get('storm-opts'))
-        self._printf(await soutp.runCmdLine(text))
+        cli = await StormCliOutput.anit(item=core, outp=outp)
+
+        try:
+            args = s_parser.Parser(text).cmdargs()
+            opts = stormopts.parse_args(args)
+
+            if opts.hide_query:
+                cli.echoline = False
+                text = regex.sub('--hide-query', '', text, count=1)
+
+            if opts.hide_tags:
+                cli.hidetags = True
+                text = regex.sub('--hide-tags', '', text, count=1)
+
+            if opts.hide_props:
+                cli.hideprops = True
+                text = regex.sub('--hide-props', '', text, count=1)
+
+        except s_exc.BadSyntax:
+            pass
+
+        text = text.strip()
+
+        self._printf(await cli.runRstCmdLine(text, self.context, stormopts=self.context.get('storm-opts')))
 
         if self.context.pop('storm-fail', None):
             raise s_exc.StormRuntimeError(mesg='Expected a failure, but none occurred.')
 
-        self._printf('\n\n')
+        self._printf('\n')
 
     async def _handleStormCli(self, text):
         core = self._reqCore()
@@ -443,8 +321,8 @@ class StormRst(s_base.Base):
         stormopts = copy.deepcopy(stormopts)
         stormopts['vars'].update(self.stormvars)
 
-        soutp = StormOutput(core, self.context, stormopts=stormopts)
-        await soutp.runCmdLine(text)
+        cli = await StormCliOutput.anit(item=core)
+        await cli.runRstCmdLine(text, self.context, stormopts=stormopts)
 
         self.context.pop('storm-fail', None)
 

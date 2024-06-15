@@ -324,23 +324,6 @@ class Aware:
     def onTeleShare(self, dmon, name):
         pass
 
-class Task:
-    '''
-    A telepath Task is used to internally track calls/responses.
-    '''
-    def __init__(self):
-        self.retn = None
-        self.iden = s_common.guid()
-        self.done = asyncio.Event()
-
-    async def result(self):
-        await self.done.wait()
-        return self.retn
-
-    def reply(self, retn):
-        self.retn = retn
-        self.done.set()
-
 class Share(s_base.Base):
     '''
     The telepath client side of a dynamically shared object.
@@ -459,7 +442,6 @@ class Method:
         self.__name__ = name
         self.__self__ = proxy
 
-    @s_glob.synchelp
     async def __call__(self, *args, **kwargs):
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
@@ -595,7 +577,6 @@ class Proxy(s_base.Base):
         self.link = link
         self.name = name
 
-        self.tasks = {}
         self.shares = {}
 
         self._ahainfo = {}
@@ -610,7 +591,6 @@ class Proxy(s_base.Base):
         self.syndone = asyncio.Event()
 
         self.handlers = {
-            'task:fini': self._onTaskFini,
             'share:data': self._onShareData,
             'share:fini': self._onShareFini,
         }
@@ -619,11 +599,6 @@ class Proxy(s_base.Base):
 
             for item in list(self.shares.values()):
                 await item.fini()
-
-            mesg = ('task:fini', {'retn': (False, ('IsFini', {}))})
-            for name, task in list(self.tasks.items()):
-                task.reply(mesg)
-                del self.tasks[name]
 
             for link in self.links:
                 await link.fini()
@@ -802,7 +777,10 @@ class Proxy(s_base.Base):
         todo = (methname, args, kwargs)
         return await self.task(todo)
 
-    async def taskv2(self, todo, name=None):
+    async def task(self, todo, name=None):
+
+        if self.isfini:
+            raise s_exc.IsFini(mesg='Telepath Proxy isfini')
 
         mesg = ('t2:init', {
                 'todo': todo,
@@ -860,34 +838,6 @@ class Proxy(s_base.Base):
             sharinfo = mesg[1].get('sharinfo')
             await self._putPoolLink(link)
             return await Share.anit(self, iden, sharinfo)
-
-    async def task(self, todo, name=None):
-
-        if self.isfini:
-            raise s_exc.IsFini(mesg='Telepath Proxy isfini')
-
-        if self.sess is not None:
-            return await self.taskv2(todo, name=name)
-
-        s_common.deprecated('Telepath task with no session', curv='2.166.0')
-
-        task = Task()
-
-        mesg = ('task:init', {
-                'task': task.iden,
-                'todo': todo,
-                'name': name, })
-
-        self.tasks[task.iden] = task
-
-        try:
-
-            await self.link.tx(mesg)
-            retn = await task.result()
-            return s_common.result(retn)
-
-        finally:
-            self.tasks.pop(task.iden, None)
 
     async def handshake(self, auth=None):
 
@@ -948,27 +898,6 @@ class Proxy(s_base.Base):
         await self.link.tx(
             ('share:fini', {'share': iden, 'isexc': True})
         )
-
-    async def _onTaskFini(self, mesg):
-
-        # handle task:fini message
-        iden = mesg[1].get('task')
-
-        task = self.tasks.pop(iden, None)
-        if task is None:
-            logger.warning('task:fini for invalid task: %r' % (iden,))
-            return
-
-        retn = mesg[1].get('retn')
-        type = mesg[1].get('type')
-
-        if type is None:
-            return task.reply(retn)
-
-        ctor = sharetypes.get(type, Share)
-        item = await ctor.anit(self, retn[1])
-
-        return task.reply((True, item))
 
     def __getattr__(self, name):
 
@@ -1425,7 +1354,6 @@ def alias(name):
 
     return url
 
-@s_glob.synchelp
 async def openurl(url, **opts):
     '''
     Open a URL to a remote telepath object.

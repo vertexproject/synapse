@@ -407,6 +407,21 @@ class BaseTest(s_t_utils.SynTest):
         self.len(2, l0)
         self.len(1, l1)
 
+        # set the 'hehe' and haha callback with onWithMulti
+        with base.onWithMulti(('hehe', 'haha'), onHehe1) as e:
+            self.true(e is base)
+            await base.fire('hehe')
+            self.len(3, l0)
+            self.len(2, l1)
+
+            await base.fire('haha')
+            self.len(3, l0)
+            self.len(3, l1)
+
+        await base.fire('hehe')
+        self.len(4, l0)
+        self.len(3, l1)
+
     async def test_base_mixin(self):
 
         data = []

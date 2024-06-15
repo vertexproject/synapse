@@ -382,7 +382,6 @@ class MacroTest(s_test.SynTest):
                     macro = addmesg['data']['info']['macro']
                     self.eq(macro['name'], 'foobar')
                     self.eq(macro['storm'], 'file:bytes | [+#neato]')
-                    self.ne(visi.iden, macro['user'])
                     self.ne(visi.iden, macro['creator'])
                     self.nn(macro['iden'])
 

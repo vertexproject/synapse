@@ -536,19 +536,6 @@ Form, Composite
 A category of form whose primary property is an ordered set of two or more comma-separated typed values. Examples
 include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
 
-.. _gloss-form-digraph:
-
-See also :ref:`gloss-form-edge`.
-
-.. _gloss-form-edge:
-
-Form, Edge
-----------
-
-A specialized **composite form** (:ref:`gloss-form-comp`) whose primary property consists of two :ref:`gloss-ndef`
-values. Edge forms can be used to link two arbitrary forms via a generic relationship where additional information
-needs to be captured about that relationship (i.e., via secondary properties and/or tags). Contrast with
-:ref:`gloss-edge-light`.
 
 .. _gloss-form-extended:
 
@@ -936,8 +923,7 @@ Node, Runt
 
 Short for "runtime node". A runt node is a node that does not persist within a Cortex but is created at runtime when
 a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model
-elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``)
-or cron jobs (``syn:cron``).
+elements like forms (``syn:form``) and properties (``syn:prop``).
 
 .. _gloss-node-storage:
 
@@ -1326,15 +1312,6 @@ Sode
 ----
 
 Short for "storage node". See :ref:`gloss-node-storage`.
-
-.. _gloss-splice:
-
-Splice
-------
-
-A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag,
-or setting, modifying, or removing a property. All changes within a Cortex may be retrieved as individual splices within
-the Cortex's splice log.
 
 .. _gloss-spotlight-tool:
 

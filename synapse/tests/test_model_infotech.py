@@ -203,17 +203,17 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:campaign', 'C0001'))
-            self.eq(nodes[0].props.get('name'), 'much campaign')
-            self.eq(nodes[0].props.get('names'), ('many sophisticated', 'much campaign'))
-            self.eq(nodes[0].props.get('desc'), 'Much campaign, many sophisticated.')
-            self.eq(nodes[0].props.get('url'), 'https://attack.mitre.org/campaigns/C0001')
-            self.eq(nodes[0].props.get('matrices'), ('enterprise', 'ics'))
-            self.eq(nodes[0].props.get('groups'), ('G0100',))
-            self.eq(nodes[0].props.get('software'), ('S0100',))
-            self.eq(nodes[0].props.get('techniques'), ('T0100', 'T0200'))
-            self.eq(nodes[0].props.get('created'), 1698796800000)
-            self.eq(nodes[0].props.get('updated'), 1698883200000)
-            self.eq(nodes[0].props.get('period'), (1448928000000, 1451606400000))
+            self.eq(nodes[0].get('name'), 'much campaign')
+            self.eq(nodes[0].get('names'), ('many sophisticated', 'much campaign'))
+            self.eq(nodes[0].get('desc'), 'Much campaign, many sophisticated.')
+            self.eq(nodes[0].get('url'), 'https://attack.mitre.org/campaigns/C0001')
+            self.eq(nodes[0].get('matrices'), ('enterprise', 'ics'))
+            self.eq(nodes[0].get('groups'), ('G0100',))
+            self.eq(nodes[0].get('software'), ('S0100',))
+            self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('created'), 1698796800000)
+            self.eq(nodes[0].get('updated'), 1698883200000)
+            self.eq(nodes[0].get('period'), (1448928000000, 1451606400000))
 
             nodes = await core.nodes('''[
                 it:exec:thread=*
@@ -1004,7 +1004,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('it:screenshot', nodes[0].ndef[0])
-            self.eq('WootWoot', nodes[0].props['desc'])
+            self.eq('WootWoot', nodes[0].get('desc'))
 
             self.len(1, await core.nodes('it:screenshot :host -> it:host'))
             self.len(1, await core.nodes('it:screenshot :image -> file:bytes'))
@@ -1025,16 +1025,16 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :cpe=cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*
                     :parts = (*, *)
             ]''')
-            self.eq('WootWoot', nodes[0].props['desc'])
-            self.eq('dell', nodes[0].props['make'])
-            self.eq('xps13', nodes[0].props['model'])
-            self.eq('alpha', nodes[0].props['version'])
-            self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].props['cpe'])
-            self.eq(1643760000000, nodes[0].props['released'])
+            self.eq('WootWoot', nodes[0].get('desc'))
+            self.eq('dell', nodes[0].get('make'))
+            self.eq('xps13', nodes[0].get('model'))
+            self.eq('alpha', nodes[0].get('version'))
+            self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].get('cpe'))
+            self.eq(1643760000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
             self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
             self.len(2, await core.nodes('it:prod:hardware:make=dell -> it:prod:hardware'))
-            self.eq('dell', nodes[0].props['manufacturer:name'])
+            self.eq('dell', nodes[0].get('manufacturer:name'))
             self.len(1, await core.nodes('it:prod:hardware -> ou:org +:name=dell'))
 
             nodes = await core.nodes('''[
@@ -1043,8 +1043,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :serial=asdf1234
                     :host=*
             ]''')
-            self.nn(nodes[0].props['host'])
-            self.eq('asdf1234', nodes[0].props['serial'])
+            self.nn(nodes[0].get('host'))
+            self.eq('asdf1234', nodes[0].get('serial'))
             self.len(1, await core.nodes('it:prod:component -> it:host'))
             self.len(1, await core.nodes('it:prod:component -> it:prod:hardware +:make=dell'))
 
@@ -1609,7 +1609,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(norm, 'cpe:/a:vertex:synapse')
 
             nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:* ]')
-            self.eq('cpe:/a:vertex:synapse', nodes[0].props['v2_2'])
+            self.eq('cpe:/a:vertex:synapse', nodes[0].get('v2_2'))
 
             # test lift by either via upsample and downsample
             self.len(1, await core.nodes('it:sec:cpe=cpe:/a:vertex:synapse +:v2_2=cpe:/a:vertex:synapse'))

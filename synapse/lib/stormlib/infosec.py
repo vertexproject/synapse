@@ -623,7 +623,7 @@ class CvssLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def vectToProps(self, text):
         s_common.deprecated('$lib.infosec.cvss.vectToProps()', '2.137.0', '3.0.0')
-        await self.runt.snap.warnonce('$lib.infosec.cvss.vectToProps() is deprecated.')
+        await self.runt.warnonce('$lib.infosec.cvss.vectToProps() is deprecated.')
         return await self._vectToProps(text)
 
     async def _vectToProps(self, text):
@@ -655,7 +655,7 @@ class CvssLib(s_stormtypes.Lib):
 
     async def saveVectToNode(self, node, text):
         s_common.deprecated('$lib.infosec.cvss.saveVectToNode()', '2.137.0', '3.0.0')
-        await self.runt.snap.warnonce('$lib.infosec.cvss.saveVectToNode() is deprecated.')
+        await self.runt.warnonce('$lib.infosec.cvss.saveVectToNode() is deprecated.')
         props = await self._vectToProps(text)
         for prop, valu in props.items():
             await node.set(prop, valu)
@@ -668,7 +668,7 @@ class CvssLib(s_stormtypes.Lib):
             mesg = '$lib.infosec.cvss.calculate() requires a risk:vuln node.'
             raise s_exc.BadArg(mesg=mesg)
 
-        rval = await self.calculateFromProps(node.props, vers=vers)
+        rval = await self.calculateFromProps(node.getProps(), vers=vers)
 
         if save and rval.get('ok'):
 

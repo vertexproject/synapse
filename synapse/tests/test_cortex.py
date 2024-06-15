@@ -9,7 +9,7 @@ import textwrap
 
 import regex
 
-from unittest.mock import patch
+from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -153,10 +153,6 @@ class CortexTest(s_t_utils.SynTest):
                             self.false((await core01.getCellInfo())['cell']['uplink'])
                             self.true((await core02.getCellInfo())['cell']['uplink'])
 
-    async def test_cortex_bugfix_2_80_0(self):
-        async with self.getRegrCore('2.80.0-jsoniden') as core:
-            self.eq(core.jsonstor.iden, s_common.guid((core.iden, 'jsonstor')))
-
     async def test_cortex_usernotifs(self):
 
         async def testUserNotifs(core):
@@ -268,115 +264,6 @@ class CortexTest(s_t_utils.SynTest):
                     await core01.sync()
                     self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
                     self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
-
-    async def test_cortex_layer_mirror(self):
-
-        # test a layer mirror from a layer
-        with self.getTestDir() as dirn:
-            dirn00 = s_common.genpath(dirn, 'core00')
-            dirn01 = s_common.genpath(dirn, 'core01')
-            dirn02 = s_common.genpath(dirn, 'core02')
-            async with self.getTestCore(dirn=dirn00) as core00:
-                self.len(1, await core00.nodes('[ inet:email=visi@vertex.link ]'))
-
-                async with self.getTestCore(dirn=dirn01) as core01:
-
-                    layr00 = await core00.addLayer()
-                    layr00iden = layr00.get('iden')
-                    view00 = await core00.addView({'layers': (layr00iden,)})
-                    view00iden = view00.get('iden')
-
-                    layr00url = core00.getLocalUrl(share=f'*/layer/{layr00iden}')
-
-                    layr01 = await core01.addLayer({'mirror': layr00url})
-                    layr01iden = layr01.get('iden')
-                    view01 = await core01.addView({'layers': (layr01iden,)})
-                    view01iden = view01.get('iden')
-
-                    self.nn(core01.getLayer(layr01iden).leadtask)
-                    self.none(core00.getLayer(layr00iden).leadtask)
-
-                    self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01iden}))
-                    self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00iden}))
-
-                    info00 = await core00.callStorm(f'return($lib.layer.get({layr00iden}).getMirrorStatus())')
-                    self.false(info00.get('mirror'))
-
-                    info01 = await core01.callStorm(f'return($lib.layer.get({layr01iden}).getMirrorStatus())')
-                    self.true(info01.get('mirror'))
-                    self.nn(info01['local']['size'])
-                    self.nn(info01['remote']['size'])
-                    self.eq(info01['local']['size'], info01['remote']['size'])
-
-                    # mangle some state for test coverage...
-                    await core01.getLayer(layr01iden).initLayerActive()
-                    self.nn(core01.getLayer(layr01iden).leader)
-                    self.nn(core01.getLayer(layr01iden).leadtask)
-
-                    await core01.getLayer(layr01iden).initLayerPassive()
-                    self.none(core01.getLayer(layr01iden).leader)
-                    self.none(core01.getLayer(layr01iden).leadtask)
-
-                    with self.raises(s_exc.NoSuchLayer):
-                        await core01.saveLayerNodeEdits(s_common.guid(), (), {})
-
-            s_tools_backup.backup(dirn01, dirn02)
-
-            async with self.getTestCore(dirn=dirn00) as core00:
-                async with self.getTestCore(dirn=dirn01) as core01:
-                    self.gt(await core01.getLayer(layr01iden)._getLeadOffs(), 0)
-                    self.len(1, await core01.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'view': view01iden}))
-                    self.len(1, await core00.nodes('inet:ipv4=1.2.3.4', opts={'view': view00iden}))
-
-                    # ludicrous speed!
-                    lurl01 = core01.getLocalUrl()
-                    conf = {'mirror': core01.getLocalUrl()}
-                    async with self.getTestCore(dirn=dirn02, conf=conf) as core02:
-                        self.len(1, await core02.nodes('[ inet:ipv4=55.55.55.55 ]', opts={'view': view01iden}))
-                        self.len(1, await core01.nodes('inet:ipv4=55.55.55.55', opts={'view': view01iden}))
-                        self.len(1, await core00.nodes('inet:ipv4=55.55.55.55', opts={'view': view00iden}))
-
-        # test a layer mirror from a view
-        async with self.getTestCore() as core00:
-            self.len(1, await core00.nodes('[ inet:email=visi@vertex.link ]'))
-
-            async with self.getTestCore() as core01:
-
-                layr00 = await core00.addLayer()
-                layr00iden = layr00.get('iden')
-                view00 = await core00.addView({'layers': (layr00iden,)})
-                view00iden = view00.get('iden')
-                view00opts = {'view': view00iden}
-
-                layr00url = core00.getLocalUrl(share=f'*/view/{view00iden}')
-
-                layr01 = await core01.addLayer({'mirror': layr00url})
-                layr01iden = layr01.get('iden')
-                view01 = await core01.addView({'layers': (layr01iden,)})
-                view01opts = {'view': view01.get('iden')}
-
-                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts=view01opts))
-                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
-
-                info00 = await core00.callStorm(f'return($lib.layer.get({layr00iden}).getMirrorStatus())')
-                self.false(info00.get('mirror'))
-
-                info01 = await core01.callStorm(f'return($lib.layer.get({layr01iden}).getMirrorStatus())')
-                self.true(info01.get('mirror'))
-                self.nn(info01['local']['size'])
-                self.nn(info01['remote']['size'])
-                self.eq(info01['local']['size'], info01['remote']['size'])
-
-                await core00.nodes('trigger.add node:del --form inet:fqdn --query {[test:str=foo]}', opts=view00opts)
-
-                await core01.nodes('inet:fqdn=vertex.link | delnode', opts=view01opts)
-
-                await core00.sync()
-                self.len(0, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
-                self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
-
-                layr = core01.getLayer(layr01iden)
-                await layr.storNodeEdits((), {})
 
     async def test_cortex_must_upgrade(self):
 
@@ -801,15 +688,15 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             ipv4 = nodes[0]
 
-            await news.addEdge('refs', ipv4.iden())
+            await news.addEdge('refs', ipv4.nid)
 
             n1edges = await alist(news.iterEdgesN1())
             n2edges = await alist(ipv4.iterEdgesN2())
 
-            self.eq(n1edges, (('refs', ipv4.iden()),))
-            self.eq(n2edges, (('refs', news.iden()),))
+            self.eq(n1edges, (('refs', ipv4.nid),))
+            self.eq(n2edges, (('refs', news.nid),))
 
-            await news.delEdge('refs', ipv4.iden())
+            await news.delEdge('refs', ipv4.nid)
 
             self.len(0, await alist(news.iterEdgesN1()))
             self.len(0, await alist(ipv4.iterEdgesN2()))
@@ -844,6 +731,17 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('inet:ipv4 <(*)- *')
             self.eq(nodes[0].ndef[0], 'media:news')
+
+            layr = core.getLayer()
+            self.eq(1, await layr.getEdgeVerbCount('refs'))
+            self.eq(0, await layr.getEdgeVerbCount('newp'))
+
+            self.eq(1, await layr.getFormEdgeVerbCount('media:news', 'refs'))
+            self.eq(0, await layr.getFormEdgeVerbCount('media:news', 'refs', reverse=True))
+            self.eq(0, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs'))
+            self.eq(1, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs', reverse=True))
+
+            self.eq(0, await layr.getFormEdgeVerbCount('newp', 'refs'))
 
             # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
@@ -905,8 +803,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # we should now be able to edge walk *and* refs in
             nodes = await core.nodes('inet:ipv4=1.2.3.4 <-- *')
-            self.eq(nodes[0].ndef[0], 'inet:dns:a')
-            self.eq(nodes[1].ndef[0], 'media:news')
+            forms = [n.ndef[0] for n in nodes]
+            self.isin('inet:dns:a', forms)
+            self.isin('media:news', forms)
 
             msgs = await core.stormlist('for $verb in $lib.view.get().getEdgeVerbs() { $lib.print($verb) }')
             self.stormIsInPrint('refs', msgs)
@@ -1248,12 +1147,13 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
                 # remove a higher-level tag
-                await core.nodes('test:int=10 [ +#foo.bar:score=100 ]')
+                self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=100 ]'))
                 nodes = await core.nodes('test:int=10 [ -#foo ]')
-                self.len(0, nodes[0].tagprops)
+                self.len(0, nodes[0]._getTagPropsDict())
                 self.len(0, await core.nodes('#foo'))
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
+                self.len(1, await core.nodes('test:int=10'))
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
                 # test for adding two tags with the same prop to the same node
@@ -1289,11 +1189,11 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await core.nodes(q)
                 self.eq(20, nodes[0].getTagProp('foo', 'score'))
 
+                with self.raises(s_exc.NoSuchCmpr):
+                    await core.nodes('test:int=10 +#foo:score*newp=66')
+
                 nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
                 self.false(nodes[0].hasTagProp('foo', 'score'))
-
-                with self.raises(s_exc.NoSuchCmpr):
-                    await core.nodes('test:int=10 +#foo.bar:score*newp=66')
 
                 modl = await core.getModelDict()
                 self.nn(modl['tagprops'].get('score'))
@@ -1323,6 +1223,9 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchTagProp):
                     await core.nodes('test:int=10 +#foo.bar:score=66')
+
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.nodes('test:int=10 $lib.print(#foo.bar:score)')
 
                 with self.raises(s_exc.NoSuchType):
                     await core.addTagProp('derp', ('derp', {}), {})
@@ -1454,18 +1357,18 @@ class CortexTest(s_t_utils.SynTest):
             async def nodeVals(query, prop=None, tag=None):
                 nodes = await core.nodes(query)
                 if prop:
-                    return [node.props.get(prop) for node in nodes]
+                    return [node.get(prop) for node in nodes]
                 if tag:
-                    return [node.tags.get(tag) for node in nodes]
+                    return [node.getTag(tag) for node in nodes]
                 return [node.ndef[1] for node in nodes]
 
             async def buidRevEq(query):
-                set1 = await nodeVals(query)
-                set2 = await nodeVals(f'reverse({query})')
-                set1.reverse()
-                self.len(5, set1)
-                self.len(5, set2)
-                self.eq(set1, set2)
+                # TODO buid based ordering is not stable (and shouldn't be)
+                val1 = list(sorted(await nodeVals(query)))
+                val2 = list(sorted(await nodeVals(f'reverse({query})')))
+                self.len(5, val1)
+                self.len(5, val2)
+                self.eq(val1, val2)
 
             await core.nodes('for $x in $lib.range(5) {[ test:int=$x ]}')
 
@@ -1703,11 +1606,11 @@ class CortexTest(s_t_utils.SynTest):
             # Can norm a list of tag parts into a tag string and use it
             nodes = await wcore.nodes("$foo=('foo', 'bar.baz') $foo=$lib.cast('syn:tag', $foo) [test:int=0 +#$foo]")
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.bar_baz'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'foo.bar_baz'})
 
             nodes = await wcore.nodes("$foo=('foo', '...V...') $foo=$lib.cast('syn:tag', $foo) [test:int=1 +#$foo]")
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
             with self.raises(s_exc.BadTypeValu):
@@ -1716,15 +1619,15 @@ class CortexTest(s_t_utils.SynTest):
             # Can set a list of tags directly
             nodes = await wcore.nodes('$foo=("foo", "bar.baz") [test:int=3 +#$foo]')
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'bar', 'bar.baz'})
 
             nodes = await wcore.nodes('$foo=$lib.list("foo", "bar.baz") [test:int=4 +#$foo]')
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'bar', 'bar.baz'})
 
             nodes = await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'bar'})
 
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
@@ -1779,12 +1682,12 @@ class CortexTest(s_t_utils.SynTest):
                 await core.setStormCmd(cdef0)
 
                 nodes = await core.nodes('[ inet:asn=10 ] | testcmd0 zoinks')
-                self.true(nodes[0].tags.get('zoinks'))
+                self.true(nodes[0].getTag('zoinks'))
 
                 nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore')
 
-                self.true(nodes[0].tags.get('haha'))
-                self.true(nodes[0].tags.get('zoinks'))
+                self.true(nodes[0].getTag('haha'))
+                self.true(nodes[0].getTag('zoinks'))
 
                 # test that cmdopts/cmdconf/locals dont leak
                 with self.raises(s_exc.NoSuchVar):
@@ -2108,9 +2011,9 @@ class CortexTest(s_t_utils.SynTest):
             # seed a node for pivoting
 
             await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
-            await wcore.nodes('[ edge:refs=((ou:org, "*"), (test:pivcomp,(foo,bar))) ]')
+            await wcore.nodes('[ meta:seen=((meta:source, "*"), (test:pivcomp,(foo,bar))) ]')
 
-            self.len(1, await core.nodes('ou:org -> edge:refs:n1'))
+            self.len(1, await core.nodes('meta:source -> meta:seen:source'))
 
             q = 'test:pivcomp=(foo,bar) -> test:pivtarg'
             nodes = await getPackNodes(core, q)
@@ -2198,43 +2101,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0][0], ('test:pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('test:str', 'bar'))
-
-            # A simple edge for testing pivotinfrom with a edge to n2
-            await wcore.nodes('[ edge:has=((test:str, foobar), (test:str, foo)) ]')
-
-            q = 'test:str=foobar -+> edge:has'
-            nodes = await getPackNodes(core, q)
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-            self.eq(nodes[1][0], ('test:str', 'foobar'))
-
-            # traverse from node to edge:n1
-            q = 'test:str=foo <- edge:has'
-            nodes = await getPackNodes(core, q)
-            self.len(1, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-
-            # traverse from node to edge:n1 with a join
-            q = 'test:str=foo <+- edge:has'
-            nodes = await getPackNodes(core, q)
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-            self.eq(nodes[1][0], ('test:str', 'foo'))
-
-            # Traverse from a edge to :n2
-            # (this is technically a circular query)
-            q = 'test:str=foobar -> edge:has <- test:str'
-            nodes = await getPackNodes(core, q)
-            self.len(1, nodes)
-            self.eq(nodes[0][0], ('test:str', 'foobar'))
-
-            # Traverse from a edge to :n2 with a join
-            # (this is technically a circular query)
-            q = 'test:str=foobar -> edge:has <+- test:str'
-            nodes = await getPackNodes(core, q)
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('edge:has', (('test:str', 'foobar'), ('test:str', 'foo'))))
-            self.eq(nodes[1][0], ('test:str', 'foobar'))
 
             # Add tag
             q = 'test:str=bar test:pivcomp=(foo,bar) [+#test.bar]'
@@ -2327,27 +2193,23 @@ class CortexTest(s_t_utils.SynTest):
 
             q = 'test:str -+> #'
             nodes = await getPackNodes(core, q)
-            self.len(7, nodes)
+            self.len(5, nodes)
             self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
             self.eq(nodes[1][0], ('syn:tag', 'test.bar'))
             self.eq(nodes[2][0], ('test:str', 'bar'))
-            self.eq(nodes[3][0], ('test:str', 'foo'))
-            self.eq(nodes[4][0], ('test:str', 'foobar'))
-            self.eq(nodes[5][0], ('test:str', 'tagyourtags'))
-            self.eq(nodes[6][0], ('test:str', 'yyy'))
+            self.eq(nodes[3][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[4][0], ('test:str', 'yyy'))
 
             q = 'test:str -+> #*'
             nodes = await getPackNodes(core, q)
-            self.len(9, nodes)
+            self.len(7, nodes)
             self.eq(nodes[0][0], ('syn:tag', 'biz'))
             self.eq(nodes[1][0], ('syn:tag', 'biz.meta'))
             self.eq(nodes[2][0], ('syn:tag', 'test'))
             self.eq(nodes[3][0], ('syn:tag', 'test.bar'))
             self.eq(nodes[4][0], ('test:str', 'bar'))
-            self.eq(nodes[5][0], ('test:str', 'foo'))
-            self.eq(nodes[6][0], ('test:str', 'foobar'))
-            self.eq(nodes[7][0], ('test:str', 'tagyourtags'))
-            self.eq(nodes[8][0], ('test:str', 'yyy'))
+            self.eq(nodes[5][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[6][0], ('test:str', 'yyy'))
 
             q = 'test:str=bar -+> #'
             nodes = await getPackNodes(core, q)
@@ -2373,29 +2235,6 @@ class CortexTest(s_t_utils.SynTest):
             q = '#test.bar -#test -+> *'
             nodes = await getPackNodes(core, q)
             self.len(0, nodes)
-
-            # Do a PropPivotOut with a :prop value which is not a form.
-            tgud = s_common.guid()
-            tstr = 'boom'
-            q = '[test:str=$tstr] [test:guid=$tgud] [test:edge=((test:guid, $tgud), (test:str, $tstr))]'
-            self.len(3, await wcore.nodes(q, opts={'vars': {'tstr': tstr, 'tgud': tgud}}))
-
-            q = f'test:str={tstr} <- test:edge :n1:form -> *'
-            mesgs = await core.stormlist(q)
-            self.stormIsInWarn('The source property "n1:form" type "str" is not a form. Cannot pivot.',
-                               mesgs)
-            self.len(0, [m for m in mesgs if m[0] == 'node'])
-
-            # Do a PivotInFrom with a bad form
-            with self.raises(s_exc.NoSuchForm) as cm:
-                await core.nodes('.created <- test:newp')
-
-            with self.raises(s_exc.StormRuntimeError) as cm:
-                await core.nodes('test:str <- test:str')
-
-            mesg = 'Pivot in from a specific form cannot be used with nodes of type test:str'
-            self.eq(cm.exception.get('mesg'), mesg)
-            self.eq(cm.exception.get('name'), 'test:str')
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
@@ -2505,20 +2344,9 @@ class CortexTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'haha'))
-                self.eq(node.getTag('bar'), (tick1, tick1 + 1))
-
-                # FIXME Snap.strict manipulation, remove in 3.0.0
-                # Sad path with snap.strict=False
-                snap.strict = False
-                waiter = snap.waiter(1, 'warn')
-                ret = await node.addTag('newp.newpnewp', ('2001', '1999'))
-                self.none(ret)
-                msgs = await waiter.wait(timeout=6)
-                self.len(1, msgs)
-                mesg = msgs[0]
-                self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
+            view = core.getView()
+            node = await view.getNodeByNdef(('test:str', 'haha'))
+            self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
             self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
             nodes = await core.nodes('test:str=haha')
@@ -2809,7 +2637,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(1, (await core.getFormCounts())['test:int'])
                 self.eq(2, (await core.getFormCounts())['test:str'])
 
-                node = await core.getNodeByNdef(('test:str', 'foo'))
+                node = await core.getView().getNodeByNdef(('test:str', 'foo'))
                 await node.delete()
 
                 self.eq(1, (await core.getFormCounts())['test:str'])
@@ -3007,7 +2835,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            await prox.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+            await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) ]')
 
             opts = {'graph': True}
             msgs = await prox.storm('inet:dns:a', opts=opts).list()
@@ -3026,16 +2854,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(node[1]['path']['edges'], (
                         ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
                     ))
-
-            await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
-
-            msgs = await prox.storm('edge:refs', opts=opts).list()
-            nodes = [m[1] for m in msgs if m[0] == 'node']
-
-            self.len(3, nodes)
-            self.len(0, nodes[0][1]['path']['edges'])
-            self.len(1, nodes[1][1]['path']['edges'])
-            self.len(1, nodes[2][1]['path']['edges'])
 
     async def test_onadd(self):
         arg_hit = {}
@@ -3057,20 +2875,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(arg_hit.get('hit'))
 
-    async def test_adddata(self):
-
-        data = ('foo', 'bar', 'baz')
-
-        async with self.getTestCore() as core:
-
-            await core.addFeedData('com.test.record', data)
-
-            vals = [node.ndef[1] for node in await core.nodes('test:str')]
-
-            vals.sort()
-
-            self.eq(vals, ('bar', 'baz', 'foo'))
-
     async def test_cell(self):
 
         data = ('foo', 'bar', 'baz')
@@ -3082,44 +2886,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(corever, s_version.version)
             self.eq(corever, cellver)
 
-            # NOTE: addNode / addNodes are deprecated in 3.0.0
-            nodes = ((('inet:user', 'visi'), {}),)
-
-            nodes = await alist(proxy.addNodes(nodes))
-            self.len(1, nodes)
-
-            node = await proxy.addNode('test:str', 'foo')
-
-            opts = {'ndefs': [('inet:user', 'visi')]}
-
-            msgs = await proxy.storm('', opts=opts).list()
-            nodes = [m[1] for m in msgs if m[0] == 'node']
-
-            self.len(1, nodes)
-            self.eq('visi', nodes[0][0][1])
-
-            await proxy.addFeedData('com.test.record', data)
-
             # test the remote storm result counting API
             self.eq(0, await proxy.count('test:pivtarg'))
-            self.eq(1, await proxy.count('inet:user'))
-            self.eq(1, await core.count('inet:user'))
-
-            # Test the getFeedFuncs command to enumerate feed functions.
-            ret = await proxy.getFeedFuncs()
-            resp = {rec.get('name'): rec for rec in ret}
-            self.isin('com.test.record', resp)
-            self.isin('syn.nodes', resp)
-            rec = resp.get('syn.nodes')
-            self.eq(rec.get('name'), 'syn.nodes')
-            self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
-            self.eq(rec.get('fulldoc'), 'Add nodes to the Cortex via the packed node format.')
 
             # Test the stormpkg apis
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_version': '>=2.8.0,<3.0.0',
+                'synapse_version': '>=3.0.0,<4.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -3279,24 +3053,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             buf = stream.getvalue()
             mesg = json.loads(buf.split('\n')[0])
             self.eq(mesg.get('view'), view)
-
-    async def test_strict(self):
-
-        async with self.getTestCore() as core:
-
-            async with await core.snap() as snap:
-
-                node = await snap.addNode('test:str', 'foo')
-
-                await self.asyncraises(s_exc.NoSuchProp, node.set('newpnewp', 10))
-                await self.asyncraises(s_exc.BadTypeValu, node.set('tick', (20, 30)))
-
-                # FIXME Snap.strict manipulation, remove in 3.0.0
-                snap.strict = False
-                self.none(await snap.addNode('test:str', s_common.novalu))
-
-                self.false(await node.set('newpnewp', 10))
-                self.false(await node.set('tick', (20, 30)))
 
     async def test_getcoremods(self):
 
@@ -3625,6 +3381,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
             await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) +#yepr ]')
             await core.nodes('[ inet:dns:a=(vertex.link, 5.5.5.5) +#nope ]')
+            await core.nodes('[ inet:fqdn=vertex.link <(refs)+ {[ media:news=cd5d6bff3fd78bbf1eee91afc80a50dd ]} ]')
 
             rules = {
 
@@ -3655,7 +3412,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             def checkGraph(seeds, alldefs):
                 # our TLDs should be omits
                 self.len(2, seeds)
-                self.len(4, alldefs)
+                self.len(5, alldefs)
 
                 self.isin(('inet:fqdn', 'woot.com'), seeds)
                 self.isin(('inet:fqdn', 'vertex.link'), seeds)
@@ -3670,13 +3427,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             seeds = []
             alldefs = {}
 
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3721,27 +3476,23 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
+            async for node in core.view.iterStormPodes('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
 
-                async for node, path in snap.storm('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': iden}):
 
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': iden}):
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3760,15 +3511,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
+            async for node in core.view.iterStormPodes(text):
 
-            async with await core.snap() as snap:
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                async for node, path in snap.storm(text):
-
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
-
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             checkGraph(seeds, alldefs)
 
@@ -3776,17 +3524,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             rules['filterinput'] = False
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             # our TLDs are no longer omits
             self.len(4, seeds)
-            self.len(6, alldefs)
+            self.len(7, alldefs)
             self.isin(('inet:fqdn', 'com'), seeds)
             self.isin(('inet:fqdn', 'link'), seeds)
             self.isin(('inet:fqdn', 'woot.com'), seeds)
@@ -3798,19 +3545,18 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+            async for node in core.view.iterStormPodes('inet:fqdn', opts={'graph': rules}):
 
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             # The tlds are omitted, but since we are yieldfiltered=True,
             # we still get the seeds. We also get an inet:dns:a node we
             # previously omitted.
             self.len(4, seeds)
-            self.len(7, alldefs)
+            self.len(8, alldefs)
             self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
 
             # refs
@@ -3821,13 +3567,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             seeds = []
             alldefs = {}
-            async with await core.snap() as snap:
-                async for node, path in snap.storm('inet:dns:a:fqdn=woot.com',
-                                                   opts={'graph': rules}):
-                    if path.metadata.get('graph:seed'):
-                        seeds.append(node.ndef)
+            async for node in core.view.iterStormPodes('inet:dns:a:fqdn=woot.com', opts={'graph': rules}):
 
-                    alldefs[node.ndef] = path.metadata.get('edges')
+                if node[1]['path'].get('graph:seed'):
+                    seeds.append(node[0])
+
+                alldefs[node[0]] = node[1]['path'].get('edges')
 
             self.len(1, seeds)
             self.len(5, alldefs)
@@ -3845,9 +3590,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '#deathstar | graph --degrees 2 --refs'
             ndefs = set()
-            async with await core.snap() as snap:
-                async for node, path in snap.storm(q):
-                    ndefs.add(node.ndef)
+            async for node in core.view.iterStormPodes(q):
+                ndefs.add(node[0])
             self.isin(('inet:asn', 1138), ndefs)
 
             # Runtsafety test
@@ -3900,6 +3644,44 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}))'
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
+
+            # default to full pivots including
+            rules = {
+                'refs': True,
+                'edges': True,
+                'degrees': 1,
+            }
+            msgs = await core.stormlist('inet:fqdn=vertex.link', opts={'graph': rules})
+
+            nodes = {m[1][0]: m[1] for m in msgs if m[0] == 'node'}
+            self.len(2, nodes)
+
+            props = set()
+            for edge in nodes[('inet:fqdn', 'link')][1]['path']['edges']:
+                if edge[1].get('type') == 'prop':
+                    props.add(edge[1].get('prop'))
+
+            self.isin('domain', props)
+
+            # include a light edge
+            rules = {
+                'refs': True,
+                'edges': True,
+                'degrees': 1,
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<(*)- *']
+                    }
+                }
+            }
+
+            msgs = await core.stormlist('inet:fqdn=vertex.link', opts={'graph': rules})
+
+            nodes = {m[1][0]: m[1] for m in msgs if m[0] == 'node'}
+            self.len(3, nodes)
+
+            edgeinfo = nodes[('media:news', 'cd5d6bff3fd78bbf1eee91afc80a50dd')][1]['path']['edges'][1][1]
+            self.eq({'type': 'edge', 'verb': 'refs'}, edgeinfo)
 
             iden = await core.callStorm('''
                 $rules = ({
@@ -4019,15 +3801,11 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" edge:has=($node, (inet:fqdn,woot.com)) ]')
+            nodes = await core.nodes('[ ps:person="*" meta:seen=((meta:source, *), $node) ]')
             self.len(2, nodes)
-            self.eq('edge:has', nodes[0].ndef[0])
+            self.eq('meta:seen', nodes[0].ndef[0])
 
-            nodes = await core.nodes('[test:str=test] [ edge:refs=($node,(test:int, 1234)) ] -test:str')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], (('test:str', 'test'), ('test:int', 1234)))
-
-            nodes = await core.nodes('test:int=1234 [test:str=$node.value()] -test:int')
+            nodes = await core.nodes('[ test:int=1234 ] [test:str=$node.value()] -test:int')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', '1234'))
 
@@ -4259,8 +4037,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.IsRuntForm, core.nodes('[test:runt=" oh MY! "]'))
             await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep | delnode'))
 
-            # Sad path for underlying Cortex.runRuntLift
-            nodes = await alist(core.runRuntLift('test:newp', 'newp'))
+            # Sad path for underlying view.getRuntPodes()
+            form = core.model.form('inet:ipv4')
+            nodes = await alist(core.view.getRuntPodes(form))
             self.len(0, nodes)
 
     async def test_cortex_view_invalid(self):
@@ -4290,10 +4069,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Now test globbing - single star matches one tag level
             self.len(2, await core.nodes('test:str +#foo.*.baz'))
             self.len(1, await core.nodes('test:str +#*.bad'))
+            self.len(2, await core.nodes('test:str +#foo*'))
+            self.len(1, await core.nodes('test:str +#foo.bar.baz*'))
             # Double stars matches a whole lot more!
             self.len(2, await core.nodes('test:str +#foo.**.baz'))
             self.len(1, await core.nodes('test:str +#**.bar.baz'))
             self.len(2, await core.nodes('test:str +#**.baz'))
+            self.len(1, await core.nodes('test:str +#foo.bar.baz**'))
 
     async def test_storm_lift_compute(self):
         async with self.getTestCore() as core:
@@ -4329,12 +4111,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('node', 'del')))
 
-            # should still deny because node has tag we can't delete
-            with self.raises(s_exc.AuthDeny):
-                await core.nodes('test:str=foo | delnode', opts=opts)
-
-            await visi.addRule((True, ('node', 'tag', 'del', 'lol')))
-
             self.len(0, await core.nodes('test:str=foo | delnode', opts=opts))
 
             with self.raises(s_exc.CantDelNode):
@@ -4359,19 +4135,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq('1.2.3.4', node.repr('ipv4'))
-
-    async def test_coverage(self):
-
-        # misc tests to increase code coverage
-        async with self.getTestCore() as core:
-
-            node = (('test:str', 'foo'), {})
-
-            await alist(core.addNodes((node,)))
-
-            self.nn(await core.getNodeByNdef(('test:str', 'foo')))
-            with self.raises(s_exc.NoSuchForm):
-                await core.getNodeByNdef(('test:newp', 'hehe'))
 
     async def test_cortex_storm_vars(self):
 
@@ -4473,9 +4236,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             node1 = (await core0.nodes('[ test:int=1 ]'))[0]
             await node1.setData('foo', 'bar')
             pack = node1.pack()
-            pack[1]['nodedata']['foo'] = 'bar'
+            pack[1]['nodedata'] = {'foo': 'bar'}
             pack[1]['edges'] = (('refs', ('inet:ipv4', '1.2.3.4')),
-                                ('newp', ('test:newp', 'newp')))
+                                ('newp', ('test:newp', 'newp')),
+                                ('newp', ('test:int', 'newp')))
             podes.append(pack)
 
             node2 = (await core0.nodes('[ test:int=2 ] | [ +(refs)> { test:int=1 } ]'))[0]
@@ -4493,7 +4257,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
 
-            await core1.addFeedData('syn.nodes', podes)
+            await core1.addFeedData(podes)
             self.len(4, await core1.nodes('test:int'))
             self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
             self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
@@ -4509,44 +4273,50 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = [m[1] for m in msgs if m[0] == 'node'][0]
             pode = (('test:int', 4), pode[1])
 
-            await core1.addFeedData('syn.nodes', [pode])
+            await core1.addFeedData([pode])
             nodes = await core1.nodes('test:int=4')
             self.eq(1138, nodes[0].getTagProp('beep.beep', 'test'))
 
             # Put bad data in
             data = [(('test:str', 'newp'), {'tags': {'test.newp': 'newp'}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=newp -#test.newp'))
 
             data = [(('test:str', 'opps'), {'tagprops': {'test.newp': {'newp': 'newp'}}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:str=opps +#test.newp'))
 
             data = [(('test:str', 'ahh'), {'nodedata': 123})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=ahh')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
             data = [(('test:str', 'baddata'), {'nodedata': {123: 'newp',
                                                             'newp': b'123'}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=baddata')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterData())
 
             data = [(('test:str', 'beef'), {'edges': [(node1.iden(), {})]})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
 
+            data = [(('test:str', 'fake'), {'edges': [('newp', s_common.ehex(s_common.buid('fake')))]})]
+            await core1.addFeedData(data)
+            nodes = await core1.nodes('test:str=fake')
+            self.len(1, nodes)
+            await self.agenlen(0, nodes[0].iterEdgesN1())
+
             data = [(('syn:cmd', 'newp'), {})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(0, await core1.nodes('syn:cmd=newp'))
 
             data = [(('test:str', 'beef'), {'edges': [('newp', ('syn:form', 'newp'))]})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:str=beef')
             self.len(1, nodes)
             await self.agenlen(0, nodes[0].iterEdgesN1())
@@ -4557,13 +4327,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             data = [(('test:int', 1), {'tags': {'noprop': [None, None]},
                                        'tagprops': {'noprop': {'test': 'newp'}}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             self.len(1, await core1.nodes('test:int=1 +#noprop', opts={'view': view2_iden}))
 
             data = [(('test:int', 1), {'tags': {'noprop': (None, None),
                                                 'noprop.two': (None, None)},
                                        'tagprops': {'noprop': {'test': 1}}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden})
             self.len(1, nodes)
             self.eq(1, nodes[0].getTagProp('noprop', 'test'))
@@ -4571,7 +4341,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Test a bulk add
             tags = {'tags': {'test': (2020, 2022)}}
             data = [(('test:int', x), tags) for x in range(2001)]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             nodes = await core1.nodes('test:int#test')
             self.len(2001, nodes)
 
@@ -4580,52 +4350,56 @@ class CortexBasicTest(s_t_utils.SynTest):
             data = [(('test:int', 1), {'props': {'int2': 2},
                                        'tags': {'test': [2020, 2021]},
                                        'tagprops': {'noprop': {'test': 1}}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.eq(2, nodes[0].props.get('int2'))
+            self.eq(2, nodes[0].get('int2'))
             self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
             data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.eq((2020, 2022), nodes[0].tags.get('newtag'))
+            self.eq((2020, 2022), nodes[0].getTag('newtag'))
 
             await core1.setTagModel('test', 'regex', (None, '[0-9]{4}'))
 
             # This tag doesn't match the regex but should still make the node
-            data = [(('test:int', 8), {'tags': {'test.12345': (None, None)}})]
-            await core1.addFeedData('syn.nodes', data)
+            data = [(
+                ('test:int', 8),
+                {'tags': {'test.12345': (None, None)},
+                 'tagprops': {'test.12345': {'score': (1, 1)}}}
+            )]
+            await core1.addFeedData(data)
             self.len(1, await core1.nodes('test:int=8 -#test.12345'))
 
             data = [(('test:int', 8), {'tags': {'test.1234': (None, None)}})]
-            await core1.addFeedData('syn.nodes', data)
+            await core1.addFeedData(data)
             self.len(0, await core1.nodes('test:int=8 -#newtag.1234'))
 
             core1.view.layers[0].readonly = True
-            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData('syn.nodes', data))
+            await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
             await core1.nodes('model.deprecated.lock ou:org:sic')
 
             data = [(('ou:org', '*'), {'props': {'sic': 1111, 'name': 'foo'}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('ou:org', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.nn(nodes[0].props.get('name'))
-            self.none(nodes[0].props.get('sic'))
+            self.nn(nodes[0].get('name'))
+            self.none(nodes[0].get('sic'))
 
             await core1.nodes('model.deprecated.lock test:deprprop')
 
             data = [(('test:deprform', 'dform'), {'props': {'deprprop': ['1', '2'],
                                                             'ndefprop': ('test:deprprop', 'a'),
                                                             'okayprop': 'okay'}})]
-            await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
+            await core1.addFeedData(data, viewiden=view2_iden)
             nodes = await core1.nodes('test:deprform', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.nn(nodes[0].props.get('okayprop'))
-            self.none(nodes[0].props.get('deprprop'))
-            self.none(nodes[0].props.get('ndefprop'))
+            self.nn(nodes[0].get('okayprop'))
+            self.none(nodes[0].get('deprprop'))
+            self.none(nodes[0].get('ndefprop'))
             self.len(0, await core1.nodes('test:deprprop', opts={'view': view2_iden}))
 
             with self.raises(s_exc.IsDeprLocked):
@@ -4934,8 +4708,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=5.5.5.5 +#$tag] } continue [ +#visi ] }')  # noqa: E501
             self.len(1, await core.nodes('inet:ipv4=5.5.5.5 +#hehe +#haha -#visi'))
 
-            q = 'inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}'  # noqa: E501
-            self.len(1, await core.nodes(q))
+            self.len(1, await core.nodes('''
+                inet:ipv4=1.2.3.4
+                for $tag in $node.tags() {
+                    [ +#hoho ]
+                    { [inet:ipv4=6.6.6.6 +#$tag] }
+                    break
+                    [ +#visi ]
+                }
+            '''))
             q = 'inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi'
             self.len(1, await core.nodes(q))
 
@@ -5227,7 +5008,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # Filter by var as node
-            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
+            q = '[ps:person=*] $person = $node { [meta:seen=((meta:source,  *), $person)] } -ps:person meta:seen +:node=$person'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
@@ -5442,7 +5223,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
 
                 # Try a write with the leader down
-                with patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
+                with mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
                     await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
 
                 # Bring the leader back up and try again
@@ -5520,7 +5301,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.true(log00 == log01 == log02)
 
                         # simulate a waiter timing out
-                        with patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
+                        with mock.patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
                             await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
@@ -5918,7 +5699,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         }
                     }, name=viewdmon)
                 '''
-                # Iden is captured from the current snap
                 await core.nodes(q, opts={'view': view2_iden})
                 await asyncio.sleep(0)
 
@@ -6112,6 +5892,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('_hehe:haha=10'))
                 self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
 
+                prop = core.model.prop('inet:ipv4:_visi')
                 nodes = await core.nodes('[inet:ipv4=5.5.5.5 :_visi=100]')
                 self.len(1, nodes)
 
@@ -6160,6 +5941,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadFormDef):
                     await core.delForm('hehe:haha')
 
+                prop = core.model.prop('_hehe:haha:visi')
                 await core.nodes('_hehe:haha [ -:visi ]')
                 await core.delFormProp('_hehe:haha', 'visi')
 
@@ -6402,13 +6184,11 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             layr = core.view.layers[0]
             self.eq(layr, core.getLayer())
-            self.eq(layr, core.getLayer(core.iden))
             self.none(core.getLayer('XXX'))
 
             view = core.view
             self.eq(view, core.getView())
             self.eq(view, core.getView(view.iden))
-            self.eq(view, core.getView(core.iden))
             self.none(core.getView('xxx'))
 
     async def test_cortex_cron_deluser(self):
@@ -6543,7 +6323,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             'name': 'boom',
             'desc': 'The boom Module',
             'version': (0, 0, 1),
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'modules': [
                 {
                     'name': 'boom.mod',
@@ -6616,21 +6396,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "Storm package boom has unknown config var type newp.")
 
-                # Check no synapse_version and synapse_minversion > cortex version
-                minver = list(s_version.version)
-                minver[1] += 1
-                minver = tuple(minver)
-
-                pkg = copy.deepcopy(base_pkg)
-                pkg.pop('synapse_version')
-                pkg['synapse_minversion'] = minver
-                pkgname = pkg.get('name')
-
-                with self.raises(s_exc.BadVersion) as cm:
-                    await core.addStormPkg(pkg)
-                mesg = f'Storm package {pkgname} requires Synapse {minver} but Cortex is running {s_version.version}'
-                self.eq(cm.exception.errinfo.get('mesg'), mesg)
-
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -6682,11 +6447,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.buid, 'test:str',
-                            ((s_layer.EDIT_NODE_ADD, ('foo', 1), ()),
-                             (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
-                                                      s_layer.STOR_TYPE_MINTIME), ()))),)
-            self.eq(expect, item0[:3])
+            expectedits = ((node.nid, 'test:str',
+                            ((s_layer.EDIT_NODE_ADD, ('foo', 1)),
+                             (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
+                                                      s_layer.STOR_TYPE_MINTIME)))),)
+            self.eq(expect[1:], item0[1:3])
             self.eq(expectedits, item0[3])
             self.isin('time', item0[4])
             self.isin('user', item0[4])
@@ -6697,11 +6462,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item1 = await genr.__anext__()
             expect = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
-            self.eq(expect, item1)
+            self.eq(expect[1:], item1[1:])
 
             item1 = await genr.__anext__()
             expect = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, (), {})
-            self.eq(expect, item1)
+            self.eq(expect[1:], item1[1:])
 
             layr = await core.addLayer()
             layriden = layr['iden']
@@ -6712,7 +6477,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item3 = await genr.__anext__()
             expect = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, (), {})
-            self.eq(expect, item3)
+            self.eq(expect[1:], item3[1:])
 
             items = []
             syncevent = asyncio.Event()
@@ -6740,12 +6505,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             item4 = items[0]
 
             expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.buid, 'test:str',
-                            [(s_layer.EDIT_NODE_ADD, ('bar', 1), ()),
-                             (s_layer.EDIT_PROP_SET, ('.created', node.props['.created'], None,
-                                                      s_layer.STOR_TYPE_MINTIME), ())]),)
+            expectedits = ((node.nid, 'test:str',
+                            [(s_layer.EDIT_NODE_ADD, ('bar', 1)),
+                             (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
+                                                      s_layer.STOR_TYPE_MINTIME))]),)
 
-            self.eq(expect, item4[:3])
+            self.eq(expect[1:], item4[1:3])
             self.eq(expectedits, item4[3])
             self.isin('time', item4[4])
             self.isin('user', item4[4])
@@ -6772,8 +6537,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()))
-            self.eq(expectadd, item0)
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)))
+            self.eq(expectadd[1:], item0[1:])
 
             layr = await core.addLayer()
             layriden = layr['iden']
@@ -6781,11 +6546,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item1 = await genr.__anext__()
             expectadd = (baseoffs + 1, layriden, s_cortex.SYNC_LAYR_ADD, ())
-            self.eq(expectadd, item1)
+            self.eq(expectadd[1:], item1[1:])
 
             item2 = await genr.__anext__()
             expectdel = (baseoffs + 2, layriden, s_cortex.SYNC_LAYR_DEL, ())
-            self.eq(expectdel, item2)
+            self.eq(expectdel[1:], item2[1:])
 
             layr = await core.addLayer()
             layriden = layr['iden']
@@ -6799,22 +6564,22 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item3 = await genr.__anext__()
             expectadd = (baseoffs + 3, layriden, s_cortex.SYNC_LAYR_ADD, ())
-            self.eq(expectadd, item3)
+            self.eq(expectadd[1:], item3[1:])
 
             item4 = await genr.__anext__()
             expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8), ()))
-            self.eq(expectadd, item4)
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8)))
+            self.eq(expectadd[1:], item4[1:])
 
             # Make sure progress every 1000 layer log entries works
             await core.nodes('[inet:ipv4=192.168.1/20]')
 
-            offsdict = {baselayr.iden: baseoffs + 1, layriden: baseoffs + 1}
+            offsdict = {baselayr.iden: baseoffs + 2, layriden: baseoffs + 1}
 
             items = await alist(proxy.syncIndexEvents(mdef, offsdict=offsdict, wait=False))
 
             expect = (9999, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                      (None, None, s_layer.EDIT_PROGRESS, (), ()))
+                      (None, None, s_layer.EDIT_PROGRESS, ()))
             self.eq(expect[1:], items[1][1:])
 
             # Make sure that genr wakes up if a new layer occurs after it is already waiting
@@ -6894,14 +6659,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('[ test:str=foo ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(nodes[0].nid, item[1][0][0])
 
                 # we should now be in live sync
                 # and the empty layer will be pulling from the window
 
                 nodes = await core.nodes('[ test:str=bar ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+                self.eq(nodes[0].nid, item[1][0][0])
 
                 # add more nodes than the window size without consuming from the genr
 
@@ -6909,7 +6674,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
                 items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
                 self.sorteq(
-                    [s_common.uhex(n.iden()) for n in nodes],
+                    [n.nid for n in nodes],
                     [item[1][0][0] for item in items],
                 )
 
@@ -6920,11 +6685,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:
-            layr = core.getView().layers[0].iden
-            visi = await core.auth.addUser('visi')
-            visi.confirm(('layer', 'read'), gateiden=layr)
-
-        async with self.getRegrCore('2.0-layerv2tov3') as core:
             layr = core.getView().layers[0].iden
             visi = await core.auth.addUser('visi')
             visi.confirm(('layer', 'read'), gateiden=layr)
@@ -6952,8 +6712,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy() as proxy:
 
-                opts = {'scrub': {'include': {'tags': ('visi',)}}}
+                opts = {}
                 podes = []
+
                 async for p in proxy.exportStorm('media:news inet:email', opts=opts):
                     if not podes:
                         tasks = [t for t in core.boss.tasks.values() if t.name == 'storm:export']
@@ -6966,10 +6727,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.nn(email[1]['tags']['visi'])
                 self.nn(email[1]['tags']['visi.woot'])
-                self.none(email[1]['tags'].get('foo'))
-                self.none(email[1]['tags'].get('foo.bar'))
-                self.len(1, email[1]['tagprops'])
-                self.eq(email[1]['tagprops'], {'visi.woot': {'rank': 43}})
+                self.nn(email[1]['tags'].get('foo'))
+                self.nn(email[1]['tags'].get('foo.bar'))
+                self.len(2, email[1]['tagprops'])
+                self.eq(email[1]['tagprops'], {'foo.bar': {'user': 'vertex'}, 'visi.woot': {'rank': 43}})
                 self.len(2, news[1]['tagprops'])
                 self.eq(news[1]['tagprops'], {'visi': {'file': '/foo/bar/baz'}, 'visi.woot': {'rank': 1}})
                 self.len(1, news[1]['edges'])
@@ -7003,10 +6764,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('err', reply.get('status'))
                 self.eq('SchemaViolation', reply.get('code'))
 
-                body = {
-                    'query': 'media:news inet:email',
-                    'opts': {'scrub': {'include': {'tags': ('visi',)}}},
-                }
+                body = {'query': 'media:news inet:email'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
                 byts = await resp.read()
 
@@ -7017,8 +6775,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.nn(email[1]['tags']['visi'])
                 self.nn(email[1]['tags']['visi.woot'])
-                self.none(email[1]['tags'].get('foo'))
-                self.none(email[1]['tags'].get('foo.bar'))
+                self.nn(email[1]['tags'].get('foo'))
+                self.nn(email[1]['tags'].get('foo.bar'))
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
 
@@ -7153,15 +6911,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[(inet:ipv4=1 :asn=10 .seen=(2016, 2017) +#foo=(2020,2021) +#foo:score=42)]')
             self.len(1, nodes)
-            buid1 = nodes[0].buid
+            nid1 = nodes[0].nid
 
             nodes = await core.nodes('[(inet:ipv4=2 :asn=20 .seen=(2015, 2016) +#foo=(2019,2020) +#foo:score=41)]')
             self.len(1, nodes)
-            buid2 = nodes[0].buid
+            nid2 = nodes[0].nid
 
             nodes = await core.nodes('[(inet:ipv4=3 :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99)]')
             self.len(1, nodes)
-            buid3 = nodes[0].buid
+            nid3 = nodes[0].nid
 
             self.len(1, await core.nodes('[test:str=yolo]'))
             self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}}))
@@ -7169,7 +6927,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             badiden = 'xxx'
             await self.agenraises(s_exc.NoSuchLayer, prox.iterPropRows(badiden, 'inet:ipv4', 'asn'))
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             layriden = core.view.layers[0].iden
             rows = await alist(prox.iterPropRows(layriden, 'inet:ipv4', 'asn'))
 
@@ -7177,7 +6935,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterUnivRows(badiden, '.seen'))
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             rows = await alist(prox.iterUnivRows(layriden, '.seen'))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
@@ -7188,32 +6946,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.NoSuchLayer, prox.iterFormRows(badiden, 'inet:ipv4'))
 
             rows = await alist(prox.iterFormRows(layriden, 'inet:ipv4'))
-            self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
+            self.eq([(nid1, 1), (nid2, 2), (nid3, 3)], rows)
 
             # iterTagRows
             expect = sorted(
                 [
-                    (buid1, (tm('2020', '2021'), 'inet:ipv4')),
-                    (buid2, (tm('2019', '2020'), 'inet:ipv4')),
-                    (buid3, (tm('2018', '2020'), 'inet:ipv4')),
-                ], key=lambda x: x[0])
+                    (nid1, (tm('2020', '2021'), 'inet:ipv4')),
+                    (nid2, (tm('2019', '2020'), 'inet:ipv4')),
+                    (nid3, (tm('2018', '2020'), 'inet:ipv4')),
+                ], key=lambda x: x[1])
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform',
-                                                                      starttupl=(expect[1][0], 'newpform')))
-            rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform'))
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform'))
             self.eq([], rows)
 
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
             self.eq(expect, rows)
 
-            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4', starttupl=(expect[1][0],
-                                                'inet:ipv4')))
-            self.eq(expect[1:], rows)
-
             expect = [
-                (buid2, 41,),
-                (buid1, 42,),
-                (buid3, 99,),
+                (nid2, 41,),
+                (nid1, 42,),
+                (nid3, 99,),
             ]
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterTagPropRows(badiden, 'foo', 'score', form='inet:ipv4',
@@ -7223,24 +6976,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
-
-    async def test_cortex_storage_v1(self):
-
-        async with self.getRegrCore('cortex-storage-v1') as core:
-
-            mdef = await core.callStorm('return($lib.macro.get(woot))')
-            self.true(core.cellvers.get('cortex:storage') >= 1)
-
-            self.eq(core.auth.rootuser.iden, mdef['user'])
-            self.eq(core.auth.rootuser.iden, mdef['creator'])
-
-            self.eq(1673371514938, mdef['created'])
-            self.eq(1673371514938, mdef['updated'])
-            self.eq('$lib.print("hi there")', mdef['storm'])
-
-            msgs = await core.stormlist('macro.exec woot')
-            self.stormHasNoWarnErr(msgs)
-            self.stormIsInPrint('hi there', msgs)
 
     async def test_cortex_depr_props_warning(self):
 
@@ -7306,11 +7041,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # next start
                 ldef = await core.addLayer()
                 layr = core.getLayer(ldef['iden'])
-                await layr.setModelVers(mrev.revs[-2][0])
+                await layr.setModelVers((0, 0, 0))
 
-            with self.getLoggerStream('') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    pass
+            async def _pass(todo):
+                pass
+
+            def _fake(self, core):
+                self.core = core
+                self.revs = ((s_modelrev.maxvers, _pass),)
+
+            with mock.patch.object(s_modelrev.ModelRev, '__init__', _fake):
+                with self.getLoggerStream('') as stream:
+                    async with self.getTestCore(dirn=dirn) as core:
+                        pass
 
             stream.seek(0)
             data = stream.read()
@@ -7321,35 +7064,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.ne(-1, mrevstart)
             self.ne(-1, dmonstart)
             self.lt(mrevstart, dmonstart)
-
-    async def test_cortex_taxonomy_migr(self):
-
-        async with self.getRegrCore('2.157.0-taxonomy-rename') as core:
-
-            self.true(core.cellvers.get('cortex:extmodel') >= 1)
-
-            self.len(4, await core.nodes('meta:taxonomy'))
-
-            nodes = await core.nodes('meta:taxonomy:desc')
-            self.len(2, nodes)
-            self.eq(nodes[0].props.get('desc'), 'another old interface')
-            self.eq(nodes[1].props.get('desc'), 'old interface')
-
-            self.none(core.model.ifaces.get('taxonomy'))
-            self.none(core.model.formsbyiface.get('taxonomy'))
-
-            q = '''
-            $typeinfo = ({'interfaces': ['taxonomy']})
-            $lib.model.ext.addForm(_auto:taxonomy, taxonomy, ({}), $typeinfo)
-            [ _auto:taxonomy=auto.foo :desc='automatically updated']
-            '''
-            await core.nodes(q)
-
-            self.len(1, await core.nodes('meta:taxonomy:desc="automatically updated"'))
-
-            self.none(core.model.ifaces.get('taxonomy'))
-            self.none(core.model.formsbyiface.get('taxonomy'))
-            self.isin('_auto:taxonomy', core.model.formsbyiface.get('meta:taxonomy'))
 
     async def test_cortex_vaults(self):
         '''
@@ -7890,6 +7604,20 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.delHttpExtApi('notAGuid')
 
+    async def test_cortex_abrv(self):
+
+        async with self.getTestCore() as core:
+
+            offs = core.indxabrv.offs
+
+            self.eq(s_common.int64en(offs), core.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
+            # another to check the cache...
+            self.eq(s_common.int64en(offs), core.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
+            self.eq(s_common.int64en(offs + 1), core.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
+            self.eq(('visi', 'foo'), core.getAbrvIndx(s_common.int64en(offs)))
+            self.eq(('whip', None), core.getAbrvIndx(s_common.int64en(offs + 1)))
+            self.raises(s_exc.NoSuchAbrv, core.getAbrvIndx, s_common.int64en(offs + 2))
+
     async def test_cortex_query_offload(self):
         async with self.getTestAhaProv() as aha:
 
@@ -8100,66 +7828,3 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
                     self.len(1, [m for m in msgs if m[0] == 'node'])
-
-    async def test_cortex_authgate(self):
-        # TODO - Remove this in 3.0.0
-        with self.getTestDir() as dirn:
-
-            async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
-
-                unfo = await core.addUser('lowuser')
-                lowuser = unfo.get('iden')
-
-                msgs = await core.stormlist('auth.user.addrule lowuser --gate cortex node')
-                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
-                msgs = await core.stormlist('auth.role.addrule all --gate cortex hehe')
-                self.stormIsInWarn('Adding rule on the "cortex" authgate. This authgate is not used', msgs)
-
-                aslow = {'user': lowuser}
-
-                # The cortex authgate does nothing
-                with self.raises(s_exc.AuthDeny) as cm:
-                    await core.nodes('[test:str=hello]', opts=aslow)
-
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
-                async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
-                    # The cortex authgate still does nothing
-                    with self.raises(s_exc.AuthDeny) as cm:
-                        await core.nodes('[test:str=hello]', opts=aslow)
-            stream.seek(0)
-            buf = stream.read()
-            self.isin('(lowuser) has a rule on the "cortex" authgate', buf)
-            self.isin('(all) has a rule on the "cortex" authgate', buf)
-
-    async def test_cortex_check_nexus_init(self):
-        # This test is a simple safety net for making sure no nexus events
-        # happen before the nexus subsystem is initialized (initNexusSubsystem).
-        # It's possible for code which calls nexus APIs to run but not do
-        # anything which wouldn't be caught here. I don't think there's a good
-        # way to check for that condition though.
-
-        class Cortex(s_cortex.Cortex):
-            async def initServiceStorage(self):
-                self._test_pre_service_storage_index = await self.nexsroot.index()
-                ret = await super().initServiceStorage()
-                self._test_post_service_storage_index = await self.nexsroot.index()
-                return ret
-
-            async def initNexusSubsystem(self):
-                self._test_pre_nexus_index = await self.nexsroot.index()
-                ret = await super().initNexusSubsystem()
-                self._test_post_nexus_index = await self.nexsroot.index()
-                return ret
-
-        conf = {
-            'layer:lmdb:map_async': True,
-            'nexslog:en': True,
-            'layers:logedits': True,
-        }
-
-        with self.getTestDir() as dirn:
-            async with await Cortex.anit(dirn, conf=conf) as core:
-                offs = core._test_pre_service_storage_index
-                self.eq(core._test_post_service_storage_index, offs)
-                self.eq(core._test_pre_nexus_index, offs)
-                self.ge(core._test_post_nexus_index, core._test_pre_nexus_index)

@@ -9,7 +9,7 @@ import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
-import synapse.lib.snap as s_snap
+import synapse.lib.view as s_view
 
 import synapse.tests.utils as s_test
 
@@ -17,7 +17,7 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
-    'synapse_version': '>=2.8.0,<3.0.0',
+    'synapse_version': '>=3.0.0,<4.0.0',
     'modules': [
         {
             'name': 'hehe.haha',
@@ -149,7 +149,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
             nodeiden = nodes[0].iden()
-            self.eq('apt1', nodes[0].props.get('name'))
+            self.eq('apt1', nodes[0].get('name'))
 
             nodes = await core.nodes('', opts={'mode': 'search'})
             self.len(0, nodes)
@@ -226,7 +226,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
-            self.true(all(n.tags.get('hehe') is not None for n in nodes))
+            self.true(all(n.getTag('hehe') is not None for n in nodes))
 
             # AST object passes through inbound genrs
             await core.nodes('[test:str=beep]')
@@ -235,7 +235,7 @@ class AstTest(s_test.SynTest):
             self.len(2, nodes)
             self.eq({('test:str', 'beep'), ('inet:fqdn', 'foo.bar.com')},
                     {n.ndef for n in nodes})
-            self.true(all([n.tags.get('beep') for n in nodes]))
+            self.true(all([n.getTag('beep') for n in nodes]))
 
             # The lookup mode must get *something* to parse.
             self.len(0, await core.nodes('', opts))
@@ -411,25 +411,25 @@ class AstTest(s_test.SynTest):
             self.eq(('test:str', 'baz'), nodes[0].ndef)
             self.eq(('test:str', 'zoo'), nodes[1].ndef)
 
-            self.nn(nodes[1].tags.get('visi'))
-            self.none(nodes[0].tags.get('visi'))
+            self.nn(nodes[1].getTag('visi'))
+            self.none(nodes[0].getTag('visi'))
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.none(nodes[0].tags.get('foo'))
+            self.none(nodes[0].getTag('foo'))
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
-            self.nn(nodes[1].tags.get('foo'))
+            self.nn(nodes[1].getTag('foo'))
 
             # test nested
             nodes = await core.nodes('[ inet:fqdn=woot.com ( ps:person="*" :name=visi (ps:contact="*" +#foo )) ]')
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
 
             self.eq(nodes[1].ndef[0], 'ps:person')
-            self.eq(nodes[1].props.get('name'), 'visi')
-            self.none(nodes[1].tags.get('foo'))
+            self.eq(nodes[1].get('name'), 'visi')
+            self.none(nodes[1].getTag('foo'))
 
             self.eq(nodes[2].ndef[0], 'ps:contact')
-            self.nn(nodes[2].tags.get('foo'))
+            self.nn(nodes[2].getTag('foo'))
 
             user = await core.auth.addUser('newb')
             with self.raises(s_exc.AuthDeny):
@@ -485,16 +485,16 @@ class AstTest(s_test.SynTest):
             q = 'test:str $var=tag2 [+#base.$var]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+            self.sorteq(nodes[0].getTagNames(), ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
 
             q = 'test:str $var=(11) [+#base.$var]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.sorteq(nodes[0].tags, ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+            self.sorteq(nodes[0].getTagNames(), ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
             q = '$foo=$lib.null [test:str=bar +?#base.$foo]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].tags, {})
+            self.len(0, nodes[0].getTags())
 
             with self.raises(s_exc.BadTypeValu) as err:
                 q = '$foo=$lib.null [test:str=bar +#base.$foo]'
@@ -504,7 +504,7 @@ class AstTest(s_test.SynTest):
             q = 'function foo() { return() } [test:str=bar +?#$foo()]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].tags, {})
+            self.len(0, nodes[0].getTags())
 
             with self.raises(s_exc.BadTypeValu) as err:
                 q = 'function foo() { return() } [test:str=bar +#$foo()]'
@@ -658,8 +658,8 @@ class AstTest(s_test.SynTest):
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ edge:refs=((test:int, 10), (test:str, woot)) ]')
-            nodes = await core.nodes('edge:refs -> test:str')
+            nodes = await core.nodes('[ meta:seen=((meta:source, *), (test:str, woot)) ]')
+            nodes = await core.nodes('meta:seen -> test:str')
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
 
             nodes = await core.nodes('[ geo:nloc=((inet:fqdn, woot.com), "34.1,-118.3", now) ]')
@@ -691,6 +691,41 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('test:str=ndefs -> it:dev:int'))
             self.len(3, await core.nodes('test:str=ndefs :ndefs -> *'))
             self.len(2, await core.nodes('test:str=ndefs :ndefs -> it:dev:int'))
+
+            await core.nodes('[ risk:technique:masquerade=* :node=(it:dev:int, 1) ]')
+            nodes = await core.nodes('it:dev:int=1 <- *')
+            self.len(2, nodes)
+            self.eq('test:str', nodes[0].ndef[0])
+            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
+
+            await core.nodes('risk:technique:masquerade [ :target=(it:dev:int, 1) ]')
+            nodes = await core.nodes('it:dev:int=1 <- *')
+            self.len(2, nodes)
+            self.eq('test:str', nodes[0].ndef[0])
+            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
+
+            await core.nodes('risk:technique:masquerade [ :target=(it:dev:int, 2) ]')
+            nodes = await core.nodes('it:dev:int=1 <- *')
+            self.len(2, nodes)
+            self.eq('test:str', nodes[0].ndef[0])
+            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
+
+            await core.nodes('risk:technique:masquerade [ -:node ]')
+            nodes = await core.nodes('it:dev:int=1 <- *')
+            self.len(1, nodes)
+            self.eq('test:str', nodes[0].ndef[0])
+
+            await core.nodes('test:str=ndefs [ :ndefs-=(it:dev:int, 1) ]')
+            self.len(0, await core.nodes('it:dev:int=1 <- *'))
+            nodes = await core.nodes('it:dev:int=2 <- *')
+            self.len(2, nodes)
+            self.eq('test:str', nodes[0].ndef[0])
+            self.eq('risk:technique:masquerade', nodes[1].ndef[0])
+
+            await core.nodes('risk:technique:masquerade [ -:target ]')
+            await core.nodes('test:str=ndefs [ -:ndefs ]')
+            self.len(0, await core.nodes('it:dev:int=1 <- *'))
+            self.len(0, await core.nodes('it:dev:int=2 <- *'))
 
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!
@@ -1198,13 +1233,13 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('ou:org:alias=visiacme [ -:name]')
             nodes = await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
-            self.notin('name', nodes[0].props)
+            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
             nodes = await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
-            self.notin('name', nodes[0].props)
+            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
             nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
-            self.notin('name', nodes[0].props)
+            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
             # Filter by Subquery value
 
@@ -1240,13 +1275,13 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -1258,7 +1293,7 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -1270,7 +1305,7 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'synapse_version': '>=2.8.0,<3.0.0',
+            'synapse_version': '>=3.0.0,<4.0.0',
             'docs': (
                 {
                  'title': 'User Guide',
@@ -2661,21 +2696,21 @@ class AstTest(s_test.SynTest):
 
         calls = []
 
-        origprop = s_snap.Snap.nodesByProp
-        origvalu = s_snap.Snap.nodesByPropValu
+        origprop = s_view.View.nodesByProp
+        origvalu = s_view.View.nodesByPropValu
 
-        async def checkProp(self, name, reverse=False):
+        async def checkProp(self, name, reverse=False, subtype=None):
             calls.append(('prop', name))
-            async for node in origprop(self, name):
+            async for node in origprop(self, name, reverse=reverse, subtype=subtype):
                 yield node
 
         async def checkValu(self, name, cmpr, valu, reverse=False):
             calls.append(('valu', name, cmpr, valu))
-            async for node in origvalu(self, name, cmpr, valu):
+            async for node in origvalu(self, name, cmpr, valu, reverse=reverse):
                 yield node
 
-        with mock.patch('synapse.lib.snap.Snap.nodesByProp', checkProp):
-            with mock.patch('synapse.lib.snap.Snap.nodesByPropValu', checkValu):
+        with mock.patch('synapse.lib.view.View.nodesByProp', checkProp):
+            with mock.patch('synapse.lib.view.View.nodesByPropValu', checkValu):
                 async with self.getTestCore() as core:
 
                     self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
@@ -2785,14 +2820,14 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_tag_optimization(self):
         calls = []
-        origtag = s_snap.Snap.nodesByTag
+        origtag = s_view.View.nodesByTag
 
         async def checkTag(self, tag, form=None, reverse=False):
             calls.append(('tag', tag, form))
             async for node in origtag(self, tag, form=form, reverse=reverse):
                 yield node
 
-        with mock.patch('synapse.lib.snap.Snap.nodesByTag', checkTag):
+        with mock.patch('synapse.lib.view.View.nodesByTag', checkTag):
             async with self.getTestCore() as core:
                 self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
                 self.len(1, await core.nodes('[test:int=12 +#visi]'))
@@ -3284,21 +3319,20 @@ class AstTest(s_test.SynTest):
 
             nodes = []
 
-            async with await core.snap() as snap:
-                async for node, path in snap.storm(':md5 -> hash:md5', opts={'idens': [fiden], 'graph': rules}):
-                    nodes.append(node)
+            async for node in core.view.iterStormPodes(':md5 -> hash:md5', opts={'idens': [fiden], 'graph': rules}):
+                nodes.append(node)
 
-                    edges = path.metadata.get('edges')
-                    self.len(1, edges)
-                    self.eq(edges, [
-                        [fn.iden(), {
-                            "type": "prop",
-                            "prop": "md5",
-                            "reverse": True
-                        }]
-                    ])
+                edges = node[1]['path'].get('edges')
+                self.len(1, edges)
+                self.eq(edges, [
+                    [fn.iden(), {
+                        "type": "prop",
+                        "prop": "md5",
+                        "reverse": True
+                    }]
+                ])
 
-                    self.true(path.metadata.get('graph:seed'))
+                self.true(node[1]['path'].get('graph:seed'))
 
             self.len(1, nodes)
 
@@ -3367,7 +3401,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes('test:str +#taga<(3+5)')
 
             with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str +#taga*min>=2023')
+                await core.nodes('test:str +#taga*newp>=2023')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$tag=taga* test:str +#$tag=2023')
@@ -3418,7 +3452,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes('test:str +#taga*:score*min>=2023')
 
             with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str +#taga:score*min>=2023')
+                await core.nodes('test:str +#tagaa:score*min>=2023')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$tag=taga* test:str +#$tag:score=2023')
@@ -3434,6 +3468,116 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
+
+    async def test_ast_subtypes(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('ival', ('ival', {}), {})
+            opts = {'vars': {
+                'ival1': ('2020-01-01, 2025-01-02'),
+                'ival2': ('2022-01-01, 2024-01-02'),
+                'ival3': ('2023-01-01, 2026-01-02'),
+                'ival4': ('2021-01-01, 2022-01-02'),
+                'ival5': ('2025-01-01, ?')
+            }}
+            await core.nodes('''[
+                (ou:campaign=(c1,) :period=$ival1 +#tag=$ival1 +#tag:ival=$ival1)
+                (ou:campaign=* :period=$ival2 +#tag=$ival2 +#tag:ival=$ival2)
+                (ou:campaign=* :period=$ival3 +#tag=$ival3 +#tag:ival=$ival3)
+                (ou:campaign=* :period=$ival4 +#tag=$ival4 +#tag:ival=$ival4)
+                (ou:campaign=* :period=$ival5 +#tag=$ival5 +#tag:ival=$ival5)
+                (ou:campaign=*)
+                (ou:contribution=* :campaign=(c1,))
+                test:ival=$ival1
+                test:ival=$ival2
+                test:ival=$ival3
+                test:ival=$ival4
+                test:ival=$ival5
+                (test:hasiface=foo :seen=$ival1)
+                (test:hasiface=bar :seen=$ival2)
+            ]''', opts=opts)
+
+            self.len(1, await core.nodes('ou:campaign.created +#tag*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag*max=?'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag*duration=?'))
+            self.len(1, await core.nodes('ou:campaign.created +#tag:ival*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020'))
+            self.len(1, await core.nodes('ou:campaign.created +ou:campaign:period*min=2020'))
+            self.len(1, await core.nodes('$var=tag ou:campaign.created +#$var*min=2020'))
+            self.len(1, await core.nodes('$valu=2020 ou:campaign.created +#tag*min=$valu'))
+            self.len(1, await core.nodes('test:ival +test:ival*min=2020'))
+            self.len(1, await core.nodes('test:ival +test:ival*max=?'))
+            self.len(1, await core.nodes('test:hasiface +test:interface:seen*min=2020'))
+
+            self.len(0, await core.nodes('#newp*min'))
+
+            ival = core.model.type('ival')
+
+            async def check(lift, prop, tag, getr):
+                for rev in (False, True):
+                    if rev:
+                        lift = f'reverse({lift})'
+                        nodes = await core.nodes(lift)
+                        nodes.reverse()
+                    else:
+                        nodes = await core.nodes(lift)
+
+                    last = 0
+                    self.len(5, nodes)
+                    for node in nodes:
+                        if prop is None:
+                            valu = node.ndef[1]
+                        elif tag is None:
+                            valu = node.get(prop)
+                        else:
+                            valu = node.getTagProp(tag, prop)
+
+                        valu = getr(valu)
+                        self.ge(valu, last, msg=f'{valu}>={last} failed for lift {lift}')
+                        last = valu
+
+            tests = (
+                ('test:ival', None, None),
+                ('#tag', '#tag', None),
+                ('#tag:ival', 'ival', 'tag'),
+                ('ou:campaign#tag', '#tag', None),
+                ('ou:campaign#tag:ival', 'ival', 'tag'),
+                ('ou:campaign:period', 'period', None),
+            )
+
+            for (lift, prop, tag) in tests:
+                await check(f'{lift}*min', prop, tag, ival._getMin)
+                await check(f'{lift}*max', prop, tag, ival._getMax)
+                await check(f'{lift}*duration', prop, tag, ival._getDuration)
+
+            queries = (
+                'ou:campaign:period*min=2020 return(:period*min)',
+                'ou:campaign#tag*min=2020 return(#tag*min)',
+                'ou:campaign#tag:ival*min=2020 return(#tag:ival*min)',
+                'ou:contribution return(:campaign::period*min)'
+            )
+
+            for query in queries:
+                self.eq(1577836800000, await core.callStorm(query))
+
+            await core.nodes('test:ival +test:ival*min=2020 | delnode')
+            self.len(0, await core.nodes('test:ival +test:ival*min=2020'))
+
+            await core.nodes('test:ival +test:ival*max=? | delnode')
+            self.len(0, await core.nodes('test:ival +test:ival*max=?'))
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('#tag*newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('ou:campaign#tag*newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('ou:campaign:period*newp')
+
+            with self.raises(s_exc.NoSuchType):
+                await core.nodes('ou:campaign $lib.print(:period*newp)')
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:
@@ -3476,12 +3620,12 @@ class AstTest(s_test.SynTest):
             q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar'})
 
             q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar', 'bar': 'baz'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
 
             q = '''
             '''
@@ -3492,12 +3636,12 @@ class AstTest(s_test.SynTest):
             q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz"'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar'})
 
             q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('opts'), {'foo': 'bar', 'bar': 'baz'})
+            self.eq(nodes[0].get('opts'), {'foo': 'bar', 'bar': 'baz'})
 
             # Create node for the lift below
             q = '''
@@ -3512,12 +3656,12 @@ class AstTest(s_test.SynTest):
             q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('raw'), {'foo': 'bar'})
+            self.eq(nodes[0].get('raw'), {'foo': 'bar'})
 
             q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})
+            self.eq(nodes[0].get('raw'), {'foo': 'bar', 'baz': 'box'})
 
     async def test_ast_subrunt_safety(self):
 

@@ -158,7 +158,7 @@ stormcmds = [
                     $lib.print("{name}...", name=$name)
 
                     for $layr in $lib.layer.list() {
-                        if $layr.getPropCount($name, maxsize=1) {
+                        if $layr.getPropCount($name) {
                             $lib.warn("Layer {iden} still contains {name}", iden=$layr.iden, name=$name)
                             $ok = $lib.false
                         }
@@ -263,29 +263,29 @@ class LibModelTags(s_stormtypes.Lib):
     async def _delTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.delTagModel(tagname)
+        return await self.runt.view.core.delTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
-        return await self.runt.snap.core.getTagModel(tagname)
+        return await self.runt.view.core.getTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _listTagModel(self):
-        return await self.runt.snap.core.listTagModel()
+        return await self.runt.view.core.listTagModel()
 
     async def _popTagModel(self, tagname, propname):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.popTagModel(tagname, propname)
+        return await self.runt.view.core.popTagModel(tagname, propname)
 
     async def _setTagModel(self, tagname, propname, propvalu):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         propvalu = await s_stormtypes.toprim(propvalu)
         self.runt.confirm(('model', 'tag', 'set'))
-        await self.runt.snap.core.setTagModel(tagname, propname, propvalu)
+        await self.runt.view.core.setTagModel(tagname, propname, propvalu)
 
 @s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
@@ -599,7 +599,7 @@ class LibModelEdge(s_stormtypes.Lib):
         }
 
     async def _chkEdgeVerbInView(self, verb):
-        async for vverb in self.runt.snap.view.getEdgeVerbs():
+        async for vverb in self.runt.view.getEdgeVerbs():
             if vverb == verb:
                 return
 
@@ -622,7 +622,7 @@ class LibModelEdge(s_stormtypes.Lib):
         await self._chkEdgeVerbInView(verb)
 
         path = self.hivepath + (verb, 'extprops')
-        return await self.runt.snap.core.getHiveKey(path) or {}
+        return await self.runt.view.core.getHiveKey(path) or {}
 
     async def _methEdgeSet(self, verb, key, valu):
         s_common.deprecated('model.edge.set', curv='2.165.0')
@@ -635,10 +635,10 @@ class LibModelEdge(s_stormtypes.Lib):
         valu = await s_stormtypes.tostr(valu)
 
         path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
+        kvdict = await self.runt.view.core.getHiveKey(path) or {}
 
         kvdict[key] = valu
-        await self.runt.snap.core.setHiveKey(path, kvdict)
+        await self.runt.view.core.setHiveKey(path, kvdict)
 
     async def _methEdgeDel(self, verb, key):
         s_common.deprecated('model.edge.del', curv='2.165.0')
@@ -649,22 +649,22 @@ class LibModelEdge(s_stormtypes.Lib):
         await self._chkKeyName(key)
 
         path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
+        kvdict = await self.runt.view.core.getHiveKey(path) or {}
 
         oldv = kvdict.pop(key, None)
         if oldv is None:
             raise s_exc.NoSuchProp(mesg=f'Key is not set for this edge verb',
                                    verb=verb, name=key)
 
-        await self.runt.snap.core.setHiveKey(path, kvdict)
+        await self.runt.view.core.setHiveKey(path, kvdict)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeList(self):
         s_common.deprecated('model.edge.list', curv='2.165.0')
         retn = []
-        async for verb in self.runt.snap.view.getEdgeVerbs():
+        async for verb in self.runt.view.getEdgeVerbs():
             path = self.hivepath + (verb, 'extprops')
-            kvdict = await self.runt.snap.core.getHiveKey(path) or {}
+            kvdict = await self.runt.view.core.getHiveKey(path) or {}
             retn.append((verb, kvdict))
 
         return retn
@@ -724,34 +724,35 @@ class MigrationEditorMixin:
 
         verbs = set()
 
-        async for (verb, n2iden) in src.iterEdgesN1():
+        async for (verb, n2nid) in src.iterEdgesN1():
 
             if verb not in verbs:
                 self.runt.layerConfirm(('node', 'edge', 'add', verb))
                 verbs.add(verb)
 
-            if await self.runt.snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
-                await proto.addEdge(verb, n2iden)
+            if await self.runt.view.getNodeByNid(n2nid) is not None:
+                await proto.addEdge(verb, n2nid)
 
-        dstiden = proto.iden()
+        if (dstnid := proto.nid) is None:
+            return
 
-        async for (verb, n1iden) in src.iterEdgesN2():
+        async for (verb, n1nid) in src.iterEdgesN2():
 
             if verb not in verbs:
                 self.runt.layerConfirm(('node', 'edge', 'add', verb))
                 verbs.add(verb)
 
-            n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+            n1proto = await editor.getNodeByNid(n1nid)
             if n1proto is not None:
-                await n1proto.addEdge(verb, dstiden)
+                await n1proto.addEdge(verb, dstnid)
 
     async def copyTags(self, src, proto, overwrite=False):
 
-        for name, valu in src.tags.items():
+        for name, valu in src._getTagsDict().items():
             self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
             await proto.addTag(name, valu=valu)
 
-        for tagname, tagprops in src.tagprops.items():
+        for tagname, tagprops in src._getTagPropsDict().items():
             for propname, valu in tagprops.items():
                 if overwrite or not proto.hasTagProp(tagname, propname):
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
@@ -807,7 +808,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        async with self.runt.snap.getEditor() as editor:
+        async with self.runt.view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyData(src, proto, overwrite=overwrite)
 
@@ -818,9 +819,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if not isinstance(dst, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() dest argument must be a node.')
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyEdges(editor, src, proto)
 
@@ -833,9 +834,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
 
@@ -939,7 +940,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         prefer_v22 = await s_stormtypes.tobool(prefer_v22)
         force = await s_stormtypes.tobool(force)
 
-        layr = self.runt.snap.wlyr
+        layr = self.runt.view.wlyr
         # We only need to check :v2_2 since that's the only property that's
         # writable. Everthing else is readonly. And we can do it here once
         # instead of in the loop below which will cause a perf hit.
@@ -973,7 +974,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             if rgx is not None and rgx.group() == v2_2:
                 valu22 = v2_2
 
-        async with self.runt.snap.getNodeEditor(n) as proto:
+        async with self.runt.view.getNodeEditor(n) as proto:
 
             # If both values are populated, this node is valid
             if valu23 is not None and valu22 is not None and not force:
@@ -1094,14 +1095,16 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             self.runt.confirmPropSet(riskvuln.props['.seen'])
             props['.seen'] = seen
 
-        async with self.runt.snap.getEditor() as editor:
+        async with self.runt.view.getEditor() as editor:
 
             for prop, valu in links.items():
 
                 pguid = guid if guid is not None else s_common.guid((guid, prop))
                 pprops = props | {'node': (n.form.props[prop].type.name, valu)}
 
-                proto = await editor.addNode('risk:vulnerable', pguid, props=pprops)
+                node = await self.runt.view.addNode('risk:vulnerable', pguid, props=pprops)
+                proto = editor.loadNode(node)
+
                 retidens.append(proto.iden())
 
                 await self.copyTags(n, proto, overwrite=False)

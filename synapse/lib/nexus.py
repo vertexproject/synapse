@@ -305,7 +305,7 @@ class NexsRoot(s_base.Base):
         mesg = 'Unable to issue Nexus events when readonly is set.'
         raise s_exc.IsReadOnly(mesg=mesg)
 
-    async def issue(self, nexsiden, event, args, kwargs, meta=None):
+    async def issue(self, nexsiden, event, args, kwargs, meta=None, lock=True):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
@@ -315,7 +315,7 @@ class NexsRoot(s_base.Base):
         client = self.client
 
         if client is None:
-            return await self.eat(nexsiden, event, args, kwargs, meta)
+            return await self.eat(nexsiden, event, args, kwargs, meta, s_common.now(), lock=lock)
 
         # check here because we shouldn't be sending an edit upstream if we
         # are in readonly mode because the mirror sync will never complete.
@@ -335,21 +335,48 @@ class NexsRoot(s_base.Base):
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
-            await client.issue(nexsiden, event, args, kwargs, meta)
+            try:
+                await client.issue(nexsiden, event, args, kwargs, meta)
+            except Exception:
+                # If there is an exception, we should wait for our local one
+                pass
+
             return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
-    async def eat(self, nexsiden, event, args, kwargs, meta):
+    async def getIssueProxy(self):
+
+        self.reqNotReadOnly()
+
+        if (client := self.client) is None:
+            return
+
+        try:
+            await client.waitready(timeout=FOLLOWER_WRITE_WAIT_S)
+        except asyncio.TimeoutError:
+            mesg = 'Mirror cannot reach leader for write request'
+            raise s_exc.LinkErr(mesg=mesg) from None
+
+        return await client.proxy()
+
+    async def eat(self, nexsiden, event, args, kwargs, meta, etime, lock=True):
         '''
         Actually mutate for the given nexsiden instance.
         '''
         if meta is None:
             meta = {}
 
-        async with self.applylock:
-            self.reqNotReadOnly()
-            # Keep a reference to the shielded task to ensure it isn't GC'd
-            self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
-            return await asyncio.shield(self.applytask)
+        if lock:
+            async with self.applylock:
+                self.reqNotReadOnly()
+                # Keep a reference to the shielded task to ensure it isn't GC'd
+                item = (nexsiden, event, args, kwargs, meta, etime)
+                self.applytask = asyncio.create_task(self._eat(item))
+                return await asyncio.shield(self.applytask)
+
+        self.reqNotReadOnly()
+        item = (nexsiden, event, args, kwargs, meta, etime)
+        self.applytask = asyncio.create_task(self._eat(item))
+        return await asyncio.shield(self.applytask)
 
     async def index(self):
         if self.donexslog:
@@ -397,7 +424,7 @@ class NexsRoot(s_base.Base):
 
     async def _apply(self, indx, mesg):
 
-        nexsiden, event, args, kwargs, _ = mesg
+        nexsiden, event, args, kwargs, _, _ = mesg
 
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
@@ -555,7 +582,7 @@ class NexsRoot(s_base.Base):
                         await self.fini()
                         return
 
-                    meta = args[-1]
+                    meta = args[4]
                     respiden = meta.get('resp')
                     respfutu = self._futures.get(respiden)
 
@@ -680,4 +707,4 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         return retn
 
     async def saveToNexs(self, name, *args, **kwargs):
-        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None)
+        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None, lock=False)

@@ -34,7 +34,7 @@ class FileTest(s_t_utils.SynTest):
                     :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
                 ]
             ''', opts={'vars': {'byts': b'visi'}})
-            pref = nodes[0].props.get('sha256')[:4]
+            pref = nodes[0].get('sha256')[:4]
 
             self.nn(nodes[0].get('exe:packer'))
             self.nn(nodes[0].get('exe:compiler'))
@@ -290,6 +290,24 @@ class FileTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('file:path^="/foo/bar/b"'))
             self.len(1, await core.nodes('file:base^=baz'))
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '/'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '')
+            self.none(node.get('base'))
+            self.none(node.get('base:ext'))
+            self.none(node.get('dir'))
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' /foo/bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '\\foo\\bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' '}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], '')

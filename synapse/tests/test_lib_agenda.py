@@ -766,24 +766,6 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(start['info']['iden'], cron00[0]['iden'])
                     self.eq(stop['info']['iden'], cron00[0]['iden'])
 
-                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
-                    nodes = await core00.nodes('syn:cron')
-                    self.len(1, nodes)
-
-                    msgs = await core00.stormlist('syn:cron [ :name=foo :doc=bar ]')
-                    self.stormHasNoWarnErr(msgs)
-                    await core01.sync()
-
-                    nodes = await core01.nodes('syn:cron')
-                    self.len(1, nodes)
-                    self.nn(nodes[0].props.get('.created'))
-                    self.eq(nodes[0].props.get('name'), 'foo')
-                    self.eq(nodes[0].props.get('doc'), 'bar')
-
-                    appt = await core01.agenda.get(nodes[0].ndef[1])
-                    self.eq(appt.name, 'foo')
-                    self.eq(appt.doc, 'bar')
-
             with self.getLoggerStream('synapse.lib.agenda') as stream:
                 async with self.getTestCore(dirn=path00) as core00:
                     appts = core00.agenda.list()

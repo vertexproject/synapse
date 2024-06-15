@@ -60,7 +60,7 @@ class MediaModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('media:news -> media:topic'))
 
             nodes = await core.nodes('media:news [ :updated="2023-01-01" ]')
-            self.eq(nodes[0].props.get('updated'), 1672531200000)
+            self.eq(nodes[0].get('updated'), 1672531200000)
 
             nodes = await core.nodes('media:news [ :updated="2022-01-01" ]')
-            self.eq(nodes[0].props.get('updated'), 1672531200000)
+            self.eq(nodes[0].get('updated'), 1672531200000)

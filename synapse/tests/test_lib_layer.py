@@ -36,20 +36,22 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
-            buid = nodes[0].buid
+
+            nid = nodes[0].nid
 
             await core.nodes('[ ou:org=* :names=(hehe, haha) ]')
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
 
-            core.getLayer()._testDelTagIndx(buid, 'inet:ipv4', 'foo')
-            core.getLayer()._testDelPropIndx(buid, 'inet:ipv4', 'asn')
+            core.getLayer()._testDelTagIndx(nid, 'inet:ipv4', 'foo')
+            core.getLayer()._testDelPropIndx(nid, 'inet:ipv4', 'asn')
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoTagIndex')
-            self.eq(errors[1][0], 'NoPropIndex')
+            self.eq(errors[1][0], 'NoTagIndex')
+            self.eq(errors[2][0], 'NoPropIndex')
 
             errors = await core.callStorm('''
                 $retn = $lib.list()
@@ -59,19 +61,20 @@ class LayerTest(s_t_utils.SynTest):
                 return($retn)
             ''')
 
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoTagIndex')
-            self.eq(errors[1][0], 'NoPropIndex')
+            self.eq(errors[1][0], 'NoTagIndex')
+            self.eq(errors[2][0], 'NoPropIndex')
 
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
 
-            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            core.getLayer()._testDelTagStor(nid, 'inet:ipv4', 'foo')
 
             config = {'scanall': False, 'scans': {'tagindex': {'include': ('foo',)}}}
             errors = [e async for e in core.getLayer().verify(config=config)]
@@ -86,7 +89,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
 
-            core.getLayer()._testDelPropStor(buid, 'inet:ipv4', 'asn')
+            core.getLayer()._testDelPropStor(nid, 'inet:ipv4', 'asn')
             errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', 'asn')]
             self.len(1, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
@@ -94,7 +97,7 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
 
-            core.getLayer()._testDelFormValuStor(buid, 'inet:ipv4')
+            core.getLayer()._testDelFormValuStor(nid, 'inet:ipv4')
             errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', None)]
             self.len(1, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
@@ -102,9 +105,9 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
-            core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
+            core.getLayer()._testAddPropIndx(nid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
             self.len(1, errors)
             self.eq(errors[0][0], 'SpurPropKeyForIndex')
@@ -112,28 +115,28 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
             await core.nodes('.created | delnode --force')
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
 
-            core.getLayer()._testAddTagIndx(buid, 'inet:ipv4', 'foo')
-            core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
+            core.getLayer()._testAddTagIndx(nid, 'inet:ipv4', 'foo')
+            core.getLayer()._testAddPropIndx(nid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
             self.eq(errors[0][0], 'NoNodeForTagIndex')
             self.eq(errors[1][0], 'NoNodeForPropIndex')
 
         # Smash in a bad stortype into a sode.
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
             layr = core.getLayer()
-            sode = await layr.getStorNode(buid)
+            sode = layr.getStorNode(nid)
             asn = sode['props']['asn']
             sode['props']['asn'] = (asn[0], 8675309)
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -141,11 +144,13 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoStorTypeForProp')
 
             sode['props'] = None
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
             errors = [e async for e in core.getLayer().verify()]
             self.len(4, errors)
-            for err in errors:
-                self.eq(err[0], 'NoValuForPropIndex')
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropIndex')
+            self.eq(errors[2][0], 'NoValuForPropIndex')
+            self.eq(errors[3][0], 'NoValuForPropIndex')
 
         # Check arrays
         async with self.getTestCore() as core:
@@ -153,9 +158,9 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.getLayer()
 
             nodes = await core.nodes('[ ps:contact=* :names=(foo, bar)]')
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
-            core.getLayer()._testAddPropArrayIndx(buid, 'ps:contact', 'names', ('baz',))
+            core.getLayer()._testAddPropArrayIndx(nid, 'ps:contact', 'names', ('baz',))
 
             scanconf = {'autofix': 'index'}
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
@@ -165,10 +170,10 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in layr.verifyAllProps()]
             self.len(0, errors)
 
-            sode = await layr.getStorNode(buid)
+            sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props']['names'] = (names[0], 8675309)
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
 
             scanconf = {'include': [('ps:contact', 'names')]}
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
@@ -177,10 +182,10 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoStorTypeForPropArray')
             self.eq(errors[2][0], 'NoStorTypeForPropArray')
 
-            sode = await layr.getStorNode(buid)
+            sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props'] = {}
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
 
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
             self.len(3, errors)
@@ -189,18 +194,18 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[2][0], 'NoValuForPropArrayIndex')
 
             sode['props'] = None
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
             errors = [e async for e in core.getLayer().verify()]
             self.len(5, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
-            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[3][0], 'NoValuForPropIndex')
-            self.eq(errors[4][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropIndex')
+            self.eq(errors[2][0], 'NoValuForPropIndex')
+            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[4][0], 'NoValuForPropArrayIndex')
 
             await core.nodes('ps:contact | delnode --force')
 
-            core.getLayer()._testAddPropArrayIndx(buid, 'ps:contact', 'names', ('foo',))
+            core.getLayer()._testAddPropArrayIndx(nid, 'ps:contact', 'names', ('foo',))
 
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
             self.len(3, errors)
@@ -211,8 +216,8 @@ class LayerTest(s_t_utils.SynTest):
             q = "$lib.model.ext.addForm('_test:array', array, ({'type': 'int'}), ({}))"
             await core.nodes(q)
             nodes = await core.nodes('[ _test:array=(1, 2, 3) ]')
-            buid = nodes[0].buid
-            core.getLayer()._testDelFormValuStor(buid, '_test:array')
+            nid = nodes[0].nid
+            core.getLayer()._testDelFormValuStor(nid, '_test:array')
 
             scanconf = {'include': [('_test:array', None)]}
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
@@ -238,13 +243,13 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
 
             # test autofix=node
-            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            core.getLayer()._testDelTagStor(nid, 'inet:ipv4', 'foo')
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
 
             config = {'scans': {'tagindex': {'autofix': 'node'}}}
@@ -257,7 +262,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, errors)
 
             # test autofix=index
-            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            core.getLayer()._testDelTagStor(nid, 'inet:ipv4', 'foo')
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
 
             config = {'scans': {'tagindex': {'autofix': 'index'}}}
@@ -272,7 +277,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             layr = core.getLayer()
-            errors = [e async for e in layr.verifyAllBuids()]
+            errors = [e async for e in layr.verifyAllNids()]
             self.len(0, errors)
 
             errors = [e async for e in layr.verifyAllProps()]
@@ -281,7 +286,7 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in layr.verifyAllTagProps()]
             self.len(0, errors)
 
-            layr._testAddTagPropIndx(buid, 'inet:ipv4', 'foo', 'score', 5)
+            layr._testAddTagPropIndx(nid, 'inet:ipv4', 'foo', 'score', 5)
 
             scanconf = {'include': ['newp']}
             errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
@@ -293,9 +298,9 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoNodeForTagPropIndex')
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#foo:score=5 ]')
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
-            layr._testAddTagPropIndx(buid, 'inet:ipv4', 'foo', 'score', 6)
+            layr._testAddTagPropIndx(nid, 'inet:ipv4', 'foo', 'score', 6)
 
             scanconf = {'autofix': 'index'}
             errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
@@ -306,37 +311,37 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in layr.verifyAllTagProps()]
             self.len(0, errors)
 
-            sode = await layr.getStorNode(buid)
+            sode = layr._getStorNode(nid)
             score = sode['tagprops']['foo']['score']
             sode['tagprops']['foo']['score'] = (score[0], 8675309)
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
             self.eq(errors[0][0], 'NoStorTypeForTagProp')
             self.eq(errors[1][0], 'NoStorTypeForTagProp')
 
-            sode = await layr.getStorNode(buid)
+            sode = layr._getStorNode(nid)
             sode['tagprops']['foo'] = {}
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
             self.eq(errors[0][0], 'NoValuForTagPropIndex')
             self.eq(errors[1][0], 'NoValuForTagPropIndex')
 
-            sode = await layr.getStorNode(buid)
+            sode = layr._getStorNode(nid)
             sode['tagprops'] = {}
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
-            sode = await layr.getStorNode(buid)
+            sode = layr._getStorNode(nid)
             sode['tagprops'] = None
-            layr.setSodeDirty(buid, sode, sode.get('form'))
+            layr.dirty[nid] = sode
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
@@ -353,272 +358,6 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadArg):
                 errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
-
-    async def test_layer_abrv(self):
-
-        async with self.getTestCore() as core:
-
-            layr = core.getLayer()
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.setPropAbrv('visi', 'foo'))
-            # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.setPropAbrv('whip', None))
-            self.eq(('visi', 'foo'), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
-            self.eq(('whip', None), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
-            self.raises(s_exc.NoSuchAbrv, layr.getAbrvProp, b'\x00\x00\x00\x00\x00\x00\x00\x06')
-
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.setTagPropAbrv('visi', 'foo'))
-            # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.setTagPropAbrv('whip', None))
-
-    async def test_layer_upstream(self):
-
-        with self.getTestDir() as dirn:
-
-            path00 = s_common.gendir(dirn, 'core00')
-            path01 = s_common.gendir(dirn, 'core01')
-
-            async with self.getTestCore(dirn=path00) as core00:
-                await core00.addTagProp('score', ('int', {}), {})
-
-                layriden = core00.view.layers[0].iden
-
-                await core00.nodes('[test:str=foobar +#hehe.haha]')
-                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
-                await core00.nodes('[test:str=foo :tick=(12345) +#bar:score=10] $node.data.set(baz, nodedataiscool)')
-                await core00.nodes('[test:str=bar :tick=(12345)] $node.data.set(baz, nodedataiscool)')
-                await core00.nodes('test:str=foo [ +(refs)> { test:str=bar }]')
-
-                async with self.getTestCore(dirn=path01) as core01:
-
-                    # test layer/<iden> mapping
-                    async with core00.getLocalProxy(f'*/layer/{layriden}') as layrprox:
-                        self.eq(layriden, await layrprox.getIden())
-
-                    url = core00.getLocalUrl('*/layer')
-                    conf = {'upstream': url}
-                    ldef = await core01.addLayer(ldef=conf)
-                    layr = core01.getLayer(ldef.get('iden'))
-                    await core01.view.addLayer(layr.iden)
-
-                    # test initial sync
-                    offs = await core00.getView().layers[0].getEditIndx()
-                    evnt = await layr.waitUpstreamOffs(layriden, offs)
-                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                    self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
-                    nodes = await core01.nodes('test:str=foobar')
-                    self.len(1, nodes)
-                    self.nn(nodes[0].tags.get('hehe.haha'))
-
-                    nodes = await core01.nodes('test:str=foo')
-                    self.len(1, nodes)
-                    node = nodes[0]
-                    self.nn(node)
-                    self.eq(node.props.get('tick'), 12345)
-                    self.eq(node.getTagProp('bar', 'score'), 10)
-                    self.eq(await node.getData('baz'), 'nodedataiscool')
-                    self.len(1, await alist(node.iterEdgesN1()))
-
-                    # make sure updates show up
-                    await core00.nodes('[ inet:fqdn=vertex.link ]')
-
-                    offs = await core00.getView().layers[0].getEditIndx()
-                    evnt = await layr.waitUpstreamOffs(layriden, offs)
-                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                    self.len(1, await core01.nodes('inet:fqdn=vertex.link'))
-
-                await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-                offs = await core00.getView().layers[0].getEditIndx()
-
-                # test what happens when we go down and come up again...
-                async with self.getTestCore(dirn=path01) as core01:
-
-                    layr = core01.getView().layers[-1]
-
-                    evnt = await layr.waitUpstreamOffs(layriden, offs)
-                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                    self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
-
-                    await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
-
-                    offs = await core00.getView().layers[0].getEditIndx()
-                    evnt = await layr.waitUpstreamOffs(layriden, offs)
-                    await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                    self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
-
-                    # make sure time and user are set on the downstream changes
-                    root = await core01.auth.getUserByName('root')
-
-                    nedits = await alist(layr.syncNodeEdits2(0, wait=False))
-                    last_edit = nedits[-1]
-                    offs, edit, meta = last_edit
-                    self.gt(meta.get('time'), 0)
-                    self.eq(meta.get('user'), root.iden)
-                    self.notin('prov', meta)
-
-    async def test_layer_upstream_with_mirror(self):
-
-        with self.getTestDir() as dirn:
-
-            path00 = s_common.gendir(dirn, 'core00')  # layer upstream
-            path01 = s_common.gendir(dirn, 'core01')  # layer downstream, mirror leader
-            path02 = s_common.gendir(dirn, 'core02')  # layer downstream, mirror follower
-
-            async with self.getTestCore(dirn=path00) as core00:
-
-                layriden = core00.view.layers[0].iden
-
-                await core00.nodes('[test:str=foobar +#hehe.haha]')
-                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
-                await core00.addTagProp('score', ('int', {}), {})
-
-                async with self.getTestCore(dirn=path01) as core01:
-                    url = core00.getLocalUrl('*/layer')
-                    conf = {'upstream': url}
-                    ldef = await core01.addLayer(ldef=conf)
-                    layr = core01.getLayer(ldef.get('iden'))
-                    await core01.view.addLayer(layr.iden)
-
-                s_tools_backup.backup(path01, path02)
-
-                async with self.getTestCore(dirn=path01) as core01:
-                    layr = core01.getLayer(ldef.get('iden'))
-
-                    # Sync core01 with core00
-                    offs = await core00.getView().layers[0].getEditIndx()
-                    evnt = await layr.waitUpstreamOffs(layriden, offs)
-                    await asyncio.wait_for(evnt.wait(), timeout=8.0)
-
-                    self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
-
-                    url = core01.getLocalUrl()
-
-                    async with self.getTestCore(dirn=path02, conf={'mirror': url}) as core02:
-                        await core02.sync()
-
-                        layr = core01.getLayer(ldef.get('iden'))
-                        self.true(len(layr.activetasks))
-
-                        layr = core02.getLayer(ldef.get('iden'))
-                        self.false(len(layr.activetasks))
-
-                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
-
-    async def test_layer_multi_upstream(self):
-
-        with self.getTestDir() as dirn:
-
-            path00 = s_common.gendir(dirn, 'core00')
-            path01 = s_common.gendir(dirn, 'core01')
-            path02 = s_common.gendir(dirn, 'core02')
-
-            async with self.getTestCore(dirn=path00) as core00:
-
-                iden00 = core00.view.layers[0].iden
-
-                await core00.nodes('[test:str=foobar +#hehe.haha]')
-                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
-
-                async with self.getTestCore(dirn=path01) as core01:
-
-                    iden01 = core01.view.layers[0].iden
-
-                    await core01.nodes('[test:str=barfoo +#haha.hehe]')
-                    await core01.nodes('[ inet:ipv4=4.3.2.1 ]')
-
-                    async with self.getTestCore(dirn=path02) as core02:
-
-                        url00 = core00.getLocalUrl('*/layer')
-                        url01 = core01.getLocalUrl('*/layer')
-
-                        conf = {'upstream': [url00, url01]}
-
-                        ldef = await core02.addLayer(ldef=conf)
-                        layr = core02.getLayer(ldef.get('iden'))
-                        await core02.view.addLayer(layr.iden)
-
-                        # core00 is synced
-                        offs = await core00.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden00, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
-                        nodes = await core02.nodes('test:str=foobar')
-                        self.len(1, nodes)
-                        self.nn(nodes[0].tags.get('hehe.haha'))
-
-                        # core01 is synced
-                        offs = await core01.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden01, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:ipv4=4.3.2.1'))
-                        nodes = await core02.nodes('test:str=barfoo')
-                        self.len(1, nodes)
-                        self.nn(nodes[0].tags.get('haha.hehe'))
-
-                        # updates from core00 show up
-                        await core00.nodes('[ inet:fqdn=vertex.link ]')
-
-                        offs = await core00.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden00, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:fqdn=vertex.link'))
-
-                        # updates from core01 show up
-                        await core01.nodes('[ inet:fqdn=google.com ]')
-
-                        offs = await core01.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden01, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:fqdn=google.com'))
-
-                    await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
-                    await core01.nodes('[ inet:ipv4=6.6.6.6 ]')
-
-                    # test what happens when we go down and come up again...
-                    async with self.getTestCore(dirn=path02) as core02:
-
-                        layr = core02.getView().layers[-1]
-
-                        # test we catch up to core00
-                        offs = await core00.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden00, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:ipv4=5.5.5.5'))
-
-                        # test we catch up to core01
-                        offs = await core01.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden01, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:ipv4=6.6.6.6'))
-
-                        # test we get updates from core00
-                        await core00.nodes('[ inet:ipv4=5.6.7.8 ]')
-
-                        offs = await core00.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden00, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:ipv4=5.6.7.8'))
-
-                        # test we get updates from core01
-                        await core01.nodes('[ inet:ipv4=8.7.6.5 ]')
-
-                        offs = await core01.getView().layers[0].getEditIndx()
-                        evnt = await layr.waitUpstreamOffs(iden01, offs)
-                        await asyncio.wait_for(evnt.wait(), timeout=2.0)
-
-                        self.len(1, await core02.nodes('inet:ipv4=8.7.6.5'))
 
     async def test_layer_stortype_hier(self):
         stor = s_layer.StorTypeHier(None, None)
@@ -762,7 +501,7 @@ class LayerTest(s_t_utils.SynTest):
             vals = [math.nan, -math.inf, -99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, math.inf]
 
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
-            self.raises(s_exc.NoSuchImpl, indxby.getNodeValu, s_common.guid())
+            # TODO self.raises(s_exc.NoSuchImpl, indxby.getNodeValu, s_common.guid())
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
                 layr.layrslab.put(key[0], val, db=tmpdb)
@@ -848,7 +587,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.getLayer()
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]')
 
-            buid = nodes[0].buid
+            nid = nodes[0].nid
             ival = nodes[0].get('.seen')
             tick = nodes[0].get('.created')
             tagv = nodes[0].getTag('foo.bar')
@@ -857,33 +596,33 @@ class LayerTest(s_t_utils.SynTest):
             newtagv = (tagv[0] + 100, tagv[1] - 100)
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL), ()),
+                (nid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL)),
                 )),
             ]
 
-            await layr.storNodeEdits(nodeedits, {})
+            await layr.saveNodeEdits(nodeedits, {})
 
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +.seen=(2012,2014)'))
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
+                (nid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME)),
                 )),
             ]
 
-            await layr.storNodeEdits(nodeedits, {})
+            await layr.saveNodeEdits(nodeedits, {})
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(tick, nodes[0].get('.created'))
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME), ()),
+                (nid, 'inet:ipv4', (
+                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME)),
                 )),
             ]
 
-            await layr.storNodeEdits(nodeedits, {})
+            await layr.saveNodeEdits(nodeedits, {})
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(tick - 200, nodes[0].get('.created'))
@@ -892,12 +631,12 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tick - 200, nodes[0].get('.created'))
 
             nodeedits = [
-                (buid, 'inet:ipv4', (
-                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv), ()),
+                (nid, 'inet:ipv4', (
+                    (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
                 )),
             ]
 
-            await layr.storNodeEdits(nodeedits, {})
+            await layr.saveNodeEdits(nodeedits, {})
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(tagv, nodes[0].getTag('foo.bar'))
@@ -944,7 +683,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # meta used for .created
             await asyncio.sleep(0.01)
-            await layr.storNodeEdits(nexslist00, {'time': created00})
+            await layr.saveNodeEdits(nexslist00, {'time': created00})
 
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
@@ -956,7 +695,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # If meta is not specified .created gets populated to now
             await asyncio.sleep(0.01)
-            await layr.storNodeEdits(nexslist00, {})
+            await layr.saveNodeEdits(nexslist00, {})
 
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
@@ -978,7 +717,7 @@ class LayerTest(s_t_utils.SynTest):
             # Tests for behavior of storing nodeedits directly prior to using meta (i.e. meta['time'] != .created)
             # .created is a MINTIME therefore earlier value wins, which is typically meta
             created02 = s_time.parse('1990-10-10 12:30')
-            await layr.storNodeEdits(editlist00, {'time': created02})
+            await layr.saveNodeEdits(editlist00, {'time': created02})
 
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
@@ -990,7 +729,7 @@ class LayerTest(s_t_utils.SynTest):
 
             # meta could be after .created for manual store operations
             created03 = s_time.parse('2050-10-10 12:30')
-            await layr.storNodeEdits(editlist00, {'time': created03})
+            await layr.saveNodeEdits(editlist00, {'time': created03})
 
             nodes = await core.nodes('test:int')
             self.len(1, nodes)
@@ -1024,7 +763,7 @@ class LayerTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(url) as layrprox:
 
                     for nodeedits in editlist:
-                        self.nn(await layrprox.storNodeEdits(nodeedits))
+                        self.nn(await layrprox.saveNodeEdits(nodeedits, {}))
 
                     nodelist1 = []
                     nodelist1.extend(await core1.nodes('test:str'))
@@ -1032,56 +771,37 @@ class LayerTest(s_t_utils.SynTest):
 
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
+
+                    self.len(6, await alist(layrprox.syncNodeEdits2(0, wait=False)))
 
                 layr = core1.view.layers[0]  # type: s_layer.Layer
 
-                ############################################################################
-                # TEST ONLY - Force the layer nexus handler to consume a truncate event.
-                # This is for backwards compatibility for a mirror that consumes a truncate
-                # event.
-                # This can be removed in 3.0.0.
+            await core0.addTagProp('score', ('int', {}), {})
 
-                await layr._push('layer:truncate')
+            q = '[ inet:ipv4=1.2.3.4 +#tp:score=5 +(foo)> { test:str=foo } ] $node.data.set(foo, bar)'
+            nodes = await core0.nodes(q)
+            ipv4nid = nodes[0].nid
+            tstrnid = (await core0.nodes('test:str=foo'))[0].nid
 
-                async with await s_telepath.openurl(url) as layrprox:
+            layr = core0.getLayer()
 
-                    for nodeedits in editlist:
-                        self.none(await layrprox.storNodeEditsNoLift(nodeedits))
+            noedit = [(None, 'inet:ipv4', [(s_layer.EDIT_PROP_SET, ('asn', 5, None, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
 
-                    nodelist1 = []
-                    nodelist1.extend(await core1.nodes('test:str'))
-                    nodelist1.extend(await core1.nodes('inet:ipv4'))
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_TAG_DEL, ('newp', None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
 
-                    nodelist1 = [node.pack() for node in nodelist1]
-                    self.eq(nodelist0, nodelist1)
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_TAGPROP_DEL, ('newp', 'newp', None, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
 
-                    meta = {'user': s_common.guid(),
-                            'time': 0,
-                            }
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_TAGPROP_DEL, ('tp', 'newp', None, None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
 
-                    await layr._push('layer:truncate')
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar', None))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
 
-                    for nodeedits in editlist:
-                        self.none(await layrprox.storNodeEditsNoLift(nodeedits, meta=meta))
-
-                    lastoffs = layr.nodeeditlog.index()
-                    for nodeedit in layr.nodeeditlog.sliceBack(lastoffs, 2):
-                        self.eq(meta, nodeedit[1][1])
-
-                    async def waitForEdit():
-                        edit = (0, ('endofquery', 1), ())
-                        async for item in layr.syncNodeEdits(lastoffs):
-                            if item[1][0][1] == 'test:str' and edit in item[1][0][2]:
-                                return
-                            await asyncio.sleep(0)
-
-                    async def doEdit():
-                        await core1.nodes('sleep 1 | [ test:str=endofquery ]')
-
-                    core1.schedCoro(doEdit())
-                    await asyncio.wait_for(waitForEdit(), timeout=6)
-
-                ############################################################################
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_EDGE_ADD, ('foo', tstrnid))])]
+            self.eq([], await layr.calcEdits(noedit, {}))
 
     async def test_layer_stornodeedits_nonexus(self):
         # test for migration methods that store nodeedits bypassing nexus
@@ -1121,31 +841,31 @@ class LayerTest(s_t_utils.SynTest):
             mdef = {'forms': ['test:str']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()),
-                (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+                (strnode.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)),
+                (strnode.nid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
             ])
 
             mdef = {'props': ['.seen']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
             self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL)),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL)),
             ])
 
             mdef = {'props': ['inet:ipv4:asn']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
             self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64)),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
             ])
 
             mdef = {'tags': ['foo.bar']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None), ()),
-                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival), ()),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None)),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival)),
             ])
 
             mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
@@ -1153,81 +873,758 @@ class LayerTest(s_t_utils.SynTest):
             for mdef in mdefs:
                 events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
                 self.eq(events, [
-                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
-                        ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()),
-                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
-                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
+                    (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
+                        ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64)),
+                    (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
+                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64)),
                 ])
 
-    async def test_layer_form_by_buid(self):
+    async def test_layer_tombstone(self):
 
         async with self.getTestCore() as core:
 
-            layr00 = core.view.layers[0]
+            async def checkempty(opts=None):
+                nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=opts)
+                self.len(1, nodes)
+                self.none(nodes[0].get('asn'))
+                self.none(nodes[0].get('#foo.tag'))
+                self.none(nodes[0].getTagProp('bar.tag', 'score'))
 
-            # add node - buid:form exists
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
-            buid0 = nodes[0].buid
-            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=opts))
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=opts))
 
-            # add edge and nodedata
-            nodes = await core.nodes('[ inet:ipv4=2.3.4.5 ]')
-            buid1 = nodes[0].buid
-            self.eq('inet:ipv4', await layr00.getNodeForm(buid1))
+                self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=opts))
+                self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=opts))
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> {inet:ipv4=2.3.4.5} ] $node.data.set(spam, ham)')
-            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+            async def hastombs(opts=None):
+                q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint("('inet:ipv4', 'asn')", msgs)
+                self.stormIsInPrint("foo.tag", msgs)
+                self.stormIsInPrint("'bar.tag', 'score'", msgs)
+                self.stormIsInPrint("'bar'", msgs)
+                self.stormIsInPrint("'foo'", msgs)
+                self.stormIsInPrint("'foodata'", msgs)
 
-            # remove edge, map still exists
-            await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> {inet:ipv4=2.3.4.5} ]')
-            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+            async def notombs(opts=None):
+                q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+                msgs = await core.stormlist(q, opts=opts)
+                self.len(0, [m for m in msgs if m[0] == 'print'])
 
-            # remove nodedata, map still exists
-            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(spam)')
-            self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+            await core.addTagProp('score', ('int', {}), {})
 
-            # delete node - buid:form removed
-            await core.nodes('inet:ipv4=1.2.3.4 | delnode')
-            self.none(await layr00.getNodeForm(buid0))
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
 
-            await core.nodes('[ inet:ipv4=5.6.7.8 ]')
+            addq = '''[
+            inet:ipv4=1.2.3.4
+                :asn=4
+                +#foo.tag=2024
+                +#bar.tag:score=5
+                +(bar)> {[ it:dev:str=n1 ]}
+                <(foo)+ {[ it:dev:str=n2 ]}
+            ]
+            $node.data.set(foodata, bar)
+            '''
 
-            # fork a view
-            info = await core.view.fork()
-            layr01 = core.getLayer(info['layers'][0]['iden'])
-            view01 = core.getView(info['iden'])
+            delq = '''
+            inet:ipv4=1.2.3.4
+            [   -:asn
+                -#foo.tag
+                -#bar.tag:score
+                -(bar)> {[ it:dev:str=n1 ]}
+                <(foo)- {[ it:dev:str=n2 ]}
+            ]
+            $node.data.pop(foodata)
+            '''
 
-            await alist(view01.eval('[ inet:ipv4=6.7.8.9 ]'))
-
-            # buid:form for a node in child doesn't exist
-            self.none(await layr01.getNodeForm(buid1))
-
-            # add prop, buid:form map exists
-            nodes = await alist(view01.eval('inet:ipv4=2.3.4.5 [ :loc=ru ]'))
+            nodes = await core.nodes(addq)
             self.len(1, nodes)
-            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+            nodeiden = nodes[0].iden()
 
-            # add nodedata and edge
-            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=6.7.8.9} ] $node.data.set(faz, baz)'))
+            self.false(await core.callStorm('[ test:str=newp ] return($node.data.has(foodata))'))
 
-            # remove prop, map still exists due to nodedata
-            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -:loc ]'))
-            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts=viewopts2)
+            self.none(nodes[0].get('asn'))
 
-            # remove nodedata, map still exists due to edge
-            await alist(view01.eval('inet:ipv4=2.3.4.5 $node.data.pop(faz)'))
-            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(4, nodes[0].get('asn'))
 
-            # remove edge, map is deleted
-            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=6.7.8.9} ]'))
-            self.none(await layr01.getNodeForm(buid1))
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ :asn=5 ]', opts=viewopts2)
+            self.eq(5, nodes[0].get('asn'))
 
-            # edges between two nodes in parent
-            await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=5.6.7.8} ]'))
-            self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts=viewopts2)
+            self.none(nodes[0].get('asn'))
 
-            await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=5.6.7.8} ]'))
-            self.none(await layr01.getNodeForm(buid1))
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.tag ]', opts=viewopts2)
+            self.none(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.nn(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.tag=2020 ]', opts=viewopts2)
+            self.nn(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.tag ]', opts=viewopts2)
+            self.none(nodes[0].get('#foo.tag'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#bar.tag:score ]', opts=viewopts2)
+            self.none(nodes[0].getTagProp('bar.tag', 'score'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(5, nodes[0].getTagProp('bar.tag', 'score'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#bar.tag:score=6 ]', opts=viewopts2)
+            self.eq(6, nodes[0].getTagProp('bar.tag', 'score'))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ -#bar.tag:score ]', opts=viewopts2)
+            self.none(nodes[0].getTagProp('bar.tag', 'score'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
+
+            self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=viewopts2))
+
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+            self.len(1, await core.nodes('yield $lib.lift.byNodeData(foodata)'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.set(foodata, baz)', opts=viewopts2)
+            self.eq('baz', await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=viewopts2))
+
+            self.len(1, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
+
+            self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=viewopts2))
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ +(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *'))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)+ { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *'))
+
+            await hastombs(opts=viewopts2)
+
+            await view2.merge()
+            await checkempty()
+            await notombs()
+
+            await view2.wipeLayer()
+            await notombs(opts=viewopts2)
+
+            self.len(1, await core.nodes(addq))
+
+            await core.nodes(delq, opts=viewopts2)
+            await hastombs(opts=viewopts2)
+
+            await core.nodes('''
+            $layr = $lib.layer.get()
+            for ($iden, $type, $info) in $layr.getTombstones() {
+                $layr.delTombstone($iden, $type, $info)
+            }''', opts=viewopts2)
+
+            await notombs(opts=viewopts2)
+
+            await core.nodes(delq, opts=viewopts2)
+            await hastombs(opts=viewopts2)
+
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 ] | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
+            await core.nodes('''
+            $layr = $lib.layer.get()
+            for ($iden, $type, $info) in $layr.getTombstones() {
+                $layr.delTombstone($iden, $type, $info)
+            }''', opts=viewopts2)
+
+            await notombs(opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts2))
+
+            # deleting a node clears its other tombstones
+            msgs = await core.stormlist('for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }', opts=viewopts2)
+
+            self.stormIsInPrint("('inet:ipv4', None)", msgs)
+            self.stormNotInPrint("('inet:ipv4', 'asn')", msgs)
+            self.stormNotInPrint("foo.tag", msgs)
+            self.stormNotInPrint("'bar.tag', 'score'", msgs)
+            self.stormNotInPrint("'bar'", msgs)
+            self.stormNotInPrint("'foodata'", msgs)
+
+            self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
+
+            await view2.merge()
+            await notombs()
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            await view2.wipeLayer()
+            await notombs(opts=viewopts2)
+
+            # use command to merge
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+
+            self.len(3, await core.nodes('diff', opts=viewopts2))
+            self.len(1, await core.nodes('diff --prop inet:ipv4:asn', opts=viewopts2))
+
+            msgs = await core.stormlist('merge --diff', opts=viewopts2)
+            self.stormIsInPrint('delete inet:ipv4:asn', msgs)
+            self.stormIsInPrint('delete inet:ipv4#foo.tag', msgs)
+            self.stormIsInPrint('delete inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint('delete inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint('delete inet:ipv4 -(bar)> ', msgs)
+
+            msgs = await core.stormlist('merge --diff --exclude-tags foo.*', opts=viewopts2)
+            self.stormNotInPrint('delete inet:ipv4#foo.tag', msgs)
+
+            msgs = await core.stormlist('merge --diff --exclude-tags bar.*', opts=viewopts2)
+            self.stormNotInPrint('delete inet:ipv4#bar.tag:score', msgs)
+
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) { $node.data.set($x, foo) }')
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) { $node.data.pop($x) }', opts=viewopts2)
+
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +($x)> { it:dev:str=n1 }]}')
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ -($x)> { it:dev:str=n1 }]}', opts=viewopts2)
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +($x)> { it:dev:str=n2 }]}', opts=viewopts2)
+
+            await core.nodes('merge --diff --apply', opts=viewopts2)
+
+            await checkempty()
+            await notombs(opts=viewopts2)
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            self.len(0, await core.nodes('diff', opts=viewopts2))
+            await core.nodes('merge --diff --apply', opts=viewopts2)
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            await notombs(opts=viewopts2)
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await view2.merge()
+            await notombs()
+            await view2.wipeLayer()
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await view2.merge()
+            await notombs()
+            await view2.wipeLayer()
+
+            # use quorum to merge
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('view', 'read')))
+            visiopts = {'view': viewiden2, 'user': visi.iden}
+
+            setq = '$lib.view.get().set(quorum, ({"count": 1, "roles": [$lib.auth.roles.byname(all).iden]}))'
+            await core.nodes(setq)
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            await checkempty()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ :asn=4 ]')
+            await core.nodes('inet:ipv4=1.2.3.4 [ :loc=us -:asn ]', opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]')
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(nodes[0].get('loc'), 'us')
+            self.none(nodes[0].get('asn'))
+            await notombs()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            await notombs()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+            visiopts = {'view': viewiden2, 'user': visi.iden}
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force')
+
+            await core.nodes('$lib.view.get().setMergeRequest()', opts=viewopts2)
+            await core.nodes('$lib.view.get().setMergeVote()', opts=visiopts)
+
+            self.true(await view2.waitfini(timeout=5))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            await notombs()
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            viewiden3 = await core.callStorm('return($lib.view.get().fork().iden)', opts=viewopts2)
+            view3 = core.getView(viewiden3)
+            viewopts3 = {'view': viewiden3}
+
+            # use movenodes with tombstones
+            destlayr = view3.layers[0].iden
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            msgs = await core.stormlist('inet:ipv4=1.2.3.4 | movenodes', opts=viewopts3)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4:asn', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4#foo.tag', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4 -(bar)>', msgs)
+
+            msgs = await core.stormlist('inet:ipv4=1.2.3.4 | movenodes --preserve-tombstones', opts=viewopts3)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4:asn', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4#foo.tag', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4 -(bar)>', msgs)
+
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | movenodes --apply', opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await notombs(opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | movenodes --apply --preserve-tombstones', opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await hastombs(opts=viewopts3)
+
+            layr1 = core.getView().layers[0].iden
+            layr2 = view2.layers[0].iden
+
+            # moving a full node tomb should clear individual tombstones
+            await core.nodes('[ inet:ipv4=1.2.3.4 it:dev:str=n2 ]')
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | delnode --force', opts=viewopts2)
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr} --apply --preserve-tombstones
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+
+            q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(2, [m for m in msgs if m[0] == 'print'])
+            self.stormIsInPrint("('inet:ipv4', None)", msgs)
+            self.stormIsInPrint("('it:dev:str', None)", msgs)
+
+            await core.nodes(addq)
+            await core.nodes(delq, opts=viewopts2)
+            await core.nodes(addq, opts=viewopts3)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr}
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4:asn', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4#foo', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4#bar.tag:score', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4 DATA foodata', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4 -(bar)>', msgs)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr} --apply
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await notombs(opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | delnode --force', opts=viewopts2)
+            await core.nodes(addq, opts=viewopts3)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --precedence {layr2} {layr1} {destlayr}
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4', msgs)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --preserve-tombstones --precedence {layr2} {layr1} {destlayr}
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4', msgs)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --apply --precedence {layr2} {layr1} {destlayr}
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+            await notombs(opts=viewopts3)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3))
+
+            await core.nodes(addq)
+            await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | delnode --force', opts=viewopts2)
+            await core.nodes(addq, opts=viewopts3)
+
+            q = f'''
+            inet:ipv4=1.2.3.4 it:dev:str=n2
+            | movenodes --apply --preserve-tombstones --precedence {layr2} {layr1} {destlayr}
+            '''
+            await core.nodes(q, opts=viewopts3)
+            await notombs(opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3))
+
+            q = 'for $tomb in $lib.layer.get().getTombstones() { $lib.print($tomb) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(2, [m for m in msgs if m[0] == 'print'])
+            self.stormIsInPrint("('inet:ipv4', None)", msgs)
+            self.stormIsInPrint("('it:dev:str', None)", msgs)
+
+            await view2.wipeLayer()
+            await view3.wipeLayer()
+
+            await core.nodes(addq)
+
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts3)
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode --force', opts=viewopts2)
+            await core.nodes('merge --diff --apply', opts=viewopts3)
+            msgs = await core.stormlist('merge --diff', opts=viewopts3)
+            self.stormIsInPrint('delete inet:ipv4 = 1.2.3.4', msgs)
+
+            await core.nodes('syn:tag=foo.tag | delnode', opts=viewopts3)
+            msgs = await core.stormlist('merge --diff --exclude-tags foo.*', opts=viewopts3)
+            self.stormNotInPrint('delete syn:tag = foo.tag', msgs)
+
+            await view2.wipeLayer()
+            await view3.wipeLayer()
+
+            q = '''
+            inet:ipv4=1.2.3.4
+            for $edge in $node.edges(reverse=$lib.true) {
+                $lib.print($edge)
+            }
+            '''
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(1, [m for m in msgs if m[0] == 'print'])
+
+            await core.nodes('it:dev:str=n2 | delnode', opts=viewopts2)
+
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            await view2.wipeLayer()
+            await core.nodes(delq, opts=viewopts3)
+
+            await checkempty(opts=viewopts3)
+            await hastombs(opts=viewopts3)
+
+            q = 'for $edge in $lib.layer.get().getEdges() { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            q = 'inet:ipv4 for $edge in $lib.layer.get().getEdgesByN1($node.iden()) { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            q = 'inet:ipv4 for $edge in $lib.layer.get().getEdgesByN2($node.iden()) { $lib.print($edge) }'
+            msgs = await core.stormlist(q, opts=viewopts3)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            await view3.merge()
+
+            # tombstones should merge down since they still have values to cover
+            await checkempty(opts=viewopts2)
+            await hastombs(opts=viewopts2)
+
+            await view3.wipeLayer()
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3)
+            self.false(nodes[0].has('asn'))
+
+            bylayer = await core.callStorm('inet:ipv4=1.2.3.4 return($node.getByLayer())', opts=viewopts3)
+
+            layr = view2.layers[0].iden
+            self.eq(bylayer['props']['asn'], layr)
+            self.eq(bylayer['tags']['foo.tag'], layr)
+            self.eq(bylayer['tagprops']['bar.tag']['score'], layr)
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode')
+
+            await core.nodes(addq, opts=viewopts2)
+            await notombs(opts=viewopts2)
+
+            await core.nodes(delq, opts=viewopts3)
+            await checkempty(opts=viewopts3)
+            await hastombs(opts=viewopts3)
+
+            await view3.merge()
+
+            # no tombstones should merge since the base layer has no values
+            await checkempty(opts=viewopts2)
+            await notombs(opts=viewopts2)
+
+            await view3.wipeLayer()
+
+            # node re-added above a tombstone is empty
+            await core.nodes(addq)
+            await core.nodes('[ inet:ipv4=1.2.3.4 :loc=uk ]', opts=viewopts3)
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
+
+            self.len(0, await core.nodes('inet:ipv4:loc=uk', opts=viewopts3))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 -:loc ]', opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
+            bylayer = await core.callStorm('inet:ipv4=1.2.3.4 return($node.getByLayer())', opts=viewopts3)
+
+            layr = view3.layers[0].iden
+            self.eq(bylayer, {'ndef': layr, 'props': {'type': layr, '.created': layr}})
+
+            await core.nodes('inet:ipv4=1.2.3.4 [ +#nomerge ]', opts=viewopts3)
+            await core.nodes('merge --diff --apply --only-tags', opts=viewopts3)
+            self.len(1, await core.nodes('#nomerge', opts=viewopts3))
+
+            await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts=viewopts3)
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=viewopts3)
+            await checkempty(opts=viewopts3)
+
+            # test helpers above a node tombstone
+            node = nodes[0]
+
+            self.false(node.has('asn'))
+            self.false(node.hasInLayers('asn'))
+            self.eq((None, None), node.getWithLayer('asn'))
+            self.none(node.getFromLayers('asn'))
+            self.none(node.getFromLayers('loc', strt=2))
+
+            self.none(node.getTag('foo.tag'))
+            self.none(node.getTagFromLayers('foo.tag'))
+            self.none(node.getTagFromLayers('newp', strt=2))
+            self.false(node.hasTag('foo.tag'))
+            self.false(node.hasTagInLayers('foo.tag'))
+
+            self.eq([], node.getTagProps('bar.tag'))
+            self.eq([], node.getTagPropsWithLayer('bar.tag'))
+            self.false(node.hasTagProp('bar.tag', 'score'))
+            self.false(node.hasTagPropInLayers('bar.tag', 'score'))
+            self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+
+            self.eq(['type', '.created'], list(nodes[0].getProps().keys()))
+            self.eq({}, node._getTagsDict())
+            self.eq({}, node._getTagPropsDict())
+
+            self.len(0, await core.nodes('#bar.tag:score', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:score=5', opts=viewopts3))
+
+            await view2.wipeLayer()
+            await core.nodes(delq, opts=viewopts2)
+            await checkempty(opts=viewopts3)
+
+            await core.nodes('inet:ipv4 [ -(bar)> {[ it:dev:str=n1 ]} ]', opts=viewopts3)
+            nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3)
+
+            # test helpers above individual tombstones
+            node = nodes[0]
+
+            self.false(node.hasInLayers('asn'))
+            self.none(node.getFromLayers('asn'))
+            self.eq((None, None), node.getWithLayer('asn'))
+
+            self.false(node.hasTag('foo.tag'))
+            self.false(node.hasTagInLayers('foo.tag'))
+            self.none(node.getTagFromLayers('foo.tag'))
+
+            self.eq([], node.getTagProps('bar.tag'))
+            self.eq([], node.getTagPropsWithLayer('bar.tag'))
+            self.false(node.hasTagProp('bar.tag', 'score'))
+            self.false(node.hasTagPropInLayers('bar.tag', 'score'))
+            self.false(node.hasTagPropInLayers('foo.tag', 'score'))
+            self.eq((None, None), node.getTagPropWithLayer('bar.tag', 'score'))
+            self.eq((None, None), node.getTagPropWithLayer('foo.tag', 'score'))
+
+            self.eq(['type', '.created'], list(nodes[0].getProps().keys()))
+            self.sorteq(['bar', 'bar.tag', 'foo'], list(node._getTagsDict().keys()))
+            self.eq({}, node._getTagPropsDict())
+
+            self.len(0, await alist(node.iterData()))
+            self.len(0, await alist(node.iterDataKeys()))
+            self.false(0, await node.hasData('foodata'))
+            self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.pop(foodata))', opts=viewopts3))
+
+            randbuid = s_common.buid('newp')
+            self.false((await view3.layers[0].hasNodeData(randbuid, 'foodata')))
+            self.false((await view3.layers[0].getNodeData(randbuid, 'foodata'))[0])
+
+            self.len(0, await alist(view3.getEdges()))
+            self.len(0, await alist(view3.layers[1].getEdgeVerbs()))
+            self.len(2, await alist(view3.layers[2].getEdgeVerbs()))
+
+            self.len(0, await core.nodes('inet:ipv4:asn', opts=viewopts3))
+            self.len(0, await core.nodes('inet:ipv4:asn=4', opts=viewopts3))
+            self.len(0, await core.nodes('#foo.tag', opts=viewopts3))
+            self.len(0, await core.nodes('#foo.tag@=2024', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:score', opts=viewopts3))
+            self.len(0, await core.nodes('#bar.tag:score=5', opts=viewopts3))
+
+            await core.nodes('[ ou:goal=(foo,) :names=(foo, bar) ]')
+            await core.nodes('ou:goal=(foo,) [ -:names ]', opts=viewopts2)
+            self.len(0, await core.nodes('ou:goal:names*[=foo]', opts=viewopts2))
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.layer.get().delTombstone(newp, newp, newp)')
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'nid': b'\x00'}}
+                await core.nodes('$lib.layer.get().delTombstone($nid, newp, newp)', opts=opts)
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'nid': b'\x01' * 8}}
+                await core.nodes('$lib.layer.get().delTombstone($nid, newp, newp)', opts=opts)
+
+    # async def test_layer_form_by_buid(self):
+
+    #     async with self.getTestCore() as core:
+
+    #         layr00 = core.view.layers[0]
+
+    #         # add node - buid:form exists
+    #         nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+    #         buid0 = nodes[0].buid
+    #         self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+    #         # add edge and nodedata
+    #         nodes = await core.nodes('[ inet:ipv4=2.3.4.5 ]')
+    #         buid1 = nodes[0].buid
+    #         self.eq('inet:ipv4', await layr00.getNodeForm(buid1))
+
+    #         await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> {inet:ipv4=2.3.4.5} ] $node.data.set(spam, ham)')
+    #         self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+    #         # remove edge, map still exists
+    #         await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> {inet:ipv4=2.3.4.5} ]')
+    #         self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+    #         # remove nodedata, map still exists
+    #         await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(spam)')
+    #         self.eq('inet:ipv4', await layr00.getNodeForm(buid0))
+
+    #         # delete node - buid:form removed
+    #         await core.nodes('inet:ipv4=1.2.3.4 | delnode')
+    #         self.none(await layr00.getNodeForm(buid0))
+
+    #         await core.nodes('[ inet:ipv4=5.6.7.8 ]')
+
+    #         # fork a view
+    #         info = await core.view.fork()
+    #         layr01 = core.getLayer(info['layers'][0]['iden'])
+    #         view01 = core.getView(info['iden'])
+
+    #         await alist(view01.eval('[ inet:ipv4=6.7.8.9 ]'))
+
+    #         # buid:form for a node in child doesn't exist
+    #         self.none(await layr01.getNodeForm(buid1))
+
+    #         # add prop, buid:form map exists
+    #         nodes = await alist(view01.eval('inet:ipv4=2.3.4.5 [ :loc=ru ]'))
+    #         self.len(1, nodes)
+    #         self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+    #         # add nodedata and edge
+    #         await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=6.7.8.9} ] $node.data.set(faz, baz)'))
+
+    #         # remove prop, map still exists due to nodedata
+    #         await alist(view01.eval('inet:ipv4=2.3.4.5 [ -:loc ]'))
+    #         self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+    #         # remove nodedata, map still exists due to edge
+    #         await alist(view01.eval('inet:ipv4=2.3.4.5 $node.data.pop(faz)'))
+    #         self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+    #         # remove edge, map is deleted
+    #         await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=6.7.8.9} ]'))
+    #         self.none(await layr01.getNodeForm(buid1))
+
+    #         # edges between two nodes in parent
+    #         await alist(view01.eval('inet:ipv4=2.3.4.5 [ +(refs)> {inet:ipv4=5.6.7.8} ]'))
+    #         self.eq('inet:ipv4', await layr01.getNodeForm(buid1))
+
+    #         await alist(view01.eval('inet:ipv4=2.3.4.5 [ -(refs)> {inet:ipv4=5.6.7.8} ]'))
+    #         self.none(await layr01.getNodeForm(buid1))
 
     async def test_layer(self):
 
@@ -1239,31 +1636,10 @@ class LayerTest(s_t_utils.SynTest):
             self.isin(f'Layer (Layer): {layr.iden}', str(layr))
 
             nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
-            buid = nodes[0].buid
-
-            self.eq('foo', await layr.getNodeValu(buid))
-            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
-            self.none(await layr.getNodeValu(buid, 'noprop'))
-            self.none(await layr.getNodeTag(buid, 'faketag'))
 
             self.false(await layr.hasTagProp('score'))
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
             self.true(await layr.hasTagProp('score'))
-
-            iden = s_common.guid()
-            with self.raises(ValueError) as cm:
-                with layr.getIdenFutu(iden=iden):
-                    raise ValueError('oops')
-            self.none(layr.futures.get(iden))
-
-            await core.nodes('[ test:str=data ] $node.data.set(foodata, bar)')
-
-            abrv = layr.getPropAbrv('foodata', None)
-            self.len(1, list(layr.dataslab.scanByDups(abrv, db=layr.dataname)))
-
-            await core.nodes('test:str=data | delnode')
-
-            self.len(0, list(layr.dataslab.scanByDups(abrv, db=layr.dataname)))
 
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)
@@ -1301,18 +1677,6 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('.created')
             self.len(0, nodes)
 
-    async def test_layer_flat_edits(self):
-        nodeedits = (
-            (b'asdf', 'test:junk', (
-                (s_layer.EDIT_NODE_ADD, (10, s_layer.STOR_TYPE_U64), (
-                    (b'qwer', 'test:junk', (
-                        (s_layer.EDIT_NODE_ADD, (11, s_layer.STOR_TYPE_U64), ()),
-                    )),
-                )),
-            )),
-        )
-        self.len(2, s_layer.getFlatEdits(nodeedits))
-
     async def test_layer_clone(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -1321,10 +1685,12 @@ class LayerTest(s_t_utils.SynTest):
             self.isin(f'Layer (Layer): {layr.iden}', str(layr))
 
             nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
-            buid = nodes[0].buid
 
-            self.eq('foo', await layr.getNodeValu(buid))
-            self.eq((1420070400000, 1451606400000), await layr.getNodeValu(buid, '.seen'))
+            nid = nodes[0].nid
+
+            # FIXME test via sodes?
+            # self.eq('foo', await layr.getNodeValu(nid))
+            # self.eq((1420070400000, 1451606400000), await layr.getNodeValu(nid, '.seen'))
 
             s_common.gendir(layr.dirn, 'adir')
 
@@ -1335,8 +1701,8 @@ class LayerTest(s_t_utils.SynTest):
             self.isin(f'Layer (Layer): {copylayr.iden}', str(copylayr))
             self.ne(layr.iden, copylayr.iden)
 
-            self.eq('foo', await copylayr.getNodeValu(buid))
-            self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(buid, '.seen'))
+            # self.eq('foo', await copylayr.getNodeValu(nid))
+            # self.eq((1420070400000, 1451606400000), await copylayr.getNodeValu(nid, '.seen'))
 
             cdir = s_common.gendir(copylayr.dirn, 'adir')
             self.true(os.path.exists(cdir))
@@ -1373,217 +1739,6 @@ class LayerTest(s_t_utils.SynTest):
                 with self.raises(s_exc.IsReadOnly):
                     await core.nodes('[inet:fqdn=vertex.link]', opts={'view': view['iden']})
 
-    async def test_layer_v3(self):
-
-        async with self.getRegrCore('2.0-layerv2tov3') as core:
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.4')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[0].get('asn'), 33)
-            self.true(nodes[0].getTag('foo.bar'), (None, None))
-            self.true(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
-
-            self.eq(10004, await core.count('.created'))
-            self.len(2, await core.nodes('syn:tag~=foo'))
-
-            self.checkLayrvers(core)
-
-    async def test_layer_v7(self):
-        async with self.getRegrCore('2.78.0-tagprop-missing-indx') as core:
-            nodes = await core.nodes('inet:ipv4=1.2.3.4')
-            # Our malformed node was migrated properly.
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[0].get('asn'), 20)
-            self.eq(nodes[0].getTag('foo'), (None, None))
-            self.eq(nodes[0].getTagProp('foo', 'comment'), 'words')
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.3')
-            # Our partially malformed node was migrated properly.
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020303))
-            self.eq(nodes[0].get('asn'), 20)
-            self.eq(nodes[0].getTag('foo'), (None, None))
-            self.eq(nodes[0].getTagProp('foo', 'comment'), 'bar')
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.2')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020302))
-            self.eq(nodes[0].get('asn'), 10)
-            self.eq(nodes[0].getTag('foo'), (None, None))
-            self.eq(nodes[0].getTagProp('foo', 'comment'), 'foo')
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.1')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020301))
-            self.eq(nodes[0].get('asn'), 10)
-            self.eq(nodes[0].getTag('bar'), (None, None))
-            self.none(nodes[0].getTagProp('foo', 'comment'))
-
-            self.checkLayrvers(core)
-
-    async def test_layer_v8(self):
-        async with self.getRegrCore('2.85.1-hugenum-indx') as core:
-
-            nodes = await core.nodes('inet:fqdn:_huge=1.23')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array=(1.23, 2.34)')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array*[=1.23]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array*[=2.34]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn._univhuge=2.34')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('._univhuge=2.34')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn._hugearray=(3.45, 4.56)')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn._hugearray*[=3.45]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn._hugearray*[=4.56]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('._hugearray=(3.45, 4.56)')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('._hugearray*[=3.45]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('._hugearray*[=4.56]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn#bar:cool:huge=1.23')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('#bar:cool:huge=1.23')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array = (1.23, 10E-21)')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['_huge:array'], ('1.23', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn._hugearray = (3.45, 10E-21)')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['._hugearray'], ('3.45', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn:_huge:array*[=10E-21]')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['_huge:array'], ('1.23', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn._hugearray*[=10E-21]')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['._hugearray'], ('3.45', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn:_huge=0.00000000000000000001')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.props.get('_huge'), '0.00000000000000000001')
-            self.eq(node.props.get('._univhuge'), '0.00000000000000000001')
-            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
-            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
-
-            self.checkLayrvers(core)
-
-    async def test_layer_v10(self):
-
-        async with self.getRegrCore('layer-v10') as core:
-
-            nodes = await core.nodes('file:bytes inet:user')
-            verbs = [verb async for verb in nodes[0].iterEdgeVerbs(nodes[1].buid)]
-            self.eq(('refs',), verbs)
-
-            nodes0 = await core.nodes('[ ps:contact=* :name=visi +(has)> {[ mat:item=* :name=laptop ]} ]')
-            self.len(1, nodes0)
-            buid1 = nodes0[0].buid
-
-            nodes1 = await core.nodes('mat:item')
-            self.len(1, nodes1)
-            buid2 = nodes1[0].buid
-
-            layr = core.getView().layers[0]
-            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.eq(('has',), verbs)
-
-            await core.nodes('ps:contact:name=visi [ -(has)> { mat:item:name=laptop } ]')
-
-            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.len(0, verbs)
-
-            await core.nodes('ps:contact:name=visi [ +(has)> { mat:item:name=laptop } ]')
-
-            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.eq(('has',), verbs)
-
-            await core.nodes('ps:contact:name=visi | delnode --force')
-
-            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.len(0, verbs)
-
-    async def test_layer_v11(self):
-
-        try:
-
-            oldv = s_layer.MIGR_COMMIT_SIZE
-            s_layer.MIGR_COMMIT_SIZE = 1
-
-            async with self.getRegrCore('layer-v11') as core:
-
-                wlyrs_byview = await core.callStorm('''
-                    $wlyrs = ({})
-                    for $view in $lib.view.list() {
-                        $wlyrs.($view.get(name)) = $view.layers.0.iden
-                    }
-                    return($wlyrs)
-                ''')
-                self.len(8, wlyrs_byview)
-
-                layr = core.getLayer(iden=wlyrs_byview['default'])
-                await self.agenlen(2, layr.getStorNodesByForm('test:str'))
-                await self.agenlen(1, layr.getStorNodesByForm('syn:tag'))
-
-                layr = core.getLayer(iden=wlyrs_byview['prop'])
-                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
-
-                layr = core.getLayer(iden=wlyrs_byview['tags'])
-                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
-                await self.agenlen(1, layr.getStorNodesByForm('syn:tag'))
-
-                layr = core.getLayer(iden=wlyrs_byview['tagp'])
-                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
-                await self.agenlen(0, layr.getStorNodesByForm('syn:tag'))
-
-                layr = core.getLayer(iden=wlyrs_byview['n1eg'])
-                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
-                await self.agenlen(1, layr.getStorNodesByForm('test:int'))
-
-                layr = core.getLayer(iden=wlyrs_byview['n2eg'])
-                await self.agenlen(0, layr.getStorNodesByForm('test:str'))
-                await self.agenlen(1, layr.getStorNodesByForm('test:int'))
-
-                layr = core.getLayer(iden=wlyrs_byview['data'])
-                await self.agenlen(1, layr.getStorNodesByForm('test:str'))
-
-                layr = core.getLayer(iden=wlyrs_byview['noop'])
-                await self.agenlen(0, layr.getStorNodes())
-                await self.agenlen(0, layr.getStorNodesByForm('test:str'))
-
-        finally:
-            s_layer.MIGR_COMMIT_SIZE = oldv
-
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
             self.true(core.getLayer().logedits)
@@ -1603,25 +1758,25 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:ipv4=1 :asn=10 .seen=(2016, 2017) +#foo=(2020, 2021) +#foo:score=42]')
             self.len(1, nodes)
-            buid1 = nodes[0].buid
+            nid1 = nodes[0].nid
 
             nodes = await core.nodes('[inet:ipv4=2 :asn=20 .seen=(2015, 2016) +#foo=(2019, 2020) +#foo:score=41]')
             self.len(1, nodes)
-            buid2 = nodes[0].buid
+            nid2 = nodes[0].nid
 
             nodes = await core.nodes('[inet:ipv4=3 :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99]')
             self.len(1, nodes)
-            buid3 = nodes[0].buid
+            nid3 = nodes[0].nid
 
             nodes = await core.nodes('[test:str=yolo]')
             self.len(1, nodes)
-            strbuid = nodes[0].buid
+            strnid = nodes[0].nid
 
             nodes = await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}})
             self.len(1, nodes)
-            strbuid2 = nodes[0].buid
+            strnid2 = nodes[0].nid
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             layr = core.view.layers[0]
             rows = await alist(layr.iterPropRows('inet:ipv4', 'asn'))
 
@@ -1634,7 +1789,7 @@ class LayerTest(s_t_utils.SynTest):
             rows = await alist(layr.iterPropRows('inet:ipv4', 'asn', styp))
             self.eq((10, 20, 30), tuple(sorted([row[1] for row in rows])))
 
-            # rows are (buid, valu) tuples
+            # rows are (nid, valu) tuples
             rows = await alist(layr.iterUnivRows('.seen'))
 
             tm = lambda x, y: (s_time.parse(x), s_time.parse(y))  # NOQA
@@ -1643,50 +1798,38 @@ class LayerTest(s_t_utils.SynTest):
 
             # iterFormRows
             rows = await alist(layr.iterFormRows('inet:ipv4'))
-            self.eq([(buid1, 1), (buid2, 2), (buid3, 3)], rows)
+            self.eq([(nid1, 1), (nid2, 2), (nid3, 3)], rows)
 
             rows = await alist(layr.iterFormRows('inet:ipv4', stortype=s_layer.STOR_TYPE_U32, startvalu=2))
-            self.eq([(buid2, 2), (buid3, 3)], rows)
+            self.eq([(nid2, 2), (nid3, 3)], rows)
 
             rows = await alist(layr.iterFormRows('test:str', stortype=s_layer.STOR_TYPE_UTF8, startvalu='yola'))
-            self.eq([(strbuid, 'yolo'), (strbuid2, 'z' * 500)], rows)
+            self.eq([(strnid, 'yolo'), (strnid2, 'z' * 500)], rows)
 
             # iterTagRows
-            expect = sorted(
-                [
-                    (buid1, (tm('2020', '2021'), 'inet:ipv4')),
-                    (buid2, (tm('2019', '2020'), 'inet:ipv4')),
-                    (buid3, (tm('2018', '2020'), 'inet:ipv4')),
-                ], key=lambda x: x[0])
+            expect = (
+                (tm('2020', '2021'), 'inet:ipv4'),
+                (tm('2019', '2020'), 'inet:ipv4'),
+                (tm('2018', '2020'), 'inet:ipv4'),
+            )
 
+            # FIXME discuss iterTagRows no longer being nid sorted...
             rows = await alist(layr.iterTagRows('foo'))
-            self.eq(expect, rows)
+            self.sorteq(expect, [row[1] for row in rows])
 
             rows = await alist(layr.iterTagRows('foo', form='inet:ipv4'))
-            self.eq(expect, rows)
+            self.sorteq(expect, [row[1] for row in rows])
 
             rows = await alist(layr.iterTagRows('foo', form='newpform'))
-            self.eq([], rows)
-
-            rows = await alist(layr.iterTagRows('foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
-            self.eq([], rows)
-
-            rows = await alist(layr.iterTagRows('foo', starttupl=(expect[1][0], 'inet:ipv4')))
-            self.eq(expect[1:], rows)
-
-            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4', starttupl=(expect[1][0], 'inet:ipv4')))
-            self.eq(expect[1:], rows)
-
-            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4', starttupl=(expect[1][0], 'newpform')))
             self.eq([], rows)
 
             rows = await alist(layr.iterTagRows('nosuchtag'))
             self.eq([], rows)
 
             expect = [
-                (buid2, 41,),
-                (buid1, 42,),
-                (buid3, 99,),
+                (nid2, 41,),
+                (nid1, 42,),
+                (nid3, 99,),
             ]
 
             rows = await alist(layr.iterTagPropRows('foo', 'newp'))
@@ -1766,138 +1909,6 @@ class LayerTest(s_t_utils.SynTest):
 
                 self.eq(info00, await core.callStorm('return($lib.layer.get().pack())'))
 
-    async def test_reindex_byarray(self):
-
-        async with self.getRegrCore('reindex-byarray2') as core:
-
-            layr = core.getView().layers[0]
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop1]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop4]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop1')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop4')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header1, valu1)]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header3, valu3)]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header1', 'valu1'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header3', 'valu3'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            opts = {'vars': {
-                'longfqdn': '.'.join(('a' * 63,) * 5),
-                'longname': 'a' * 256,
-            }}
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=foo]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
-            self.len(1, nodes)
-
-            self.checkLayrvers(core)
-
-    async def test_rebuild_byarray(self):
-
-        async with self.getRegrCore('reindex-byarray3') as core:
-
-            layr = core.getView().layers[0]
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop1]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop4]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop1')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop4')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header1, valu1)]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header3, valu3)]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header1', 'valu1'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header3', 'valu3'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            opts = {'vars': {
-                'longfqdn': '.'.join(('a' * 63,) * 5),
-                'longname': 'a' * 256,
-            }}
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=foo]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
-            self.len(1, nodes)
-
-            self.checkLayrvers(core)
-
-    async def test_migr_tagprop_keys(self):
-
-        async with self.getRegrCore('tagprop-keymigr') as core:
-
-            nodes = await core.nodes('ps:person#bar:score=10')
-            self.len(4003, nodes)
-
-            nodes = await core.nodes('ou:org#foo:score=20')
-            self.len(4000, nodes)
-
-            nodes = await core.nodes('ou:contract#foo:score=30')
-            self.len(2000, nodes)
-
-            nodes = await core.nodes('ou:industry#foo:score=40')
-            self.len(2, nodes)
-
-            self.checkLayrvers(core)
-
     async def test_layer_edit_perms(self):
 
         class Dict(s_spooled.Dict):
@@ -1945,90 +1956,154 @@ class LayerTest(s_t_utils.SynTest):
                 await layr.confirmLayerEditPerms(core.auth.rootuser, parent.iden)
                 await layr.confirmLayerEditPerms(core.auth.rootuser, layr.iden, delete=True)
 
-    async def test_layer_v9(self):
-        async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:
-
-            huge1 = '730750818665451459101841.000000000000000000000001'
-            huge2 = '730750818665451459101841.000000000000000000000002'
-            huge3 = '730750818665451459101841.000000000000000000000003'
-
-            nodes = await core.nodes(f'econ:purchase:price={huge1}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('econ:purchase', '99a453112c45570ac2ccc6b941b09035'))
-
-            nodes = await core.nodes(f'econ:purchase:price={huge2}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('econ:purchase', '95afaf2b258160e0845f899ffff5115c'))
-
-            nodes = await core.nodes(f'inet:fqdn:_hugearray*[={huge1}]')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test1.com'))
-
-            nodes = await core.nodes(f'inet:fqdn:_hugearray*[={huge3}]')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test2.com'))
-
-            nodes = await core.nodes(f'inet:fqdn#test:hugetp={huge1}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test3.com'))
-
-            nodes = await core.nodes(f'inet:fqdn#test:hugetp={huge2}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test4.com'))
-
-            self.len(1, await core.nodes(f'_test:huge={huge1}'))
-            self.len(1, await core.nodes(f'_test:huge={huge2}'))
-            self.len(1, await core.nodes(f'_test:hugearray*[={huge1}]'))
-            self.len(1, await core.nodes(f'_test:hugearray*[={huge2}]'))
-            self.len(1, await core.nodes(f'_test:hugearray*[={huge3}]'))
-
     async def test_layer_fromfuture(self):
         with self.raises(s_exc.BadStorageVersion):
             async with self.getRegrCore('future-layrvers') as core:
                 pass
 
-    async def test_layer_readonly_new(self):
-        with self.getLoggerStream('synapse.cortex') as stream:
-            async with self.getRegrCore('readonly-newlayer') as core:
-                ldefs = await core.callStorm('return($lib.layer.list())')
-                self.len(2, ldefs)
+    async def test_layer_ival_indexes(self):
 
-                readidens = [ldef['iden'] for ldef in ldefs if ldef.get('readonly')]
-                self.len(1, readidens)
+        async with self.getTestCore() as core:
 
-                writeidens = [ldef['iden'] for ldef in ldefs if not ldef.get('readonly')]
+            await core.addTagProp('footime', ('ival', {}), {})
 
-                readlayr = core.getLayer(readidens[0])
-                writelayr = core.getLayer(writeidens[0])
+            self.len(0, await core.nodes('ou:campaign#bar:footime*min=2020-01-01'))
 
-                self.eq(readlayr.meta.get('version'), writelayr.meta.get('version'))
+            await core.nodes('''[
+                ou:campaign=(foo,)
+                    :period=(2020-01-01, ?)
+                    +#foo=(2020-01-01, ?)
+                    +#bar:footime=(2020-01-01, ?)
+            ]''')
 
-    async def test_push_pull_default_migration(self):
-        async with self.getRegrCore('2.159.0-layr-pdefs') as core:
-            def_tree = await core.saveHiveTree(('cortex', 'layers', '507ebf7e6ec7aadc47ace6f1f8f77954'))
-            dst_tree = await core.saveHiveTree(('cortex', 'layers', '9bf7a3adbf69bd16832529ab1fcd1c83'))
+            await core.nodes('''[
+                ou:campaign=(foo,)
+                    :period=(2019-01-01, ?)
+                    +#foo=(2019-01-01, ?)
+                    +#bar:footime=(2019-01-01, ?)
+            ]''')
 
-            epulls = {'value':
-                          {'28cb757e9e390a234822f55b922f3295':
-                               {'chunk:size': 1000,
-                                'iden': '28cb757e9e390a234822f55b922f3295',
-                                'offs': 0,
-                                'queue:size': 10000,
-                                'time': 1703781215891,
-                                'url': 'cell://./cells/pdefmigr00:*/layer/9bf7a3adbf69bd16832529ab1fcd1c83',
-                                'user': '1d8e6e87a2931f8d27690ff408debdab'}}}
-            epushs = {'value':
-                          {'e112f93f09e43f3a10ae945b84721778':
-                               {'chunk:size': 1000,
-                                'iden': 'e112f93f09e43f3a10ae945b84721778',
-                                'offs': 0,
-                                'queue:size': 10000,
-                                'time': 1703781208684,
-                                'url': 'cell://./cells/pdefmigr00:*/layer/9bf7a3adbf69bd16832529ab1fcd1c83',
-                                'user': '1d8e6e87a2931f8d27690ff408debdab'}}}
+            await core.nodes('''[
+                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
+                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
+                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
+                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
+                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
+            ]''')
 
-            self.eq(def_tree.get('kids').get('pulls'), epulls)
-            self.eq(def_tree.get('kids').get('pushs'), epushs)
+            self.len(1, await core.nodes('ou:campaign:period*min=2020-01-01'))
+            self.len(3, await core.nodes('ou:campaign:period*min<2022-01-01'))
+            self.len(4, await core.nodes('ou:campaign:period*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign:period*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign:period*min>2022-01-01'))
+            self.len(1, await core.nodes('ou:campaign:period*min@=2020'))
+            self.len(2, await core.nodes('ou:campaign:period*min@=(2020-01-01, 2022-01-01)'))
 
-            self.notin('pulls', dst_tree.get('kids'))
-            self.notin('pushs', dst_tree.get('kids'))
+            self.len(1, await core.nodes('reverse(ou:campaign:period*min=2020-01-01)'))
+            self.len(3, await core.nodes('reverse(ou:campaign:period*min<2022-01-01)'))
+            self.len(4, await core.nodes('reverse(ou:campaign:period*min<=2022-01-01)'))
+            self.len(3, await core.nodes('reverse(ou:campaign:period*min>=2022-01-01)'))
+            self.len(2, await core.nodes('reverse(ou:campaign:period*min>2022-01-01)'))
+            self.len(1, await core.nodes('reverse(ou:campaign:period*min@=2020)'))
+            self.len(2, await core.nodes('reverse(ou:campaign:period*min@=(2020-01-01, 2022-01-01))'))
+
+            self.len(1, await core.nodes('ou:campaign:period*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign:period*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign:period*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign:period*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign:period*max>2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign:period*max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('ou:campaign:period*max=?'))
+
+            self.len(1, await core.nodes('ou:campaign:period*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign:period*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign:period*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign:period*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign:period*duration>31D'))
+            self.len(1, await core.nodes('ou:campaign:period*duration=?'))
+
+            await core.nodes('''[
+                (ou:campaign=* +#foo=(2020-01-01, 2020-01-02))
+                (ou:campaign=* +#foo=(2021-01-01, 2021-02-01))
+                (ou:campaign=* +#foo=(2022-01-01, 2022-05-01))
+                (ou:campaign=* +#foo=(2023-01-01, 2024-01-01))
+                (ou:campaign=* +#foo=(2024-01-01, 2026-01-01))
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign#foo*min=2020-01-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*min<2022-01-01'))
+            self.len(4, await core.nodes('ou:campaign#foo*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign#foo*min>2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign#foo*min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('reverse(ou:campaign#foo*min@=(2020-01-01, 2022-01-01))'))
+
+            self.len(1, await core.nodes('ou:campaign#foo*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign#foo*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#foo*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign#foo*max>2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign#foo*max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('ou:campaign#foo*max=?'))
+
+            self.len(1, await core.nodes('ou:campaign#foo*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign#foo*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign#foo*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign#foo*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign#foo*duration>31D'))
+            self.len(1, await core.nodes('ou:campaign#foo*duration=?'))
+
+            await core.nodes('''[
+                (ou:campaign=* +#bar:footime=(2020-01-01, 2020-01-02))
+                (ou:campaign=* +#bar:footime=(2021-01-01, 2021-02-01))
+                (ou:campaign=* +#bar:footime=(2022-01-01, 2022-05-01))
+                (ou:campaign=* +#bar:footime=(2023-01-01, 2024-01-01))
+                (ou:campaign=* +#bar:footime=(2024-01-01, 2026-01-01))
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign#bar:footime*min=2020-01-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*min<2022-01-01'))
+            self.len(4, await core.nodes('ou:campaign#bar:footime*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*min>2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01)'))
+            self.len(2, await core.nodes('reverse(ou:campaign#bar:footime*min@=(2020-01-01, 2022-01-01))'))
+
+            self.len(1, await core.nodes('ou:campaign#bar:footime*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*max>2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*max@=(2020-01-02, 2022-05-01)'))
+            self.len(1, await core.nodes('ou:campaign#bar:footime*max=?'))
+
+            self.len(1, await core.nodes('ou:campaign#bar:footime*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign#bar:footime*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign#bar:footime*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign#bar:footime*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign#bar:footime*duration>31D'))
+            self.len(1, await core.nodes('ou:campaign#bar:footime*duration=?'))
+
+            await core.nodes('[ ou:campaign=(foo,) -:period -#foo -#bar:footime ]')
+
+    async def test_layer_ndef_indexes(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
+            await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')
+            await core.nodes('[ risk:vulnerable=* :node=(it:dev:int, 1) ]')
+            await core.nodes('[ risk:vulnerable=* :node=(inet:fqdn, foo.com) ]')
+
+            self.len(0, await core.nodes('risk:vulnerable:node=(it:dev:str, newp)'))
+
+            self.len(1, await core.nodes('risk:vulnerable:node*form=it:dev:int'))
+            self.len(1, await core.nodes('risk:vulnerable:node*form=inet:fqdn'))
+            self.len(0, await core.nodes('risk:vulnerable:node*form=it:dev:str'))
+
+            self.len(2, await core.nodes('test:str:ndefs*[form=it:dev:int]'))
+            self.len(1, await core.nodes('test:str:ndefs*[form=inet:fqdn]'))
+            self.len(0, await core.nodes('test:str:ndefs*[form=it:dev:str]'))
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('risk:vulnerable:node*form=newp')

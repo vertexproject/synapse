@@ -12,6 +12,7 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
@@ -55,25 +56,13 @@ class TagProp:
     def getTagPropDef(self):
         return (self.name, self.tdef, self.info)
 
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-        }
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms
+    def getRuntPode(self):
+        ndef = ('syn:tagprop', self.name)
+        return (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+            },
         })
 
 class Prop:
@@ -134,8 +123,9 @@ class Prop:
 
         if self.deprecated or self.type.deprecated:
             async def depfunc(node, oldv):
-                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
-                await node.snap.warnonce(mesg)
+                mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
+                if (runt := s_scope.get('runt')) is not None:
+                    await runt.warnonce(mesg)
             self.onSet(depfunc)
 
     def __repr__(self):
@@ -219,31 +209,26 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getStorNode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, form.type.norm(self.full)[0])
+        ndef = ('syn:prop', self.full)
 
-        buid = s_common.buid(ndef)
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-            'relname': self.name,
-            'univ': self.isuniv,
-            'base': self.name.split(':')[-1],
-            'ro': int(self.info.get('ro', False)),
-            'extmodel': self.isext,
-        }
+        pode = (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+                'relname': self.name,
+                'univ': self.isuniv,
+                'base': self.name.split(':')[-1],
+                'ro': int(self.info.get('ro', False)),
+                'extmodel': self.isext,
+            },
+        })
 
         if self.form is not None:
-            props['form'] = self.form.name
+            pode[1]['props']['form'] = self.form.name
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {'props': pnorms, 'ndef': ndef})
+        return pode
 
 class Form:
     '''
@@ -256,6 +241,7 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
+        self.isext = name.startswith('_')
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
 
@@ -281,37 +267,32 @@ class Form:
 
         if self.deprecated:
             async def depfunc(node):
-                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
-                await node.snap.warnonce(mesg)
+                mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
+                if (runt := s_scope.get('runt')) is not None:
+                    await runt.warnonce(mesg)
+
             self.onAdd(depfunc)
 
-    def getStorNode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+        return (('syn:form', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'runt': self.isrunt,
+                'type': self.type.name,
+            },
+        })
 
-        props = {
-            'doc': self.info.get('doc', self.type.info.get('doc', '')),
-            'type': self.type.name,
-        }
+    def getRuntPropPode(self):
 
-        if form.name == 'syn:form':
-            props['runt'] = self.isrunt
-        elif form.name == 'syn:prop':
-            props['univ'] = False
-            props['extmodel'] = False
-            props['form'] = self.name
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
-                })
+        return (('syn:prop', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'type': self.type.name,
+                'extmodel': self.isext,
+                'form': self.name,
+            },
+        })
 
     def setProp(self, name, prop):
         self.refsout = None
@@ -544,14 +525,6 @@ class Model:
 
         info = {'doc': 'A typed array which indexes each field.'}
         item = s_types.Array(self, 'array', info, {'type': 'int'})
-        self.addBaseType(item)
-
-        info = {'doc': 'An digraph edge base type.'}
-        item = s_types.Edge(self, 'edge', info, {})
-        self.addBaseType(item)
-
-        info = {'doc': 'An digraph edge base type with a unique time.'}
-        item = s_types.TimeEdge(self, 'timeedge', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'Arbitrary json compatible data.'}
@@ -838,7 +811,7 @@ class Model:
 
         if newtype.deprecated and typeinfo.get('custom'):
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'will be removed in 3.0.0.'
+                   f'will be removed in 4.0.0.'
             logger.warning(mesg)
 
         self.types[typename] = newtype
@@ -969,7 +942,7 @@ class Model:
 
         if univ.type.deprecated:
             mesg = f'The universal property {univ.full} is using a deprecated type {univ.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         self.props[base] = univ
@@ -1004,7 +977,7 @@ class Model:
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):
-            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
+            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
             logger.warning(mesg)
 
         for propname, typedef, propinfo in iface.get('props', ()):
@@ -1043,7 +1016,7 @@ class Model:
 
         if prop.type.deprecated:
             mesg = f'The tag property {prop.name} is using a deprecated type {prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         return prop
