@@ -739,7 +739,7 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.prop.set.syn:tag:base', cm.exception.errinfo['perm'])
+            self.eq('node.prop.set.syn:tag.base', cm.exception.errinfo['perm'])
 
             await core.addUserRule(useriden, (True, ('node', 'prop', 'set')), gateiden=baselayr)
 
