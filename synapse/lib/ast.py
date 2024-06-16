@@ -733,8 +733,9 @@ class SubQuery(Oper):
                 retn.append(valunode.ndef[1])
 
                 if len(retn) > limit:
-                    mesg = f'Subquery used as a value yielded too many (>{limit}) nodes'
-                    raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
+                    query = self.kids[0].text
+                    mesg = f'Subquery used as a value yielded too many (>{limit}) nodes. {{{query}}}'
+                    raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg, text=query))
 
         return retn
 
