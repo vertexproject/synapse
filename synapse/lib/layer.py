@@ -4605,54 +4605,50 @@ class Layer(s_nexus.Pusher):
 
         # nodes & props
         if not allow_forms or not allow_props:
-            async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
-                form, prop = s_msgpack.un(byts)
+            async for form, prop in s_coro.pause(self.getFormProps()):
                 if form is None: # pragma: no cover
                     continue
 
-                if self.layrslab.prefexists(abrv, db=self.byprop):
-                    if prop and not allow_props:
-                        realform = self.core.model.form(form)
-                        if not realform: # pragma: no cover
-                            mesg = f'Invalid form: {form}'
-                            raise s_exc.NoSuchForm(mesg=mesg, form=form)
+                if prop and not allow_props:
+                    realform = self.core.model.form(form)
+                    if not realform: # pragma: no cover
+                        mesg = f'Invalid form: {form}'
+                        raise s_exc.NoSuchForm(mesg=mesg, form=form)
 
-                        realprop = realform.prop(prop)
-                        if not realprop: # pragma: no cover
-                            mesg = f'Invalid prop: {form}:{prop}'
-                            raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
+                    realprop = realform.prop(prop)
+                    if not realprop: # pragma: no cover
+                        mesg = f'Invalid prop: {form}:{prop}'
+                        raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
 
-                        if delete:
-                            self.core.confirmPropDel(user, realprop, gateiden)
-                        else:
-                            self.core.confirmPropSet(user, realprop, gateiden)
+                    if delete:
+                        self.core.confirmPropDel(user, realprop, gateiden)
+                    else:
+                        self.core.confirmPropSet(user, realprop, gateiden)
 
-                    elif not prop and not allow_forms:
-                        user.confirm(perm_forms + (form,), gateiden=gateiden)
+                elif not prop and not allow_forms:
+                    user.confirm(perm_forms + (form,), gateiden=gateiden)
 
         # tagprops
         if not allow_tags:
-            async for byts, abrv in s_coro.pause(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
-                info = s_msgpack.un(byts)
-                if None in info or len(info) != 3:
-                    continue
-
-                if self.layrslab.prefexists(abrv, db=self.bytagprop):
-                    perm = perm_tags + tuple(info[1].split('.'))
-                    user.confirm(perm, gateiden=gateiden)
+            async for tagprop in s_coro.pause(self.getTagProps()):
+                perm = perm_tags + tuple(tagprop[1].split('.'))
+                user.confirm(perm, gateiden=gateiden)
 
         # nodedata
         if not allow_ndata:
             async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname)):
-                name, _ = self.getAbrvProp(abrv)
-                perm = perm_ndata + (name,)
+                key = self.core.getAbrvIndx(abrv[:8])
+                perm = perm_ndata + key
                 user.confirm(perm, gateiden=gateiden)
 
         # edges
         if not allow_edges:
-            async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb)):
-                perm = perm_edges + (verb.decode(),)
+            async for _, verbabrv, _, _ in s_coro.pause(self.getEdges()):
+                verb = self.core.getAbrvIndx(verbabrv)
+                perm = perm_edges + verb
                 user.confirm(perm, gateiden=gateiden)
+
+        # FIXME: tombstones??
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
@@ -4660,7 +4656,7 @@ class Layer(s_nexus.Pusher):
             async with self.core.getSpooledDict() as tags:
 
                 # Collect all tag abrvs for all nodes in the layer
-                async for lkey, buid in s_coro.pause(self.layrslab.scanByFull(db=self.bytag)):
+                async for lkey, buid in s_coro.pause(self.layrslab.scanByPref(INDX_TAG, db=self.indxdb)):
                     abrv = lkey[:8]
                     abrvs = list(tags.get(buid, []))
                     abrvs.append(abrv)

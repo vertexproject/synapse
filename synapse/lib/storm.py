@@ -2180,7 +2180,7 @@ class Runtime(s_base.Base):
         if self.asroot:
             return self._admin_reason
 
-        return self.snap.core._propAllowedReason(self.user, perms, gateiden=gateiden, default=default)
+        return self.view.core._propAllowedReason(self.user, perms, gateiden=gateiden, default=default)
 
     def confirmPropSet(self, prop, layriden=None):
         if self.asroot:
@@ -2189,7 +2189,7 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.view.wlyr.iden
 
-        return self.snap.core.confirmPropSet(self.user, prop, layriden=layriden)
+        return self.view.core.confirmPropSet(self.user, prop, layriden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
         if self.asroot:
@@ -2198,7 +2198,7 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.view.wlyr.iden
 
-        return self.snap.core.confirmPropDel(self.user, prop, layriden=layriden)
+        return self.view.core.confirmPropDel(self.user, prop, layriden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
