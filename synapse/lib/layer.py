@@ -4094,91 +4094,120 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0]
 
-    async def iterLayerAddPerms(self):
+    async def confirmLayerEditPerms(self, user, gateiden, delete=False):
+        if user.allowed(('node',), gateiden=gateiden):
+            return
+
+        if delete:
+            perm_forms = ('node', 'del')
+            perm_props = ('node', 'prop', 'del')
+            perm_tags = ('node', 'tag', 'del')
+            perm_ndata = ('node', 'data', 'pop')
+            perm_edges = ('node', 'edge', 'del')
+        else:
+            perm_forms = ('node', 'add')
+            perm_props = ('node', 'prop', 'set')
+            perm_tags = ('node', 'tag', 'add')
+            perm_ndata = ('node', 'data', 'set')
+            perm_edges = ('node', 'edge', 'add')
+
+        allow_forms = user.allowed(perm_forms, gateiden=gateiden)
+        allow_props = user.allowed(perm_props, gateiden=gateiden)
+        allow_tags = user.allowed(perm_tags, gateiden=gateiden)
+        allow_ndata = user.allowed(perm_ndata, gateiden=gateiden)
+        allow_edges = user.allowed(perm_edges, gateiden=gateiden)
+
+        if all((allow_forms, allow_props, allow_tags, allow_ndata, allow_edges)):
+            return
 
         # nodes & props
-        async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
-            form, prop = s_msgpack.un(byts)
-            if form is None:
-                continue
+        if not allow_forms or not allow_props:
+            async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
+                form, prop = s_msgpack.un(byts)
+                if form is None: # pragma: no cover
+                    continue
 
-            if self.layrslab.prefexists(abrv, db=self.byprop):
-                if prop:
-                    yield ('node', 'prop', 'set', f'{form}:{prop}')
-                else:
-                    yield ('node', 'add', form)
+                if self.layrslab.prefexists(abrv, db=self.byprop):
+                    if prop and not allow_props:
+                        realform = self.core.model.form(form)
+                        if not realform: # pragma: no cover
+                            mesg = f'Invalid form: {form}'
+                            raise s_exc.NoSuchForm(mesg=mesg, form=form)
+
+                        realprop = realform.prop(prop)
+                        if not realprop: # pragma: no cover
+                            mesg = f'Invalid prop: {form}:{prop}'
+                            raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
+
+                        if delete:
+                            self.core.confirmPropDel(user, realprop, gateiden)
+                        else:
+                            self.core.confirmPropSet(user, realprop, gateiden)
+
+                    elif not prop and not allow_forms:
+                        user.confirm(perm_forms + (form,), gateiden=gateiden)
 
         # tagprops
-        async for byts, abrv in s_coro.pause(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
-            info = s_msgpack.un(byts)
-            if None in info or len(info) != 3:
-                continue
+        if not allow_tags:
+            async for byts, abrv in s_coro.pause(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
+                info = s_msgpack.un(byts)
+                if None in info or len(info) != 3:
+                    continue
 
-            if self.layrslab.prefexists(abrv, db=self.bytagprop):
-                yield ('node', 'tag', 'add', *info[1].split('.'))
+                if self.layrslab.prefexists(abrv, db=self.bytagprop):
+                    perm = perm_tags + tuple(info[1].split('.'))
+                    user.confirm(perm, gateiden=gateiden)
 
         # nodedata
-        async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname, nodup=True)):
-            name, _ = self.getAbrvProp(abrv)
-            yield ('node', 'data', 'set', name)
+        if not allow_ndata:
+            async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname, nodup=True)):
+                name, _ = self.getAbrvProp(abrv)
+                perm = perm_ndata + (name,)
+                user.confirm(perm, gateiden=gateiden)
 
         # edges
-        async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb, nodup=True)):
-            yield ('node', 'edge', 'add', verb.decode())
+        if not allow_edges:
+            async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb, nodup=True)):
+                perm = perm_edges + (verb.decode(),)
+                user.confirm(perm, gateiden=gateiden)
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
-        async with self.core.getSpooledDict() as tags:
+        if not allow_tags:
+            async with self.core.getSpooledDict() as tags:
 
-            # Collect all tag abrvs for all nodes in the layer
-            async for lkey, buid in s_coro.pause(self.layrslab.scanByFull(db=self.bytag)):
-                abrv = lkey[:8]
-                abrvs = list(tags.get(buid, []))
-                abrvs.append(abrv)
-                await tags.set(buid, abrvs)
+                # Collect all tag abrvs for all nodes in the layer
+                async for lkey, buid in s_coro.pause(self.layrslab.scanByFull(db=self.bytag)):
+                    abrv = lkey[:8]
+                    abrvs = list(tags.get(buid, []))
+                    abrvs.append(abrv)
+                    await tags.set(buid, abrvs)
 
-            # Iterate over each node and it's tags
-            async for buid, abrvs in s_coro.pause(tags.items()):
-                seen = {}
+                # Iterate over each node and it's tags
+                async for buid, abrvs in s_coro.pause(tags.items()):
+                    seen = {}
 
-                if len(abrvs) == 1:
-                    # Easy optimization: If there's only one tag abrv, then it's a
-                    # leaf by default
-                    name = self.tagabrv.abrvToName(abrv)
-                    key = tuple(name.split('.'))
-                    yield ('node', 'tag', 'add', *key)
-
-                else:
-                    for abrv in abrvs:
+                    if len(abrvs) == 1:
+                        # Easy optimization: If there's only one tag abrv, then it's a
+                        # leaf by default
                         name = self.tagabrv.abrvToName(abrv)
-                        parts = tuple(name.split('.'))
-                        for idx in range(1, len(parts) + 1):
-                            key = tuple(parts[:idx])
-                            seen.setdefault(key, 0)
-                            seen[key] += 1
+                        key = tuple(name.split('.'))
+                        perm = perm_tags + key
+                        user.confirm(perm, gateiden=gateiden)
 
-                    for key, count in seen.items():
-                        if count == 1:
-                            yield ('node', 'tag', 'add', *key)
+                    else:
+                        for abrv in abrvs:
+                            name = self.tagabrv.abrvToName(abrv)
+                            parts = tuple(name.split('.'))
+                            for idx in range(1, len(parts) + 1):
+                                key = tuple(parts[:idx])
+                                seen.setdefault(key, 0)
+                                seen[key] += 1
 
-    async def iterLayerDelPerms(self):
-        async for perm in self.iterLayerAddPerms():
-            if perm[:2] == ('node', 'add'):
-                yield ('node', 'del', *perm[2:])
-                continue
-
-            match perm[:3]:
-                case ('node', 'prop', 'set'):
-                    yield ('node', 'prop', 'del', *perm[3:])
-
-                case ('node', 'tag', 'add'):
-                    yield ('node', 'tag', 'del', *perm[3:])
-
-                case ('node', 'data', 'set'):
-                    yield ('node', 'data', 'pop', *perm[3:])
-
-                case ('node', 'edge', 'add'):
-                    yield ('node', 'edge', 'del', *perm[3:])
+                        for key, count in seen.items():
+                            if count == 1:
+                                perm = perm_tags + key
+                                user.confirm(perm, gateiden=gateiden)
 
     async def iterLayerNodeEdits(self):
         '''

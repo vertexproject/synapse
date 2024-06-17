@@ -39,7 +39,7 @@ async def agen(item):
     for x in item:
         yield x
 
-async def pause(genr, iterations=1000):
+async def pause(genr, iterations=10):
     idx = 0
 
     async for out in agen(genr):
