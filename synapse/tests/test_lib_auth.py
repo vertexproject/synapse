@@ -1,3 +1,4 @@
+import string
 import pathlib
 
 import synapse.exc as s_exc
@@ -394,3 +395,115 @@ class AuthTest(s_test.SynTest):
                 await core.auth.allrole.setRules([(True, ('hehe', 'haha'), 'newp')])
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, )])
+
+    async def test_auth_password_policy(self):
+        policy = {
+            'complexity': {
+                'length': 12,
+                'sequences': 3,
+                'upper:count': 2,
+                'lower:count': 2,
+                'lower:valid': string.ascii_lowercase + 'αβγ',
+                'special:count': 2,
+                'number:count': 2,
+            },
+            'attempts': 3,
+            'previous': 2,
+        }
+
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+
+            user = await auth.addUser('blackout@vertex.link')
+
+            # Compliant passwords
+            pass1 = 'jhf9_gaf-xaw-QBX4dqp'
+            pass2 = 'rek@hjv6VBV2rwe2qwd!'
+            pass3 = 'ZXN-pyv7ber-kzq2kgh'
+            await core.setUserPasswd(user.iden, pass1)
+            await core.setUserPasswd(user.iden, pass2)
+            await core.setUserPasswd(user.iden, pass3)
+
+            # Test password attempt reset
+            await core.tryUserPasswd(user.name, 'foo')
+            self.eq(user.info.get('policy:attempts'), 1)
+
+            await core.tryUserPasswd(user.name, pass3)
+            self.eq(user.info.get('policy:attempts'), 0)
+
+            # Test lockout from too many invalid attempts
+            await core.tryUserPasswd(user.name, 'foo')
+            await core.tryUserPasswd(user.name, 'foo')
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.tryUserPasswd(user.name, 'foo')
+            attempts = exc.exception.get('attempts')
+            self.eq(3, attempts)
+            self.true(user.info.get('locked'))
+
+            await user.setLocked(False)
+
+            # Test reusing previous password
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, pass2)
+            self.eq(exc.exception.get('failures'), [
+                'Password cannot be the same as previous 2 password(s).'
+            ])
+
+            await core.setUserPasswd(user.iden, pass1)
+
+            # Test password that doesn't meet complexity requirements
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'Ff1!')
+            self.eq(exc.exception.get('failures'), [
+                'Password must be at least 12 characters.',
+                'Password must contain at least 2 uppercase characters, 1 found.',
+                'Password must contain at least 2 lowercase characters, 1 found.',
+                'Password must contain at least 2 special characters, 1 found.',
+                'Password must contain at least 2 digit characters, 1 found.'
+            ])
+
+            # Check sequences
+            seqmsg = f'Password must not contain forward/reverse sequences longer than 3 characters.'
+            passwords = [
+                # letters
+                'abcA', 'dcbA', 'Abcd', 'Acba',
+
+                # numbers
+                '123A', '432A', 'A234', 'A321',
+
+                # greek alphabet (unicode test)
+                'αβγA', 'Aαβγ', 'γβαA', 'Aγβα',
+
+            ]
+
+            for password in passwords:
+                with self.raises(s_exc.BadArg) as exc:
+                    await core.setUserPasswd(user.iden, password)
+                self.isin(seqmsg, exc.exception.get('failures'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'AAAA')
+            self.eq(exc.exception.get('failures'), [
+                'Password must be at least 12 characters.',
+                'Password must contain at least 2 lowercase characters, 0 found.',
+                'Password must contain at least 2 special characters, 0 found.',
+                'Password must contain at least 2 digit characters, 0 found.'
+            ])
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'aaaa')
+            self.eq(exc.exception.get('failures'), [
+                'Password must be at least 12 characters.',
+                'Password must contain at least 2 uppercase characters, 0 found.',
+                'Password must contain at least 2 special characters, 0 found.',
+                'Password must contain at least 2 digit characters, 0 found.'
+            ])
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, None)
+            self.isin(
+                'Password must be at least 12 characters.',
+                exc.exception.get('failures')
+            )

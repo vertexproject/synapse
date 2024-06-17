@@ -1,3 +1,5 @@
+import string
+
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
@@ -301,3 +303,85 @@ _authRulesSchema = {
     }
 }
 reqValidRules = s_config.getJsValidator(_authRulesSchema)
+
+passwdPolicySchema = {
+    'description': 'Specify password policy/complexity requirements.',
+    'type': 'object',
+    'properties': {
+        'complexity': {
+            'type': 'object',
+            'properties': {
+                'length': {
+                    'type': 'number',
+                    'minimum': 0,
+                    'default': 1,
+                    'description': 'Minimum password character length.',
+                },
+                'sequences': {
+                    'type': 'number',
+                    'minimum': 0,
+                    'default': 0,
+                    'description': 'Maximum sequence length in a password. Sequences can be letters or number, forward or reverse.',
+                },
+                'upper:count': {
+                    'type': 'number',
+                    'minimum': 0,
+                    'default': 0,
+                    'description': 'The minimum number of uppercase characters required in password.',
+                },
+                'upper:valid': {
+                    'type': 'string',
+                    'default': string.ascii_uppercase,
+                    'description': 'All valid uppercase characters.',
+                },
+                'lower:count': {
+                    'type': 'number',
+                    'minimum': 0,
+                    'default': 0,
+                    'description': 'The minimum number of lowercase characters required in password.',
+                },
+                'lower:valid': {
+                    'type': 'string',
+                    'default': string.ascii_lowercase,
+                    'description': 'All valid lowercase characters.',
+                },
+                'special:count': {
+                    'type': 'number',
+                    'minimum': 0,
+                    'default': 0,
+                    'description': 'The minimum number of special characters required in password.',
+                },
+                'special:valid': {
+                    'type': 'string',
+                    'default': string.punctuation,
+                    'description': 'All valid special characters.',
+                },
+                'number:count': {
+                    'type': 'number',
+                    'minimum': 0,
+                    'default': 0,
+                    'description': 'The minimum number of digit characters required in password.',
+                },
+                'number:valid': {
+                    'type': 'string',
+                    'default': string.digits,
+                    'description': 'All valid digit characters.',
+                },
+            },
+            'additionalProperties': False,
+        },
+        'attempts': {
+            'type': 'number',
+            'minimum': 0,
+            'default': 0,
+            'description': 'Maximum number of incorrect attempts before locking user account.',
+        },
+        'previous': {
+            'type': 'number',
+            'minimum': 1,
+            'default': 1,
+            'description': 'Number of previous passwords to disallow.',
+        },
+    },
+    'additionalProperties': False,
+}

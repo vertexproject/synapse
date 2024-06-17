@@ -118,7 +118,7 @@ class Auth(s_nexus.Pusher):
 
     '''
 
-    async def __anit__(self, slab, dbname, pref='', nexsroot=None, seed=None, maxusers=0):
+    async def __anit__(self, slab, dbname, pref='', nexsroot=None, seed=None, maxusers=0, policy=None):
         '''
         Args:
             slab (s_lmdb.Slab): The slab to use for persistent storage for auth
@@ -137,6 +137,7 @@ class Auth(s_nexus.Pusher):
             seed = s_common.guid()
 
         self.maxusers = maxusers
+        self.policy = policy
 
         self.userdefs = self.stor.getSubKeyVal('user:info:')
         self.useridenbyname = self.stor.getSubKeyVal('user:name:')
@@ -1253,7 +1254,25 @@ class User(Ruler):
             return False
 
         if isinstance(shadow, dict):
-            return await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
+            result = await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
+            if self.auth.policy and (attempts := self.auth.policy['attempts']) > 0:
+                if result:
+                    await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
+                    return True
+
+                valu = self.info.get('policy:attempts', 0) + 1
+                await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
+
+                if valu >= attempts:
+                    await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
+
+                    mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu +1}), locking their account.'
+                    extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
+                    logger.info(mesg, extra=extra)
+
+                    raise s_exc.AuthDeny(mesg=mesg, attempts=attempts, user=self.iden, username=self.name)
+
+            return result
 
         # Backwards compatible password handling
         salt, hashed = shadow
@@ -1267,6 +1286,104 @@ class User(Ruler):
 
         return False
 
+    async def _checkPasswdPolicy(self, passwd, shadow, nexs=True):
+        if not self.auth.policy:
+            return
+
+        failures = []
+
+        # Check complexity of password
+        complexity = self.auth.policy.get('complexity')
+
+        # Check password length
+        minlen = complexity.get('length')
+        if minlen and (passwd is None or len(passwd) < minlen):
+            failures.append(f'Password must be at least {minlen} characters.')
+
+        if minlen and passwd is None:
+            # Set password to empty string so we get the rest of the failure info
+            passwd = ''
+
+        if passwd is None:
+            return
+
+        allvalid = []
+
+        # Check uppercase
+        count = complexity.get('upper:count')
+        valid = complexity.get('upper:valid')
+        allvalid.append(valid)
+
+        if count and (found := len([k for k in passwd if k in valid])) < count:
+            failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
+
+        # Check lowercase
+        count = complexity.get('lower:count')
+        valid = complexity.get('lower:valid')
+        allvalid.append(valid)
+
+        if count and (found := len([k for k in passwd if k in valid])) < count:
+            failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
+
+        # Check special
+        count = complexity.get('special:count')
+        valid = complexity.get('special:valid')
+        allvalid.append(valid)
+
+        if count and (found := len([k for k in passwd if k in valid])) < count:
+            failures.append(f'Password must contain at least {count} special characters, {found} found.')
+
+        # Check numbers
+        count = complexity.get('number:count')
+        valid = complexity.get('number:valid')
+        allvalid.append(valid)
+
+        if count and (found := len([k for k in passwd if k in valid])) < count:
+            failures.append(f'Password must contain at least {count} digit characters, {found} found.')
+
+        allvalid = ''.join(allvalid)
+        if (invalid := set(passwd) - set(allvalid)):
+            failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
+
+        # Check sequences
+        seqlen = complexity.get('sequences')
+        if seqlen > 1:
+            # Convert each character to it's ordinal value so we can look for
+            # forward and reverse sequences in windows of seqlen. Doing it this
+            # way allows us to easily check unicode sequences too.
+            passb = [ord(k) for k in passwd]
+            for offs in range(len(passwd) - (seqlen - 1)):
+                curv = passb[offs]
+                fseq = list(range(curv, curv + seqlen))
+                rseq = list(range(curv, curv - seqlen, -1))
+                window = passb[offs:offs + seqlen]
+                if window == fseq or window == rseq:
+                    failures.append(f'Password must not contain forward/reverse sequences longer than {seqlen} characters.')
+                    break
+
+        # Check for previous password reuse
+        prevvalu = self.auth.policy.get('previous')
+        if prevvalu:
+            previous = self.info.get('policy:previous', ())
+            for prevshad in previous:
+                if await s_passwd.checkShadowV2(passwd, prevshad):
+                    failures.append(f'Password cannot be the same as previous {prevvalu} password(s).')
+                    break
+
+        if failures:
+            mesg = ['Cannot change password due to the following policy violations:']
+            mesg.extend(f'  - {msg}' for msg in failures)
+            raise s_exc.BadArg(mesg='\n'.join(mesg), failures=failures)
+
+        if prevvalu:
+            # Looks like this password is good, add it to the list of previous passwords
+            previous = self.info.get('policy:previous', ())
+            previous = (shadow,) + previous
+            if nexs:
+                await self.auth.setUserInfo(self.iden, 'policy:previous', previous[:prevvalu])
+            else:
+                await self.auth._hndlsetUserInfo(self.iden, 'policy:previous', previous[:prevvalu], logged=nexs)
+
     async def setPasswd(self, passwd, nexs=True):
         # Prevent empty string or non-string values
         if passwd is None:
@@ -1275,6 +1392,9 @@ class User(Ruler):
             shadow = await s_passwd.getShadowV2(passwd=passwd)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
+
+        await self._checkPasswdPolicy(passwd, shadow, nexs=nexs)
+
         if nexs:
             await self.auth.setUserInfo(self.iden, 'passwd', shadow)
         else:

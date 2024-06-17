@@ -893,6 +893,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hideconf': True,
         },
+        'auth:passwd:policy': s_schemas.passwdPolicySchema,
         'max:users': {
             'default': 0,
             'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
@@ -3196,6 +3197,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return await ctor(self)
 
         maxusers = self.conf.get('max:users')
+        policy = self.conf.get('auth:passwd:policy')
 
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
@@ -3204,7 +3206,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'auth',
             seed=seed,
             nexsroot=self.getCellNexsRoot(),
-            maxusers=maxusers
+            maxusers=maxusers,
+            policy=policy
         )
 
         auth.link(self.dist)
