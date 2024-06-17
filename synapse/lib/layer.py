@@ -3692,6 +3692,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
 
         kvpairs = []
+        kvpairs = [(INDX_TAG + abrv, nid)]
 
         if sode.get('form') is None:
             sode['form'] = form
@@ -3746,6 +3747,7 @@ class Layer(s_nexus.Pusher):
         if oldv == (None, None):
             self.layrslab.delete(abrv, nid, db=self.indxdb)
             self.layrslab.delete(formabrv, nid, db=self.indxdb)
+            self.layrslab.delete(INDX_TAG + abrv, nid, db=self.indxdb)
         else:
             if oldv[1] == self.ivaltimetype.futsize:
                 dura = self.stortypes[STOR_TYPE_IVAL].maxdura
@@ -4649,6 +4651,9 @@ class Layer(s_nexus.Pusher):
         # nodedata
         if not allow_ndata:
             async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname)):
+                if abrv[8:] == FLAG_TOMB:
+                    continue
+
                 key = self.core.getAbrvIndx(abrv[:8])
                 perm = perm_ndata + key
                 user.confirm(perm, gateiden=gateiden)
@@ -4711,41 +4716,15 @@ class Layer(s_nexus.Pusher):
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
         if not allow_tags:
-            async with self.core.getSpooledDict() as tags:
 
-                # Collect all tag abrvs for all nodes in the layer
-                async for lkey, buid in s_coro.pause(self.layrslab.scanByPref(INDX_TAG, db=self.indxdb)):
-                    breakpoint()
-                    abrv = lkey[:8]
-                    abrvs = list(tags.get(buid, []))
-                    abrvs.append(abrv)
-                    await tags.set(buid, abrvs)
+            # Collect all tag abrvs for all nodes in the layer
+            async for lkey, buid in s_coro.pause(self.layrslab.scanByPref(INDX_TAG, db=self.indxdb)):
+                byts = self.core.indxabrv.abrvToByts(lkey[2:])
+                info = s_msgpack.un(byts[2:])
+                tag = info[1]
 
-                # Iterate over each node and it's tags
-                async for buid, abrvs in s_coro.pause(tags.items()):
-                    seen = {}
-
-                    if len(abrvs) == 1:
-                        # Easy optimization: If there's only one tag abrv, then it's a
-                        # leaf by default
-                        name = self.tagabrv.abrvToName(abrv)
-                        key = tuple(name.split('.'))
-                        perm = perm_tags + key
-                        user.confirm(perm, gateiden=gateiden)
-
-                    else:
-                        for abrv in abrvs:
-                            name = self.tagabrv.abrvToName(abrv)
-                            parts = tuple(name.split('.'))
-                            for idx in range(1, len(parts) + 1):
-                                key = tuple(parts[:idx])
-                                seen.setdefault(key, 0)
-                                seen[key] += 1
-
-                        for key, count in seen.items():
-                            if count == 1:
-                                perm = perm_tags + key
-                                user.confirm(perm, gateiden=gateiden)
+                perm = perm_tags + tuple(tag.split('.'))
+                user.confirm(perm, gateiden=gateiden)
 
     async def iterLayerNodeEdits(self):
         '''

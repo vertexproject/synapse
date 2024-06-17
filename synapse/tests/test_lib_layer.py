@@ -1984,41 +1984,41 @@ class LayerTest(s_t_utils.SynTest):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, parent.iden)
 
-                # self.eq(seen, {
-                #     # Node add
-                #     ('node', 'add', 'syn:tag'),
-                #     ('node', 'add', 'test:str'),
+                self.eq(seen, {
+                    # Node add
+                    ('node', 'add', 'syn:tag'),
+                    ('node', 'add', 'test:str'),
 
-                #     # Old style prop set
-                #     ('node', 'prop', 'set', 'test:str:hehe'),
-                #     ('node', 'prop', 'set', 'test:str.created'),
+                    # Old style prop set
+                    ('node', 'prop', 'set', 'test:str:hehe'),
+                    ('node', 'prop', 'set', 'test:str.created'),
 
-                #     ('node', 'prop', 'set', 'syn:tag:up'),
-                #     ('node', 'prop', 'set', 'syn:tag:base'),
-                #     ('node', 'prop', 'set', 'syn:tag:depth'),
-                #     ('node', 'prop', 'set', 'syn:tag.created'),
+                    ('node', 'prop', 'set', 'syn:tag:up'),
+                    ('node', 'prop', 'set', 'syn:tag:base'),
+                    ('node', 'prop', 'set', 'syn:tag:depth'),
+                    ('node', 'prop', 'set', 'syn:tag.created'),
 
-                #     # New style prop set
-                #     ('node', 'prop', 'set', 'test:str', 'hehe'),
-                #     ('node', 'prop', 'set', 'test:str', '.created'),
+                    # New style prop set
+                    ('node', 'prop', 'set', 'test:str', 'hehe'),
+                    ('node', 'prop', 'set', 'test:str', '.created'),
 
-                #     ('node', 'prop', 'set', 'syn:tag', 'up'),
-                #     ('node', 'prop', 'set', 'syn:tag', 'base'),
-                #     ('node', 'prop', 'set', 'syn:tag', 'depth'),
-                #     ('node', 'prop', 'set', 'syn:tag', '.created'),
+                    ('node', 'prop', 'set', 'syn:tag', 'up'),
+                    ('node', 'prop', 'set', 'syn:tag', 'base'),
+                    ('node', 'prop', 'set', 'syn:tag', 'depth'),
+                    ('node', 'prop', 'set', 'syn:tag', '.created'),
 
-                #     # Tag/tagprop add
-                #     ('node', 'tag', 'add', 'foo'),
-                #     ('node', 'tag', 'add', 'bar'),
-                #     ('node', 'tag', 'add', 'foo', 'bar'),
-                #     ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
+                    # Tag/tagprop add
+                    ('node', 'tag', 'add', 'foo'),
+                    ('node', 'tag', 'add', 'bar'),
+                    ('node', 'tag', 'add', 'foo', 'bar'),
+                    ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
 
-                #     # Nodedata set
-                #     ('node', 'data', 'set', 'foo'),
+                    # Nodedata set
+                    ('node', 'data', 'set', 'foo'),
 
-                #     # Edge add
-                #     ('node', 'edge', 'add', 'refs'),
-                # })
+                    # Edge add
+                    ('node', 'edge', 'add', 'refs'),
+                })
 
                 await core.nodes('''
                     test:str=foo
@@ -2030,11 +2030,11 @@ class LayerTest(s_t_utils.SynTest):
                 await core.nodes('''
                     ps:name:given=biff
                     [ <(seen)- { meta:source:type=movie } ]
-                    $node.data.pop(movie)
                     | delnode |
 
                     ps:name=emmett [ -:given ]
                     ps:name=marty [ -#performance:score -#role.protagonist ]
+                    $node.data.pop(movie)
                 ''', opts=opts)
 
                 seen.clear()
@@ -2065,6 +2065,7 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'prop', 'set', 'syn:tag', '.created'),
 
                     # Tag/tagprop add
+                    ('node', 'tag', 'add', 'foo'),
                     ('node', 'tag', 'add', 'foo', 'bar'),
 
                     # Node del (tombstone)
@@ -2114,7 +2115,25 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'prop', 'del', 'syn:tag', '.created'),
 
                     # Tag/tagprop del
+                    ('node', 'tag', 'del', 'foo'),
                     ('node', 'tag', 'del', 'foo', 'bar'),
+
+                    # Node add (restore tombstone)
+                    ('node', 'add', 'ps:name'),
+
+                    # Prop set (restore tombstone)
+                    ('node', 'prop', 'set', 'ps:name', 'given'),
+
+                    # Tag/tagprop add (restore tombstone)
+                    ('node', 'tag', 'add', 'role', 'protagonist'),
+                    ('node', 'tag', 'add', 'performance', 'score'),
+
+                    # Nodedata set (tombstone restore)
+                    ('node', 'data', 'set', 'movie'),
+
+                    # Edge add (tombstone restor)
+                    ('node', 'edge', 'add', 'seen'),
+
                 })
 
     async def test_layer_fromfuture(self):
