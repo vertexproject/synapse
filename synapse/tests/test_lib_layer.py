@@ -1924,8 +1924,14 @@ class LayerTest(s_t_utils.SynTest):
                 user = await core.auth.addUser('blackout@vertex.link')
 
                 viewiden = await core.callStorm('''
-                    $lyr = $lib.layer.add()
-                    $view = $lib.view.add(($lyr.iden,))
+                    [
+                        (ps:name=* :given=marty)
+                        (ps:name=* :given=emmett)
+                        (ps:name=* :given=biff)
+                        (ps:name=* :given=george)
+                        (ps:name=* :given=loraine)
+                    ]
+                    $view = $lib.view.get().fork()
                     return($view.iden)
                 ''')
 
@@ -2005,10 +2011,17 @@ class LayerTest(s_t_utils.SynTest):
                 })
 
                 await core.nodes('''
-                    test:str=foo
-                    [ <(refs)- { test:str=bar } ]
-                    $node.data.pop(foo)
-                    | delnode
+                    {
+                        test:str=foo
+                        [ <(refs)- { test:str=bar } ]
+                        $node.data.pop(foo)
+                        | delnode
+                    }
+                    {
+                        ps:name:given=biff
+                        ps:name:given=george
+                        | delnode
+                    }
                 ''', opts=opts)
 
                 seen.clear()

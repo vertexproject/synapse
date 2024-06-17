@@ -4648,7 +4648,10 @@ class Layer(s_nexus.Pusher):
                 perm = perm_edges + verb
                 user.confirm(perm, gateiden=gateiden)
 
-        # FIXME: tombstones??
+        # tombstones
+        async for nid, tombtype, tombinfo in s_coro.pause(self.iterTombstones()):
+            # FIXME: what to do here?
+            pass
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
