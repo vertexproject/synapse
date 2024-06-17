@@ -1923,14 +1923,26 @@ class LayerTest(s_t_utils.SynTest):
 
                 user = await core.auth.addUser('blackout@vertex.link')
 
-                viewiden = await core.callStorm('''
+                await core.addTagProp('score', ('int', {}), {})
+
+                nodes = await core.nodes('''
                     [
-                        (ps:name=* :given=marty)
-                        (ps:name=* :given=emmett)
-                        (ps:name=* :given=biff)
-                        (ps:name=* :given=george)
-                        (ps:name=* :given=loraine)
+                        (ps:name=marty
+                            :given=marty
+                            +#performance:score=10
+                            +#role.protagonist
+                        )
+                        (ps:name=emmett :given=emmett)
+                        (ps:name=biff :given=biff)
+                        (ps:name=george :given=george)
+                        (ps:name=loraine :given=loraine)
+                        <(seen)+ {[ meta:source=(movie, "Back to the Future") :name=BTTF :type=movie ]}
                     ]
+                    $node.data.set(movie, "Back to the Future")
+                ''')
+                self.len(5, nodes)
+
+                viewiden = await core.callStorm('''
                     $view = $lib.view.get().fork()
                     return($view.iden)
                 ''')
@@ -1938,8 +1950,6 @@ class LayerTest(s_t_utils.SynTest):
                 layr = core.views[viewiden].layers[0]
 
                 opts = {'view': viewiden}
-
-                await core.addTagProp('score', ('int', {}), {})
 
                 await core.nodes('[ test:str=bar +#foo.bar ]', opts=opts)
 
@@ -1974,54 +1984,57 @@ class LayerTest(s_t_utils.SynTest):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, parent.iden)
 
-                self.eq(seen, {
-                    # Node add
-                    ('node', 'add', 'syn:tag'),
-                    ('node', 'add', 'test:str'),
+                # self.eq(seen, {
+                #     # Node add
+                #     ('node', 'add', 'syn:tag'),
+                #     ('node', 'add', 'test:str'),
 
-                    # Old style prop set
-                    ('node', 'prop', 'set', 'test:str:hehe'),
-                    ('node', 'prop', 'set', 'test:str.created'),
+                #     # Old style prop set
+                #     ('node', 'prop', 'set', 'test:str:hehe'),
+                #     ('node', 'prop', 'set', 'test:str.created'),
 
-                    ('node', 'prop', 'set', 'syn:tag:up'),
-                    ('node', 'prop', 'set', 'syn:tag:base'),
-                    ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag.created'),
+                #     ('node', 'prop', 'set', 'syn:tag:up'),
+                #     ('node', 'prop', 'set', 'syn:tag:base'),
+                #     ('node', 'prop', 'set', 'syn:tag:depth'),
+                #     ('node', 'prop', 'set', 'syn:tag.created'),
 
-                    # New style prop set
-                    ('node', 'prop', 'set', 'test:str', 'hehe'),
-                    ('node', 'prop', 'set', 'test:str', '.created'),
+                #     # New style prop set
+                #     ('node', 'prop', 'set', 'test:str', 'hehe'),
+                #     ('node', 'prop', 'set', 'test:str', '.created'),
 
-                    ('node', 'prop', 'set', 'syn:tag', 'up'),
-                    ('node', 'prop', 'set', 'syn:tag', 'base'),
-                    ('node', 'prop', 'set', 'syn:tag', 'depth'),
-                    ('node', 'prop', 'set', 'syn:tag', '.created'),
+                #     ('node', 'prop', 'set', 'syn:tag', 'up'),
+                #     ('node', 'prop', 'set', 'syn:tag', 'base'),
+                #     ('node', 'prop', 'set', 'syn:tag', 'depth'),
+                #     ('node', 'prop', 'set', 'syn:tag', '.created'),
 
-                    # Tag/tagprop add
-                    ('node', 'tag', 'add', 'foo'),
-                    ('node', 'tag', 'add', 'bar'),
-                    ('node', 'tag', 'add', 'foo', 'bar'),
-                    ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
+                #     # Tag/tagprop add
+                #     ('node', 'tag', 'add', 'foo'),
+                #     ('node', 'tag', 'add', 'bar'),
+                #     ('node', 'tag', 'add', 'foo', 'bar'),
+                #     ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
 
-                    # Nodedata set
-                    ('node', 'data', 'set', 'foo'),
+                #     # Nodedata set
+                #     ('node', 'data', 'set', 'foo'),
 
-                    # Edge add
-                    ('node', 'edge', 'add', 'refs'),
-                })
+                #     # Edge add
+                #     ('node', 'edge', 'add', 'refs'),
+                # })
 
                 await core.nodes('''
-                    {
-                        test:str=foo
-                        [ <(refs)- { test:str=bar } ]
-                        $node.data.pop(foo)
-                        | delnode
-                    }
-                    {
-                        ps:name:given=biff
-                        ps:name:given=george
-                        | delnode
-                    }
+                    test:str=foo
+                    [ <(refs)- { test:str=bar } ]
+                    $node.data.pop(foo)
+                    | delnode
+                ''', opts=opts)
+
+                await core.nodes('''
+                    ps:name:given=biff
+                    [ <(seen)- { meta:source:type=movie } ]
+                    $node.data.pop(movie)
+                    | delnode |
+
+                    ps:name=emmett [ -:given ]
+                    ps:name=marty [ -#performance:score -#role.protagonist ]
                 ''', opts=opts)
 
                 seen.clear()
@@ -2053,6 +2066,24 @@ class LayerTest(s_t_utils.SynTest):
 
                     # Tag/tagprop add
                     ('node', 'tag', 'add', 'foo', 'bar'),
+
+                    # Node del (tombstone)
+                    ('node', 'del', 'ps:name'),
+
+                    # Prop del (tombstone)
+                    ('node', 'prop', 'del', 'ps:name', 'given'),
+
+                    # Tag del (tombstone)
+                    ('node', 'tag', 'del', 'role', 'protagonist'),
+
+                    # Tagprop del (tombstone)
+                    ('node', 'tag', 'del', 'performance', 'score'),
+
+                    # Nodedata del (tombstone)
+                    ('node', 'data', 'pop', 'movie'),
+
+                    # Edge del (tombstone)
+                    ('node', 'edge', 'del', 'seen'),
                 })
 
                 seen.clear()

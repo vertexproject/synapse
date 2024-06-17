@@ -3328,7 +3328,7 @@ class Layer(s_nexus.Pusher):
         if sode.get('antivalu') is not None:
             return ()
 
-        abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
+        abrv = self.core.setIndxAbrv(INDX_FORM, form, None)
 
         sode['antivalu'] = True
 
@@ -4581,18 +4581,30 @@ class Layer(s_nexus.Pusher):
         if user.allowed(('node',), gateiden=gateiden):
             return
 
+        perm_del_form = ('node', 'del')
+        perm_del_prop = ('node', 'prop', 'del')
+        perm_del_tag = ('node', 'tag', 'del')
+        perm_del_ndata = ('node', 'data', 'pop')
+        perm_del_edge = ('node', 'edge', 'del')
+
+        perm_add_form = ('node', 'add')
+        perm_add_prop = ('node', 'prop', 'set')
+        perm_add_tag = ('node', 'tag', 'add')
+        perm_add_ndata = ('node', 'data', 'set')
+        perm_add_edge = ('node', 'edge', 'add')
+
         if delete:
-            perm_forms = ('node', 'del')
-            perm_props = ('node', 'prop', 'del')
-            perm_tags = ('node', 'tag', 'del')
-            perm_ndata = ('node', 'data', 'pop')
-            perm_edges = ('node', 'edge', 'del')
+            perm_forms = perm_del_form
+            perm_props = perm_del_prop
+            perm_tags = perm_del_tag
+            perm_ndata = perm_del_ndata
+            perm_edges = perm_del_edge
         else:
-            perm_forms = ('node', 'add')
-            perm_props = ('node', 'prop', 'set')
-            perm_tags = ('node', 'tag', 'add')
-            perm_ndata = ('node', 'data', 'set')
-            perm_edges = ('node', 'edge', 'add')
+            perm_forms = perm_add_form
+            perm_props = perm_add_prop
+            perm_tags = perm_add_tag
+            perm_ndata = perm_add_ndata
+            perm_edges = perm_add_edge
 
         allow_forms = user.allowed(perm_forms, gateiden=gateiden)
         allow_props = user.allowed(perm_props, gateiden=gateiden)
@@ -4648,9 +4660,53 @@ class Layer(s_nexus.Pusher):
                 user.confirm(perm, gateiden=gateiden)
 
         # tombstones
-        async for nid, tombtype, tombinfo in s_coro.pause(self.iterTombstones()):
-            # FIXME: what to do here?
-            pass
+        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(INDX_TOMB, db=self.indxdb)):
+            byts = self.core.indxabrv.abrvToByts(lkey[2:10])
+            tombtype = byts[:2]
+            tombinfo = s_msgpack.un(byts[2:])
+
+            perm = None
+
+            if tombtype == INDX_FORM and not allow_forms:
+                if delete:
+                    perm = perm_add_form + (tombinfo[0],)
+                else:
+                    perm = perm_del_form + (tombinfo[0],)
+
+            elif tombtype == INDX_PROP and not allow_props:
+                if delete:
+                    perm = perm_add_prop + tombinfo
+                else:
+                    perm = perm_del_prop + tombinfo
+
+            elif tombtype == INDX_TAG and not allow_tags:
+                if delete:
+                    perm = perm_add_tag + tuple(tombinfo[1].split('.'))
+                else:
+                    perm = perm_del_tag + tuple(tombinfo[1].split('.'))
+
+            elif tombtype == INDX_TAGPROP and not allow_tags:
+                if delete:
+                    perm = perm_add_tag + tombinfo[1:]
+                else:
+                    perm = perm_del_tag + tombinfo[1:]
+
+            elif tombtype == INDX_NODEDATA and not allow_ndata:
+                if delete:
+                    perm = perm_add_ndata + tombinfo
+                else:
+                    perm = perm_del_ndata + tombinfo
+
+            elif tombtype == INDX_EDGE_VERB and not allow_edges:
+                if delete:
+                    perm = perm_add_edge + tombinfo
+                else:
+                    perm = perm_del_edge + tombinfo
+            else:
+                breakpoint()
+
+            if perm is not None:
+                user.confirm(perm, gateiden=gateiden)
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
@@ -4659,6 +4715,7 @@ class Layer(s_nexus.Pusher):
 
                 # Collect all tag abrvs for all nodes in the layer
                 async for lkey, buid in s_coro.pause(self.layrslab.scanByPref(INDX_TAG, db=self.indxdb)):
+                    breakpoint()
                     abrv = lkey[:8]
                     abrvs = list(tags.get(buid, []))
                     abrvs.append(abrv)
