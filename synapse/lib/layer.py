@@ -3817,7 +3817,7 @@ class Layer(s_nexus.Pusher):
 
     async def getEdgeVerbs(self):
 
-        for lkey in self.layrslab.scanKeys(db=self.byverb):
+        for lkey in self.layrslab.scanKeys(db=self.byverb, nodup=True):
             yield lkey.decode()
 
     async def getEdges(self, verb=None):
@@ -4089,7 +4089,7 @@ class Layer(s_nexus.Pusher):
         '''
         Return a generator of all a buid's node data keys
         '''
-        for lkey in self.dataslab.scanKeysByPref(buid, db=self.nodedata):
+        for lkey in self.dataslab.scanKeysByPref(buid, db=self.nodedata, nodup=True):
             abrv = lkey[32:]
             prop = self.getAbrvProp(abrv)
             yield prop[0]
@@ -4118,12 +4118,12 @@ class Layer(s_nexus.Pusher):
                 yield ('node', 'tag', 'add', *info[1].split('.'))
 
         # nodedata
-        async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname)):
+        async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname, nodup=True)):
             name, _ = self.getAbrvProp(abrv)
             yield ('node', 'data', 'set', name)
 
         # edges
-        async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb)):
+        async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb, nodup=True)):
             yield ('node', 'edge', 'add', verb.decode())
 
         # tags
