@@ -3255,6 +3255,26 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://slack.com/api')
             resource = nodes[0]
 
+            nodes = await core.nodes('''
+                [ inet:service:bucket:item=*
+                    :creator={ inet:service:account:user=visi }
+                    :bucket={[ inet:service:bucket=* :name=foobar
+                        :creator={ inet:service:account:user=visi }
+                    ]}
+                    :file=*
+                    :file:name=woot.exe
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('bucket'))
+            self.nn(nodes[0].get('creator'))
+            self.eq('woot.exe', nodes[0].get('file:name'))
+            self.len(1, await core.nodes('inet:service:bucket -> inet:service:bucket:item -> file:bytes'))
+            self.len(1, await core.nodes('inet:service:bucket -> inet:service:bucket:item -> inet:service:account'))
+            self.len(1, await core.nodes('inet:service:bucket -> inet:service:account'))
+            self.len(1, await core.nodes('inet:service:bucket:name=foobar'))
+
             q = '''
             [ inet:service:access=(api, blackout, 1715856900000, vertex, slack)
                 :account=$blckiden

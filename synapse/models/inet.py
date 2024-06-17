@@ -1570,6 +1570,14 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:resource', ('guid', {}), {
                         'interfaces': ('inet:service:object',)}),
 
+                    ('inet:service:bucket', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A file/blob storage object within a service architecture.'}),
+
+                    ('inet:service:bucket:item', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'An individual file stored within a bucket.'}),
+
                     ('inet:tls:handshake', ('guid', {}), {
                         'doc': 'An instance of a TLS handshake between a server and client.'}),
 
@@ -3627,6 +3635,9 @@ class InetModule(s_module.CoreModule):
                         ('to', ('inet:service:account', {}), {
                             'doc': 'The destination account. Used for direct messages.'}),
 
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL where the message may be viewed.'}),
+
                         ('group', ('inet:service:group', {}), {
                             'doc': 'The group that the message was sent to.'}),
 
@@ -3727,10 +3738,25 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The primary URL where the resource is available from the service.'}),
 
                         ('type', ('inet:service:resource:type:taxonomy', {}), {
-                            'doc': 'The resource type. For example "s3.bucket", "file", or "rpc.endpoint".'}),
+                            'doc': 'The resource type. For example "rpc.endpoint".'}),
+                    )),
+
+                    ('inet:service:bucket', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the service resource.'}),
+                    )),
+
+                    ('inet:service:bucket:item', {}, (
+
+                        ('bucket', ('inet:service:bucket', {}), {
+                            'doc': 'The bucket which contains the item.'}),
 
                         ('file', ('file:bytes', {}), {
-                            'doc': 'The file bytes if this resource represents a static file such as an S3 bucket or file share.'}),
+                            'doc': 'The bytes stored within the bucket item.'}),
+
+                        ('file:name', ('file:path', {}), {
+                            'doc': 'The bytes stored within the bucket item.'}),
                     )),
 
                     ('inet:service:access', {}, (
