@@ -3010,8 +3010,8 @@ class InetModelTest(s_t_utils.SynTest):
                     :account=$blckiden
                     :group=$devsiden
                     :period=(20230601, ?)
-                    :granted=$visiiden
-                    :revoked=$visiiden
+                    :creator=$visiiden
+                    :remover=$visiiden
                 )
 
                 (inet:service:group:member=(visi, developers, group, vertex, slack)
@@ -3032,25 +3032,25 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('account'), blckacct.ndef[1])
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.eq(nodes[0].get('period'), (1685577600000, 9223372036854775807))
-            self.eq(nodes[0].get('granted'), visiacct.ndef[1])
-            self.eq(nodes[0].get('revoked'), visiacct.ndef[1])
+            self.eq(nodes[0].get('creator'), visiacct.ndef[1])
+            self.eq(nodes[0].get('remover'), visiacct.ndef[1])
 
             self.eq(nodes[1].get('account'), visiacct.ndef[1])
             self.eq(nodes[1].get('group'), devsgrp.ndef[1])
             self.eq(nodes[1].get('period'), (1420070400000, 9223372036854775807))
-            self.none(nodes[1].get('granted'))
-            self.none(nodes[1].get('revoked'))
+            self.none(nodes[1].get('creator'))
+            self.none(nodes[1].get('remover'))
 
             q = '''
             [ inet:service:session=*
-                :account=$blckiden
+                :creator=$blckiden
                 :period=(202405160900, 202405161055)
             ]
             '''
             opts = {'vars': {'blckiden': blckacct.ndef[1]}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].get('account'), blckacct.ndef[1])
+            self.eq(nodes[0].get('creator'), blckacct.ndef[1])
             self.eq(nodes[0].get('period'), (1715850000000, 1715856900000))
             blcksess = nodes[0]
 

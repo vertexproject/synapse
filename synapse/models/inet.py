@@ -1651,6 +1651,9 @@ class InetModule(s_module.CoreModule):
                             ('creator', ('inet:service:account', {}), {
                                 'doc': 'The service account which created the object.'}),
 
+                            ('remover', ('inet:service:account', {}), {
+                                'doc': 'The service account which removed or decommisioned the object.'}),
+
                         ),
                     }),
 
@@ -3567,12 +3570,6 @@ class InetModule(s_module.CoreModule):
 
                         ('period', ('ival', {}), {
                             'doc': 'The time period when the account was a member of the group.'}),
-
-                        ('granted', ('inet:service:account', {}), {
-                            'doc': 'The account which granted the membership.'}),
-
-                        ('revoked', ('inet:service:account', {}), {
-                            'doc': 'The account which revoked the membership.'}),
                     )),
 
                     ('inet:service:permission:type:taxonomy', {}, ()),
@@ -3607,7 +3604,7 @@ class InetModule(s_module.CoreModule):
                         ('id', ('str', {'strip': True}), {
                             'doc': 'The service specific session id.'}),
 
-                        ('account', ('inet:service:account', {}), {
+                        ('creator', ('inet:service:account', {}), {
                             'doc': 'The account which authenticated to create the session.'}),
 
                         ('period', ('ival', {}), {
