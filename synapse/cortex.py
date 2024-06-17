@@ -6953,6 +6953,83 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.delete(name.encode(), db=self.vaultsbynamedb)
         self.slab.delete(bidn, db=self.vaultsdb)
 
+    def _propAllowedReason(self, user, perms, gateiden=None, default=None):
+        '''
+        Similar to allowed, but always prefer the default value specified by the caller.
+        Default values are still pulled from permdefs if there is a match there; but still prefer caller default.
+        This results in a ternary response that can be used to know if a rule had a positive/negative or no match.
+        The matching reason metadata is also returned.
+        '''
+        if default is None:
+            permdef = self.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', default)
+
+        return user.getAllowedReason(perms, gateiden=gateiden, default=default)
+
+    def confirmPropSet(self, user, prop, layriden):
+        meta0 = self._propAllowedReason(user, prop.setperms[0], gateiden=layriden)
+
+        if meta0.isadmin:
+            return
+
+        allowed0 = meta0.value
+
+        meta1 = self._propAllowedReason(user, prop.setperms[1], gateiden=layriden)
+        allowed1 = meta1.value
+
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # This is a allow-with-precedence case.
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.rule) >= len(meta1.rule):
+                    return
+                user.raisePermDeny(prop.setperms[0], gateiden=layriden)
+            return
+
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed0 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.rule) > len(meta0.rule):
+                return
+
+        user.raisePermDeny(prop.setperms[0], gateiden=layriden)
+
+    def confirmPropDel(self, user, prop, layriden):
+        meta0 = self._propAllowedReason(user, prop.delperms[0], gateiden=layriden)
+
+        if meta0.isadmin:
+            return
+
+        allowed0 = meta0.value
+        meta1 = self._propAllowedReason(user, prop.delperms[1], gateiden=layriden)
+        allowed1 = meta1.value
+
+        if allowed0:
+            if allowed1:
+                return
+            elif allowed1 is False:
+                # This is a allow-with-precedence case.
+                # Inspect meta to determine if the rule a0 is more specific than rule a1
+                if len(meta0.rule) >= len(meta1.rule):
+                    return
+                user.raisePermDeny(prop.delperms[0], gateiden=layriden)
+            return
+
+        if allowed1:
+            if allowed0 is None:
+                return
+            # allowed0 here is False. This is a deny-with-precedence case.
+            # Inspect meta to determine if the rule a1 is more specific than rule a0
+            if len(meta1.rule) > len(meta0.rule):
+                return
+
+        user.raisePermDeny(prop.delperms[0], gateiden=layriden)
+
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
     '''
