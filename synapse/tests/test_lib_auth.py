@@ -507,3 +507,24 @@ class AuthTest(s_test.SynTest):
                 'Password must be at least 12 characters.',
                 exc.exception.get('failures')
             )
+
+        policy = {
+            'complexity': {
+                'length': 0,
+            },
+        }
+
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+
+            user = await auth.addUser('blackout@vertex.link')
+
+            await core.setUserPasswd(user.iden, None)
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'αβγA')
+            self.isin(
+                "Password contains invalid characters: ['α', 'β', 'γ']",
+                exc.exception.get('failures')
+            )
