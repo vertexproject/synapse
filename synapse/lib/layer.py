@@ -4643,9 +4643,8 @@ class Layer(s_nexus.Pusher):
 
         # edges
         if not allow_edges:
-            async for _, verbabrv, _, _ in s_coro.pause(self.getEdges()):
-                verb = self.core.getAbrvIndx(verbabrv)
-                perm = perm_edges + verb
+            async for verb in s_coro.pause(self.getEdgeVerbs()):
+                perm = perm_edges + (verb,)
                 user.confirm(perm, gateiden=gateiden)
 
         # tombstones
