@@ -3600,7 +3600,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the permission.'}),
 
                         ('type', ('inet:service:permission:type:taxonomy', {}), {
-                            'doc': 'The type taxonomy for the permissions.'}),
+                            'doc': 'The type of permission.'}),
 
                     )),
 
