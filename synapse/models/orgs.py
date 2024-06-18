@@ -715,7 +715,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A base tag used to encode assessments made by the organization.'}),
 
                     ('ext:id', ('str', {'strip': True}), {
-                        'doc': 'An external identifier for the technique.'}),
+                        'doc': 'An external identifier for the organization.'}),
                 )),
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
