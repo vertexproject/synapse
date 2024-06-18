@@ -195,8 +195,12 @@ class BaseModule(s_module.CoreModule):
 
                     ('created', ('time', {}), {
                         'doc': 'The time the note was created.'}),
+
                     ('updated', ('time', {}), {
                         'doc': 'The time the note was updated.'}),
+
+                    ('replyto', ('meta:note', {}), {
+                        'doc': 'The note is a reply to the specified note.'}),
                 )),
 
                 ('meta:timeline', {}, (
