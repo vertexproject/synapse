@@ -4,12 +4,15 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
+
+import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tools.backup as s_tools_backup
 
@@ -1918,17 +1921,35 @@ class LayerTest(s_t_utils.SynTest):
         with mock.patch('synapse.lib.spooled.Dict', Dict):
             async with self.getTestCore() as core:
 
+                user = await core.auth.addUser('blackout@vertex.link')
+
+                await core.addTagProp('score', ('int', {}), {})
+
+                nodes = await core.nodes('''
+                    [
+                        (ps:name=marty
+                            :given=marty
+                            +#performance:score=10
+                            +#role.protagonist
+                        )
+                        (ps:name=emmett :given=emmett)
+                        (ps:name=biff :given=biff)
+                        (ps:name=george :given=george)
+                        (ps:name=loraine :given=loraine)
+                        <(seen)+ {[ meta:source=(movie, "Back to the Future") :name=BTTF :type=movie ]}
+                    ]
+                    $node.data.set(movie, "Back to the Future")
+                ''')
+                self.len(5, nodes)
+
                 viewiden = await core.callStorm('''
-                    $lyr = $lib.layer.add()
-                    $view = $lib.view.add(($lyr.iden,))
+                    $view = $lib.view.get().fork()
                     return($view.iden)
                 ''')
 
                 layr = core.views[viewiden].layers[0]
 
                 opts = {'view': viewiden}
-
-                await core.addTagProp('score', ('int', {}), {})
 
                 await core.nodes('[ test:str=bar +#foo.bar ]', opts=opts)
 
@@ -1944,7 +1965,60 @@ class LayerTest(s_t_utils.SynTest):
                 ''', opts=opts)
 
                 parent = core.view.layers[0]
-                await layr.confirmLayerEditPerms(core.auth.rootuser, parent.iden)
+
+                seen = set()
+                def confirm(self, perm, default=None, gateiden=None):
+                    seen.add(perm)
+                    return True
+
+                def confirmPropSet(self, user, prop, layriden):
+                    seen.add(prop.setperms[0])
+                    seen.add(prop.setperms[1])
+
+                def confirmPropDel(self, user, prop, layriden):
+                    seen.add(prop.delperms[0])
+                    seen.add(prop.delperms[1])
+
+                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                            await layr.confirmLayerEditPerms(user, parent.iden)
+
+                self.eq(seen, {
+                    # Node add
+                    ('node', 'add', 'syn:tag'),
+                    ('node', 'add', 'test:str'),
+
+                    # Old style prop set
+                    ('node', 'prop', 'set', 'test:str:hehe'),
+                    ('node', 'prop', 'set', 'test:str.created'),
+
+                    ('node', 'prop', 'set', 'syn:tag:up'),
+                    ('node', 'prop', 'set', 'syn:tag:base'),
+                    ('node', 'prop', 'set', 'syn:tag:depth'),
+                    ('node', 'prop', 'set', 'syn:tag.created'),
+
+                    # New style prop set
+                    ('node', 'prop', 'set', 'test:str', 'hehe'),
+                    ('node', 'prop', 'set', 'test:str', '.created'),
+
+                    ('node', 'prop', 'set', 'syn:tag', 'up'),
+                    ('node', 'prop', 'set', 'syn:tag', 'base'),
+                    ('node', 'prop', 'set', 'syn:tag', 'depth'),
+                    ('node', 'prop', 'set', 'syn:tag', '.created'),
+
+                    # Tag/tagprop add
+                    ('node', 'tag', 'add', 'foo'),
+                    ('node', 'tag', 'add', 'bar'),
+                    ('node', 'tag', 'add', 'foo', 'bar'),
+                    ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
+
+                    # Nodedata set
+                    ('node', 'data', 'set', 'foo'),
+
+                    # Edge add
+                    ('node', 'edge', 'add', 'refs'),
+                })
 
                 await core.nodes('''
                     test:str=foo
@@ -1953,8 +2027,112 @@ class LayerTest(s_t_utils.SynTest):
                     | delnode
                 ''', opts=opts)
 
-                await layr.confirmLayerEditPerms(core.auth.rootuser, parent.iden)
-                await layr.confirmLayerEditPerms(core.auth.rootuser, layr.iden, delete=True)
+                await core.nodes('''
+                    ps:name:given=biff
+                    [ <(seen)- { meta:source:type=movie } ]
+                    | delnode |
+
+                    ps:name=emmett [ -:given ]
+                    ps:name=marty [ -#performance:score -#role.protagonist ]
+                    $node.data.pop(movie)
+                ''', opts=opts)
+
+                seen.clear()
+                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                            await layr.confirmLayerEditPerms(user, parent.iden)
+
+                self.eq(seen, {
+                    # Node add
+                    ('node', 'add', 'syn:tag'),
+                    ('node', 'add', 'test:str'),
+
+                    # Old style prop set
+                    ('node', 'prop', 'set', 'test:str.created'),
+
+                    ('node', 'prop', 'set', 'syn:tag:up'),
+                    ('node', 'prop', 'set', 'syn:tag:base'),
+                    ('node', 'prop', 'set', 'syn:tag:depth'),
+                    ('node', 'prop', 'set', 'syn:tag.created'),
+
+                    # New style prop set
+                    ('node', 'prop', 'set', 'test:str', '.created'),
+
+                    ('node', 'prop', 'set', 'syn:tag', 'up'),
+                    ('node', 'prop', 'set', 'syn:tag', 'base'),
+                    ('node', 'prop', 'set', 'syn:tag', 'depth'),
+                    ('node', 'prop', 'set', 'syn:tag', '.created'),
+
+                    # Tag/tagprop add
+                    ('node', 'tag', 'add', 'foo', 'bar'),
+
+                    # Node del (tombstone)
+                    ('node', 'del', 'ps:name'),
+
+                    # Prop del (tombstone)
+                    ('node', 'prop', 'del', 'ps:name', 'given'),
+
+                    # Tag del (tombstone)
+                    ('node', 'tag', 'del', 'role', 'protagonist'),
+
+                    # Tagprop del (tombstone)
+                    ('node', 'tag', 'del', 'performance', 'score'),
+
+                    # Nodedata del (tombstone)
+                    ('node', 'data', 'pop', 'movie'),
+
+                    # Edge del (tombstone)
+                    ('node', 'edge', 'del', 'seen'),
+                })
+
+                seen.clear()
+                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                            await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
+
+                self.eq(seen, {
+                    # Node del
+                    ('node', 'del', 'syn:tag'),
+                    ('node', 'del', 'test:str'),
+
+                    # Old style prop del
+                    ('node', 'prop', 'del', 'test:str.created'),
+
+                    ('node', 'prop', 'del', 'syn:tag:up'),
+                    ('node', 'prop', 'del', 'syn:tag:base'),
+                    ('node', 'prop', 'del', 'syn:tag:depth'),
+                    ('node', 'prop', 'del', 'syn:tag.created'),
+
+                    # New style prop del
+                    ('node', 'prop', 'del', 'test:str', '.created'),
+
+                    ('node', 'prop', 'del', 'syn:tag', 'up'),
+                    ('node', 'prop', 'del', 'syn:tag', 'base'),
+                    ('node', 'prop', 'del', 'syn:tag', 'depth'),
+                    ('node', 'prop', 'del', 'syn:tag', '.created'),
+
+                    # Tag/tagprop del
+                    ('node', 'tag', 'del', 'foo', 'bar'),
+
+                    # Node add (restore tombstone)
+                    ('node', 'add', 'ps:name'),
+
+                    # Prop set (restore tombstone)
+                    ('node', 'prop', 'set', 'ps:name', 'given'),
+
+                    # Tag/tagprop add (restore tombstone)
+                    ('node', 'tag', 'add', 'role', 'protagonist'),
+                    ('node', 'tag', 'add', 'performance', 'score'),
+
+                    # Nodedata set (tombstone restore)
+                    ('node', 'data', 'set', 'movie'),
+
+                    # Edge add (tombstone restor)
+                    ('node', 'edge', 'add', 'seen'),
+
+                })
 
     async def test_layer_fromfuture(self):
         with self.raises(s_exc.BadStorageVersion):

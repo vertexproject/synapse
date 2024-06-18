@@ -4581,113 +4581,208 @@ class Layer(s_nexus.Pusher):
         if user.allowed(('node',), gateiden=gateiden):
             return
 
-        if delete:
-            perm_forms = ('node', 'del')
-            perm_props = ('node', 'prop', 'del')
-            perm_tags = ('node', 'tag', 'del')
-            perm_ndata = ('node', 'data', 'pop')
-            perm_edges = ('node', 'edge', 'del')
-        else:
-            perm_forms = ('node', 'add')
-            perm_props = ('node', 'prop', 'set')
-            perm_tags = ('node', 'tag', 'add')
-            perm_ndata = ('node', 'data', 'set')
-            perm_edges = ('node', 'edge', 'add')
+        perm_del_form = ('node', 'del')
+        perm_del_prop = ('node', 'prop', 'del')
+        perm_del_tag = ('node', 'tag', 'del')
+        perm_del_ndata = ('node', 'data', 'pop')
+        perm_del_edge = ('node', 'edge', 'del')
 
-        allow_forms = user.allowed(perm_forms, gateiden=gateiden)
-        allow_props = user.allowed(perm_props, gateiden=gateiden)
-        allow_tags = user.allowed(perm_tags, gateiden=gateiden)
-        allow_ndata = user.allowed(perm_ndata, gateiden=gateiden)
-        allow_edges = user.allowed(perm_edges, gateiden=gateiden)
+        perm_add_form = ('node', 'add')
+        perm_add_prop = ('node', 'prop', 'set')
+        perm_add_tag = ('node', 'tag', 'add')
+        perm_add_ndata = ('node', 'data', 'set')
+        perm_add_edge = ('node', 'edge', 'add')
 
-        if all((allow_forms, allow_props, allow_tags, allow_ndata, allow_edges)):
+        if all((
+            (allow_add_forms := user.allowed(perm_add_form, gateiden=gateiden)),
+            (allow_add_props := user.allowed(perm_add_prop, gateiden=gateiden)),
+            (allow_add_tags := user.allowed(perm_add_tag, gateiden=gateiden)),
+            (allow_add_ndata := user.allowed(perm_add_ndata, gateiden=gateiden)),
+            (allow_add_edges := user.allowed(perm_add_edge, gateiden=gateiden)),
+
+            (allow_del_forms := user.allowed(perm_del_form, gateiden=gateiden)),
+            (allow_del_props := user.allowed(perm_del_prop, gateiden=gateiden)),
+            (allow_del_tags := user.allowed(perm_del_tag, gateiden=gateiden)),
+            (allow_del_ndata := user.allowed(perm_del_ndata, gateiden=gateiden)),
+            (allow_del_edges := user.allowed(perm_del_edge, gateiden=gateiden)),
+        )):
             return
+
+        if delete:
+            perm_forms = perm_del_form
+            allow_forms = allow_del_forms
+
+            # perm_props = perm_del_prop
+            allow_props = allow_del_props
+
+            perm_tags = perm_del_tag
+            allow_tags = allow_del_tags
+
+            perm_ndata = perm_del_ndata
+            allow_ndata = allow_del_ndata
+
+            perm_edges = perm_del_edge
+            allow_edges = allow_del_edges
+        else:
+            perm_forms = perm_add_form
+            allow_forms = allow_add_forms
+
+            # perm_props = perm_add_prop
+            allow_props = allow_add_props
+
+            perm_tags = perm_add_tag
+            allow_tags = allow_add_tags
+
+            perm_ndata = perm_add_ndata
+            allow_ndata = allow_add_ndata
+
+            perm_edges = perm_add_edge
+            allow_edges = allow_add_edges
 
         # nodes & props
         if not allow_forms or not allow_props:
-            async for byts, abrv in s_coro.pause(self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv)):
-                form, prop = s_msgpack.un(byts)
+            async for form, prop in s_coro.pause(self.getFormProps()):
                 if form is None: # pragma: no cover
                     continue
 
-                if self.layrslab.prefexists(abrv, db=self.byprop):
-                    if prop and not allow_props:
-                        realform = self.core.model.form(form)
-                        if not realform: # pragma: no cover
-                            mesg = f'Invalid form: {form}'
-                            raise s_exc.NoSuchForm(mesg=mesg, form=form)
+                if prop:
+                    if allow_props:
+                        continue
 
-                        realprop = realform.prop(prop)
-                        if not realprop: # pragma: no cover
-                            mesg = f'Invalid prop: {form}:{prop}'
-                            raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
+                    realform = self.core.model.form(form)
+                    if not realform: # pragma: no cover
+                        mesg = f'Invalid form: {form}'
+                        raise s_exc.NoSuchForm(mesg=mesg, form=form)
 
-                        if delete:
-                            self.core.confirmPropDel(user, realprop, gateiden)
-                        else:
-                            self.core.confirmPropSet(user, realprop, gateiden)
+                    realprop = realform.prop(prop)
+                    if not realprop: # pragma: no cover
+                        mesg = f'Invalid prop: {form}:{prop}'
+                        raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
 
-                    elif not prop and not allow_forms:
-                        user.confirm(perm_forms + (form,), gateiden=gateiden)
+                    if delete:
+                        self.core.confirmPropDel(user, realprop, gateiden)
+                    else:
+                        self.core.confirmPropSet(user, realprop, gateiden)
+
+                elif not allow_forms:
+                    user.confirm(perm_forms + (form,), gateiden=gateiden)
 
         # tagprops
         if not allow_tags:
-            async for byts, abrv in s_coro.pause(self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv)):
-                info = s_msgpack.un(byts)
-                if None in info or len(info) != 3:
-                    continue
-
-                if self.layrslab.prefexists(abrv, db=self.bytagprop):
-                    perm = perm_tags + tuple(info[1].split('.'))
-                    user.confirm(perm, gateiden=gateiden)
+            async for tagprop in s_coro.pause(self.getTagProps()):
+                perm = perm_tags + tuple(tagprop[1].split('.'))
+                user.confirm(perm, gateiden=gateiden)
 
         # nodedata
         if not allow_ndata:
             async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname, nodup=True)):
-                name, _ = self.getAbrvProp(abrv)
-                perm = perm_ndata + (name,)
+                if abrv[8:] == FLAG_TOMB:
+                    continue
+
+                key = self.core.getAbrvIndx(abrv[:8])
+                perm = perm_ndata + key
                 user.confirm(perm, gateiden=gateiden)
 
         # edges
         if not allow_edges:
-            async for verb in s_coro.pause(self.layrslab.scanKeys(db=self.byverb, nodup=True)):
-                perm = perm_edges + (verb.decode(),)
+            async for verb in s_coro.pause(self.getEdgeVerbs()):
+                perm = perm_edges + (verb,)
+                user.confirm(perm, gateiden=gateiden)
+
+        # tombstones
+        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(INDX_TOMB, db=self.indxdb, nodup=True)):
+            byts = self.core.indxabrv.abrvToByts(lkey[2:10])
+            tombtype = byts[:2]
+            tombinfo = s_msgpack.un(byts[2:])
+
+            if tombtype == INDX_PROP:
+                (form, prop) = tombinfo
+                if delete:
+                    if prop:
+                        perm = perm_add_prop + tombinfo
+                    else:
+                        perm = perm_add_form + (form,)
+                    allowed = allow_del_props
+                else:
+                    if prop:
+                        perm = perm_del_prop + tombinfo
+                    else:
+                        perm = perm_del_form + (form,)
+                    allowed = allow_add_props
+
+            elif tombtype == INDX_TAG:
+                if delete:
+                    perm = perm_add_tag + tuple(tombinfo[1].split('.'))
+                    allowed = allow_del_tags
+                else:
+                    perm = perm_del_tag + tuple(tombinfo[1].split('.'))
+                    allowed = allow_add_tags
+
+            elif tombtype == INDX_TAGPROP:
+                if delete:
+                    perm = perm_add_tag + tombinfo[1:]
+                    allowed = allow_del_tags
+                else:
+                    perm = perm_del_tag + tombinfo[1:]
+                    allowed = allow_add_tags
+
+            elif tombtype == INDX_NODEDATA:
+                if delete:
+                    perm = perm_add_ndata + tombinfo
+                    allowed = allow_del_ndata
+                else:
+                    perm = perm_del_ndata + tombinfo
+                    allowed = allow_add_ndata
+
+            elif tombtype == INDX_EDGE_VERB:
+                if delete:
+                    perm = perm_add_edge + tombinfo
+                    allowed = allow_del_edges
+                else:
+                    perm = perm_del_edge + tombinfo
+                    allowed = allow_add_edges
+
+            else: # pragma: no cover
+                extra = await self.core.getLogExtra(tombtype=tombtype, delete=delete, tombinfo=tombinfo)
+                logger.debug(f'Encountered unknown tombstone type: {tombtype}.', extra=extra)
+                continue
+
+            if not allowed:
                 user.confirm(perm, gateiden=gateiden)
 
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
         if not allow_tags:
-            async with self.core.getSpooledDict() as tags:
+            async with self.core.getSpooledDict() as tagdict:
+                async for byts, abrv in s_coro.pause(self.core.indxabrv.iterByPref(INDX_TAG)):
+                    (form, tag) = s_msgpack.un(byts[2:])
+                    if form is None:
+                        continue
 
-                # Collect all tag abrvs for all nodes in the layer
-                async for lkey, buid in s_coro.pause(self.layrslab.scanByFull(db=self.bytag)):
-                    abrv = lkey[:8]
-                    abrvs = list(tags.get(buid, []))
-                    abrvs.append(abrv)
-                    await tags.set(buid, abrvs)
+                    async for _, nid in s_coro.pause(self.layrslab.scanByPref(abrv, db=self.indxdb)):
+                        tags = list(tagdict.get(nid, []))
+                        tags.append(tag)
+                        await tagdict.set(nid, tags)
 
                 # Iterate over each node and it's tags
-                async for buid, abrvs in s_coro.pause(tags.items()):
-                    seen = {}
+                async for nid, tags in s_coro.pause(tagdict.items()):
+                    leaf = {}
 
-                    if len(abrvs) == 1:
-                        # Easy optimization: If there's only one tag abrv, then it's a
+                    if len(tags) == 1:
+                        # Easy optimization: If there's only one tag, then it's a
                         # leaf by default
-                        name = self.tagabrv.abrvToName(abrv)
-                        key = tuple(name.split('.'))
-                        perm = perm_tags + key
+                        perm = perm_tags + tuple(tags[0].split('.'))
                         user.confirm(perm, gateiden=gateiden)
 
                     else:
-                        for abrv in abrvs:
-                            name = self.tagabrv.abrvToName(abrv)
-                            parts = tuple(name.split('.'))
+                        for tag in tags:
+                            parts = tag.split('.')
                             for idx in range(1, len(parts) + 1):
                                 key = tuple(parts[:idx])
-                                seen.setdefault(key, 0)
-                                seen[key] += 1
+                                leaf.setdefault(key, 0)
+                                leaf[key] += 1
 
-                        for key, count in seen.items():
+                        for key, count in leaf.items():
                             if count == 1:
                                 perm = perm_tags + key
                                 user.confirm(perm, gateiden=gateiden)
