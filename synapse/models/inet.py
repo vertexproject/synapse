@@ -1534,41 +1534,53 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A rule which grants or denies a permission to a service account or role.'}),
 
                     ('inet:service:login', ('guid', {}), {
-                        'interfaces': ('inet:service:action',)}),
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'A login event for a service account.'}),
 
                     ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
                         'doc': 'A taxonomy of inet service methods.'}),
 
                     ('inet:service:session', ('guid', {}), {
-                        'interfaces': ('inet:service:object',)}),
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'An authenticated session.'}),
 
                     ('inet:service:group', ('guid', {}), {
-                        'interfaces': ('inet:service:object',)}),
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A group or role which contains member accounts.'}),
 
                     ('inet:service:group:member', ('guid', {}), {
-                        'interfaces': ('inet:service:object',)}),
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'Represents a service account being a member of a group.'}),
 
                     ('inet:service:channel', ('guid', {}), {
-                        'interfaces': ('inet:service:object',)}),
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A channel used to distribute messages.'}),
 
                     ('inet:service:channel:member', ('guid', {}), {
-                        'interfaces': ('inet:service:object',)}),
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'Represents a service account being a member of a channel.'}),
 
                     ('inet:service:message', ('guid', {}), {
-                        'interfaces': ('inet:service:action',)}),
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'A message or post created by an account.'}),
 
-                    ('inet:service:message:link', ('guid', {}), {}),
-                    ('inet:service:message:attachment', ('guid', {}), {}),
+                    ('inet:service:message:link', ('guid', {}), {
+                        'doc': 'A URL link included within a message.'}),
+
+                    ('inet:service:message:attachment', ('guid', {}), {
+                        'doc': 'A file attachment included within a message.'}),
 
                     ('inet:service:access', ('guid', {}), {
-                        'interfaces': ('inet:service:action',)}),
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'Represents a user access request to service resource.'}),
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',)}),
 
                     ('inet:service:resource', ('guid', {}), {
-                        'interfaces': ('inet:service:object',)}),
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A generic resource provided by the service architecture.'}),
 
                     ('inet:service:bucket', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
