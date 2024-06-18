@@ -2904,3 +2904,402 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('client'), 'tcp://5.6.7.8:5678')
             self.eq(nodes[0].get('cert'), client)
+
+    async def test_model_inet_service(self):
+
+        async with self.getTestCore() as core:
+
+            provname = 'Slack Corp'
+            opts = {'vars': {'provname': provname}}
+            nodes = await core.nodes(f'gen.ou.org $provname', opts=opts)
+            self.len(1, nodes)
+            provider = nodes[0]
+
+            q = '''
+            [ inet:service:platform=(slack,)
+                :url="https://slack.com"
+                :name=Slack
+                :provider={ ou:org:name=$provname }
+                :provider:name=$provname
+            ]
+            '''
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:service:platform', s_common.guid(('slack',))))
+            self.eq(nodes[0].get('url'), 'https://slack.com')
+            self.eq(nodes[0].get('name'), 'slack')
+            self.eq(nodes[0].get('provider'), provider.ndef[1])
+            self.eq(nodes[0].get('provider:name'), provname.lower())
+            platform = nodes[0]
+
+            q = '''
+            [ inet:service:instance=(vertex, slack)
+                :id='T2XK1223Y'
+                :platform={ inet:service:platform=(slack,) }
+                :url="https://v.vtx.lk/slack"
+                :name="Synapse users slack"
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:service:instance', s_common.guid(('vertex', 'slack'))))
+            self.eq(nodes[0].get('id'), 'T2XK1223Y')
+            self.eq(nodes[0].get('platform'), platform.ndef[1])
+            self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
+            self.eq(nodes[0].get('name'), 'synapse users slack')
+            platinst = nodes[0]
+
+            q = '''
+            [
+                (inet:service:account=(blackout, account, vertex, slack)
+                    :id=U7RN51U1J
+                    :user=blackout
+                    :email=blackout@vertex.link
+                    :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
+                )
+
+                (inet:service:account=(visi, account, vertex, slack)
+                    :id=U2XK7PUVB
+                    :user=visi
+                    :email=visi@vertex.link
+                    :profile={ gen.ps.contact.email vertex.employee visi@vertex.link }
+                )
+            ]
+            '''
+            accounts = await core.nodes(q)
+            self.len(2, accounts)
+
+            profiles = await core.nodes('ps:contact')
+            self.len(2, profiles)
+            self.eq(profiles[0].get('email'), 'blackout@vertex.link')
+            self.eq(profiles[1].get('email'), 'visi@vertex.link')
+            blckprof, visiprof = profiles
+
+            self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
+            self.eq(accounts[0].get('id'), 'U7RN51U1J')
+            self.eq(accounts[0].get('user'), 'blackout')
+            self.eq(accounts[0].get('email'), 'blackout@vertex.link')
+            self.eq(accounts[0].get('profile'), blckprof.ndef[1])
+
+            self.eq(accounts[1].ndef, ('inet:service:account', s_common.guid(('visi', 'account', 'vertex', 'slack'))))
+            self.eq(accounts[1].get('id'), 'U2XK7PUVB')
+            self.eq(accounts[1].get('user'), 'visi')
+            self.eq(accounts[1].get('email'), 'visi@vertex.link')
+            self.eq(accounts[1].get('profile'), visiprof.ndef[1])
+            blckacct, visiacct = accounts
+
+            q = '''
+            [ inet:service:group=(developers, group, vertex, slack)
+                :id=X1234
+                :name="developers, developers, developers"
+                :profile={ gen.ps.contact.email vertex.slack.group developers@vertex.slack.com }
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            profiles = await core.nodes('ps:contact:email=developers@vertex.slack.com')
+            self.len(1, profiles)
+            devsprof = profiles[0]
+
+            self.eq(nodes[0].get('id'), 'X1234')
+            self.eq(nodes[0].get('name'), 'developers, developers, developers')
+            self.eq(nodes[0].get('profile'), devsprof.ndef[1])
+            devsgrp = nodes[0]
+
+            q = '''
+            [
+                (inet:service:group:member=(blackout, developers, group, vertex, slack)
+                    :account=$blckiden
+                    :group=$devsiden
+                    :period=(20230601, ?)
+                    :creator=$visiiden
+                    :remover=$visiiden
+                )
+
+                (inet:service:group:member=(visi, developers, group, vertex, slack)
+                    :account=$visiiden
+                    :group=$devsiden
+                    :period=(20150101, ?)
+                )
+            ]
+            '''
+            opts = {'vars': {
+                'blckiden': blckacct.ndef[1],
+                'visiiden': visiacct.ndef[1],
+                'devsiden': devsgrp.ndef[1],
+            }}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(2, nodes)
+
+            self.eq(nodes[0].get('account'), blckacct.ndef[1])
+            self.eq(nodes[0].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[0].get('period'), (1685577600000, 9223372036854775807))
+            self.eq(nodes[0].get('creator'), visiacct.ndef[1])
+            self.eq(nodes[0].get('remover'), visiacct.ndef[1])
+
+            self.eq(nodes[1].get('account'), visiacct.ndef[1])
+            self.eq(nodes[1].get('group'), devsgrp.ndef[1])
+            self.eq(nodes[1].get('period'), (1420070400000, 9223372036854775807))
+            self.none(nodes[1].get('creator'))
+            self.none(nodes[1].get('remover'))
+
+            q = '''
+            [ inet:service:session=*
+                :creator=$blckiden
+                :period=(202405160900, 202405161055)
+            ]
+            '''
+            opts = {'vars': {'blckiden': blckacct.ndef[1]}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('creator'), blckacct.ndef[1])
+            self.eq(nodes[0].get('period'), (1715850000000, 1715856900000))
+            blcksess = nodes[0]
+
+            q = '''
+            [ inet:service:login=*
+                :method=password
+                :session=$blcksess
+                :server=tcp://10.10.10.4:443
+                :client=tcp://192.168.0.10:12345
+            ]
+            '''
+            opts = {'vars': {'blcksess': blcksess.ndef[1]}}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('method'), 'password.')
+
+            server = await core.nodes('inet:server=tcp://10.10.10.4:443')
+            self.len(1, server)
+            server = server[0]
+
+            client = await core.nodes('inet:client=tcp://192.168.0.10:12345')
+            self.len(1, client)
+            client = client[0]
+
+            self.eq(nodes[0].get('server'), server.ndef[1])
+            self.eq(nodes[0].get('client'), client.ndef[1])
+
+            q = '''
+            [ inet:service:message:link=(blackout, developers, 1715856900000, https://www.youtube.com/watch?v=dQw4w9WgXcQ, vertex, slack)
+                :title="Deadpool & Wolverine | Official Teaser | In Theaters July 26"
+                :url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('title'), 'Deadpool & Wolverine | Official Teaser | In Theaters July 26')
+            self.eq(nodes[0].get('url'), 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+            msglink = nodes[0]
+
+            q = '''
+            [ inet:service:channel=(general, channel, vertex, slack)
+                :id=C1234
+                :name=general
+                :period=(20150101, ?)
+                :creator=$visiiden
+                :platform=$platiden
+                :instance=$instiden
+            ]
+            '''
+            opts = {'vars': {
+                'visiiden': visiacct.ndef[1],
+                'platiden': platform.ndef[1],
+                'instiden': platinst.ndef[1],
+            }}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:service:channel', s_common.guid(('general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[0].get('name'), 'general')
+            self.eq(nodes[0].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[0].get('creator'), visiacct.ndef[1])
+            self.eq(nodes[0].get('platform'), platform.ndef[1])
+            self.eq(nodes[0].get('instance'), platinst.ndef[1])
+            gnrlchan = nodes[0]
+
+            q = '''
+            [
+                (inet:service:channel:member=(visi, general, channel, vertex, slack)
+                    :account=$visiiden
+                    :period=(20150101, ?)
+                )
+
+                (inet:service:channel:member=(blackout, general, channel, vertex, slack)
+                    :account=$blckiden
+                    :period=(20230601, ?)
+                )
+
+                :platform=$platiden
+                :instance=$instiden
+                :channel=$chnliden
+            ]
+            '''
+            opts = {'vars': {
+                'blckiden': blckacct.ndef[1],
+                'visiiden': visiacct.ndef[1],
+                'chnliden': gnrlchan.ndef[1],
+                'platiden': platform.ndef[1],
+                'instiden': platinst.ndef[1],
+            }}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:service:channel:member', s_common.guid(('visi', 'general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[0].get('account'), visiacct.ndef[1])
+            self.eq(nodes[0].get('period'), (1420070400000, 9223372036854775807))
+            self.eq(nodes[0].get('channel'), gnrlchan.ndef[1])
+
+            self.eq(nodes[1].ndef, ('inet:service:channel:member', s_common.guid(('blackout', 'general', 'channel', 'vertex', 'slack'))))
+            self.eq(nodes[1].get('account'), blckacct.ndef[1])
+            self.eq(nodes[1].get('period'), (1685577600000, 9223372036854775807))
+            self.eq(nodes[1].get('channel'), gnrlchan.ndef[1])
+
+            for node in nodes:
+                self.eq(node.get('platform'), platform.ndef[1])
+                self.eq(node.get('instance'), platinst.ndef[1])
+                self.eq(node.get('channel'), gnrlchan.ndef[1])
+
+            q = '''
+            [ inet:service:message:attachment=(pbjtime.gif, blackout, developers, 1715856900000, vertex, slack)
+                :file={[ file:bytes=sha256:028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd ]}
+                :name=pbjtime.gif
+                :text="peanut butter jelly time"
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('file'), 'sha256:028241d9116a02059e99cb239c66d966e1b550926575ad7dcf0a8f076a352bcd')
+            self.eq(nodes[0].get('name'), 'pbjtime.gif')
+            self.eq(nodes[0].get('text'), 'peanut butter jelly time')
+            attachment = nodes[0]
+
+            q = '''
+            [
+                (inet:service:message=(blackout, developers, 1715856900000, vertex, slack)
+                    :group=$devsiden
+                    :public=$lib.false
+                )
+
+                (inet:service:message=(blackout, visi, 1715856900000, vertex, slack)
+                    :to=$visiiden
+                    :public=$lib.false
+                )
+
+                (inet:service:message=(blackout, general, 1715856900000, vertex, slack)
+                    :channel=$gnrliden
+                    :public=$lib.true
+                )
+
+                :account=$blckiden
+                :text="omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                :links+=$linkiden
+                :attachments+=$atchiden
+
+                :place:name=nyc
+                :place = { gen.geo.place nyc }
+                :file=*
+
+                :client:software = {[ it:prod:softver=* :name=woot ]}
+                :client:software:name = woot
+            ]
+            '''
+            opts = {'vars': {
+                'blckiden': blckacct.ndef[1],
+                'visiiden': visiacct.ndef[1],
+                'devsiden': devsgrp.ndef[1],
+                'gnrliden': gnrlchan.ndef[1],
+                'linkiden': msglink.ndef[1],
+                'atchiden': attachment.ndef[1],
+            }}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(3, nodes)
+            for node in nodes:
+
+                self.eq(node.get('account'), blckacct.ndef[1])
+                self.eq(node.get('text'), "omg, can't wait for the new deadpool: https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+                self.eq(node.get('links'), [msglink.ndef[1]])
+
+                self.nn(node.get('client:software'))
+                self.eq(node.get('client:software:name'), 'woot')
+
+                self.nn(node.get('place'))
+                self.eq(node.get('place:name'), 'nyc')
+
+            self.eq(nodes[0].get('group'), devsgrp.ndef[1])
+            self.false(nodes[0].get('public'))
+
+            self.eq(nodes[1].get('to'), visiacct.ndef[1])
+            self.false(nodes[1].get('public'))
+
+            self.eq(nodes[2].get('channel'), gnrlchan.ndef[1])
+            self.true(nodes[2].get('public'))
+
+            q = '''
+            [ inet:service:resource=(web, api, vertex, slack)
+                :desc="The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality."
+                :instance=$instiden
+                :name="Slack Web APIs"
+                :platform=$platiden
+                :type=slack.web.api
+                :url="https://slack.com/api"
+            ]
+            '''
+            opts = {'vars': {
+                'platiden': platform.ndef[1],
+                'instiden': platinst.ndef[1],
+            }}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('desc'), 'The Web API supplies a collection of HTTP methods that underpin the majority of Slack app functionality.')
+            self.eq(nodes[0].get('instance'), platinst.ndef[1])
+            self.eq(nodes[0].get('name'), 'slack web apis')
+            self.eq(nodes[0].get('platform'), platform.ndef[1])
+            self.eq(nodes[0].get('type'), 'slack.web.api.')
+            self.eq(nodes[0].get('url'), 'https://slack.com/api')
+            resource = nodes[0]
+
+            nodes = await core.nodes('''
+                [ inet:service:bucket:item=*
+                    :creator={ inet:service:account:user=visi }
+                    :bucket={[ inet:service:bucket=* :name=foobar
+                        :creator={ inet:service:account:user=visi }
+                    ]}
+                    :file=*
+                    :file:name=woot.exe
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('bucket'))
+            self.nn(nodes[0].get('creator'))
+            self.eq('woot.exe', nodes[0].get('file:name'))
+            self.len(1, await core.nodes('inet:service:bucket -> inet:service:bucket:item -> file:bytes'))
+            self.len(1, await core.nodes('inet:service:bucket -> inet:service:bucket:item -> inet:service:account'))
+            self.len(1, await core.nodes('inet:service:bucket -> inet:service:account'))
+            self.len(1, await core.nodes('inet:service:bucket:name=foobar'))
+
+            q = '''
+            [ inet:service:access=(api, blackout, 1715856900000, vertex, slack)
+                :account=$blckiden
+                :instance=$instiden
+                :platform=$platiden
+                :resource=$rsrciden
+                :success=$lib.true
+                :time=(1715856900000)
+            ]
+            '''
+            opts = {'vars': {
+                'blckiden': blckacct.ndef[1],
+                'instiden': platinst.ndef[1],
+                'visiiden': visiacct.ndef[1],
+                'platiden': platform.ndef[1],
+                'rsrciden': resource.ndef[1],
+            }}
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('account'), blckacct.ndef[1])
+            self.eq(nodes[0].get('instance'), platinst.ndef[1])
+            self.eq(nodes[0].get('platform'), platform.ndef[1])
+            self.eq(nodes[0].get('resource'), resource.ndef[1])
+            self.true(nodes[0].get('success'))
+            self.eq(nodes[0].get('time'), 1715856900000)

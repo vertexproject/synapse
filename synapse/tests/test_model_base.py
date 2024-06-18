@@ -12,9 +12,10 @@ class BaseTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ meta:timeline=* :title=Woot :summary=4LOLZ :type=lol.cats ]')
             self.len(1, nodes)
             nodes = await core.nodes('''
-                [ meta:event=* :title=Zip :duration=1:30:00
+                [ meta:event=* :title=Zip :duration=1:30:00 :index=0
                     :summary=Zop :time=20220321 :type=zip.zop :timeline={meta:timeline:title=Woot} ]''')
             self.len(1, nodes)
+            self.eq(0, nodes[0].get('index'))
             nodes = await core.nodes('''[ meta:event=* :title=Hehe :duration=2:00
                     :summary=Haha :time=20220322 :type=hehe.haha :timeline={meta:timeline:title=Woot} ]''')
             self.len(1, nodes)
@@ -68,13 +69,14 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('text'), 'yieldnote')
 
-            nodes = await core.nodes('note.add --yield "nonodes"')
+            nodes = await core.nodes('note.add --yield "nonodes" | [ :replyto=* ]')
             self.len(1, nodes)
             self.eq(nodes[0].get('text'), 'nonodes')
             self.nn(nodes[0].get('created'))
             self.nn(nodes[0].get('updated'))
 
             self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
+            self.len(1, await core.nodes('meta:note:text=nonodes -> meta:note'))
 
     async def test_model_base_source(self):
 
@@ -184,7 +186,7 @@ class BaseTest(s_t_utils.SynTest):
 
                 keep.append(node)
 
-            self.len(0, keep)
+            self.len(0, keep, msg=[node.ndef[1] for node in keep])
             self.len(len(SYN_6315), skip)
 
             for edge in core.model.edges.values():

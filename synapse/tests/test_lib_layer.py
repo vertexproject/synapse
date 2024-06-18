@@ -11,7 +11,6 @@ import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
-
 import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tools.backup as s_tools_backup
