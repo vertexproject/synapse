@@ -2330,16 +2330,24 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:query', {}, ()),
                 ('it:exec:query', {}, (
+
                     ('text', ('it:query', {}), {
                         'doc': 'The query string that was executed.'}),
+
                     ('opts', ('data', {}), {
                         'doc': 'An opaque JSON object containing query parameters and options.'}),
+
                     ('api:url', ('inet:url', {}), {
                         'doc': 'The URL of the API endpoint the query was sent to.'}),
+
                     ('language', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the language that the query is expressed in.'}),
+
                     ('offset', ('int', {}), {
                         'doc': 'The offset of the last record consumed from the query.'}),
+
+                    ('synuser', ('syn:user', {}), {
+                        'doc': 'The synapse user who executed the query.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {

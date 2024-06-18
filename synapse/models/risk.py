@@ -278,6 +278,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('mitre:attack:group', ('it:mitre:attack:group', {}), {
                         'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
+
+                    ('ext:id', ('str', {'strip': True}), {
+                        'doc': 'An external identifier for the threat.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
