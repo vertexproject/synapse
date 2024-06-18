@@ -2574,7 +2574,7 @@ class CellTest(s_t_utils.SynTest):
         # Detect and report incorrect values
         with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
             with mock.patch.object(s_cell.Cell, 'SYSCTL_VALS', sysvals):
-                async with self.getTestCore():
+                async with self.getTestCore(conf={'health:sysctl:checks': True}):
                     pass
 
         stream.seek(0)

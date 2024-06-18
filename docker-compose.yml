@@ -1,5 +1,4 @@
-# Example docker-compose file for a temporary core listening on port 47322
-version: '3'
+# Example Compose file for a temporary core listening on port 47322
 services:
     core:
         build:

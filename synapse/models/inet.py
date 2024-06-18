@@ -1419,7 +1419,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A channel within a web service or instance such as slack or discord.'
                     }),
 
-                    ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#[\w]+$'}), {
+                    ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#\w[\w·]*(?<!·)$'}), {
                         'doc': 'A hashtag used in a web post.',
                     }),
 

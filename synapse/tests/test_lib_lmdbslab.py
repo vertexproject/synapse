@@ -57,9 +57,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 testgenr = slab.scanKeys(db=testdb)
                 dupsgenr = slab.scanKeys(db=dupsdb)
+                nodupsgenr = slab.scanKeys(db=dupsdb, nodup=True)
 
                 testlist = [next(testgenr)]
                 dupslist = [next(dupsgenr)]
+                nodupslist = [next(nodupsgenr)]
 
                 slab.put(b'derp', b'derp', db=editdb)
 
@@ -68,16 +70,25 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 testlist.extend(testgenr)
                 dupslist.extend(dupsgenr)
+                nodupslist.extend(nodupsgenr)
 
                 self.eq(testlist, (b'hehe', b'hoho'))
                 self.eq(dupslist, (b'hehe', b'hehe', b'hoho'))
+                self.eq(nodupslist, (b'hehe', b'hoho'))
+
+                self.eq([b'hehe', b'hehe', b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb)))
+                self.eq([b'hehe', b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb, nodup=True)))
+
+                self.eq(3, await slab.countByPref(b'h', db=dupsdb))
 
                 # now lets delete the key we're on
                 testgenr = slab.scanKeys(db=testdb)
                 dupsgenr = slab.scanKeys(db=testdb)
+                nodupsgenr = slab.scanKeys(db=testdb, nodup=True)
 
                 testlist = [next(testgenr)]
                 dupslist = [next(dupsgenr)]
+                nodupslist = [next(nodupsgenr)]
 
                 slab.delete(b'hehe', db=testdb)
                 for lkey, lval in slab.scanByDups(b'hehe', db=dupsdb):
@@ -87,9 +98,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 testlist.extend(testgenr)
                 dupslist.extend(dupsgenr)
+                nodupslist.extend(nodupsgenr)
 
                 self.eq(testlist, (b'hehe', b'hoho'))
                 self.eq(dupslist, (b'hehe', b'hoho'))
+                self.eq(nodupslist, (b'hehe', b'hoho'))
 
                 # by pref
                 self.eq([b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb)))
@@ -648,6 +661,42 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'1', val=b'2', db=dupndb)
                 self.eq((b'1', b'1'), next(it))
                 self.raises(StopIteration, next, it)
+
+    async def test_lmdbslab_scanback(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=10000) as slab:
+
+                foodup = slab.initdb('foodup', dupsort=True)
+                foonodup = slab.initdb('foonodup', dupsort=False)
+
+                for db in (foodup, foonodup):
+                    slab.put(b'\x01', b'foo', db=db)
+                    slab.put(b'\x01\x01', b'bar', db=db)
+                    slab.put(b'\x01\x03', b'baz', db=db)
+                    slab.put(b'\x02', b'faz', db=db)
+
+                items = list(slab.scanByPrefBack(b'\x01', db=foonodup))
+                self.eq(items, (
+                    (b'\x01\x03', b'baz'),
+                    (b'\x01\x01', b'bar'),
+                    (b'\x01', b'foo')
+                ))
+
+                self.eq((), list(slab.scanByPrefBack(b'\x00', db=foonodup)))
+
+                slab.put(b'\x01\x03', b'waz', db=foodup)
+
+                items = list(slab.scanByPrefBack(b'\x01', db=foodup))
+                self.eq(items, (
+                    (b'\x01\x03', b'waz'),
+                    (b'\x01\x03', b'baz'),
+                    (b'\x01\x01', b'bar'),
+                    (b'\x01', b'foo')
+                ))
 
     async def test_lmdbslab_count_empty(self):
 
