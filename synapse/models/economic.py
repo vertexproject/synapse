@@ -169,6 +169,9 @@ class EconModule(s_module.CoreModule):
 
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The econ:price of the purchase'}),
+
+                    ('listing', ('biz:listing', {}), {
+                        'doc': 'The purchase was made based on the given listing.'}),
                 )),
 
                 ('econ:receipt:item', {}, (
