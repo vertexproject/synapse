@@ -3328,7 +3328,7 @@ class Layer(s_nexus.Pusher):
         if sode.get('antivalu') is not None:
             return ()
 
-        abrv = self.core.setIndxAbrv(INDX_FORM, form, None)
+        abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
 
         sode['antivalu'] = True
 
@@ -4647,7 +4647,10 @@ class Layer(s_nexus.Pusher):
                 if form is None: # pragma: no cover
                     continue
 
-                if prop and not allow_props:
+                if prop:
+                    if allow_props:
+                        continue
+
                     realform = self.core.model.form(form)
                     if not realform: # pragma: no cover
                         mesg = f'Invalid form: {form}'
@@ -4663,7 +4666,7 @@ class Layer(s_nexus.Pusher):
                     else:
                         self.core.confirmPropSet(user, realprop, gateiden)
 
-                elif not prop and not allow_forms:
+                elif not allow_forms:
                     user.confirm(perm_forms + (form,), gateiden=gateiden)
 
         # tagprops
@@ -4694,55 +4697,57 @@ class Layer(s_nexus.Pusher):
             tombtype = byts[:2]
             tombinfo = s_msgpack.un(byts[2:])
 
-            if (tombtype, delete) == (INDX_FORM, True):
-                perm = ('node', 'add', tombinfo[0])
-                allowed = allow_del_forms
-
-            elif (tombtype, delete) == (INDX_FORM, False):
-                perm = ('node', 'del', tombinfo[0])
-                allowed = allow_add_forms
-
-            elif (tombtype, delete) == (INDX_PROP, True):
-                perm = ('node', 'prop', 'set', *tombinfo)
+            if (tombtype, delete) == (INDX_PROP, True):
+                (form, prop) = tombinfo
+                if prop:
+                    perm = perm_add_prop + tombinfo
+                else:
+                    perm = perm_add_form + (form,)
                 allowed = allow_del_props
 
             elif (tombtype, delete) == (INDX_PROP, False):
-                perm = ('node', 'prop', 'del', *tombinfo)
+                (form, prop) = tombinfo
+                if prop:
+                    perm = perm_del_prop + tombinfo
+                else:
+                    perm = perm_del_form + (form,)
                 allowed = allow_add_props
 
             elif (tombtype, delete) == (INDX_TAG, True):
-                perm = ('node', 'tag', 'add', *tombinfo[1].split('.'))
+                perm = perm_add_tag + tuple(tombinfo[1].split('.'))
                 allowed = allow_del_tags
 
             elif (tombtype, delete) == (INDX_TAG, False):
-                perm = ('node', 'tag', 'del', *tombinfo[1].split('.'))
+                perm = perm_del_tag + tuple(tombinfo[1].split('.'))
                 allowed = allow_add_tags
 
             elif (tombtype, delete) == (INDX_TAGPROP, True):
-                perm = ('node', 'tag', 'add', *tombinfo[1:])
+                perm = perm_add_tag + tombinfo[1:]
                 allowed = allow_del_tags
 
             elif (tombtype, delete) == (INDX_TAGPROP, False):
-                perm = ('node', 'tag', 'del', *tombinfo[1:])
+                perm = perm_del_tag + tombinfo[1:]
                 allowed = allow_add_tags
 
             elif (tombtype, delete) == (INDX_NODEDATA, True):
-                perm = ('node', 'data', 'set', *tombinfo)
+                perm = perm_add_ndata + tombinfo
                 allowed = allow_del_ndata
 
             elif (tombtype, delete) == (INDX_NODEDATA, False):
-                perm = ('node', 'data', 'pop', *tombinfo)
+                perm = perm_del_ndata + tombinfo
                 allowed = allow_add_ndata
 
             elif (tombtype, delete) == (INDX_EDGE_VERB, True):
-                perm = ('node', 'edge', 'add', *tombinfo)
+                perm = perm_add_edge + tombinfo
                 allowed = allow_del_edges
 
             elif (tombtype, delete) == (INDX_EDGE_VERB, False):
-                perm = ('node', 'edge', 'del', *tombinfo)
+                perm = perm_del_edge + tombinfo
                 allowed = allow_add_edges
 
-            else:
+            else: # pragma: no cover
+                extra = await self.core.getLogExtra(tombtype=tombtype, delete=delete, tombinfo=tombinfo)
+                logger.debug(f'Encountered unknown tombstone type: {tombtype}.', extra=extra)
                 continue
 
             if not allowed:
@@ -4751,15 +4756,39 @@ class Layer(s_nexus.Pusher):
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
         if not allow_tags:
+            async with self.core.getSpooledDict() as tags:
+                async for lkey, buid in s_coro.pause(self.layrslab.scanByPref(INDX_TAG, db=self.indxdb)):
+                    abrv = lkey[2:]
+                    abrvs = list(tags.get(buid, []))
+                    abrvs.append(abrv)
+                    await tags.set(buid, abrvs)
 
-            # Collect all tag abrvs for all nodes in the layer
-            async for lkey, buid in s_coro.pause(self.layrslab.scanByPref(INDX_TAG, db=self.indxdb)):
-                byts = self.core.indxabrv.abrvToByts(lkey[2:])
-                info = s_msgpack.un(byts[2:])
-                tag = info[1]
+                # Iterate over each node and it's tags
+                async for buid, abrvs in s_coro.pause(tags.items()):
+                    seen = {}
 
-                perm = perm_tags + tuple(tag.split('.'))
-                user.confirm(perm, gateiden=gateiden)
+                    if len(abrvs) == 1:
+                        # Easy optimization: If there's only one tag abrv, then it's a
+                        # leaf by default
+                        byts = self.core.indxabrv.abrvToByts(abrv)
+                        info = s_msgpack.un(byts[2:])
+                        perm = perm_tags + tuple(info[1].split('.'))
+                        user.confirm(perm, gateiden=gateiden)
+
+                    else:
+                        for abrv in abrvs:
+                            byts = self.core.indxabrv.abrvToByts(abrv)
+                            info = s_msgpack.un(byts[2:])
+                            parts = info[1].split('.')
+                            for idx in range(1, len(parts) + 1):
+                                key = tuple(parts[:idx])
+                                seen.setdefault(key, 0)
+                                seen[key] += 1
+
+                        for key, count in seen.items():
+                            if count == 1:
+                                perm = perm_tags + key
+                                user.confirm(perm, gateiden=gateiden)
 
     async def iterLayerNodeEdits(self):
         '''

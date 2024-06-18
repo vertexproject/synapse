@@ -2065,7 +2065,6 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'prop', 'set', 'syn:tag', '.created'),
 
                     # Tag/tagprop add
-                    ('node', 'tag', 'add', 'foo'),
                     ('node', 'tag', 'add', 'foo', 'bar'),
 
                     # Node del (tombstone)
@@ -2115,7 +2114,6 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'prop', 'del', 'syn:tag', '.created'),
 
                     # Tag/tagprop del
-                    ('node', 'tag', 'del', 'foo'),
                     ('node', 'tag', 'del', 'foo', 'bar'),
 
                     # Node add (restore tombstone)
