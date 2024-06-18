@@ -703,14 +703,7 @@ class AuthGate():
         if userinfo is not None:  # pragma: no cover
             return userinfo
 
-        userinfo = {
-            'iden': iden,
-            'admin': False,
-            'rules': (),
-        }
-
-        self.gateusers[iden] = userinfo
-
+        self.gateusers[iden] = userinfo = {}
         return userinfo
 
     def genRoleInfo(self, iden):
@@ -718,14 +711,7 @@ class AuthGate():
         if roleinfo is not None:  # pragma: no cover
             return roleinfo
 
-        roleinfo = {
-            'iden': iden,
-            'admin': False,
-            'rules': ()
-        }
-
-        self.gateroles[iden] = roleinfo
-
+        self.gateroles[iden] = roleinfo = {}
         return roleinfo
 
     async def _delGateUser(self, iden):
@@ -755,11 +741,27 @@ class AuthGate():
         await self.auth.stor.truncate(f'gate:{self.iden}:')
 
     def pack(self):
+        users = []
+        for useriden, userinfo in self.gateusers.items():
+            users.append({
+                'iden': useriden,
+                'rules': userinfo.get('rules', ()),
+                'admin': userinfo.get('admin', False),
+            })
+
+        roles = []
+        for roleiden, roleinfo in self.gateroles.items():
+            roles.append({
+                'iden': roleiden,
+                'rules': roleinfo.get('rules', ()),
+                'admin': roleinfo.get('admin', False),
+            })
+
         return {
             'iden': self.iden,
             'type': self.type,
-            'users': list(self.gateusers.values()),
-            'roles': list(self.gateroles.values()),
+            'users': users,
+            'roles': roles,
         }
 
 class Ruler():
