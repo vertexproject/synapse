@@ -4695,53 +4695,52 @@ class Layer(s_nexus.Pusher):
             tombtype = byts[:2]
             tombinfo = s_msgpack.un(byts[2:])
 
-            if (tombtype, delete) == (INDX_PROP, True):
+            if tombtype == INDX_PROP:
                 (form, prop) = tombinfo
-                if prop:
-                    perm = perm_add_prop + tombinfo
+                if delete:
+                    if prop:
+                        perm = perm_add_prop + tombinfo
+                    else:
+                        perm = perm_add_form + (form,)
+                    allowed = allow_del_props
                 else:
-                    perm = perm_add_form + (form,)
-                allowed = allow_del_props
+                    if prop:
+                        perm = perm_del_prop + tombinfo
+                    else:
+                        perm = perm_del_form + (form,)
+                    allowed = allow_add_props
 
-            elif (tombtype, delete) == (INDX_PROP, False):
-                (form, prop) = tombinfo
-                if prop:
-                    perm = perm_del_prop + tombinfo
+            elif tombtype == INDX_TAG:
+                if delete:
+                    perm = perm_add_tag + tuple(tombinfo[1].split('.'))
+                    allowed = allow_del_tags
                 else:
-                    perm = perm_del_form + (form,)
-                allowed = allow_add_props
+                    perm = perm_del_tag + tuple(tombinfo[1].split('.'))
+                    allowed = allow_add_tags
 
-            elif (tombtype, delete) == (INDX_TAG, True):
-                perm = perm_add_tag + tuple(tombinfo[1].split('.'))
-                allowed = allow_del_tags
+            elif tombtype == INDX_TAGPROP:
+                if delete:
+                    perm = perm_add_tag + tombinfo[1:]
+                    allowed = allow_del_tags
+                else:
+                    perm = perm_del_tag + tombinfo[1:]
+                    allowed = allow_add_tags
 
-            elif (tombtype, delete) == (INDX_TAG, False):
-                perm = perm_del_tag + tuple(tombinfo[1].split('.'))
-                allowed = allow_add_tags
+            elif tombtype == INDX_NODEDATA:
+                if delete:
+                    perm = perm_add_ndata + tombinfo
+                    allowed = allow_del_ndata
+                else:
+                    perm = perm_del_ndata + tombinfo
+                    allowed = allow_add_ndata
 
-            elif (tombtype, delete) == (INDX_TAGPROP, True):
-                perm = perm_add_tag + tombinfo[1:]
-                allowed = allow_del_tags
-
-            elif (tombtype, delete) == (INDX_TAGPROP, False):
-                perm = perm_del_tag + tombinfo[1:]
-                allowed = allow_add_tags
-
-            elif (tombtype, delete) == (INDX_NODEDATA, True):
-                perm = perm_add_ndata + tombinfo
-                allowed = allow_del_ndata
-
-            elif (tombtype, delete) == (INDX_NODEDATA, False):
-                perm = perm_del_ndata + tombinfo
-                allowed = allow_add_ndata
-
-            elif (tombtype, delete) == (INDX_EDGE_VERB, True):
-                perm = perm_add_edge + tombinfo
-                allowed = allow_del_edges
-
-            elif (tombtype, delete) == (INDX_EDGE_VERB, False):
-                perm = perm_del_edge + tombinfo
-                allowed = allow_add_edges
+            elif tombtype == INDX_EDGE_VERB:
+                if delete:
+                    perm = perm_add_edge + tombinfo
+                    allowed = allow_del_edges
+                else:
+                    perm = perm_del_edge + tombinfo
+                    allowed = allow_add_edges
 
             else: # pragma: no cover
                 extra = await self.core.getLogExtra(tombtype=tombtype, delete=delete, tombinfo=tombinfo)
@@ -4756,12 +4755,12 @@ class Layer(s_nexus.Pusher):
         if not allow_tags:
             async with self.core.getSpooledDict() as tagdict:
                 async for byts, abrv in s_coro.pause(self.core.indxabrv.iterByPref(INDX_TAG)):
-                    tag = s_msgpack.un(byts[2:])[1]
+                    (form, tag) = s_msgpack.un(byts[2:])
+                    if form is None:
+                        continue
+
                     async for _, nid in s_coro.pause(self.layrslab.scanByPref(abrv, db=self.indxdb)):
                         tags = list(tagdict.get(nid, []))
-                        if tag in tags:
-                            continue
-
                         tags.append(tag)
                         await tagdict.set(nid, tags)
 
@@ -4772,7 +4771,7 @@ class Layer(s_nexus.Pusher):
                     if len(tags) == 1:
                         # Easy optimization: If there's only one tag, then it's a
                         # leaf by default
-                        perm = perm_tags + tuple(tag.split('.'))
+                        perm = perm_tags + tuple(tags[0].split('.'))
                         user.confirm(perm, gateiden=gateiden)
 
                     else:
