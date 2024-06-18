@@ -622,12 +622,15 @@ class ItModule(s_module.CoreModule):
                 }),
             ),
             'types': (
+
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
-                    'doc': 'The name of a host or system.',
-                }),
+                    'doc': 'The name of a host or system.'}),
+
+
                 ('it:host', ('guid', {}), {
-                    'doc': 'A GUID that represents a host or system.'
-                }),
+                    'interfaces': ('inet:service:object',),
+                    'doc': 'A GUID that represents a host or system.'}),
+
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of log event types.',
                     'interfaces': ('meta:taxonomy',),
@@ -637,8 +640,12 @@ class ItModule(s_module.CoreModule):
                     'interfaces': ('it:host:activity',),
                 }),
                 ('it:network', ('guid', {}), {
-                    'doc': 'A GUID that represents a logical network.'
-                }),
+                    'doc': 'A GUID that represents a logical network.'}),
+
+                ('it:network:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of network types.'}),
+
                 ('it:domain', ('guid', {}), {
                     'doc': 'A logical boundary of authentication and configuration such as a windows domain.'
                 }),
@@ -902,8 +909,14 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:cmd', ('str', {'strip': True}), {
                     'doc': 'A unique command-line string.',
-                    'ex': 'foo.exe --dostuff bar',
-                }),
+                    'ex': 'foo.exe --dostuff bar'}),
+
+                ('it:cmd:session', ('guid', {}), {
+                    'doc': 'A command line session with multiple commands run over time.'}),
+
+                ('it:cmd:history', ('guid', {}), {
+                    'doc': 'A single command executed within a session.'}),
+
                 ('it:query', ('str', {'strip': True}), {
                     'doc': 'A unique query string.',
                 }),
@@ -994,6 +1007,30 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:sec:c2:config', ('guid', {}), {
                     'doc': 'An extracted C2 config from an executable.'}),
+
+                ('it:host:tenancy', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
+                    'doc': 'A time window where a host was a tenant run by another host.'}),
+
+                ('it:software:image:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of software image types.'}),
+
+                ('it:software:image', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
+                    'doc': 'The base image used to create a container or OS.'}),
+
+                ('it:storage:mount', ('guid', {}), {
+                    'doc': 'A storage volume that has been attached to an image.'}),
+
+                ('it:storage:volume', ('guid', {}), {
+                    'doc': 'A physical or logical storage volume that can be attached to a physical/virtual machine or container.'}),
+
+                ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
+                    'ex': 'network.smb',
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of storage volume types.',
+                }),
             ),
             'interfaces': (
                 ('it:host:activity', {
@@ -1060,11 +1097,11 @@ class ItModule(s_module.CoreModule):
 
                     ('manu', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:make.'}),
+                        'doc': 'Please use :hardware::manufacturer:name.'}),
 
                     ('model', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:model.'}),
+                        'doc': 'Please use :hardware::model.'}),
 
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.'}),
@@ -1083,7 +1120,67 @@ class ItModule(s_module.CoreModule):
 
                     ('keyboard:language', ('lang:language', {}), {
                         'doc': 'The primary keyboard input language configured on the host.'}),
+
+                    ('image', ('it:software:image', {}), {
+                        'doc': 'The container image or OS image running on the host.'}),
                 )),
+
+                ('it:host:tenancy', {}, (
+
+                    ('lessor', ('it:host', {}), {
+                        'doc': 'The host which provides runtime resources to the tenant host.'}),
+
+                    ('tenant', ('it:host', {}), {
+                        'doc': 'The host which is run within the resources provided by the lessor.'}),
+
+                )),
+
+                ('it:software:image', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the image.'}),
+
+                    ('type', ('it:software:image:type:taxonomy', {}), {
+                        'doc': 'The type of software image.'}),
+
+                    ('published', ('time', {}), {
+                        'doc': 'The time the image was published.'}),
+
+                    ('publisher', ('ps:contact', {}), {
+                        'doc': 'The contact information of the org or person who published the image.'}),
+
+                    ('parents', ('array', {'type': 'it:software:image'}), {
+                        'doc': 'An array of parent images in precedence order.'}),
+                )),
+
+                ('it:storage:volume:type:taxonomy', {}, ()),
+                ('it:storage:volume', {}, (
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The unique volume ID.'}),
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the volume.'}),
+
+                    ('type', ('it:storage:volume:type:taxonomy', {}), {
+                        'doc': 'The type of storage volume.'}),
+
+                    ('size', ('int', {'min': 0}), {
+                        'doc': 'The size of the volume in bytes.'}),
+                )),
+
+                ('it:storage:mount', {}, (
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host that has mounted the volume.'}),
+
+                    ('volume', ('it:storage:volume', {}), {
+                        'doc': 'The volume that the host has mounted.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path where the volume is mounted in the host filesystem.'}),
+                )),
+
                 ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
 
@@ -1118,22 +1215,27 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The org that operates the given domain.',
                     }),
                 )),
+                ('it:network:type:taxonomy', {}, ()),
                 ('it:network', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the network.',
-                    }),
+                        'doc': 'The name of the network.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A brief description of the network.',
-                    }),
+                        'doc': 'A brief description of the network.'}),
+
+                    ('type', ('it:network:type:taxonomy', {}), {
+                        'doc': 'The type of network.'}),
+
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org that owns/operates the network.',
-                    }),
+                        'doc': 'The org that owns/operates the network.'}),
+
                     ('net4', ('inet:net4', {}), {
-                        'doc': 'The optional contiguous IPv4 address range of this network.',
-                    }),
+                        'doc': 'The optional contiguous IPv4 address range of this network.'}),
+
                     ('net6', ('inet:net6', {}), {
-                        'doc': 'The optional contiguous IPv6 address range of this network.',
-                    }),
+                        'doc': 'The optional contiguous IPv6 address range of this network.'}),
+
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
@@ -2275,6 +2377,34 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:cmd', {}, ()),
+                ('it:cmd:session', {}, (
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host where the command line session was executed.'}),
+
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which was interpreting this command line session.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period over which the command line session was running.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file containing the command history such as a .bash_history file.'}),
+                )),
+                ('it:cmd:history', {}, (
+
+                    ('cmd', ('it:cmd', {}), {
+                        'doc': 'The command that was executed.'}),
+
+                    ('session', ('it:cmd:session', {}), {
+                        'doc': 'The session that contains this history entry.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the command was executed.'}),
+
+                    ('index', ('int', {}), {
+                        'doc': 'Used to order the commands when times are not available.'}),
+                )),
                 ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
@@ -2283,9 +2413,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.',
                     }),
                     ('cmd', ('it:cmd', {}), {
-                        'doc': 'The command string used to launch the process, including any command line parameters.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The command string used to launch the process, including any command line parameters.'}),
+
+                    ('cmd:history', ('it:cmd:history', {}), {
+                        'doc': 'The command history entry which caused this process to be run.'}),
+
                     ('pid', ('int', {}), {
                         'doc': 'The process ID.',
                     }),
