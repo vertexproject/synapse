@@ -3692,7 +3692,6 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
 
         kvpairs = []
-        kvpairs = [(INDX_TAG + abrv, nid)]
 
         if sode.get('form') is None:
             sode['form'] = form
@@ -3747,7 +3746,6 @@ class Layer(s_nexus.Pusher):
         if oldv == (None, None):
             self.layrslab.delete(abrv, nid, db=self.indxdb)
             self.layrslab.delete(formabrv, nid, db=self.indxdb)
-            self.layrslab.delete(INDX_TAG + abrv, nid, db=self.indxdb)
         else:
             if oldv[1] == self.ivaltimetype.futsize:
                 dura = self.stortypes[STOR_TYPE_IVAL].maxdura
@@ -4677,7 +4675,7 @@ class Layer(s_nexus.Pusher):
 
         # nodedata
         if not allow_ndata:
-            async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname)):
+            async for abrv in s_coro.pause(self.dataslab.scanKeys(db=self.dataname, nodup=True)):
                 if abrv[8:] == FLAG_TOMB:
                     continue
 
@@ -4692,7 +4690,7 @@ class Layer(s_nexus.Pusher):
                 user.confirm(perm, gateiden=gateiden)
 
         # tombstones
-        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(INDX_TOMB, db=self.indxdb)):
+        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(INDX_TOMB, db=self.indxdb, nodup=True)):
             byts = self.core.indxabrv.abrvToByts(lkey[2:10])
             tombtype = byts[:2]
             tombinfo = s_msgpack.un(byts[2:])
@@ -4756,36 +4754,36 @@ class Layer(s_nexus.Pusher):
         # tags
         # NB: tag perms should be yielded for every leaf on every node in the layer
         if not allow_tags:
-            async with self.core.getSpooledDict() as tags:
-                async for lkey, buid in s_coro.pause(self.layrslab.scanByPref(INDX_TAG, db=self.indxdb)):
-                    abrv = lkey[2:]
-                    abrvs = list(tags.get(buid, []))
-                    abrvs.append(abrv)
-                    await tags.set(buid, abrvs)
+            async with self.core.getSpooledDict() as tagdict:
+                async for byts, abrv in s_coro.pause(self.core.indxabrv.iterByPref(INDX_TAG)):
+                    tag = s_msgpack.un(byts[2:])[1]
+                    async for _, nid in s_coro.pause(self.layrslab.scanByPref(abrv, db=self.indxdb)):
+                        tags = list(tagdict.get(nid, []))
+                        if tag in tags:
+                            continue
+
+                        tags.append(tag)
+                        await tagdict.set(nid, tags)
 
                 # Iterate over each node and it's tags
-                async for buid, abrvs in s_coro.pause(tags.items()):
-                    seen = {}
+                async for nid, tags in s_coro.pause(tagdict.items()):
+                    leaf = {}
 
-                    if len(abrvs) == 1:
-                        # Easy optimization: If there's only one tag abrv, then it's a
+                    if len(tags) == 1:
+                        # Easy optimization: If there's only one tag, then it's a
                         # leaf by default
-                        byts = self.core.indxabrv.abrvToByts(abrv)
-                        info = s_msgpack.un(byts[2:])
-                        perm = perm_tags + tuple(info[1].split('.'))
+                        perm = perm_tags + tuple(tag.split('.'))
                         user.confirm(perm, gateiden=gateiden)
 
                     else:
-                        for abrv in abrvs:
-                            byts = self.core.indxabrv.abrvToByts(abrv)
-                            info = s_msgpack.un(byts[2:])
-                            parts = info[1].split('.')
+                        for tag in tags:
+                            parts = tag.split('.')
                             for idx in range(1, len(parts) + 1):
                                 key = tuple(parts[:idx])
-                                seen.setdefault(key, 0)
-                                seen[key] += 1
+                                leaf.setdefault(key, 0)
+                                leaf[key] += 1
 
-                        for key, count in seen.items():
+                        for key, count in leaf.items():
                             if count == 1:
                                 perm = perm_tags + key
                                 user.confirm(perm, gateiden=gateiden)
