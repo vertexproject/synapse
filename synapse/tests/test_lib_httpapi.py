@@ -1170,7 +1170,6 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['role']['authgates'][deflayr], {'rules': [[True, ['layer', 'read']]]})
                     self.eq(data['info']['role']['authgates'][defview], {'rules': [[True, ['view', 'read']]]})
                     self.eq(data['info']['role']['rules'], [[False, ['power-ups', 'foo', 'bar']]])
-
                     self.gt(data['offset'], base)
                     base = data['offset']
 
