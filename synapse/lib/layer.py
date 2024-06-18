@@ -4595,27 +4595,51 @@ class Layer(s_nexus.Pusher):
         perm_add_ndata = ('node', 'data', 'set')
         perm_add_edge = ('node', 'edge', 'add')
 
+        if all((
+            (allow_add_forms := user.allowed(perm_add_form, gateiden=gateiden)),
+            (allow_add_props := user.allowed(perm_add_prop, gateiden=gateiden)),
+            (allow_add_tags := user.allowed(perm_add_tag, gateiden=gateiden)),
+            (allow_add_ndata := user.allowed(perm_add_ndata, gateiden=gateiden)),
+            (allow_add_edges := user.allowed(perm_add_edge, gateiden=gateiden)),
+
+            (allow_del_forms := user.allowed(perm_del_form, gateiden=gateiden)),
+            (allow_del_props := user.allowed(perm_del_prop, gateiden=gateiden)),
+            (allow_del_tags := user.allowed(perm_del_tag, gateiden=gateiden)),
+            (allow_del_ndata := user.allowed(perm_del_ndata, gateiden=gateiden)),
+            (allow_del_edges := user.allowed(perm_del_edge, gateiden=gateiden)),
+        )):
+            return
+
         if delete:
             perm_forms = perm_del_form
-            perm_props = perm_del_prop
+            allow_forms = allow_del_forms
+
+            # perm_props = perm_del_prop
+            allow_props = allow_del_props
+
             perm_tags = perm_del_tag
+            allow_tags = allow_del_tags
+
             perm_ndata = perm_del_ndata
+            allow_ndata = allow_del_ndata
+
             perm_edges = perm_del_edge
+            allow_edges = allow_del_edges
         else:
             perm_forms = perm_add_form
-            perm_props = perm_add_prop
+            allow_forms = allow_add_forms
+
+            # perm_props = perm_add_prop
+            allow_props = allow_add_props
+
             perm_tags = perm_add_tag
+            allow_tags = allow_add_tags
+
             perm_ndata = perm_add_ndata
+            allow_ndata = allow_add_ndata
+
             perm_edges = perm_add_edge
-
-        allow_forms = user.allowed(perm_forms, gateiden=gateiden)
-        allow_props = user.allowed(perm_props, gateiden=gateiden)
-        allow_tags = user.allowed(perm_tags, gateiden=gateiden)
-        allow_ndata = user.allowed(perm_ndata, gateiden=gateiden)
-        allow_edges = user.allowed(perm_edges, gateiden=gateiden)
-
-        if all((allow_forms, allow_props, allow_tags, allow_ndata, allow_edges)):
-            return
+            allow_edges = allow_add_edges
 
         # nodes & props
         if not allow_forms or not allow_props:
@@ -4670,47 +4694,58 @@ class Layer(s_nexus.Pusher):
             tombtype = byts[:2]
             tombinfo = s_msgpack.un(byts[2:])
 
-            perm = None
+            if (tombtype, delete) == (INDX_FORM, True):
+                perm = ('node', 'add', tombinfo[0])
+                allowed = allow_del_forms
 
-            if tombtype == INDX_FORM and not allow_forms:
-                if delete:
-                    perm = perm_add_form + (tombinfo[0],)
-                else:
-                    perm = perm_del_form + (tombinfo[0],)
+            elif (tombtype, delete) == (INDX_FORM, False):
+                perm = ('node', 'del', tombinfo[0])
+                allowed = allow_add_forms
 
-            elif tombtype == INDX_PROP and not allow_props:
-                if delete:
-                    perm = perm_add_prop + tombinfo
-                else:
-                    perm = perm_del_prop + tombinfo
+            elif (tombtype, delete) == (INDX_PROP, True):
+                perm = ('node', 'prop', 'set', *tombinfo)
+                allowed = allow_del_props
 
-            elif tombtype == INDX_TAG and not allow_tags:
-                if delete:
-                    perm = perm_add_tag + tuple(tombinfo[1].split('.'))
-                else:
-                    perm = perm_del_tag + tuple(tombinfo[1].split('.'))
+            elif (tombtype, delete) == (INDX_PROP, False):
+                perm = ('node', 'prop', 'del', *tombinfo)
+                allowed = allow_add_props
 
-            elif tombtype == INDX_TAGPROP and not allow_tags:
-                if delete:
-                    perm = perm_add_tag + tombinfo[1:]
-                else:
-                    perm = perm_del_tag + tombinfo[1:]
+            elif (tombtype, delete) == (INDX_TAG, True):
+                perm = ('node', 'tag', 'add', *tombinfo[1].split('.'))
+                allowed = allow_del_tags
 
-            elif tombtype == INDX_NODEDATA and not allow_ndata:
-                if delete:
-                    perm = perm_add_ndata + tombinfo
-                else:
-                    perm = perm_del_ndata + tombinfo
+            elif (tombtype, delete) == (INDX_TAG, False):
+                perm = ('node', 'tag', 'del', *tombinfo[1].split('.'))
+                allowed = allow_add_tags
 
-            elif tombtype == INDX_EDGE_VERB and not allow_edges:
-                if delete:
-                    perm = perm_add_edge + tombinfo
-                else:
-                    perm = perm_del_edge + tombinfo
+            elif (tombtype, delete) == (INDX_TAGPROP, True):
+                perm = ('node', 'tag', 'add', *tombinfo[1:])
+                allowed = allow_del_tags
+
+            elif (tombtype, delete) == (INDX_TAGPROP, False):
+                perm = ('node', 'tag', 'del', *tombinfo[1:])
+                allowed = allow_add_tags
+
+            elif (tombtype, delete) == (INDX_NODEDATA, True):
+                perm = ('node', 'data', 'set', *tombinfo)
+                allowed = allow_del_ndata
+
+            elif (tombtype, delete) == (INDX_NODEDATA, False):
+                perm = ('node', 'data', 'pop', *tombinfo)
+                allowed = allow_add_ndata
+
+            elif (tombtype, delete) == (INDX_EDGE_VERB, True):
+                perm = ('node', 'edge', 'add', *tombinfo)
+                allowed = allow_del_edges
+
+            elif (tombtype, delete) == (INDX_EDGE_VERB, False):
+                perm = ('node', 'edge', 'del', *tombinfo)
+                allowed = allow_add_edges
+
             else:
-                breakpoint()
+                continue
 
-            if perm is not None:
+            if not allowed:
                 user.confirm(perm, gateiden=gateiden)
 
         # tags
