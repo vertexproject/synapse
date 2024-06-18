@@ -1573,7 +1573,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
-                        'doc': 'Represents a user access request to service resource.'}),
+                        'doc': 'Represents a user access request to a service resource.'}),
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',)}),
@@ -1672,7 +1672,7 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The service account which created the object.'}),
 
                             ('remover', ('inet:service:account', {}), {
-                                'doc': 'The service account which removed or decommisioned the object.'}),
+                                'doc': 'The service account which removed or decommissioned the object.'}),
 
                         ),
                     }),
