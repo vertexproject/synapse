@@ -69,13 +69,14 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('text'), 'yieldnote')
 
-            nodes = await core.nodes('note.add --yield "nonodes"')
+            nodes = await core.nodes('note.add --yield "nonodes" | [ :replyto=* ]')
             self.len(1, nodes)
             self.eq(nodes[0].get('text'), 'nonodes')
             self.nn(nodes[0].get('created'))
             self.nn(nodes[0].get('updated'))
 
             self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
+            self.len(1, await core.nodes('meta:note:text=nonodes -> meta:note'))
 
     async def test_model_base_node(self):
 

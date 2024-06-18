@@ -1876,6 +1876,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
+            opts = {'vars': {'root': core.auth.rootuser.iden}}
             nodes = await core.nodes('''
                 [ it:exec:query=*
                     :text="SELECT * FROM threats"
@@ -1884,14 +1885,16 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :api:url=https://vertex.link/api/v1.
                     :time=20220720
                     :offset=99
+                    :synuser=$root
                     // we can assume the rest of the interface props work
                 ]
-            ''')
+            ''', opts=opts)
             self.eq(1658275200000, nodes[0].get('time'))
             self.eq(99, nodes[0].get('offset'))
             self.eq('sql', nodes[0].get('language'))
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
+            self.eq(core.auth.rootuser.iden, nodes[0].get('synuser'))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
 
     async def test_infotech_softid(self):
