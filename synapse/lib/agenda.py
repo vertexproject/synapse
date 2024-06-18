@@ -668,8 +668,8 @@ class Agenda(s_base.Base):
         '''
         appt = self.appts.get(croniden)
         if appt is None:
-            mesg = f'No cron job with iden: {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
+            mesg = f'No cron job with iden: {croniden}'
+            raise s_exc.NoSuchIden(iden=croniden, mesg=mesg)
 
         appt.view = viewiden
 
