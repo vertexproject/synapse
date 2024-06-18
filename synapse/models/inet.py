@@ -1672,7 +1672,7 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The service account which created the object.'}),
 
                             ('remover', ('inet:service:account', {}), {
-                                'doc': 'The service account which removed or decommisioned the object.'}),
+                                'doc': 'The service account which removed or decommissioned the object.'}),
 
                         ),
                     }),
