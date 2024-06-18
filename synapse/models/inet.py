@@ -3768,7 +3768,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The bytes stored within the bucket item.'}),
 
                         ('file:name', ('file:path', {}), {
-                            'doc': 'The bytes stored within the bucket item.'}),
+                            'doc': 'The name of the file stored in the bucket item.'}),
                     )),
 
                     ('inet:service:access', {}, (
