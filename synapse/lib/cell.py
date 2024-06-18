@@ -1342,7 +1342,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     userinfo['name'] = node.valu
                     userinfo['authgates'] = {}
                     userinfo.setdefault('admin', False)
-                    userinfo.setdefault('ruler', ())
+                    userinfo.setdefault('rules', ())
                     userinfo.setdefault('locked', False)
                     userinfo.setdefault('passwd', None)
                     userinfo.setdefault('archived', False)
