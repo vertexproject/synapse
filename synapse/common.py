@@ -1195,13 +1195,12 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     Returns:
         The original string or the trimmed string.
     '''
-    '''Trim a text string larger than n'''
-    plen = len(placeholder)
-    assert plen > 0
-    assert n > plen
-    mlen = n - plen
     if len(text) <= n:
         return text
+    plen = len(placeholder)
+    mlen = n - plen
+    assert plen > 0
+    assert n > plen
     return f'{text[:mlen]}{placeholder}'
 
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
