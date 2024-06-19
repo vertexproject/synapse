@@ -960,7 +960,7 @@ class User(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setArchived', 'desc': '''
-        Set the locked status for a user.
+        Set the archived status for a user.
 
         Notes:
             Setting a user as "archived" will also lock the user.
