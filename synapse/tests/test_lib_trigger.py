@@ -551,6 +551,10 @@ class TrigTest(s_t_utils.SynTest):
 
             derp = await core.auth.addUser('derp')
 
+            # This is so we can later update the trigger in a view other than the one which it was created
+            viewiden = await core.callStorm('$view = $lib.view.get().fork() return($view.iden)')
+            inview = {'view': viewiden}
+
             tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
             opts = {'vars': {'tdef': tdef}}
 
@@ -562,7 +566,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('foo'))
 
             opts = {'vars': {'iden': trig.get('iden'), 'derp': derp.iden}}
-            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts)
+            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts | inview)
 
             nodes = await core.nodes('[ inet:ipv4=8.8.8.8 ]')
             self.len(1, nodes)
