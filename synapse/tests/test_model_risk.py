@@ -436,6 +436,8 @@ class RiskModelTest(s_t_utils.SynTest):
                 :reporter={ gen.ou.org vertex }
                 :reporter:name=vertex
                 :size:bytes=99
+                :size:count=33
+                :size:percent=12
                 :extortion=*
             ]''')
             self.len(1, nodes)
@@ -445,6 +447,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('public.', nodes[0].get('type'))
             self.eq(1, nodes[0].get('public'))
             self.eq(99, nodes[0].get('size:bytes'))
+            self.eq(33, nodes[0].get('size:count'))
+            self.eq(12, nodes[0].get('size:percent'))
             self.eq('https://wikileaks.org/acme', nodes[0].get('public:url'))
             self.eq('vertex', nodes[0].get('reporter:name'))
 
@@ -473,6 +477,8 @@ class RiskModelTest(s_t_utils.SynTest):
                 :demanded:payment:currency=VTC
                 :reporter={ gen.ou.org vertex }
                 :reporter:name=vertex
+                :paid:price=12345
+                :payments={[ econ:acct:payment=* ]}
             ]''')
 
             self.len(1, nodes)
@@ -488,7 +494,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('99.99', nodes[0].get('demanded:payment:price'))
             self.eq('vtc', nodes[0].get('demanded:payment:currency'))
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('12345', nodes[0].get('paid:price'))
 
+            self.len(1, await core.nodes('risk:extortion -> econ:acct:payment'))
             self.len(1, await core.nodes('risk:extortion :target -> ps:contact +:orgname=acme'))
             self.len(1, await core.nodes('risk:extortion :attacker -> ps:contact +:name=agent99'))
             self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ps:contact +:orgname=acme'))
