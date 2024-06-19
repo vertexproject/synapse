@@ -56,6 +56,7 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
+import synapse.lib.stormlib.env as s_stormlib_env  # NOQA
 import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
