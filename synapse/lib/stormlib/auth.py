@@ -968,7 +968,7 @@ class User(s_stormtypes.Prim):
         ''',
          'type': {'type': 'function', '_funcname': '_methUserSetArchived',
                   'args': (
-                      {'name': 'archived', 'type': 'boolean', 'desc': 'True to archive the user, false to unarchived them.', },
+                      {'name': 'archived', 'type': 'boolean', 'desc': 'True to archive the user, false to unarchive them.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setPasswd', 'desc': 'Set the Users password.',
