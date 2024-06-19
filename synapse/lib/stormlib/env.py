@@ -19,7 +19,7 @@ class LibEnv(s_stormtypes.Lib):
          'type': {
             'type': 'function', '_funcname': '_libEnvGet',
             'args': (
-                {'name': 'text', 'type': 'str', 'desc': 'The name of the environment variable.', },
+                {'name': 'name', 'type': 'str', 'desc': 'The name of the environment variable.', },
                 {'name': 'default', 'type': 'obj', 'default': None,
                     'desc': 'The value to return if the environment variable is not set.', },
             ),
