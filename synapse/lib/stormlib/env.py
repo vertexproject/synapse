@@ -10,11 +10,18 @@ class LibEnv(s_stormtypes.Lib):
     A Storm Library for accessing environment vars.
     '''
     _storm_locals = (
-        {'name': 'get', 'desc': 'Retrieve an environment variable.',
+        {'name': 'get', 'desc': '''
+            Retrieve an environment variable.
+
+            NOTE: Environment variables must begin with SYN_STORM_ENV_
+                  in order to be accessed by this API.
+        ''',
          'type': {
             'type': 'function', '_funcname': '_libEnvGet',
             'args': (
                 {'name': 'text', 'type': 'str', 'desc': 'The name of the environment variable.', },
+                {'name': 'default', 'type': 'obj', 'default': None,
+                    'desc': 'The value to return if the environment variable is not set.', },
             ),
          'returns': {'type': 'str', 'desc': 'The environment variable string.'},
          },
@@ -28,14 +35,15 @@ class LibEnv(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _libEnvGet(self, name):
+    async def _libEnvGet(self, name, default=None):
 
         self.runt.reqAdmin(mesg='$lib.env.get() requires admin privileges.')
 
         name = await s_stormtypes.tostr(name)
+        default = await s_stormtypes.toprim(default)
 
         if not name.startswith('SYN_STORM_ENV_'):
             mesg = f'Environment variable must start with SYN_STORM_ENV_ : {name}'
             raise s_exc.BadArg(mesg=mesg)
 
-        return os.getenv(name)
+        return os.getenv(name, default=default)

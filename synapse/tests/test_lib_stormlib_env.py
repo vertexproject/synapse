@@ -6,17 +6,20 @@ class StormLibEnvTest(s_test.SynTest):
 
     async def test_stormlib_env(self):
 
-        os.environ['SYN_STORM_ENV_WOOT'] = 'woot'
+        with self.setTstEnvars(SYN_STORM_ENV_WOOT='woot'):
 
-        async with self.getTestCore() as core:
+            async with self.getTestCore() as core:
 
-            self.eq('woot', await core.callStorm('return($lib.env.get(SYN_STORM_ENV_WOOT))'))
+                self.eq('woot', await core.callStorm('return($lib.env.get(SYN_STORM_ENV_WOOT))'))
+                self.eq('hehe', await core.callStorm('return($lib.env.get(SYN_STORM_ENV_HEHE, default=hehe))'))
 
-            visi = await core.auth.addUser('visi')
+                self.none(await core.callStorm('return($lib.env.get(SYN_STORM_ENV_HEHE))'))
 
-            with self.raises(s_exc.AuthDeny):
-                opts = {'user': visi.iden}
-                await core.callStorm('return($lib.env.get(SYN_STORM_ENV_WOOT))', opts=opts)
+                visi = await core.auth.addUser('visi')
 
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.env.get(USER))')
+                with self.raises(s_exc.AuthDeny):
+                    opts = {'user': visi.iden}
+                    await core.callStorm('return($lib.env.get(SYN_STORM_ENV_WOOT))', opts=opts)
+
+                with self.raises(s_exc.BadArg):
+                    await core.callStorm('return($lib.env.get(USER))')
