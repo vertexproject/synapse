@@ -1,0 +1,41 @@
+import os
+
+import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.lib.stormtypes as s_stormtypes
+
+@s_stormtypes.registry.registerLib
+class LibEnv(s_stormtypes.Lib):
+    '''
+    A Storm Library for accessing environment vars.
+    '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Retrieve an environment variable.',
+         'type': {
+            'type': 'function', '_funcname': '_libEnvGet',
+            'args': (
+                {'name': 'text', 'type': 'str', 'desc': 'The name of the environment variable.', },
+            ),
+         'returns': {'type': 'str', 'desc': 'The environment variable string.'},
+         },
+        },
+    )
+    _storm_lib_path = ('env',)
+
+    def getObjLocals(self):
+        return {
+            'get': self._libEnvGet,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _libEnvGet(self, name):
+
+        self.runt.reqAdmin(mesg='$lib.env.get() requires admin privileges.')
+
+        name = await s_stormtypes.tostr(name)
+
+        if not name.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {name}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return os.getenv(name)
