@@ -45,6 +45,18 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:relationship:type:taxonomy', ('taxonomy', {}), {}),
+
+                ('ou:relationship', ('guid', {}), {
+                    'doc': 'A relationship between two organizations.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'source::name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                            {'type': 'prop', 'opts': {'name': 'target::name'}},
+                        ),
+                    }}),
+
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
@@ -720,6 +732,18 @@ class OuModule(s_module.CoreModule):
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
                     ('name', ('ou:name', {}), {}),
+                )),
+                ('ou:relationship:type:taxonomy', {}, ()),
+                ('ou:relationship', {}, (
+
+                    ('source', ('ou:org', {}), {
+                        'doc': 'The organization which is related to the target organization.'}),
+
+                    ('target', ('ou:org', {}), {
+                        'doc': 'The organization which the source organization is related to.'}),
+
+                    ('type', ('ou:relationship:type:taxonomy', {}), {
+                        'doc': 'The type of relationship.'}),
                 )),
                 ('ou:position', {}, (
                     ('org', ('ou:org', {}), {
