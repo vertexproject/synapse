@@ -69,6 +69,22 @@ ipv6_multicast_scopes = {
 
 scopes_enum = 'reserved,interface-local,link-local,realm-local,admin-local,site-local,organization-local,global,unassigned'
 
+svcobjstatus = (
+    (10, 'draft'),
+    (30, 'available'),
+    (40, 'offline'),
+    (50, 'removed'),
+)
+
+svcaccesstypes = (
+    (10, 'create'),
+    (30, 'read'),
+    (40, 'update'),
+    (50, 'delete'),
+    (60, 'list'),
+    (70, 'execute'),
+)
+
 def getAddrScope(ipv6):
 
     if ipv6.is_loopback:
@@ -1493,6 +1509,87 @@ class InetModule(s_module.CoreModule):
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
                         'doc': 'A JARM hash sample taken from a server.'}),
 
+                    ('inet:service:platform', ('guid', {}), {
+                        'doc': 'A network platform which provides services.'}),
+
+                    ('inet:service:instance', ('guid', {}), {
+                        'doc': 'An instance of the platform such as Slack or Discord instances.'}),
+
+                    ('inet:service:object:status', ('int', {'enums': svcobjstatus}), {
+                        'doc': 'An object status enumeration.'}),
+
+                    ('inet:service:account', ('guid', {}), {
+                        'doc': 'An account within a service platform. Accounts may be instance specific.'}),
+
+                    ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A permission type taxonomy.'}),
+
+                    ('inet:service:permission', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A permission which may be granted to a service account or role.'}),
+
+                    ('inet:service:rule', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A rule which grants or denies a permission to a service account or role.'}),
+
+                    ('inet:service:login', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'A login event for a service account.'}),
+
+                    ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of inet service methods.'}),
+
+                    ('inet:service:session', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'An authenticated session.'}),
+
+                    ('inet:service:group', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A group or role which contains member accounts.'}),
+
+                    ('inet:service:group:member', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'Represents a service account being a member of a group.'}),
+
+                    ('inet:service:channel', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A channel used to distribute messages.'}),
+
+                    ('inet:service:channel:member', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'Represents a service account being a member of a channel.'}),
+
+                    ('inet:service:message', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'A message or post created by an account.'}),
+
+                    ('inet:service:message:link', ('guid', {}), {
+                        'doc': 'A URL link included within a message.'}),
+
+                    ('inet:service:message:attachment', ('guid', {}), {
+                        'doc': 'A file attachment included within a message.'}),
+
+                    ('inet:service:access', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
+                        'doc': 'Represents a user access request to a service resource.'}),
+
+                    ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',)}),
+
+                    ('inet:service:resource', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A generic resource provided by the service architecture.'}),
+
+                    ('inet:service:bucket', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A file/blob storage object within a service architecture.'}),
+
+                    ('inet:service:bucket:item', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'An individual file stored within a bucket.'}),
+
                     ('inet:tls:handshake', ('guid', {}), {
                         'doc': 'An instance of a TLS handshake between a server and client.'}),
 
@@ -1541,6 +1638,90 @@ class InetModule(s_module.CoreModule):
                                 'doc': 'The server port that the request was sent to.'}),
                             ('server:host', ('it:host', {}), {
                                 'doc': 'The host that the request was sent to.'}),
+                        ),
+                    }),
+
+                    ('inet:service:base', {
+                        'doc': 'Properties common to most forms within a service platform.',
+                        'props': (
+
+                            ('id', ('str', {'strip': True}), {
+                                'doc': 'A platform specific ID.'}),
+
+                            ('platform', ('inet:service:platform', {}), {
+                                'doc': 'The platform which defines the node.'}),
+
+                            ('instance', ('inet:service:instance', {}), {
+                                'doc': 'The platform instance which defines the node.'}),
+                        ),
+                    }),
+
+                    ('inet:service:object', {
+
+                        'doc': 'Properties common to objects within a service platform.',
+                        'interfaces': ('inet:service:base',),
+                        'props': (
+
+                            ('status', ('inet:service:object:status', {}), {
+                                'doc': 'The status of this object.'}),
+
+                            ('period', ('ival', {}), {
+                                'doc': 'The period when the object existed.'}),
+
+                            ('creator', ('inet:service:account', {}), {
+                                'doc': 'The service account which created the object.'}),
+
+                            ('remover', ('inet:service:account', {}), {
+                                'doc': 'The service account which removed or decommissioned the object.'}),
+
+                        ),
+                    }),
+
+                    ('inet:service:action', {
+
+                        'doc': 'Properties common to events within a service platform.',
+                        'interfaces': ('inet:service:base',),
+                        'props': (
+
+                            ('time', ('time', {}), {
+                                'doc': 'The time that the account initiated the action.'}),
+
+                            ('account', ('inet:service:account', {}), {
+                                'doc': 'The account which initiated the action.'}),
+
+                            ('success', ('bool', {}), {
+                                'doc': 'Set to true if the action was successful.'}),
+
+                            ('rule', ('inet:service:rule', {}), {
+                                'doc': 'The rule which allowed or denied the action.'}),
+
+                            ('error:code', ('str', {'strip': True}), {
+                                'doc': 'The platform specific error code if the action was unsuccessful.'}),
+
+                            ('error:reason', ('str', {'strip': True}), {
+                                'doc': 'The platform specific friendly error reason if the action was unsuccessful.'}),
+
+                            ('platform', ('inet:service:platform', {}), {
+                                'doc': 'The platform where the action was initiated.'}),
+
+                            ('instance', ('inet:service:instance', {}), {
+                                'doc': 'The platform instance where the action was initiated.'}),
+
+                            ('session', ('inet:service:session', {}), {
+                                'doc': 'The session which initiated the action.'}),
+
+                            ('client', ('inet:client', {}), {
+                                'doc': 'The network address of the client which initiated the action.'}),
+
+                            ('client:host', ('it:host', {}), {
+                                'doc': 'The client host which initiated the action.'}),
+
+                            ('server', ('inet:server', {}), {
+                                'doc': 'The network address of the server which handled the action.'}),
+
+                            ('server:host', ('it:host', {}), {
+                                'doc': 'The server host which handled the action.'}),
+
                         ),
                     }),
                 ),
@@ -1931,6 +2112,9 @@ class InetModule(s_module.CoreModule):
                         ('host', ('it:host', {}), {
                             'doc': 'The host that used the network egress.'}),
 
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The service account which used the client address to egress.'}),
+
                         ('client', ('inet:client', {}), {
                             'doc': 'The client address the host used as a network egress.'}),
 
@@ -2046,8 +2230,12 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:iface', {}, (
                         ('host', ('it:host', {}), {
-                            'doc': 'The guid of the host the interface is associated with.'
-                        }),
+                            'doc': 'The guid of the host the interface is associated with.'}),
+
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'eth0',
+                            'doc': 'The interface name.'}),
+
                         ('network', ('it:network', {}), {
                             'doc': 'The guid of the it:network the interface connected to.'
                         }),
@@ -3309,6 +3497,287 @@ class InetModule(s_module.CoreModule):
                         ('cert', ('crypto:x509:cert', {}), {
                             'ro': True,
                             'doc': 'The x509 certificate sent by the client.'})
+                    )),
+                    ('inet:service:platform', {}, (
+
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://twitter.com',
+                            'doc': 'The primary URL of the platform.'}),
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'ex': 'twitter',
+                            'doc': 'A friendly name for the platform.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service platform.'}),
+
+                        ('provider', ('ou:org', {}), {
+                            'doc': 'The organization which operates the platform.'}),
+
+                        ('provider:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization which operates the platform.'}),
+                    )),
+
+                    ('inet:service:instance', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'B8ZS2',
+                            'doc': 'A platform specific ID to identify the service instance.'}),
+
+                        ('platform', ('inet:service:platform', {}), {
+                            'doc': 'The platform which defines the service instance.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://v.vtx.lk/slack',
+                            'doc': 'The primary URL which identifies the service instance.'}),
+
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'ex': 'synapse users slack',
+                            'doc': 'The name of the service instance.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service instance.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the instance existed.'}),
+
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The status of this instance.'}),
+
+                        ('creator', ('inet:service:account', {}), {
+                            'doc': 'The service account which created the instance.'}),
+
+                        ('owner', ('inet:service:account', {}), {
+                            'doc': 'The service account which owns the instance.'}),
+                    )),
+
+                    ('inet:service:account', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'A platform specific ID used to identify the account.'}),
+
+                        ('user', ('inet:user', {}), {
+                            'doc': 'The current user name of the account.'}),
+
+                        ('email', ('inet:email', {}), {
+                            'doc': 'The current email address associated with the account.'}),
+
+                        ('profile', ('ps:contact', {}), {
+                            'doc': 'Current profile details associated with the account.'}),
+                    )),
+
+                    ('inet:service:group', {}, ( # inet:service:object
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'A platform specific ID used to identify the group.'}),
+
+                        ('name', ('inet:group', {}), {
+                            'doc': 'The name of the group on this platform.'}),
+
+                        ('profile', ('ps:contact', {}), {
+                            'doc': 'Current detailed contact information for this group.'}),
+                    )),
+
+                    ('inet:service:group:member', {}, (
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that is a member of the group.'}),
+
+                        ('group', ('inet:service:group', {}), {
+                            'doc': 'The group that the account is a member of.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period when the account was a member of the group.'}),
+                    )),
+
+                    ('inet:service:permission:type:taxonomy', {}, ()),
+
+                    ('inet:service:permission', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the permission.'}),
+
+                        ('type', ('inet:service:permission:type:taxonomy', {}), {
+                            'doc': 'The type of permission.'}),
+
+                    )),
+
+                    ('inet:service:rule', {}, (
+
+                        ('permission', ('inet:service:permission', {}), {
+                            'doc': 'The permission which is granted.'}),
+
+                        ('denied', ('bool', {}), {
+                            'doc': 'Set to (true) to denote that the rule is an explicit deny.'}),
+
+                        ('object', ('ndef', {'interface': 'inet:service:object'}), {
+                            'doc': 'The object that the permission controls access to.'}),
+
+                        ('grantee', ('ndef', {'forms': ('inet:service:account', 'inet:service:group')}), {
+                            'doc': 'The user or role which is granted the permission.'}),
+                    )),
+
+                    ('inet:service:session', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'The service specific session id.'}),
+
+                        ('creator', ('inet:service:account', {}), {
+                            'doc': 'The account which authenticated to create the session.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The period where the session was valid.'}),
+                    )),
+
+                    ('inet:service:login', {}, (
+
+                        ('method', ('inet:service:login:method:taxonomy', {}), {
+                            'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'}),
+
+                        # TODO ndef based auth proto details
+                    )),
+
+                    ('inet:service:message', {}, (
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account which sent the message.'}),
+
+                        ('to', ('inet:service:account', {}), {
+                            'doc': 'The destination account. Used for direct messages.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL where the message may be viewed.'}),
+
+                        ('group', ('inet:service:group', {}), {
+                            'doc': 'The group that the message was sent to.'}),
+
+                        ('channel', ('inet:service:channel', {}), {
+                            'doc': 'The channel that the message was sent to.'}),
+
+                        ('public', ('bool', {}), {
+                            'doc': 'Set to true if the message is publicly visible.'}),
+
+                        ('text', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'The text body of the message.'}),
+
+                        ('status', ('inet:service:object:status', {}), {
+                            'doc': 'The message status.'}),
+
+                        ('replyto', ('inet:service:message', {}), {
+                            'doc': 'The message that this message was sent in reply to. Used for message threading.'}),
+
+                        ('links', ('array', {'type': 'inet:service:message:link', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of links contained within the message.'}),
+
+                        ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of files attached to the message.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the message was sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the message was sent from.'}),
+
+                        ('client:address', ('inet:client', {}), {
+                            'doc': 'The client address that the message was sent from.'}),
+
+                        ('client:software', ('it:prod:softver', {}), {
+                            'doc': 'The client software version used to send the message.'}),
+
+                        ('client:software:name', ('it:prod:softname', {}), {
+                            'doc': 'The name of the client software used to send the message.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The raw file that the message was extracted from.'}),
+                    )),
+
+                    ('inet:service:message:link', {}, (
+
+                        ('title', ('str', {'strip': True}), {
+                            'doc': 'The title text for the link.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL which was attached to the message.'}),
+                    )),
+
+                    ('inet:service:message:attachment', {}, (
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the attached file.'}),
+
+                        ('text', ('str', {}), {
+                            'doc': 'Any text associated with the file such as alt-text for images.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file which was attached to the message.'}),
+                    )),
+
+                    ('inet:service:channel', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the channel.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the channel was available.'}),
+                    )),
+
+                    ('inet:service:channel:member', {}, (
+
+                        ('channel', ('inet:service:channel', {}), {
+                            'doc': 'The channel that the account was a member of.'}),
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that was a member of the channel.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the account was a member of the channel.'}),
+                    )),
+
+                    ('inet:service:resource:type:taxonomy', {}, {}),
+                    ('inet:service:resource', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the service resource.'}),
+
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A description of the service resource.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The primary URL where the resource is available from the service.'}),
+
+                        ('type', ('inet:service:resource:type:taxonomy', {}), {
+                            'doc': 'The resource type. For example "rpc.endpoint".'}),
+                    )),
+
+                    ('inet:service:bucket', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'The name of the service resource.'}),
+                    )),
+
+                    ('inet:service:bucket:item', {}, (
+
+                        ('bucket', ('inet:service:bucket', {}), {
+                            'doc': 'The bucket which contains the item.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The bytes stored within the bucket item.'}),
+
+                        ('file:name', ('file:path', {}), {
+                            'doc': 'The name of the file stored in the bucket item.'}),
+                    )),
+
+                    ('inet:service:access', {}, (
+
+                        ('resource', ('inet:service:resource', {}), {
+                            'doc': 'The resource which the account attempted to access.'}),
+
+                        ('type', ('int', {'enums': svcaccesstypes}), {
+                            'doc': 'The type of access requested.'}),
                     )),
                 ),
             }),

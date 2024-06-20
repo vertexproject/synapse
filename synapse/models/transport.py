@@ -24,7 +24,7 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'An aircraft registration number or military aircraft serial number.',
                     'ex': 'ff023'}),
 
-                ('transport:air:flightnum', ('str', {'lower': True, 'strip': True, 'replace': ((' ', ''),), 'regex': '^[a-z]{2}[0-9]{1,4}$'}), {
+                ('transport:air:flightnum', ('str', {'lower': True, 'strip': True, 'replace': ((' ', ''),), 'regex': '^[a-z0-9]{3,6}$'}), {
                     'doc': 'A commercial flight designator including airline and serial.',
                     'ex': 'ua2437'}),
 

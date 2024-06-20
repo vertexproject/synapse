@@ -1167,14 +1167,9 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['role']['iden'], rall.iden)
                     self.eq(data['info']['role']['name'], 'all')
                     self.eq(data['info']['role']['type'], 'role')
+                    self.eq(data['info']['role']['authgates'][deflayr], {'rules': [[True, ['layer', 'read']]]})
+                    self.eq(data['info']['role']['authgates'][defview], {'rules': [[True, ['view', 'read']]]})
                     self.eq(data['info']['role']['rules'], [[False, ['power-ups', 'foo', 'bar']]])
-
-                    exp = {'iden': rall.iden, 'admin': False, 'rules': [[True, ['layer', 'read']]]}
-                    self.eq(data['info']['role']['authgates'][deflayr], exp)
-
-                    exp = {'iden': rall.iden, 'admin': False, 'rules': [[True, ['view', 'read']]]}
-                    self.eq(data['info']['role']['authgates'][defview], exp)
-
                     self.gt(data['offset'], base)
                     base = data['offset']
 

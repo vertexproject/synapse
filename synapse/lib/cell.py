@@ -1343,7 +1343,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     userinfo['name'] = node.valu
                     userinfo['authgates'] = {}
                     userinfo.setdefault('admin', False)
-                    userinfo.setdefault('ruler', ())
+                    userinfo.setdefault('rules', ())
                     userinfo.setdefault('locked', False)
                     userinfo.setdefault('passwd', None)
                     userinfo.setdefault('archived', False)
@@ -1390,8 +1390,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                             userinfo = await usernode.dict()
                             userdict = userinfo.pack()
-                            userdict['iden'] = useriden
-                            userdict.setdefault('admin', False)
                             authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
 
                             user['authgates'][gateiden] = userdict
@@ -1406,8 +1404,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                             roleinfo = await rolenode.dict()
                             roledict = roleinfo.pack()
-                            roledict['iden'] = roleiden
-                            roledict.setdefault('admin', False)
                             authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
 
                             role['authgates'][gateiden] = roledict
