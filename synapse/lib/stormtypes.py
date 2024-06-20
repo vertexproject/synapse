@@ -6625,6 +6625,9 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
+        {'name': 'edited', 'desc': 'Return the last time the layer was edited or null if no edits are present.',
+         'type': {'type': 'function', '_funcname': '_methLayerEdited',
+                  'returns': {'type': 'time', 'desc': 'The last time the layer was edited.', }}},
         {'name': 'addPush', 'desc': 'Configure the layer to push edits to a remote layer/feed.',
          'type': {'type': 'function', '_funcname': '_addPush',
                   'args': (
@@ -6907,6 +6910,7 @@ class Layer(Prim):
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
+            'edited': self._methLayerEdited,
             'verify': self.verify,
             'addPush': self._addPush,
             'delPush': self._delPush,
@@ -7209,6 +7213,12 @@ class Layer(Prim):
             count += 1
             if size is not None and size == count:
                 break
+
+    @stormfunc(readonly=True)
+    async def _methLayerEdited(self):
+        layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
+        async for offs, edits, meta in layr.syncNodeEdits2(0xffffffffffffffff, wait=False, reverse=True):
+            return meta.get('time')
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nodeid):

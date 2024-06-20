@@ -1027,6 +1027,8 @@ class LayerTest(s_t_utils.SynTest):
             fwdedit = await core0.callStorm('for $item in $lib.layer.get().edits() { return($item) }')
             revedit = await core0.callStorm('for $item in $lib.layer.get().edits(reverse=(true)) { return($item) }')
 
+            self.nn(await core0.callStorm('return($lib.layer.get().edited())'))
+
             self.ne(fwdedit, revedit)
             self.eq(fwdedits[0], fwdedit)
             self.eq(revedits[0], revedit)
