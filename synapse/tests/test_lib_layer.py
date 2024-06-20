@@ -1019,6 +1019,18 @@ class LayerTest(s_t_utils.SynTest):
                 if offs == layr.nodeeditlog.index() - 1:
                     break
 
+            fwdedits = [item async for item in core0.getLayer().syncNodeEdits(0, wait=False)]
+            revedits = [item async for item in core0.getLayer().syncNodeEdits(0xffffffff, wait=False, reverse=True)]
+
+            self.eq(fwdedits, list(reversed(revedits)))
+
+            fwdedit = await core0.callStorm('for $item in $lib.layer.get().edits() { return($item) }')
+            revedit = await core0.callStorm('for $item in $lib.layer.get().edits(reverse=(true)) { return($item) }')
+
+            self.ne(fwdedit, revedit)
+            self.eq(fwdedits[0], fwdedit)
+            self.eq(revedits[0], revedit)
+
             async with self.getTestCore() as core1:
 
                 url = core1.getLocalUrl('*/layer')

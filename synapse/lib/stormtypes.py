@@ -6606,7 +6606,11 @@ class Layer(Prim):
         {'name': 'repr', 'desc': 'Get a string representation of the Layer.',
          'type': {'type': 'function', '_funcname': '_methLayerRepr',
                   'returns': {'type': 'str', 'desc': 'A string that can be printed, representing a Layer.', }}},
-        {'name': 'edits', 'desc': 'Yield (offs, nodeedits) tuples from the given offset.',
+        {'name': 'edits', 'desc': '''
+            Yield (offs, nodeedits) tuples from the given offset.
+
+            NOTE: Specifying reverse=(true) disables the wait behavior.
+         ''',
          'type': {'type': 'function', '_funcname': '_methLayerEdits',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'desc': 'Offset to start getting nodeedits from the layer at.',
@@ -6616,6 +6620,8 @@ class Layer(Prim):
                                'otherwise exit the generator when there are no more edits.', },
                       {'name': 'size', 'type': 'int', 'desc': 'The maximum number of nodeedits to yield.',
                        'default': None, },
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Yield the edits in reverse order.',
+                       'default': False, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
@@ -7181,15 +7187,22 @@ class Layer(Prim):
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
-    async def _methLayerEdits(self, offs=0, wait=True, size=None):
+    async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
         offs = await toint(offs)
         wait = await tobool(wait)
-        layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'edits', 'read'), layriden),)
-        todo = s_common.todo('syncNodeEdits', offs, wait=wait)
+        reverse = await tobool(reverse)
+
+        layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
+
+        self.runt.confirm(('layer', 'edits', 'read'), gateiden=layr.iden)
+
+        if reverse:
+            wait = False
+            if offs == 0:
+                offs = 0xffffffffffffffff
 
         count = 0
-        async for item in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
+        async for item in layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
 
             yield item
 
