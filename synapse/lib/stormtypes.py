@@ -6609,7 +6609,8 @@ class Layer(Prim):
         {'name': 'edits', 'desc': '''
             Yield (offs, nodeedits) tuples from the given offset.
 
-            NOTE: Specifying reverse=(true) disables the wait behavior.
+            Notes:
+                Specifying reverse=(true) disables the wait behavior.
          ''',
          'type': {'type': 'function', '_funcname': '_methLayerEdits',
                   'args': (
