@@ -1190,8 +1190,9 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :name={} ]')
 
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+            self.eq(cm.exception.get('text'), '[it:dev:str=hehe it:dev:str=haha]')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')

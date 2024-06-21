@@ -1183,6 +1183,26 @@ def httpcodereason(code):
     except ValueError:
         return f'Unknown HTTP status code {code}'
 
+def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
+    '''
+    Trim a text string larger than n characters and add a placeholder at the end.
+
+    Args:
+        text: String to trim.
+        n: Number of characters to allow.
+        placeholder: Placeholder text.
+
+    Returns:
+        The original string or the trimmed string.
+    '''
+    if len(text) <= n:
+        return text
+    plen = len(placeholder)
+    mlen = n - plen
+    assert plen > 0
+    assert n > plen
+    return f'{text[:mlen]}{placeholder}'
+
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up
 # ignoring cancellation https://github.com/python/cpython/issues/86296

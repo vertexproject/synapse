@@ -4130,7 +4130,7 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64encode(valu).decode('ascii')
             return base64.b64encode(valu).decode('ascii')
         except TypeError as e:
-            mesg = f'Error during base64 encoding - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during base64 encoding - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
     @stormfunc(readonly=True)
@@ -4140,7 +4140,7 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
         except binascii.Error as e:
-            mesg = f'Error during base64 decoding - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during base64 decoding - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
 @functools.total_ordering
@@ -4488,7 +4488,7 @@ class Str(Prim):
         try:
             return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
     @stormfunc(readonly=True)
     async def _methStrSplit(self, text, maxsplit=-1):
@@ -4733,7 +4733,7 @@ class Bytes(Prim):
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
@@ -4763,7 +4763,7 @@ class Bytes(Prim):
             return json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(valu)[:256]}') from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
 
         except json.JSONDecodeError as e:
             mesg = f'Unable to decode bytes as json: {e.args[0]}'
