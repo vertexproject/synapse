@@ -88,13 +88,13 @@ class RunFileCmd(StormCliCmd):
 
         if not os.path.isfile(opts.stormfile):
             self.printf(f'no such file: {opts.stormfile}')
-            return
+            return False
 
         with open(opts.stormfile, 'rb') as fd:
             text = fd.read().decode()
 
         self.printf(f'running storm file: {opts.stormfile}')
-        await self._cmd_cli.storm(text)
+        return await self._cmd_cli.storm(text)
 
 class PushFileCmd(StormCliCmd):
     '''
@@ -116,7 +116,7 @@ class PushFileCmd(StormCliCmd):
 
         if not os.path.isfile(opts.filepath):
             self.printf(f'no such file: {opts.filepath}')
-            return
+            return False
 
         self.printf(f'uploading file: {opts.filepath}')
         async with await self._cmd_cli.item.getAxonUpload() as upload:
@@ -135,7 +135,7 @@ class PushFileCmd(StormCliCmd):
             'name': os.path.basename(opts.filepath),
         }}
 
-        await self._cmd_cli.storm('[ file:bytes=$sha256 ] { -:name [:name=$name] }', opts=opts)
+        return await self._cmd_cli.storm('[ file:bytes=$sha256 ] { -:name [:name=$name] }', opts=opts)
 
 class PullFileCmd(StormCliCmd):
     '''
@@ -170,6 +170,7 @@ class PullFileCmd(StormCliCmd):
 
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
+            return False
 
 class ExportCmd(StormCliCmd):
     '''
@@ -219,6 +220,7 @@ class ExportCmd(StormCliCmd):
 
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
+            return False
 
 def cmplgenr(*genrs, prefix=''):
     '''
@@ -471,7 +473,7 @@ class StormCli(s_cli.Cli):
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
 
-        await self.storm(line, opts=opts)
+        return await self.storm(line, opts=opts)
 
     async def handleErr(self, mesg):
         err = mesg[1]
@@ -504,6 +506,7 @@ class StormCli(s_cli.Cli):
 
     async def storm(self, text, opts=None):
 
+        ret = True
         realopts = copy.deepcopy(self.stormopts)
         if opts is not None:
             realopts.update(opts)
@@ -605,6 +608,9 @@ class StormCli(s_cli.Cli):
 
             elif mtyp == 'err':
                 await self.handleErr(mesg)
+                ret = False
+
+        return ret
 
 def getArgParser():
     pars = argparse.ArgumentParser(prog='synapse.tools.storm')
@@ -626,7 +632,9 @@ async def main(argv, outp=s_output.stdout):
             async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
 
                 if opts.onecmd:
-                    await cli.runCmdLine(opts.onecmd)
+                    if await cli.runCmdLine(opts.onecmd) is False:
+                        return 1
+                    return 0
 
                 else:  # pragma: no cover
 
