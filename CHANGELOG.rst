@@ -13,7 +13,7 @@ Model Changes
 -------------
 - Updates to the ``biz``, ``econ``, ``inet``, ``meta``, ``ou`` ``risk``,
  and ``transit`` models.
-  (`#3561 <https://github.cosem/vertexproject/synapse/pull/3561>`_)
+  (`#3561 <https://github.com/vertexproject/synapse/pull/3561>`_)
   (`#3756 <https://github.com/vertexproject/synapse/pull/3756>`_)
 
   **New Interfaces**
@@ -226,8 +226,8 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Update the permission checking for View mergeing ( ``view.merge`` ) to
-  optimize the permission checking based user permissions and layer index
+- Update the permission checking for View merging ( ``view.merge`` ) to
+  optimize the permission checking based on user permissions and layer index
   data.
   (`#3736 <https://github.com/vertexproject/synapse/pull/3736>`_)
   (`#3750 <https://github.com/vertexproject/synapse/pull/3750>`_)
@@ -247,7 +247,7 @@ Features and Enhancements
 - Add a ``setArchived()`` API to the ``auth:user`` object in Storm.
   (`#3759 <https://github.com/vertexproject/synapse/pull/3759>`_)
 - The ``synapse.tool.storm`` tool now returns a non-zero status code when
-  it is invoked to execute a single command and the command encounteres an
+  it is invoked to execute a single command and the command encounters an
   error.
   (`#3765 <https://github.com/vertexproject/synapse/pull/3765>`_)
 - Add a ``nodup`` option to the ``slab.scanKeys()`` API. Use this to increase
