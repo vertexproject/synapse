@@ -213,7 +213,8 @@ Model Changes
   **Updated Types**
 
   ``inet:web:hashtag``
-    Loosen the regex for hashtag validation.
+    Update the regex to allow the middle dot (U+00B7) character to be part of
+    the hashtag after the first unicode word character.
 
   ``transport:air:flightnum``
     Loosen the regex for flight number validation.
