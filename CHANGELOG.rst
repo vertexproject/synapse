@@ -232,7 +232,6 @@ Features and Enhancements
   (`#3736 <https://github.com/vertexproject/synapse/pull/3736>`_)
   (`#3750 <https://github.com/vertexproject/synapse/pull/3750>`_)
   (`#3758 <https://github.com/vertexproject/synapse/pull/3758>`_)
-
 - Add a hotfix that can be used to migrate ``risk:hasvuln`` nodes to
   ``risk:vulnerable`` nodes.
   (`#3745 <https://github.com/vertexproject/synapse/pull/3745>`_)
