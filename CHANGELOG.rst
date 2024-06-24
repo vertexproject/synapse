@@ -31,7 +31,7 @@ Model Changes
     Represents a user access request to a service resource.
 
   ``inet:service:account``
-   An account within a service platform. Accounts may be instance specific.
+    An account within a service platform. Accounts may be instance specific.
 
   ``inet:service:bucket``
     A file/blob storage object within a service architecture.
