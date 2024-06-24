@@ -294,6 +294,16 @@ class TrigTest(s_t_utils.SynTest):
             with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo&baz'})
 
+            # View iden mismatch
+            viewiden = s_common.guid()
+            with self.raises(s_exc.BadTriggerDef) as exc:
+                tdef = {'cond': 'node:add', 'storm': 'test:int=4', 'form': 'test:int', 'view': viewiden}
+                await view.addTrigger(tdef)
+            mesg = f'Trigger definition view ({viewiden}) differs from current view ({view.iden}).'
+            self.eq(mesg, exc.exception.get('mesg'))
+            self.eq(viewiden, exc.exception.get('tdefiden'))
+            self.eq(view.iden, exc.exception.get('viewiden'))
+
             # Trigger list
             triglist = await view.listTriggers()
             self.len(12, triglist)
