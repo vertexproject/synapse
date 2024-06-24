@@ -1521,10 +1521,10 @@ class View(s_nexus.Pusher):  # type: ignore
         # Developer note: the view value is only used to verify the view where
         # the trigger is being added to. Do not rely on this value for
         # dynamically retrieving the view from the trigger definition.
-        viewiden = tdef.get('view')
-        if viewiden is not None and viewiden != self.iden:
-            mesg = f'Trigger definition view ({viewiden}) differs from current view ({self.iden}).'
-            raise s_exc.BadTriggerDef(mesg=mesg, trigiden=iden, tdefiden=viewiden, viewiden=self.iden)
+        tdefiden = tdef.get('view')
+        if tdefiden is not None and tdefiden != self.iden:
+            mesg = f'Trigger definition view ({tdefiden}) differs from current view ({self.iden}).'
+            raise s_exc.BadTriggerDef(mesg=mesg, trigiden=iden, tdefiden=tdefiden, viewiden=self.iden)
 
         root = await self.core.auth.getUserByName('root')
 
