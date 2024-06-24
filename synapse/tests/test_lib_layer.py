@@ -2075,6 +2075,64 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'tag', 'del', 'foo', 'bar'),
                 })
 
+        async with self.getTestCore() as core:
+
+            user = await core.auth.addUser('blackout@vertex.link')
+            await user.addRule((False, ('node', 'edge', 'add', 'haha')))
+            await user.addRule((False, ('node', 'data', 'set', 'hehe')))
+            await user.addRule((True, ('node',)))
+
+            viewiden = await core.callStorm('''
+                $lyr = $lib.layer.add()
+                $view = $lib.view.add(($lyr.iden,))
+                return($view.iden)
+            ''')
+
+            layr = core.views[viewiden].layers[0]
+
+            opts = {'view': viewiden}
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[ test:str=bar +#foo.bar ]', opts=opts)
+
+            await core.nodes('''
+                [ test:str=foo
+                    :hehe=bar
+                    +#foo:score=2
+                    +#foo.bar.baz
+                    +#bar:score=2
+                    <(refs)+ { test:str=bar }
+                ]
+                $node.data.set(foo, bar)
+            ''', opts=opts)
+
+            parent = core.view.layers[0]
+
+            seen = set()
+            def confirm(self, perm, default=None, gateiden=None):
+                seen.add(perm)
+                return True
+
+            def confirmPropSet(self, user, prop, layriden):
+                seen.add(prop.setperms[0])
+                seen.add(prop.setperms[1])
+
+            def confirmPropDel(self, user, prop, layriden):
+                seen.add(prop.delperms[0])
+                seen.add(prop.delperms[1])
+
+            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                        await layr.confirmLayerEditPerms(user, parent.iden)
+
+            self.eq(seen, {
+                # node.edge.add.* and node.data.set.* because of the deny rules
+                ('node', 'edge', 'add', 'refs'),
+                ('node', 'data', 'set', 'foo'),
+            })
+
     async def test_layer_v9(self):
         async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:
 
