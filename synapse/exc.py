@@ -105,6 +105,7 @@ class BadFormDef(SynErr): pass
 class BadHivePath(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
+class BadTriggerDef(SynErr): pass
 class BadTypeDef(SynErr): pass
 class BadTypeValu(SynErr): pass
 class BadJsonText(SynErr): pass
