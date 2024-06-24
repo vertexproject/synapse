@@ -12,7 +12,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -521,8 +520,8 @@ class NexsRoot(s_base.Base):
                     return
 
         except Exception as exc:
-            logger.error(f'Unknown error during mirror loop startup: {exc}')
-            proxy.fini()
+            logger.exception('Unknown error during mirror loop startup', exc_info=exc)
+            await proxy.fini()
 
         while not proxy.isfini:
 
