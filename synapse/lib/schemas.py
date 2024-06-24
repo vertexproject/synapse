@@ -312,21 +312,21 @@ passwdPolicySchema = {
             'type': 'object',
             'properties': {
                 'length': {
-                    'type': 'number',
-                    'minimum': 0,
-                    'default': 1,
+                    'type': ['number', 'null'],
+                    'minimum': 1,
+                    'default': None,
                     'description': 'Minimum password character length.',
                 },
                 'sequences': {
-                    'type': 'number',
-                    'minimum': 0,
-                    'default': 0,
+                    'type': ['number', 'null'],
+                    'minimum': 2,
+                    'default': None,
                     'description': 'Maximum sequence length in a password. Sequences can be letters or number, forward or reverse.',
                 },
                 'upper:count': {
-                    'type': 'number',
+                    'type': ['number', 'null'],
                     'minimum': 0,
-                    'default': 0,
+                    'default': None,
                     'description': 'The minimum number of uppercase characters required in password.',
                 },
                 'upper:valid': {
@@ -335,9 +335,9 @@ passwdPolicySchema = {
                     'description': 'All valid uppercase characters.',
                 },
                 'lower:count': {
-                    'type': 'number',
+                    'type': ['number', 'null'],
                     'minimum': 0,
-                    'default': 0,
+                    'default': None,
                     'description': 'The minimum number of lowercase characters required in password.',
                 },
                 'lower:valid': {
@@ -346,9 +346,9 @@ passwdPolicySchema = {
                     'description': 'All valid lowercase characters.',
                 },
                 'special:count': {
-                    'type': 'number',
+                    'type': ['number', 'null'],
                     'minimum': 0,
-                    'default': 0,
+                    'default': None,
                     'description': 'The minimum number of special characters required in password.',
                 },
                 'special:valid': {
@@ -357,9 +357,9 @@ passwdPolicySchema = {
                     'description': 'All valid special characters.',
                 },
                 'number:count': {
-                    'type': 'number',
+                    'type': ['number', 'null'],
                     'minimum': 0,
-                    'default': 0,
+                    'default': None,
                     'description': 'The minimum number of digit characters required in password.',
                 },
                 'number:valid': {
@@ -371,15 +371,15 @@ passwdPolicySchema = {
             'additionalProperties': False,
         },
         'attempts': {
-            'type': 'number',
-            'minimum': 0,
-            'default': 0,
+            'type': ['number', 'null'],
+            'minimum': 1,
+            'default': None,
             'description': 'Maximum number of incorrect attempts before locking user account.',
         },
         'previous': {
-            'type': 'number',
+            'type': ['number', 'null'],
             'minimum': 1,
-            'default': 1,
+            'default': None,
             'description': 'Number of previous passwords to disallow.',
         },
     },

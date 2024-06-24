@@ -1257,7 +1257,7 @@ class User(Ruler):
 
         if isinstance(shadow, dict):
             result = await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
-            if self.auth.policy and (attempts := self.auth.policy['attempts']) > 0:
+            if self.auth.policy and (attempts := self.auth.policy['attempts']) is not None:
                 if result:
                     await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
                     return True
@@ -1299,10 +1299,10 @@ class User(Ruler):
 
         # Check password length
         minlen = complexity.get('length')
-        if minlen and (passwd is None or len(passwd) < minlen):
+        if minlen is not None and (passwd is None or len(passwd) < minlen):
             failures.append(f'Password must be at least {minlen} characters.')
 
-        if minlen and passwd is None:
+        if minlen is not None and passwd is None:
             # Set password to empty string so we get the rest of the failure info
             passwd = ''
 
@@ -1316,7 +1316,7 @@ class User(Ruler):
         valid = complexity.get('upper:valid')
         allvalid.append(valid)
 
-        if count and (found := len([k for k in passwd if k in valid])) < count:
+        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
             failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
 
         # Check lowercase
@@ -1324,7 +1324,7 @@ class User(Ruler):
         valid = complexity.get('lower:valid')
         allvalid.append(valid)
 
-        if count and (found := len([k for k in passwd if k in valid])) < count:
+        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
             failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
 
         # Check special
@@ -1332,7 +1332,7 @@ class User(Ruler):
         valid = complexity.get('special:valid')
         allvalid.append(valid)
 
-        if count and (found := len([k for k in passwd if k in valid])) < count:
+        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
             failures.append(f'Password must contain at least {count} special characters, {found} found.')
 
         # Check numbers
@@ -1340,7 +1340,7 @@ class User(Ruler):
         valid = complexity.get('number:valid')
         allvalid.append(valid)
 
-        if count and (found := len([k for k in passwd if k in valid])) < count:
+        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
             failures.append(f'Password must contain at least {count} digit characters, {found} found.')
 
         allvalid = ''.join(allvalid)
@@ -1349,7 +1349,7 @@ class User(Ruler):
 
         # Check sequences
         seqlen = complexity.get('sequences')
-        if seqlen > 1:
+        if seqlen is not None:
             # Convert each character to it's ordinal value so we can look for
             # forward and reverse sequences in windows of seqlen. Doing it this
             # way allows us to easily check unicode sequences too.
@@ -1365,7 +1365,7 @@ class User(Ruler):
 
         # Check for previous password reuse
         prevvalu = self.auth.policy.get('previous')
-        if prevvalu:
+        if prevvalu is not None:
             previous = self.info.get('policy:previous', ())
             for prevshad in previous:
                 if await s_passwd.checkShadowV2(passwd, prevshad):
@@ -1377,7 +1377,7 @@ class User(Ruler):
             mesg.extend(f'  - {msg}' for msg in failures)
             raise s_exc.BadArg(mesg='\n'.join(mesg), failures=failures)
 
-        if prevvalu:
+        if prevvalu is not None:
             # Looks like this password is good, add it to the list of previous passwords
             previous = self.info.get('policy:previous', ())
             previous = (shadow,) + previous

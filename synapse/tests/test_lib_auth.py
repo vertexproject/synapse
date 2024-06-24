@@ -510,7 +510,7 @@ class AuthTest(s_test.SynTest):
 
         policy = {
             'complexity': {
-                'length': 0,
+                'length': None,
             },
         }
 
