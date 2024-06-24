@@ -4095,9 +4095,6 @@ class Layer(s_nexus.Pusher):
             yield prop[0]
 
     async def confirmLayerEditPerms(self, user, gateiden, delete=False):
-        if user.allowed(('node',), gateiden=gateiden):
-            return
-
         if delete:
             perm_forms = ('node', 'del')
             perm_props = ('node', 'prop', 'del')
@@ -4111,11 +4108,55 @@ class Layer(s_nexus.Pusher):
             perm_ndata = ('node', 'data', 'set')
             perm_edges = ('node', 'edge', 'add')
 
-        allow_forms = user.allowed(perm_forms, gateiden=gateiden)
-        allow_props = user.allowed(perm_props, gateiden=gateiden)
-        allow_tags = user.allowed(perm_tags, gateiden=gateiden)
-        allow_ndata = user.allowed(perm_ndata, gateiden=gateiden)
-        allow_edges = user.allowed(perm_edges, gateiden=gateiden)
+        allow_forms = True
+        allow_props = True
+        allow_tags = True
+        allow_ndata = True
+        allow_edges = True
+
+        # Check DENY rules
+        def _ruleCheck(rule, perm):
+            return rule[:len(perm)] == perm
+
+        rules = user.getRules()
+        for role in user.getRoles():
+            rules.extend(role.getRules())
+
+        for action, perm in rules:
+            # Skip allow rules
+            if action:
+                continue
+
+            if allow_forms and _ruleCheck(perm, perm_forms):
+                allow_forms = False
+
+            elif allow_props and _ruleCheck(perm, perm_props):
+                allow_props = False
+
+            elif allow_tags and _ruleCheck(perm, perm_tags):
+                allow_tags = False
+
+            elif allow_ndata and _ruleCheck(perm, perm_ndata):
+                allow_ndata = False
+
+            elif allow_edges and _ruleCheck(perm, perm_edges):
+                allow_edges = False
+
+        # Check ALLOWs
+        if allow_forms:
+            allow_forms = user.allowed(perm_forms, gateiden=gateiden)
+
+        if allow_props:
+            allow_props = user.allowed(perm_props, gateiden=gateiden)
+
+        if allow_tags:
+            allow_tags = user.allowed(perm_tags, gateiden=gateiden)
+
+        if allow_ndata:
+            allow_ndata = user.allowed(perm_ndata, gateiden=gateiden)
+
+        if allow_edges:
+            allow_edges = user.allowed(perm_edges, gateiden=gateiden)
 
         if all((allow_forms, allow_props, allow_tags, allow_ndata, allow_edges)):
             return
