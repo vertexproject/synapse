@@ -371,3 +371,16 @@ class AuthTest(s_test.SynTest):
                 await core.auth.allrole.setRules([(True, ('hehe', 'haha'), 'newp')])
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, )])
+
+    async def test_hive_auth_deepdeny(self):
+        async with self.getTestCore() as core:
+            await core.callStorm('auth.user.add lowuser')
+            await core.callStorm('auth.user.addrule lowuser "!hehe.haha.specific"')
+            await core.callStorm('auth.user.addrule lowuser "hehe.something.else"')
+            await core.callStorm('auth.user.addrule lowuser "hehe.haha"')
+
+            user = await core.auth.getUserByName('lowuser')
+            self.false(user._hasDeepDeny(('hehe',)))
+            self.true(user._hasDeepDeny(('hehe', 'haha')))
+            self.false(user._hasDeepDeny(('hehe', 'haha', 'wow')))
+            self.false(user._hasDeepDeny(('weee',)))

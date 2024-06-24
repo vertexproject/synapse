@@ -901,6 +901,7 @@ class HiveUser(HiveRuler):
 
         self.permcache = s_cache.FixedCache(self._allowed)
         self.allowedcache = s_cache.FixedCache(self._getAllowedReason)
+        self.deepdenycache = s_cache.FixedCache(self._hasDeepDenyImpl)
 
     def pack(self, packroles=False):
 
@@ -1055,9 +1056,80 @@ class HiveUser(HiveRuler):
 
         return _allowedReason(default, default=True)
 
+    def _hasDeepDeny(self, perm, default=None, gateiden=None) -> bool:
+        '''
+        If a user has an allow rule on a permission, return True if there is a deny rule as well
+        corresponding to that particular permission.
+        '''
+        perm = tuple(perm)
+        return self.deepdenycache.get((perm, default, gateiden))
+
+    def _hasDeepDenyImpl(self, pkey):
+        perm, default, gateiden = pkey
+        allowed = self.allowed(perm, default=default, gateiden=gateiden)
+        if not allowed:
+            return False
+
+        if self.info.get('locked'):
+            return True
+
+        if self.info.get('admin'):
+            return False
+
+        permlen = len(perm)
+
+        # 1. check authgate user rules
+        if gateiden is not None:
+
+            info = self.authgates.get(gateiden)
+            if info is not None:
+
+                if info.get('admin'):
+                    return True
+
+                for allow, path in info.get('rules', ()):
+                    if allow:
+                        continue
+                    if path[:len(perm)] == perm and len(path) > permlen:
+                        return True
+
+        # 2. check user rules
+        for allow, path in self.info.get('rules', ()):
+            if allow:
+                continue
+
+            if path[:len(perm)] == perm and len(path) > permlen:
+                return True
+
+        # 3. check authgate role rules
+        if gateiden is not None:
+
+            for role in self.getRoles():
+
+                info = role.authgates.get(gateiden)
+                if info is None:
+                    continue
+
+                for allow, path in info.get('rules', ()):
+                    if allow:
+                        continue
+                    if path[:len(perm)] == perm and len(path) > permlen:
+                        return True
+
+        # 4. check role rules
+        for role in self.getRoles():
+            for allow, path in role.info.get('rules', ()):
+                if allow:
+                    continue
+                if path[:len(perm)] == perm and len(path) > permlen:
+                    return True
+
+        return False
+
     def clearAuthCache(self):
         self.permcache.clear()
         self.allowedcache.clear()
+        self.deepdenycache.clear()
 
     async def genGateInfo(self, gateiden):
         info = self.authgates.get(gateiden)
