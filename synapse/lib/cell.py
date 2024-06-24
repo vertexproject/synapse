@@ -2905,14 +2905,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if opts is None:
             opts = {}
         else:
+            # Don't allow these
             opts.pop('handlers', None)
             opts.pop('default_host', None)
             opts.pop('transforms', None)
-            opts.update({
-                'cookie_secret': secret,
-                'log_function': self._log_web_request,
-                'websocket_ping_interval': 10
-            })
+
+        opts.update({
+            'cookie_secret': secret,
+            'log_function': self._log_web_request,
+            'websocket_ping_interval': 10
+        })
 
         self.wapp = t_web.Application(**opts)
         self._initCellHttpApis()
