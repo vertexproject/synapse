@@ -18,7 +18,6 @@ import calendar
 import functools
 import contextlib
 import collections
-from typing import Any
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -7699,7 +7698,7 @@ class View(Prim):
         self.locls.update({
             'iden': self.valu.get('iden'),
             'parent': self.valu.get('parent'),
-            'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
+            'triggers': [Trigger(self.runt, tdef, self.valu.get('iden')) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
 
@@ -8298,7 +8297,7 @@ class LibTrigger(Lib):
         todo = ('addTrigger', (tdef,), {})
         tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
-        return Trigger(self.runt, tdef)
+        return Trigger(self.runt, tdef, viewiden)
 
     async def _methTriggerDel(self, prefix):
         useriden = self.runt.user.iden
@@ -8337,7 +8336,7 @@ class LibTrigger(Lib):
             for iden, trig in await view.listTriggers():
                 if not allowed(('trigger', 'get'), gateiden=iden):
                     continue
-                triggers.append(Trigger(self.runt, trig.pack()))
+                triggers.append(Trigger(self.runt, trig.pack(), iden))
 
         return triggers
 
@@ -8347,10 +8346,12 @@ class LibTrigger(Lib):
         try:
             # fast path to our current view
             trigger = await self.runt.snap.view.getTrigger(iden)
+            viewiden = self.runt.snap.view.iden
         except s_exc.NoSuchIden:
             for view in self.runt.snap.core.listViews():
                 try:
                     trigger = await view.getTrigger(iden)
+                    viewiden = view.iden
                 except s_exc.NoSuchIden:
                     pass
 
@@ -8359,7 +8360,7 @@ class LibTrigger(Lib):
 
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
-        return Trigger(self.runt, trigger.pack())
+        return Trigger(self.runt, trigger.pack(), viewiden)
 
     async def _methTriggerEnable(self, prefix):
         return await self._triggerendisable(prefix, True)
@@ -8406,10 +8407,11 @@ class Trigger(Prim):
     _storm_typename = 'trigger'
     _ismutable = False
 
-    def __init__(self, runt, tdef):
+    def __init__(self, runt, tdef, viewiden):
 
         Prim.__init__(self, tdef)
         self.runt = runt
+        self.viewiden = viewiden
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
@@ -8439,13 +8441,8 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        viewiden = self.valu.get('view')
 
-        if not viewiden:
-            view = self.runt.snap.view
-            viewiden = view.iden
-        else:
-            view = self.runt.snap.core.reqView(viewiden)
+        view = self.runt.snap.core.reqView(self.viewiden)
 
         name = await tostr(name)
         if name in ('async', 'enabled', ):
@@ -8456,7 +8453,7 @@ class Trigger(Prim):
         if name == 'user':
             self.runt.user.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
+            self.runt.user.confirm(('trigger', 'set', name), gateiden=self.viewiden)
 
         await view.setTriggerInfo(trigiden, name, valu)
 
