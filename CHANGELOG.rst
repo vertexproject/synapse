@@ -51,6 +51,12 @@ Model Changes
   ``inet:service:group:member``
     Represents a service account being a member of a group.
 
+  ``inet:service:instance``
+    An instance of the platform such as Slack or Discord instances.
+
+  ``inet:service:login``
+    A login event for a service account.
+
   ``inet:service:message``
     A message or post created by an account.
 
@@ -60,23 +66,11 @@ Model Changes
   ``inet:service:message:attachment``
     A file attachment included within a message.
 
-  ``inet:service:login``
-    A login event for a service account.
-
   ``inet:service:login:method:taxonomy``
     A taxonomy of inet service login methods.
 
-  ``inet:service:resource``
-    A generic resource provided by the service architecture.
-
-  ``inet:service:resource:type:taxonomy``
-    A taxonomy of inet service resource types.
-
-  ``inet:service:session``
-    An authenticated session.
-
-  ``inet:service:instance``
-    An instance of the platform such as Slack or Discord instances.
+  ``inet:service:object:status``
+    An object status enumeration.
 
   ``inet:service:permission``
     A permission which may be granted to a service account or role.
@@ -87,11 +81,17 @@ Model Changes
   ``inet:service:platform``
     A network platform which provides services.
 
+  ``inet:service:resource``
+    A generic resource provided by the service architecture.
+
+  ``inet:service:resource:type:taxonomy``
+    A taxonomy of inet service resource types.
+
   ``inet:service:rule``
     A rule which grants or denies a permission to a service account or role.
 
-  ``inet:service:object:status``
-    An object status enumeration.
+  ``inet:service:session``
+    An authenticated session.
 
   ``it:cmd:history``
     A single command executed within a session.
@@ -126,11 +126,11 @@ Model Changes
   ``biz:listing``
     The form had the following properties added to it:
 
-    ``count:total``
-      The number of instances for sale.
-
     ``count:remaining``
       The current remaining number of instances for sale.
+
+    ``count:total``
+      The number of instances for sale.
 
   ``econ:purchase``
     The form had the following property added to it:
