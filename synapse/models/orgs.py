@@ -1026,7 +1026,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The full name of the conference.',
-                        'ex': 'decfon 2017'}),
+                        'ex': 'defcon 2017'}),
 
                     ('names', ('array', {'type': 'str', 'typeopts': {'lower': True}, 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the conference.'}),
