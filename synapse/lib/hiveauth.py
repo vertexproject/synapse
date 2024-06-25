@@ -980,7 +980,7 @@ class HiveUser(HiveRuler):
         if self.info.get('admin'):
             return True
 
-        if deepdeny and self._hasDeepDenyImpl(perm, gateiden):
+        if deepdeny and self._hasDeepDeny(perm, gateiden):
             return False
 
         # 1. check authgate user rules
@@ -1080,7 +1080,7 @@ class HiveUser(HiveRuler):
 
         return _allowedReason(default, default=True)
 
-    def _hasDeepDenyImpl(self, perm, gateiden):
+    def _hasDeepDeny(self, perm, gateiden):
 
         permlen = len(perm)
 
