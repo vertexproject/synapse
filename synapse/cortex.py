@@ -1009,7 +1009,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (2, self._storLayrFeedDefaults),
+            (3, self._updateTriggerViewIdens),
         ), nexs=False)
+
+    async def _updateTriggerViewIdens(self):
+        for viewiden, viewnode in await self.hive.open(('cortex', 'views')):
+            for _, trignode in await viewnode.open(('triggers',)):
+                tdef = trignode.valu
+                tdef['view'] = viewiden
+                await trignode.set(tdef)
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():

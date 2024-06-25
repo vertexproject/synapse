@@ -3,9 +3,6 @@ import json
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-from synapse.common import aspin
-
-import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
 import synapse.tools.backup as s_tools_backup
@@ -901,3 +898,9 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
             self.len(0, await core.nodes('syn:trigger'))
+
+    async def test_trigger_viewiden_migration(self):
+        async with self.getRegrCore('trigger-viewiden-migration') as core:
+            for view in core.views.values():
+                for _, trigger in view.triggers.list():
+                    self.eq(trigger.tdef.get('view'), view.iden)
