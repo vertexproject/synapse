@@ -4130,7 +4130,7 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64encode(valu).decode('ascii')
             return base64.b64encode(valu).decode('ascii')
         except TypeError as e:
-            mesg = f'Error during base64 encoding - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during base64 encoding - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
     @stormfunc(readonly=True)
@@ -4140,7 +4140,7 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
         except binascii.Error as e:
-            mesg = f'Error during base64 decoding - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during base64 decoding - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
 @functools.total_ordering
@@ -4488,7 +4488,7 @@ class Str(Prim):
         try:
             return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
     @stormfunc(readonly=True)
     async def _methStrSplit(self, text, maxsplit=-1):
@@ -4733,7 +4733,7 @@ class Bytes(Prim):
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
@@ -4763,7 +4763,7 @@ class Bytes(Prim):
             return json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(valu)[:256]}') from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
 
         except json.JSONDecodeError as e:
             mesg = f'Unable to decode bytes as json: {e.args[0]}'
@@ -6606,7 +6606,12 @@ class Layer(Prim):
         {'name': 'repr', 'desc': 'Get a string representation of the Layer.',
          'type': {'type': 'function', '_funcname': '_methLayerRepr',
                   'returns': {'type': 'str', 'desc': 'A string that can be printed, representing a Layer.', }}},
-        {'name': 'edits', 'desc': 'Yield (offs, nodeedits) tuples from the given offset.',
+        {'name': 'edits', 'desc': '''
+            Yield (offs, nodeedits) tuples from the given offset.
+
+            Notes:
+                Specifying reverse=(true) disables the wait behavior.
+         ''',
          'type': {'type': 'function', '_funcname': '_methLayerEdits',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'desc': 'Offset to start getting nodeedits from the layer at.',
@@ -6616,9 +6621,14 @@ class Layer(Prim):
                                'otherwise exit the generator when there are no more edits.', },
                       {'name': 'size', 'type': 'int', 'desc': 'The maximum number of nodeedits to yield.',
                        'default': None, },
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Yield the edits in reverse order.',
+                       'default': False, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields offset, nodeedit tuples from a given offset.', }}},
+        {'name': 'edited', 'desc': 'Return the last time the layer was edited or null if no edits are present.',
+         'type': {'type': 'function', '_funcname': '_methLayerEdited',
+                  'returns': {'type': 'time', 'desc': 'The last time the layer was edited.', }}},
         {'name': 'addPush', 'desc': 'Configure the layer to push edits to a remote layer/feed.',
          'type': {'type': 'function', '_funcname': '_addPush',
                   'args': (
@@ -6901,6 +6911,7 @@ class Layer(Prim):
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
+            'edited': self._methLayerEdited,
             'verify': self.verify,
             'addPush': self._addPush,
             'delPush': self._delPush,
@@ -7181,21 +7192,34 @@ class Layer(Prim):
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
-    async def _methLayerEdits(self, offs=0, wait=True, size=None):
+    async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
         offs = await toint(offs)
         wait = await tobool(wait)
-        layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'edits', 'read'), layriden),)
-        todo = s_common.todo('syncNodeEdits', offs, wait=wait)
+        reverse = await tobool(reverse)
+
+        layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
+
+        self.runt.confirm(('layer', 'edits', 'read'), gateiden=layr.iden)
+
+        if reverse:
+            wait = False
+            if offs == 0:
+                offs = 0xffffffffffffffff
 
         count = 0
-        async for item in self.runt.dyniter(layriden, todo, gatekeys=gatekeys):
+        async for item in layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
 
             yield item
 
             count += 1
             if size is not None and size == count:
                 break
+
+    @stormfunc(readonly=True)
+    async def _methLayerEdited(self):
+        layr = self.runt.snap.core.reqLayer(self.valu.get('iden'))
+        async for offs, edits, meta in layr.syncNodeEdits2(0xffffffffffffffff, wait=False, reverse=True):
+            return meta.get('time')
 
     @stormfunc(readonly=True)
     async def getStorNode(self, nodeid):

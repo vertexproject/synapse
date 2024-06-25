@@ -649,6 +649,28 @@ class StormLibAuthTest(s_test.SynTest):
 
             self.nn(await core.tryUserPasswd('hehe', 'haha'))
 
+            hehe = await core.callStorm('''
+                            $hehe = $lib.auth.users.byname(hehe)
+                            $hehe.setArchived($lib.true)
+                            return($hehe)
+                        ''')
+            self.eq(True, hehe['archived'])
+            self.eq(True, hehe['locked'])
+
+            self.none(await core.tryUserPasswd('hehe', 'haha'))
+
+            hehe = await core.callStorm('''
+                            $hehe = $lib.auth.users.byname(hehe)
+                            $hehe.setArchived($lib.false)
+                            return($hehe)
+                        ''')
+            self.eq(True, hehe['locked'])
+            self.eq(False, hehe['archived'])
+            self.none(await core.tryUserPasswd('hehe', 'haha'))
+
+            await core.callStorm('$lib.auth.users.byname(hehe).setLocked($lib.false)')
+            self.nn(await core.tryUserPasswd('hehe', 'haha'))
+
             self.nn(await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
                 if $( $visi.name = "visi" ) {
