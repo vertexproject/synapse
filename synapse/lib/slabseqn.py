@@ -169,7 +169,7 @@ class SlabSeqn:
 
         return s_common.int64un(byts) + 1
 
-    def iter(self, offs):
+    def iter(self, offs, reverse=False):
         '''
         Iterate over items in a sequence from a given offset.
 
@@ -180,10 +180,16 @@ class SlabSeqn:
             (indx, valu): The index and valu of the item.
         '''
         startkey = s_common.int64en(offs)
-        for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
-            offs = s_common.int64un(lkey)
-            valu = s_msgpack.un(lval)
-            yield offs, valu
+        if reverse:
+            for lkey, lval in self.slab.scanByRangeBack(startkey, db=self.db):
+                offs = s_common.int64un(lkey)
+                valu = s_msgpack.un(lval)
+                yield offs, valu
+        else:
+            for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
+                offs = s_common.int64un(lkey)
+                valu = s_msgpack.un(lval)
+                yield offs, valu
 
     async def aiter(self, offs, wait=False, timeout=None):
         '''

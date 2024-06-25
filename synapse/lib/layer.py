@@ -158,14 +158,14 @@ class LayerApi(s_cell.CellApi):
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True):
+    async def syncNodeEdits(self, offs, wait=True, reverse=False):
         '''
         Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncNodeEdits(offs, wait=wait):
+        async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse):
             yield item
             await asyncio.sleep(0)
 
@@ -4410,7 +4410,7 @@ class Layer(s_nexus.Pusher):
         for offs, (edits, meta) in self.nodeeditlog.iterBack(offs):
             yield (offs, edits, meta)
 
-    async def syncNodeEdits2(self, offs, wait=True):
+    async def syncNodeEdits2(self, offs, wait=True, reverse=False):
         '''
         Once caught up with storage, yield them in realtime.
 
@@ -4420,7 +4420,7 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             return
 
-        for offi, (nodeedits, meta) in self.nodeeditlog.iter(offs):
+        for offi, (nodeedits, meta) in self.nodeeditlog.iter(offs, reverse=reverse):
             yield (offi, nodeedits, meta)
 
         if wait:
@@ -4428,11 +4428,11 @@ class Layer(s_nexus.Pusher):
                 async for item in wind:
                     yield item
 
-    async def syncNodeEdits(self, offs, wait=True):
+    async def syncNodeEdits(self, offs, wait=True, reverse=False):
         '''
         Identical to syncNodeEdits2, but doesn't yield meta
         '''
-        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait):
+        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait, reverse=reverse):
             yield (offi, nodeedits)
 
     async def syncIndexEvents(self, offs, matchdef, wait=True):

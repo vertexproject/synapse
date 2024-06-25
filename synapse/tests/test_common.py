@@ -438,3 +438,18 @@ class CommonTest(s_t_utils.SynTest):
         await footask
 
         self.eq(123, await s_common.wait_for(footask, timeout=-1))
+
+    def test_trim_text(self):
+        tvs = (
+            ('Hello world!', 'Hello world!'),
+            ('Hello world 123', 'Hello world 123'),
+            ('Hello world 1234', 'Hello world 1234'),
+            ('Hello world 12345', 'Hello world 1...'),
+            ('Hello world 1234 5678', 'Hello world 1...'),
+            ('HelloXworldY1234Z5678', 'HelloXworldY1...'),
+        )
+        n = 16
+        for iv, ev in tvs:
+            v = s_common.trimText(iv, n=n)
+            self.le(len(v), n)
+            self.eq(v, ev)

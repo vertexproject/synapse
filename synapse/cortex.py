@@ -56,6 +56,7 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
+import synapse.lib.stormlib.env as s_stormlib_env  # NOQA
 import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
@@ -4731,6 +4732,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return self.layers.get(iden)
 
+    def reqLayer(self, iden=None):
+        layr = self.getLayer(iden=iden)
+        if layr is None:
+            mesg = f'No layer found with iden: {iden}'
+            raise s_exc.NoSuchLayer(mesg=mesg, iden=iden)
+        return layr
+
     def listLayers(self):
         return self.layers.values()
 
@@ -5090,10 +5098,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self.setNexsIndx(maxindx)
 
     async def saveLayerNodeEdits(self, layriden, edits, meta):
-        layr = self.getLayer(layriden)
-        if layr is None:
-            mesg = f'No layer found with iden: {layriden}'
-            raise s_exc.NoSuchLayer(mesg=mesg, iden=layriden)
+        layr = self.reqLayer(layriden)
         return await layr.saveNodeEdits(edits, meta)
 
     async def cloneLayer(self, iden, ldef=None):
