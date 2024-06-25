@@ -23,7 +23,6 @@ Model Changes
     ``names``
       An array of alternate names for the conference.
 
-
   ``ps:contact``
     The form had the following property added to it:
 
@@ -42,6 +41,7 @@ Bugfixes
   rules were not properly accounted for when checking for fast paths on the
   ``node`` permission hierarchy.
   (`#3771 <https://github.com/vertexproject/synapse/pull/3771>`_)
+
 
 v2.172.0 - 2024-06-24
 =====================
