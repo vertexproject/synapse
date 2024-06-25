@@ -6,6 +6,43 @@
 Synapse Changelog
 *****************
 
+v2.173.0 - 2024-06-25
+=====================
+
+Model Changes
+-------------
+- Updates to the ``ou``, ``plan``, and ``ps`` models.
+  (`#3772 <https://github.com/vertexproject/synapse/pull/3772>`_)
+  (`#3773 <https://github.com/vertexproject/synapse/pull/3773>`_)
+
+  **New Properties**
+
+  ``ou:conference``
+    The form had the following property added to it:
+
+    ``names``
+      An array of alternate names for the conference.
+
+  ``ps:contact``
+    The form had the following property added to it:
+
+    ``titles``
+      An array of alternate titles for the contact.
+
+  **Light Edges**
+
+  ``uses``
+    When used with a ``plan:procedure:step`` node, the edge indicates the
+    step in the procedure makes use of the target node.
+
+Bugfixes
+--------
+- Fix a bug in the ``view.merge`` optimizations from ``v2.172.0`` where deny
+  rules were not properly accounted for when checking for fast paths on the
+  ``node`` permission hierarchy.
+  (`#3771 <https://github.com/vertexproject/synapse/pull/3771>`_)
+
+
 v2.172.0 - 2024-06-24
 =====================
 
