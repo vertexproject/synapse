@@ -13,8 +13,9 @@ class LibEnv(s_stormtypes.Lib):
         {'name': 'get', 'desc': '''
             Retrieve an environment variable.
 
-            NOTE: Environment variables must begin with SYN_STORM_ENV_
-                  in order to be accessed by this API.
+            Notes:
+                Environment variables must begin with ``SYN_STORM_ENV_`` in
+                order to be accessed by this API.
         ''',
          'type': {
             'type': 'function', '_funcname': '_libEnvGet',
