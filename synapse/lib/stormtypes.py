@@ -8439,8 +8439,9 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
+        viewiden = self.valu.get('view')
 
-        view = self.runt.snap.core.reqView(self.viewiden)
+        view = self.runt.snap.core.reqView(viewiden)
 
         name = await tostr(name)
         if name in ('async', 'enabled', ):
@@ -8451,7 +8452,7 @@ class Trigger(Prim):
         if name == 'user':
             self.runt.user.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.user.confirm(('trigger', 'set', name), gateiden=self.viewiden)
+            self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
 
         await view.setTriggerInfo(trigiden, name, valu)
 

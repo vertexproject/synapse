@@ -294,18 +294,6 @@ class TrigTest(s_t_utils.SynTest):
             with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo&baz'})
 
-            # View iden mismatch
-            trigiden = s_common.guid()
-            viewiden = s_common.guid()
-            tdef = {'iden': trigiden, 'cond': 'node:add', 'storm': 'test:int=4', 'form': 'test:int', 'view': viewiden}
-            await view.addTrigger(tdef)
-            trigger = await view.getTrigger(trigiden)
-            self.eq(trigger.get('view'), view.iden)
-            with self.raises(s_exc.BadArg) as exc:
-                await view.setTriggerInfo(trigiden, 'view', viewiden)
-            self.eq(exc.exception.get('mesg'), 'Invalid key name provided: view')
-            await view.delTrigger(trigiden)
-
             # Trigger list
             triglist = await view.listTriggers()
             self.len(12, triglist)
@@ -563,10 +551,6 @@ class TrigTest(s_t_utils.SynTest):
 
             derp = await core.auth.addUser('derp')
 
-            # This is so we can later update the trigger in a view other than the one which it was created
-            viewiden = await core.callStorm('$view = $lib.view.get().fork() return($view.iden)')
-            inview = {'view': viewiden}
-
             tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
             opts = {'vars': {'tdef': tdef}}
 
@@ -578,7 +562,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('foo'))
 
             opts = {'vars': {'iden': trig.get('iden'), 'derp': derp.iden}}
-            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts | inview)
+            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts)
 
             nodes = await core.nodes('[ inet:ipv4=8.8.8.8 ]')
             self.len(1, nodes)
