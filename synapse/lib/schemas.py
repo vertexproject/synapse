@@ -1,5 +1,3 @@
-import string
-
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
@@ -314,57 +312,46 @@ passwdPolicySchema = {
                 'length': {
                     'type': ['number', 'null'],
                     'minimum': 1,
-                    'default': None,
                     'description': 'Minimum password character length.',
                 },
                 'sequences': {
                     'type': ['number', 'null'],
                     'minimum': 2,
-                    'default': None,
                     'description': 'Maximum sequence length in a password. Sequences can be letters or number, forward or reverse.',
                 },
                 'upper:count': {
                     'type': ['number', 'null'],
-                    'minimum': 0,
-                    'default': None,
                     'description': 'The minimum number of uppercase characters required in password.',
                 },
                 'upper:valid': {
                     'type': 'string',
-                    'default': string.ascii_uppercase,
                     'description': 'All valid uppercase characters.',
                 },
                 'lower:count': {
                     'type': ['number', 'null'],
                     'minimum': 0,
-                    'default': None,
                     'description': 'The minimum number of lowercase characters required in password.',
                 },
                 'lower:valid': {
                     'type': 'string',
-                    'default': string.ascii_lowercase,
                     'description': 'All valid lowercase characters.',
                 },
                 'special:count': {
                     'type': ['number', 'null'],
                     'minimum': 0,
-                    'default': None,
                     'description': 'The minimum number of special characters required in password.',
                 },
                 'special:valid': {
                     'type': 'string',
-                    'default': string.punctuation,
                     'description': 'All valid special characters.',
                 },
                 'number:count': {
                     'type': ['number', 'null'],
                     'minimum': 0,
-                    'default': None,
                     'description': 'The minimum number of digit characters required in password.',
                 },
                 'number:valid': {
                     'type': 'string',
-                    'default': string.digits,
                     'description': 'All valid digit characters.',
                 },
             },
@@ -373,13 +360,11 @@ passwdPolicySchema = {
         'attempts': {
             'type': ['number', 'null'],
             'minimum': 1,
-            'default': None,
             'description': 'Maximum number of incorrect attempts before locking user account.',
         },
         'previous': {
             'type': ['number', 'null'],
             'minimum': 1,
-            'default': None,
             'description': 'Number of previous passwords to disallow.',
         },
     },

@@ -1,3 +1,4 @@
+import string
 import logging
 import dataclasses
 
@@ -8,7 +9,6 @@ import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
-import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
@@ -1334,7 +1334,7 @@ class User(Ruler):
 
         if isinstance(shadow, dict):
             result = await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
-            if self.auth.policy and (attempts := self.auth.policy['attempts']) is not None:
+            if self.auth.policy and (attempts := self.auth.policy.get('attempts')) is not None:
                 if result:
                     await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
                     return True
@@ -1373,6 +1373,8 @@ class User(Ruler):
 
         # Check complexity of password
         complexity = self.auth.policy.get('complexity')
+        if complexity is None:
+            return
 
         # Check password length
         minlen = complexity.get('length')
@@ -1389,32 +1391,32 @@ class User(Ruler):
         allvalid = []
 
         # Check uppercase
-        count = complexity.get('upper:count')
-        valid = complexity.get('upper:valid')
+        count = complexity.get('upper:count', 0)
+        valid = complexity.get('upper:valid', string.ascii_uppercase)
         allvalid.append(valid)
 
         if count is not None and (found := len([k for k in passwd if k in valid])) < count:
             failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
 
         # Check lowercase
-        count = complexity.get('lower:count')
-        valid = complexity.get('lower:valid')
+        count = complexity.get('lower:count', 0)
+        valid = complexity.get('lower:valid', string.ascii_lowercase)
         allvalid.append(valid)
 
         if count is not None and (found := len([k for k in passwd if k in valid])) < count:
             failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
 
         # Check special
-        count = complexity.get('special:count')
-        valid = complexity.get('special:valid')
+        count = complexity.get('special:count', 0)
+        valid = complexity.get('special:valid', string.punctuation)
         allvalid.append(valid)
 
         if count is not None and (found := len([k for k in passwd if k in valid])) < count:
             failures.append(f'Password must contain at least {count} special characters, {found} found.')
 
         # Check numbers
-        count = complexity.get('number:count')
-        valid = complexity.get('number:valid')
+        count = complexity.get('number:count', 0)
+        valid = complexity.get('number:valid', string.digits)
         allvalid.append(valid)
 
         if count is not None and (found := len([k for k in passwd if k in valid])) < count:
