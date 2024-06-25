@@ -1058,8 +1058,8 @@ class HiveUser(HiveRuler):
 
     def _hasDeepDeny(self, perm, default=None, gateiden=None) -> bool:
         '''
-        If a user has an allow rule on a permission, return True if there is a deny rule as well
-        corresponding to that particular permission.
+        If a user has an allow rule on a permission, return True if and only if there is a deny
+        rule present which is more specific than the allowed permission.
         '''
         perm = tuple(perm)
         return self.deepdenycache.get((perm, default, gateiden))
