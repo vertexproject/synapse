@@ -1070,8 +1070,8 @@ class HiveUser(HiveRuler):
         if not allowed:
             return False
 
-        if self.info.get('locked'):
-            return True
+        # skip locked status check. If a user was locked, then allowed would have
+        # been false and we would have already returned.
 
         if self.info.get('admin'):
             return False
@@ -1085,12 +1085,12 @@ class HiveUser(HiveRuler):
             if info is not None:
 
                 if info.get('admin'):
-                    return True
+                    return False
 
                 for allow, path in info.get('rules', ()):
                     if allow:
                         continue
-                    if path[:len(perm)] == perm and len(path) > permlen:
+                    if path[:permlen] == perm and len(path) > permlen:
                         return True
 
         # 2. check user rules
@@ -1098,7 +1098,7 @@ class HiveUser(HiveRuler):
             if allow:
                 continue
 
-            if path[:len(perm)] == perm and len(path) > permlen:
+            if path[:permlen] == perm and len(path) > permlen:
                 return True
 
         # 3. check authgate role rules
@@ -1113,7 +1113,7 @@ class HiveUser(HiveRuler):
                 for allow, path in info.get('rules', ()):
                     if allow:
                         continue
-                    if path[:len(perm)] == perm and len(path) > permlen:
+                    if path[:permlen] == perm and len(path) > permlen:
                         return True
 
         # 4. check role rules
@@ -1121,7 +1121,7 @@ class HiveUser(HiveRuler):
             for allow, path in role.info.get('rules', ()):
                 if allow:
                     continue
-                if path[:len(perm)] == perm and len(path) > permlen:
+                if path[:permlen] == perm and len(path) > permlen:
                     return True
 
         return False
