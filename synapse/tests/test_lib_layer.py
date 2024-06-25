@@ -1920,6 +1920,19 @@ class LayerTest(s_t_utils.SynTest):
             async def __anit__(self, dirn=None, size=1, cell=None):
                 await super().__anit__(dirn=dirn, size=size, cell=cell)
 
+        seen = set()
+        def confirm(self, perm, default=None, gateiden=None):
+            seen.add(perm)
+            return True
+
+        def confirmPropSet(self, user, prop, layriden):
+            seen.add(prop.setperms[0])
+            seen.add(prop.setperms[1])
+
+        def confirmPropDel(self, user, prop, layriden):
+            seen.add(prop.delperms[0])
+            seen.add(prop.delperms[1])
+
         with mock.patch('synapse.lib.spooled.Dict', Dict):
             async with self.getTestCore() as core:
 
@@ -1952,19 +1965,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 parent = core.view.layers[0]
 
-                seen = set()
-                def confirm(self, perm, default=None, gateiden=None):
-                    seen.add(perm)
-                    return True
-
-                def confirmPropSet(self, user, prop, layriden):
-                    seen.add(prop.setperms[0])
-                    seen.add(prop.setperms[1])
-
-                def confirmPropDel(self, user, prop, layriden):
-                    seen.add(prop.delperms[0])
-                    seen.add(prop.delperms[1])
-
+                seen.clear()
                 with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
@@ -2092,16 +2093,12 @@ class LayerTest(s_t_utils.SynTest):
 
             opts = {'view': viewiden}
 
-            await core.addTagProp('score', ('int', {}), {})
-
             await core.nodes('[ test:str=bar +#foo.bar ]', opts=opts)
 
             await core.nodes('''
                 [ test:str=foo
                     :hehe=bar
-                    +#foo:score=2
                     +#foo.bar.baz
-                    +#bar:score=2
                     <(refs)+ { test:str=bar }
                 ]
                 $node.data.set(foo, bar)
@@ -2109,19 +2106,7 @@ class LayerTest(s_t_utils.SynTest):
 
             parent = core.view.layers[0]
 
-            seen = set()
-            def confirm(self, perm, default=None, gateiden=None):
-                seen.add(perm)
-                return True
-
-            def confirmPropSet(self, user, prop, layriden):
-                seen.add(prop.setperms[0])
-                seen.add(prop.setperms[1])
-
-            def confirmPropDel(self, user, prop, layriden):
-                seen.add(prop.delperms[0])
-                seen.add(prop.delperms[1])
-
+            seen.clear()
             with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
                 with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
@@ -2132,6 +2117,17 @@ class LayerTest(s_t_utils.SynTest):
                 ('node', 'edge', 'add', 'refs'),
                 ('node', 'data', 'set', 'foo'),
             })
+
+            await user.delRule((False, ('node', 'edge', 'add', 'haha')))
+            await user.delRule((False, ('node', 'data', 'set', 'hehe')))
+
+            seen.clear()
+            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                        await layr.confirmLayerEditPerms(user, parent.iden)
+
+            self.eq(seen, set())
 
     async def test_layer_v9(self):
         async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:
