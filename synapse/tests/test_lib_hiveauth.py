@@ -382,6 +382,13 @@ class AuthTest(s_test.SynTest):
             await core.callStorm('auth.user.addrule lowuser "hehe.something.else"')
             await core.callStorm('auth.user.addrule lowuser "hehe.haha"')
             await core.callStorm('auth.user.addrule lowuser "some.perm"')
+            await core.callStorm('auth.role.add ninjas')
+            await core.callStorm('auth.role.add clowns')
+            await core.callStorm('auth.user.grant --index 0 lowuser ninjas')
+            await core.callStorm('auth.user.grant --index 1 lowuser clowns')
+            await core.callStorm('auth.role.addrule ninjas some.rule')
+            await core.callStorm('auth.role.addrule ninjas --gate $gate another.rule',
+                                 opts={'vars': {'gate': fork}})
 
             user = await core.auth.getUserByName('lowuser')
             self.false(user._hasDeepDeny(('hehe',)))
@@ -406,6 +413,8 @@ class AuthTest(s_test.SynTest):
             self.false(user._hasDeepDeny(('hehe', 'something', 'else', 'very', 'specific')))
             await core.callStorm('auth.role.delrule all "!hehe.something.else.very.specific"')
 
+            await core.callStorm('auth.role.addrule --gate $gate all "beep.boop"',
+                                 opts={'vars': {'gate': fork}})
             await core.callStorm('auth.role.addrule --gate $gate all "!hehe.something.else.very.specific"',
                                  opts={'vars': {'gate': fork}})
             self.false(user._hasDeepDeny(('hehe',), gateiden=fork))
@@ -415,7 +424,11 @@ class AuthTest(s_test.SynTest):
             self.false(user._hasDeepDeny(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork))
             await core.callStorm('auth.role.delrule --gate $gate all "!hehe.something.else.very.specific"',
                                  opts={'vars': {'gate': fork}})
+            await core.callStorm('auth.role.delrule --gate $gate all "beep.boop"',
+                                 opts={'vars': {'gate': fork}})
 
+            await core.callStorm('auth.user.addrule --gate $gate lowuser "beep.boop"',
+                                 opts={'vars': {'gate': fork}})
             await core.callStorm('auth.user.addrule --gate $gate lowuser "!hehe.something.else.very.specific"',
                                  opts={'vars': {'gate': fork}})
             self.false(user._hasDeepDeny(('hehe',), gateiden=fork))
@@ -424,6 +437,8 @@ class AuthTest(s_test.SynTest):
             self.true(user._hasDeepDeny(('hehe', 'something', 'else', 'very'), gateiden=fork))
             self.false(user._hasDeepDeny(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork))
             await core.callStorm('auth.user.delrule --gate $gate lowuser "!hehe.something.else.very.specific"',
+                                 opts={'vars': {'gate': fork}})
+            await core.callStorm('auth.user.delrule --gate $gate lowuser "beep.boop"',
                                  opts={'vars': {'gate': fork}})
 
             await core.callStorm('auth.user.mod --admin (true) lowuser --gate $gate', opts={'vars': {'gate': fork}})
