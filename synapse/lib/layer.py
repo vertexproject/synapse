@@ -4095,9 +4095,6 @@ class Layer(s_nexus.Pusher):
             yield prop[0]
 
     async def confirmLayerEditPerms(self, user, gateiden, delete=False):
-        if user.allowed(('node',), gateiden=gateiden):
-            return
-
         if delete:
             perm_forms = ('node', 'del')
             perm_props = ('node', 'prop', 'del')
@@ -4111,11 +4108,14 @@ class Layer(s_nexus.Pusher):
             perm_ndata = ('node', 'data', 'set')
             perm_edges = ('node', 'edge', 'add')
 
-        allow_forms = user.allowed(perm_forms, gateiden=gateiden)
-        allow_props = user.allowed(perm_props, gateiden=gateiden)
-        allow_tags = user.allowed(perm_tags, gateiden=gateiden)
-        allow_ndata = user.allowed(perm_ndata, gateiden=gateiden)
-        allow_edges = user.allowed(perm_edges, gateiden=gateiden)
+        if user.allowed(('node',), gateiden=gateiden, deepdeny=True):
+            return
+
+        allow_forms = user.allowed(perm_forms, gateiden=gateiden, deepdeny=True)
+        allow_props = user.allowed(perm_props, gateiden=gateiden, deepdeny=True)
+        allow_tags = user.allowed(perm_tags, gateiden=gateiden, deepdeny=True)
+        allow_ndata = user.allowed(perm_ndata, gateiden=gateiden, deepdeny=True)
+        allow_edges = user.allowed(perm_edges, gateiden=gateiden, deepdeny=True)
 
         if all((allow_forms, allow_props, allow_tags, allow_ndata, allow_edges)):
             return
