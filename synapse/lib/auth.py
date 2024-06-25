@@ -1287,10 +1287,16 @@ class User(Ruler):
     async def setLocked(self, locked, logged=True):
         if not isinstance(locked, bool):
             raise s_exc.BadArg(mesg='setLocked requires a boolean')
+
         if logged:
             await self.auth.setUserInfo(self.iden, 'locked', locked)
+            if not locked:
+                await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
+
         else:
             await self.auth._hndlsetUserInfo(self.iden, 'locked', locked, logged=logged)
+            if not locked:
+                await self.auth._hndlsetUserInfo(self.iden, 'policy:attempts', 0)
 
     async def setArchived(self, archived):
         if not isinstance(archived, bool):

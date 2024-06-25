@@ -444,6 +444,7 @@ class AuthTest(s_test.SynTest):
             self.true(user.info.get('locked'))
 
             await user.setLocked(False)
+            self.eq(user.info.get('policy:attempts'), 0)
 
             # Test reusing previous password
             with self.raises(s_exc.BadArg) as exc:
