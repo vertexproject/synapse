@@ -375,7 +375,7 @@ class OuModelTest(s_t_utils.SynTest):
             props = {
                 'org': guid0,
                 'name': 'arrowcon 2018',
-                'names': ('Arrow Conference 2018',),
+                'names': ('Arrow Conference 2018', 'ArrCon18', 'ArrCon18'),
                 'base': 'arrowcon',
                 'start': '20180301',
                 'end': '20180303',
@@ -393,7 +393,7 @@ class OuModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef[1], c0)
             self.eq(node.get('name'), 'arrowcon 2018')
-            self.eq(node.get('names'), ('arrow conference 2018',))
+            self.eq(node.get('names'), ('arrcon18', 'arrow conference 2018',))
             self.eq(node.get('base'), 'arrowcon')
             self.eq(node.get('org'), guid0)
             self.eq(node.get('start'), 1519862400000)

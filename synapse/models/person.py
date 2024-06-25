@@ -356,8 +356,11 @@ class PsModule(s_module.CoreModule):
                         'doc': 'A description of this contact.',
                     }),
                     ('title', ('ou:jobtitle', {}), {
-                        'doc': 'The job/org title listed for this contact.',
-                    }),
+                        'doc': 'The job/org title listed for this contact.'}),
+
+                    ('titles', ('array', {'type': 'ou:jobtitle', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate titles for the contact.'}),
+
                     ('photo', ('file:bytes', {}), {
                         'doc': 'The photo listed for this contact.',
                     }),

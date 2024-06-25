@@ -2,9 +2,10 @@ import pathlib
 
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
+import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tests.utils as s_test
-from synapse.tests.utils import alist
+
 
 class AuthTest(s_test.SynTest):
 
@@ -371,3 +372,140 @@ class AuthTest(s_test.SynTest):
                 await core.auth.allrole.setRules([(True, ('hehe', 'haha'), 'newp')])
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, )])
+
+    async def test_hive_auth_deepdeny(self):
+        async with self.getTestCore() as core:
+
+            # Create an authgate we can later test against
+            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
+            await core.callStorm('auth.user.add lowuser')
+            await core.callStorm('auth.user.addrule lowuser "!hehe.haha.specific"')
+            await core.callStorm('auth.user.addrule lowuser "hehe.something.else"')
+            await core.callStorm('auth.user.addrule lowuser "hehe.haha"')
+            await core.callStorm('auth.user.addrule lowuser "some.perm"')
+            await core.callStorm('auth.role.add ninjas')
+            await core.callStorm('auth.role.add clowns')
+            await core.callStorm('auth.user.grant --index 0 lowuser ninjas')
+            await core.callStorm('auth.user.grant --index 1 lowuser clowns')
+            await core.callStorm('auth.role.addrule ninjas some.rule')
+            await core.callStorm('auth.role.addrule ninjas --gate $gate another.rule',
+                                 opts={'vars': {'gate': fork}})
+
+            user = await core.auth.getUserByName('lowuser')  # type: s_hiveauth.HiveUser
+            self.false(user.allowed(('hehe',)))
+            self.false(user.allowed(('hehe',), deepdeny=True))
+            self.true(user.allowed(('hehe', 'haha')))
+            self.false(user.allowed(('hehe', 'haha'), deepdeny=True))
+            self.true(user.allowed(('hehe', 'haha', 'wow')))
+            self.true(user.allowed(('hehe', 'haha', 'wow'), deepdeny=True))
+            self.true(user.allowed(('some', 'perm')))
+            self.true(user.allowed(('some', 'perm'), deepdeny=True))
+            self.true(user.allowed(('some', 'perm', 'here')))
+            self.true(user.allowed(('some', 'perm', 'here'), deepdeny=True))
+
+            await core.callStorm('auth.user.delrule lowuser hehe.haha')
+            await core.callStorm('auth.user.addrule lowuser hehe')
+            self.true(user.allowed(('hehe',)))
+            self.false(user.allowed(('hehe',), deepdeny=True))
+            self.true(user.allowed(('hehe', 'haha')))
+            self.false(user.allowed(('hehe', 'haha'), deepdeny=True))
+            self.true(user.allowed(('hehe', 'haha', 'wow')))
+            self.true(user.allowed(('hehe', 'haha', 'wow'), deepdeny=True))
+            self.false(user.allowed(('weee',)))
+            self.false(user.allowed(('weee',), deepdeny=True))
+            await core.callStorm('auth.user.delrule lowuser hehe')
+
+            await core.callStorm('auth.role.addrule all "!hehe.something.else.very.specific"')
+            self.false(user.allowed(('hehe',)))
+            self.false(user.allowed(('hehe',), deepdeny=True))
+
+            self.false(user.allowed(('hehe', 'something')))
+            self.true(user.allowed(('hehe', 'something', 'else')))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very')))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific')))
+
+            self.false(user.allowed(('hehe', 'something')))
+            self.false(user.allowed(('hehe', 'something', 'else'), deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else', 'very'), deepdeny=True))
+
+            # There is NOT a deeper permission here, even though there is a deny rule on the role.
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), deepdeny=True))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific', 'more')))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific', 'more'), deepdeny=True))
+            await core.callStorm('auth.role.delrule all "!hehe.something.else.very.specific"')
+
+            await core.callStorm('auth.role.addrule --gate $gate all "beep.boop"',
+                                 opts={'vars': {'gate': fork}})
+            await core.callStorm('auth.role.addrule --gate $gate all "!hehe.something.else.very.specific"',
+                                 opts={'vars': {'gate': fork}})
+            self.false(user.allowed(('hehe',), gateiden=fork))
+            self.false(user.allowed(('hehe', 'something'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork))
+            self.false(user.allowed(('hehe',), gateiden=fork, deepdeny=True))
+            self.false(user.allowed(('hehe', 'something'), gateiden=fork, deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else'), gateiden=fork, deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork, deepdeny=True))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork, deepdeny=True))
+            await core.callStorm('auth.role.delrule --gate $gate all "!hehe.something.else.very.specific"',
+                                 opts={'vars': {'gate': fork}})
+            await core.callStorm('auth.role.delrule --gate $gate all "beep.boop"',
+                                 opts={'vars': {'gate': fork}})
+
+            await core.callStorm('auth.user.addrule --gate $gate lowuser "beep.boop"',
+                                 opts={'vars': {'gate': fork}})
+            await core.callStorm('auth.user.addrule --gate $gate lowuser "!hehe.something.else.very.specific"',
+                                 opts={'vars': {'gate': fork}})
+            self.false(user.allowed(('hehe',), gateiden=fork))
+            self.false(user.allowed(('hehe', 'something'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork))
+            self.false(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork))
+            self.false(user.allowed(('hehe',), gateiden=fork, deepdeny=True))
+            self.false(user.allowed(('hehe', 'something'), gateiden=fork, deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else'), gateiden=fork, deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork, deepdeny=True))
+            # This differs from earlier check as the dd is false; but the user authgate deny is earlier in precedence
+            # than the user specific allow
+            self.false(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork, deepdeny=True))
+
+            await core.callStorm('auth.user.delrule --gate $gate lowuser "!hehe.something.else.very.specific"',
+                                 opts={'vars': {'gate': fork}})
+            await core.callStorm('auth.user.delrule --gate $gate lowuser "beep.boop"',
+                                 opts={'vars': {'gate': fork}})
+
+            await core.callStorm('auth.user.mod --admin (true) lowuser --gate $gate', opts={'vars': {'gate': fork}})
+            self.true(user.allowed(('hehe',), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork))
+
+            self.true(user.allowed(('hehe',), gateiden=fork, deepdeny=True))
+            self.true(user.allowed(('hehe', 'something'), gateiden=fork, deepdeny=True))
+            self.true(user.allowed(('hehe', 'something', 'else'), gateiden=fork, deepdeny=True))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very'), gateiden=fork, deepdeny=True))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), gateiden=fork, deepdeny=True))
+
+            await core.callStorm('auth.user.mod --admin (false) lowuser --gate $gate', opts={'vars': {'gate': fork}})
+
+            await core.callStorm('auth.user.mod --admin (true) lowuser')
+            self.true(user.allowed(('hehe',)))
+            self.true(user.allowed(('hehe', 'something')))
+            self.true(user.allowed(('hehe', 'something', 'else')))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very')))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific')))
+            self.true(user.allowed(('hehe',), deepdeny=True))
+            self.true(user.allowed(('hehe', 'something')))
+            self.true(user.allowed(('hehe', 'something', 'else'), deepdeny=True))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very'), deepdeny=True))
+            self.true(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), deepdeny=True))
+            await core.callStorm('auth.user.mod --admin (false) lowuser')
+
+            await core.callStorm('auth.user.mod --locked (true) lowuser')
+            self.false(user.allowed(('hehe',), deepdeny=True))
+            self.false(user.allowed(('hehe', 'something'), deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else'), deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else', 'very'), deepdeny=True))
+            self.false(user.allowed(('hehe', 'something', 'else', 'very', 'specific'), deepdeny=True))
