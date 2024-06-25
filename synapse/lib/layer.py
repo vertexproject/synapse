@@ -4108,20 +4108,14 @@ class Layer(s_nexus.Pusher):
             perm_ndata = ('node', 'data', 'set')
             perm_edges = ('node', 'edge', 'add')
 
-        def _permCheck(_perm):
-            denied = user._hasDeepDeny(_perm, gateiden=gateiden)
-            if denied:
-                return False
-            return user.allowed(_perm, gateiden=gateiden)
-
-        if _permCheck(('node',)):
+        if user.allowed(('node',), gateiden=gateiden, deepdeny=True):
             return
 
-        allow_forms = _permCheck(perm_forms)
-        allow_props = _permCheck(perm_props)
-        allow_tags = _permCheck(perm_tags)
-        allow_ndata = _permCheck(perm_ndata)
-        allow_edges = _permCheck(perm_edges)
+        allow_forms = user.allowed(perm_forms, gateiden=gateiden, deepdeny=True)
+        allow_props = user.allowed(perm_props, gateiden=gateiden, deepdeny=True)
+        allow_tags = user.allowed(perm_tags, gateiden=gateiden, deepdeny=True)
+        allow_ndata = user.allowed(perm_ndata, gateiden=gateiden, deepdeny=True)
+        allow_edges = user.allowed(perm_edges, gateiden=gateiden, deepdeny=True)
 
         if all((allow_forms, allow_props, allow_tags, allow_ndata, allow_edges)):
             return
