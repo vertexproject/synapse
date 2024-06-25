@@ -7,11 +7,11 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.auth as s_auth
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
-import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tools.backup as s_tools_backup
 
@@ -1968,7 +1968,7 @@ class LayerTest(s_t_utils.SynTest):
                 parent = core.view.layers[0]
 
                 seen.clear()
-                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_auth.User, 'confirm', confirm):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, parent.iden)
@@ -2017,7 +2017,7 @@ class LayerTest(s_t_utils.SynTest):
                 ''', opts=opts)
 
                 seen.clear()
-                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_auth.User, 'confirm', confirm):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, parent.iden)
@@ -2048,7 +2048,7 @@ class LayerTest(s_t_utils.SynTest):
                 })
 
                 seen.clear()
-                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_auth.User, 'confirm', confirm):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
@@ -2109,7 +2109,7 @@ class LayerTest(s_t_utils.SynTest):
             parent = core.view.layers[0]
 
             seen.clear()
-            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+            with mock.patch.object(s_auth.User, 'confirm', confirm):
                 with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                         await layr.confirmLayerEditPerms(user, parent.iden)
@@ -2124,7 +2124,7 @@ class LayerTest(s_t_utils.SynTest):
             await user.delRule((False, ('node', 'data', 'set', 'hehe')))
 
             seen.clear()
-            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+            with mock.patch.object(s_auth.User, 'confirm', confirm):
                 with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                         await layr.confirmLayerEditPerms(user, parent.iden)

@@ -1,7 +1,7 @@
 import logging
 import dataclasses
 
-from typing import Union
+from typing import Optional, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -949,21 +949,46 @@ class User(Ruler):
         if not self.allowed(perm):
             await self.addRule((True, perm), indx=0)
 
-    def allowed(self, perm, default=None, gateiden=None):
+    def allowed(self,
+                perm: tuple[str, ...],
+                default: Optional[str] = None,
+                gateiden: Optional[str] = None,
+                deepdeny: bool = False) -> Union[bool, None]:
+        '''
+        Check if a user is allowed a given permission.
+
+        Args:
+            perm: The permission tuple to check.
+            default: The default rule value if there is no match.
+            gateiden: The gate iden to check against.
+            deepdeny: If True, give precedence for checking deny rules which are more specific than the requested
+                      permission.
+
+        Notes:
+            The use of the deepdeny argument is intended for checking a less-specific part of a permissions tree, in
+            order to know about possible short circuit options. Using it to check a more specific part may have
+            unintended results.
+
+        Returns:
+            The allowed value of the permission.
+        '''
         perm = tuple(perm)
-        return self.permcache.get((perm, default, gateiden))
+        return self.permcache.get((perm, default, gateiden, deepdeny))
 
     def _allowed(self, pkey):
         '''
         NOTE: This must remain in sync with any changes to _getAllowedReason()!
         '''
-        perm, default, gateiden = pkey
+        perm, default, gateiden, deepdeny = pkey
 
         if self.info.get('locked'):
             return False
 
         if self.info.get('admin'):
             return True
+
+        if deepdeny and self._hasDeepDeny(perm, gateiden):
+            return False
 
         # 1. check authgate user rules
         if gateiden is not None:
@@ -1061,6 +1086,58 @@ class User(Ruler):
                     return _allowedReason(allow, roleiden=role.iden, rolename=role.name, rule=path)
 
         return _allowedReason(default, default=True)
+
+    def _hasDeepDeny(self, perm, gateiden):
+
+        permlen = len(perm)
+
+        # 1. check authgate user rules
+        if gateiden is not None:
+
+            info = self.authgates.get(gateiden)
+            if info is not None:
+
+                if info.get('admin'):
+                    return False
+
+                for allow, path in info.get('rules', ()):
+                    if allow:
+                        continue
+                    if path[:permlen] == perm and len(path) > permlen:
+                        return True
+
+        # 2. check user rules
+        for allow, path in self.info.get('rules', ()):
+            if allow:
+                continue
+
+            if path[:permlen] == perm and len(path) > permlen:
+                return True
+
+        # 3. check authgate role rules
+        if gateiden is not None:
+
+            for role in self.getRoles():
+
+                info = role.authgates.get(gateiden)
+                if info is None:
+                    continue
+
+                for allow, path in info.get('rules', ()):
+                    if allow:
+                        continue
+                    if path[:permlen] == perm and len(path) > permlen:
+                        return True
+
+        # 4. check role rules
+        for role in self.getRoles():
+            for allow, path in role.info.get('rules', ()):
+                if allow:
+                    continue
+                if path[:permlen] == perm and len(path) > permlen:
+                    return True
+
+        return False
 
     def clearAuthCache(self):
         self.permcache.clear()
