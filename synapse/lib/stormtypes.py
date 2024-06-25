@@ -7699,7 +7699,7 @@ class View(Prim):
         self.locls.update({
             'iden': self.valu.get('iden'),
             'parent': self.valu.get('parent'),
-            'triggers': [Trigger(self.runt, tdef, self.valu.get('iden')) for tdef in self.valu.get('triggers')],
+            'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
 
@@ -8298,7 +8298,7 @@ class LibTrigger(Lib):
         todo = ('addTrigger', (tdef,), {})
         tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
-        return Trigger(self.runt, tdef, viewiden)
+        return Trigger(self.runt, tdef)
 
     async def _methTriggerDel(self, prefix):
         useriden = self.runt.user.iden
@@ -8337,7 +8337,7 @@ class LibTrigger(Lib):
             for iden, trig in await view.listTriggers():
                 if not allowed(('trigger', 'get'), gateiden=iden):
                     continue
-                triggers.append(Trigger(self.runt, trig.pack(), iden))
+                triggers.append(Trigger(self.runt, trig.pack()))
 
         return triggers
 
@@ -8347,12 +8347,10 @@ class LibTrigger(Lib):
         try:
             # fast path to our current view
             trigger = await self.runt.snap.view.getTrigger(iden)
-            viewiden = self.runt.snap.view.iden
         except s_exc.NoSuchIden:
             for view in self.runt.snap.core.listViews():
                 try:
                     trigger = await view.getTrigger(iden)
-                    viewiden = view.iden
                 except s_exc.NoSuchIden:
                     pass
 
@@ -8361,7 +8359,7 @@ class LibTrigger(Lib):
 
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
-        return Trigger(self.runt, trigger.pack(), viewiden)
+        return Trigger(self.runt, trigger.pack())
 
     async def _methTriggerEnable(self, prefix):
         return await self._triggerendisable(prefix, True)
@@ -8408,11 +8406,10 @@ class Trigger(Prim):
     _storm_typename = 'trigger'
     _ismutable = False
 
-    def __init__(self, runt, tdef, viewiden):
+    def __init__(self, runt, tdef):
 
         Prim.__init__(self, tdef)
         self.runt = runt
-        self.viewiden = viewiden
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')

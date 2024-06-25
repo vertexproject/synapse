@@ -1518,13 +1518,7 @@ class View(s_nexus.Pusher):  # type: ignore
         elif self.triggers.get(iden) is not None:
             raise s_exc.DupIden(mesg='A trigger with this iden already exists')
 
-        # Developer note: the view value is only used to verify the view where
-        # the trigger is being added to. Do not rely on this value for
-        # dynamically retrieving the view from the trigger definition.
-        tdefiden = tdef.get('view')
-        if tdefiden is not None and tdefiden != self.iden:
-            mesg = f'Trigger definition view ({tdefiden}) differs from current view ({self.iden}).'
-            raise s_exc.BadTriggerDef(mesg=mesg, trigiden=iden, tdefiden=tdefiden, viewiden=self.iden)
+        tdef['view'] = self.iden
 
         root = await self.core.auth.getUserByName('root')
 
@@ -1532,7 +1526,6 @@ class View(s_nexus.Pusher):  # type: ignore
         tdef.setdefault('user', root.iden)
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
-        tdef.setdefault('view', self.iden)
 
         s_trigger.reqValidTdef(tdef)
 

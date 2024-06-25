@@ -295,14 +295,16 @@ class TrigTest(s_t_utils.SynTest):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo&baz'})
 
             # View iden mismatch
+            trigiden = s_common.guid()
             viewiden = s_common.guid()
-            with self.raises(s_exc.BadTriggerDef) as exc:
-                tdef = {'cond': 'node:add', 'storm': 'test:int=4', 'form': 'test:int', 'view': viewiden}
-                await view.addTrigger(tdef)
-            mesg = f'Trigger definition view ({viewiden}) differs from current view ({view.iden}).'
-            self.eq(mesg, exc.exception.get('mesg'))
-            self.eq(viewiden, exc.exception.get('tdefiden'))
-            self.eq(view.iden, exc.exception.get('viewiden'))
+            tdef = {'iden': trigiden, 'cond': 'node:add', 'storm': 'test:int=4', 'form': 'test:int', 'view': viewiden}
+            await view.addTrigger(tdef)
+            trigger = await view.getTrigger(trigiden)
+            self.eq(trigger.get('view'), view.iden)
+            with self.raises(s_exc.BadArg) as exc:
+                await view.setTriggerInfo(trigiden, 'view', viewiden)
+            self.eq(exc.exception.get('mesg'), 'Invalid key name provided: view')
+            await view.delTrigger(trigiden)
 
             # Trigger list
             triglist = await view.listTriggers()

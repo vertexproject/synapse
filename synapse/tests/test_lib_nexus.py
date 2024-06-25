@@ -7,6 +7,7 @@ import synapse.cortex as s_cortex
 
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tests.utils as s_t_utils
@@ -302,3 +303,55 @@ class NexusTest(s_t_utils.SynTest):
                     with self.raises(s_exc.IsReadOnly):
                         await cell01.sync()
                     self.isin(s_nexus.leaderversion, cell01.nexsroot.writeholds)
+
+    async def test_nexus_handler_names(self):
+        class Foo(s_cell.Cell):
+            async def __anit__(self, *args, **kwargs):
+                await s_cell.Cell.__anit__(self, *args, **kwargs)
+                self.foodb = self.slab.initdb('foo')
+
+            def getInfo(self, name):
+                key = s_common.buid(name)
+                byts = self.slab.get(key, db=self.foodb)
+                if byts is None:
+                    return None
+
+                return s_msgpack.un(byts)
+
+            @s_nexus.Pusher.onPushAuto('foo:name:set')
+            async def setInfo(self, name, valu):
+                if not name.startswith('foo'):
+                    raise s_exc.SynErr(mesg='Invalid name', name=name, valu=valu)
+
+                key = s_common.buid(name)
+                self.slab.put(key, s_msgpack.en(valu), db=self.foodb)
+
+        class Bar(s_cell.Cell):
+            async def __anit__(self, *args, **kwargs):
+                await s_cell.Cell.__anit__(self, *args, **kwargs)
+                self.bardb = self.slab.initdb('bar')
+
+            def getInfo(self, name):
+                key = s_common.buid(name)
+                byts = self.slab.get(key, db=self.bardb)
+                if byts is None:
+                    return None
+
+                return s_msgpack.un(byts)
+
+            @s_nexus.Pusher.onPushAuto('bar:info:set')
+            async def setInfo(self, name, valu1, valu2):
+                if not name.startswith('bar'):
+                    raise s_exc.SynErr(mesg='Invalid name', name=name, valu1=valu1, valu2=valu2)
+
+                key = s_common.buid(name)
+                self.slab.put(key, s_msgpack.en((valu1, valu2)), db=self.bardb)
+
+        async with self.getTestCell(Foo) as foo:
+            async with self.getTestCell(Bar) as bar:
+
+                await foo.setInfo('fookey', 'fooval')
+                self.eq(foo.getInfo('fookey'), 'fooval')
+
+                await bar.setInfo('barkey', 'barval1', 'barval2')
+                self.eq(bar.getInfo('barkey'), ('barval1', 'barval2'))
