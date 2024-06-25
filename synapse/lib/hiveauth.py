@@ -1,7 +1,7 @@
 import logging
 import dataclasses
 
-from typing import Union
+from typing import Optional, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -901,7 +901,6 @@ class HiveUser(HiveRuler):
 
         self.permcache = s_cache.FixedCache(self._allowed)
         self.allowedcache = s_cache.FixedCache(self._getAllowedReason)
-        self.deepdenycache = s_cache.FixedCache(self._hasDeepDenyImpl)
 
     def pack(self, packroles=False):
 
@@ -942,22 +941,47 @@ class HiveUser(HiveRuler):
         if not self.allowed(perm):
             await self.addRule((True, perm), indx=0)
 
-    def allowed(self, perm, default=None, gateiden=None):
+    def allowed(self,
+                perm: tuple[str, ...],
+                default: Optional[str] = None,
+                gateiden: Optional[str] = None,
+                deepdeny: bool = False) -> Union[bool, None]:
+        '''
+        Check if a user is allowed a given permission.
+
+        Args:
+            perm: The permission tuple to check.
+            default: The default rule value if there is no match.
+            gateiden: The gate iden to check against.
+            deepdeny: If True, give precedence for checking deny rules which are more specific than the requested
+                      permission.
+
+        Notes:
+            The use of the deepdeny argument is intended for checking a less-specific part of a permissions tree, in
+            order to know about possible short circuit options. Using it to check a more specific part may have
+            unintended results.
+
+        Returns:
+            The allowed value of the permission.
+        '''
         perm = tuple(perm)
-        return self.permcache.get((perm, default, gateiden))
+        return self.permcache.get((perm, default, gateiden, deepdeny))
 
     def _allowed(self, pkey):
         '''
         NOTE: This must remain in sync with any changes to _getAllowedReason()!
         '''
 
-        perm, default, gateiden = pkey
+        perm, default, gateiden, deepdeny = pkey
 
         if self.info.get('locked'):
             return False
 
         if self.info.get('admin'):
             return True
+
+        if deepdeny and self._hasDeepDenyImpl(perm, gateiden):
+            return False
 
         # 1. check authgate user rules
         if gateiden is not None:
@@ -1056,25 +1080,7 @@ class HiveUser(HiveRuler):
 
         return _allowedReason(default, default=True)
 
-    def _hasDeepDeny(self, perm, default=None, gateiden=None) -> bool:
-        '''
-        If a user has an allow rule on a permission, return True if and only if there is a deny
-        rule present which is more specific than the allowed permission.
-        '''
-        perm = tuple(perm)
-        return self.deepdenycache.get((perm, default, gateiden))
-
-    def _hasDeepDenyImpl(self, pkey):
-        perm, default, gateiden = pkey
-        allowed = self.allowed(perm, default=default, gateiden=gateiden)
-        if not allowed:
-            return False
-
-        # skip locked status check. If a user was locked, then allowed would have
-        # been false and we would have already returned.
-
-        if self.info.get('admin'):
-            return False
+    def _hasDeepDenyImpl(self, perm, gateiden):
 
         permlen = len(perm)
 
@@ -1129,7 +1135,6 @@ class HiveUser(HiveRuler):
     def clearAuthCache(self):
         self.permcache.clear()
         self.allowedcache.clear()
-        self.deepdenycache.clear()
 
     async def genGateInfo(self, gateiden):
         info = self.authgates.get(gateiden)
