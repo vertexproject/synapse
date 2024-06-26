@@ -124,6 +124,8 @@ class Auth(s_nexus.Pusher):
             slab (s_lmdb.Slab): The slab to use for persistent storage for auth
             dbname (str): The name of the db to use in the slab
         '''
+        if policy:
+            s_schemas.reqValidPasswdPolicy(policy)
         # Derive an iden from the db name
         iden = f'auth:{dbname}'
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
@@ -501,7 +503,7 @@ class Auth(s_nexus.Pusher):
             mesg = f'Cell at maximum number of users ({self.maxusers}).'
             raise s_exc.HitLimit(mesg=mesg)
 
-    async def addUser(self, name, passwd=None, email=None, iden=None):
+    async def addUser(self, name, passwd=None, email=None, iden=None) -> User:
         '''
         Add a User to the Auth system.
 
@@ -1312,7 +1314,7 @@ class User(Ruler):
 
     async def tryPasswd(self, passwd, nexs=True):
 
-        if self.info.get('locked', False):
+        if self.isLocked():
             return False
 
         if passwd is None:

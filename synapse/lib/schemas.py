@@ -302,8 +302,7 @@ _authRulesSchema = {
 }
 reqValidRules = s_config.getJsValidator(_authRulesSchema)
 
-passwdPolicySchema = {
-    'description': 'Specify password policy/complexity requirements.',
+_passwdPolicySchema = {
     'type': 'object',
     'properties': {
         'complexity': {
@@ -370,3 +369,4 @@ passwdPolicySchema = {
     },
     'additionalProperties': False,
 }
+reqValidPasswdPolicy = s_config.getJsValidator(_passwdPolicySchema)

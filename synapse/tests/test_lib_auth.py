@@ -550,6 +550,30 @@ class AuthTest(s_test.SynTest):
                 'Password cannot be the same as previous 3 password(s).'
             ])
 
+        # Single complexity rule
+        policy = {'complexity': {'length': 3}}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, 'no')
+            await core.setUserPasswd(user.iden, 'hehe')
+            await core.setUserPasswd(user.iden, 'heh')
+            # await core.setUserPasswd(user.iden, 'hehαβγ')
+
+        # No complexity rules
+        policy = {'attempts': 1}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            await core.setUserPasswd(user.iden, 'hehe')
+            self.true(await user.tryPasswd('hehe'))
+            with self.raises(s_exc.AuthDeny):
+                await user.tryPasswd('newp')
+            self.true(user.isLocked())
+
     async def test_hive_auth_deepdeny(self):
         async with self.getTestCore() as core:
 

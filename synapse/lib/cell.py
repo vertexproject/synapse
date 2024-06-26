@@ -893,7 +893,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hideconf': True,
         },
-        'auth:passwd:policy': s_schemas.passwdPolicySchema,
+        'auth:passwd:policy': {
+            'description': 'Specify password policy/complexity requirements.',
+            'type': 'object',
+            'default': None,
+        },
         'max:users': {
             'default': 0,
             'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
