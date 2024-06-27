@@ -1290,8 +1290,6 @@ class User(Ruler):
 
         resetAttempts = (
             not locked and
-            self.auth.policy is not None and
-            self.auth.policy.get('attempts') is not None and
             self.info.get('policy:attempts', 0) > 0
         )
 
