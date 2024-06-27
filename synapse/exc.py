@@ -240,6 +240,14 @@ class NoSuchProp(SynErr):
             mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
 
+class NoSuchVirt(SynErr):
+
+    @classmethod
+    def init(cls, name, ptyp, mesg=None):
+        if mesg is None:
+            mesg = f'No virtual type named {name} on type {ptyp}.'
+        return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp)
+
 class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass

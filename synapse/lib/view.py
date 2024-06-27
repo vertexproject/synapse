@@ -207,7 +207,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_SET:
 
-                    (name, valu, oldv, stype) = parms
+                    (name, valu, oldv, stype, _) = parms
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover

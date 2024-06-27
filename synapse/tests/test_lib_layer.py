@@ -2128,3 +2128,86 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('risk:vulnerable:node*form=newp')
+
+    async def test_layer_virt_indexes(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:server=tcp://127.0.0.1:12345 ]')
+            await core.nodes('[ inet:server=tcp://127.0.0.3:12345 ]')
+            await core.nodes('[ inet:server=tcp://127.0.0.2:12345 ]')
+            await core.nodes('[ inet:server="tcp://[::3]:12345" ]')
+            await core.nodes('[ inet:server="tcp://[::1]:12345" ]')
+            await core.nodes('[ inet:server="tcp://[::2]:12345" ]')
+            await core.nodes('[ inet:download=* :server=tcp://127.0.0.4:12345 ]')
+            await core.nodes('[ inet:download=* :server=tcp://127.0.0.5:12345 ]')
+            await core.nodes('[ inet:download=* :server=tcp://127.0.0.6:12345 ]')
+            await core.nodes('[ inet:download=* :server="tcp://[::4]:12345" ]')
+            await core.nodes('[ inet:download=* :server="tcp://[::5]:12345" ]')
+            await core.nodes('[ inet:download=* :server="tcp://[::6]:12345" ]')
+            print('ipv4')
+            nodes = await core.nodes('inet:server*ipv4')
+            for n in nodes:
+                print(n)
+
+            print('ipv6')
+            nodes = await core.nodes('inet:server*ipv6')
+            for n in nodes:
+                print(n)
+
+            print('filt')
+            nodes = await core.nodes('inet:server.created +inet:server*ipv4')
+            for n in nodes:
+                print(n)
+
+            print('filt valu')
+            nodes = await core.nodes('inet:server.created +inet:server*ipv4=127.0.0.2')
+            for n in nodes:
+                print(n)
+
+            print('filt valu byname')
+            nodes = await core.nodes('inet:server.created +inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)')
+            for n in nodes:
+                print(n)
+
+            print('ipv4 prop')
+            nodes = await core.nodes('inet:download:server*ipv4')
+            for n in nodes:
+                print(n)
+
+            print('ipv6 prop')
+            nodes = await core.nodes('inet:download:server*ipv6')
+            for n in nodes:
+                print(n)
+
+            print('filt prop')
+            nodes = await core.nodes('inet:download.created +:server*ipv4')
+            for n in nodes:
+                print(n)
+
+            print('filt prop valu')
+            nodes = await core.nodes('inet:download.created +:server*ipv4=127.0.0.4')
+            for n in nodes:
+                print(n)
+
+            print('filt prop valu byname')
+            nodes = await core.nodes('inet:download.created +:server*ipv4*range=(127.0.0.4, 127.0.0.5)')
+            for n in nodes:
+                print(n)
+
+            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user1 :signup:client=tcp://127.0.0.1:12345 ]} ]')
+            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user2 :signup:client=tcp://127.0.0.2:12345 ]} ]')
+            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user3 :signup:client=tcp://127.0.0.3:12345 ]} ]')
+            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user4 :signup:client="tcp://[::4]:12345" ]} ]')
+            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user5 :signup:client="tcp://[::5]:12345" ]} ]')
+            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user6 :signup:client="tcp://[::6]:12345" ]} ]')
+
+            print('filt prop valu piv byname')
+            nodes = await core.nodes('auth:creds.created +:web:acct::signup:client*ipv4*range=(127.0.0.2, 127.0.0.3)')
+            for n in nodes:
+                print(n)
+
+            print('ipv4 valu')
+            nodes = await core.nodes('inet:server*ipv4=127.0.0.1')
+            for n in nodes:
+                print(n)

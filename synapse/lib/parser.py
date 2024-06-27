@@ -26,8 +26,8 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
-    'BYNAME': 'named comparison operator',
-    'BYNAMECMPR': 'named comparison operator',
+    'BYNAME': 'named comparison operator name',
+    'BYNAMECMPR': 'named comparison operator cmpr',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -463,7 +463,8 @@ class AstConverter(lark.Transformer):
     def byname(self, meta, kids):
         kids = self._convert_children(kids)
         astinfo = self.metaToAstInfo(meta)
-        return s_ast.ByNameCmpr(astinfo, kids[0].valu + kids[1].valu, kids)
+        names = [kid.valu for kid in kids[:-1]]
+        return s_ast.ByNameCmpr(astinfo, (names, kids[-1].valu), kids)
 
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()

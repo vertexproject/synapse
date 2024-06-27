@@ -192,6 +192,9 @@ class Type:
         self._cmpr_ctors[name] = func
 
     def getCmprCtor(self, name):
+        if isinstance(name, tuple):
+            if (subtype := self.subtypes.get(name[0])) is not None:
+                return subtype[0].getCmprCtor(name[1])
         return self._cmpr_ctors.get(name)
 
     def setLiftHintCmprCtor(self, name, func):
@@ -1217,6 +1220,7 @@ class Ival(Type):
         }
 
         # Range stuff with ival's don't make sense
+        self.storlifts.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
@@ -1318,21 +1322,23 @@ class Ival(Type):
     def _getMin(self, valu):
         if valu is None:
             return None
-        return valu[0]
+        return valu[0][0]
 
     def _getMax(self, valu):
         if valu is None:
             return None
-        return valu[1]
+        return valu[0][1]
 
     def _getDuration(self, valu):
         if valu is None:
             return None
 
-        if valu[1] == self.futsize:
+        ival = valu[0]
+
+        if ival[1] == self.futsize:
             return self.duratype.maxval
 
-        return valu[1] - valu[0]
+        return ival[1] - ival[0]
 
     def getTagSubIndx(self, name):
         indx = self.tagsubindx.get(name, s_common.novalu)
@@ -1538,7 +1544,7 @@ class Ndef(Type):
     def _getForm(self, valu):
         if valu is None:
             return None
-        return valu[0]
+        return valu[0][0]
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)

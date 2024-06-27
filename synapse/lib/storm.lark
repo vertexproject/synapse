@@ -284,7 +284,8 @@ WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
 _cmpr: "*" byname | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
-byname: BYNAME BYNAMECMPR
+byname: [ _bynames ] BYNAME BYNAMECMPR
+_bynames: _bynames? BYNAME "*"
 BYNAME.2: /\w+/
 BYNAMECMPR.2: /[@?!<>^~=]*[<>=]/
 
@@ -366,7 +367,7 @@ _COLONDOLLAR: /(?<!\w|\'|\"):\$/
 relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) subprop?
 univpropvalu: univprop subprop?
 subprop: _SUBPROP VARTOKN
-_SUBPROP.2: /(?<!\s)\*(?=[a-z]+)(?![a-z]+[@?!<>^~=]*[<>=])/
+_SUBPROP.2: /(?<!\s)\*(?=\w+)(?!\w+(\*\w+)*[@?!<>^~=]*[<>=])/
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
@@ -406,12 +407,12 @@ _cond: notcond | "(" _condexpr ")"
 
 notcond: "not" _cond
 
-hasrelpropcond: relprop | univprop
+hasrelpropcond: (relprop | univprop) subprop?
 relpropcond: relpropvalue _cmpr _valu
 relpropvalue: relprop | univprop
 
 abspropcond: PROPS _cmpr _valu
-hasabspropcond: (PROPS | WILDPROPS)
+hasabspropcond: (PROPS | WILDPROPS) subprop?
 
 tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
 hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)

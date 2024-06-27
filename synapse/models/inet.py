@@ -91,6 +91,60 @@ class Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.ipv4type = self.modl.type('inet:ipv4')
+        self.ipv6type = self.modl.type('inet:ipv6')
+
+        self.storlifts |= {
+            'ipv4=': self._storLiftIPv4,
+            'ipv6=': self._storLiftIPv6,
+        }
+
+        self.subindx |= {
+            'ipv4': (s_layer.INDX_VIRTUAL, 'ipv4'),
+            'ipv6': (s_layer.INDX_VIRTUAL, 'ipv6'),
+        }
+
+        self.subtypes |= {
+            'ipv4': (self.ipv4type, self._getIPv4),
+            'ipv6': (self.ipv6type, self._getIPv6),
+        }
+
+    def _storLiftIPv4(self, cmpr, valu):
+        norm, _ = self.ipv4type.norm(valu)
+        return (
+            (cmpr, norm, self.ipv4type.stortype),
+        )
+
+    def _storLiftIPv6(self, cmpr, valu):
+        norm, _ = self.ipv6type.norm(valu)
+        return (
+            (cmpr, norm, self.ipv6type.stortype),
+        )
+
+    def _getIPv4(self, valu):
+        if valu is None:
+            return None
+
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('ipv4')) is None:
+            return None
+
+        return valu[0]
+
+    def _getIPv6(self, valu):
+        if valu is None:
+            return None
+
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('ipv6')) is None:
+            return None
+
+        return valu[0]
+
     def _getPort(self, valu):
         parts = valu.split(':', 1)
         if len(parts) == 2:
@@ -102,6 +156,7 @@ class Addr(s_types.Str):
     def _normPyStr(self, valu):
         orig = valu
         subs = {}
+        virts = {}
 
         # no protos use case sensitivity yet...
         valu = valu.lower()
@@ -136,15 +191,15 @@ class Addr(s_types.Str):
             if match:
                 ipv6, port = match.groups()
 
-                ipv6, v6info = self.modl.type('inet:ipv6').norm(ipv6)
+                ipv6, v6info = self.ipv6type.norm(ipv6)
 
                 v6subs = v6info.get('subs')
                 if v6subs is not None:
                     v6v4addr = v6subs.get('ipv4')
                     if v6v4addr is not None:
-                        subs['ipv4'] = v6v4addr
+                        virts['ipv4'] = (v6v4addr, self.ipv4type.stortype)
 
-                subs['ipv6'] = ipv6
+                virts['ipv6'] = (ipv6, self.ipv6type.stortype)
 
                 portstr = ''
                 if port is not None:
@@ -152,26 +207,26 @@ class Addr(s_types.Str):
                     subs['port'] = port
                     portstr = f':{port}'
 
-                return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
+                return f'{proto}://[{ipv6}]{portstr}', {'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
-            ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
-            subs['ipv6'] = ipv6
-            return f'{proto}://{ipv6}', {'subs': subs}
+            ipv6 = self.ipv6type.norm(valu)[0]
+            virts['ipv6'] = (ipv6, self.ipv6type.stortype)
+            return f'{proto}://{ipv6}', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
         valu, port, pstr = self._getPort(valu)
         if port:
             subs['port'] = port
 
-        ipv4 = self.modl.type('inet:ipv4').norm(valu)[0]
-        ipv4_repr = self.modl.type('inet:ipv4').repr(ipv4)
-        subs['ipv4'] = ipv4
+        ipv4 = self.ipv4type.norm(valu)[0]
+        ipv4_repr = self.ipv4type.repr(ipv4)
+        virts['ipv4'] = (ipv4, self.ipv4type.stortype)
 
-        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
+        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
 class Cidr4(s_types.Str):
 
