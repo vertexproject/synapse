@@ -24,6 +24,8 @@ class MsgPackTest(s_t_utils.SynTest):
 
         unpk = s_msgpack.Unpk()
         self.eq(((24, item),), unpk.feed(byts))
+        with self.raises(s_exc.SynErr):
+            s_msgpack._ext_un(99, b'red baloons')
 
     def test_msgpack_un(self):
         item = s_msgpack.un(b'\x92\xa4hehe\n')
