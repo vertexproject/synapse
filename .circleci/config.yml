@@ -165,7 +165,7 @@ commands:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip twine build
+            python3 -m pip install -U wheel pip twine build "importlib_metadata==7.2.1"
             python3 -m pip install -U -r requirements_dev.txt
 
       - save_cache:
@@ -212,7 +212,7 @@ commands:
             cp dist/*.tar.gz /tmp/sdisttest
             cd /tmp/sdisttest
             . ./venv/bin/activate
-            python3 -m pip install -U wheel pip twine
+            python3 -m pip install -U wheel pip twine "importlib_metadata==7.2.1"
             python3 -m twine check *.tar.gz
             python3 -m pip install *.tar.gz
             python3 -c "$PYPI_SMOKE_CODE"
@@ -237,7 +237,7 @@ commands:
             cp dist/*.whl /tmp/wheeltest
             cd /tmp/wheeltest
             . ./venv/bin/activate
-            python3 -m pip install -U wheel pip twine
+            python3 -m pip install -U wheel pip twine "importlib_metadata==7.2.1"
             python3 -m twine check *.whl
             python3 -m pip install *.whl
             python3 -c "$PYPI_SMOKE_CODE"

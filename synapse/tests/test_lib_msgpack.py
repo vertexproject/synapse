@@ -17,6 +17,16 @@ class MsgPackTest(s_t_utils.SynTest):
         byts = s_msgpack._fallback_en(('hehe', 10))
         self.eq(byts, b'\x92\xa4hehe\n')
 
+    def test_msgpack_ext(self):
+        item = ('woot', 0xffffffffffffffffffffffffffffffff)
+        byts = s_msgpack.en(item)
+        self.eq(item, s_msgpack.un(byts))
+
+        unpk = s_msgpack.Unpk()
+        self.eq(((24, item),), unpk.feed(byts))
+        with self.raises(s_exc.SynErr):
+            s_msgpack._ext_un(99, b'red baloons')
+
     def test_msgpack_un(self):
         item = s_msgpack.un(b'\x92\xa4hehe\n')
         self.eq(item, ('hehe', 10))
@@ -198,10 +208,6 @@ class MsgPackTest(s_t_utils.SynTest):
         self.raises(s_exc.NotMsgpackSafe, enfunc, {1, 2})
         self.raises(s_exc.NotMsgpackSafe, enfunc, Exception())
         self.raises(s_exc.NotMsgpackSafe, enfunc, s_msgpack.en)
-        # too long
-        with self.raises(s_exc.NotMsgpackSafe) as cm:
-            enfunc({'longlong': 45234928034723904723906})
-        self.isin('OverflowError', cm.exception.get('mesg'))
 
     def test_msgpack_bad_types(self):
         self.checkBadTypes(s_msgpack.en)
