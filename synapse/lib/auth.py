@@ -503,7 +503,7 @@ class Auth(s_nexus.Pusher):
             mesg = f'Cell at maximum number of users ({self.maxusers}).'
             raise s_exc.HitLimit(mesg=mesg)
 
-    async def addUser(self, name, passwd=None, email=None, iden=None) -> User:
+    async def addUser(self, name, passwd=None, email=None, iden=None):
         '''
         Add a User to the Auth system.
 
@@ -1406,39 +1406,38 @@ class User(Ruler):
 
             # Check uppercase
             count = complexity.get('upper:count', 0)
-            valid = complexity.get('upper:valid', string.ascii_uppercase)
-            allvalid.append(valid)
-
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
+            if (valid := complexity.get('upper:valid', string.ascii_uppercase)):
+                allvalid.append(valid)
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
 
             # Check lowercase
             count = complexity.get('lower:count', 0)
-            valid = complexity.get('lower:valid', string.ascii_lowercase)
-            allvalid.append(valid)
+            if (valid := complexity.get('lower:valid', string.ascii_lowercase)):
+                allvalid.append(valid)
 
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
 
             # Check special
             count = complexity.get('special:count', 0)
-            valid = complexity.get('special:valid', string.punctuation)
-            allvalid.append(valid)
+            if (valid := complexity.get('special:valid', string.punctuation)):
+                allvalid.append(valid)
 
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} special characters, {found} found.')
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} special characters, {found} found.')
 
             # Check numbers
             count = complexity.get('number:count', 0)
-            valid = complexity.get('number:valid', string.digits)
-            allvalid.append(valid)
+            if (valid := complexity.get('number:valid', string.digits)):
+                allvalid.append(valid)
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} digit characters, {found} found.')
 
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} digit characters, {found} found.')
-
-            allvalid = ''.join(allvalid)
-            if (invalid := set(passwd) - set(allvalid)):
-                failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
+            if allvalid:
+                allvalid = ''.join(allvalid)
+                if (invalid := set(passwd) - set(allvalid)):
+                    failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
 
             # Check sequences
             seqlen = complexity.get('sequences')

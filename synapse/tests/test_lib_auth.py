@@ -550,7 +550,7 @@ class AuthTest(s_test.SynTest):
                 'Password cannot be the same as previous 3 password(s).'
             ])
 
-        # Single complexity rule
+        # Single complexity rule, uses default character lists
         policy = {'complexity': {'length': 3}}
         conf = {'auth:passwd:policy': policy}
         async with self.getTestCore(conf=conf) as core:
@@ -560,7 +560,63 @@ class AuthTest(s_test.SynTest):
                 await core.setUserPasswd(user.iden, 'no')
             await core.setUserPasswd(user.iden, 'hehe')
             await core.setUserPasswd(user.iden, 'heh')
-            # await core.setUserPasswd(user.iden, 'hehαβγ')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.setUserPasswd(user.iden, 'hehαβγ')
+            self.isin('Password contains invalid characters', cm.exception.get('mesg'))
+
+        # Complexity disables the *:valid groups so they will not be checked
+        policy = {'complexity': {'length': 3,
+                                 'upper:valid': None,
+                                 'upper:count': 20,
+                                 'lower:valid': None,
+                                 'lower:count': 20,
+                                 'special:valid': None,
+                                 'special:count': 20,
+                                 'number:valid': None,
+                                 'number:count': 20,
+                                 }}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, 'no')
+            await core.setUserPasswd(user.iden, 'heh')
+            await core.setUserPasswd(user.iden, 'hehαβγ1234!!@!@!')
+
+        # Policy only allows lowercase and specials...
+        policy = {'complexity': {'length': 2,
+                                 'upper:valid': None,
+                                 'number:valid': None,
+                                 'lower:count': 1,
+                                 'special:count': 1,
+                                 }}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, 'No')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, '1o')
+            await core.setUserPasswd(user.iden, 'y#s')
+
+        # Policy enforces character sets but doesn't care about minimum entries
+        policy = {'complexity': {'length': 3,
+                                 'upper:count': None,
+                                 'lower:count': None,
+                                 'special:count': None,
+                                 'number:count': None,
+                                 }}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            await core.setUserPasswd(user.iden, 'yup')
+            await core.setUserPasswd(user.iden, 'Y!0')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.setUserPasswd(user.iden, 'sadαβγ')
+            self.isin('Password contains invalid characters', cm.exception.get('mesg'))
 
         # No complexity rules
         policy = {'attempts': 1}
@@ -570,8 +626,7 @@ class AuthTest(s_test.SynTest):
             user = await auth.addUser('blackout@vertex.link')
             await core.setUserPasswd(user.iden, 'hehe')
             self.true(await user.tryPasswd('hehe'))
-            with self.raises(s_exc.AuthDeny):
-                await user.tryPasswd('newp')
+            self.false(await user.tryPasswd('newp'))
             self.true(user.isLocked())
 
     async def test_hive_auth_deepdeny(self):

@@ -323,7 +323,8 @@ _passwdPolicySchema = {
                     'description': 'The minimum number of uppercase characters required in password.',
                 },
                 'upper:valid': {
-                    'type': 'string',
+                    'type': ['string', 'null'],
+                    'minLength': 1,
                     'description': 'All valid uppercase characters.',
                 },
                 'lower:count': {
@@ -332,7 +333,8 @@ _passwdPolicySchema = {
                     'description': 'The minimum number of lowercase characters required in password.',
                 },
                 'lower:valid': {
-                    'type': 'string',
+                    'type': ['string', 'null'],
+                    'minLength': 1,
                     'description': 'All valid lowercase characters.',
                 },
                 'special:count': {
@@ -341,7 +343,8 @@ _passwdPolicySchema = {
                     'description': 'The minimum number of special characters required in password.',
                 },
                 'special:valid': {
-                    'type': 'string',
+                    'type': ['string', 'null'],
+                    'minLength': 1,
                     'description': 'All valid special characters.',
                 },
                 'number:count': {
@@ -350,7 +353,8 @@ _passwdPolicySchema = {
                     'description': 'The minimum number of digit characters required in password.',
                 },
                 'number:valid': {
-                    'type': 'string',
+                    'type': ['string', 'null'],
+                    'minLength': 1,
                     'description': 'All valid digit characters.',
                 },
             },
