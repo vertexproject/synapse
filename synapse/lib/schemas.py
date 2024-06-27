@@ -307,7 +307,7 @@ passwdPolicySchema = {
     'type': 'object',
     'properties': {
         'complexity': {
-            'type': 'object',
+            'type': ['object', 'null'],
             'properties': {
                 'length': {
                     'type': ['number', 'null'],

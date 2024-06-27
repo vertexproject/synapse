@@ -412,16 +412,18 @@ class AuthTest(s_test.SynTest):
             'previous': 2,
         }
 
+        pass1 = 'jhf9_gaf-xaw-QBX4dqp'
+        pass2 = 'rek@hjv6VBV2rwe2qwd!'
+        pass3 = 'ZXN-pyv7ber-kzq2kgh'
+
         conf = {'auth:passwd:policy': policy}
         async with self.getTestCore(conf=conf) as core:
             auth = core.auth
+            self.nn(auth.policy)
 
             user = await auth.addUser('blackout@vertex.link')
 
             # Compliant passwords
-            pass1 = 'jhf9_gaf-xaw-QBX4dqp'
-            pass2 = 'rek@hjv6VBV2rwe2qwd!'
-            pass3 = 'ZXN-pyv7ber-kzq2kgh'
             await core.setUserPasswd(user.iden, pass1)
             await core.setUserPasswd(user.iden, pass2)
             await core.setUserPasswd(user.iden, pass3)
@@ -434,13 +436,10 @@ class AuthTest(s_test.SynTest):
             self.eq(user.info.get('policy:attempts'), 0)
 
             # Test lockout from too many invalid attempts
-            await core.tryUserPasswd(user.name, 'foo')
-            await core.tryUserPasswd(user.name, 'foo')
-
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.tryUserPasswd(user.name, 'foo')
-            attempts = exc.exception.get('attempts')
-            self.eq(3, attempts)
+            self.false(await core.tryUserPasswd(user.name, 'foo'))
+            self.false(await core.tryUserPasswd(user.name, 'foo'))
+            self.false(await core.tryUserPasswd(user.name, 'foo'))
+            self.eq(user.info.get('policy:attempts'), 3)
             self.true(user.info.get('locked'))
 
             await user.setLocked(False)
@@ -530,6 +529,26 @@ class AuthTest(s_test.SynTest):
                 "Password contains invalid characters: ['α', 'β', 'γ']",
                 exc.exception.get('failures')
             )
+
+        policy = {
+            'complexity': None,
+            'previous': 3,
+        }
+
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+
+            user = await auth.addUser('blackout@vertex.link')
+            await core.setUserPasswd(user.iden, pass1)
+            await core.setUserPasswd(user.iden, pass2)
+            await core.setUserPasswd(user.iden, pass3)
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, pass1)
+            self.eq(exc.exception.get('failures'), [
+                'Password cannot be the same as previous 3 password(s).'
+            ])
 
     async def test_hive_auth_deepdeny(self):
         async with self.getTestCore() as core:

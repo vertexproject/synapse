@@ -1288,14 +1288,21 @@ class User(Ruler):
         if not isinstance(locked, bool):
             raise s_exc.BadArg(mesg='setLocked requires a boolean')
 
+        resetAttempts = (
+            not locked and
+            self.auth.policy is not None and
+            self.auth.policy.get('attempts') is not None and
+            self.info.get('policy:attempts', 0) > 0
+        )
+
         if logged:
             await self.auth.setUserInfo(self.iden, 'locked', locked)
-            if not locked:
+            if resetAttempts:
                 await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
 
         else:
             await self.auth._hndlsetUserInfo(self.iden, 'locked', locked, logged=logged)
-            if not locked:
+            if resetAttempts:
                 await self.auth._hndlsetUserInfo(self.iden, 'policy:attempts', 0)
 
     async def setArchived(self, archived):
@@ -1341,21 +1348,23 @@ class User(Ruler):
         if isinstance(shadow, dict):
             result = await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
             if self.auth.policy and (attempts := self.auth.policy.get('attempts')) is not None:
+                valu = self.info.get('policy:attempts', 0)
                 if result:
-                    await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
+                    if valu > 0:
+                        await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
                     return True
 
-                valu = self.info.get('policy:attempts', 0) + 1
+                valu += 1
                 await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
 
                 if valu >= attempts:
                     await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
 
-                    mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu +1}), locking their account.'
+                    mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
                     extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
                     logger.info(mesg, extra=extra)
 
-                    raise s_exc.AuthDeny(mesg=mesg, attempts=attempts, user=self.iden, username=self.name)
+                    return False
 
             return result
 
@@ -1379,74 +1388,73 @@ class User(Ruler):
 
         # Check complexity of password
         complexity = self.auth.policy.get('complexity')
-        if complexity is None:
-            return
+        if complexity is not None:
 
-        # Check password length
-        minlen = complexity.get('length')
-        if minlen is not None and (passwd is None or len(passwd) < minlen):
-            failures.append(f'Password must be at least {minlen} characters.')
+            # Check password length
+            minlen = complexity.get('length')
+            if minlen is not None and (passwd is None or len(passwd) < minlen):
+                failures.append(f'Password must be at least {minlen} characters.')
 
-        if minlen is not None and passwd is None:
-            # Set password to empty string so we get the rest of the failure info
-            passwd = ''
+            if minlen is not None and passwd is None:
+                # Set password to empty string so we get the rest of the failure info
+                passwd = ''
 
-        if passwd is None:
-            return
+            if passwd is None:
+                return
 
-        allvalid = []
+            allvalid = []
 
-        # Check uppercase
-        count = complexity.get('upper:count', 0)
-        valid = complexity.get('upper:valid', string.ascii_uppercase)
-        allvalid.append(valid)
+            # Check uppercase
+            count = complexity.get('upper:count', 0)
+            valid = complexity.get('upper:valid', string.ascii_uppercase)
+            allvalid.append(valid)
 
-        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-            failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
+            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
 
-        # Check lowercase
-        count = complexity.get('lower:count', 0)
-        valid = complexity.get('lower:valid', string.ascii_lowercase)
-        allvalid.append(valid)
+            # Check lowercase
+            count = complexity.get('lower:count', 0)
+            valid = complexity.get('lower:valid', string.ascii_lowercase)
+            allvalid.append(valid)
 
-        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-            failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
+            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
 
-        # Check special
-        count = complexity.get('special:count', 0)
-        valid = complexity.get('special:valid', string.punctuation)
-        allvalid.append(valid)
+            # Check special
+            count = complexity.get('special:count', 0)
+            valid = complexity.get('special:valid', string.punctuation)
+            allvalid.append(valid)
 
-        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-            failures.append(f'Password must contain at least {count} special characters, {found} found.')
+            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                failures.append(f'Password must contain at least {count} special characters, {found} found.')
 
-        # Check numbers
-        count = complexity.get('number:count', 0)
-        valid = complexity.get('number:valid', string.digits)
-        allvalid.append(valid)
+            # Check numbers
+            count = complexity.get('number:count', 0)
+            valid = complexity.get('number:valid', string.digits)
+            allvalid.append(valid)
 
-        if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-            failures.append(f'Password must contain at least {count} digit characters, {found} found.')
+            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                failures.append(f'Password must contain at least {count} digit characters, {found} found.')
 
-        allvalid = ''.join(allvalid)
-        if (invalid := set(passwd) - set(allvalid)):
-            failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
+            allvalid = ''.join(allvalid)
+            if (invalid := set(passwd) - set(allvalid)):
+                failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
 
-        # Check sequences
-        seqlen = complexity.get('sequences')
-        if seqlen is not None:
-            # Convert each character to it's ordinal value so we can look for
-            # forward and reverse sequences in windows of seqlen. Doing it this
-            # way allows us to easily check unicode sequences too.
-            passb = [ord(k) for k in passwd]
-            for offs in range(len(passwd) - (seqlen - 1)):
-                curv = passb[offs]
-                fseq = list(range(curv, curv + seqlen))
-                rseq = list(range(curv, curv - seqlen, -1))
-                window = passb[offs:offs + seqlen]
-                if window == fseq or window == rseq:
-                    failures.append(f'Password must not contain forward/reverse sequences longer than {seqlen} characters.')
-                    break
+            # Check sequences
+            seqlen = complexity.get('sequences')
+            if seqlen is not None:
+                # Convert each character to it's ordinal value so we can look for
+                # forward and reverse sequences in windows of seqlen. Doing it this
+                # way allows us to easily check unicode sequences too.
+                passb = [ord(k) for k in passwd]
+                for offs in range(len(passwd) - (seqlen - 1)):
+                    curv = passb[offs]
+                    fseq = list(range(curv, curv + seqlen))
+                    rseq = list(range(curv, curv - seqlen, -1))
+                    window = passb[offs:offs + seqlen]
+                    if window == fseq or window == rseq:
+                        failures.append(f'Password must not contain forward/reverse sequences longer than {seqlen} characters.')
+                        break
 
         # Check for previous password reuse
         prevvalu = self.auth.policy.get('previous')
