@@ -555,16 +555,27 @@ accepts the following keys:
 
 The following example shows setting a password policy on the Cortex with the following policy:
 
-*. Maximum of three failed password login attempts before locking.
-*. Keep the previous two passwords to prevent password reuse.
-*. Complexity rules:
-    *. Require at least 12 total characters.
-    *. Disallow sequences of more than 3 characters in a row.
-    *. Require at least two uppercase characters.
-    *. Require at least two lowercase characters.
-    *. Specify a custom set of lowercase characters to check against (ASCII & some unicode characters).
-    *. Require at least two special characters.
-    *. Require at least two numbers.
+* Maximum of three failed password login attempts before locking.
+
+* Keep the previous two passwords to prevent password reuse.
+
+* Complexity rules:
+
+    * Require at least 12 total characters.
+
+    * Disallow sequences of more than 3 characters in a row.
+
+    * Require at least two uppercase characters.
+
+    * Require at least two lowercase characters.
+
+    * Specify a custom set of lowercase characters to check against (ASCII & some unicode characters).
+
+    * Require at least two special characters.
+
+    * Require at least two numbers.
+
+The following Compose file shows using the policy:
 
 ::
 
