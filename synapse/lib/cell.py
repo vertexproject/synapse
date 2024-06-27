@@ -961,7 +961,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:network': {
-            'description': 'The AHA service network. This makes aha:name/aha:leader relative names.',
+            'description': 'The AHA service network. Defaults to "synapse".',
             'type': 'string',
         },
         'aha:registry': {
@@ -1126,8 +1126,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # we need to know this pretty early...
         self.ahasvcname = None
         ahaname = self.conf.get('aha:name')
-        ahanetw = self.conf.get('aha:network')
-        if ahaname is not None and ahanetw is not None:
+        ahanetw = self._getAhaNetwork()
+        if ahaname is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         # each cell has a guid
@@ -1507,7 +1507,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.onfini(finiaha)
 
         ahauser = self.conf.get('aha:user')
-        ahanetw = self.conf.get('aha:network')
+        ahanetw = self._getAhaNetwork()
 
         ahaadmin = self._getAhaAdmin()
         if ahaadmin is not None:
@@ -1515,6 +1515,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if ahauser is not None:
             await self._addAdminUser(ahauser)
+
+    def _getAhaNetwork(self):
+        return self.conf.get('aha:network', 'synapse')
+
+    def _getDmonListen(self):
+
+        lisn = self.conf.get('dmon:listen')
+        if lisn is not None:
+            return lisn
+
+        network = self._getAhaNetwork()
+        ahaname = self.conf.get('aha:name')
+        if ahaname is not None:
+            return f'ssl://0.0.0.0:0?hostname={hostname}&ca={network}'
 
     async def _addAdminUser(self, username):
         # add the user in a pre-nexus compatible way
@@ -1562,7 +1576,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.sockaddr = None
 
-        turl = self.conf.get('dmon:listen')
+        turl = self._getDmonListen()
         if turl is not None:
             self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
@@ -1628,7 +1642,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         ahalead = self.conf.get('aha:leader')
-        ahanetw = self.conf.get('aha:network')
+        ahanetw = self._getAhaNetwork()
 
         ahainfo = await self.getAhaInfo()
         if ahainfo is None:
@@ -1747,10 +1761,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot gracefully promote without aha:name configured.'
                 raise s_exc.BadArg(mesg=mesg)
 
-            ahanetw = self.conf.get('aha:network')
-            if ahanetw is None: # pragma: no cover
-                mesg = 'Cannot gracefully promote without aha:network configured.'
-                raise s_exc.BadArg(mesg=mesg)
+            ahanetw = self._getAhaNetwork()
 
             myurl = f'aha://{ahaname}.{ahanetw}'
             logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff to ahaname={ahaname}')
@@ -1848,7 +1859,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await proxy.fini()
             return
 
-        ahanetw = self.conf.get('aha:network')
+        ahanetw = self._getAhaNetwork()
         try:
             await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
         except asyncio.CancelledError:  # pragma: no cover
@@ -3876,7 +3887,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if username.find('@') != -1:
                 userpart, hostpart = username.split('@', 1)
-                if hostpart == self.conf.get('aha:network'):
+                if hostpart == self._getAhaNetwork():
                     user = await self.auth.getUserByName(userpart)
                     if user is not None:
                         if user.isLocked():
@@ -4069,7 +4080,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'aha': {
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
-                    'network': self.conf.get('aha:network'),
+                    'network': self._getAhaNetwork(),
                 }
             },
             'features': {

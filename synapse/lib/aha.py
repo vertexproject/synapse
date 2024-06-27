@@ -380,17 +380,17 @@ class EnrollApi:
         return {
             'aha:urls': self.aha._getAhaUrls(),
             'aha:user': self.userinfo.get('name'),
-            'aha:network': self.aha.conf.get('aha:network'),
+            'aha:network': self.aha._getAhaNetwork(),
         }
 
     async def getCaCert(self):
-        ahanetw = self.aha.conf.get('aha:network')
+        ahanetw = self.aha._getAhaNetwork()
         return self.aha.certdir.getCaCertBytes(ahanetw)
 
     async def signUserCsr(self, byts):
 
         ahauser = self.userinfo.get('name')
-        ahanetw = self.aha.conf.get('aha:network')
+        ahanetw = self.aha._getAhaNetwork()
 
         username = f'{ahauser}@{ahanetw}'
 
@@ -416,7 +416,7 @@ class ProvApi:
         return self.provinfo
 
     async def getCaCert(self):
-        ahanetw = self.aha.conf.get('aha:network')
+        ahanetw = self.aha._getAhaNetwork()
         return self.aha.certdir.getCaCertBytes(ahanetw)
 
     async def signHostCsr(self, byts):
@@ -464,6 +464,10 @@ class AhaCell(s_cell.Cell):
     confbase['mirror']['hidedocs'] = False  # type: ignore
     confbase['mirror']['hidecmdl'] = False  # type: ignore
     confdefs = {
+        'dns:name': {
+            'description': 'The registered DNS name used to reach the AHA service.',
+            'type': ['string', 'null'],
+        },
         'aha:urls': {
             'description': 'A list of all available AHA server URLs.',
             'type': ['string', 'array'],
@@ -537,41 +541,95 @@ class AhaCell(s_cell.Cell):
         self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
 
     async def initServiceRuntime(self):
+
         self.addActiveCoro(self._clearInactiveSessions)
 
         if self.isactive:
+
             # bootstrap a CA for our aha:network
-            netw = self.conf.get('aha:network')
-            if netw is not None:
+            netw = self._getAhaNetwork()
 
-                if self.certdir.getCaCertPath(netw) is None:
-                    logger.info(f'Adding CA certificate for {netw}')
-                    await self.genCaCert(netw)
+            if self.certdir.getCaCertPath(netw) is None:
+                logger.info(f'Adding CA certificate for {netw}')
+                await self.genCaCert(netw)
 
-                name = self.conf.get('aha:name')
+            name = self.conf.get('aha:name')
 
-                host = f'{name}.{netw}'
-                if self.certdir.getHostCertPath(host) is None:
-                    logger.info(f'Adding server certificate for {host}')
-                    await self._genHostCert(host, signas=netw)
+            host = f'{name}.{netw}'
+            if self.certdir.getHostCertPath(host) is None:
+                logger.info(f'Adding server certificate for {host}')
+                await self._genHostCert(host, signas=netw)
 
-                user = self._getAhaAdmin()
-                if user is not None:
-                    if self.certdir.getUserCertPath(user) is None:
-                        logger.info(f'Adding user certificate for {user}@{netw}')
-                        await self._genUserCert(user, signas=netw)
+            user = self._getAhaAdmin()
+            if user is not None:
+                if self.certdir.getUserCertPath(user) is None:
+                    logger.info(f'Adding user certificate for {user}@{netw}')
+                    await self._genUserCert(user, signas=netw)
+
+    def _getDnsName(self):
+        # emulate the old aha name.network behavior if the
+        # explicit option is not set.
+
+        hostname = self.conf.get('dns:name')
+        if hostname is not None:
+            return hostname
+
+        name = self.conf.get('aha:name')
+        if name is not None:
+            return f'{name}.{self._getAhaNetwork()}'
+
+    def _getProvListen(self):
+
+        lisn = self.conf.get('provision:listen')
+        if lisn is not None:
+            return lisn
+
+        # this may not use _getDnsName() in order to maintain
+        # backward compatibilty with aha name.network configs
+        # that do not intend to listen for provisioning.
+        hostname = self.conf.get('dns:name')
+        if hostname is not None:
+            return f'ssl://{hostname}:27272'
+
+    def _getDmonListen(self):
+
+        lisn = self.conf.get('dmon:listen')
+        if lisn is not None:
+            return lisn
+
+        network = self._getAhaNetwork()
+        dnsname = self._getDnsName()
+        if dnsname is not None:
+            return f'ssl://0.0.0.0?hostname={dnsname}&ca={network}'
+
+    def _reqProvListen(self):
+        lisn = self._getProvListen()
+        if lisn is not None:
+            return lisn
+
+        mesg = 'The AHA server is not configured for provisioning.'
+        raise s_exc.NeedConfValu(mesg=mesg)
 
     async def initServiceNetwork(self):
+
+        # bootstrap CA/host certs first
+        network = self._getAhaNetwork()
+        if network is not None:
+            await self._genCaCert(network)
+
+        hostname = self._getDnsName()
+        if hostname is not None and network is not None:
+            await self._genHostCert(hostname, signas=network)
 
         await s_cell.Cell.initServiceNetwork(self)
 
         self.provdmon = None
 
-        provurl = self.conf.get('provision:listen')
+        provurl = self._getProvListen()
         if provurl is not None:
             self.provdmon = await ProvDmon.anit(self)
             self.onfini(self.provdmon)
-            await self.provdmon.listen(provurl)
+            self.provaddr = await self.provdmon.listen(provurl)
 
     async def _clearInactiveSessions(self):
 
@@ -658,11 +716,7 @@ class AhaCell(s_cell.Cell):
     def _getAhaName(self, name):
         # the modern version of names is absolute or ...
         if name.endswith('...'):
-            netw = self.conf.get('aha:network')
-            if netw is None: # pragma: no cover
-                mesg = 'AHA Server requires aha:network configuration.'
-                raise s_exc.NeedConfValu(mesg=mesg)
-            name = name[:-2] + netw
+            return name[:-2] + self._getAhaNetwork()
         return name
 
     async def getAhaPool(self, name):
@@ -780,6 +834,7 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPushAuto('aha:svc:del')
     async def delAhaSvc(self, name, network=None):
 
+        name = self._getAhaName(name)
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
 
         logger.info(f'Deleting service [{svcfull}].', extra=await self.getLogExtra(name=svcname, netw=svcnetw))
@@ -794,6 +849,8 @@ class AhaCell(s_cell.Cell):
         await self.fire('aha:svcdel', svcname=svcname, svcnetw=svcnetw)
 
     async def setAhaSvcDown(self, name, linkiden, network=None):
+
+        name = self._getAhaName(name)
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
 
@@ -916,7 +973,17 @@ class AhaCell(s_cell.Cell):
 
         return cacert
 
+    async def _genCaCert(self, network):
+
+        if os.path.isfile(os.path.join(self.dirn, 'certs', 'cas', f'{network}.crt')):
+            return
+
+        await self.genCaCert(network)
+
     async def _genHostCert(self, hostname, signas=None):
+
+        if signas is not None:
+            await self._genCaCert(signas)
 
         if os.path.isfile(os.path.join(self.dirn, 'certs', 'hosts', '{hostname}.crt')):
             return
@@ -1004,7 +1071,8 @@ class AhaCell(s_cell.Cell):
 
         return self.certdir._certToByts(cert).decode()
 
-    def _getAhaUrls(self):
+    def _getAhaUrls(self, user='root'):
+
         urls = self.conf.get('aha:urls')
         if urls is not None:
             if isinstance(urls, str):
@@ -1015,29 +1083,29 @@ class AhaCell(s_cell.Cell):
         if ahaname is None:
             return None
 
-        ahanetw = self.conf.get('aha:network')
-        if ahanetw is None:
-            return None
+        ahanetw = self._getAhaNetwork()
 
         if self.sockaddr is None or not isinstance(self.sockaddr, tuple):
             return None
 
+        # FIXME this is the problematic use case
+        # FIXME may need to generate an AHA CA signed server cert for DNS NAME
+
         # TODO this could eventually enumerate others via itself
-        return (f'ssl://{ahaname}.{ahanetw}:{self.sockaddr[1]}',)
+        netloc = self._getDnsName()
+        return (f'ssl://{netloc}:{self.sockaddr[1]}?certname={user}@{ahanetw}',)
 
     async def addAhaSvcProv(self, name, provinfo=None):
+
+        if not name:
+            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
 
         ahaurls = self._getAhaUrls()
         if ahaurls is None:
             mesg = 'AHA server has no configured aha:urls.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
-        if self.conf.get('provision:listen') is None:
-            mesg = 'The AHA server does not have a provision:listen URL!'
-            raise s_exc.NeedConfValu(mesg=mesg)
-
-        if not name:
-            raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+        self._reqProvListen()
 
         if provinfo is None:
             provinfo = {}
@@ -1048,23 +1116,15 @@ class AhaCell(s_cell.Cell):
 
         conf = provinfo.setdefault('conf', {})
 
-        mynetw = self.conf.get('aha:network')
+        netw = self._getAhaNetwork()
 
         ahaadmin = self.conf.get('aha:admin')
         if ahaadmin is not None: # pragma: no cover
             conf.setdefault('aha:admin', ahaadmin)
 
         conf.setdefault('aha:user', 'root')
-        conf.setdefault('aha:network', mynetw)
 
-        netw = conf.get('aha:network')
-        if netw is None:
-            mesg = 'AHA server has no configured aha:network.'
-            raise s_exc.NeedConfValu(mesg=mesg)
-
-        if netw != mynetw:
-            mesg = f'Provisioning aha:network must be equal to the Aha servers network. Expected {mynetw}, got {netw}'
-            raise s_exc.BadConfValu(mesg=mesg, name='aha:network', expected=mynetw, got=netw)
+        conf['aha:network'] = netw
 
         hostname = f'{name}.{netw}'
 
@@ -1090,13 +1150,14 @@ class AhaCell(s_cell.Cell):
 
         # allow user to win over leader
         ahauser = conf.get('aha:user')
-        ahaurls = s_telepath.modurl(ahaurls, user=ahauser)
+        certname = f'{ahauser}@{netw}'
+        ahaurls = s_telepath.modurl(ahaurls, certname=certname)
 
         conf.setdefault('aha:registry', ahaurls)
 
         mirname = provinfo.get('mirror')
         if mirname is not None:
-            conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
+            conf['mirror'] = f'aha://{ahauser}@{mirname}...'
 
         user = await self.auth.getUserByName(ahauser)
         if user is None:
@@ -1122,7 +1183,10 @@ class AhaCell(s_cell.Cell):
 
     def _getProvClientUrl(self, iden):
 
-        provlisn = self.conf.get('provision:listen')
+        provlisn = self._getProvListen()
+
+        provport = self.provaddr[1]
+        provhost = self._getDnsName()
 
         urlinfo = s_telepath.chopurl(provlisn)
 
@@ -1133,8 +1197,8 @@ class AhaCell(s_cell.Cell):
             host = urlinfo.get('host')
 
         newinfo = {
-            'host': host,
-            'port': urlinfo.get('port'),
+            'host': provhost,
+            'port': provport,
             'scheme': scheme,
             'path': '/' + iden,
         }
@@ -1177,18 +1241,11 @@ class AhaCell(s_cell.Cell):
 
     async def addAhaUserEnroll(self, name, userinfo=None, again=False):
 
-        provurl = self.conf.get('provision:listen')
-        if provurl is None:
-            mesg = 'The AHA server does not have a provision:listen URL!'
-            raise s_exc.NeedConfValu(mesg=mesg)
-
-        ahanetw = self.conf.get('aha:network')
-        if ahanetw is None:
-            mesg = 'AHA server requires aha:network configuration.'
-            raise s_exc.NeedConfValu(mesg=mesg)
-
         if not name:
             raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
+
+        provurl = self._reqProvListen()
+        ahanetw = self._getAhaNetwork()
 
         username = f'{name}@{ahanetw}'
 
