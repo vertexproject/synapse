@@ -42,7 +42,7 @@ class MsgPackTest(s_t_utils.SynTest):
             nv = v + i
             buf = s_msgpack.en(nv)
             self.eq(nv, s_msgpack.un(buf))
-        v = -0x7fffffffffffffff - 1
+        v = -0x8000000000000000
         for i in (1, 0x7fffffffffffffff, 0x7fffffffffffffff + 1):
             nv = v - i
             buf = s_msgpack.en(nv)
@@ -164,10 +164,10 @@ class MsgPackTest(s_t_utils.SynTest):
                 'extlargeThreshold': 0xffffffffffffffff,
                 # extlarge is handled with our custom extension type
                 'extlarge': 0xffffffffffffffff + 1,
-                'almostsmall': -0x7fffffffffffffff,
-                'almostsmallThreshold': -0x7fffffffffffffff - 1,
+                'almostsmall': -0x8000000000000000 + 1,
+                'almostsmallThreshold': -0x8000000000000000,
                 # extsmall is handled with our custom extension type
-                'extsmall': -0x7fffffffffffffff - 2,
+                'extsmall': -0x8000000000000000 - 1,
             }
         )
         unode = s_msgpack.un(buf)
@@ -201,7 +201,7 @@ class MsgPackTest(s_t_utils.SynTest):
         self.true(s_msgpack.isok((1,)))
         self.true(s_msgpack.isok({1: 1}))
         self.true(s_msgpack.isok(0xffffffffffffffff + 1))
-        self.true(s_msgpack.isok(-0x7fffffffffffffff - 2))
+        self.true(s_msgpack.isok(-0x8000000000000000 - 1))
         # unpackage types
         self.false(s_msgpack.isok({1, 2}))  # set
         self.false(s_msgpack.isok(print))  # function
