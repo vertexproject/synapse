@@ -108,9 +108,7 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
         environment:
             - SYN_AHA_HTTPS_PORT=null
             - SYN_AHA_AHA_NAME=aha
-            - SYN_AHA_AHA_NETWORK=<yournetwork>
-            - SYN_AHA_DMON_LISTEN=ssl://aha.<yournetwork>?ca=<yournetwork>
-            - SYN_AHA_PROVISION_LISTEN=ssl://aha.<yournetwork>:27272
+            - SYN_AHA_DNS_NAME=aha.<yuournetwork>
 
 .. note::
 
