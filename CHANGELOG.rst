@@ -6,8 +6,11 @@
 Synapse Changelog
 *****************
 
-v2.173.0 - 2024-06-25
+v2.173.1 - 2024-06-25
 =====================
+
+This release also includes the changes from v2.173.0, which was not released
+due to an issue with CI pipelines.
 
 Model Changes
 -------------
@@ -42,6 +45,10 @@ Bugfixes
   ``node`` permission hierarchy.
   (`#3771 <https://github.com/vertexproject/synapse/pull/3771>`_)
 
+v2.173.0 - 2024-06-25
+=====================
+
+This release was replaced with ``v2.173.1``.
 
 v2.172.0 - 2024-06-24
 =====================
