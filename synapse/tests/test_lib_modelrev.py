@@ -473,3 +473,17 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:mitre:attack:technique=T0100')
             self.len(1, nodes)
             self.eq('lockpicking', nodes[0].get('name'))
+
+    async def test_modelrev_0_2_25(self):
+        async with self.getRegrCore('model-0.2.25') as core:
+
+            nodes = await core.nodes('ou:conference')
+            self.len(5, nodes)
+            names = [n.get('name') for n in nodes]
+            self.sorteq(names, (
+                'sleuthcon',
+                'defcon',
+                'recon 2024 conference',
+                'blackhat',
+                'summercon',
+            ))

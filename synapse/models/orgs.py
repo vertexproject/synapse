@@ -1024,7 +1024,7 @@ class OuModule(s_module.CoreModule):
                     ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts which sponsored the conference.',
                     }),
-                    ('name', ('str', {'lower': True}), {
+                    ('name', ('entity:name', {}), {
                         'doc': 'The full name of the conference.',
                         'ex': 'defcon 2017'}),
 
