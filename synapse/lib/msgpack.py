@@ -18,8 +18,7 @@ def _ext_en(item):
     if isinstance(item, int) and item > 0xffffffffffffffff:
         size = (item.bit_length() + 7) // 8
         return msgpack.ExtType(0, item.to_bytes(size, 'big'))
-    mesg = f'Cannot serialize: {repr(item)[:20]}'
-    return s_exc.NotMsgpackSafe(mesg=mesg)
+    return item
 
 # Single Packer object which is reused for performance
 pakr = msgpack.Packer(use_bin_type=True, unicode_errors='surrogatepass', default=_ext_en)
