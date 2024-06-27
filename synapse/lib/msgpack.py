@@ -10,14 +10,20 @@ logger = logging.getLogger(__name__)
 def _ext_un(code, byts):
     if code == 0:
         return int.from_bytes(byts, 'big')
-    # pragma: no cover
-    mesg = f'Invalid msgpack ext code: {code} ({repr(byts)[:20]})'
-    raise s_exc.SynErr(mesg=mesg)
+    elif code == 1:
+        return int.from_bytes(byts, 'big', signed=True)
+    else:  # pragma: no cover
+        mesg = f'Invalid msgpack ext code: {code} ({repr(byts)[:20]})'
+        raise s_exc.SynErr(mesg=mesg)
 
 def _ext_en(item):
-    if isinstance(item, int) and item > 0xffffffffffffffff:
-        size = (item.bit_length() + 7) // 8
-        return msgpack.ExtType(0, item.to_bytes(size, 'big'))
+    if isinstance(item, int):
+        if item > 0xffffffffffffffff:
+            size = (item.bit_length() + 7) // 8
+            return msgpack.ExtType(0, item.to_bytes(size, 'big'))
+        if item < (-0x7fffffffffffffff - 1):
+            size = (item.bit_length() // 8) + 1
+            return msgpack.ExtType(1, item.to_bytes(size, 'big', signed=True))
     return item
 
 # Single Packer object which is reused for performance
