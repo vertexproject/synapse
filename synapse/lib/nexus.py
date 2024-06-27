@@ -267,7 +267,7 @@ class NexsRoot(s_base.Base):
             raise
 
         except Exception:
-            logger.exception('Exception while replaying log')
+            logger.exception(f'Exception while replaying log: {s_common.trimText(repr(*indxitem))}')
 
     async def addWriteHold(self, reason):
 
