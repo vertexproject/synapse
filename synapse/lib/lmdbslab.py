@@ -1623,7 +1623,17 @@ class Slab(s_base.Base):
         self.commitstats.append((starttime, xactopslen, delta))
 
         if self.WARN_COMMIT_TIME_MS and delta > self.WARN_COMMIT_TIME_MS:
-            logger.warning(f'Commit with {xactopslen} items in {self!r} took {delta} ms.')
+
+            extra = {
+                'delta': delta,
+                'path': self.path,
+                'sysctls': s_thisplat.getSysctls(),
+                'xactopslen': xactopslen,
+            }
+
+            mesg = f'Commit with {xactopslen} items in {self!r} took {delta} ms - performance may be degraded.'
+            logger.warning(mesg, extra={'synapse': extra})
+
         self._initCoXact()
         return True
 
