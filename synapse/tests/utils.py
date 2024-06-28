@@ -1304,11 +1304,8 @@ class SynTest(unittest.TestCase):
         '''
         conf = self.getCellConf(conf=conf)
 
-        mods = conf.get('modules')
-
-        if mods is None:
-            mods = []
-            conf['modules'] = mods
+        mods = list(conf.get('modules', ()))
+        conf['modules'] = mods
 
         mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
