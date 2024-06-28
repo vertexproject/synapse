@@ -505,7 +505,7 @@ Managing Password Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Services can be configured with password policies. These can be used to define the complexity of a password, the number
-of allowed login attemps, and the number of previous passwords to check against. This is configured by setting the
+of allowed login attempts, and the number of previous passwords to check against. This is configured by setting the
 ``auth:password:policy`` configuration value for the service, with the desired policy settings. The policy object
 accepts the following keys:
 
@@ -522,7 +522,7 @@ accepts the following keys:
         Minimum password character length. This is an integer value with a minimum value of 1.
 
     ``sequences``
-        Maximum sequence length in a password. Sequences can be letters or number, forward or reverse. This is an
+        Maximum sequence length in a password. Sequences can be letters or numbers, forward or reverse. This is an
         integer value with a minimum value of 2.
 
     ``upper:count``
