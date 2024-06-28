@@ -2720,22 +2720,22 @@ class View(s_nexus.Pusher):  # type: ignore
         async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
-    async def liftByFormValu(self, form, cmprvals, reverse=False):
+    async def liftByFormValu(self, form, cmprvals, reverse=False, virts=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByFormValu(form, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByFormValu(form, cmprvals, reverse=reverse, virts=virts):
                 yield nid, [sref]
             return
 
         for cval in cmprvals:
-            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, reverse=reverse):
                 yield item
 
-    async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
+    async def liftByPropValu(self, form, prop, cmprvals, reverse=False, virts=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByPropValu(form, prop, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByPropValu(form, prop, cmprvals, reverse=reverse, virts=virts):
                 yield nid, [sref]
             return
 
@@ -2749,7 +2749,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return props.get(prop) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
@@ -2933,20 +2933,20 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByPropValu(self, full, cmpr, valu, reverse=False):
+    async def nodesByPropValu(self, full, cmpr, valu, reverse=False, virts=None):
 
         if cmpr == 'type=':
             if reverse:
-                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse, virts=virts):
                     yield node
 
-                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
                     yield node
             else:
-                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
                     yield node
 
-                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse, virts=virts):
                     yield node
             return
 
@@ -2955,7 +2955,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        cmprvals = prop.type.getStorCmprs(cmpr, valu)
+        cmprvals = prop.type.getStorCmprs(cmpr, valu, virts=virts)
         # an empty return probably means ?= with invalid value
         if not cmprvals:
             return
@@ -2967,13 +2967,13 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         if prop.isform:
-            genr = self.liftByFormValu(prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByFormValu(prop.name, cmprvals, reverse=reverse, virts=virts)
 
         elif prop.isuniv:
-            genr = self.liftByPropValu(None, prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByPropValu(None, prop.name, cmprvals, reverse=reverse, virts=virts)
 
         else:
-            genr = self.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)

@@ -405,38 +405,54 @@ class IndxByProp(IndxBy):
 
 class IndxByVirt(IndxBy):
 
-    def __init__(self, layr, form, prop, virt):
+    def __init__(self, layr, form, prop, virts):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
-        abrv = layr.core.getIndxAbrv(INDX_VIRTUAL, form, prop, virt)
+        abrv = layr.core.getIndxAbrv(INDX_VIRTUAL, form, prop, *virts)
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
 
         self.form = form
         self.prop = prop
-        self.virt = virt
+        self.virts = virts
 
     def getStorType(self):
 
         if self.form is not None:
             form = self.layr.core.model.form(self.form)
-            typeindx = form.props.get(self.prop).type.subtypes[self.virt][0].stortype
+            prop = form.props.get(self.prop)
         else:
-            typeindx = self.layr.core.model.prop(self.prop).type.subtypes[self.virt][0].stortype
+            prop = self.layr.core.model.prop(self.prop)
 
-        return self.layr.stortypes[typeindx]
+        ptyp = prop.type
+        for virt in virts:
+            ptyp = ptyp.subtypes[virt][0]
+
+        return self.layr.stortypes[ptyp.stortype]
 
     def getSodeValu(self, sode):
-        valt = sode['virts'].get(self.virt)
-        if valt is not None:
-            return valt[0]
 
-        return s_common.novalu
+        if self.prop is None:
+            valt = sode.get('valu')
+        else:
+            valt = sode['props'].get(self.prop)
+
+        if valt is None:
+            return s_common.novalu
+
+        for virt in self.virts:
+            if (vval := valt[2]) is None:
+                return s_common.novalu
+
+            if (valt := val.get(virt)) is None:
+                return s_common.novalu
+
+        return valt[0]
 
     def __repr__(self):
         if self.form:
-            return f'IndxByVirt: {self.form}:{self.prop}*{self.virt}'
-        return f'IndxByVirt: {self.prop}*{self.virt}'
+            return f'IndxByVirt: {self.form}:{self.prop}*{"*".join(self.virts)}'
+        return f'IndxByVirt: {self.prop}*{"*".join(self.virts)}'
 
 class IndxByPropArray(IndxBy):
 
@@ -636,9 +652,12 @@ class StorType:
         async for lkey, nid in func(liftby, valu, reverse=reverse):
             yield lkey[abrvlen:], nid
 
-    async def indxByForm(self, form, cmpr, valu, reverse=False):
+    async def indxByForm(self, form, cmpr, valu, reverse=False, virts=None):
         try:
-            indxby = IndxByForm(self.layr, form)
+            if virts:
+                indxby = IndxByVirt(self.layr, form, None, virts)
+            else:
+                indxby = IndxByForm(self.layr, form)
 
         except s_exc.NoSuchAbrv:
             return
@@ -652,11 +671,10 @@ class StorType:
             if not indxby.hasIndxNid(indx, nid):
                 yield ('NoPropIndex', {'prop': prop, 'valu': valu})
 
-    async def indxByProp(self, form, prop, cmpr, valu, reverse=False):
+    async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
-            if isinstance(cmpr, tuple):
-                (name, cmpr) = cmpr
-                indxby = IndxByVirt(self.layr, form, prop, name)
+            if virts:
+                indxby = IndxByVirt(self.layr, form, prop, virts)
             else:
                 indxby = IndxByProp(self.layr, form, prop)
 
@@ -1284,34 +1302,40 @@ class StorTypeIval(StorType):
             })
 
         self.propindx = {
-            'min': IndxByPropIvalMin,
-            'max': IndxByPropIvalMax,
-            'duration': IndxByPropIvalDuration,
+            'min@=': IndxByPropIvalMin,
+            'max@=': IndxByPropIvalMax,
         }
 
         self.tagpropindx = {
-            'min': IndxByTagPropIvalMin,
-            'max': IndxByTagPropIvalMax,
-            'duration': IndxByTagPropIvalDuration,
+            'min@=': IndxByTagPropIvalMin,
+            'max@=': IndxByTagPropIvalMax,
         }
 
         self.tagindx = {
-            'min': IndxByTagIvalMin,
-            'max': IndxByTagIvalMax,
-            'duration': IndxByTagIvalDuration,
+            'min@=': IndxByTagIvalMin,
+            'max@=': IndxByTagIvalMax,
         }
 
-    async def indxByProp(self, form, prop, cmpr, valu, reverse=False):
+        for cmpr in ('=', '<', '>', '<=', '>='):
+            self.tagindx[f'min{cmpr}'] = IndxByTagIvalMin
+            self.propindx[f'min{cmpr}'] = IndxByPropIvalMin
+            self.tagpropindx[f'min{cmpr}'] = IndxByTagPropIvalMin
+
+            self.tagindx[f'max{cmpr}'] = IndxByTagIvalMax
+            self.propindx[f'max{cmpr}'] = IndxByPropIvalMax
+            self.tagpropindx[f'max{cmpr}'] = IndxByTagPropIvalMax
+
+            self.tagindx[f'duration{cmpr}'] = IndxByTagIvalDuration
+            self.propindx[f'duration{cmpr}'] = IndxByPropIvalDuration
+            self.tagpropindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
+
+    async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
-            (name, realcmpr) = cmpr
-            indxtype = self.propindx.get(name, IndxByProp)
+            indxtype = self.propindx.get(cmpr, IndxByProp)
             indxby = indxtype(self.layr, form, prop)
 
         except s_exc.NoSuchAbrv:
             return
-
-        if name is not None:
-            realcmpr = ''.join(cmpr)
 
         async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
             yield item
@@ -1426,6 +1450,15 @@ class StorTypeNdef(StorType):
     def indx(self, valu):
         formabrv = self.layr.core.setIndxAbrv(INDX_PROP, valu[0], None)
         return (formabrv + s_common.buid(valu),)
+
+    async def indxByProp(self, form, prop, cmpr, valu, reverse=False, virts=None):
+        try:
+            indxby = IndxByProp(self.layr, form, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
 
     async def _liftNdefEq(self, liftby, valu, reverse=False):
         try:
@@ -1700,7 +1733,7 @@ class Layer(s_nexus.Pusher):
 
     def _testDelPropIndx(self, nid, form, prop):
         sode = self._getStorNode(nid)
-        storvalu, stortype = sode['props'][prop]
+        storvalu, stortype, _ = sode['props'][prop]
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
         for indx in self.stortypes[stortype].indx(storvalu):
@@ -1938,7 +1971,7 @@ class Layer(s_nexus.Pusher):
                     yield ('NoValuForPropIndex', {'nid': s_common.ehex(nid), 'form': form, 'prop': prop, 'indx': indx})
                     continue
 
-            propvalu, stortype = valu
+            propvalu, stortype, _ = valu
             if stortype & STOR_FLAG_ARRAY:
                 stortype = STOR_TYPE_MSGP
 
@@ -1999,7 +2032,7 @@ class Layer(s_nexus.Pusher):
                                                        'form': form, 'prop': prop, 'indx': indx})
                     continue
 
-            propvalu, stortype = valu
+            propvalu, stortype, _ = valu
 
             try:
                 for indx in self.getStorIndx(stortype, propvalu):
@@ -2088,7 +2121,7 @@ class Layer(s_nexus.Pusher):
 
         storprops = sode.get('props')
         if storprops:
-            for propname, (storvalu, stortype) in storprops.items():
+            for propname, (storvalu, stortype, _) in storprops.items():
 
                 # TODO: we dont support verifying array property indexes just yet...
                 if stortype & STOR_FLAG_ARRAY:
@@ -2642,12 +2675,10 @@ class Layer(s_nexus.Pusher):
         try:
             if indx is None:
                 abrv = self.core.getIndxAbrv(INDX_PROP, form, prop)
+            elif isinstance(indx, int):
+                abrv = self.core.getIndxAbrv(indx, form, prop)
             else:
-                if isinstance(indx, tuple):
-                    (ityp, virt) = indx
-                    abrv = self.core.getIndxAbrv(ityp, form, prop, virt)
-                else:
-                    abrv = self.core.getIndxAbrv(ityp, form, prop)
+                abrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, prop, indx)
 
         except s_exc.NoSuchAbrv:
             return
@@ -2662,23 +2693,23 @@ class Layer(s_nexus.Pusher):
             yield lval, nid, sref
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
-    async def liftByFormValu(self, form, cmprvals, reverse=False):
+    async def liftByFormValu(self, form, cmprvals, reverse=False, virts=None):
         for cmpr, valu, kind in cmprvals:
 
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
-            async for indx, nid in self.stortypes[kind].indxByForm(form, cmpr, valu, reverse=reverse):
+            async for indx, nid in self.stortypes[kind].indxByForm(form, cmpr, valu, reverse=reverse, virts=virts):
                 yield indx, nid, self.genStorNodeRef(nid)
 
-    async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
+    async def liftByPropValu(self, form, prop, cmprvals, reverse=False, virts=None):
 
         for cmpr, valu, kind in cmprvals:
 
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
-            async for indx, nid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+            async for indx, nid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu, reverse=reverse, virts=virts):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
@@ -2873,7 +2904,7 @@ class Layer(s_nexus.Pusher):
             return
 
         return (
-            (EDIT_NODE_DEL, oldv),
+            (EDIT_NODE_DEL, oldv[:2]),
         )
 
     async def _calcNodeTomb(self, nid, edit, sode, newsode):
@@ -2940,7 +2971,7 @@ class Layer(s_nexus.Pusher):
             return
 
         return (
-            (EDIT_PROP_DEL, (prop, *valt)),
+            (EDIT_PROP_DEL, (prop, *valt[:2])),
         )
 
     async def _calcPropTomb(self, nid, edit, sode, newsode):

@@ -94,32 +94,15 @@ class Addr(s_types.Str):
         self.ipv4type = self.modl.type('inet:ipv4')
         self.ipv6type = self.modl.type('inet:ipv6')
 
-        self.storlifts |= {
-            'ipv4=': self._storLiftIPv4,
-            'ipv6=': self._storLiftIPv6,
-        }
-
         self.subindx |= {
-            'ipv4': (s_layer.INDX_VIRTUAL, 'ipv4'),
-            'ipv6': (s_layer.INDX_VIRTUAL, 'ipv6'),
+            'ipv4': 'ipv4',
+            'ipv6': 'ipv6',
         }
 
         self.subtypes |= {
             'ipv4': (self.ipv4type, self._getIPv4),
             'ipv6': (self.ipv6type, self._getIPv6),
         }
-
-    def _storLiftIPv4(self, cmpr, valu):
-        norm, _ = self.ipv4type.norm(valu)
-        return (
-            (cmpr, norm, self.ipv4type.stortype),
-        )
-
-    def _storLiftIPv6(self, cmpr, valu):
-        norm, _ = self.ipv6type.norm(valu)
-        return (
-            (cmpr, norm, self.ipv6type.stortype),
-        )
 
     def _getIPv4(self, valu):
         if valu is None:

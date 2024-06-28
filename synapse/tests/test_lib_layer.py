@@ -131,7 +131,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.getLayer()
             sode = layr.getStorNode(nid)
             asn = sode['props']['asn']
-            sode['props']['asn'] = (asn[0], 8675309)
+            sode['props']['asn'] = (asn[0], 8675309, None)
 
             layr.dirty[nid] = sode
 
@@ -169,7 +169,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr._getStorNode(nid)
             names = sode['props']['names']
-            sode['props']['names'] = (names[0], 8675309)
+            sode['props']['names'] = (names[0], 8675309, None)
             layr.dirty[nid] = sode
 
             scanconf = {'include': [('ps:contact', 'names')]}
@@ -594,7 +594,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (nid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL)),
+                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL, None)),
                 )),
             ]
 
@@ -604,7 +604,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (nid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
                 )),
             ]
 
@@ -615,7 +615,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (nid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
                 )),
             ]
 
@@ -838,7 +838,7 @@ class LayerTest(s_t_utils.SynTest):
             mdef = {'forms': ['test:str']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (strnode.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)),
+                (strnode.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)),
                 (strnode.nid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
             ])
 
@@ -846,7 +846,7 @@ class LayerTest(s_t_utils.SynTest):
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
             self.eq(events, [
-                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL)),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL, None)),
                 (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL)),
             ])
 
@@ -854,7 +854,7 @@ class LayerTest(s_t_utils.SynTest):
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
             self.eq(events, [
-                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64)),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64, None)),
                 (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
             ])
 
@@ -2133,81 +2133,48 @@ class LayerTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[ inet:server=tcp://127.0.0.1:12345 ]')
-            await core.nodes('[ inet:server=tcp://127.0.0.3:12345 ]')
-            await core.nodes('[ inet:server=tcp://127.0.0.2:12345 ]')
-            await core.nodes('[ inet:server="tcp://[::3]:12345" ]')
-            await core.nodes('[ inet:server="tcp://[::1]:12345" ]')
-            await core.nodes('[ inet:server="tcp://[::2]:12345" ]')
-            await core.nodes('[ inet:download=* :server=tcp://127.0.0.4:12345 ]')
-            await core.nodes('[ inet:download=* :server=tcp://127.0.0.5:12345 ]')
-            await core.nodes('[ inet:download=* :server=tcp://127.0.0.6:12345 ]')
-            await core.nodes('[ inet:download=* :server="tcp://[::4]:12345" ]')
-            await core.nodes('[ inet:download=* :server="tcp://[::5]:12345" ]')
-            await core.nodes('[ inet:download=* :server="tcp://[::6]:12345" ]')
-            print('ipv4')
-            nodes = await core.nodes('inet:server*ipv4')
-            for n in nodes:
-                print(n)
+            await core.nodes('''[
+                inet:server=tcp://127.0.0.1:12345
+                inet:server=tcp://127.0.0.3:12345
+                inet:server=tcp://127.0.0.2:12345
+                inet:server="tcp://[::3]:12345"
+                inet:server="tcp://[::1]:12345"
+                inet:server="tcp://[::2]:12345"
+                (inet:download=* :server=tcp://127.0.0.4:12345)
+                (inet:download=* :server=tcp://127.0.0.5:12345)
+                (inet:download=* :server=tcp://127.0.0.6:12345)
+                (inet:download=* :server="tcp://[::4]:12345")
+                (inet:download=* :server="tcp://[::5]:12345")
+                (inet:download=* :server="tcp://[::6]:12345")
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user1 :signup:client=tcp://127.0.0.1:12345 ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user2 :signup:client=tcp://127.0.0.2:12345 ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user3 :signup:client=tcp://127.0.0.3:12345 ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user4 :signup:client="tcp://[::4]:12345" ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user5 :signup:client="tcp://[::5]:12345" ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user6 :signup:client="tcp://[::6]:12345" ]})
+            ]''')
 
-            print('ipv6')
-            nodes = await core.nodes('inet:server*ipv6')
-            for n in nodes:
-                print(n)
+            self.len(6, await core.nodes('inet:server*ipv4'))
+            self.len(6, await core.nodes('inet:server*ipv6'))
+            self.len(1, await core.nodes('inet:server*ipv4=127.0.0.1'))
+            self.len(1, await core.nodes('inet:server*ipv6="::1"'))
+            self.len(2, await core.nodes('inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)'))
 
-            print('filt')
-            nodes = await core.nodes('inet:server.created +inet:server*ipv4')
-            for n in nodes:
-                print(n)
+            self.len(6, await core.nodes('inet:server.created +inet:server*ipv4'))
+            self.len(1, await core.nodes('inet:server.created +inet:server*ipv4=127.0.0.2'))
+            self.len(2, await core.nodes('inet:server.created +inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)'))
 
-            print('filt valu')
-            nodes = await core.nodes('inet:server.created +inet:server*ipv4=127.0.0.2')
-            for n in nodes:
-                print(n)
+            self.len(3, await core.nodes('inet:download:server*ipv4'))
+            self.len(3, await core.nodes('inet:download:server*ipv6'))
+            self.len(1, await core.nodes('inet:download:server*ipv4=127.0.0.5'))
+            self.len(1, await core.nodes('inet:download:server*ipv6="::5"'))
+            self.len(2, await core.nodes('inet:download:server*ipv4*range=(127.0.0.5, 127.0.0.6)'))
 
-            print('filt valu byname')
-            nodes = await core.nodes('inet:server.created +inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)')
-            for n in nodes:
-                print(n)
+            self.len(3, await core.nodes('inet:download.created +:server*ipv4'))
+            self.len(1, await core.nodes('inet:download.created +:server*ipv4=127.0.0.4'))
+            self.len(2, await core.nodes('inet:download.created +:server*ipv4*range=(127.0.0.4, 127.0.0.5)'))
 
-            print('ipv4 prop')
-            nodes = await core.nodes('inet:download:server*ipv4')
-            for n in nodes:
-                print(n)
-
-            print('ipv6 prop')
-            nodes = await core.nodes('inet:download:server*ipv6')
-            for n in nodes:
-                print(n)
-
-            print('filt prop')
-            nodes = await core.nodes('inet:download.created +:server*ipv4')
-            for n in nodes:
-                print(n)
-
-            print('filt prop valu')
-            nodes = await core.nodes('inet:download.created +:server*ipv4=127.0.0.4')
-            for n in nodes:
-                print(n)
-
-            print('filt prop valu byname')
-            nodes = await core.nodes('inet:download.created +:server*ipv4*range=(127.0.0.4, 127.0.0.5)')
-            for n in nodes:
-                print(n)
-
-            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user1 :signup:client=tcp://127.0.0.1:12345 ]} ]')
-            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user2 :signup:client=tcp://127.0.0.2:12345 ]} ]')
-            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user3 :signup:client=tcp://127.0.0.3:12345 ]} ]')
-            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user4 :signup:client="tcp://[::4]:12345" ]} ]')
-            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user5 :signup:client="tcp://[::5]:12345" ]} ]')
-            await core.nodes('[ auth:creds=* :web:acct={[ inet:web:acct=foo.com/user6 :signup:client="tcp://[::6]:12345" ]} ]')
-
-            print('filt prop valu piv byname')
-            nodes = await core.nodes('auth:creds.created +:web:acct::signup:client*ipv4*range=(127.0.0.2, 127.0.0.3)')
-            for n in nodes:
-                print(n)
-
-            print('ipv4 valu')
-            nodes = await core.nodes('inet:server*ipv4=127.0.0.1')
-            for n in nodes:
-                print(n)
+            self.len(1, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv4=127.0.0.2'))
+            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv4*range=(127.0.0.2, 127.0.0.3)'))
+            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv6>"::4"'))
+            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv6*range=("::5", "::6")'))

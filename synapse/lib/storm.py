@@ -3733,7 +3733,7 @@ class CopyToCmd(Cmd):
                     prop = node.form.prop(name)
                     if prop.info.get('ro'):
                         if name == '.created':
-                            proto.props['.created'] = valu
+                            proto.props['.created'] = (valu, None)
                             continue
 
                         curv = proto.get(name)
@@ -3909,7 +3909,7 @@ class MergeCmd(Cmd):
             runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
-        for name, (valu, stortype) in sode.get('props', {}).items():
+        for name in sode.get('props', {}).keys():
             prop = node.form.prop(name)
             runt.confirmPropDel(prop, layriden=layr0)
             runt.confirmPropSet(prop, layriden=layr1)
@@ -4088,7 +4088,7 @@ class MergeCmd(Cmd):
                 elif self.opts.apply:
                     protonode = await editor.addNode(form, node.ndef[1], norminfo={})
 
-                for name, (valu, stortype) in sode.get('props', {}).items():
+                for name, (valu, stortype, _) in sode.get('props', {}).items():
 
                     prop = node.form.prop(name)
                     if propfilter:
@@ -4102,7 +4102,7 @@ class MergeCmd(Cmd):
                     if prop.info.get('ro'):
                         if name == '.created':
                             if self.opts.apply:
-                                protonode.props['.created'] = valu
+                                protonode.props['.created'] = (valu, None)
                                 subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
                             continue
 
@@ -4544,12 +4544,15 @@ class MoveNodesCmd(Cmd):
     async def _moveProps(self, node, sodes, meta, delnode):
 
         movevals = {}
+        virtvals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
 
-            for name, (valu, stortype) in sode.get('props', {}).items():
+            for name, (valu, stortype, virts) in sode.get('props', {}).items():
+
+                virtvals[name] = virts
 
                 if (oldv := movevals.get(name)) is not s_common.novalu:
                     if oldv is None:
@@ -4593,7 +4596,7 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
                         stortype = node.form.prop(name).type.stortype
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype)))
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype, virtvals.get(name))))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
                         if not self.opts.apply:

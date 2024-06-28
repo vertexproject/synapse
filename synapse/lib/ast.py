@@ -1837,7 +1837,6 @@ class LiftPropBy(LiftOper):
 
     async def lift(self, runt, path):
         name = await self.kids[0].compute(runt, path)
-        cmpr = await self.kids[1].compute(runt, path)
         valu = await self.kids[2].compute(runt, path)
 
         if not isinstance(valu, s_node.Node):
@@ -1855,20 +1854,48 @@ class LiftPropBy(LiftOper):
             for propname in proplist:
                 props.append(runt.model.props.get(propname))
 
+        virts = None
+        if isinstance(self.kids[1], ByNameCmpr):
+            cmpr = self.kids[1].getCmpr()
+            names = self.kids[1].getNames()
+            lastidx = len(names) - 1
+
+            vnames = []
+            vgetrs = []
+            ptyp = props[0].type
+            for idx, name in enumerate(names):
+                if (subtype := ptyp.subtypes.get(name)) is not None:
+                    (ptyp, getr) = subtype
+                    vnames.append(name)
+                    vgetrs.append(getr)
+                elif idx == lastidx:
+                    cmpr = f'{names[-1]}{cmpr}'
+                else:
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+            if vnames:
+                virts = vnames
+
+        else:
+            cmpr = await self.kids[1].compute(runt, path)
+
         try:
             if len(props) == 1:
                 prop = props[0]
-                async for node in runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse):
+                async for node in runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts):
                     yield node
                 return
 
             relname = props[0].name
-            def cmprkey(node):
-                return node.get(relname)
+            if virts is not None:
+                def cmprkey(node):
+                    return node.get(relname, virts=vgetrs)
+            else:
+                def cmprkey(node):
+                    return node.get(relname)
 
             genrs = []
             for prop in props:
-                genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse))
+                genrs.append(runt.view.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse, virts=virts))
 
             async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node
@@ -3195,7 +3222,7 @@ class RelPropCond(Cond):
 
                 ctor = ptyp.getCmprCtor(realcmpr)
                 if ctor is None:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=propcmpr, name=ptyp.name))
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=realcmpr, name=ptyp.name))
 
                 func = ctor(xval)
                 return func(valu)
@@ -3216,9 +3243,9 @@ class RelPropCond(Cond):
                 if xval is None:
                     return False
 
-                ctor = vtyp.getCmprCtor(propcmpr)
+                ctor = vtyp.getCmprCtor(cmpr)
                 if ctor is None:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=propcmpr, name=vtyp.name))
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=vtyp.name))
 
                 func = ctor(xval)
                 return func(valu)
@@ -3873,6 +3900,13 @@ class Cmpr(Const):
         return (None, self.valu)
 
 class ByNameCmpr(Const):
+
+    def prepare(self):
+        self.fullvalu = f'{"*".join(self.valu[0])}{self.valu[1]}'
+
+    async def compute(self, runt, path):
+        return self.fullvalu
+
     def getNames(self):
         return self.valu[0]
 

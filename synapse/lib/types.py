@@ -107,7 +107,11 @@ class Type:
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
 
-    def getStorCmprs(self, cmpr, valu):
+    def getStorCmprs(self, cmpr, valu, virts=None):
+
+        if virts:
+            substor = self.subtypes[virts[0]][0]
+            return substor.getStorCmprs(cmpr, valu, virts[1:])
 
         func = self.storlifts.get(cmpr)
         if func is None:
@@ -1246,6 +1250,17 @@ class Ival(Type):
         for oper in ('=', '<', '>', '<=', '>='):
             self.storlifts[f'duration{oper}'] = self._storLiftDuration
 
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        func = self.storlifts.get(cmpr)
+        if func is None:
+            mesg = f'Type ({stortype.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg)
+
+        return func(cmpr, valu)
+
     def _storLiftAt(self, cmpr, valu):
 
         if type(valu) not in (list, tuple):
@@ -1531,6 +1546,17 @@ class Ndef(Type):
                 return True
 
             self.formfilter = filtfunc
+
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        func = self.storlifts.get(cmpr)
+        if func is None:
+            mesg = f'Type ({stortype.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg)
+
+        return func(cmpr, valu)
 
     def _storLiftForm(self, cmpr, valu):
         valu = valu.lower().strip()

@@ -71,7 +71,7 @@ class ProtoNode(s_node.NodeBase):
         sode = self.node.sodes[0]
 
         if self.delnode:
-            edits.append((s_layer.EDIT_NODE_DEL, (self.valu[0], self.form.type.stortype)))
+            edits.append((s_layer.EDIT_NODE_DEL, (self.valu, self.form.type.stortype)))
             if (tags := sode.get('tags')) is not None:
                 for name in sorted(tags.keys(), key=lambda t: len(t), reverse=True):
                     edits.append((s_layer.EDIT_TAG_DEL, (name, None)))
