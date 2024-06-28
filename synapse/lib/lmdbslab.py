@@ -1623,18 +1623,15 @@ class Slab(s_base.Base):
         self.commitstats.append((starttime, xactopslen, delta))
 
         if self.WARN_COMMIT_TIME_MS and delta > self.WARN_COMMIT_TIME_MS:
-            logger.warning(f'Commit with {xactopslen} items in {self!r} took {delta} ms - performance may be degraded.')
 
-            if sysctls := s_thisplat.getSysctls():
-                fixvals = []
-                for name, valu in s_thisplat.EXP_SYSCTL_VALS.items():
-                    if (sysval := sysctls.get(name)) != valu:
-                        fixvals.append({'name': name, 'expected': valu, 'actual': sysval})
+            extra = {
+                'delta': delta,
+                'sysctls': s_thisplat.getSysctls(),
+                'xactopslen': xactopslen,
+            }
 
-                if fixvals:
-                    fixnames = [k['name'] for k in fixvals]
-                    mesg = f'Sysctl values may not be set for optimal performance: {", ".join(fixnames)}. '
-                    logger.warning(mesg, extra={'synapse': {'sysctls': fixvals}})
+            mesg = f'Commit with {xactopslen} items in {self!r} took {delta} ms - performance may be degraded.'
+            logger.warning(mesg, extra={'synapse': extra})
 
         self._initCoXact()
         return True

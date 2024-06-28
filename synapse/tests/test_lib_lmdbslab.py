@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import pathlib
 import multiprocessing
@@ -347,52 +348,29 @@ class LmdbSlabTest(s_t_utils.SynTest):
         return self._nowtime
 
     async def test_lmdbslab_commit_warn(self):
-
-        sysvals = {k: -1 for k in s_thisplat.EXP_SYSCTL_VALS}
-
-        def fakesysctls():
-            return sysvals
-
-        with (
-            self.getTestDir() as dirn,
-            patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1),
-            patch('synapse.common.now', self.simplenow),
-            patch('synapse.lib.thisplat.getSysctls', fakesysctls),
-        ):
-
+        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
+                patch('synapse.common.now', self.simplenow):
             path = os.path.join(dirn, 'test.lmdb')
-
-            with self.getAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
-
+            with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
                 async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256
                     for i in range(10):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-
                 self.true(await stream.wait(timeout=1))
 
-            stream.seek(0)
             data = stream.getvalue()
-            self.isin('performance may be degraded', data)
-            self.isin(f'Sysctl values may not be set for optimal performance: {", ".join(sysvals.keys())}. ', data)
-
-            # reset sysctl values to match expected
-
-            sysvals = s_thisplat.EXP_SYSCTL_VALS.copy()
-
-            with self.getAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
-                async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
-                    foo = slab.initdb('foo', dupsort=True)
-                    byts = b'\x00' * 256
-                    for i in range(10):
-                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-
-                self.true(await stream.wait(timeout=1))
-
-            stream.seek(0)
-            data = stream.getvalue()
-            self.notin('Sysctl', data)
+            msgs = [json.loads(m) for m in data.split('\\n') if m]
+            self.gt(len(msgs), 0)
+            self.nn(msgs[0].get('delta'))
+            self.nn(msgs[0].get('xactopslen'))
+            self.sorteq([
+                'vm.swappiness',
+                'vm.dirty_expire_centisecs',
+                'vm.dirty_writeback_centisecs',
+                'vm.dirty_background_ratio',
+                'vm.dirty_ratio',
+            ], msgs[0].get('sysctls', {}).keys())
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:

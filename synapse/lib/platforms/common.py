@@ -59,6 +59,3 @@ def initHostInfo():
 
 def getTempDir():
     return tempfile.gettempdir()
-
-def getSysctls():
-    return {}
