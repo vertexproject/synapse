@@ -65,11 +65,13 @@ class HealthcheckTest(s_t_utils.SynTest):
             m = 'Synapse error encountered.'
             self.eq(resp.get('components')[0].get('mesg'), m)
 
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
             # dont do this in prod...
             logger.info('Checking without perms')
-            await root.setAdmin(False)
             outp.clear()
-            retn = await s_t_healthcheck.main(['-c', curl, '-t', '0.2'], outp)
+            retn = await s_t_healthcheck.main(['-c', f'tcp://visi:secret@127.0.0.1:{port}/cortex', '-t', '0.2'], outp)
             self.eq(retn, 1)
             resp = json.loads(str(outp))
             self.eq(resp.get('components')[0].get('name'), 'error')
