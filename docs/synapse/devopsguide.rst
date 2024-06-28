@@ -590,7 +590,7 @@ The following Compose file shows using the policy:
         environment:
             SYN_CORTEX_AXON: aha://axon...
             SYN_CORTEX_JSONSTOR: aha://jsonstor...
-            SYN_CORTEX_AUTH_PASSWD_POLICY: '{"complexity": {"length": 12, "sequences": 3, "upper:count": 2, "lower:count": 2, "lower:valid": "abcdefghijklmnopqrstuvwxyz\\u03b1\\u03b2\\u03b3", "special:count": 2, "number:count": 2}, "attempts": 3, "previous": 2}'
+            SYN_CORTEX_AUTH_PASSWD_POLICY: '{"complexity": {"length": 12, "sequences": 3, "upper:count": 2, "lower:count": 2, "lower:valid": "abcdefghijklmnopqrstuvwxyzαβγ", "special:count": 2, "number:count": 2}, "attempts": 3, "previous": 2}'
 
 Attempting to set a user password which fails to meet the complexity requirements would produce an error::
 
