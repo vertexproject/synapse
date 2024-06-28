@@ -509,6 +509,15 @@ class AuthTest(s_test.SynTest):
                 exc.exception.get('failures')
             )
 
+            # Attempting to add a user with a bad passwd will add the user and fail to set the password
+            with self.raises(s_exc.BadArg):
+                await core.addUser('bob.grey', email='bob.grey@vertex.link', passwd='noncompliant')
+            user = await core.auth.getUserByName('bob.grey')
+            self.eq('bob.grey@vertex.link', user.info.get('email'))
+            self.len(1, user.info.get('roles'))  # User has the default all role
+            # Password was not set
+            self.false(await user.tryPasswd('noncompliant'))
+
         policy = {
             'complexity': {
                 'length': None,
@@ -628,6 +637,21 @@ class AuthTest(s_test.SynTest):
             self.true(await user.tryPasswd('hehe'))
             self.false(await user.tryPasswd('newp'))
             self.true(user.isLocked())
+
+        # auth:passwd does not interact with auth:passwd:policy
+        with self.getTestDir() as dirn:
+            policy = {'complexity': {'length': 5}}
+            conf = {'auth:passwd': 'newp', 'auth:passwd:policy': policy}
+            async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                user = core.auth.rootuser
+                self.false(await user.tryPasswd('hehe'))
+                self.true(await user.tryPasswd('newp'))
+
+            conf = {'auth:passwd': 'yupp!!', 'auth:passwd:policy': policy}
+            async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                user = core.auth.rootuser
+                self.false(await user.tryPasswd('newp'))
+                self.true(await user.tryPasswd('yupp!!'))
 
     async def test_hive_auth_deepdeny(self):
         async with self.getTestCore() as core:
