@@ -487,3 +487,12 @@ class ModelRevTest(s_tests.SynTest):
                 'blackhat',
                 'summercon',
             ))
+
+            nodes = await core.nodes('ou:position')
+            self.len(3, nodes)
+            titles = [n.get('title') for n in nodes]
+            self.sorteq(titles, (
+                'president of the united states',
+                'vice president of the united states',
+                'speaker of the house, united states congress',
+            ))

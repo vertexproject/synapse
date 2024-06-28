@@ -731,8 +731,7 @@ class OuModule(s_module.CoreModule):
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact info for the person who holds the position.',
                     }),
-                    # TODO migrate to ou:jobtitle
-                    ('title', ('str', {'lower': True, 'onespace': True}), {
+                    ('title', ('ou:jobtitle', {'lower': True, 'onespace': True}), {
                         'doc': 'The title of the position.',
                     }),
                     ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {

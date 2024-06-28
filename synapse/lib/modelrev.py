@@ -760,6 +760,7 @@ class ModelRev:
 
     async def revModel_0_2_25(self, layers):
         await self._normPropValu(layers, 'ou:conference:name')
+        await self._normPropValu(layers, 'ou:position:title')
 
     async def runStorm(self, text, opts=None):
         '''
