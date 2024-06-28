@@ -377,6 +377,8 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setName(1)
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setName('secretroot')
+            with self.raises(s_exc.BadArg):
                 await core.auth.allrole.setName(1)
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.rootuser.addRule('vi.si')
@@ -635,7 +637,7 @@ class AuthTest(s_test.SynTest):
 
         # No complexity rules
         policy = {'attempts': 1}
-        conf = {'auth:passwd:policy': policy}
+        conf = {'auth:passwd:policy': policy, 'auth:passwd': 'secret'}
         async with self.getTestCore(conf=conf) as core:
             auth = core.auth
             user = await auth.addUser('blackout@vertex.link')
@@ -643,6 +645,15 @@ class AuthTest(s_test.SynTest):
             self.true(await user.tryPasswd('hehe'))
             self.false(await user.tryPasswd('newp'))
             self.true(user.isLocked())
+            # Root user may track policy lockouts but will not be locked out by failures.
+            root = auth.rootuser
+            self.false(await root.tryPasswd('newp'))
+            self.false(await root.tryPasswd('newpx'))
+            self.eq(root.info.get('policy:attempts'), 2)
+            self.false(root.isLocked())
+            # valid passwod auth resets root atttempt counter.
+            self.true(await root.tryPasswd('secret'))
+            self.eq(root.info.get('policy:attempts'), 0)
 
         # auth:passwd does not interact with auth:passwd:policy
         with self.getTestDir() as dirn:
