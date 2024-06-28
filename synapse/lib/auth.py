@@ -324,7 +324,7 @@ class Auth(s_nexus.Pusher):
         if role is not None:
             if role.iden == iden:
                 return
-            raise s_exc.DupRoleName(mesg=f'Duplicate role nmae, {name=} already exists.', name=name)
+            raise s_exc.DupRoleName(mesg=f'Duplicate role name, {name=} already exists.', name=name)
 
         role = await self.reqRole(iden)
 
@@ -580,7 +580,7 @@ class Auth(s_nexus.Pusher):
 
     async def addRole(self, name, iden=None):
         if self.roleidenbynamecache.get(name) is not None:
-            raise s_exc.DupRoleName(mesg=f'Duplicate role nmae, {name=} already exists.', name=name)
+            raise s_exc.DupRoleName(mesg=f'Duplicate role name, {name=} already exists.', name=name)
 
         if iden is None:
             iden = s_common.guid()
