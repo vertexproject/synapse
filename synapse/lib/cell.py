@@ -896,7 +896,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'auth:passwd:policy': {
             'description': 'Specify password policy/complexity requirements.',
             'type': 'object',
-            'default': None,
         },
         'max:users': {
             'default': 0,
