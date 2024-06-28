@@ -2554,6 +2554,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self._dropStormPkg(olddef)
             else:
                 # if it's the same we can just bounce
+                await self.fire('core:pkg:onload:complete', pkg=name)
                 return
 
         await self.loadStormPkg(pkgdef)
