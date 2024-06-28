@@ -1135,6 +1135,11 @@ class HttpApiTest(s_tests.SynTest):
                     self.len(1, data['gates'])
                     self.eq(data['gates'][0]['iden'], 'cortex')
 
+                    deflayr, defview = await core.callStorm('''
+                        $view = $lib.view.get()
+                        return(($view.layers.0.iden, $view.iden))
+                    ''')
+
                     # user add. couple of messages fall out from it
                     await core.callStorm('auth.user.add beep --email beep@vertex.link')
                     mesg = await sock.receive_json()
@@ -1150,18 +1155,6 @@ class HttpApiTest(s_tests.SynTest):
                     mesg = await sock.receive_json()
                     data = mesg['data']
                     self.eq(data['event'], 'user:info')
-                    self.eq(data['info']['name'], 'email')
-                    self.eq(data['info']['valu'], 'beep@vertex.link')
-                    self.gt(data['offset'], base)
-                    base = data['offset']
-
-                    mesg = await sock.receive_json()
-                    data = mesg['data']
-                    deflayr, defview = await core.callStorm('''
-                        $view = $lib.view.get()
-                        return(($view.layers.0.iden, $view.iden))
-                    ''')
-                    self.eq(data['event'], 'user:info')
                     self.eq(data['info']['name'], 'role:grant')
                     self.eq(data['info']['iden'], beepiden)
                     self.eq(data['info']['role']['iden'], rall.iden)
@@ -1170,6 +1163,14 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['role']['authgates'][deflayr], {'rules': [[True, ['layer', 'read']]]})
                     self.eq(data['info']['role']['authgates'][defview], {'rules': [[True, ['view', 'read']]]})
                     self.eq(data['info']['role']['rules'], [[False, ['power-ups', 'foo', 'bar']]])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'email')
+                    self.eq(data['info']['valu'], 'beep@vertex.link')
                     self.gt(data['offset'], base)
                     base = data['offset']
 
