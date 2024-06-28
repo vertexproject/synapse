@@ -124,6 +124,8 @@ class Auth(s_nexus.Pusher):
             slab (s_lmdb.Slab): The slab to use for persistent storage for auth
             dbname (str): The name of the db to use in the slab
         '''
+        if policy:
+            s_schemas.reqValidPasswdPolicy(policy)
         # Derive an iden from the db name
         iden = f'auth:{dbname}'
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
@@ -534,14 +536,14 @@ class Auth(s_nexus.Pusher):
 
         user = self.user(iden)
 
-        if passwd is not None:
-            await user.setPasswd(passwd)
+        # Everyone's a member of 'all'
+        await user.grant(self.allrole.iden)
 
         if email is not None:
             await self.setUserInfo(user.iden, 'email', email)
 
-        # Everyone's a member of 'all'
-        await user.grant(self.allrole.iden)
+        if passwd is not None:
+            await user.setPasswd(passwd)
 
         return user
 
@@ -1310,9 +1312,9 @@ class User(Ruler):
         if archived:
             await self.setLocked(True)
 
-    async def tryPasswd(self, passwd, nexs=True):
+    async def tryPasswd(self, passwd, nexs=True, enforce_policy=True):
 
-        if self.info.get('locked', False):
+        if self.isLocked():
             return False
 
         if passwd is None:
@@ -1352,15 +1354,17 @@ class User(Ruler):
                         await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
                     return True
 
-                valu += 1
-                await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
+                if enforce_policy:
 
-                if valu >= attempts:
-                    await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
+                    valu += 1
+                    await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
 
-                    mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
-                    extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
-                    logger.info(mesg, extra=extra)
+                    if valu >= attempts:
+                        await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
+
+                        mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
+                        extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
+                        logger.warning(mesg, extra=extra)
 
                     return False
 
@@ -1371,8 +1375,9 @@ class User(Ruler):
         if s_common.guid((salt, passwd)) == hashed:
             logger.debug(f'Migrating password to shadowv2 format for user {self.name}',
                          extra={'synapse': {'user': self.iden, 'username': self.name}})
-            # Update user to new password hashing scheme.
-            await self.setPasswd(passwd=passwd, nexs=nexs)
+            # Update user to new password hashing scheme. We cannot enforce policy
+            # when migrating an existing password.
+            await self.setPasswd(passwd=passwd, nexs=nexs, enforce_policy=False)
 
             return True
 
@@ -1404,39 +1409,38 @@ class User(Ruler):
 
             # Check uppercase
             count = complexity.get('upper:count', 0)
-            valid = complexity.get('upper:valid', string.ascii_uppercase)
-            allvalid.append(valid)
-
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
+            if (valid := complexity.get('upper:valid', string.ascii_uppercase)):
+                allvalid.append(valid)
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
 
             # Check lowercase
             count = complexity.get('lower:count', 0)
-            valid = complexity.get('lower:valid', string.ascii_lowercase)
-            allvalid.append(valid)
+            if (valid := complexity.get('lower:valid', string.ascii_lowercase)):
+                allvalid.append(valid)
 
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
 
             # Check special
             count = complexity.get('special:count', 0)
-            valid = complexity.get('special:valid', string.punctuation)
-            allvalid.append(valid)
+            if (valid := complexity.get('special:valid', string.punctuation)):
+                allvalid.append(valid)
 
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} special characters, {found} found.')
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} special characters, {found} found.')
 
             # Check numbers
             count = complexity.get('number:count', 0)
-            valid = complexity.get('number:valid', string.digits)
-            allvalid.append(valid)
+            if (valid := complexity.get('number:valid', string.digits)):
+                allvalid.append(valid)
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} digit characters, {found} found.')
 
-            if count is not None and (found := len([k for k in passwd if k in valid])) < count:
-                failures.append(f'Password must contain at least {count} digit characters, {found} found.')
-
-            allvalid = ''.join(allvalid)
-            if (invalid := set(passwd) - set(allvalid)):
-                failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
+            if allvalid:
+                allvalid = ''.join(allvalid)
+                if (invalid := set(passwd) - set(allvalid)):
+                    failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
 
             # Check sequences
             seqlen = complexity.get('sequences')
@@ -1477,7 +1481,7 @@ class User(Ruler):
             else:
                 await self.auth._hndlsetUserInfo(self.iden, 'policy:previous', previous[:prevvalu], logged=nexs)
 
-    async def setPasswd(self, passwd, nexs=True):
+    async def setPasswd(self, passwd, nexs=True, enforce_policy=True):
         # Prevent empty string or non-string values
         if passwd is None:
             shadow = None
@@ -1486,7 +1490,8 @@ class User(Ruler):
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
 
-        await self._checkPasswdPolicy(passwd, shadow, nexs=nexs)
+        if enforce_policy:
+            await self._checkPasswdPolicy(passwd, shadow, nexs=nexs)
 
         if nexs:
             await self.auth.setUserInfo(self.iden, 'passwd', shadow)

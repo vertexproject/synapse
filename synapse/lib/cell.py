@@ -893,7 +893,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hideconf': True,
         },
-        'auth:passwd:policy': s_schemas.passwdPolicySchema,
+        'auth:passwd:policy': {
+            'description': 'Specify password policy/complexity requirements.',
+            'type': 'object',
+        },
         'max:users': {
             'default': 0,
             'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
@@ -1244,8 +1247,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if not await user.tryPasswd(auth_passwd, nexs=False):
-                await user.setPasswd(auth_passwd, nexs=False)
+            if not await user.tryPasswd(auth_passwd, nexs=False, enforce_policy=False):
+                await user.setPasswd(auth_passwd, nexs=False, enforce_policy=False)
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
