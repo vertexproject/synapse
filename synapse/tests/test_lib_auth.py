@@ -380,6 +380,8 @@ class AuthTest(s_test.SynTest):
                 await core.auth.rootuser.setName('secretroot')
             with self.raises(s_exc.BadArg):
                 await core.auth.allrole.setName(1)
+            with self.raises(s_exc.BadArg):
+                await core.auth.allrole.setName('nobody')
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.rootuser.addRule('vi.si')
             with self.raises(s_exc.SchemaViolation):
