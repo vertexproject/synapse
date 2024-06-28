@@ -519,35 +519,35 @@ accepts the following keys:
     The complexity key must be set to an object. It can have the following keys:
 
     ``length``
-        Minimum password character length. This is an integer value.
+        Minimum password character length. This is an integer value with a minimum value of 1.
 
     ``sequences``
         Maximum sequence length in a password. Sequences can be letters or number, forward or reverse. This is an
-        integer value.
+        integer value with a minimum value of 2.
 
     ``upper:count``
-        The minimum number of uppercase characters required in password. This is a string value.
+        The minimum number of uppercase characters required in password. This is an integer value.
 
     ``upper:valid``
         All valid uppercase characters. This defaults to a string of uppercase ASCII characters. This can be set to
         a null value to disable any checking of the uppercase characters rules.
 
     ``lower:count``
-        The minimum number of lowercase characters required in password.
+        The minimum number of lowercase characters required in password. This is an integer value.
 
     ``lower:valid``
         All valid lowercase characters. This defaults to a string of lowercase ASCII characters. This can be set to
         a null value to disable any checking of the lowercase character rules.
 
     ``special:count``
-        The minimum number of special characters required in password.
+        The minimum number of special characters required in password. This is an integer value.
 
     ``special:valid``
         All valid special characters. This defaults to a string of ASCII punctuation characters. This can be set to
         a null value to disable any checking of the special characters rules.
 
     ``number:count``
-        The minimum number of digit characters required in password.
+        The minimum number of digit characters required in password. This is an integer value.
 
     ``number:valid``
         All valid digit characters. This defaults to a string of ASCII number characters. This can be set to
