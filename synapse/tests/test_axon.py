@@ -1133,7 +1133,7 @@ bar baz",vv
 
     async def test_axon_mirror(self):
 
-        async with self.getTestAhaProv() as aha:
+        async with self.getTestAha() as aha:
 
             axon00dirn = s_common.gendir(aha.dirn, 'tmp', 'axon00')
             axon01dirn = s_common.gendir(aha.dirn, 'tmp', 'axon01')

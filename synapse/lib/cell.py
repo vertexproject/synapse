@@ -1174,8 +1174,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.backlastexc = None  # err, errmsg, errtrace of last backup
 
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
-            mesg = 'Mirror mode requires nexslog:en=True'
-            raise s_exc.BadConfValu(mesg=mesg)
+            self.modCellConf({'nexslog:en': True})
 
         # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
@@ -1521,8 +1520,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _getDmonListen(self):
 
-        lisn = self.conf.get('dmon:listen')
-        if lisn is not None:
+        lisn = self.conf.get('dmon:listen', s_common.novalu)
+        if lisn is not s_common.novalu:
             return lisn
 
         network = self._getAhaNetwork()
@@ -3407,6 +3406,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return pars
 
     async def _initCellBoot(self):
+        # NOTE: best hook point for custom provisioning
 
         pnfo = await self._bootCellProv()
 
@@ -3700,23 +3700,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.enNexsLog()
             await self.sync()
 
-    async def _bootCellMirror(self, pnfo):
-        # this function must assume almost nothing is initialized
-        # but that's ok since it will only run rarely.
-        # It assumes it has a tuple of (provisioning configuration, provisioning iden) available
-        murl = self.conf.reqConfValu('mirror')
-        provconf, providen = pnfo
-
-        logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
+    async def _initCloneCell(self, proxy):
 
         tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
-
         try:
 
-            async with await s_telepath.openurl(murl) as cell:
-                await cell.readyToMirror()
+                await proxy.readyToMirror()
                 with s_common.genfile(tarpath) as fd:
-                    async for byts in cell.iterNewBackupArchive(remove=True):
+                    async for byts in proxy.iterNewBackupArchive(remove=True):
                         fd.write(byts)
 
                 with tarfile.open(tarpath) as tgz:
@@ -3730,6 +3721,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if os.path.isfile(tarpath):
                 os.unlink(tarpath)
+
+    async def _bootCellMirror(self, pnfo):
+        # this function must assume almost nothing is initialized
+        # but that's ok since it will only run rarely.
+        # It assumes it has a tuple of (provisioning configuration, provisioning iden) available
+        murl = self.conf.reqConfValu('mirror')
+        provconf, providen = pnfo
+
+        logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
+
+        async with await s_telepath.openurl(murl) as proxy:
+            await self._initCloneCell(proxy)
 
         # Remove aha:provision from cell.yaml if it exists and the iden differs.
         mnfo = s_common.yamlload(self.dirn, 'cell.yaml')

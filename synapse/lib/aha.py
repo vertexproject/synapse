@@ -12,6 +12,7 @@ import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
@@ -125,11 +126,19 @@ class AhaServicesV1(s_httpapi.Handler):
 
 class AhaApi(s_cell.CellApi):
 
-    async def getAhaUrls(self):
-        ahaurls = self.cell._getAhaUrls()
-        if ahaurls is not None:
-            return ahaurls
-        return()
+    @s_cell.adminapi()
+    async def getAhaClone(self, iden):
+        return await self.cell.getAhaClone(iden)
+
+    @s_cell.adminapi()
+    async def addAhaClone(self, host, port=27492, conf=None):
+        return await self.cell.addAhaClone(host, port=port, conf=conf)
+
+    async def getAhaUrls(self, user='root'):
+        ahaurls = await self.cell.getAhaUrls(user=user)
+        if ahaurls is None:
+            return ()
+        return ahaurls
 
     async def getAhaSvc(self, name, filters=None):
         '''
@@ -280,6 +289,10 @@ class AhaApi(s_cell.CellApi):
     async def delAhaPoolSvc(self, poolname, svcname):
         return await self.cell.delAhaPoolSvc(poolname, svcname)
 
+    async def iterAhaTopo(self):
+        async for item in self.cell.iterAhaTopo():
+            yield item
+
     async def iterPoolTopo(self, name):
 
         username = self.user.name.split('@')[0]
@@ -298,6 +311,20 @@ class AhaApi(s_cell.CellApi):
     async def getAhaPools(self):
         async for item in self.cell.getAhaPools():
             yield item
+
+    async def getAhaServers(self):
+        return await self.cell.getAhaServers()
+
+    async def getAhaServer(self, host, port):
+        return await self.cell.getAhaServer(host, port)
+
+    @s_cell.adminapi()
+    async def addAhaServer(self, server):
+        return await self.cell.addAhaServer(server)
+
+    @s_cell.adminapi()
+    async def delAhaServer(self, host, port):
+        return await self.cell.delAhaServer(host, port)
 
     @s_cell.adminapi()
     async def addAhaSvcProv(self, name, provinfo=None):
@@ -366,9 +393,33 @@ class ProvDmon(s_daemon.Daemon):
             await self.aha.delAhaUserEnroll(name)
             return EnrollApi(self.aha, userinfo)
 
+        clone = await self.aha.getAhaClone(name)
+        if clone is not None:
+            mesg = f'Retrieved AHA clone info for {name}'
+            host = clone.get('host')
+            logger.info(mesg, extra=await self.aha.getLogExtra(iden=name, host=host))
+            return CloneApi(self.aha, clone)
+
         mesg = f'Invalid provisioning identifier name={name}. This could be' \
                f' caused by the re-use of a provisioning URL.'
         raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+class CloneApi:
+
+    def __init__(self, aha, clone):
+        self.aha = aha
+        self.clone = clone
+
+    async def getCloneDef(self):
+        return self.clone
+
+    async def readyToMirror(self):
+        return await self.aha.readyToMirror()
+
+    async def iterNewBackupArchive(self, name=None, remove=False):
+        async with self.aha.getLocalProxy() as proxy:
+            async for byts in proxy.iterNewBackupArchive(name=name, remove=remove):
+                yield byts
 
 class EnrollApi:
 
@@ -377,9 +428,10 @@ class EnrollApi:
         self.userinfo = userinfo
 
     async def getUserInfo(self):
+        user = self.userinfo.get('name')
         return {
-            'aha:urls': self.aha._getAhaUrls(),
-            'aha:user': self.userinfo.get('name'),
+            'aha:urls': await self.aha.getAhaUrls(user=user),
+            'aha:user': user,
             'aha:network': self.aha._getAhaNetwork(),
         }
 
@@ -464,12 +516,17 @@ class AhaCell(s_cell.Cell):
     confbase['mirror']['hidedocs'] = False  # type: ignore
     confbase['mirror']['hidecmdl'] = False  # type: ignore
     confdefs = {
+        'clone': {
+            'hidecmdl': True,
+            'description': 'Bootstrap a clone from the AHA clone URL.',
+            'type': ['string', 'null'],
+        },
         'dns:name': {
             'description': 'The registered DNS name used to reach the AHA service.',
             'type': ['string', 'null'],
         },
         'aha:urls': {
-            'description': 'A list of all available AHA server URLs.',
+            'description': 'Deprecated. AHA servers can now manage this automatically.',
             'type': ['string', 'array'],
             'items': {'type': 'string'},
         },
@@ -484,6 +541,34 @@ class AhaCell(s_cell.Cell):
     def getEnvPrefix(cls):
         return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
+    async def _initCellBoot(self):
+
+        path = s_common.genpath(self.dirn, 'cell.guid')
+        if os.path.isfile(path):
+            return
+
+        curl = self.conf.get('clone')
+        if curl is None:
+            return
+
+        logger.warning(f'Cloning AHA: {curl}')
+
+        async with await s_telepath.openurl(curl) as proxy:
+            clone = await proxy.getCloneDef()
+            await self._initCloneCell(proxy)
+
+        logger.warning('Cloning AHA: done!')
+
+        conf = s_common.yamlload(self.dirn, 'cell.yaml')
+        if conf is None:
+            conf = {}
+
+        conf.update(clone.get('conf', {}))
+
+        s_common.yamlsave(conf, self.dirn, 'cell.yaml')
+
+        self.conf.update(conf)
+
     async def initServiceStorage(self):
 
         # TODO plumb using a remote jsonstor?
@@ -492,6 +577,7 @@ class AhaCell(s_cell.Cell):
         slab = await s_lmdbslab.Slab.anit(dirn)
         slab.addResizeCallback(self.checkFreeSpace)
 
+        self.topobus = await s_base.Base.anit()
         self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
 
         async def fini():
@@ -503,8 +589,102 @@ class AhaCell(s_cell.Cell):
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
 
+        self.slab.initdb('aha:clones')
+        self.slab.initdb('aha:servers')
+
         self.slab.initdb('aha:pools')
+
+        self.topowindows = []
         self.poolwindows = collections.defaultdict(list)
+
+    async def getAhaServer(self, host, port):
+        lkey = s_msgpack.en((host, port))
+        byts = self.slab.get(lkey, db='aha:servers')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    async def addAhaServer(self, server):
+
+        host = server.get('host')
+        port = server.setdefault('port', 27492)
+
+        # avoid a noop nexus change...
+        oldv = await self.getAhaServer(host, port)
+        if s_common.flatten(server) == s_common.flatten(oldv):
+            return False
+
+        return await self._push('aha:server:add', server)
+
+    async def _getTopoUpdate(self):
+        return ('aha:update', {
+            'servers': await self.getAhaServers(),
+        }),
+
+    async def _fireTopoUpdate(self):
+        update = await self._getTopoUpdate()
+        for wind in self.topowindows:
+            await wind.put(update)
+
+    @s_nexus.Pusher.onPush('aha:server:add')
+    async def _addAhaServer(self, server):
+        # TODO schema
+        host = server.get('host')
+        port = server.get('port')
+
+        oldv = None
+        lkey = s_msgpack.en((host, port))
+
+        byts = self.slab.get(lkey, db='aha:servers')
+        if byts is not None:
+            oldv = s_msgpack.un(byts)
+            if s_common.flatten(server) == s_common.flatten(oldv):
+                return False
+
+        self.slab.put(lkey, s_msgpack.en(server), db='aha:servers')
+
+        if self.isactive:
+            await self._fireTopoUpdate()
+
+        return True
+
+    @s_nexus.Pusher.onPushAuto('aha:server:del')
+    async def delAhaServer(self, host, port):
+
+        lkey = s_msgpack.en((host, port))
+
+        byts = self.slab.pop(lkey, db='aha:servers')
+        if byts is None:
+            return None
+
+        if self.isactive:
+            await self._fireTopoUpdate()
+
+        return s_msgpack.un(byts)
+
+    async def getAhaServers(self):
+        servers = []
+        for _, byts in self.slab.scanByFull(db='aha:servers'):
+            servers.append(s_msgpack.un(byts))
+        return servers
+
+    async def iterAhaTopo(self):
+
+        if not self.isactive:
+            async with await self.nexsroot.client.proxy() as proxy:
+                async for item in proxy.iterAhaTopo():
+                    yield item
+
+        async with await s_queue.Window.anit(maxsize=1000) as wind:
+
+            async def onfini():
+                self.topowindows.remove(wind)
+
+            wind.onfini(onfini)
+
+            async with self.nexsroot.applylock:
+                update = await self._getTopoUpdate()
+                await wind.put(update)
+                self.topowindows.append(wind)
 
     async def iterPoolTopo(self, name):
 
@@ -560,11 +740,12 @@ class AhaCell(s_cell.Cell):
                 logger.info(f'Adding server certificate for {host}')
                 await self._genHostCert(host, signas=netw)
 
+            root = f'root@{netw}'
+            await self._genUserCert(root, signas=netw)
+
             user = self._getAhaAdmin()
             if user is not None:
-                if self.certdir.getUserCertPath(user) is None:
-                    logger.info(f'Adding user certificate for {user}@{netw}')
-                    await self._genUserCert(user, signas=netw)
+                await self._genUserCert(user, signas=netw)
 
     def _getDnsName(self):
         # emulate the old aha name.network behavior if the
@@ -593,8 +774,8 @@ class AhaCell(s_cell.Cell):
 
     def _getDmonListen(self):
 
-        lisn = self.conf.get('dmon:listen')
-        if lisn is not None:
+        lisn = self.conf.get('dmon:listen', s_common.novalu)
+        if lisn is not s_common.novalu:
             return lisn
 
         network = self._getAhaNetwork()
@@ -622,6 +803,11 @@ class AhaCell(s_cell.Cell):
             await self._genHostCert(hostname, signas=network)
 
         await s_cell.Cell.initServiceNetwork(self)
+
+        # all AHA mirrors are registered
+        if hostname is not None and self.sockaddr is not None:
+            server = {'host': hostname, 'port': self.sockaddr[1]}
+            await self.addAhaServer(server)
 
         self.provdmon = None
 
@@ -712,6 +898,7 @@ class AhaCell(s_cell.Cell):
 
         # mostly for testing...
         await self.fire('aha:svcadd', svcinfo=svcinfo)
+        await self.fire(f'aha:svcadd:{svcfull}', svcinfo=svcinfo)
 
     def _getAhaName(self, name):
         # the modern version of names is absolute or ...
@@ -994,8 +1181,12 @@ class AhaCell(s_cell.Cell):
         await self.saveHostCert(hostname, pkey, cert)
 
     async def _genUserCert(self, username, signas=None):
+
         if os.path.isfile(os.path.join(self.dirn, 'certs', 'users', '{username}.crt')):
             return
+
+        logger.info(f'Adding user certificate for {username}')
+
         pkey, cert = await s_coro.executor(self.certdir.genUserCert, username, signas=signas, save=False)
         pkey = self.certdir._pkeyToByts(pkey).decode()
         cert = self.certdir._certToByts(cert).decode()
@@ -1071,39 +1262,66 @@ class AhaCell(s_cell.Cell):
 
         return self.certdir._certToByts(cert).decode()
 
-    def _getAhaUrls(self, user='root'):
+    async def getAhaUrls(self, user='root'):
 
+        # for backward compat...
         urls = self.conf.get('aha:urls')
         if urls is not None:
-            if isinstance(urls, str):
-                return (urls,)
             return urls
 
-        ahaname = self.conf.get('aha:name')
-        if ahaname is None:
-            return None
+        network = self._getAhaNetwork()
+        urls = []
+        for server in await self.getAhaServers():
+            host = server.get('host')
+            port = server.get('port')
+            urls.append(f'ssl://{host}:{port}?certname={user}@{network}')
+        return urls
 
-        ahanetw = self._getAhaNetwork()
+    def _getAhaUrl(self, user='root'):
+        port = self.sockaddr[1]
+        host = self._getDnsName()
+        network = self._getAhaNetwork()
+        return f'ssl://{host}:{port}?certname={user}@{network}'
 
-        if self.sockaddr is None or not isinstance(self.sockaddr, tuple):
-            return None
+    async def getAhaClone(self, iden):
+        lkey = s_common.uhex(iden)
+        byts = self.slab.get(lkey, db='aha:clones')
+        if byts is not None:
+            return s_msgpack.un(byts)
 
-        # FIXME this is the problematic use case
-        # FIXME may need to generate an AHA CA signed server cert for DNS NAME
+    async def addAhaClone(self, host, port=27492, conf=None):
 
-        # TODO this could eventually enumerate others via itself
-        netloc = self._getDnsName()
-        return (f'ssl://{netloc}:{self.sockaddr[1]}?certname={user}@{ahanetw}',)
+        if conf is None:
+            conf = {}
+
+        network = self._getAhaNetwork()
+
+        conf['mirror'] = self._getAhaUrl()
+
+        conf['dns:name'] = host
+        conf['aha:network'] = network
+        conf['dmon:listen'] = f'ssl://0.0.0.0:{port}?hostname={host}&ca={network}'
+
+        iden = s_common.guid()
+        clone = {
+            'iden': iden,
+            'host': host,
+            'port': port,
+            'conf': conf,
+        }
+        return await self._push('aha:clone:add', clone)
+
+    @s_nexus.Pusher.onPush('aha:clone:add')
+    async def _addAhaClone(self, clone):
+        iden = clone.get('iden')
+        lkey = s_common.uhex(iden)
+        self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
+        return self._getProvClientUrl(iden)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
         if not name:
             raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
-
-        ahaurls = self._getAhaUrls()
-        if ahaurls is None:
-            mesg = 'AHA server has no configured aha:urls.'
-            raise s_exc.NeedConfValu(mesg=mesg)
 
         self._reqProvListen()
 
@@ -1122,7 +1340,8 @@ class AhaCell(s_cell.Cell):
         if ahaadmin is not None: # pragma: no cover
             conf.setdefault('aha:admin', ahaadmin)
 
-        conf.setdefault('aha:user', 'root')
+        ahauser = conf.setdefault('aha:user', 'root')
+        ahaurls = await self.getAhaUrls(user=ahauser)
 
         conf['aha:network'] = netw
 
@@ -1147,11 +1366,6 @@ class AhaCell(s_cell.Cell):
 
         if peer:
             conf.setdefault('aha:leader', leader)
-
-        # allow user to win over leader
-        ahauser = conf.get('aha:user')
-        certname = f'{ahauser}@{netw}'
-        ahaurls = s_telepath.modurl(ahaurls, certname=certname)
 
         conf.setdefault('aha:registry', ahaurls)
 

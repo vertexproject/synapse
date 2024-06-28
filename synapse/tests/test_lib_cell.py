@@ -1811,9 +1811,7 @@ class CellTest(s_t_utils.SynTest):
         # ensure the mirror has a
         # backup the mirror
         # restore the backup
-        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
-            root = await aha.auth.getUserByName('root')
-            self.true(await root.tryPasswd('secret'))
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')
@@ -1896,9 +1894,7 @@ class CellTest(s_t_utils.SynTest):
         # ensure the mirror has a
         # backup the mirror
         # restore the backup
-        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
-            root = await aha.auth.getUserByName('root')
-            self.true(await root.tryPasswd('secret'))
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')

@@ -677,7 +677,7 @@ class TstEnv:
 
 class TstOutPut(s_output.OutPutStr):
 
-    def expect(self, substr, throw=True):
+    def expect(self, substr, throw=True, whitespace=True):
         '''
         Check if a string is present in the messages captured by the OutPutStr object.
 
@@ -689,6 +689,11 @@ class TstOutPut(s_output.OutPutStr):
             bool: True if the string is present; False if the string is not present and throw is False.
         '''
         outs = str(self)
+
+        if not whitespace:
+            outs = ' '.join(outs.split())
+            substr = ' '.join(outs.split())
+
         if outs.find(substr) == -1:
             if throw:
                 mesg = 'TestOutPut.expect(%s) not in %s' % (substr, outs)
@@ -1297,12 +1302,7 @@ class SynTest(unittest.TestCase):
         Returns:
             s_cortex.Cortex: A Cortex object.
         '''
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-
-        conf = copy.deepcopy(conf)
+        conf = self.getCellConf(conf=conf)
 
         mods = conf.get('modules')
 
@@ -1342,11 +1342,7 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def getTestJsonStor(self, dirn=None, conf=None):
 
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-        conf = copy.deepcopy(conf)
+        conf = self.getCellConf(conf=conf)
 
         with self.withNexusReplay():
             if dirn is not None:
@@ -1367,20 +1363,10 @@ class SynTest(unittest.TestCase):
         Returns:
             s_cryotank.CryoCell: Test cryocell.
         '''
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-        conf = copy.deepcopy(conf)
+        conf = self.getCellConf(conf=conf)
 
         with self.withNexusReplay():
-            if dirn is not None:
-                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                    yield cryo
-
-                return
-
-            with self.getTestDir() as dirn:
+            with self.mayTestDir(dirn) as dirn:
                 async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
                     yield cryo
 
@@ -1451,62 +1437,59 @@ class SynTest(unittest.TestCase):
 
                 yield core, prox, testsvc
 
+    @contextlib.contextmanager
+    def mayTestDir(self, dirn):
+
+        if dirn is not None:
+            yield dirn
+            return
+
+        with self.getTestDir() as dirn:
+            yield dirn
+
     @contextlib.asynccontextmanager
     async def getTestAha(self, conf=None, dirn=None):
 
         if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-        conf = copy.deepcopy(conf)
+            conf = {}
+
+        conf = s_msgpack.deepcopy(conf)
+
+        hasdmonlisn = 'dmon:listen' in conf
+        hasprovlisn = 'provision:listen' in conf
+
+        network = conf.setdefault('aha:network', 'synapse')
+        hostname = conf.setdefault('dns:name', '00.aha.loop.vertex.link')
+
+        if hostname:
+            conf.setdefault('provision:listen', f'ssl://0.0.0.0:0?hostname={hostname}')
+            conf.setdefault('dmon:listen', f'ssl://0.0.0.0:0?hostname={hostname}&ca={network}')
+
+        conf.setdefault('health:sysctl:checks', False)
 
         with self.withNexusReplay():
-            if dirn:
+            with self.mayTestDir(dirn) as dirn:
+
                 async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+
+                    mods = {}
+                    if not hasdmonlisn and hostname:
+                        mods['dmon:listen'] = f'ssl://0.0.0.0:{aha.sockaddr[1]}?hostname={hostname}&ca={network}'
+
+                    if not hasprovlisn and hostname:
+                        mods['provision:listen'] = f'ssl://0.0.0.0:{aha.provaddr[1]}?hostname={hostname}'
+
+                    if mods:
+                        aha.modCellConf(mods)
+
                     yield aha
-            else:
-                with self.getTestDir() as dirn:
-                    async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                        yield aha
 
-    @contextlib.asynccontextmanager
-    async def getTestAhaProv(self, conf=None, dirn=None):
-        '''
-        Get an Aha cell that is configured for provisioning on aha.loop.vertex.link.
-
-        Args:
-            conf: Optional configuration information for the Aha cell.
-            dirn: Optional path to create the Aha cell in.
-
-        Returns:
-            s_aha.AhaCell: The provisioned Aha cell.
-        '''
-        bconf = {
-            'aha:name': 'aha',
-            'aha:network': 'loop.vertex.link',
-            'provision:listen': 'ssl://aha.loop.vertex.link:0'
-        }
-
+    def getCellConf(self, conf=None):
         if conf is None:
-            conf = bconf
-        else:
-            for k, v in bconf.items():
-                conf.setdefault(k, v)
-
-        name = conf.get('aha:name')
-        netw = conf.get('aha:network')
-        dnsname = f'{name}.{netw}'
-
-        async with self.getTestAha(conf=conf, dirn=dirn) as aha:
-            addr, port = aha.provdmon.addr
-            # update the config to reflect the dynamically bound port
-            aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
-
-            # do this config ex-post-facto due to port binding...
-            host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
-            aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
-
-            yield aha
+            conf = {}
+        conf = s_msgpack.deepcopy(conf)
+        conf.setdefault('health:sysctl:checks', False)
+        return conf
 
     @contextlib.asynccontextmanager
     async def addSvcToAha(self, aha, svcname, ctor,
@@ -1528,36 +1511,18 @@ class SynTest(unittest.TestCase):
             The config data for the cell is pushed into dirn/cell.yaml.
             The cells are created with the ``ctor.anit()`` function.
         '''
+        svcfull = f'{svcname}.{aha._getAhaNetwork()}'
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-
+        conf = self.getCellConf(conf=conf)
         conf['aha:provision'] = onetime
 
-        logger.info(f'Adding {svcname}')
-
-        n = 1  # a simple svcname like "foo"
-        if len(svcname.split('.')) > 1:
-            n = 2  # A replica name like 00.foo
-        if provinfo and 'mirror' in provinfo:
-            n = 1  # A mirror like 01.foo with mirror: foo
-
-        waiter = aha.waiter(n, 'aha:svcadd')
-
-        if dirn:
+        waiter = aha.waiter(1, f'aha:svcadd:{svcfull}')
+        with self.mayTestDir(dirn) as dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn) as svc:
-                self.ge(len(await waiter.wait(timeout=12)), n)
+                self.true(await waiter.wait(timeout=12))
                 yield svc
-        else:
-            with self.getTestDir() as dirn:
-                s_common.yamlsave(conf, dirn, 'cell.yaml')
-                async with await ctor.anit(dirn) as svc:
-                    self.ge(len(await waiter.wait(timeout=12)), n)
-                    yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
         '''
@@ -2154,7 +2119,7 @@ class SynTest(unittest.TestCase):
             count += 1
         self.eq(x, count, msg=msg)
 
-    def stormIsInPrint(self, mesg, mesgs, deguid=False):
+    def stormIsInPrint(self, mesg, mesgs, deguid=False, whitespace=True):
         '''
         Check if a string is present in all of the print messages from a stream of storm messages.
 
@@ -2166,6 +2131,9 @@ class SynTest(unittest.TestCase):
             mesg = deguidify(mesg)
 
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+        if not whitespace:
+            mesg = ' '.join(mesg.split())
+            print_str = ' '.join(print_str.split())
 
         if deguid:
             print_str = deguidify(print_str)

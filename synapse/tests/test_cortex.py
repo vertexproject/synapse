@@ -7904,7 +7904,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.delHttpExtApi('notAGuid')
 
     async def test_cortex_query_offload(self):
-        async with self.getTestAhaProv() as aha:
+
+        async with self.getTestAha() as aha:
 
             async with await s_base.Base.anit() as base:
 
@@ -7927,11 +7928,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
 
                     msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
 
                     msgs = await core00.stormlist('cortex.storm.pool.set newp')
                     self.stormIsInErr(':// not found in [newp]', msgs)
@@ -8079,7 +8080,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core.synapse) removed from service pool (pool00.synapse)', msgs)
 
                     # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
