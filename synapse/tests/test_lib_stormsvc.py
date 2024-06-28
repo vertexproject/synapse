@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_test
 
@@ -796,56 +795,107 @@ class StormSvcTest(s_test.SynTest):
 
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
-                with self.getTestDir() as svcd:
-                    async with await ChangingService.anit(svcd) as chng:
-                        chng.dmon.share('chng', chng)
+                async with core.beholder() as wind:
+                    with self.getTestDir() as svcd:
+                        async with await ChangingService.anit(svcd) as chng:
+                            chng.dmon.share('chng', chng)
 
-                        root = await chng.auth.getUserByName('root')
-                        await root.setPasswd('root')
+                            root = await chng.auth.getUserByName('root')
+                            await root.setPasswd('root')
 
-                        info = await chng.dmon.listen('tcp://127.0.0.1:0/')
-                        host, port = info
+                            info = await chng.dmon.listen('tcp://127.0.0.1:0/')
+                            host, port = info
 
-                        curl = f'tcp://root:root@127.0.0.1:{port}/chng'
+                            curl = f'tcp://root:root@127.0.0.1:{port}/chng'
 
-                        await core.nodes(f'service.add chng {curl}')
-                        await core.nodes('$lib.service.wait(chng)')
+                            await core.nodes(f'service.add chng {curl}')
+                            await core.nodes('$lib.service.wait(chng)')
 
-                        self.nn(core.getStormCmd('oldcmd'))
-                        self.nn(core.getStormCmd('old.bar'))
-                        self.nn(core.getStormCmd('old.baz'))
-                        self.none(core.getStormCmd('new.baz'))
-                        self.none(core.getStormCmd('runtecho'))
-                        self.none(core.getStormCmd('newcmd'))
-                        self.isin('old', core.stormpkgs)
-                        self.isin('old.bar', core.stormmods)
-                        self.isin('old.baz', core.stormmods)
-                        pkg = await core.getStormPkg('old')
-                        self.eq(pkg.get('version'), '0.0.1')
+                            self.nn(core.getStormCmd('oldcmd'))
+                            self.nn(core.getStormCmd('old.bar'))
+                            self.nn(core.getStormCmd('old.baz'))
+                            self.none(core.getStormCmd('new.baz'))
+                            self.none(core.getStormCmd('runtecho'))
+                            self.none(core.getStormCmd('newcmd'))
+                            self.isin('old', core.stormpkgs)
+                            self.isin('old.bar', core.stormmods)
+                            self.isin('old.baz', core.stormmods)
+                            pkg = await core.getStormPkg('old')
+                            self.eq(pkg.get('version'), '0.0.1')
 
-                        waiter = core.waiter(1, 'stormsvc:client:unready')
+                            waiter = core.waiter(1, 'stormsvc:client:unready')
 
-                    self.true(await waiter.wait(10))
-                    async with await ChangingService.anit(svcd, {'updated': True}) as chng:
-                        chng.dmon.share('chng', chng)
-                        await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+                        self.true(await waiter.wait(10))
+                        async with await ChangingService.anit(svcd, {'updated': True}) as chng:
+                            chng.dmon.share('chng', chng)
+                            await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
 
-                        await core.nodes('$lib.service.wait(chng)')
+                            await core.nodes('$lib.service.wait(chng)')
 
-                        self.nn(core.getStormCmd('newcmd'))
-                        self.nn(core.getStormCmd('new.baz'))
-                        self.nn(core.getStormCmd('old.bar'))
-                        self.nn(core.getStormCmd('runtecho'))
-                        self.none(core.getStormCmd('oldcmd'))
-                        self.none(core.getStormCmd('old.baz'))
-                        self.isin('old', core.stormpkgs)
-                        self.isin('new', core.stormpkgs)
-                        self.isin('echo', core.stormmods)
-                        self.isin('old.bar', core.stormmods)
-                        self.isin('new.baz', core.stormmods)
-                        self.notin('old.baz', core.stormmods)
-                        pkg = await core.getStormPkg('old')
-                        self.eq(pkg.get('version'), '0.1.0')
+                            self.nn(core.getStormCmd('newcmd'))
+                            self.nn(core.getStormCmd('new.baz'))
+                            self.nn(core.getStormCmd('old.bar'))
+                            self.nn(core.getStormCmd('runtecho'))
+                            self.none(core.getStormCmd('oldcmd'))
+                            self.none(core.getStormCmd('old.baz'))
+                            self.isin('old', core.stormpkgs)
+                            self.isin('new', core.stormpkgs)
+                            self.isin('echo', core.stormmods)
+                            self.isin('old.bar', core.stormmods)
+                            self.isin('new.baz', core.stormmods)
+                            self.notin('old.baz', core.stormmods)
+                            pkg = await core.getStormPkg('old')
+                            self.eq(pkg.get('version'), '0.1.0')
+
+                        async with await ChangingService.anit(svcd, {'updated': False}) as chng:
+                            chng.dmon.share('chng', chng)
+                            await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+
+                            await core.nodes('$lib.service.wait(chng)')
+                            self.nn(core.getStormCmd('oldcmd'))
+                            self.nn(core.getStormCmd('old.bar'))
+                            self.nn(core.getStormCmd('old.baz'))
+                            self.none(core.getStormCmd('new.baz'))
+                            self.none(core.getStormCmd('runtecho'))
+                            self.none(core.getStormCmd('newcmd'))
+                            self.isin('old', core.stormpkgs)
+                            self.isin('old.bar', core.stormmods)
+                            self.isin('old.baz', core.stormmods)
+
+                            self.none(await core.getStormPkg('new'))
+
+                            pkg = await core.getStormPkg('old')
+                            self.eq(pkg.get('version'), '0.0.1')
+
+                            svcs = await core.callStorm('return($lib.service.list())')
+                            self.len(1, svcs)
+
+                        async with await ChangingService.anit(svcd, {'updated': True}) as chng:
+                            chng.dmon.share('chng', chng)
+                            await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+
+                            await core.nodes('$lib.service.wait(chng)')
+
+                    events = []
+                    async for m in wind:
+                        events.append(m)
+                        {'event': 'pkg:del', 'offset': 5, 'info': {'name': 'new'}}
+                        if m['event'] == 'pkg:del' and m['info'].get('name') == 'new':
+                            break
+
+                    self.len(11, events)
+                    self.eq('svc:set', events[-4]['event'])
+                    self.eq('chng', events[-4]['info']['name'])
+                    self.eq((0, 0, 1), events[-4]['info']['version'])
+
+                    self.eq('pkg:del', events[-3]['event'])
+                    self.eq('old', events[-3]['info']['name'])
+
+                    self.eq('pkg:add', events[-2]['event'])
+                    self.eq('old', events[-2]['info']['name'])
+
+                    self.eq('pkg:del', events[-1]['event'])
+                    self.eq('new', events[-1]['info']['name'])
 
             # This test verifies that storm commands loaded from a previously connected service are still available,
             # even if the service is not available now
@@ -888,7 +938,7 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
             scmd = f'$foo=8.8.8.8 | magic $foo --debug'
-            msgs = await core.stormlist(scmd)
+            msgs = await core.stbeormlist(scmd)
             self.stormIsInPrint('DEBUG: fooz=8.8.8.8', msgs)
             self.stormIsInPrint('my foo var is 8.8.8.8', msgs)
 
