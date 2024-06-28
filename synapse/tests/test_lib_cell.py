@@ -1245,7 +1245,8 @@ class CellTest(s_t_utils.SynTest):
 
         with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
             with self.getTestDir() as dirn:
-                async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                argv = [dirn, '--https', '0', '--telepath', 'tcp://0.0.0.0:0']
+                async with await s_cell.Cell.initFromArgv(argv) as cell:
                     await cell.auth.addUser('visi1')
                     await cell.auth.addUser('visi2')
                     await cell.auth.addUser('visi3')

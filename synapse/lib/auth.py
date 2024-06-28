@@ -293,9 +293,12 @@ class Auth(s_nexus.Pusher):
         if user is not None:
             if user.iden == iden:
                 return
-            raise s_exc.DupUserName(name=name)
+            raise s_exc.DupUserName(mesg=f'Duplicate username, {name=} already exists.', name=name)
 
         user = await self.reqUser(iden)
+
+        if user.iden == self.rootuser.iden:
+            raise s_exc.BadArg(mesg='Cannot change the name of the root user.')
 
         self.useridenbyname.set(name, iden)
         self.useridenbyname.delete(user.name)
@@ -321,7 +324,7 @@ class Auth(s_nexus.Pusher):
         if role is not None:
             if role.iden == iden:
                 return
-            raise s_exc.DupRoleName(name=name)
+            raise s_exc.DupRoleName(mesg=f'Duplicate role name, {name=} already exists.', name=name)
 
         role = await self.reqRole(iden)
 
@@ -520,7 +523,7 @@ class Auth(s_nexus.Pusher):
         self.checkUserLimit()
 
         if self.useridenbynamecache.get(name) is not None:
-            raise s_exc.DupUserName(name=name)
+            raise s_exc.DupUserName(mesg=f'Duplicate username, {name=} already exists.', name=name)
 
         if iden is None:
             iden = s_common.guid()
@@ -577,7 +580,7 @@ class Auth(s_nexus.Pusher):
 
     async def addRole(self, name, iden=None):
         if self.roleidenbynamecache.get(name) is not None:
-            raise s_exc.DupRoleName(name=name)
+            raise s_exc.DupRoleName(mesg=f'Duplicate role name, {name=} already exists.', name=name)
 
         if iden is None:
             iden = s_common.guid()
@@ -1281,6 +1284,10 @@ class User(Ruler):
     async def setAdmin(self, admin, gateiden=None, logged=True):
         if not isinstance(admin, bool):
             raise s_exc.BadArg(mesg='setAdmin requires a boolean')
+
+        if self.iden == self.auth.rootuser.iden and not admin:
+            raise s_exc.BadArg(mesg='Cannot remove admin from root user.')
+
         if logged:
             await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
         else:
@@ -1289,6 +1296,9 @@ class User(Ruler):
     async def setLocked(self, locked, logged=True):
         if not isinstance(locked, bool):
             raise s_exc.BadArg(mesg='setLocked requires a boolean')
+
+        if self.iden == self.auth.rootuser.iden and locked:
+            raise s_exc.BadArg(mesg='Cannot lock admin root user.')
 
         resetAttempts = (
             not locked and
@@ -1308,6 +1318,10 @@ class User(Ruler):
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
             raise s_exc.BadArg(mesg='setArchived requires a boolean')
+
+        if self.iden == self.auth.rootuser.iden and archived:
+            raise s_exc.BadArg(mesg='Cannot archive root user.')
+
         await self.auth.setUserInfo(self.iden, 'archived', archived)
         if archived:
             await self.setLocked(True)
@@ -1360,6 +1374,13 @@ class User(Ruler):
                     await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
 
                     if valu >= attempts:
+
+                        if self.iden == self.auth.rootuser.iden:
+                            mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}),. Cannot lock {self.name} user.'
+                            extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, }}
+                            logger.error(mesg, extra=extra)
+                            return False
+
                         await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
 
                         mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'

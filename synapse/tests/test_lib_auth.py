@@ -159,7 +159,7 @@ class AuthTest(s_test.SynTest):
 
             auth = core.auth
 
-            user = await auth.getUserByName('root')
+            user = await auth.addUser('lowuser')
             await user.setPasswd('secret')
 
             # tryPasswd
@@ -167,7 +167,7 @@ class AuthTest(s_test.SynTest):
             self.false(await user.tryPasswd('beep'))
             self.false(await user.tryPasswd(None))
 
-            # hive passwords must be non-zero length strings
+            # passwords must be non-zero length strings
             with self.raises(s_exc.BadArg):
                 await user.setPasswd('')
             with self.raises(s_exc.BadArg):
@@ -188,16 +188,16 @@ class AuthTest(s_test.SynTest):
             await user.setLocked(True)
 
             with self.raises(s_exc.AuthDeny):
-                await s_telepath.openurl(turl, user='root', passwd='secret')
+                await s_telepath.openurl(turl, user='lowuser', passwd='secret')
 
             await user.setLocked(False)
 
             # User can't access after being unlocked with wrong password
             with self.raises(s_exc.AuthDeny):
-                await s_telepath.openurl(turl, user='root', passwd='newpnewp')
+                await s_telepath.openurl(turl, user='lowuser', passwd='newpnewp')
 
             # User can access with correct password after being unlocked with
-            async with await s_telepath.openurl(turl, user='root', passwd='secret') as proxy:
+            async with await s_telepath.openurl(turl, user='lowuser', passwd='secret') as proxy:
                 await proxy.getCellInfo()
 
     async def test_authgate_perms(self):
@@ -377,7 +377,11 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setName(1)
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setName('secretroot')
+            with self.raises(s_exc.BadArg):
                 await core.auth.allrole.setName(1)
+            with self.raises(s_exc.BadArg):
+                await core.auth.allrole.setName('nobody')
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.rootuser.addRule('vi.si')
             with self.raises(s_exc.SchemaViolation):
@@ -387,9 +391,15 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setAdmin('lol')
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setAdmin(False)
+            with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setLocked('lol')
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setLocked(True)
+            with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setArchived('lol')
+            with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setArchived(True)
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.addRule((1, ('hehe', 'haha')))
             with self.raises(s_exc.SchemaViolation):
@@ -629,7 +639,7 @@ class AuthTest(s_test.SynTest):
 
         # No complexity rules
         policy = {'attempts': 1}
-        conf = {'auth:passwd:policy': policy}
+        conf = {'auth:passwd:policy': policy, 'auth:passwd': 'secret'}
         async with self.getTestCore(conf=conf) as core:
             auth = core.auth
             user = await auth.addUser('blackout@vertex.link')
@@ -637,6 +647,15 @@ class AuthTest(s_test.SynTest):
             self.true(await user.tryPasswd('hehe'))
             self.false(await user.tryPasswd('newp'))
             self.true(user.isLocked())
+            # Root user may track policy lockouts but will not be locked out by failures.
+            root = auth.rootuser
+            self.false(await root.tryPasswd('newp'))
+            self.false(await root.tryPasswd('newpx'))
+            self.eq(root.info.get('policy:attempts'), 2)
+            self.false(root.isLocked())
+            # valid passwod auth resets root atttempt counter.
+            self.true(await root.tryPasswd('secret'))
+            self.eq(root.info.get('policy:attempts'), 0)
 
         # auth:passwd does not interact with auth:passwd:policy
         with self.getTestDir() as dirn:
