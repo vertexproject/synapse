@@ -1278,6 +1278,10 @@ class User(Ruler):
     async def setAdmin(self, admin, gateiden=None, logged=True):
         if not isinstance(admin, bool):
             raise s_exc.BadArg(mesg='setAdmin requires a boolean')
+
+        if self == self.auth.rootuser and not admin:
+            raise s_exc.BadArg(mesg='Cannot remove admin from root user.')
+
         if logged:
             await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
         else:
@@ -1286,6 +1290,10 @@ class User(Ruler):
     async def setLocked(self, locked, logged=True):
         if not isinstance(locked, bool):
             raise s_exc.BadArg(mesg='setLocked requires a boolean')
+
+        if self == self.auth.rootuser and locked:
+            raise s_exc.BadArg(mesg='Cannot lock admin root user.')
+
         if logged:
             await self.auth.setUserInfo(self.iden, 'locked', locked)
         else:
@@ -1294,6 +1302,10 @@ class User(Ruler):
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
             raise s_exc.BadArg(mesg='setArchived requires a boolean')
+
+        if self == self.auth.rootuser and archived:
+            raise s_exc.BadArg(mesg='Cannot archive root user.')
+
         await self.auth.setUserInfo(self.iden, 'archived', archived)
         if archived:
             await self.setLocked(True)

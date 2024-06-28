@@ -158,7 +158,7 @@ class AuthTest(s_test.SynTest):
 
             auth = core.auth
 
-            user = await auth.getUserByName('root')
+            user = await auth.addUser('lowuser')
             await user.setPasswd('secret')
 
             # tryPasswd
@@ -166,7 +166,7 @@ class AuthTest(s_test.SynTest):
             self.false(await user.tryPasswd('beep'))
             self.false(await user.tryPasswd(None))
 
-            # hive passwords must be non-zero length strings
+            # passwords must be non-zero length strings
             with self.raises(s_exc.BadArg):
                 await user.setPasswd('')
             with self.raises(s_exc.BadArg):
@@ -187,16 +187,16 @@ class AuthTest(s_test.SynTest):
             await user.setLocked(True)
 
             with self.raises(s_exc.AuthDeny):
-                await s_telepath.openurl(turl, user='root', passwd='secret')
+                await s_telepath.openurl(turl, user='lowuser', passwd='secret')
 
             await user.setLocked(False)
 
             # User can't access after being unlocked with wrong password
             with self.raises(s_exc.AuthDeny):
-                await s_telepath.openurl(turl, user='root', passwd='newpnewp')
+                await s_telepath.openurl(turl, user='lowuser', passwd='newpnewp')
 
             # User can access with correct password after being unlocked with
-            async with await s_telepath.openurl(turl, user='root', passwd='secret') as proxy:
+            async with await s_telepath.openurl(turl, user='lowuser', passwd='secret') as proxy:
                 await proxy.getCellInfo()
 
     async def test_authgate_perms(self):
@@ -386,9 +386,15 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setAdmin('lol')
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setAdmin(False)
+            with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setLocked('lol')
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setLocked(True)
+            with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setArchived('lol')
+            with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setArchived(True)
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.addRule((1, ('hehe', 'haha')))
             with self.raises(s_exc.SchemaViolation):
