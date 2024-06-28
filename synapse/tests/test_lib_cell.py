@@ -2045,6 +2045,23 @@ class CellTest(s_t_utils.SynTest):
                 self.true(await user.tryPasswd('hehe'))
                 self.false(await user.tryPasswd('secret1234'))
 
+        # Password policies do not prevent live migration of an existing password
+        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
+            policy = {'complexity': {'length': 5}}
+            conf = {'auth:passwd:policy': policy}
+            async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:  # type: s_cell.Cell
+                root = await cell.auth.getUserByName('root')
+                shadow = root.info.get('passwd')
+                self.isinstance(shadow, tuple)
+                self.len(2, shadow)
+
+                # Old password works and is migrated to the new password scheme
+                self.false(await root.tryPasswd('newp'))
+                self.true(await root.tryPasswd('root'))
+                shadow = root.info.get('passwd')
+                self.isinstance(shadow, dict)
+                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
+
         # Pre-nexus changes of root via auth:passwd work too.
         with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
             conf = {'auth:passwd': 'supersecretpassword'}
