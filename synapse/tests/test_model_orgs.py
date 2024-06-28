@@ -24,6 +24,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :sophistication=high
                     :reporter=$lib.gen.orgByName(vertex)
                     :reporter:name=vertex
+                    :ext:id=Foo
                 ]
             ''')
             self.len(1, nodes)
@@ -32,6 +33,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
+            self.eq('Foo', nodes[0].get('ext:id'))
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
@@ -93,6 +95,7 @@ class OuModelTest(s_t_utils.SynTest):
             :techniques=$p.techniques :sophistication=$p.sophistication :tag=$p.tag
             :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
             :mitre:attack:campaign=$p."mitre:attack:campaign"
+            :ext:id=Foo
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': camp, 'p': props}})
             self.len(1, nodes)
@@ -106,6 +109,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('names'), ('bar', 'foo'))
             self.eq(node.get('type'), 'MyType')
             self.eq(node.get('desc'), 'MyDesc')
+            self.eq(node.get('ext:id'), 'Foo')
             self.eq(node.get('success'), 1)
             self.eq(node.get('sophistication'), 40)
             self.eq(node.get('camptype'), 'get.pizza.')
@@ -234,6 +238,7 @@ class OuModelTest(s_t_utils.SynTest):
                 :logo=$p.logo :alias=$p.alias :phone=$p.phone :sic=$p.sic :naics=$p.naics :url=$p.url
                 :us:cage=$p."us:cage" :founded=$p.founded :dissolved=$p.dissolved
                 :techniques=$p.techniques :goals=$p.goals
+                :ext:id=Foo
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid0, 'p': props}})
             self.len(1, nodes)
@@ -254,6 +259,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('dissolved'), 1546300800000)
             self.eq(node.get('techniques'), tuple(sorted(teqs)))
             self.eq(node.get('goals'), (goal,))
+            self.eq(node.get('ext:id'), 'Foo')
             self.nn(node.get('logo'))
 
             await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
@@ -369,19 +375,25 @@ class OuModelTest(s_t_utils.SynTest):
             props = {
                 'org': guid0,
                 'name': 'arrowcon 2018',
+                'names': ('Arrow Conference 2018', 'ArrCon18', 'ArrCon18'),
                 'base': 'arrowcon',
                 'start': '20180301',
                 'end': '20180303',
                 'place': place0,
                 'url': 'http://arrowcon.org/2018',
             }
-            q = '''[(ou:conference=$valu :org=$p.org :name=$p.name :base=$p.base
-                :start=$p.start :end=$p.end :place=$p.place :url=$p.url)]'''
+            q = '''[
+                ou:conference=$valu
+                    :org=$p.org :name=$p.name :names=$p.names
+                    :base=$p.base :start=$p.start :end=$p.end
+                    :place=$p.place :url=$p.url
+            ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], c0)
             self.eq(node.get('name'), 'arrowcon 2018')
+            self.eq(node.get('names'), ('arrcon18', 'arrow conference 2018',))
             self.eq(node.get('base'), 'arrowcon')
             self.eq(node.get('org'), guid0)
             self.eq(node.get('start'), 1519862400000)

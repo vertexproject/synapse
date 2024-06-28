@@ -81,8 +81,19 @@ class StormCliTest(s_test.SynTest):
             lurl = core.getLocalUrl()
 
             outp = s_output.OutPutStr()
-            await s_t_storm.main((lurl, '$lib.print(woot)'), outp=outp)
+            ret = await s_t_storm.main((lurl, '$lib.print(woot)'), outp=outp)
+            self.eq(ret, 0)
             self.isin('woot', str(outp))
+
+            outp = s_output.OutPutStr()
+            ret = await s_t_storm.main((lurl, '| | |'), outp=outp)
+            self.eq(ret, 1)
+            self.isin('Syntax Error', str(outp))
+
+            outp = s_output.OutPutStr()
+            ret = await s_t_storm.main((lurl, 'inet:asn=name'), outp=outp)
+            self.eq(ret, 1)
+            self.isin('ERROR:', str(outp))
 
             outp = s_output.OutPutStr()
             await s_t_storm.main((lurl, f'!runfile --help'), outp=outp)
@@ -95,16 +106,19 @@ class StormCliTest(s_test.SynTest):
                     fd.write(b'$lib.print(woot)')
 
                 outp = s_output.OutPutStr()
-                await s_t_storm.main((lurl, f'!runfile {path}'), outp=outp)
+                ret = await s_t_storm.main((lurl, f'!runfile {path}'), outp=outp)
+                self.eq(ret, 0)
                 self.isin(f'running storm file: {path}', str(outp))
                 self.isin('woot', str(outp))
 
                 outp = s_output.OutPutStr()
-                await s_t_storm.main((lurl, f'!runfile /newp.storm'), outp=outp)
+                ret = await s_t_storm.main((lurl, f'!runfile /newp.storm'), outp=outp)
+                self.eq(ret, 1)
                 self.isin(f'no such file: /newp.storm', str(outp))
 
                 outp = s_output.OutPutStr()
-                await s_t_storm.main((lurl, f'!pushfile /newp'), outp=outp)
+                ret = await s_t_storm.main((lurl, f'!pushfile /newp'), outp=outp)
+                self.eq(ret, 1)
                 self.isin(f'no such file: /newp', str(outp))
 
                 outp = s_output.OutPutStr()
@@ -116,7 +130,8 @@ class StormCliTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 path = os.path.join(dirn, 'bar.storm')
-                await s_t_storm.main((lurl, f'!pullfile c00adfcc316f8b00772cdbce2505b9ea539d74f42861801eceb1017a44344ed3 {path}'), outp=outp)
+                ret = await s_t_storm.main((lurl, f'!pullfile c00adfcc316f8b00772cdbce2505b9ea539d74f42861801eceb1017a44344ed3 {path}'), outp=outp)
+                self.eq(ret, 0)
 
                 text = str(outp)
                 self.isin('downloading sha256: c00adfcc316f8b00772cdbce2505b9ea539d74f42861801eceb1017a44344ed3', text)
@@ -126,9 +141,30 @@ class StormCliTest(s_test.SynTest):
                     self.isin('woot', fd.read().decode())
 
                 outp = s_output.OutPutStr()
-                await s_t_storm.main((lurl, f'!pullfile c11adfcc316f8b00772cdbce2505b9ea539d74f42861801eceb1017a44344ed3 {path}'), outp=outp)
+                ret = await s_t_storm.main((lurl, f'!pullfile c11adfcc316f8b00772cdbce2505b9ea539d74f42861801eceb1017a44344ed3 {path}'), outp=outp)
+                self.eq(ret, 1)
                 text = str(outp)
                 self.isin('Axon does not contain the requested file.', text)
+
+                path = os.path.join(dirn, 'badsyntax.storm')
+                with open(path, 'wb') as fd:
+                    fd.write(b'| | |')
+
+                outp = s_output.OutPutStr()
+                ret = await s_t_storm.main((lurl, f'!runfile {path}'), outp=outp)
+                self.eq(ret, 1)
+                self.isin(f'running storm file: {path}', str(outp))
+                self.isin('Syntax Error', str(outp))
+
+                path = os.path.join(dirn, 'badquery.storm')
+                with open(path, 'wb') as fd:
+                    fd.write(b'inet:asn=newp')
+
+                outp = s_output.OutPutStr()
+                ret = await s_t_storm.main((lurl, f'!runfile {path}'), outp=outp)
+                self.eq(ret, 1)
+                self.isin(f'running storm file: {path}', str(outp))
+                self.isin('ERROR:', str(outp))
 
                 await scli.runCmdLine('[test:str=foo +#foo +#bar +#baz]')
                 await scli.runCmdLine('[test:str=bar +#foo +#bar +#baz]')
@@ -160,7 +196,8 @@ class StormCliTest(s_test.SynTest):
 
                 path = os.path.join(dirn, 'export3.nodes')
                 q = f'!export {path} {{ test:str }} --no-tags'
-                await s_t_storm.main((lurl, q), outp=outp)
+                ret = await s_t_storm.main((lurl, q), outp=outp)
+                self.eq(ret, 0)
                 text = str(outp)
                 self.isin(f'saved 2 nodes to: {path}', text)
 
@@ -171,7 +208,8 @@ class StormCliTest(s_test.SynTest):
                     for pode in podes:
                         self.eq({}, pode[1]['tags'])
 
-                await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
+                ret = await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
+                self.eq(ret, 1)
                 text = str(outp)
                 self.isin('No property named test:newp.', text)
 

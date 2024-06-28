@@ -57,9 +57,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 testgenr = slab.scanKeys(db=testdb)
                 dupsgenr = slab.scanKeys(db=dupsdb)
+                nodupsgenr = slab.scanKeys(db=dupsdb, nodup=True)
 
                 testlist = [next(testgenr)]
                 dupslist = [next(dupsgenr)]
+                nodupslist = [next(nodupsgenr)]
 
                 slab.put(b'derp', b'derp', db=editdb)
 
@@ -68,16 +70,25 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 testlist.extend(testgenr)
                 dupslist.extend(dupsgenr)
+                nodupslist.extend(nodupsgenr)
 
                 self.eq(testlist, (b'hehe', b'hoho'))
                 self.eq(dupslist, (b'hehe', b'hehe', b'hoho'))
+                self.eq(nodupslist, (b'hehe', b'hoho'))
+
+                self.eq([b'hehe', b'hehe', b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb)))
+                self.eq([b'hehe', b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb, nodup=True)))
+
+                self.eq(3, await slab.countByPref(b'h', db=dupsdb))
 
                 # now lets delete the key we're on
                 testgenr = slab.scanKeys(db=testdb)
                 dupsgenr = slab.scanKeys(db=testdb)
+                nodupsgenr = slab.scanKeys(db=testdb, nodup=True)
 
                 testlist = [next(testgenr)]
                 dupslist = [next(dupsgenr)]
+                nodupslist = [next(nodupsgenr)]
 
                 slab.delete(b'hehe', db=testdb)
                 for lkey, lval in slab.scanByDups(b'hehe', db=dupsdb):
@@ -87,9 +98,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 testlist.extend(testgenr)
                 dupslist.extend(dupsgenr)
+                nodupslist.extend(nodupsgenr)
 
                 self.eq(testlist, (b'hehe', b'hoho'))
                 self.eq(dupslist, (b'hehe', b'hoho'))
+                self.eq(nodupslist, (b'hehe', b'hoho'))
 
                 # by pref
                 self.eq([b'hoho'], list(slab.scanKeysByPref(b'h', db=dupsdb)))

@@ -1253,18 +1253,18 @@ class Slab(s_base.Base):
         finally:
             self._relXactForReading()
 
-    def scanKeys(self, db=None):
+    def scanKeys(self, db=None, nodup=False):
 
-        with ScanKeys(self, db) as scan:
+        with ScanKeys(self, db, nodup=nodup) as scan:
 
             if not scan.first():
                 return
 
             yield from scan.iternext()
 
-    def scanKeysByPref(self, byts, db=None):
+    def scanKeysByPref(self, byts, db=None, nodup=False):
 
-        with ScanKeys(self, db) as scan:
+        with ScanKeys(self, db, nodup=nodup) as scan:
 
             if not scan.set_range(byts):
                 return
@@ -1283,7 +1283,7 @@ class Slab(s_base.Base):
         '''
         count = 0
         size = len(byts)
-        with ScanKeys(self, db) as scan:
+        with ScanKeys(self, db, nodup=True) as scan:
 
             if not scan.set_range(byts):
                 return 0
@@ -1293,7 +1293,7 @@ class Slab(s_base.Base):
                 if lkey[:size] != byts:
                     return count
 
-                count += 1
+                count += scan.curs.count()
                 if maxsize is not None and maxsize == count:
                     return count
 
@@ -1768,14 +1768,21 @@ class ScanKeys(Scan):
     An iterator over the keys of the database.  If the database is dupsort, a key with multiple values with be yielded
     once for each value.
     '''
+    def __init__(self, slab, db, nodup=False):
+        Scan.__init__(self, slab, db)
+        self.nodup = nodup
+
     def iterfunc(self):
         if self.dupsort:
-            return Scan.iterfunc(self)
+            if self.nodup:
+                return self.curs.iternext_nodup(keys=True, values=False)
+            else:
+                return Scan.iterfunc(self)
 
         return self.curs.iternext(keys=True, values=False)
 
     def resume(self):
-        if self.dupsort:
+        if self.dupsort and not self.nodup:
             return Scan.resume(self)
 
         return self.curs.set_range(self.atitem)
@@ -1784,13 +1791,13 @@ class ScanKeys(Scan):
         '''
         Returns if the cursor is at the value in atitem
         '''
-        if self.dupsort:
+        if self.dupsort and not self.nodup:
             return Scan.isatitem(self)
 
         return self.atitem == self.curs.key()
 
     def iternext(self):
-        if self.dupsort:
+        if self.dupsort and not self.nodup:
             yield from (item[0] for item in Scan.iternext(self))
             return
 

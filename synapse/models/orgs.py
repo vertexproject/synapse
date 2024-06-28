@@ -560,6 +560,9 @@ class OuModule(s_module.CoreModule):
 
                     ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
                         'doc': 'A mapping to a MITRE ATT&CK campaign if applicable.'}),
+
+                    ('ext:id', ('str', {'strip': True}), {
+                        'doc': 'An external identifier for the campaign.'}),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {
@@ -594,23 +597,34 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Title or designation for the contributed personnel.'}),
                 )),
                 ('ou:technique', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The normalized name of the technique.'}),
+
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
+
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the technique.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the technique.'}),
+
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+
                     ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
                         'doc': 'A mapping to a MITRE ATT&CK technique if applicable.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the technique.'}),
+
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the technique.'}),
+
+                    ('ext:id', ('str', {'strip': True}), {
+                        'doc': 'An external identifier for the technique.'}),
                 )),
                 ('ou:technique:taxonomy', {}, ()),
                 ('ou:orgtype', {}, ()),
@@ -699,6 +713,9 @@ class OuModule(s_module.CoreModule):
 
                     ('tag', ('syn:tag', {}), {
                         'doc': 'A base tag used to encode assessments made by the organization.'}),
+
+                    ('ext:id', ('str', {'strip': True}), {
+                        'doc': 'An external identifier for the organization.'}),
                 )),
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
@@ -1009,8 +1026,11 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The full name of the conference.',
-                        'ex': 'decfon 2017',
-                    }),
+                        'ex': 'defcon 2017'}),
+
+                    ('names', ('array', {'type': 'str', 'typeopts': {'lower': True}, 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate names for the conference.'}),
+
                     ('desc', ('str', {'lower': True}), {
                         'doc': 'A description of the conference.',
                         'ex': 'annual cybersecurity conference',

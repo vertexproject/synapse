@@ -4,12 +4,14 @@ import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
+import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tools.backup as s_tools_backup
 
@@ -1017,6 +1019,20 @@ class LayerTest(s_t_utils.SynTest):
                 if offs == layr.nodeeditlog.index() - 1:
                     break
 
+            fwdedits = [item async for item in core0.getLayer().syncNodeEdits(0, wait=False)]
+            revedits = [item async for item in core0.getLayer().syncNodeEdits(0xffffffff, wait=False, reverse=True)]
+
+            self.eq(fwdedits, list(reversed(revedits)))
+
+            fwdedit = await core0.callStorm('for $item in $lib.layer.get().edits() { return($item) }')
+            revedit = await core0.callStorm('for $item in $lib.layer.get().edits(reverse=(true)) { return($item) }')
+
+            self.nn(await core0.callStorm('return($lib.layer.get().edited())'))
+
+            self.ne(fwdedit, revedit)
+            self.eq(fwdedits[0], fwdedit)
+            self.eq(revedits[0], revedit)
+
             async with self.getTestCore() as core1:
 
                 url = core1.getLocalUrl('*/layer')
@@ -1904,8 +1920,23 @@ class LayerTest(s_t_utils.SynTest):
             async def __anit__(self, dirn=None, size=1, cell=None):
                 await super().__anit__(dirn=dirn, size=size, cell=cell)
 
+        seen = set()
+        def confirm(self, perm, default=None, gateiden=None):
+            seen.add(perm)
+            return True
+
+        def confirmPropSet(self, user, prop, layriden):
+            seen.add(prop.setperms[0])
+            seen.add(prop.setperms[1])
+
+        def confirmPropDel(self, user, prop, layriden):
+            seen.add(prop.delperms[0])
+            seen.add(prop.delperms[1])
+
         with mock.patch('synapse.lib.spooled.Dict', Dict):
             async with self.getTestCore() as core:
+
+                user = await core.auth.addUser('blackout@vertex.link')
 
                 viewiden = await core.callStorm('''
                     $lyr = $lib.layer.add()
@@ -1932,28 +1963,49 @@ class LayerTest(s_t_utils.SynTest):
                     $node.data.set(foo, bar)
                 ''', opts=opts)
 
-                perms = [perm async for perm in layr.iterLayerAddPerms()]
-                self.eq({
+                parent = core.view.layers[0]
+
+                seen.clear()
+                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                            await layr.confirmLayerEditPerms(user, parent.iden)
+
+                self.eq(seen, {
+                    # Node add
                     ('node', 'add', 'syn:tag'),
                     ('node', 'add', 'test:str'),
 
+                    # Old style prop set
                     ('node', 'prop', 'set', 'test:str:hehe'),
-                    ('node', 'prop', 'set', 'test:str:.created'),
+                    ('node', 'prop', 'set', 'test:str.created'),
 
                     ('node', 'prop', 'set', 'syn:tag:up'),
                     ('node', 'prop', 'set', 'syn:tag:base'),
                     ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag:.created'),
+                    ('node', 'prop', 'set', 'syn:tag.created'),
 
+                    # New style prop set
+                    ('node', 'prop', 'set', 'test:str', 'hehe'),
+                    ('node', 'prop', 'set', 'test:str', '.created'),
+
+                    ('node', 'prop', 'set', 'syn:tag', 'up'),
+                    ('node', 'prop', 'set', 'syn:tag', 'base'),
+                    ('node', 'prop', 'set', 'syn:tag', 'depth'),
+                    ('node', 'prop', 'set', 'syn:tag', '.created'),
+
+                    # Tag/tagprop add
                     ('node', 'tag', 'add', 'foo'),
                     ('node', 'tag', 'add', 'bar'),
                     ('node', 'tag', 'add', 'foo', 'bar'),
                     ('node', 'tag', 'add', 'foo', 'bar', 'baz'),
 
+                    # Nodedata set
                     ('node', 'data', 'set', 'foo'),
 
+                    # Edge add
                     ('node', 'edge', 'add', 'refs'),
-                }, set(perms))
+                })
 
                 await core.nodes('''
                     test:str=foo
@@ -1962,35 +2014,120 @@ class LayerTest(s_t_utils.SynTest):
                     | delnode
                 ''', opts=opts)
 
-                perms = [perm async for perm in layr.iterLayerAddPerms()]
-                self.eq({
+                seen.clear()
+                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                            await layr.confirmLayerEditPerms(user, parent.iden)
+
+                self.eq(seen, {
+                    # Node add
                     ('node', 'add', 'syn:tag'),
                     ('node', 'add', 'test:str'),
 
-                    ('node', 'prop', 'set', 'test:str:.created'),
+                    # Old style prop set
+                    ('node', 'prop', 'set', 'test:str.created'),
 
                     ('node', 'prop', 'set', 'syn:tag:up'),
                     ('node', 'prop', 'set', 'syn:tag:base'),
                     ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag:.created'),
+                    ('node', 'prop', 'set', 'syn:tag.created'),
 
+                    # New style prop set
+                    ('node', 'prop', 'set', 'test:str', '.created'),
+
+                    ('node', 'prop', 'set', 'syn:tag', 'up'),
+                    ('node', 'prop', 'set', 'syn:tag', 'base'),
+                    ('node', 'prop', 'set', 'syn:tag', 'depth'),
+                    ('node', 'prop', 'set', 'syn:tag', '.created'),
+
+                    # Tag/tagprop add
                     ('node', 'tag', 'add', 'foo', 'bar'),
-                }, set(perms))
+                })
 
-                perms = [perm async for perm in layr.iterLayerDelPerms()]
-                self.eq({
+                seen.clear()
+                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                            await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
+
+                self.eq(seen, {
+                    # Node del
                     ('node', 'del', 'syn:tag'),
                     ('node', 'del', 'test:str'),
 
-                    ('node', 'prop', 'del', 'test:str:.created'),
+                    # Old style prop del
+                    ('node', 'prop', 'del', 'test:str.created'),
 
                     ('node', 'prop', 'del', 'syn:tag:up'),
                     ('node', 'prop', 'del', 'syn:tag:base'),
                     ('node', 'prop', 'del', 'syn:tag:depth'),
-                    ('node', 'prop', 'del', 'syn:tag:.created'),
+                    ('node', 'prop', 'del', 'syn:tag.created'),
 
+                    # New style prop del
+                    ('node', 'prop', 'del', 'test:str', '.created'),
+
+                    ('node', 'prop', 'del', 'syn:tag', 'up'),
+                    ('node', 'prop', 'del', 'syn:tag', 'base'),
+                    ('node', 'prop', 'del', 'syn:tag', 'depth'),
+                    ('node', 'prop', 'del', 'syn:tag', '.created'),
+
+                    # Tag/tagprop del
                     ('node', 'tag', 'del', 'foo', 'bar'),
-                }, set(perms))
+                })
+
+        async with self.getTestCore() as core:
+
+            user = await core.auth.addUser('blackout@vertex.link')
+            await user.addRule((False, ('node', 'edge', 'add', 'haha')))
+            await user.addRule((False, ('node', 'data', 'set', 'hehe')))
+            await user.addRule((True, ('node',)))
+
+            viewiden = await core.callStorm('''
+                $lyr = $lib.layer.add()
+                $view = $lib.view.add(($lyr.iden,))
+                return($view.iden)
+            ''')
+
+            layr = core.views[viewiden].layers[0]
+
+            opts = {'view': viewiden}
+
+            await core.nodes('[ test:str=bar +#foo.bar ]', opts=opts)
+
+            await core.nodes('''
+                [ test:str=foo
+                    :hehe=bar
+                    +#foo.bar.baz
+                    <(refs)+ { test:str=bar }
+                ]
+                $node.data.set(foo, bar)
+            ''', opts=opts)
+
+            parent = core.view.layers[0]
+
+            seen.clear()
+            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                        await layr.confirmLayerEditPerms(user, parent.iden)
+
+            self.eq(seen, {
+                # node.edge.add.* and node.data.set.* because of the deny rules
+                ('node', 'edge', 'add', 'refs'),
+                ('node', 'data', 'set', 'foo'),
+            })
+
+            await user.delRule((False, ('node', 'edge', 'add', 'haha')))
+            await user.delRule((False, ('node', 'data', 'set', 'hehe')))
+
+            seen.clear()
+            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
+                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
+                        await layr.confirmLayerEditPerms(user, parent.iden)
+
+            self.eq(seen, set())
 
     async def test_layer_v9(self):
         async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:

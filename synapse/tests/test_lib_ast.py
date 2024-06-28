@@ -356,6 +356,27 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('.seen'))
 
+            # array var filter
+            q = '''
+                [(test:arrayprop=* :strs=(neato, burrito))
+                 (test:arrayprop=* :ints=(1,2,3,4,5))] |
+                 $pvar = "strs"
+                 +:$pvar*[=neato]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(('neato', 'burrito'), nodes[0].get('strs'))
+
+            q = '$pvar=ints $avar=4 test:arrayprop +:$pvar*[=$avar]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq((1, 2, 3, 4, 5), nodes[0].get('ints'))
+
+            q = '$pvar=strs $avar=burr test:arrayprop +:$pvar*[^=$avar]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(('neato', 'burrito'), nodes[0].get('strs'))
+
             # Sad paths
             q = '[test:str=newp -.newp]'
             await self.asyncraises(s_exc.NoSuchProp, core.nodes(q))
@@ -1190,8 +1211,9 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :name={} ]')
 
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+            self.eq(cm.exception.get('text'), '[it:dev:str=hehe it:dev:str=haha]')
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')

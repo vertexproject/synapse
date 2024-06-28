@@ -175,22 +175,36 @@ class BizModule(s_module.CoreModule):
                     }),
                 )),
                 ('biz:listing', {}, (
+
                     ('seller', ('ps:contact', {}), {
                         'doc': 'The contact information for the seller.'}),
+
                     ('product', ('biz:product', {}), {
                         'doc': 'The product being offered.'}),
+
                     ('service', ('biz:service', {}), {
                         'doc': 'The service being offered.'}),
+
                     ('current', ('bool', {}), {
                         'doc': 'Set to true if the offer is still current.'}),
+
                     ('time', ('time', {}), {
                         'doc': 'The first known offering of this product/service by the organization for the asking price.'}),
+
                     ('expires', ('time', {}), {
                         'doc': 'Set if the offer has a known expiration date.'}),
+
                     ('price', ('econ:price', {}), {
                         'doc': 'The asking price of the product or service.'}),
+
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency of the asking price.'}),
+
+                    ('count:total', ('int', {'min': 0}), {
+                        'doc': 'The number of instances for sale.'}),
+
+                    ('count:remaining', ('int', {'min': 0}), {
+                        'doc': 'The current remaining number of instances for sale.'}),
                 )),
                 ('biz:service', {}, (
                     ('provider', ('ps:contact', {}), {

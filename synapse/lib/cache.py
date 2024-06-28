@@ -66,7 +66,7 @@ class FixedCache:
 
     def get(self, key):
         if self.iscorocall:
-            raise s_exc.BadArg('cache was initialized with coroutine.  Must use aget')
+            raise s_exc.BadArg(mesg='cache was initialized with coroutine.  Must use aget')
 
         valu = self.cache.get(key, s_common.novalu)
         if valu is not s_common.novalu:
@@ -81,7 +81,7 @@ class FixedCache:
 
     async def aget(self, key):
         if not self.iscorocall:
-            raise s_exc.BadOperArg('cache was initialized with non coroutine.  Must use get')
+            raise s_exc.BadOperArg(mesg='cache was initialized with non coroutine.  Must use get')
 
         valu = self.cache.get(key, s_common.novalu)
         if valu is not s_common.novalu:
