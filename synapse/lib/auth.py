@@ -1,3 +1,4 @@
+import string
 import logging
 import dataclasses
 
@@ -8,7 +9,6 @@ import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
-import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
@@ -118,12 +118,14 @@ class Auth(s_nexus.Pusher):
 
     '''
 
-    async def __anit__(self, slab, dbname, pref='', nexsroot=None, seed=None, maxusers=0):
+    async def __anit__(self, slab, dbname, pref='', nexsroot=None, seed=None, maxusers=0, policy=None):
         '''
         Args:
             slab (s_lmdb.Slab): The slab to use for persistent storage for auth
             dbname (str): The name of the db to use in the slab
         '''
+        if policy:
+            s_schemas.reqValidPasswdPolicy(policy)
         # Derive an iden from the db name
         iden = f'auth:{dbname}'
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
@@ -137,6 +139,7 @@ class Auth(s_nexus.Pusher):
             seed = s_common.guid()
 
         self.maxusers = maxusers
+        self.policy = policy
 
         self.userdefs = self.stor.getSubKeyVal('user:info:')
         self.useridenbyname = self.stor.getSubKeyVal('user:name:')
@@ -533,14 +536,14 @@ class Auth(s_nexus.Pusher):
 
         user = self.user(iden)
 
-        if passwd is not None:
-            await user.setPasswd(passwd)
+        # Everyone's a member of 'all'
+        await user.grant(self.allrole.iden)
 
         if email is not None:
             await self.setUserInfo(user.iden, 'email', email)
 
-        # Everyone's a member of 'all'
-        await user.grant(self.allrole.iden)
+        if passwd is not None:
+            await user.setPasswd(passwd)
 
         return user
 
@@ -1286,10 +1289,21 @@ class User(Ruler):
     async def setLocked(self, locked, logged=True):
         if not isinstance(locked, bool):
             raise s_exc.BadArg(mesg='setLocked requires a boolean')
+
+        resetAttempts = (
+            not locked and
+            self.info.get('policy:attempts', 0) > 0
+        )
+
         if logged:
             await self.auth.setUserInfo(self.iden, 'locked', locked)
+            if resetAttempts:
+                await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
+
         else:
             await self.auth._hndlsetUserInfo(self.iden, 'locked', locked, logged=logged)
+            if resetAttempts:
+                await self.auth._hndlsetUserInfo(self.iden, 'policy:attempts', 0)
 
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
@@ -1298,9 +1312,9 @@ class User(Ruler):
         if archived:
             await self.setLocked(True)
 
-    async def tryPasswd(self, passwd, nexs=True):
+    async def tryPasswd(self, passwd, nexs=True, enforce_policy=True):
 
-        if self.info.get('locked', False):
+        if self.isLocked():
             return False
 
         if passwd is None:
@@ -1332,21 +1346,142 @@ class User(Ruler):
             return False
 
         if isinstance(shadow, dict):
-            return await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
+            result = await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
+            if self.auth.policy and (attempts := self.auth.policy.get('attempts')) is not None:
+                valu = self.info.get('policy:attempts', 0)
+                if result:
+                    if valu > 0:
+                        await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
+                    return True
+
+                if enforce_policy:
+
+                    valu += 1
+                    await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
+
+                    if valu >= attempts:
+                        await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
+
+                        mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
+                        extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
+                        logger.warning(mesg, extra=extra)
+
+                    return False
+
+            return result
 
         # Backwards compatible password handling
         salt, hashed = shadow
         if s_common.guid((salt, passwd)) == hashed:
             logger.debug(f'Migrating password to shadowv2 format for user {self.name}',
                          extra={'synapse': {'user': self.iden, 'username': self.name}})
-            # Update user to new password hashing scheme.
-            await self.setPasswd(passwd=passwd, nexs=nexs)
+            # Update user to new password hashing scheme. We cannot enforce policy
+            # when migrating an existing password.
+            await self.setPasswd(passwd=passwd, nexs=nexs, enforce_policy=False)
 
             return True
 
         return False
 
-    async def setPasswd(self, passwd, nexs=True):
+    async def _checkPasswdPolicy(self, passwd, shadow, nexs=True):
+        if not self.auth.policy:
+            return
+
+        failures = []
+
+        # Check complexity of password
+        complexity = self.auth.policy.get('complexity')
+        if complexity is not None:
+
+            # Check password length
+            minlen = complexity.get('length')
+            if minlen is not None and (passwd is None or len(passwd) < minlen):
+                failures.append(f'Password must be at least {minlen} characters.')
+
+            if minlen is not None and passwd is None:
+                # Set password to empty string so we get the rest of the failure info
+                passwd = ''
+
+            if passwd is None:
+                return
+
+            allvalid = []
+
+            # Check uppercase
+            count = complexity.get('upper:count', 0)
+            if (valid := complexity.get('upper:valid', string.ascii_uppercase)):
+                allvalid.append(valid)
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} uppercase characters, {found} found.')
+
+            # Check lowercase
+            count = complexity.get('lower:count', 0)
+            if (valid := complexity.get('lower:valid', string.ascii_lowercase)):
+                allvalid.append(valid)
+
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} lowercase characters, {found} found.')
+
+            # Check special
+            count = complexity.get('special:count', 0)
+            if (valid := complexity.get('special:valid', string.punctuation)):
+                allvalid.append(valid)
+
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} special characters, {found} found.')
+
+            # Check numbers
+            count = complexity.get('number:count', 0)
+            if (valid := complexity.get('number:valid', string.digits)):
+                allvalid.append(valid)
+                if count is not None and (found := len([k for k in passwd if k in valid])) < count:
+                    failures.append(f'Password must contain at least {count} digit characters, {found} found.')
+
+            if allvalid:
+                allvalid = ''.join(allvalid)
+                if (invalid := set(passwd) - set(allvalid)):
+                    failures.append(f'Password contains invalid characters: {sorted(list(invalid))}')
+
+            # Check sequences
+            seqlen = complexity.get('sequences')
+            if seqlen is not None:
+                # Convert each character to it's ordinal value so we can look for
+                # forward and reverse sequences in windows of seqlen. Doing it this
+                # way allows us to easily check unicode sequences too.
+                passb = [ord(k) for k in passwd]
+                for offs in range(len(passwd) - (seqlen - 1)):
+                    curv = passb[offs]
+                    fseq = list(range(curv, curv + seqlen))
+                    rseq = list(range(curv, curv - seqlen, -1))
+                    window = passb[offs:offs + seqlen]
+                    if window == fseq or window == rseq:
+                        failures.append(f'Password must not contain forward/reverse sequences longer than {seqlen} characters.')
+                        break
+
+        # Check for previous password reuse
+        prevvalu = self.auth.policy.get('previous')
+        if prevvalu is not None:
+            previous = self.info.get('policy:previous', ())
+            for prevshad in previous:
+                if await s_passwd.checkShadowV2(passwd, prevshad):
+                    failures.append(f'Password cannot be the same as previous {prevvalu} password(s).')
+                    break
+
+        if failures:
+            mesg = ['Cannot change password due to the following policy violations:']
+            mesg.extend(f'  - {msg}' for msg in failures)
+            raise s_exc.BadArg(mesg='\n'.join(mesg), failures=failures)
+
+        if prevvalu is not None:
+            # Looks like this password is good, add it to the list of previous passwords
+            previous = self.info.get('policy:previous', ())
+            previous = (shadow,) + previous
+            if nexs:
+                await self.auth.setUserInfo(self.iden, 'policy:previous', previous[:prevvalu])
+            else:
+                await self.auth._hndlsetUserInfo(self.iden, 'policy:previous', previous[:prevvalu], logged=nexs)
+
+    async def setPasswd(self, passwd, nexs=True, enforce_policy=True):
         # Prevent empty string or non-string values
         if passwd is None:
             shadow = None
@@ -1354,6 +1489,10 @@ class User(Ruler):
             shadow = await s_passwd.getShadowV2(passwd=passwd)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
+
+        if enforce_policy:
+            await self._checkPasswdPolicy(passwd, shadow, nexs=nexs)
+
         if nexs:
             await self.auth.setUserInfo(self.iden, 'passwd', shadow)
         else:
