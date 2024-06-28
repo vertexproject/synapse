@@ -68,7 +68,6 @@ class HealthcheckTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             await visi.setPasswd('secret')
 
-            # dont do this in prod...
             logger.info('Checking without perms')
             outp.clear()
             retn = await s_t_healthcheck.main(['-c', f'tcp://visi:secret@127.0.0.1:{port}/cortex', '-t', '0.2'], outp)
