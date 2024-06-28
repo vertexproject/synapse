@@ -363,6 +363,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             msgs = [json.loads(m) for m in data.split('\\n') if m]
             self.gt(len(msgs), 0)
             self.nn(msgs[0].get('delta'))
+            self.nn(msgs[0].get('path'))
             self.nn(msgs[0].get('xactopslen'))
             self.sorteq([
                 'vm.swappiness',

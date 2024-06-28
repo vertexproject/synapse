@@ -1626,6 +1626,7 @@ class Slab(s_base.Base):
 
             extra = {
                 'delta': delta,
+                'path': self.path,
                 'sysctls': s_thisplat.getSysctls(),
                 'xactopslen': xactopslen,
             }
