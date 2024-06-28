@@ -879,7 +879,6 @@ class StormSvcTest(s_test.SynTest):
                     events = []
                     async for m in wind:
                         events.append(m)
-                        {'event': 'pkg:del', 'offset': 5, 'info': {'name': 'new'}}
                         if m['event'] == 'pkg:del' and m['info'].get('name') == 'new':
                             break
 
