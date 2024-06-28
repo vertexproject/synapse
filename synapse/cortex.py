@@ -956,6 +956,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # Initialize our storage and views
         await self._initCoreAxon()
+        await self._initJsonStor()
 
         await self._initCoreLayers()
         await self._initCoreViews()
@@ -1506,8 +1507,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
-        await self._initJsonStor()
-
         if self.isactive:
             await self._checkNexsIndx()
 
