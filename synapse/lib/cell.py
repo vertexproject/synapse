@@ -1491,22 +1491,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initAhaRegistry(self):
 
+        # NOTE: This API needs to be safe to call again
         ahaurl = self.conf.get('aha:registry')
         if ahaurl is not None:
 
             info = await s_telepath.addAhaUrl(ahaurl)
-            if self.ahaclient is None:
-                self.ahaclient = await s_telepath.Client.anit(info.get('url'))
-                self.ahaclient._fini_atexit = True
-                self.onfini(self.ahaclient)
+            if self.ahaclient is not None:
+                await self.ahaclient.fini()
 
-            async def finiaha():
+            self.ahaclient = await s_telepath.Client.anit(ahaurl)
+            self.onfini(self.ahaclient)
+
+            async def fini():
                 await s_telepath.delAhaUrl(ahaurl)
 
-            self.onfini(finiaha)
+            self.ahaclient.onfini(fini)
 
         ahauser = self.conf.get('aha:user')
-        ahanetw = self._getAhaNetwork()
 
         ahaadmin = self._getAhaAdmin()
         if ahaadmin is not None:
@@ -1652,15 +1653,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async def _runAhaRegLoop():
 
             while not self.isfini:
+
                 try:
                     proxy = await self.ahaclient.proxy()
+
                     info = await self.getAhaInfo()
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, info, network=ahanetw)
+
                 except Exception as e:
                     logger.exception(f'Error registering service {self.ahasvcname} with AHA: {e}')
                     await self.waitfini(1)
+
                 else:
                     await proxy.waitfini()
 
@@ -4073,6 +4078,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,
+                'started': self.startms,
                 'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
