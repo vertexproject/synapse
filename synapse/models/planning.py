@@ -28,6 +28,11 @@ class PlanModule(s_module.CoreModule):
                     'doc': 'A link between steps in a procedure.'}),
             ),
 
+            'edges': (
+                (('plan:procedure:step', 'uses', None), {
+                    'doc': 'The step in the procedure makes use of the target node.'}),
+            ),
+
             'forms': (
                 ('plan:system', {}, (
 
