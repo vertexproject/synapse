@@ -759,8 +759,9 @@ class ModelRev:
             await self._normVelocityProps(layers, form, props)
 
     async def revModel_0_2_25(self, layers):
-        await self._normPropValu(layers, 'ou:conference:name')
-        await self._normPropValu(layers, 'ou:position:title')
+        await self._propToForm(layers, 'ou:position:title', 'ou:jobtitle')
+        await self._propToForm(layers, 'ou:conference:name', 'entity:name')
+        await self._propArrayToForm(layers, 'ou:conference:names', 'entity:name')
 
     async def runStorm(self, text, opts=None):
         '''

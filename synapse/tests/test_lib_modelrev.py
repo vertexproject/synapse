@@ -478,7 +478,7 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.25') as core:
 
             nodes = await core.nodes('ou:conference')
-            self.len(6, nodes)
+            self.len(3, nodes)
             names = [n.get('name') for n in nodes]
             self.sorteq(names, (
                 'sleuthcon',
@@ -486,30 +486,38 @@ class ModelRevTest(s_tests.SynTest):
                 'recon',
             ))
 
+            connames = (
+                'sleuthcon', 'sleuthcon 2024',
+                'defcon', 'defcon 2024',
+                'recon', 'recon 2024 conference',
+            )
+
             nodes = await core.nodes('entity:name')
-            breakpoint()
-            self.len(3, nodes)
+            self.len(6, nodes)
             names = [n.ndef[1] for n in nodes]
-            self.sorteq(names, (
-                'sleuthcon',
-                'sleuthcon 2024',
-                'defcon',
-                'defcon 2024',
-                'recon',
-                'recon 2024 conference',
-            ))
+            self.sorteq(names, connames)
+
+            nodes = await core.nodes('ou:conference -> entity:name')
+            self.len(6, nodes)
+            names = [n.ndef[1] for n in nodes]
+            self.sorteq(names, connames)
+
+            positions = (
+                'president of the united states',
+                'vice president of the united states',
+            )
 
             nodes = await core.nodes('ou:position')
             self.len(2, nodes)
             titles = [n.get('title') for n in nodes]
-            self.sorteq(titles, (
-                'president of the united states',
-                'vice president of the united states',
-            ))
+            self.sorteq(titles, positions)
 
             nodes = await core.nodes('ou:jobtitle')
+            self.len(2, nodes)
             titles = [n.ndef[1] for n in nodes]
-            self.sorteq(titles, (
-                'president of the united states',
-                'vice president of the united states',
-            ))
+            self.sorteq(titles, positions)
+
+            nodes = await core.nodes('ou:position -> ou:jobtitle')
+            self.len(2, nodes)
+            titles = [n.ndef[1] for n in nodes]
+            self.sorteq(titles, positions)
