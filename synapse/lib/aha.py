@@ -289,10 +289,6 @@ class AhaApi(s_cell.CellApi):
     async def delAhaPoolSvc(self, poolname, svcname):
         return await self.cell.delAhaPoolSvc(poolname, svcname)
 
-    async def iterAhaTopo(self):
-        async for item in self.cell.iterAhaTopo():
-            yield item
-
     async def iterPoolTopo(self, name):
 
         username = self.user.name.split('@')[0]
@@ -577,7 +573,6 @@ class AhaCell(s_cell.Cell):
         slab = await s_lmdbslab.Slab.anit(dirn)
         slab.addResizeCallback(self.checkFreeSpace)
 
-        self.topobus = await s_base.Base.anit()
         self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
 
         async def fini():
@@ -594,7 +589,6 @@ class AhaCell(s_cell.Cell):
 
         self.slab.initdb('aha:pools')
 
-        self.topowindows = []
         self.poolwindows = collections.defaultdict(list)
 
     async def getAhaServer(self, host, port):
@@ -615,16 +609,6 @@ class AhaCell(s_cell.Cell):
 
         return await self._push('aha:server:add', server)
 
-    async def _getTopoUpdate(self):
-        return ('aha:update', {
-            'servers': await self.getAhaServers(),
-        }),
-
-    async def _fireTopoUpdate(self):
-        update = await self._getTopoUpdate()
-        for wind in self.topowindows:
-            await wind.put(update)
-
     @s_nexus.Pusher.onPush('aha:server:add')
     async def _addAhaServer(self, server):
         # TODO schema
@@ -642,9 +626,6 @@ class AhaCell(s_cell.Cell):
 
         self.slab.put(lkey, s_msgpack.en(server), db='aha:servers')
 
-        if self.isactive:
-            await self._fireTopoUpdate()
-
         return True
 
     @s_nexus.Pusher.onPushAuto('aha:server:del')
@@ -656,9 +637,6 @@ class AhaCell(s_cell.Cell):
         if byts is None:
             return None
 
-        if self.isactive:
-            await self._fireTopoUpdate()
-
         return s_msgpack.un(byts)
 
     async def getAhaServers(self):
@@ -666,25 +644,6 @@ class AhaCell(s_cell.Cell):
         for _, byts in self.slab.scanByFull(db='aha:servers'):
             servers.append(s_msgpack.un(byts))
         return servers
-
-    async def iterAhaTopo(self):
-
-        if not self.isactive:
-            async with await self.nexsroot.client.proxy() as proxy:
-                async for item in proxy.iterAhaTopo():
-                    yield item
-
-        async with await s_queue.Window.anit(maxsize=1000) as wind:
-
-            async def onfini():
-                self.topowindows.remove(wind)
-
-            wind.onfini(onfini)
-
-            async with self.nexsroot.applylock:
-                update = await self._getTopoUpdate()
-                await wind.put(update)
-                self.topowindows.append(wind)
 
     async def iterPoolTopo(self, name):
 
@@ -734,16 +693,16 @@ class AhaCell(s_cell.Cell):
                 await self.genCaCert(netw)
 
             name = self.conf.get('aha:name')
-
-            host = f'{name}.{netw}'
-            if self.certdir.getHostCertPath(host) is None:
-                logger.info(f'Adding server certificate for {host}')
-                await self._genHostCert(host, signas=netw)
+            if name is not None:
+                host = f'{name}.{netw}'
+                if self.certdir.getHostCertPath(host) is None:
+                    logger.info(f'Adding server certificate for {host}')
+                    await self._genHostCert(host, signas=netw)
 
             root = f'root@{netw}'
             await self._genUserCert(root, signas=netw)
 
-            user = self._getAhaAdmin()
+            user = self.conf.get('aha:admin')
             if user is not None:
                 await self._genUserCert(user, signas=netw)
 
@@ -1309,14 +1268,14 @@ class AhaCell(s_cell.Cell):
             'port': port,
             'conf': conf,
         }
-        return await self._push('aha:clone:add', clone)
+        await self._push('aha:clone:add', clone)
+        return self._getProvClientUrl(iden)
 
     @s_nexus.Pusher.onPush('aha:clone:add')
     async def _addAhaClone(self, clone):
         iden = clone.get('iden')
         lkey = s_common.uhex(iden)
         self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
-        return self._getProvClientUrl(iden)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 

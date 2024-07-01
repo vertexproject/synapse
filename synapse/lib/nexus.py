@@ -92,7 +92,6 @@ class NexsRoot(s_base.Base):
         self.writeholds = set()
 
         self.applytask = None
-        self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
@@ -231,7 +230,7 @@ class NexsRoot(s_base.Base):
 
     async def enNexsLog(self):
 
-        async with self.applylock:
+        async with self.cell.nexslock:
 
             if self.donexslog:
                 return
@@ -345,7 +344,7 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        async with self.applylock:
+        async with self.cell.nexslock:
             self.reqNotReadOnly()
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
@@ -616,12 +615,12 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self.nexsroot: Optional[NexsRoot] = None
 
         if nexsroot is not None:
-            self.setNexsRoot(nexsroot)
+            await self.setNexsRoot(nexsroot)
 
         for event, func, passitem in self._regclstupls:  # type: ignore
             self._nexshands[event] = func, passitem
 
-    def setNexsRoot(self, nexsroot):
+    async def setNexsRoot(self, nexsroot):
 
         nexsroot._nexskids[self.nexsiden] = self
 
@@ -629,9 +628,21 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             prev = nexsroot._nexskids.pop(self.nexsiden, None)
             assert prev is not None, f'Failed removing {self.nexsiden}'
 
-        self.onfini(onfini)
+        nexsroot.onfini(onfini)
+        self.onfini(nexsroot)
 
         self.nexsroot = nexsroot
+
+    async def modNexsRoot(self, ctor):
+
+        if self.nexsroot is not None:
+            await self.nexsroot.fini()
+
+        nexsroot = await ctor()
+
+        await self.setNexsRoot(nexsroot)
+
+        await self.nexsroot.startup()
 
     @classmethod
     def onPush(cls, event: str, passitem=False) -> Callable:

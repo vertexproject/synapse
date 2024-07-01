@@ -166,6 +166,7 @@ class AhaTest(s_test.SynTest):
             conf = {
                 'aha:name': '0.cryo',
                 'aha:leader': 'cryo',
+                'aha:network': 'synapse',
                 'aha:admin': 'root@synapse',
                 'aha:registry': [f'tcp://root:hehehaha@127.0.0.1:{port}',
                                  f'tcp://root:hehehaha@127.0.0.1:{port}'],

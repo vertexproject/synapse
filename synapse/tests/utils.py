@@ -1445,10 +1445,13 @@ class SynTest(unittest.TestCase):
             yield dirn
 
     @contextlib.asynccontextmanager
-    async def getTestAha(self, conf=None, dirn=None):
+    async def getTestAha(self, conf=None, dirn=None, ctor=None):
 
         if conf is None:
             conf = {}
+
+        if ctor is None:
+            ctor = s_aha.AhaCell.anit
 
         conf = s_msgpack.deepcopy(conf)
 
@@ -1465,9 +1468,10 @@ class SynTest(unittest.TestCase):
         conf.setdefault('health:sysctl:checks', False)
 
         with self.withNexusReplay():
+
             with self.mayTestDir(dirn) as dirn:
 
-                async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+                async with await ctor(dirn, conf=conf) as aha:
 
                     mods = {}
                     if not hasdmonlisn and hostname:

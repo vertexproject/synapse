@@ -961,7 +961,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'aha:network': {
-            'description': 'The AHA service network. Defaults to "synapse".',
+            'description': 'The AHA service network.',
             'type': 'string',
         },
         'aha:registry': {
@@ -1104,6 +1104,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
 
+        self.nexslock = asyncio.Lock()
+
         self.conf = self._initCellConf(conf)
 
         self.minfree = self.conf.get('limit:disk:free')
@@ -1127,7 +1129,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahasvcname = None
         ahaname = self.conf.get('aha:name')
         ahanetw = self._getAhaNetwork()
-        if ahaname is not None:
+        if ahaname is not None and ahanetw is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         # each cell has a guid
@@ -1176,20 +1178,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
             self.modCellConf({'nexslog:en': True})
 
-        # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
 
         self._initCertDir()
 
-        root = await self._ctorNexsRoot()
-
-        # mutually assured destruction with our nexs root
-        self.onfini(root.fini)
-        root.onfini(self.fini)
-
-        self.setNexsRoot(root)
+        await self.enter_context(s_telepath.loadTeleCell(self.dirn))
 
         await self._initCellSlab(readonly=readonly)
+
+        await self.initServiceEarly()
+
+        root = await self._ctorNexsRoot()
+
+        await self.setNexsRoot(root)
+
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
         self.rolemetadb = self.slab.initdb('role:meta')  # roleiden + <valu> -> dict valu
@@ -1434,9 +1436,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _runFreeSpaceLoop(self):
 
-        nexsroot = self.getCellNexsRoot()
-
         while not self.isfini:
+
+            nexsroot = self.getCellNexsRoot()
 
             self._checkspace.clear()
 
@@ -1484,11 +1486,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await self.waitfini(self.SYSCTL_CHECK_FREQ)
 
-    def _getAhaAdmin(self):
-        name = self.conf.get('aha:admin')
-        if name is not None:
-            return name
-
     async def _initAhaRegistry(self):
 
         # NOTE: This API needs to be safe to call again
@@ -1507,17 +1504,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             self.ahaclient.onfini(fini)
 
-        ahauser = self.conf.get('aha:user')
-
-        ahaadmin = self._getAhaAdmin()
+        ahaadmin = self.conf.get('aha:admin')
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
 
-        if ahauser is not None:
-            await self._addAdminUser(ahauser)
-
     def _getAhaNetwork(self):
-        return self.conf.get('aha:network', 'synapse')
+        return self.conf.get('aha:network')
 
     def _getDmonListen(self):
 
@@ -1544,6 +1536,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if user.isLocked():
             await user.setLocked(False, logged=False)
+
+    async def initServiceEarly(self):
+        pass
 
     async def initServiceStorage(self):
         pass
@@ -1578,8 +1573,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         turl = self._getDmonListen()
         if turl is not None:
-            self.sockaddr = await self.dmon.listen(turl)
             logger.info(f'dmon listening: {turl}')
+            self.sockaddr = await self.dmon.listen(turl)
 
         await self._initAhaService()
 
@@ -1641,12 +1636,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if ahaname is None:
             return
 
-        ahalead = self.conf.get('aha:leader')
         ahanetw = self._getAhaNetwork()
+        if ahanetw is None:
+            return
 
         ahainfo = await self.getAhaInfo()
         if ahainfo is None:
             return
+
+        ahalead = self.conf.get('aha:leader')
 
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
@@ -1804,11 +1802,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            logger.debug(f'HANDOFF: Obtaining nexus applylock ahaname={ahaname}')
+            logger.debug(f'HANDOFF: Obtaining nexus lock ahaname={ahaname}')
 
-            async with self.nexsroot.applylock:
+            async with self.nexslock:
 
-                logger.debug(f'HANDOFF: Obtained nexus applylock ahaname={ahaname}')
+                logger.debug(f'HANDOFF: Obtained nexus lock ahaname={ahaname}')
                 indx = await self.getNexsIndx()
 
                 logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}, ahaname={ahaname}')
@@ -1829,7 +1827,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'HANDOFF: Restarting the nexus ahaname={ahaname}')
                 await self.nexsroot.startup()
 
-            logger.debug(f'HANDOFF: Released nexus applylock ahaname={ahaname}')
+            logger.debug(f'HANDOFF: Released nexus lock ahaname={ahaname}')
         logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)} ahaname={self.conf.get("aha:name")}')
 
     async def reqAhaProxy(self, timeout=None):
@@ -2129,7 +2127,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            async with self.nexsroot.applylock:
+            async with self.nexslock:
 
                 logger.debug('Syncing LMDB Slabs')
 
@@ -2983,6 +2981,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return hive
 
+    async def _initSlabFile(self, path, readonly=False):
+        slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+        slab.addResizeCallback(self.checkFreeSpace)
+        self.onfini(slab)
+        return slab
+
     async def _initCellSlab(self, readonly=False):
 
         s_common.gendir(self.dirn, 'slabs')
@@ -2994,10 +2998,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             _slab.initdb('hive')
             await _slab.fini()
 
-        self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
-        self.slab.addResizeCallback(self.checkFreeSpace)
-
-        self.onfini(self.slab.fini)
+        self.slab = await self._initSlabFile(path)
 
     async def _initCellAuth(self):
 
