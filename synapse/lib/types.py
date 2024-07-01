@@ -1829,7 +1829,7 @@ class Str(Type):
 
     def _normPyFloat(self, valu):
         deci = s_common.hugectx.create_decimal(str(valu))
-        return format(deci, 'f'), {}
+        return self._normPyStr(format(deci, 'f'))
 
     def _normPyStr(self, valu):
 
