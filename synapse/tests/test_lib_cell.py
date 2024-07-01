@@ -520,7 +520,7 @@ class CellTest(s_t_utils.SynTest):
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
                 # Defaults aha data is
-                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': 'synapse'})
+                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
 
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)
@@ -1710,7 +1710,7 @@ class CellTest(s_t_utils.SynTest):
                                                'has different iden') as stream:
                     async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
                         await stream.wait(timeout=2)
-                        self.true(await cell01.waitfini(6))
+                        self.true(await cell01.nexsroot.waitfini(6))
 
     async def test_backup_restore_base(self):
 

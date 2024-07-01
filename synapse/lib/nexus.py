@@ -514,8 +514,7 @@ class NexsRoot(s_base.Base):
         if self.celliden is not None:
             if self.celliden != await proxy.getCellIden():
                 logger.error('remote cell has different iden!  Aborting mirror sync')
-                await proxy.fini()
-                await self.fini()
+                await self.cell.fini()
                 return
 
         while not proxy.isfini:
