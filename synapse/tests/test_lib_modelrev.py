@@ -497,6 +497,8 @@ class ModelRevTest(s_tests.SynTest):
             names = [n.ndef[1] for n in nodes]
             self.sorteq(names, connames)
 
+            nodes = await core.nodes('ou:conference $node.data.load(_migrated:ou:conference:names)')
+
             nodes = await core.nodes('ou:conference -> entity:name')
             self.len(6, nodes)
             names = [n.ndef[1] for n in nodes]
