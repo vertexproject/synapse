@@ -1014,12 +1014,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ), nexs=False)
 
     async def _updateTriggerViewIdens(self):
-        for viewiden, viewnode in await self.hive.open(('cortex', 'views')):
-            for _, trignode in await viewnode.open(('triggers',)):
-                tdef = trignode.valu
-                if tdef.get('view') != viewiden:
-                    tdef['view'] = viewiden
-                    await trignode.set(tdef)
+        for view in self.views.values():
+            for trigiden, trigger in await view.listTriggers():
+                if trigger.get('view') != view.iden:
+                    trigger.tdef['view'] = view.iden
+                    await view.trigdict.set(trigiden, trigger.tdef)
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():
