@@ -2843,10 +2843,10 @@ class View(s_nexus.Pusher):  # type: ignore
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
-    async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
+    async def liftByPropArray(self, form, prop, cmprvals, reverse=False, virts=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByPropArray(form, prop, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByPropArray(form, prop, cmprvals, reverse=reverse, virts=virts):
                 yield nid, [sref]
             return
 
@@ -2863,7 +2863,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 return props.get(prop) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
@@ -3013,7 +3013,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for node in self.nodesByPropArray(prop.full, '=', valu, reverse=reverse):
                 yield node
 
-    async def nodesByPropArray(self, full, cmpr, valu, reverse=False):
+    async def nodesByPropArray(self, full, cmpr, valu, reverse=False, virts=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -3024,17 +3024,19 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
+        cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu, virts=virts)
+        if not cmprvals:
+            return
 
         if prop.isform:
-            genr = self.liftByPropArray(prop.name, None, cmprvals, reverse=reverse)
+            genr = self.liftByPropArray(prop.name, None, cmprvals, reverse=reverse, virts=virts)
 
         else:
             formname = None
             if prop.form is not None:
                 formname = prop.form.name
 
-            genr = self.liftByPropArray(formname, prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByPropArray(formname, prop.name, cmprvals, reverse=reverse, virts=virts)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)

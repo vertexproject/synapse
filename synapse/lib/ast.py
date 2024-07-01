@@ -1554,30 +1554,60 @@ class LiftByArray(LiftOper):
     async def lift(self, runt, path):
 
         name = await self.kids[0].compute(runt, path)
-        cmpr = await self.kids[1].compute(runt, path)
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
         prop = runt.model.props.get(name)
         if prop is not None:
-            async for node in runt.view.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+            props = (prop,)
+        else:
+            if (proplist := runt.model.ifaceprops.get(name)) is None:
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+            props = []
+            for propname in proplist:
+                props.append(runt.model.props.get(propname))
+
+        virts = None
+        if isinstance(self.kids[1], ByNameCmpr):
+            cmpr = self.kids[1].getCmpr()
+            names = self.kids[1].getNames()
+            lastidx = len(names) - 1
+
+            vnames = []
+            vgetrs = []
+            ptyp = props[0].type.arraytype
+            for idx, name in enumerate(names):
+                if (subtype := ptyp.subtypes.get(name)) is not None:
+                    (ptyp, getr) = subtype
+                    vnames.append(name)
+                    vgetrs.append(getr)
+                elif idx == lastidx:
+                    cmpr = f'{names[-1]}{cmpr}'
+                else:
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+            if vnames:
+                virts = vnames
+
+        else:
+            cmpr = await self.kids[1].compute(runt, path)
+
+        if len(props) == 1:
+            prop = props[0]
+            async for node in runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts):
                 yield node
             return
 
-        proplist = runt.model.ifaceprops.get(name)
-        if proplist is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
-
-        props = []
-        for propname in proplist:
-            props.append(runt.model.props.get(propname))
-
         relname = props[0].name
-        def cmprkey(node):
-            return node.get(relname)
+        if virts is not None:
+            def cmprkey(node):
+                return node.get(relname, virts=vgetrs)
+        else:
+            def cmprkey(node):
+                return node.get(relname)
 
         genrs = []
         for prop in props:
-            genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
+            genrs.append(runt.view.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse, virts=virts))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -1846,8 +1876,7 @@ class LiftPropBy(LiftOper):
         if prop is not None:
             props = (prop,)
         else:
-            proplist = runt.model.ifaceprops.get(name)
-            if proplist is None:
+            if (proplist := runt.model.ifaceprops.get(name)) is None:
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
             props = []

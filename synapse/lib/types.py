@@ -497,10 +497,10 @@ class Array(Type):
             for norm in norms:
                 if (virt := virts.get(norm)) is not None:
                     for vkey, (vval, vtyp) in virt.items():
-                        if (curv := virts.get(vkey)) is not None:
-                            virts[vkey] = curv[0].append(vval)
+                        if (curv := realvirts.get(vkey)) is not None:
+                            curv[0].append(vval)
                         else:
-                            virts[vkey] = ([vval], vtyp)
+                            realvirts[vkey] = ([vval], vtyp | s_layer.STOR_FLAG_ARRAY)
 
             norminfo['virts'] = realvirts
 

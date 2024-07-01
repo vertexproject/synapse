@@ -403,6 +403,38 @@ class IndxByProp(IndxBy):
             return f'IndxByProp: {self.form}:{self.prop}'
         return f'IndxByProp: {self.prop}'
 
+class IndxByPropArray(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.core.getIndxAbrv(INDX_ARRAY, form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
+
+        self.form = form
+        self.prop = prop
+
+    def getNodeValu(self, nid, indx=None):
+        sode = self.layr._getStorNode(nid)
+        if sode is None: # pragma: no cover
+            return s_common.novalu
+
+        props = sode.get('props')
+        if props is None:
+            return s_common.novalu
+
+        valt = props.get(self.prop)
+        if valt is None:
+            return s_common.novalu
+
+        return valt[0]
+
+    def __repr__(self):
+        if self.form:
+            return f'IndxByPropArray: {self.form}:{self.prop}'
+        return f'IndxByPropArray: {self.prop}'
+
 class IndxByVirt(IndxBy):
 
     def __init__(self, layr, form, prop, virts):
@@ -454,17 +486,32 @@ class IndxByVirt(IndxBy):
             return f'IndxByVirt: {self.form}:{self.prop}*{"*".join(self.virts)}'
         return f'IndxByVirt: {self.prop}*{"*".join(self.virts)}'
 
-class IndxByPropArray(IndxBy):
+class IndxByVirtArray(IndxBy):
 
-    def __init__(self, layr, form, prop):
+    def __init__(self, layr, form, prop, virts):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
-        abrv = layr.core.getIndxAbrv(INDX_ARRAY, form, prop)
+        abrv = layr.core.getIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, *virts)
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
 
         self.form = form
         self.prop = prop
+        self.virts = virts
+
+    def getStorType(self):
+
+        if self.form is not None:
+            form = self.layr.core.model.form(self.form)
+            prop = form.props.get(self.prop)
+        else:
+            prop = self.layr.core.model.prop(self.prop)
+
+        ptyp = prop.type.arraytype
+        for virt in virts:
+            ptyp = ptyp.subtypes[virt][0]
+
+        return self.layr.stortypes[ptyp.stortype]
 
     def getNodeValu(self, nid, indx=None):
         sode = self.layr._getStorNode(nid)
@@ -479,12 +526,19 @@ class IndxByPropArray(IndxBy):
         if valt is None:
             return s_common.novalu
 
+        for virt in self.virts:
+            if (vval := valt[2]) is None:
+                return s_common.novalu
+
+            if (valt := val.get(virt)) is None:
+                return s_common.novalu
+
         return valt[0]
 
     def __repr__(self):
         if self.form:
-            return f'IndxByPropArray: {self.form}:{self.prop}'
-        return f'IndxByPropArray: {self.prop}'
+            return f'IndxByVirtArray: {self.form}:{self.prop}*{"*".join(self.virts)}'
+        return f'IndxByVirtArray: {self.prop}*{"*".join(self.virts)}'
 
 class IndxByPropIvalMin(IndxByProp):
 
@@ -684,9 +738,12 @@ class StorType:
         async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
             yield item
 
-    async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False):
+    async def indxByPropArray(self, form, prop, cmpr, valu, reverse=False, virts=None):
         try:
-            indxby = IndxByPropArray(self.layr, form, prop)
+            if virts:
+                indxby = IndxByVirtArray(self.layr, form, prop, virts)
+            else:
+                indxby = IndxByPropArray(self.layr, form, prop)
 
         except s_exc.NoSuchAbrv:
             return
@@ -2711,9 +2768,9 @@ class Layer(s_nexus.Pusher):
             async for indx, nid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu, reverse=reverse, virts=virts):
                 yield indx, nid, self.genStorNodeRef(nid)
 
-    async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
+    async def liftByPropArray(self, form, prop, cmprvals, reverse=False, virts=None):
         for cmpr, valu, kind in cmprvals:
-            async for indx, nid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu, reverse=reverse):
+            async for indx, nid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu, reverse=reverse, virts=virts):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByDataName(self, name):
@@ -3335,27 +3392,7 @@ class Layer(s_nexus.Pusher):
                 kvpairs.append((maxabrv + indx, nid))
 
         if virts is not None:
-
-            for vname, (vval, vtyp) in virts.items():
-
-                vabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, vname)
-
-                if vtyp & STOR_FLAG_ARRAY:
-
-                    arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, None, vname)
-
-                    for indx in self.getStorIndx(vtyp, vval):
-                        kvpairs.append((arryabrv + indx, nid))
-                        self.indxcounts.inc(arryabrv)
-
-                    for indx in self.getStorIndx(STOR_TYPE_MSGP, vval):
-                        kvpairs.append((vabrv + indx, nid))
-                        self.indxcounts.inc(abrv)
-
-                else:
-                    for indx in self.getStorIndx(vtyp, vval):
-                        kvpairs.append((vabrv + indx, nid))
-                        self.indxcounts.inc(vabrv)
+            kvpairs.extend(self.getVirtIndxVals(nid, form, None, virts))
 
         if sode.pop('antivalu', None) is not None:
             self.layrslab.delete(INDX_TOMB + abrv, nid, db=self.indxdb)
@@ -3407,25 +3444,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(maxabrv + indx, nid, db=self.indxdb)
 
         if virts is not None:
-            for vname, (vval, vtyp) in virts.items():
-                vabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, None, vname)
-
-                if vtyp & STOR_FLAG_ARRAY:
-
-                    arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, None, vname)
-
-                    for indx in self.getStorIndx(vtyp, vval):
-                        self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
-                        self.indxcounts.inc(arryabrv, -1)
-
-                    for indx in self.getStorIndx(STOR_TYPE_MSGP, vval):
-                        self.layrslab.delete(vabrv + indx, nid, db=self.indxdb)
-                        self.indxcounts.inc(vabrv, -1)
-
-                else:
-                    for indx in self.getStorIndx(vtyp, vval):
-                        self.layrslab.delete(vabrv + indx, nid, db=self.indxdb)
-                        self.indxcounts.inc(vabrv, -1)
+            self.delVirtIndxVals(nid, form, None, virts)
 
         if self.nodeDelHook is not None:
             self.nodeDelHook()
@@ -3479,7 +3498,7 @@ class Layer(s_nexus.Pusher):
 
         prop, valu, oldv, stortype, virts = edit[1]
 
-        oldv, oldt, _ = sode['props'].get(prop, (None, None, None))
+        oldv, oldt, oldvirts = sode['props'].get(prop, (None, None, None))
 
         if valu == oldv:
             return ()
@@ -3555,6 +3574,11 @@ class Layer(s_nexus.Pusher):
                         if univabrv is not None:
                             univmaxabrv = self.core.setIndxAbrv(INDX_IVAL_MAX, None, prop)
                             self.layrslab.delete(univmaxabrv + oldi, nid, db=self.indxdb)
+
+        if oldvirts is not None:
+            self.delVirtIndxVals(nid, form, prop, oldvirts)
+            if univabrv is not None:
+                self.delVirtIndxVals(nid, None, prop, oldvirts)
 
         if (antiprops := sode.get('antiprops')) is not None:
             tomb = antiprops.pop(prop, None)
@@ -3633,40 +3657,9 @@ class Layer(s_nexus.Pusher):
                         kvpairs.append((univmaxabrv + indx, nid))
 
         if virts is not None:
-
-            for vname, (vval, vtyp) in virts.items():
-
-                vabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, vname)
-                if univabrv is not None:
-                    uvabrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, vname)
-
-                if vtyp & STOR_FLAG_ARRAY:
-
-                    arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, vname)
-                    if univabrv is not None:
-                        uarryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, None, prop, vname)
-
-                    for indx in self.getStorIndx(vtyp, vval):
-                        kvpairs.append((arryabrv + indx, nid))
-                        self.indxcounts.inc(arryabrv)
-                        if univabrv is not None:
-                            kvpairs.append((uarryabrv + indx, nidx))
-                            self.indxcounts.inc(uarryabrv)
-
-                    for indx in self.getStorIndx(STOR_TYPE_MSGP, vval):
-                        kvpairs.append((vabrv + indx, nid))
-                        self.indxcounts.inc(abrv)
-                        if univabrv is not None:
-                            kvpairs.append((uvabrv + indx, nid))
-                            self.indxcounts.inc(uvabrv)
-
-                else:
-                    for indx in self.getStorIndx(vtyp, vval):
-                        kvpairs.append((vabrv + indx, nid))
-                        self.indxcounts.inc(vabrv)
-                        if univabrv is not None:
-                            kvpairs.append((uvabrv + indx, nid))
-                            self.indxcounts.inc(uvabrv)
+            kvpairs.extend(self.getVirtIndxVals(nid, form, prop, virts))
+            if univabrv is not None:
+                kvpairs.extend(self.getVirtIndxVals(nid, None, prop, virts))
 
         return kvpairs
 
@@ -3744,6 +3737,11 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(univmaxabrv + indx, nid, db=self.indxdb)
                     self.layrslab.delete(univduraabrv + dura, nid, db=self.indxdb)
                     self.indxcounts.inc(univduraabrv, -1)
+
+        if virts is not None:
+            self.delVirtIndxVals(nid, form, prop, virts)
+            if univabrv is not None:
+                self.delVirtIndxVals(nid, None, prop, virts)
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
@@ -4473,6 +4471,56 @@ class Layer(s_nexus.Pusher):
             return retn
 
         return self.stortypes[stortype].indx(valu)
+
+    def getVirtIndxVals(self, nid, form, prop, virts):
+
+        kvpairs = []
+
+        for name, (valu, vtyp) in virts.items():
+
+            abrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if vtyp & STOR_FLAG_ARRAY:
+
+                arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
+
+                for indx in self.getStorIndx(vtyp, valu):
+                    kvpairs.append((arryabrv + indx, nid))
+                    self.indxcounts.inc(arryabrv)
+
+                for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                    kvpairs.append((abrv + indx, nid))
+                    self.indxcounts.inc(abrv)
+
+            else:
+                for indx in self.getStorIndx(vtyp, valu):
+                    kvpairs.append((abrv + indx, nid))
+                    self.indxcounts.inc(abrv)
+
+        return kvpairs
+
+    def delVirtIndxVals(self, nid, form, prop, virts):
+
+        for name, (valu, vtyp) in virts.items():
+
+            abrv = self.core.setIndxAbrv(INDX_VIRTUAL, form, prop, name)
+
+            if vtyp & STOR_FLAG_ARRAY:
+
+                arryabrv = self.core.setIndxAbrv(INDX_VIRTUAL_ARRAY, form, prop, name)
+
+                for indx in self.getStorIndx(vtyp, valu):
+                    self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
+                    self.indxcounts.inc(arryabrv, -1)
+
+                for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
+                    self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+                    self.indxcounts.inc(abrv, -1)
+
+            else:
+                for indx in self.getStorIndx(vtyp, valu):
+                    self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
+                    self.indxcounts.inc(abrv, -1)
 
     async def iterNodeEdgesN1(self, nid, verb=None):
 

@@ -2152,6 +2152,9 @@ class LayerTest(s_t_utils.SynTest):
                 (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user4 :signup:client="tcp://[::4]:12345" ]})
                 (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user5 :signup:client="tcp://[::5]:12345" ]})
                 (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user6 :signup:client="tcp://[::6]:12345" ]})
+                (it:sec:c2:config=* :dns:resolvers=(tcp://127.0.0.1:12345, tcp://127.0.0.2:12345))
+                (it:sec:c2:config=* :dns:resolvers=("tcp://[::1]:12345", "tcp://[::2]:12345"))
+                (it:sec:c2:config=* :dns:resolvers=("tcp://127.0.0.1:12345", "tcp://[::2]:12345"))
             ]''')
 
             self.len(6, await core.nodes('inet:server*ipv4'))
@@ -2178,3 +2181,11 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv4*range=(127.0.0.2, 127.0.0.3)'))
             self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv6>"::4"'))
             self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv6*range=("::5", "::6")'))
+
+            self.len(2, await core.nodes('it:sec:c2:config.created +:dns:resolvers*[ipv4=127.0.0.1]'))
+            self.len(2, await core.nodes('it:sec:c2:config.created +:dns:resolvers*[ipv6="::2"]'))
+            self.len(2, await core.nodes('it:sec:c2:config.created +:dns:resolvers*[ipv4*range=(127.0.0.1, 127.0.0.2)]'))
+
+            self.len(2, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv4=127.0.0.1]'))
+            self.len(2, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv6="::2"]'))
+            self.len(3, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv4*range=(127.0.0.1, 127.0.0.2)]'))
