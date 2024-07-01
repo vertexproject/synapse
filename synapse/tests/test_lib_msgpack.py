@@ -17,6 +17,50 @@ class MsgPackTest(s_t_utils.SynTest):
         byts = s_msgpack._fallback_en(('hehe', 10))
         self.eq(byts, b'\x92\xa4hehe\n')
 
+    def test_msgpack_ext(self):
+        valu = 0xffffffffffffffffffffffffffffffff
+        item = ('woot', valu)
+        byts = s_msgpack.en(item)
+        self.eq(item, s_msgpack.un(byts))
+        self.eq(byts, s_msgpack._fallback_en(item))
+
+        unpk = s_msgpack.Unpk()
+        self.eq(((24, item),), unpk.feed(byts))
+        with self.raises(s_exc.SynErr):
+            s_msgpack._ext_un(99, b'red baloons')
+
+        # Negative number support as well.
+        negvalu = -1 * valu
+        negitem = ('woot', negvalu)
+        negbytes = s_msgpack.en(negitem)
+        self.eq(negitem, s_msgpack.un(negbytes))
+        self.eq(negbytes, s_msgpack._fallback_en(negitem))
+
+        # Check across item.bit_length() boundaries
+        v = 0xffffffffffffffff
+        for i in (1, 0xffffffffffffffff + 1, 0xffffffffffffffff + 2):
+            nv = v + i
+            buf = s_msgpack.en(nv)
+            self.eq(nv, s_msgpack.un(buf))
+        v = -0x8000000000000000
+        for i in (1, 0x7fffffffffffffff, 0x7fffffffffffffff + 1):
+            nv = v - i
+            buf = s_msgpack.en(nv)
+            self.eq(nv, s_msgpack.un(buf))
+
+        # We can also support values > 128 bits in width
+        valu = 0xfffffffffffffffffffffffffffffffff
+        item = ('woot', valu)
+        byts = s_msgpack.en(item)
+        self.eq(item, s_msgpack.un(byts))
+        self.eq(byts, s_msgpack._fallback_en(item))
+
+        negvalu = -1 * valu
+        negitem = ('woot', negvalu)
+        negbytes = s_msgpack.en(negitem)
+        self.eq(negitem, s_msgpack.un(negbytes))
+        self.eq(negbytes, s_msgpack._fallback_en(negitem))
+
     def test_msgpack_un(self):
         item = s_msgpack.un(b'\x92\xa4hehe\n')
         self.eq(item, ('hehe', 10))
@@ -106,8 +150,8 @@ class MsgPackTest(s_t_utils.SynTest):
         self.checkLoadfile(s_msgpack._fallback_en)
 
     def checkTypes(self, enfunc):
-        # This is a future-proofing test for msgpack to ensure that
-        buf = b'\x92\xa4hehe\x85\xa3str\xa41234\xa3int\xcd\x04\xd2\xa5float\xcb@(\xae\x14z\xe1G\xae\xa3bin\xc4\x041234\xa9realworld\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12'
+        # This is a future-proofing test for msgpack to ensure that we have stability with msgpack-python
+        buf = b'\x92\xa4hehe\x8b\xa3str\xa41234\xa3int\xcd\x04\xd2\xa5float\xcb@(\xae\x14z\xe1G\xae\xa3bin\xc4\x041234\xa9realworld\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12\xabalmostlarge\xcf\xff\xff\xff\xff\xff\xff\xff\xfe\xb1extlargeThreshold\xcf\xff\xff\xff\xff\xff\xff\xff\xff\xa8extlarge\xc7\t\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\xabalmostsmall\xd3\x80\x00\x00\x00\x00\x00\x00\x01\xb4almostsmallThreshold\xd3\x80\x00\x00\x00\x00\x00\x00\x00\xa8extsmall\xc7\t\x01\xff\x7f\xff\xff\xff\xff\xff\xff\xff'
         struct = (
             'hehe',
             {
@@ -115,7 +159,15 @@ class MsgPackTest(s_t_utils.SynTest):
                 'int': 1234,
                 'float': 12.34,
                 'bin': b'1234',
-                'realworld': '\u01cb\ufffd\ud842\ufffd\u0012'
+                'realworld': '\u01cb\ufffd\ud842\ufffd\u0012',
+                'almostlarge': 0xffffffffffffffff - 1,
+                'extlargeThreshold': 0xffffffffffffffff,
+                # extlarge is handled with our custom extension type
+                'extlarge': 0xffffffffffffffff + 1,
+                'almostsmall': -0x8000000000000000 + 1,
+                'almostsmallThreshold': -0x8000000000000000,
+                # extsmall is handled with our custom extension type
+                'extsmall': -0x8000000000000000 - 1,
             }
         )
         unode = s_msgpack.un(buf)
@@ -135,7 +187,7 @@ class MsgPackTest(s_t_utils.SynTest):
         unpk = s_msgpack.Unpk()
         objs = unpk.feed(buf)
         self.len(1, objs)
-        self.eq(objs[0], (71, struct))
+        self.eq(objs[0], (212, struct))
 
         # Generic isok helper
         self.true(s_msgpack.isok(1))
@@ -148,6 +200,8 @@ class MsgPackTest(s_t_utils.SynTest):
         self.true(s_msgpack.isok([1]))
         self.true(s_msgpack.isok((1,)))
         self.true(s_msgpack.isok({1: 1}))
+        self.true(s_msgpack.isok(0xffffffffffffffff + 1))
+        self.true(s_msgpack.isok(-0x8000000000000000 - 1))
         # unpackage types
         self.false(s_msgpack.isok({1, 2}))  # set
         self.false(s_msgpack.isok(print))  # function
@@ -198,10 +252,6 @@ class MsgPackTest(s_t_utils.SynTest):
         self.raises(s_exc.NotMsgpackSafe, enfunc, {1, 2})
         self.raises(s_exc.NotMsgpackSafe, enfunc, Exception())
         self.raises(s_exc.NotMsgpackSafe, enfunc, s_msgpack.en)
-        # too long
-        with self.raises(s_exc.NotMsgpackSafe) as cm:
-            enfunc({'longlong': 45234928034723904723906})
-        self.isin('OverflowError', cm.exception.get('mesg'))
 
     def test_msgpack_bad_types(self):
         self.checkBadTypes(s_msgpack.en)
