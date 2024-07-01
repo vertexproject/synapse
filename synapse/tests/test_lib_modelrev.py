@@ -478,21 +478,38 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.25') as core:
 
             nodes = await core.nodes('ou:conference')
-            self.len(5, nodes)
+            self.len(6, nodes)
             names = [n.get('name') for n in nodes]
             self.sorteq(names, (
                 'sleuthcon',
                 'defcon',
+                'recon',
+            ))
+
+            nodes = await core.nodes('entity:name')
+            breakpoint()
+            self.len(3, nodes)
+            names = [n.ndef[1] for n in nodes]
+            self.sorteq(names, (
+                'sleuthcon',
+                'sleuthcon 2024',
+                'defcon',
+                'defcon 2024',
+                'recon',
                 'recon 2024 conference',
-                'blackhat',
-                'summercon',
             ))
 
             nodes = await core.nodes('ou:position')
-            self.len(3, nodes)
+            self.len(2, nodes)
             titles = [n.get('title') for n in nodes]
             self.sorteq(titles, (
                 'president of the united states',
                 'vice president of the united states',
-                'speaker of the house, united states congress',
+            ))
+
+            nodes = await core.nodes('ou:jobtitle')
+            titles = [n.ndef[1] for n in nodes]
+            self.sorteq(titles, (
+                'president of the united states',
+                'vice president of the united states',
             ))
