@@ -1,10 +1,10 @@
 import asyncio
 import logging
 
-import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
@@ -146,13 +146,13 @@ class StormSvcClient(s_base.Base):
         byname = {}
         done = set()
         for pdef in oldpkgs:
-            iden = s_common.guid(valu=pdef)
+            iden = s_hashitem.hashitem(pdef)
             byname[pdef.get('name')] = iden
 
         # Register new packages
         for pdef in self.info.get('pkgs', ()):
             name = pdef.get('name')
-            iden = s_common.guid(valu=pdef)
+            iden = s_hashitem.hashitem(pdef)
 
             done.add(name)
             if name in byname:

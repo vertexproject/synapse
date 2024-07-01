@@ -42,6 +42,7 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -2550,7 +2551,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = pkgdef.get('name')
         olddef = self.pkghive.get(name, None)
         if olddef is not None:
-            if s_common.guid(valu=pkgdef) != s_common.guid(valu=olddef):
+            if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
                 await self._dropStormPkg(olddef)
             else:
                 # if it's the same we can just bounce
