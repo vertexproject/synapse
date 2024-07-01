@@ -882,25 +882,47 @@ class StormSvcTest(s_test.SynTest):
 
                             await core.nodes('$lib.service.wait(chng)')
 
-                    events = []
-                    async for m in wind:
-                        events.append(m)
-                        if m['event'] == 'pkg:del' and m['info'].get('name') == 'new':
-                            break
+                events = []
+                async for m in wind:
+                    events.append(m)
 
-                    self.len(11, events)
-                    self.eq('svc:set', events[-4]['event'])
-                    self.eq('chng', events[-4]['info']['name'])
-                    self.eq((0, 0, 1), events[-4]['info']['version'])
+                self.len(16, events)
 
-                    self.eq('pkg:del', events[-3]['event'])
-                    self.eq('old', events[-3]['info']['name'])
+                # updated = false
+                self.eq('svc:set', events[-9]['event'])
+                self.eq('chng', events[-9]['info']['name'])
+                self.eq((0, 0, 1), events[-9]['info']['version'])
 
-                    self.eq('pkg:add', events[-2]['event'])
-                    self.eq('old', events[-2]['info']['name'])
+                self.eq('pkg:del', events[-8]['event'])
+                self.eq('old', events[-8]['info']['name'])
 
-                    self.eq('pkg:del', events[-1]['event'])
-                    self.eq('new', events[-1]['info']['name'])
+                self.eq('pkg:add', events[-7]['event'])
+                self.eq('old', events[-7]['info']['name'])
+                self.eq('0.0.1', events[-7]['info']['version'])
+
+                self.eq('pkg:del', events[-6]['event'])
+                self.eq('new', events[-6]['info']['name'])
+
+                # updated = true
+                self.eq('svc:set', events[-5]['event'])
+                self.eq('chng', events[-5]['info']['name'])
+                self.eq((0, 0, 1), events[-5]['info']['version'])
+
+                self.eq('pkg:del', events[-4]['event'])
+                self.eq('old', events[-4]['info']['name'])
+
+                self.eq('pkg:add', events[-3]['event'])
+                self.eq('old', events[-3]['info']['name'])
+                self.eq('0.1.0', events[-3]['info']['version'])
+
+                self.eq('pkg:add', events[-2]['event'])
+                self.eq('new', events[-2]['info']['name'])
+
+                # we get the set to let us know things are back, not no adds since the pkgs are the same
+                # so this is the last
+                self.eq('svc:set', events[-1]['event'])
+                self.eq('chng', events[-1]['info']['name'])
+                self.eq((0, 0, 1), events[-1]['info']['version'])
 
             # This test verifies that storm commands loaded from a previously connected service are still available,
             # even if the service is not available now

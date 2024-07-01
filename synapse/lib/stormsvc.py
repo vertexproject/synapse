@@ -153,10 +153,11 @@ class StormSvcClient(s_base.Base):
         for pdef in self.info.get('pkgs', ()):
             pdef['svciden'] = self.iden
             try:
-                await self.core._normStormPkg(pdef, validstorm=False)
+                await self.core._normStormPkg(pdef)
             except Exception:
                 name = pdef.get('name')
                 logger.exception(f'normStormPkg ({name}) failed for service {self.name} ({self.iden})')
+                continue
 
             name = pdef.get('name')
             iden = s_hashitem.hashitem(pdef)
