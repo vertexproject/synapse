@@ -3083,7 +3083,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('p', text[off:end])
+            self.eq(':$p', text[off:end])
 
             text = 'inet:ipv4=haha'
             msgs = await core.stormlist(text)
@@ -3576,7 +3576,7 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('ou:campaign:period*newp')
 
-            with self.raises(s_exc.NoSuchType):
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign $lib.print(:period*newp)')
 
     async def test_ast_righthand_relprop(self):

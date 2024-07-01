@@ -180,8 +180,10 @@ class Addr(s_types.Str):
                 if v6subs is not None:
                     v6v4addr = v6subs.get('ipv4')
                     if v6v4addr is not None:
+                        subs['ipv4'] = v6v4addr
                         virts['ipv4'] = (v6v4addr, self.ipv4type.stortype)
 
+                subs['ipv6'] = ipv6
                 virts['ipv6'] = (ipv6, self.ipv6type.stortype)
 
                 portstr = ''
@@ -197,6 +199,7 @@ class Addr(s_types.Str):
 
         elif valu.count(':') >= 2:
             ipv6 = self.ipv6type.norm(valu)[0]
+            subs['ipv6'] = ipv6
             virts['ipv6'] = (ipv6, self.ipv6type.stortype)
             return f'{proto}://{ipv6}', {'subs': subs, 'virts': virts}
 
@@ -207,6 +210,7 @@ class Addr(s_types.Str):
 
         ipv4 = self.ipv4type.norm(valu)[0]
         ipv4_repr = self.ipv4type.repr(ipv4)
+        subs['ipv4'] = ipv4
         virts['ipv4'] = (ipv4, self.ipv4type.stortype)
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
@@ -1196,11 +1200,6 @@ class InetModule(s_module.CoreModule):
 
                 'ctors': (
 
-                    ('inet:addr', 'synapse.models.inet.Addr', {}, {
-                        'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
-                        'ex': 'tcp://1.2.3.4:80'
-                    }),
-
                     ('inet:cidr4', 'synapse.models.inet.Cidr4', {}, {
                         'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
                         'ex': '1.2.3.0/24'
@@ -1236,6 +1235,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:ipv6range', 'synapse.models.inet.IPv6Range', {}, {
                         'doc': 'An IPv6 address range.',
                         'ex': '(2607:f8b0:4004:809::200e, 2607:f8b0:4004:809::2011)'
+                    }),
+
+                    ('inet:addr', 'synapse.models.inet.Addr', {}, {
+                        'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
+                        'ex': 'tcp://1.2.3.4:80'
                     }),
 
                     ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {

@@ -2821,22 +2821,18 @@ class HasRelPropCond(Cond):
 
     async def hasProp(self, node, runt, path, subtype=None):
 
-        realnode, propname = await self.kids[0].resolvePivs(node, runt, path)
+        realnode, name = await self.kids[0].resolvePivs(node, runt, path)
         if realnode is None:
             return False
 
-        if (prop := realnode.form.props.get(propname)) is None:
-            if (exc := await s_stormtypes.typeerr(propname, str)) is None:
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=realnode.form.name)
-
-            raise self.kids[0].addExcInfo(exc)
+        if (prop := realnode.form.props.get(name)) is None:
+            return False
 
         virts = None
         if subtype and (subtype := prop.type.subtypes.get(subtype)) is not None:
             virts = (subtype[1],)
 
-        return realnode.has(propname, virts=virts)
+        return realnode.has(name, virts=virts)
 
     async def getLiftHints(self, runt, path):
 
@@ -2949,7 +2945,7 @@ class HasAbsPropCond(Cond):
                 if node.form.name not in formlist:
                     return False
 
-                return node.has(relname, getr=getr)
+                return node.has(relname, virts=getr)
 
             return cond
 
@@ -2959,51 +2955,85 @@ class ArrayCond(Cond):
 
     async def getCondEval(self, runt):
 
-        name = await self.kids[0].compute(runt, None)
-        cmpr = await self.kids[1].compute(runt, None)
-
-        cmprname = None
         if isinstance(self.kids[1], ByNameCmpr):
-            cmprname = self.kids[1].getNames()[0]
-            realcmpr = self.kids[1].getCmpr()
+            cmpr = self.kids[1].getCmpr()
+            names = self.kids[1].getNames()
 
-        async def cond(node, path):
+            virts = []
+            lastidx = len(names) - 1
+            namecmpr = f'{names[-1]}{cmpr}'
+            relprop = self.kids[0]
 
-            prop = node.form.props.get(name)
-            if prop is None:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+            async def cond(node, path):
 
-            if not prop.type.isarray:
-                mesg = f'Array filter syntax is invalid for non-array prop {name}.'
-                raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
+                realnode, realprop = await relprop.resolvePivs(node, runt, path)
+                if realnode is None:
+                    return False
 
-            ptyp = prop.type.arraytype
+                if (prop := realnode.form.props.get(realprop)) is None:
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(realprop))
 
-            propcmpr = cmpr
-            if (subtype := ptyp.subtypes.get(cmprname)) is not None:
-                (ptyp, getr) = subtype
-                propcmpr = realcmpr
+                if not prop.type.isarray:
+                    mesg = f'Array filter syntax is invalid for non-array prop {realprop}.'
+                    raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
 
-            ctor = ptyp.getCmprCtor(propcmpr)
-            if ctor is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=propcmpr, name=ptyp.name))
+                virts.clear()
+                realcmpr = cmpr
+                ptyp = prop.type.arraytype
 
-            items = node.get(name)
-            if items is None:
+                for idx, name in enumerate(names):
+                    if (subtype := ptyp.subtypes.get(name)) is not None:
+                        (ptyp, getr) = subtype
+                        virts.append(getr)
+                    elif idx == lastidx:
+                        realcmpr = namecmpr
+                    else:
+                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+
+                if (items := realnode.get(realprop, virts=virts)) is None:
+                    return False
+
+                ctor = ptyp.getCmprCtor(realcmpr)
+                if ctor is None:
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=realcmpr, name=ptyp.name))
+
+                val2 = await self.kids[2].compute(runt, path)
+
+                for item in items:
+                    if ctor(val2)(item):
+                        return True
+
                 return False
 
-            val2 = await self.kids[2].compute(runt, path)
+        else:
 
-            if subtype is not None:
+            name = await self.kids[0].compute(runt, None)
+            cmpr = await self.kids[1].compute(runt, None)
+
+            async def cond(node, path):
+
+                prop = node.form.props.get(name)
+                if prop is None:
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+                if not prop.type.isarray:
+                    mesg = f'Array filter syntax is invalid for non-array prop {name}.'
+                    raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
+
+                ctor = prop.type.arraytype.getCmprCtor(cmpr)
+                if ctor is None:
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.arraytype))
+
+                items = node.get(name)
+                if items is None:
+                    return False
+
+                val2 = await self.kids[2].compute(runt, path)
+
                 for item in items:
-                    item = getr(item)
                     if ctor(val2)(item):
                         return True
-            else:
-                for item in items:
-                    if ctor(val2)(item):
-                        return True
-            return False
+                return False
 
         return cond
 
@@ -3060,8 +3090,7 @@ class AbsPropCond(Cond):
                 if node.ndef[0] != prop.form.name:
                     return False
 
-                val1 = node.get(prop.name, virts=virts)
-                if val1 is None:
+                if (val1 := node.get(prop.name, virts=virts)) is None:
                     return False
 
                 val2 = await self.kids[2].compute(runt, path)
@@ -3077,22 +3106,31 @@ class AbsPropCond(Cond):
 
             ptyp = prop.type
             if isinstance(self.kids[1], ByNameCmpr):
-                cmprname = self.kids[1].getNames()[0]
-                if (subtype := prop.type.subtypes.get(cmprname)) is not None:
-                    (ptyp, getr) = subtype
-                    cmpr = self.kids[1].getCmpr()
+                names = self.kids[1].getNames()
+                cmpr = self.kids[1].getCmpr()
+
+                lastidx = len(names) - 1
+                namecmpr = f'{names[-1]}{cmpr}'
+
+                for idx, name in enumerate(names):
+                    if (subtype := ptyp.subtypes.get(name)) is not None:
+                        (ptyp, getr) = subtype
+                        virts.append(getr)
+                    elif idx == lastidx:
+                        cmpr = namecmpr
+                    else:
+                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+
+            else:
+                cmpr = await self.kids[1].compute(runt, None)
 
             ctor = ptyp.getCmprCtor(cmpr)
             if ctor is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
             async def cond(node, path):
-                val1 = node.get(relname)
-                if val1 is None:
+                if (val1 := node.get(relname, virts=virts)) is None:
                     return False
-
-                if subtype is not None:
-                    val1 = getr(val1)
 
                 val2 = await self.kids[2].compute(runt, path)
                 return ctor(val2)(val1)
@@ -3192,8 +3230,8 @@ class RelPropCond(Cond):
 
                 if (prop := realnode.form.props.get(realprop)) is None:
                     if (exc := await s_stormtypes.typeerr(realprop, str)) is None:
-                        mesg = f'No property named {name}.'
-                        exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=realnode.form.name)
+                        mesg = f'No property named {realprop}.'
+                        exc = s_exc.NoSuchProp(mesg=mesg, name=realprop, form=realnode.form.name)
 
                     raise self.kids[0].addExcInfo(exc)
 
@@ -3382,19 +3420,23 @@ class PropValue(Value):
         if node is None:
             return None, None
 
-        if len(self.kids) > 1:
-            subtype = await self.kids[1].compute(runt, path)
-
         if (prop := node.form.props.get(realprop)) is None:
+            propname = await self.kids[0].compute(runt, path)
             if (exc := await s_stormtypes.typeerr(propname, str)) is None:
-                mesg = f'No property named {name}.'
-                exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
+                mesg = f'No property named {propname}.'
+                exc = s_exc.NoSuchProp(mesg=mesg, name=propname, form=path.node.form.name)
 
             raise self.kids[0].addExcInfo(exc)
 
-        ptyp = prop.type
         getr = None
-        if (subtype := prop.type.subtypes.get(subtype)) is not None:
+        ptyp = prop.type
+
+        if len(self.kids) > 1:
+            virt = await self.kids[1].compute(runt, path)
+
+            if (subtype := ptyp.subtypes.get(virt)) is None:
+                raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=virt, ptyp=ptyp.name))
+
             (ptyp, getr) = subtype
             getr = (getr,)
 
@@ -3405,6 +3447,7 @@ class PropValue(Value):
             # these get special cased because changing them affects the node
             # while it's in the pipeline but the modification doesn't get stored
             valu = s_msgpack.deepcopy(valu)
+
         return ptyp, valu
 
     async def compute(self, runt, path):
@@ -3966,30 +4009,28 @@ class PropName(Value):
         if self.isconst:
             pivs = self.pivs
         else:
-            propname = await self.kids[0].compute(runt, path)
+            propname = await self.compute(runt, path)
             name = await tostr(propname)
             pivs = name.split('::')
 
         realprop = pivs[-1]
 
         for name in pivs[:-1]:
-            prop = node.form.props.get(name)
-            if prop is None:  # pragma: no cover
-                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
-                    mesg = f'No property named {name}.'
-                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
-
-                raise self.kids[0].addExcInfo(exc)
+            if (prop := node.form.props.get(name)) is None:
+                return None, None
 
             if (valu := node.get(name)) is None:
-                return None
+                return None, None
 
-            form = runt.model.forms.get(prop.type.name)
-            if form is None:
-                raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
+            if (typename := prop.type.name) == 'ndef':
+                ndef = valu
+            elif (form := runt.model.forms.get(typename)) is not None:
+                ndef = (form.name, valu)
+            else:
+                raise self.addExcInfo(s_exc.NoSuchForm.init(typename))
 
-            if (node := await runt.view.getNodeByNdef((form.name, valu))) is None:
-                return None
+            if (node := await runt.view.getNodeByNdef(ndef)) is None:
+                return None, None
 
         return node, realprop
 

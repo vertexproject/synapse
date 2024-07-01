@@ -983,10 +983,10 @@ class RuntNode(NodeBase):
 
         self.nid = self.buid
 
-    def get(self, name, defv=None):
+    def get(self, name, defv=None, virts=None):
         return self.pode[1]['props'].get(name, defv)
 
-    def has(self, name):
+    def has(self, name, virts=None):
         return self.pode[1]['props'].get(name) is not None
 
     def iden(self):

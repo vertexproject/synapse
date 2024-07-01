@@ -459,6 +459,7 @@ class Array(Type):
 
         adds = []
         norms = []
+        virts = {}
 
         form = self.modl.form(self.arraytype.name)
 
@@ -468,6 +469,9 @@ class Array(Type):
             if form is not None:
                 adds.append((form.name, norm, info))
             norms.append(norm)
+
+            if (virt := info.get('virts')) is not None:
+                virts[norm] = virt
 
         if self.isuniq:
 
@@ -485,7 +489,22 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        return tuple(norms), {'adds': adds}
+        norminfo = {'adds': adds}
+
+        if virts:
+            realvirts = {}
+
+            for norm in norms:
+                if (virt := virts.get(norm)) is not None:
+                    for vkey, (vval, vtyp) in virt.items():
+                        if (curv := virts.get(vkey)) is not None:
+                            virts[vkey] = curv[0].append(vval)
+                        else:
+                            virts[vkey] = ([vval], vtyp)
+
+            norminfo['virts'] = realvirts
+
+        return tuple(norms), norminfo
 
     def repr(self, valu):
         rval = [self.arraytype.repr(v) for v in valu]
@@ -1256,7 +1275,7 @@ class Ival(Type):
 
         func = self.storlifts.get(cmpr)
         if func is None:
-            mesg = f'Type ({stortype.name}) has no cmpr: "{cmpr}".'
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
             raise s_exc.NoSuchCmpr(mesg=mesg)
 
         return func(cmpr, valu)
@@ -1337,18 +1356,27 @@ class Ival(Type):
     def _getMin(self, valu):
         if valu is None:
             return None
-        return valu[0][0]
+
+        if len(valu) == 3:
+            return valu[0][0]
+        return valu[0]
 
     def _getMax(self, valu):
         if valu is None:
             return None
-        return valu[0][1]
+
+        if len(valu) == 3:
+            return valu[0][1]
+        return valu[1]
 
     def _getDuration(self, valu):
         if valu is None:
             return None
 
-        ival = valu[0]
+        if len(valu) == 3:
+            ival = valu[0]
+        else:
+            ival = valu
 
         if ival[1] == self.futsize:
             return self.duratype.maxval

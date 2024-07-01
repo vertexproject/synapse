@@ -2937,7 +2937,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if cmpr == 'type=':
             if reverse:
-                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse, virts=virts):
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
                     yield node
 
                 async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
@@ -2946,7 +2946,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
                     yield node
 
-                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse, virts=virts):
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
                     yield node
             return
 

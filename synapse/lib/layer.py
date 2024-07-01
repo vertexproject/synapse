@@ -2671,11 +2671,10 @@ class Layer(s_nexus.Pusher):
                 yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByProp(self, form, prop, reverse=False, indx=None):
-
         try:
             if indx is None:
                 abrv = self.core.getIndxAbrv(INDX_PROP, form, prop)
-            elif isinstance(indx, int):
+            elif isinstance(indx, bytes):
                 abrv = self.core.getIndxAbrv(indx, form, prop)
             else:
                 abrv = self.core.getIndxAbrv(INDX_VIRTUAL, form, prop, indx)
