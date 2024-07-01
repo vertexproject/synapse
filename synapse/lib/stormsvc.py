@@ -151,11 +151,19 @@ class StormSvcClient(s_base.Base):
 
         # Register new packages
         for pdef in self.info.get('pkgs', ()):
+            pdef['svciden'] = self.iden
+            try:
+                await self.core._normStormPkg(pdef, validstorm=False)
+            except Exception:
+                name = pdef.get('name')
+                logger.exception(f'normStormPkg ({name}) failed for service {self.name} ({self.iden})')
+
             name = pdef.get('name')
             iden = s_hashitem.hashitem(pdef)
 
             done.add(name)
             if name in byname:
+                breakpoint()
                 if byname[name] != iden:
                     await self.core._delStormPkg(name)  # we're updating an old package, so delete the old and then re-add
                 else:
@@ -163,8 +171,6 @@ class StormSvcClient(s_base.Base):
 
             try:
                 # push the svciden in the package metadata for later reference.
-                pdef['svciden'] = self.iden
-                await self.core._normStormPkg(pdef)
                 await self.core._addStormPkg(pdef)
 
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only

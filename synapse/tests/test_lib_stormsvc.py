@@ -876,6 +876,12 @@ class StormSvcTest(s_test.SynTest):
 
                             await core.nodes('$lib.service.wait(chng)')
 
+                        async with await ChangingService.anit(svcd, {'updated': True}) as chng:
+                            chng.dmon.share('chng', chng)
+                            await chng.dmon.listen(f'tcp://127.0.0.1:{port}/')
+
+                            await core.nodes('$lib.service.wait(chng)')
+
                     events = []
                     async for m in wind:
                         events.append(m)
