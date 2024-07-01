@@ -163,7 +163,6 @@ class StormSvcClient(s_base.Base):
 
             done.add(name)
             if name in byname:
-                breakpoint()
                 if byname[name] != iden:
                     await self.core._delStormPkg(name)  # we're updating an old package, so delete the old and then re-add
                 else:
