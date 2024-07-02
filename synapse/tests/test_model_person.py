@@ -153,6 +153,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :org=$p.org :asof=$p.asof :person=$p.person
                     :place=$p.place :place:name=$p."place:name" :name=$p.name
                     :title=$p.title :orgname=$p.orgname :user=$p.user
+                    :titles=('hehe', 'hehe', 'haha')
                     :web:acct=$p."web:acct" :web:group=$p."web:group"
                     :dob=$p.dob :dod=$p.dod :url=$p.url
                     :email=$p.email :email:work=$p."email:work"
@@ -177,6 +178,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('place:name'), 'the shire')
             self.eq(node.get('name'), 'tony stark')
             self.eq(node.get('title'), 'ceo')
+            self.eq(node.get('titles'), ('haha', 'hehe'))
             self.eq(node.get('orgname'), 'stark industries, inc')
             self.eq(node.get('user'), 'ironman')
             self.eq(node.get('web:acct'), ('twitter.com', 'ironman'))

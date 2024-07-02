@@ -180,27 +180,7 @@ variables which regular users may not access without special permissions.  By im
 protect the API key from disclosure while also allowing users to use it. For example,
 ``acme.hello.privsep.storm``::
 
-    function getFooByBar(bar) {
-
-        // Retrieve an API key from protected storage
-        $apikey = $lib.globals.get(acme:hello:apikey)
-
-        $headers = ({
-            "apikey": $apikey
-        })
-
-        $url = $lib.str.format("https://acme.newp/api/v1/foo/{bar}", bar=$bar)
-
-        // Use the API key on the callers behalf
-        $resp = $lib.inet.http.get($url, headers=$headers)
-        if ($resp.code != 200) {
-            $lib.warn("/api/v1/foo returned HTTP code: {code}", code=$resp.code)
-            return($lib.null)
-        }
-
-        // Return the JSON response (but not the API key)
-        return($resp.json())
-    }
+.. literalinclude:: ../../../examples/power-ups/rapid/acme-hello/storm/modules/acme.hello.privsep.storm
 
 Notice that the ``$apikey`` is being retrieved and used to call the HTTP API but is not returned to the caller.
 
@@ -289,36 +269,9 @@ A more complete example of help output::
     complete. 0 nodes in 6 ms (0/sec).
 
 Command line options are available within the **Storm** command by accessing the implicit
-``$cmdopts`` variable.
+``$cmdopts`` variable. The command example (``storm/commands/acme.hello.omgopts.storm``) can be seen below:
 
-``storm/commands/acme.hello.omgopts.storm``::
-
-    // An init {} block only runs once even if there are multiple nodes in the pipeline.
-
-    init {
-
-        // Set global debug (once) if the user specified --debug
-        if $cmdopts.debug { $lib.debug = $lib.true }
-
-        if ($cmdopts.hehe) { $lib.print("User Specified hehe: {hehe}", hehe=$cmdopts.hehe) }
-
-        // Normalize the FQDN in case we want to send it to an external system
-        ($ok, $fqdn) = $lib.trycast(inet:fqdn, $cmdopts.fqdn)
-        if (not $ok) {
-            $lib.exit("Invalid FQDN Specified: {fqdn}", fqdn=$cmdopts.fqdn)
-        }
-
-        // Maybe call an API here or something...
-        $lib.print("FQDN: {fqdn}", fqdn=$fqdn)
-    }
-
-
-    // You may also act on nodes in the pipeline
-    $lib.print("GOT NODE: {repr}", repr=$node.repr())
-
-    if $lib.debug { $lib.print("debug mode detected!") }
-
-    // Any nodes still in the pipeline are sent as output
+.. literalinclude:: ../../../examples/power-ups/rapid/acme-hello/storm/commands/acme.hello.omgopts.storm
 
 Command Option Conventions
 --------------------------
@@ -365,30 +318,11 @@ Testing Storm Packages
 ======================
 
 It is **highly** recommended that any production **Storm Packages** use development "best practices" including
-version control and unit testing. For the ``acme-hello`` example, we have included a test that you can use as
-an example to expand on.
+version control and unit testing. For the ``acme-hello`` example, we have included a test file (``test_acme_hello.py``)
+that you can use as an example to expand on:
 
-``test_acme_hello.py``::
-
-    import os
-
-    import synapse.tests.utils as s_test
-
-    dirname = os.path.abspath(os.path.dirname(__file__))
-
-    class AcmeHelloTest(s_test.StormPkgTest):
-
-        assetdir = os.path.join(dirname, 'testassets')
-        pkgprotos = (os.path.join(dirname, 'acme-hello.yaml'),)
-
-        async def test_acme_hello(self):
-
-            async with self.getTestCore() as core:
-
-                msgs = await core.stormlist('acme.hello.sayhi')
-                self.stormIsInPrint('hello storm!', msgs)
-                self.stormHasNoWarnErr(msgs)
-
+.. literalinclude:: ../../../examples/power-ups/rapid/acme-hello/test_acme_hello.py
+   :language: python3
 
 With the file ``test_acme_hello.py`` located in the same directory as ``acme-hello.yaml`` you can use the
 standard ``pytest`` invocation to run the test::
@@ -422,15 +356,9 @@ To implement a command with a ``--yield`` option is typically accomplished via t
             action: store_true
             help: Yield the newly created inet:dns:a records rather than the input inet:fqdn nodes.
 
-Then within ``storm/commands/acme.hello.mayyield.storm``::
+Then within ``storm/commands/acme.hello.mayyield.storm``:
 
-    function nodeGenrFunc(fqdn) {
-        // Fake a DNS lookup and make a few inet:dns:a records...
-        [ inet:dns:a=($fqdn, 1.2.3.4) ]
-        [ inet:dns:a=($fqdn, 123.123.123.123) ]
-    }
-
-    divert --yield $cmdopts.yield $nodeGenrFunc($node)
+.. literalinclude:: ../../../examples/power-ups/rapid/acme-hello/storm/commands/acme.hello.mayyield.storm
 
 When executed, the ``acme.hello.mayyield`` command will output the nodes received as inputs which is useful for
 pipelining enrichments. If the user specifies ``--yield`` the command will output the resulting ``inet:dns:a``
