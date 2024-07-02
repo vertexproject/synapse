@@ -194,17 +194,17 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['prop'])
+            self.len(2, refs['prop'])
 
             await core.addFormProp('test:comp', '_ipv4', ('inet:ipv4', {}), {})
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(2, refs['prop'])
+            self.len(3, refs['prop'])
 
             await core.delFormProp('test:comp', '_ipv4')
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['prop'])
+            self.len(2, refs['prop'])
 
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
 
