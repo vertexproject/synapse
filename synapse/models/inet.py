@@ -94,12 +94,12 @@ class Addr(s_types.Str):
         self.ipv4type = self.modl.type('inet:ipv4')
         self.ipv6type = self.modl.type('inet:ipv6')
 
-        self.subindx |= {
+        self.virtindx |= {
             'ipv4': 'ipv4',
             'ipv6': 'ipv6',
         }
 
-        self.subtypes |= {
+        self.virts |= {
             'ipv4': (self.ipv4type, self._getIPv4),
             'ipv6': (self.ipv6type, self._getIPv6),
         }

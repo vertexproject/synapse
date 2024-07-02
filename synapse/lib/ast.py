@@ -1540,11 +1540,11 @@ class LiftTag(LiftOper):
 
             return
 
-        subtype = None
+        virt = None
         if len(self.kids) == 2:
-            subtype = await self.kids[1].compute(runt, path)
+            virt = await self.kids[1].compute(runt, path)
 
-        async for node in runt.view.nodesByTag(tag, reverse=self.reverse, subtype=subtype):
+        async for node in runt.view.nodesByTag(tag, reverse=self.reverse, virt=virt):
             yield node
 
 class LiftByArray(LiftOper):
@@ -1577,8 +1577,8 @@ class LiftByArray(LiftOper):
             vgetrs = []
             ptyp = props[0].type.arraytype
             for idx, name in enumerate(names):
-                if (subtype := ptyp.subtypes.get(name)) is not None:
-                    (ptyp, getr) = subtype
+                if (virt := ptyp.virts.get(name)) is not None:
+                    (ptyp, getr) = virt
                     vnames.append(name)
                     vgetrs.append(getr)
                 elif idx == lastidx:
@@ -1630,11 +1630,11 @@ class LiftTagProp(LiftOper):
 
             return
 
-        subtype = None
+        virt = None
         if len(self.kids) == 2:
-            subtype = await self.kids[1].compute(runt, path)
+            virt = await self.kids[1].compute(runt, path)
 
-        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, subtype=subtype):
+        async for node in runt.view.nodesByTagProp(None, tag, prop, reverse=self.reverse, virt=virt):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -1662,10 +1662,10 @@ class LiftFormTagProp(LiftOper):
                 genrs.append(runt.view.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse))
 
         elif len(self.kids) == 2:
-            subtype = await self.kids[1].compute(runt, path)
+            virt = await self.kids[1].compute(runt, path)
 
             for form in forms:
-                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse, subtype=subtype))
+                genrs.append(runt.view.nodesByTagProp(form, tag, prop, reverse=self.reverse, virt=virt))
 
         else:
             for form in forms:
@@ -1742,13 +1742,13 @@ class LiftFormTag(LiftOper):
 
         elif len(self.kids) == 3:
             ptyp = runt.model.type('ival')
-            subtype = await self.kids[2].compute(runt, path)
-            if (styp := ptyp.subtypes.get(subtype)) is None:
-                raise s_exc.NoSuchType(name=subtype, mesg=f'Invalid subtype {subtype} for tag ival.')
+            virt = await self.kids[2].compute(runt, path)
+            if (styp := ptyp.virts.get(virt)) is None:
+                raise s_exc.NoSuchVirt(name=virt, mesg=f'Invalid virtual prop {virt} for tag ival.')
             (ptyp, getr) = styp
 
             for form in forms:
-                genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, subtype=subtype))
+                genrs.append(runt.view.nodesByTag(tag, form=form, reverse=self.reverse, virt=virt))
 
             def cmprkey(node):
                 return getr(node.getTag(tag, defval=(0, 0)))
@@ -1769,13 +1769,13 @@ class LiftProp(LiftOper):
 
         name = await tostr(await self.kids[0].compute(runt, path))
 
-        subtype = None
+        virt = None
         if len(self.kids) == 2:
-            subtype = await self.kids[1].compute(runt, path)
+            virt = await self.kids[1].compute(runt, path)
 
         prop = runt.model.props.get(name)
         if prop is not None:
-            async for node in self.proplift(prop, runt, path, subtype=subtype):
+            async for node in self.proplift(prop, runt, path, virt=virt):
                 yield node
             return
 
@@ -1787,7 +1787,7 @@ class LiftProp(LiftOper):
 
         if len(props) == 1 or props[0].isform:
             for prop in props:
-                async for node in self.proplift(prop, runt, path, subtype=subtype):
+                async for node in self.proplift(prop, runt, path, virt=virt):
                     yield node
             return
 
@@ -1802,10 +1802,10 @@ class LiftProp(LiftOper):
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
 
-    async def proplift(self, prop, runt, path, subtype=None):
+    async def proplift(self, prop, runt, path, virt=None):
 
         # check if we can optimize a form lift
-        if subtype is None and prop.isform:
+        if virt is None and prop.isform:
 
             async for hint in self.getRightHints(runt, path):
                 if hint[0] == 'tag':
@@ -1845,7 +1845,7 @@ class LiftProp(LiftOper):
                         yield node
                     return
 
-        async for node in runt.view.nodesByProp(prop.full, reverse=self.reverse, subtype=subtype):
+        async for node in runt.view.nodesByProp(prop.full, reverse=self.reverse, virt=virt):
             yield node
 
     async def getRightHints(self, runt, path):
@@ -1893,8 +1893,8 @@ class LiftPropBy(LiftOper):
             vgetrs = []
             ptyp = props[0].type
             for idx, name in enumerate(names):
-                if (subtype := ptyp.subtypes.get(name)) is not None:
-                    (ptyp, getr) = subtype
+                if (virt := ptyp.virts.get(name)) is not None:
+                    (ptyp, getr) = virt
                     vnames.append(name)
                     vgetrs.append(getr)
                 elif idx == lastidx:
@@ -2839,16 +2839,16 @@ class HasRelPropCond(Cond):
 
         assert isinstance(self.kids[0], RelProp)
 
-        subtype = None
+        virt = None
         if len(self.kids) == 2:
-            subtype = await self.kids[1].compute(runt, None)
+            virt = await self.kids[1].compute(runt, None)
 
         async def cond(node, path):
-            return await self.hasProp(node, runt, path, subtype=subtype)
+            return await self.hasProp(node, runt, path, virt=virt)
 
         return cond
 
-    async def hasProp(self, node, runt, path, subtype=None):
+    async def hasProp(self, node, runt, path, virt=None):
 
         realnode, name = await self.kids[0].resolvePivs(node, runt, path)
         if realnode is None:
@@ -2858,8 +2858,8 @@ class HasRelPropCond(Cond):
             return False
 
         virts = None
-        if subtype and (subtype := prop.type.subtypes.get(subtype)) is not None:
-            virts = (subtype[1],)
+        if virt and (vinfo := prop.type.virts.get(virt)) is not None:
+            virts = (vinfo[1],)
 
         return realnode.has(name, virts=virts)
 
@@ -2912,26 +2912,26 @@ class HasAbsPropCond(Cond):
 
         name = await self.kids[0].compute(runt, None)
 
-        subtype = None
+        virt = None
         if len(self.kids) == 2:
-            subtype = await self.kids[1].compute(runt, None)
+            virt = await self.kids[1].compute(runt, None)
 
         prop = runt.model.props.get(name)
         if prop is not None:
 
-            getr = None
-            if (subtype := prop.type.subtypes.get(subtype)) is not None:
-                getr = (subtype[1],)
+            virts = None
+            if (vinfo := prop.type.virts.get(virt)) is not None:
+                virts = (vinfo[1],)
 
             if prop.isform:
-                if getr is None:
+                if virts is None:
                     async def cond(node, path):
                         return node.form.name == prop.name
                 else:
                     async def cond(node, path):
                         if node.form.name != prop.name:
                             return False
-                        return node.valu(virts=getr) is not None
+                        return node.valu(virts=virts) is not None
 
                 return cond
 
@@ -2939,7 +2939,7 @@ class HasAbsPropCond(Cond):
                 if node.form.name != prop.form.name:
                     return False
 
-                return node.has(prop.name, virts=getr)
+                return node.has(prop.name, virts=virts)
 
             return cond
 
@@ -2960,21 +2960,21 @@ class HasAbsPropCond(Cond):
 
         if (proplist := runt.model.ifaceprops.get(name)) is not None:
 
-            getr = None
+            virts = None
             formlist = []
             for propname in proplist:
                 prop = runt.model.props.get(propname)
                 formlist.append(prop.form.name)
                 relname = prop.name
 
-                if (subtype := prop.type.subtypes.get(subtype)) is not None:
-                    getr = subtype[1]
+                if (vinfo := prop.type.virts.get(virt)) is not None:
+                    virts = (vinfo[1],)
 
             async def cond(node, path):
                 if node.form.name not in formlist:
                     return False
 
-                return node.has(relname, virts=getr)
+                return node.has(relname, virts=virts)
 
             return cond
 
@@ -3011,8 +3011,8 @@ class ArrayCond(Cond):
                 ptyp = prop.type.arraytype
 
                 for idx, name in enumerate(names):
-                    if (subtype := ptyp.subtypes.get(name)) is not None:
-                        (ptyp, getr) = subtype
+                    if (vinfo := ptyp.virts.get(name)) is not None:
+                        (ptyp, getr) = vinfo
                         virts.append(getr)
                     elif idx == lastidx:
                         realcmpr = namecmpr
@@ -3084,8 +3084,8 @@ class AbsPropCond(Cond):
                 namecmpr = f'{names[-1]}{cmpr}'
 
                 for idx, name in enumerate(names):
-                    if (subtype := ptyp.subtypes.get(name)) is not None:
-                        (ptyp, getr) = subtype
+                    if (vinfo := ptyp.virts.get(name)) is not None:
+                        (ptyp, getr) = vinfo
                         virts.append(getr)
                     elif idx == lastidx:
                         cmpr = namecmpr
@@ -3142,8 +3142,8 @@ class AbsPropCond(Cond):
                 namecmpr = f'{names[-1]}{cmpr}'
 
                 for idx, name in enumerate(names):
-                    if (subtype := ptyp.subtypes.get(name)) is not None:
-                        (ptyp, getr) = subtype
+                    if (vinfo := ptyp.virts.get(name)) is not None:
+                        (ptyp, getr) = vinfo
                         virts.append(getr)
                     elif idx == lastidx:
                         cmpr = namecmpr
@@ -3177,12 +3177,12 @@ class TagValuCond(Cond):
         cmpr = await cnode.compute(runt, None)
 
         ptyp = runt.model.type('ival')
-        subtype = None
+        virt = None
 
         if isinstance(cnode, ByNameCmpr):
             cmprname = cnode.getNames()[0]
-            if (subtype := ptyp.subtypes.get(cmprname)) is not None:
-                (ptyp, getr) = subtype
+            if (virt := ptyp.virts.get(cmprname)) is not None:
+                (ptyp, getr) = virt
                 cmpr = cnode.getCmpr()
 
         cmprctor = ptyp.getCmprCtor(cmpr)
@@ -3199,7 +3199,7 @@ class TagValuCond(Cond):
                 valu = await rnode.compute(runt, path)
 
                 tval = node.getTag(name)
-                if subtype is not None:
+                if virt is not None:
                     tval = getr(tval)
 
                 return cmprctor(valu)(tval)
@@ -3216,7 +3216,7 @@ class TagValuCond(Cond):
 
             async def cond(node, path):
                 tval = node.getTag(name)
-                if subtype is not None:
+                if virt is not None:
                     tval = getr(tval)
                 return cmpr(tval)
 
@@ -3227,7 +3227,7 @@ class TagValuCond(Cond):
             valu = await rnode.compute(runt, path)
 
             tval = node.getTag(name)
-            if subtype is not None:
+            if virt is not None:
                 tval = getr(tval)
 
             return cmprctor(valu)(tval)
@@ -3276,8 +3276,8 @@ class RelPropCond(Cond):
                 ptyp = prop.type
 
                 for idx, name in enumerate(names):
-                    if (subtype := ptyp.subtypes.get(name)) is not None:
-                        (ptyp, getr) = subtype
+                    if (vinfo := ptyp.virts.get(name)) is not None:
+                        (ptyp, getr) = vinfo
                         virts.append(getr)
                     elif idx == lastidx:
                         realcmpr = namecmpr
@@ -3375,18 +3375,18 @@ class TagPropCond(Cond):
 
             cmpr = fullcmpr
             ptyp = prop.type
-            subtype = None
+            virt = None
 
             if cmprname is not None:
-                if (subtype := ptyp.subtypes.get(cmprname)) is not None:
-                    (ptyp, getr) = subtype
+                if (virt := ptyp.virts.get(cmprname)) is not None:
+                    (ptyp, getr) = virt
                     cmpr = subcmpr
 
             ctor = ptyp.getCmprCtor(cmpr)
             if ctor is None:
                 raise self.kids[2].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-            if subtype is not None:
+            if virt is not None:
                 curv = getr(curv)
 
             return ctor(valu)(curv)
@@ -3441,7 +3441,7 @@ class PropValue(Value):
     def isRuntSafeAtom(self, runt):
         return False
 
-    async def getTypeAndValu(self, runt, path, subtype=None):
+    async def getTypeAndValu(self, runt, path):
         if not path:
             return None, None
 
@@ -3463,10 +3463,10 @@ class PropValue(Value):
         if len(self.kids) > 1:
             virt = await self.kids[1].compute(runt, path)
 
-            if (subtype := ptyp.subtypes.get(virt)) is None:
+            if (vinfo := ptyp.virts.get(virt)) is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=virt, ptyp=ptyp.name))
 
-            (ptyp, getr) = subtype
+            (ptyp, getr) = vinfo
             getr = (getr,)
 
         if (valu := node.get(realprop, virts=getr)) is None:
@@ -3503,8 +3503,8 @@ class TagValue(Value):
         valu = path.node.getTag(name)
 
         if len(self.kids) > 1:
-            subtype = await self.kids[1].compute(runt, path)
-            (_, valu) = runt.model.type('ival').getSubType(subtype, valu)
+            virt = await self.kids[1].compute(runt, path)
+            (_, valu) = runt.model.type('ival').getVirtProp(virt, valu)
 
         return valu
 
@@ -3535,8 +3535,8 @@ class TagPropValue(Value):
         valu = path.node.getTagProp(tag, prop)
 
         if len(self.kids) > 1:
-            subtype = await self.kids[1].compute(runt, path)
-            (_, valu) = tprop.type.getSubType(subtype, valu)
+            virt = await self.kids[1].compute(runt, path)
+            (_, valu) = tprop.type.getVirtProp(virt, valu)
 
         return valu
 
@@ -3968,8 +3968,7 @@ class VarList(Const):
     pass
 
 class Cmpr(Const):
-    def value(self):
-        return (None, self.valu)
+    pass
 
 class ByNameCmpr(Const):
 

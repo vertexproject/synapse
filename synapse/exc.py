@@ -245,7 +245,7 @@ class NoSuchVirt(SynErr):
     @classmethod
     def init(cls, name, ptyp, mesg=None):
         if mesg is None:
-            mesg = f'No virtual type named {name} on type {ptyp}.'
+            mesg = f'No virtual prop named {name} on type {ptyp}.'
         return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp)
 
 class NoSuchAbrv(SynErr): pass

@@ -56,8 +56,8 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
-        self.subindx = {}
-        self.subtypes = {}
+        self.virts = {}
+        self.virtindx = {}
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
@@ -110,7 +110,7 @@ class Type:
     def getStorCmprs(self, cmpr, valu, virts=None):
 
         if virts:
-            substor = self.subtypes[virts[0]][0]
+            substor = self.virts[virts[0]][0]
             return substor.getStorCmprs(cmpr, valu, virts[1:])
 
         func = self.storlifts.get(cmpr)
@@ -120,17 +120,17 @@ class Type:
 
         return func(cmpr, valu)
 
-    def getSubType(self, name, valu):
-        (subtype, getr) = self.subtypes.get(name, (None, None))
-        if subtype is None:
-            raise s_exc.NoSuchType(name=name, valu=valu, mesg=f'Invalid subtype {name} for type {self.name}')
+    def getVirtProp(self, name, valu):
+        (vtyp, getr) = self.virts.get(name, (None, None))
+        if vtyp is None:
+            raise s_exc.NoSuchType(name=name, valu=valu, mesg=f'Invalid virtual prop {name} for type {self.name}')
 
-        return (subtype, getr(valu))
+        return (vtyp, getr(valu))
 
-    def getSubIndx(self, name):
-        indx = self.subindx.get(name, s_common.novalu)
+    def getVirtIndx(self, name):
+        indx = self.virtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for type {self.name}')
+            raise s_exc.NoSuchVirt(name=name, mesg=f'Invalid virtual prop indx {name} for type {self.name}')
 
         return indx
 
@@ -196,9 +196,6 @@ class Type:
         self._cmpr_ctors[name] = func
 
     def getCmprCtor(self, name):
-        if isinstance(name, tuple):
-            if (subtype := self.subtypes.get(name[0])) is not None:
-                return subtype[0].getCmprCtor(name[1])
         return self._cmpr_ctors.get(name)
 
     def setLiftHintCmprCtor(self, name, func):
@@ -1224,19 +1221,19 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
         self.duratype = self.modl.type('duration')
 
-        self.subtypes.update({
+        self.virts.update({
             'min': (self.timetype, self._getMin),
             'max': (self.timetype, self._getMax),
             'duration': (self.duratype, self._getDuration),
         })
 
-        self.subindx.update({
+        self.virtindx.update({
             'min': None,
             'max': s_layer.INDX_IVAL_MAX,
             'duration': s_layer.INDX_IVAL_DURATION
         })
 
-        self.tagsubindx = {
+        self.tagvirtindx = {
             'min': s_layer.INDX_TAG,
             'max': s_layer.INDX_TAG_MAX,
             'duration': s_layer.INDX_TAG_DURATION
@@ -1383,10 +1380,10 @@ class Ival(Type):
 
         return ival[1] - ival[0]
 
-    def getTagSubIndx(self, name):
-        indx = self.tagsubindx.get(name, s_common.novalu)
+    def getTagVirtIndx(self, name):
+        indx = self.tagvirtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for tag ival')
+            raise s_exc.NoSuchVirt(name=name, mesg=f'Invalid virtual prop index {name} for tag ival')
 
         return indx
 
@@ -1546,7 +1543,7 @@ class Ndef(Type):
 
         nameopts = {'lower': True, 'strip': True}
         self.formnametype = Str(self.modl, 'formname', {}, nameopts)
-        self.subtypes |= {
+        self.virts |= {
             'form': (self.formnametype, self._getForm),
         }
 

@@ -1441,7 +1441,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(['::3', '::2', '::1'], await nodeVals('reverse(inet:ipv6*range=((1), (3)))'))
 
             await core.nodes('for $x in $lib.range(5) {[ inet:server=`[::5]:{$x}` ]}')
-            await buidRevEq('inet:server*ipv6="::5"')
+            await buidRevEq('inet:server:ipv6="::5"')
 
             await core.nodes('for $x in $lib.range(5) {[ test:hugenum=$x ]}')
 

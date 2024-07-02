@@ -2903,7 +2903,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByProp(self, full, reverse=False, subtype=None):
+    async def nodesByProp(self, full, reverse=False, virt=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -2916,8 +2916,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         indx = None
-        if subtype is not None:
-            indx = prop.type.getSubIndx(subtype)
+        if virt is not None:
+            indx = prop.type.getVirtIndx(virt)
 
         if prop.isform:
             genr = self.liftByProp(prop.name, None, reverse=reverse, indx=indx)
@@ -2980,11 +2980,11 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByTag(self, tag, form=None, reverse=False, subtype=None):
+    async def nodesByTag(self, tag, form=None, reverse=False, virt=None):
 
         indx = None
-        if subtype is not None:
-            indx = self.core.model.type('ival').getTagSubIndx(subtype)
+        if virt is not None:
+            indx = self.core.model.type('ival').getTagVirtIndx(virt)
 
         async for nid, srefs in self.liftByTag(tag, form=form, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
@@ -3043,15 +3043,15 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByTagProp(self, form, tag, name, reverse=False, subtype=None):
+    async def nodesByTagProp(self, form, tag, name, reverse=False, virt=None):
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
         indx = None
-        if subtype is not None:
-            indx = prop.type.getSubIndx(subtype)
+        if virt is not None:
+            indx = prop.type.getVirtIndx(virt)
 
         async for nid, srefs in self.liftByTagProp(form, tag, name, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
