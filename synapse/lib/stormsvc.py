@@ -151,8 +151,8 @@ class StormSvcClient(s_base.Base):
 
         # Register new packages
         for pdef in self.info.get('pkgs', ()):
-            pdef['svciden'] = self.iden
             try:
+                pdef['svciden'] = self.iden
                 await self.core._normStormPkg(pdef)
             except Exception:
                 name = pdef.get('name')
@@ -177,7 +177,6 @@ class StormSvcClient(s_base.Base):
                 raise
 
             except Exception:
-                name = pdef.get('name')
                 logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
         # clean up any packages that no longer exist
