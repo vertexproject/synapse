@@ -8,6 +8,18 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
 
+    async def test_model_inet_ipaddr(self):
+
+        async with self.getTestCore() as core:
+            iptype = core.model.type('inet:ip')
+            print(f'{iptype.norm("1.2.3.4")}')
+
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 inet:ip=ffff::ffff ]')
+
+            self.len(2, nodes)
+            print(repr(nodes[0].pack()))
+            print(repr(nodes[1].pack()))
+
     async def test_model_inet_basics(self):
         async with self.getTestCore() as core:
             self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))

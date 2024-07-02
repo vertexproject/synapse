@@ -276,6 +276,204 @@ class Email(s_types.Str):
         }
         return norm, info
 
+class IPAddr(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_IPADDR
+
+    def postTypeInit(self):
+
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+        self.storlifts.update({
+            '=': self._storLiftEq,
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+        })
+
+    def _ctorCmprEq(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+
+                def cmpr(norm):
+                    return norm >= minv and norm < maxv
+                return cmpr
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+
+                def cmpr(norm):
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+        return s_types.Type._ctorCmprEq(self, valu)
+
+    def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+
+                minv, maxv = self.getCidrRange(valu)
+                while minv < maxv:
+                    yield minv
+                    minv += 1
+
+                return
+
+            if valu.find('-') != -1:
+
+                minv, maxv = self.getNetRange(valu)
+
+                while minv <= maxv:
+                    yield minv
+                    minv += 1
+
+                return
+
+        yield valu
+
+    def _normPyTuple(self, valu):
+
+        if any((len(valu) != 2,
+                type(valu[0]) is int,
+                type(valu[1]) is int)):
+
+            mesg = f'Invalid IP address tuple: {valu}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+    def _normPyStr(self, text):
+
+        valu = text.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
+        valu = s_chop.printables(valu)
+        info = {'subs': {}}
+
+        print(f'VALU {valu}')
+        if valu.find(':') != -1:
+            try:
+                byts = socket.inet_pton(socket.AF_INET6, valu)
+                addr = (6, int.from_bytes(byts, 'big'))
+                ipaddr = ipaddress.IPv6Address(addr[1])
+                # v4 = v6.ipv4_mapped
+            except OSError as e:
+                mesg = f'Invalid IP Address: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg) from None
+        else:
+            try:
+                byts = socket.inet_pton(socket.AF_INET, valu)
+                addr = (4, int.from_bytes(byts, 'big'))
+                ipaddr = ipaddress.IPv4Address(addr[1])
+            except OSError as e:
+                mesg = f'Invalid IP Address: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg) from None
+
+        info['subs']['type'] = getAddrType(ipaddr)
+        info['subs']['scope'] = getAddrScope(ipaddr)
+
+        return addr, info
+
+    def repr(self, norm):
+
+        vers, addr = norm
+
+        if vers == 4:
+            byts = addr.to_bytes(4, 'big')
+            return socket.inet_ntop(socket.AF_INET, byts)
+
+        if vers == 6:
+            # FIXME TODO
+            byts = addr.to_bytes(16, 'big')
+            return socket.inet_ntop(socket.AF_INET6, byts)
+
+        mesg = 'IP proto {vers} is not supported!'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
+    def getNetRange(self, text):
+        minstr, maxstr = text.split('-', 1)
+        minv, info = self.norm(minstr)
+        maxv, info = self.norm(maxstr)
+        return minv, maxv
+
+    def getCidrRange(self, text):
+        addr, mask_str = text.split('/', 1)
+        norm, info = self.norm(addr)
+
+        try:
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Invalid CIDR Mask "{text}"')
+
+        if mask_int > 32 or mask_int < 0:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Invalid CIDR Mask "{text}"')
+
+        mask = cidrmasks[mask_int]
+
+        minv = norm & mask[0]
+        return minv, minv + mask[1]
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                maxv -= 1
+                return (
+                    ('range=', (minv, maxv), self.stortype),
+                )
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+                return (
+                    ('range=', (minv, maxv), self.stortype),
+                )
+
+        return self._storLiftNorm(cmpr, valu)
+
+    def _ctorCmprGe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu >= norm
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu <= norm
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu > norm
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu < norm
+        return cmpr
+
+
 class Fqdn(s_types.Type):
 
     stortype = s_layer.STOR_TYPE_FQDN
@@ -1174,6 +1372,11 @@ class InetModule(s_module.CoreModule):
 
                 'ctors': (
 
+                    ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
+                        'doc': 'An IPv4 or IPv6 address.',
+                        'ex': '1.2.3.4',
+                    }),
+
                     ('inet:addr', 'synapse.models.inet.Addr', {}, {
                         'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
                         'ex': 'tcp://1.2.3.4:80'
@@ -1731,6 +1934,8 @@ class InetModule(s_module.CoreModule):
                 ),
 
                 'forms': (
+
+                    ('inet:ip', {}, ()),
 
                     ('inet:proto', {}, (
                         ('port', ('inet:port', {}), {
