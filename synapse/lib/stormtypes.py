@@ -8449,9 +8449,9 @@ class Trigger(Prim):
             valu = await tostr(valu)
 
         if name == 'user':
-            self.runt.user.confirm(('trigger', 'set', 'user'))
+            self.runt.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
+            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
         await self.runt.snap.view.setTriggerInfo(trigiden, name, valu)
 
@@ -9221,7 +9221,7 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        self.runt.confirm(('cron', 'set'), gateiden=iden)
+        self.confirm(('cron', 'set'), gateiden=iden)
         return await self.runt.snap.core.moveCronJob(self.runt.user.iden, iden, view)
 
     @stormfunc(readonly=True)
@@ -9312,7 +9312,7 @@ class CronJob(Prim):
 
     async def _methCronJobKill(self):
         iden = self.valu.get('iden')
-        self.runt.user.confirm(('cron', 'kill'), gateiden=iden)
+        self.runt.confirm(('cron', 'kill'), gateiden=iden)
         return await self.runt.snap.core.killCronTask(iden)
 
     async def _methCronJobSet(self, name, valu):
@@ -9323,9 +9323,9 @@ class CronJob(Prim):
         if name == 'creator':
             # this permission must be granted cortex wide
             # to prevent abuse...
-            self.runt.user.confirm(('cron', 'set', 'creator'))
+            self.runt.confirm(('cron', 'set', 'creator'))
         else:
-            self.runt.user.confirm(('cron', 'set', name), gateiden=iden)
+            self.runt.confirm(('cron', 'set', name), gateiden=iden)
 
         self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
 
