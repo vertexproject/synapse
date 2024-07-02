@@ -1091,7 +1091,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         self.runt.confirmPropSet(riskvuln.props['vuln'])
         self.runt.confirmPropSet(riskvuln.props['node'])
 
-        if (seen := n.get('.seen')):
+        if seen := n.get('.seen'):
             self.runt.confirmPropSet(riskvuln.props['.seen'])
             props['.seen'] = seen
 

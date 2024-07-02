@@ -6619,10 +6619,12 @@ words\tword\twrd'''
             self.eq([], await core.callStorm(merging))
 
             # merge a view with a fork
-            fork00 = await core.getView().fork()
+            mainview = core.getView()
+            fork00 = await mainview.fork()
             midfork = core.getView(fork00['iden'])
 
             fork01 = await midfork.fork()
+            fork01_iden = fork01['iden']
             self.true(midfork.hasKids())
 
             opts = {'view': midfork.iden}
@@ -6630,10 +6632,19 @@ words\tword\twrd'''
 
             self.eq([midfork.iden], await core.callStorm(merging))
 
+            layridens = [lyr['iden'] for lyr in fork01['layers'] if lyr['iden'] != midfork.layers[0].iden]
+            events = [
+                {'event': 'view:setlayers', 'info': {'iden': fork01_iden, 'layers': layridens}},
+                {'event': 'view:set', 'info': {'iden': fork01_iden, 'name': 'parent', 'valu': mainview.iden}}
+            ]
+            task = core.schedCoro(s_test.waitForBehold(core, events))
+
             opts = {'view': midfork.iden, 'user': visi.iden}
             await core.callStorm('return($lib.view.get().setMergeVote())', opts=opts)
 
             self.true(await midfork.waitfini(timeout=12))
+
+            await asyncio.wait_for(task, timeout=5)
 
             self.eq([], await core.callStorm(merging))
 
