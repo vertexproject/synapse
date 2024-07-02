@@ -53,7 +53,7 @@ class Bzip2Lib(s_stormtypes.Lib):
         try:
             return bz2.compress(valu)
         except Exception as e:
-            mesg = f'Error during bzip2 compression - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during bzip2 compression - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
     async def un(self, valu):
@@ -61,7 +61,7 @@ class Bzip2Lib(s_stormtypes.Lib):
         try:
             return bz2.decompress(valu)
         except Exception as e:
-            mesg = f'Error during bzip2 decompression - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during bzip2 decompression - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
 @s_stormtypes.registry.registerLib
@@ -110,7 +110,7 @@ class GzipLib(s_stormtypes.Lib):
         try:
             return gzip.compress(valu)
         except Exception as e:
-            mesg = f'Error during gzip compression - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during gzip compression - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
     async def un(self, valu):
@@ -118,7 +118,7 @@ class GzipLib(s_stormtypes.Lib):
         try:
             return gzip.decompress(valu)
         except Exception as e:
-            mesg = f'Error during gzip decompression - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during gzip decompression - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
 @s_stormtypes.registry.registerLib
@@ -167,7 +167,7 @@ class ZlibLib(s_stormtypes.Lib):
         try:
             return zlib.compress(valu)
         except Exception as e:
-            mesg = f'Error during zlib compression - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during zlib compression - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
     async def un(self, valu):
@@ -175,5 +175,5 @@ class ZlibLib(s_stormtypes.Lib):
         try:
             return zlib.decompress(valu)
         except Exception as e:
-            mesg = f'Error during zlib decompression - {str(e)}: {repr(valu)[:256]}'
+            mesg = f'Error during zlib decompression - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None

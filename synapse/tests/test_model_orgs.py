@@ -375,19 +375,25 @@ class OuModelTest(s_t_utils.SynTest):
             props = {
                 'org': guid0,
                 'name': 'arrowcon 2018',
+                'names': ('Arrow Conference 2018', 'ArrCon18', 'ArrCon18'),
                 'base': 'arrowcon',
                 'start': '20180301',
                 'end': '20180303',
                 'place': place0,
                 'url': 'http://arrowcon.org/2018',
             }
-            q = '''[(ou:conference=$valu :org=$p.org :name=$p.name :base=$p.base
-                :start=$p.start :end=$p.end :place=$p.place :url=$p.url)]'''
+            q = '''[
+                ou:conference=$valu
+                    :org=$p.org :name=$p.name :names=$p.names
+                    :base=$p.base :start=$p.start :end=$p.end
+                    :place=$p.place :url=$p.url
+            ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], c0)
             self.eq(node.get('name'), 'arrowcon 2018')
+            self.eq(node.get('names'), ('arrcon18', 'arrow conference 2018',))
             self.eq(node.get('base'), 'arrowcon')
             self.eq(node.get('org'), guid0)
             self.eq(node.get('start'), 1519862400000)

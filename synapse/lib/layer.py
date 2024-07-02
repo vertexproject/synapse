@@ -159,14 +159,14 @@ class LayerApi(s_cell.CellApi):
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True, compat=False):
+    async def syncNodeEdits(self, offs, wait=True, reverse=False, compat=False):
         '''
         Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
         Once caught up with storage, yield them in realtime.
         '''
         await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.syncNodeEdits(offs, wait=wait, compat=compat):
+        async for item in self.layr.syncNodeEdits(offs, wait=wait, reverse=reverse, compat=compat):
             yield item
             await asyncio.sleep(0)
 
@@ -4654,7 +4654,7 @@ class Layer(s_nexus.Pusher):
                     yield (nid, tombtype, tombinfo)
 
     async def confirmLayerEditPerms(self, user, gateiden, delete=False):
-        if user.allowed(('node',), gateiden=gateiden):
+        if user.allowed(('node',), gateiden=gateiden, deepdeny=True):
             return
 
         perm_del_form = ('node', 'del')
@@ -4670,17 +4670,17 @@ class Layer(s_nexus.Pusher):
         perm_add_edge = ('node', 'edge', 'add')
 
         if all((
-            (allow_add_forms := user.allowed(perm_add_form, gateiden=gateiden)),
-            (allow_add_props := user.allowed(perm_add_prop, gateiden=gateiden)),
-            (allow_add_tags := user.allowed(perm_add_tag, gateiden=gateiden)),
-            (allow_add_ndata := user.allowed(perm_add_ndata, gateiden=gateiden)),
-            (allow_add_edges := user.allowed(perm_add_edge, gateiden=gateiden)),
+            (allow_add_forms := user.allowed(perm_add_form, gateiden=gateiden, deepdeny=True)),
+            (allow_add_props := user.allowed(perm_add_prop, gateiden=gateiden, deepdeny=True)),
+            (allow_add_tags := user.allowed(perm_add_tag, gateiden=gateiden, deepdeny=True)),
+            (allow_add_ndata := user.allowed(perm_add_ndata, gateiden=gateiden, deepdeny=True)),
+            (allow_add_edges := user.allowed(perm_add_edge, gateiden=gateiden, deepdeny=True)),
 
-            (allow_del_forms := user.allowed(perm_del_form, gateiden=gateiden)),
-            (allow_del_props := user.allowed(perm_del_prop, gateiden=gateiden)),
-            (allow_del_tags := user.allowed(perm_del_tag, gateiden=gateiden)),
-            (allow_del_ndata := user.allowed(perm_del_ndata, gateiden=gateiden)),
-            (allow_del_edges := user.allowed(perm_del_edge, gateiden=gateiden)),
+            (allow_del_forms := user.allowed(perm_del_form, gateiden=gateiden, deepdeny=True)),
+            (allow_del_props := user.allowed(perm_del_prop, gateiden=gateiden, deepdeny=True)),
+            (allow_del_tags := user.allowed(perm_del_tag, gateiden=gateiden, deepdeny=True)),
+            (allow_del_ndata := user.allowed(perm_del_ndata, gateiden=gateiden, deepdeny=True)),
+            (allow_del_edges := user.allowed(perm_del_edge, gateiden=gateiden, deepdeny=True)),
         )):
             return
 
@@ -4688,7 +4688,6 @@ class Layer(s_nexus.Pusher):
             perm_forms = perm_del_form
             allow_forms = allow_del_forms
 
-            # perm_props = perm_del_prop
             allow_props = allow_del_props
 
             perm_tags = perm_del_tag
@@ -4703,7 +4702,6 @@ class Layer(s_nexus.Pusher):
             perm_forms = perm_add_form
             allow_forms = allow_add_forms
 
-            # perm_props = perm_add_prop
             allow_props = allow_add_props
 
             perm_tags = perm_add_tag
@@ -4982,7 +4980,7 @@ class Layer(s_nexus.Pusher):
             return deepcopy(sode)
         return collections.defaultdict(dict)
 
-    async def syncNodeEdits2(self, offs, wait=True, compat=False):
+    async def syncNodeEdits2(self, offs, wait=True, reverse=False, compat=False):
         '''
         Once caught up with storage, yield them in realtime.
 
@@ -4993,7 +4991,7 @@ class Layer(s_nexus.Pusher):
             return
 
         if not compat:
-            for offi, _ in self.nodeeditlog.iter(offs):
+            for offi, _ in self.nodeeditlog.iter(offs, reverse=reverse):
                 nexsitem = await self.core.nexsroot.nexslog.get(offi)
                 yield (offi, *nexsitem[2])
 
@@ -5003,7 +5001,7 @@ class Layer(s_nexus.Pusher):
                         yield item
             return
 
-        for offi, _ in self.nodeeditlog.iter(offs):
+        for offi, _ in self.nodeeditlog.iter(offs, reverse=reverse):
             nexsitem = await self.core.nexsroot.nexslog.get(offi)
             (nodeedits, meta) = nexsitem[2]
 
@@ -5018,11 +5016,11 @@ class Layer(s_nexus.Pusher):
                     if realnodeedits:
                         yield (offi, realnodeedits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True, compat=False):
+    async def syncNodeEdits(self, offs, wait=True, reverse=False, compat=False):
         '''
         Identical to syncNodeEdits2, but doesn't yield meta
         '''
-        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait, compat=compat):
+        async for offi, nodeedits, _meta in self.syncNodeEdits2(offs, wait=wait, reverse=reverse, compat=compat):
             yield (offi, nodeedits)
 
     async def syncIndexEvents(self, offs, matchdef, wait=True):
