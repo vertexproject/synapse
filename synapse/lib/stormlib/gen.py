@@ -603,7 +603,7 @@ stormcmds = (
     {
         'name': 'gen.it.av.scan.result',
         'descr': '''
-            Lift (or create) the it:av:scan:result node by deconflicting the target and signature time.
+            Lift (or create) the it:av:scan:result node by deconflicting the target and signature name.
 
             The scan time and scanner name may also optionally be provided for deconfliction.
 

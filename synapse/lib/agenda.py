@@ -550,7 +550,8 @@ class Agenda(s_base.Base):
         self._next_indx += 1
 
         if iden in self.appts:
-            raise s_exc.DupIden()
+            mesg = f'Cron job already exists with iden: {iden}'
+            raise s_exc.DupIden(iden=iden, mesg=mesg)
 
         if not query:
             raise ValueError('"query" key of cdef parameter is not present or empty')
@@ -600,20 +601,22 @@ class Agenda(s_base.Base):
         if appt is not None:
             return appt
 
-        mesg = f'No cron job with id: {iden}'
+        mesg = f'No cron job with iden {iden}'
         raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
     async def enable(self, iden):
         appt = self.appts.get(iden)
         if appt is None:
-            raise s_exc.NoSuchIden()
+            mesg = f'No cron job with iden: {iden}'
+            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
         await self.mod(iden, appt.query)
 
     async def disable(self, iden):
         appt = self.appts.get(iden)
         if appt is None:
-            raise s_exc.NoSuchIden()
+            mesg = f'No cron job with iden: {iden}'
+            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
         appt.enabled = False
         await appt.save()
@@ -624,7 +627,8 @@ class Agenda(s_base.Base):
         '''
         appt = self.appts.get(iden)
         if appt is None:
-            raise s_exc.NoSuchIden()
+            mesg = f'No cron job with iden: {iden}'
+            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
         if not query:
             raise ValueError('empty query')
@@ -642,7 +646,8 @@ class Agenda(s_base.Base):
         '''
         appt = self.appts.get(croniden)
         if appt is None:
-            raise s_exc.NoSuchIden()
+            mesg = f'No cron job with iden: {croniden}'
+            raise s_exc.NoSuchIden(iden=croniden, mesg=mesg)
 
         appt.view = viewiden
 
@@ -654,7 +659,8 @@ class Agenda(s_base.Base):
         '''
         appt = self.appts.get(iden)
         if appt is None:
-            raise s_exc.NoSuchIden()
+            mesg = f'No cron job with iden: {iden}'
+            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
         try:
             heappos = self.apptheap.index(appt)

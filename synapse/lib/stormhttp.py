@@ -549,7 +549,7 @@ class HttpResp(s_stormtypes.Prim):
             return json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(valu)[:256]}') from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
 
         except json.JSONDecodeError as e:
             mesg = f'Unable to decode HTTP response as json: {e.args[0]}'

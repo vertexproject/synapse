@@ -265,6 +265,19 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
                     self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
 
+        # Test startup sequencing. We must create the child cells prior to
+        # the nexus recover() call from occuring :)
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.callStorm('$lib.jsonstor.set((path,), hehe)')
+
+            with self.getAsyncLoggerStream('synapse.lib.nexus') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    q = 'return( $lib.jsonstor.get((path,)) )'
+                    self.eq('hehe', await core.callStorm(q))
+            stream.seek(0)
+            self.notin('Exception while replaying log', stream.read())
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:

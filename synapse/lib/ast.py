@@ -707,8 +707,9 @@ class SubQuery(Oper):
                 retn.append(valunode.ndef[1])
 
                 if len(retn) > limit:
-                    mesg = f'Subquery used as a value yielded too many (>{limit}) nodes'
-                    raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
+                    query = self.kids[0].text
+                    mesg = f'Subquery used as a value yielded too many (>{limit}) nodes. {s_common.trimText(query)}'
+                    raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg, text=query))
 
         return retn
 
@@ -961,12 +962,12 @@ class ForLoop(Oper):
                         try:
                             numitems = len(item)
                         except TypeError:
-                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
                             exc = s_exc.StormVarListError(mesg=mesg, names=name)
                             raise self.kids[1].addExcInfo(exc)
 
                         if len(name) != numitems:
-                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
                             exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
                             raise self.kids[1].addExcInfo(exc)
 
@@ -1027,12 +1028,12 @@ class ForLoop(Oper):
                         try:
                             numitems = len(item)
                         except TypeError:
-                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
                             exc = s_exc.StormVarListError(mesg=mesg, names=name)
                             raise self.kids[1].addExcInfo(exc)
 
                         if len(name) != numitems:
-                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            mesg = f'Number of items to unpack does not match the number of variables: {s_common.trimText(repr(item))}'
                             exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
                             raise self.kids[1].addExcInfo(exc)
 
@@ -1280,7 +1281,7 @@ class VarListSetOper(Oper):
             item = [i async for i in s_stormtypes.toiter(item)]
 
             if len(item) < len(names):
-                mesg = f'Attempting to assign more items than we have variables to assign to: {repr(item)[:256]}'
+                mesg = f'Attempting to assign more items than we have variables to assign to: {s_common.trimText(repr(item))}'
                 exc = s_exc.StormVarListError(mesg=mesg, names=names, numitems=len(item))
                 raise self.kids[0].addExcInfo(exc)
 
@@ -1296,7 +1297,7 @@ class VarListSetOper(Oper):
             item = [i async for i in s_stormtypes.toiter(item)]
 
             if len(item) < len(names):
-                mesg = f'Attempting to assign more items than we have variables to assign to: {repr(item)[:256]}'
+                mesg = f'Attempting to assign more items than we have variables to assign to: {s_common.trimText(repr(item))}'
                 exc = s_exc.StormVarListError(mesg=mesg, names=names, numitems=len(item))
                 raise self.kids[0].addExcInfo(exc)
 
