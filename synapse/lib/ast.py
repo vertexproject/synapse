@@ -1584,7 +1584,7 @@ class LiftByArray(LiftOper):
                 elif idx == lastidx:
                     cmpr = f'{names[-1]}{cmpr}'
                 else:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
             if vnames:
                 virts = vnames
 
@@ -1744,7 +1744,8 @@ class LiftFormTag(LiftOper):
             ptyp = runt.model.type('ival')
             virt = await self.kids[2].compute(runt, path)
             if (styp := ptyp.virts.get(virt)) is None:
-                raise s_exc.NoSuchVirt(name=virt, mesg=f'Invalid virtual prop {virt} for tag ival.')
+                mesg = f'No virtual prop named {virt} on tag ival type.'
+                raise self.kids[2].addExcInfo(s_exc.NoSuchVirt(mesg=mesg, name=virt, ptyp='ival'))
             (ptyp, getr) = styp
 
             for form in forms:
@@ -1900,7 +1901,7 @@ class LiftPropBy(LiftOper):
                 elif idx == lastidx:
                     cmpr = f'{names[-1]}{cmpr}'
                 else:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+                    raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
             if vnames:
                 virts = vnames
 
@@ -3017,7 +3018,7 @@ class ArrayCond(Cond):
                     elif idx == lastidx:
                         realcmpr = namecmpr
                     else:
-                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
 
                 if (items := realnode.get(realprop, virts=virts)) is None:
                     return False
@@ -3090,7 +3091,7 @@ class AbsPropCond(Cond):
                     elif idx == lastidx:
                         cmpr = namecmpr
                     else:
-                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
             else:
                 cmpr = await self.kids[1].compute(runt, None)
 
@@ -3148,7 +3149,7 @@ class AbsPropCond(Cond):
                     elif idx == lastidx:
                         cmpr = namecmpr
                     else:
-                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
 
             else:
                 cmpr = await self.kids[1].compute(runt, None)
@@ -3282,7 +3283,7 @@ class RelPropCond(Cond):
                     elif idx == lastidx:
                         realcmpr = namecmpr
                     else:
-                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=name, ptyp=ptyp.name))
+                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
 
                 if (valu := realnode.get(realprop, virts=virts)) is None:
                     return False
@@ -3464,7 +3465,7 @@ class PropValue(Value):
             virt = await self.kids[1].compute(runt, path)
 
             if (vinfo := ptyp.virts.get(virt)) is None:
-                raise self.kids[1].addExcInfo(s_exc.NoSuchVirt(name=virt, ptyp=ptyp.name))
+                raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(virt, ptyp))
 
             (ptyp, getr) = vinfo
             getr = (getr,)
@@ -3504,7 +3505,7 @@ class TagValue(Value):
 
         if len(self.kids) > 1:
             virt = await self.kids[1].compute(runt, path)
-            (_, valu) = runt.model.type('ival').getVirtProp(virt, valu)
+            valu = runt.model.type('ival').getVirtValu(virt, valu)
 
         return valu
 
@@ -3536,7 +3537,7 @@ class TagPropValue(Value):
 
         if len(self.kids) > 1:
             virt = await self.kids[1].compute(runt, path)
-            (_, valu) = tprop.type.getVirtProp(virt, valu)
+            valu = tprop.type.getVirtValu(virt, valu)
 
         return valu
 

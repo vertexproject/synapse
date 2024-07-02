@@ -2271,6 +2271,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')
             await core.nodes('[ risk:vulnerable=* :node=(it:dev:int, 1) ]')
             await core.nodes('[ risk:vulnerable=* :node=(inet:fqdn, foo.com) ]')
+            await core.nodes('[ risk:vulnerable=* ]')
 
             self.len(0, await core.nodes('risk:vulnerable:node=(it:dev:str, newp)'))
 
@@ -2278,18 +2279,27 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vulnerable:node*form=inet:fqdn'))
             self.len(0, await core.nodes('risk:vulnerable:node*form=it:dev:str'))
 
+            self.len(2, await core.nodes('risk:vulnerable.created +:node*form'))
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=inet:fqdn'))
+
             self.len(2, await core.nodes('test:str:ndefs*[form=it:dev:int]'))
             self.len(1, await core.nodes('test:str:ndefs*[form=inet:fqdn]'))
             self.len(0, await core.nodes('test:str:ndefs*[form=it:dev:str]'))
 
+            self.len(1, await core.nodes('test:str.created +:ndefs*[form=inet:fqdn]'))
+
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('risk:vulnerable:node*form=newp')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('risk:vulnerable:node*newp=newp')
 
     async def test_layer_virt_indexes(self):
 
         async with self.getTestCore() as core:
 
             await core.nodes('''[
+                inet:server=host://vertex.link:12345
                 inet:server=tcp://127.0.0.1:12345
                 inet:server=tcp://127.0.0.3:12345
                 inet:server=tcp://127.0.0.2:12345
@@ -2320,6 +2330,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)'))
 
             self.len(6, await core.nodes('inet:server.created +inet:server*ipv4'))
+            self.len(6, await core.nodes('inet:server.created +inet:server*ipv6'))
             self.len(1, await core.nodes('inet:server.created +inet:server*ipv4=127.0.0.2'))
             self.len(2, await core.nodes('inet:server.created +inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)'))
 
@@ -2345,3 +2356,6 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv4=127.0.0.1]'))
             self.len(2, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv6="::2"]'))
             self.len(3, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv4*range=(127.0.0.1, 127.0.0.2)]'))
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('it:sec:c2:config:dns:resolvers*[newp=127.0.0.1]')

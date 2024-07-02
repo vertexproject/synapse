@@ -3571,6 +3571,9 @@ class AstTest(s_test.SynTest):
                 await core.nodes('#tag*newp')
 
             with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('#tag $lib.print(#tag*newp)')
+
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign#tag*newp')
 
             with self.raises(s_exc.NoSuchVirt):

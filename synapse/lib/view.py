@@ -3028,8 +3028,6 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadTypeValu(mesg=mesg)
 
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu, virts=virts)
-        if not cmprvals:
-            return
 
         if prop.isform:
             genr = self.liftByPropArray(prop.name, None, cmprvals, reverse=reverse, virts=virts)

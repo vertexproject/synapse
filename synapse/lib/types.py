@@ -116,21 +116,20 @@ class Type:
         func = self.storlifts.get(cmpr)
         if func is None:
             mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg)
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
 
         return func(cmpr, valu)
 
-    def getVirtProp(self, name, valu):
-        (vtyp, getr) = self.virts.get(name, (None, None))
-        if vtyp is None:
-            raise s_exc.NoSuchType(name=name, valu=valu, mesg=f'Invalid virtual prop {name} for type {self.name}')
+    def getVirtValu(self, name, valu):
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
 
-        return (vtyp, getr(valu))
+        return virt[1](valu)
 
     def getVirtIndx(self, name):
         indx = self.virtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchVirt(name=name, mesg=f'Invalid virtual prop indx {name} for type {self.name}')
+            raise s_exc.NoSuchVirt.init(name, self)
 
         return indx
 
@@ -1273,7 +1272,7 @@ class Ival(Type):
         func = self.storlifts.get(cmpr)
         if func is None:
             mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg)
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
 
         return func(cmpr, valu)
 
@@ -1383,7 +1382,7 @@ class Ival(Type):
     def getTagVirtIndx(self, name):
         indx = self.tagvirtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchVirt(name=name, mesg=f'Invalid virtual prop index {name} for tag ival')
+            raise s_exc.NoSuchVirt.init(name, self)
 
         return indx
 
@@ -1576,10 +1575,9 @@ class Ndef(Type):
         if virts:
             cmpr = f'{virts[0]}{cmpr}'
 
-        func = self.storlifts.get(cmpr)
-        if func is None:
-            mesg = f'Type ({stortype.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg)
+        if (func := self.storlifts.get(cmpr)) is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
 
         return func(cmpr, valu)
 
@@ -1593,9 +1591,11 @@ class Ndef(Type):
         )
 
     def _getForm(self, valu):
-        if valu is None:
-            return None
-        return valu[0][0]
+        valu = valu[0]
+        if isinstance(valu[0], str):
+            return valu[0]
+
+        return (v[0] for v in valu)
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)

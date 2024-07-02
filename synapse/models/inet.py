@@ -121,9 +121,6 @@ class Addr(s_types.Str):
         }
 
     def _getIPv4(self, valu):
-        if valu is None:
-            return None
-
         if (virts := valu[2]) is None:
             return None
 
@@ -133,9 +130,6 @@ class Addr(s_types.Str):
         return valu[0]
 
     def _getIPv6(self, valu):
-        if valu is None:
-            return None
-
         if (virts := valu[2]) is None:
             return None
 
