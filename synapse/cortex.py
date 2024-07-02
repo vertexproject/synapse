@@ -6119,6 +6119,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
+        await self._killCronTask(iden)
         try:
             await self.agenda.delete(iden)
         except s_exc.NoSuchIden:
