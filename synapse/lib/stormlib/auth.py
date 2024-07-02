@@ -1296,7 +1296,7 @@ class User(s_stormtypes.Prim):
 
     async def _methUserSetArchived(self, archived):
         self.runt.confirm(('auth', 'user', 'set', 'archived'))
-        await self.runt.snap.core.setUserArchived(self.valu, await s_stormtypes.tobool(archived))
+        await self.runt.view.core.setUserArchived(self.valu, await s_stormtypes.tobool(archived))
 
     async def _methGenApiKey(self, name, duration=None):
         name = await s_stormtypes.tostr(name)
