@@ -3038,11 +3038,11 @@ class ArrayCond(Cond):
 
         else:
 
-            name = await self.kids[0].compute(runt, None)
             cmpr = await self.kids[1].compute(runt, None)
 
             async def cond(node, path):
 
+                name = await self.kids[0].compute(runt, None)
                 prop = node.form.props.get(name)
                 if prop is None:
                     raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
