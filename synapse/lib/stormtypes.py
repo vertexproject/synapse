@@ -9221,7 +9221,7 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        self.confirm(('cron', 'set'), gateiden=iden)
+        self.runt.confirm(('cron', 'set'), gateiden=iden)
         return await self.runt.snap.core.moveCronJob(self.runt.user.iden, iden, view)
 
     @stormfunc(readonly=True)
