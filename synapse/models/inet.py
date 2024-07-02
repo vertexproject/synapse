@@ -785,7 +785,7 @@ class IPv6Range(s_types.Range):
     def _normPyTuple(self, valu):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
-                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}: {repr(valu)[:256]}')
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}: {s_common.trimText(repr(valu))}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
@@ -1543,7 +1543,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service methods.'}),
+                        'doc': 'A taxonomy of inet service login methods.'}),
 
                     ('inet:service:session', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1580,7 +1580,8 @@ class InetModule(s_module.CoreModule):
                         'doc': 'Represents a user access request to a service resource.'}),
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('meta:taxonomy',)}),
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of inet service resource types.'}),
 
                     ('inet:service:resource', ('guid', {}), {
                         'interfaces': ('inet:service:object',),

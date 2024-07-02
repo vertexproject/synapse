@@ -2179,14 +2179,14 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getTrigger(self, iden):
         trig = self.triggers.get(iden)
         if trig is None:
-            raise s_exc.NoSuchIden("Trigger not found")
+            raise s_exc.NoSuchIden(mesg=f"Trigger not found {iden=}", iden=iden)
 
         return trig
 
     async def delTrigger(self, iden):
         trig = self.triggers.get(iden)
         if trig is None:
-            raise s_exc.NoSuchIden("Trigger not found")
+            raise s_exc.NoSuchIden(mesg=f"Trigger not found {iden=}", iden=iden)
 
         return await self._push('trigger:del', iden)
 
@@ -2207,7 +2207,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def setTriggerInfo(self, iden, name, valu):
         trig = self.triggers.get(iden)
         if trig is None:
-            raise s_exc.NoSuchIden("Trigger not found")
+            raise s_exc.NoSuchIden(mesg=f"Trigger not found {iden=}", iden=iden)
         await trig.set(name, valu)
 
         await self.core.feedBeholder('trigger:set', {'iden': trig.iden, 'view': trig.view.iden, 'name': name, 'valu': valu}, gates=[trig.iden])

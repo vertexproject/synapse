@@ -959,6 +959,18 @@ class User(s_stormtypes.Prim):
                       {'name': 'locked', 'type': 'boolean', 'desc': 'True to lock the user, false to unlock them.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'setArchived', 'desc': '''
+        Set the archived status for a user.
+
+        Notes:
+            Setting a user as "archived" will also lock the user.
+            Removing a users "archived" status will not unlock the user.
+        ''',
+         'type': {'type': 'function', '_funcname': '_methUserSetArchived',
+                  'args': (
+                      {'name': 'archived', 'type': 'boolean', 'desc': 'True to archive the user, false to unarchive them.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'setPasswd', 'desc': 'Set the Users password.',
          'type': {'type': 'function', '_funcname': '_methUserSetPasswd',
                   'args': (
@@ -1113,6 +1125,7 @@ class User(s_stormtypes.Prim):
             'setEmail': self._methUserSetEmail,
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
+            'setArchived': self._methUserSetArchived,
             'getAllowedReason': self._methGetAllowedReason,
             'genApiKey': self._methGenApiKey,
             'getApiKey': self._methGetApiKey,
@@ -1280,6 +1293,10 @@ class User(s_stormtypes.Prim):
     async def _methUserSetLocked(self, locked):
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
         await self.runt.view.core.setUserLocked(self.valu, await s_stormtypes.tobool(locked))
+
+    async def _methUserSetArchived(self, archived):
+        self.runt.confirm(('auth', 'user', 'set', 'archived'))
+        await self.runt.snap.core.setUserArchived(self.valu, await s_stormtypes.tobool(archived))
 
     async def _methGenApiKey(self, name, duration=None):
         name = await s_stormtypes.tostr(name)
@@ -1693,6 +1710,8 @@ class LibUsers(s_stormtypes.Lib):
          'desc': 'Controls changing a user\'s email address.'},
         {'perm': ('auth', 'user', 'set', 'locked'), 'gate': 'cortex',
          'desc': 'Controls locking/unlocking a user account.'},
+        {'perm': ('auth', 'user', 'set', 'archived'), 'gate': 'cortex',
+         'desc': 'Controls archiving/unarchiving a user account.'},
         {'perm': ('auth', 'user', 'set', 'passwd'), 'gate': 'cortex',
          'desc': 'Controls changing a user password.'},
         {'perm': ('auth', 'user', 'set', 'rules'), 'gate': 'cortex',

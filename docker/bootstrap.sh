@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -d /build/synapse ]; then
-    python -m pip install --verbose --break-system-packages /build/synapse
+    PIP_NO_CACHE_DIR=1 PIP_ROOT_USER_ACTION=ignore python -m pip install --verbose --break-system-packages /build/synapse
 fi
 
 if [ -f /build/synapse/rmlist.txt ]; then

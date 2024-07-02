@@ -77,8 +77,6 @@ spec:
             value: "aha://axon..."
           - name: SYN_OPTIC_CORTEX
             value: "aha://cortex..."
-          - name: SYN_OPTIC_JSONSTOR
-            value: "aha://jsonstor..."
         volumeMounts:
           - mountPath: /vertex/storage
             name: data
