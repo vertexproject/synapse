@@ -448,39 +448,6 @@ class IndxByVirt(IndxBy):
         self.prop = prop
         self.virts = virts
 
-    def getStorType(self):
-
-        if self.form is not None:
-            form = self.layr.core.model.form(self.form)
-            prop = form.props.get(self.prop)
-        else:
-            prop = self.layr.core.model.prop(self.prop)
-
-        ptyp = prop.type
-        for virt in virts:
-            ptyp = ptyp.subtypes[virt][0]
-
-        return self.layr.stortypes[ptyp.stortype]
-
-    def getSodeValu(self, sode):
-
-        if self.prop is None:
-            valt = sode.get('valu')
-        else:
-            valt = sode['props'].get(self.prop)
-
-        if valt is None:
-            return s_common.novalu
-
-        for virt in self.virts:
-            if (vval := valt[2]) is None:
-                return s_common.novalu
-
-            if (valt := val.get(virt)) is None:
-                return s_common.novalu
-
-        return valt[0]
-
     def __repr__(self):
         if self.form:
             return f'IndxByVirt: {self.form}:{self.prop}*{"*".join(self.virts)}'
@@ -498,42 +465,6 @@ class IndxByVirtArray(IndxBy):
         self.form = form
         self.prop = prop
         self.virts = virts
-
-    def getStorType(self):
-
-        if self.form is not None:
-            form = self.layr.core.model.form(self.form)
-            prop = form.props.get(self.prop)
-        else:
-            prop = self.layr.core.model.prop(self.prop)
-
-        ptyp = prop.type.arraytype
-        for virt in virts:
-            ptyp = ptyp.subtypes[virt][0]
-
-        return self.layr.stortypes[ptyp.stortype]
-
-    def getNodeValu(self, nid, indx=None):
-        sode = self.layr._getStorNode(nid)
-        if sode is None: # pragma: no cover
-            return s_common.novalu
-
-        props = sode.get('props')
-        if props is None:
-            return s_common.novalu
-
-        valt = props.get(self.prop)
-        if valt is None:
-            return s_common.novalu
-
-        for virt in self.virts:
-            if (vval := valt[2]) is None:
-                return s_common.novalu
-
-            if (valt := val.get(virt)) is None:
-                return s_common.novalu
-
-        return valt[0]
 
     def __repr__(self):
         if self.form:

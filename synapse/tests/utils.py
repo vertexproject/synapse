@@ -337,6 +337,7 @@ testmodel = {
     'univs': (
         ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
         ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
+        ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props'}),
     ),
 
     'forms': (
