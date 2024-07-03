@@ -4642,6 +4642,11 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'vars': {'iden': iden0}}
 
+            # for coverage...
+            self.false(await core.killCronTask('newp'))
+            self.false(await core._killCronTask('newp'))
+            self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
+
             cdef = await core.callStorm('return($lib.cron.get($iden).pack())', opts=opts)
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
@@ -4793,12 +4798,10 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('does not match', mesgs)
 
                 # Make sure the old one didn't run and the new query ran
+                nextlayroffs = await layr.getEditOffs() + 1
                 unixtime += 60
-                await asyncio.sleep(0)
+                await layr.waitEditOffs(nextlayroffs, timeout=5)
                 self.eq(1, await prox.count('meta:note:type=m1'))
-                # UNG WTF
-                await asyncio.sleep(0)
-                await asyncio.sleep(0)
                 self.eq(1, await prox.count('meta:note:type=m2'))
 
                 # Delete the job
