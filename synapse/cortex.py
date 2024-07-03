@@ -924,7 +924,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.cortexdata = self.slab.getSafeKeyVal('cortex')
 
-        await self._initCoreHive()
+        await self._initCoreInfo()
         self._initStormLibs()
         self._initFeedFuncs()
 
@@ -3850,7 +3850,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         await self.waitfini(1)
 
-    async def _initCoreHive(self):
+    async def _initCoreInfo(self):
         self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
         if self.inaugural:
             self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
