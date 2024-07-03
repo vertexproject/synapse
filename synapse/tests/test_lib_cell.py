@@ -2662,6 +2662,13 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 await s_t_utils.alist(cell.iterSlabData('newp'))
 
+            sfkv = cell.slab.getSafeKeyVal('hehe', prefix='yup')
+            sfkv.set('wow', 'yes')
+            data = await s_t_utils.alist(cell.iterSlabData('hehe'))
+            self.eq(data, [('yupwow', 'yes')])
+            data = await s_t_utils.alist(cell.iterSlabData('hehe', prefix='yup'))
+            self.eq(data, [('wow', 'yes')])
+
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):
             async with self.getRegrCore('hive-migration') as core0:
