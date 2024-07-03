@@ -329,7 +329,7 @@ class NexusTest(s_t_utils.SynTest):
                     nonlocal restarted
                     if not seen:
                         seen = True
-                        raise Exception('Knock over the nexus loop.')
+                        raise Exception('Knock over the nexus setup.')
 
                     restarted = True
                     return await orig(self, reason)
@@ -341,7 +341,43 @@ class NexusTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    mesg = 'Unknown error during mirror loop startup: Knock over the nexus loop.'
+                    mesg = 'Unknown error during mirror loop startup: Knock over the nexus setup.'
                     self.isin(mesg, data)
+
+                self.true(restarted)
+
+                seen = 0
+                restarted = False
+                orig = s_nexus.NexsRoot.setNexsReady
+
+                # Patch NexsRoot.setNexsReady so we can cause an exception in
+                # the loop part of the nexus loop (NexsRoot.runMirrorLoop). The
+                # exception should only happen one time so we can check that the
+                # proxy and the nexus loop were both restarted
+                async def setNexsReady(self, status):
+                    nonlocal seen
+                    nonlocal restarted
+                    # Count the number of times we've entered this hook. The
+                    # first time is from NexsRoot.startup(). The second time
+                    # should be from the nexus loop. So, only raise an exception
+                    # on seen == 1.
+                    if seen == 1:
+                        seen += 1
+                        raise Exception('Knock over the nexus loop.')
+
+                    seen += 1
+                    restarted = True
+                    return await orig(self, status)
+
+                with mock.patch('synapse.lib.nexus.NexsRoot.setNexsReady', setNexsReady):
+                    with self.getLoggerStream('synapse.lib.nexus') as stream:
+                        async with await s_cell.Cell.anit(dirn=path) as cell01:
+                            await cell01.sync()
+
+                    stream.seek(0)
+                    data = stream.read()
+                    mesg = 'Entering realtime change window for syncing data at offset'
+                    self.isin(mesg, data)
+                    self.isin('error in mirror loop: Knock over the nexus loop.', data)
 
                 self.true(restarted)

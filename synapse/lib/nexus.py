@@ -577,8 +577,8 @@ class NexsRoot(s_base.Base):
                         if respfutu is not None:
                             respfutu.set_result(retn)
 
-            except Exception:  # pragma: no cover
-                logger.exception('error in mirror loop')
+            except Exception as exc:  # pragma: no cover
+                logger.exception(f'error in mirror loop: {exc}')
 
         # If we've left the mirror loop for some reason, we no longer know if we
         # will be in the realtime window or not. So we should try to set the ready
