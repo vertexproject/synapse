@@ -520,7 +520,7 @@ class NexsRoot(s_base.Base):
                     return
 
         except Exception as exc:
-            logger.exception('Unknown error during mirror loop startup', exc_info=exc)
+            logger.exception(f'Unknown error during mirror loop startup: {exc}')
             await proxy.fini()
 
         while not proxy.isfini:

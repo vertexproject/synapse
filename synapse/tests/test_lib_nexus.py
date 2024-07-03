@@ -3,7 +3,6 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
@@ -302,3 +301,47 @@ class NexusTest(s_t_utils.SynTest):
                     with self.raises(s_exc.IsReadOnly):
                         await cell01.sync()
                     self.isin(s_nexus.leaderversion, cell01.nexsroot.writeholds)
+
+    async def test_mirror_nexus_loop_failure(self):
+        with self.getTestDir() as dirn:
+
+            s_common.yamlsave({'nexslog:en': True}, dirn, 'cell.yaml')
+            async with await s_cell.Cell.anit(dirn=dirn) as cell00:
+
+                await cell00.runBackup(name='cell01')
+
+                path = s_common.genpath(dirn, 'backups', 'cell01')
+
+                conf = s_common.yamlload(path, 'cell.yaml')
+                conf['mirror'] = f'cell://{dirn}'
+                s_common.yamlsave(conf, path, 'cell.yaml')
+
+                seen = False
+                restarted = False
+                orig = s_nexus.NexsRoot.delWriteHold
+
+                # Patch NexsRoot.delWriteHold so we can cause an exception in
+                # the setup part of the nexus loop (NexsRoot.runMirrorLoop). The
+                # exception should only happen one time so we can check that the
+                # proxy and the nexus loop were both restarted
+                async def delWriteHold(self, reason):
+                    nonlocal seen
+                    nonlocal restarted
+                    if not seen:
+                        seen = True
+                        raise Exception('Knock over the nexus loop.')
+
+                    restarted = True
+                    return await orig(self, reason)
+
+                with mock.patch('synapse.lib.nexus.NexsRoot.delWriteHold', delWriteHold):
+                    with self.getLoggerStream('synapse.lib.nexus') as stream:
+                        async with await s_cell.Cell.anit(dirn=path) as cell01:
+                            await cell01.sync()
+
+                    stream.seek(0)
+                    data = stream.read()
+                    mesg = 'Unknown error during mirror loop startup: Knock over the nexus loop.'
+                    self.isin(mesg, data)
+
+                self.true(restarted)
