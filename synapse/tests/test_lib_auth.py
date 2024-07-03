@@ -96,9 +96,13 @@ class AuthTest(s_test.SynTest):
 
             await user.revoke(role.iden)
             self.none(user.allowed(('baz', 'faz')))
+            # second revoke does nothing
+            await user.revoke(role.iden)
 
             await user.grant(role.iden)
             self.true(user.allowed(('baz', 'faz')))
+            # second grant does nothing
+            await user.grant(role.iden)
 
             await self.asyncraises(s_exc.NoSuchRole, auth.delRole('accountants'))
 
