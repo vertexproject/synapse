@@ -2664,7 +2664,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time the port was bound.',
                     }),
                     ('server', ('inet:server', {}), {
-                        'doc': 'The inet:addr of the server when binding the port.'
+                        'doc': 'The sock address of the server when binding the port.'
                     }),
                     ('server:ipv4', ('inet:ipv4', {}), {
                         'doc': 'The IPv4 address specified to bind().'
@@ -2957,7 +2957,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The snort rule that matched the file.'}),
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The inet:flow that matched the snort rule.'}),
-                    ('src', ('inet:addr', {}), {
+                    ('src', ('inet:sockaddr', {}), {
                         'doc': 'The source address of flow that caused the hit.'}),
                     ('src:ipv4', ('inet:ipv4', {}), {
                         'doc': 'The source IPv4 address of the flow that caused the hit.'}),
@@ -2965,7 +2965,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The source IPv6 address of the flow that caused the hit.'}),
                     ('src:port', ('inet:port', {}), {
                         'doc': 'The source port of the flow that caused the hit.'}),
-                    ('dst', ('inet:addr', {}), {
+                    ('dst', ('inet:sockaddr', {}), {
                         'doc': 'The destination address of the trigger.'}),
                     ('dst:ipv4', ('inet:ipv4', {}), {
                         'doc': 'The destination IPv4 address of the flow that caused the hit.'}),

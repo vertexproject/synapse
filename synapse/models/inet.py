@@ -129,7 +129,7 @@ class Addr(s_types.Str):
 
         if proto not in ('tcp', 'udp', 'icmp', 'host'):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+                                    mesg='inet:sockaddr protocol must be in: tcp, udp, icmp, host')
         subs['proto'] = proto
 
         valu = valu.strip().strip('/')
@@ -361,7 +361,6 @@ class IPAddr(s_types.Type):
         valu = s_chop.printables(valu)
         info = {'subs': {}}
 
-        print(f'VALU {valu}')
         if valu.find(':') != -1:
             try:
                 byts = socket.inet_pton(socket.AF_INET6, valu)
@@ -394,11 +393,10 @@ class IPAddr(s_types.Type):
             return socket.inet_ntop(socket.AF_INET, byts)
 
         if vers == 6:
-            # FIXME TODO
             byts = addr.to_bytes(16, 'big')
             return socket.inet_ntop(socket.AF_INET6, byts)
 
-        mesg = 'IP proto {vers} is not supported!'
+        mesg = f'IP proto version ({vers}) is not supported!'
         raise s_exc.BadTypeValu(mesg=mesg)
 
     def getNetRange(self, text):
@@ -1377,7 +1375,7 @@ class InetModule(s_module.CoreModule):
                         'ex': '1.2.3.4',
                     }),
 
-                    ('inet:addr', 'synapse.models.inet.Addr', {}, {
+                    ('inet:sockaddr', 'synapse.models.inet.Addr', {}, {
                         'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
                         'ex': 'tcp://1.2.3.4:80'
                     }),
@@ -1461,7 +1459,7 @@ class InetModule(s_module.CoreModule):
                         'ex': '(54959, (ff::00, ff::02))',
                     }),
 
-                    ('inet:client', ('inet:addr', {}), {
+                    ('inet:client', ('inet:sockaddr', {}), {
                         'doc': 'A network client address.'
                     }),
 
@@ -1540,7 +1538,7 @@ class InetModule(s_module.CoreModule):
                         'ex': '80'
                     }),
 
-                    ('inet:server', ('inet:addr', {}), {
+                    ('inet:server', ('inet:sockaddr', {}), {
                         'doc': 'A network server address.'
                     }),
 
@@ -1829,7 +1827,7 @@ class InetModule(s_module.CoreModule):
                             ('flow', ('inet:flow', {}), {
                                 'doc': 'The raw inet:flow containing the request.'}),
                             ('client', ('inet:client', {}), {
-                                'doc': 'The inet:addr of the client.'}),
+                                'doc': 'The socket address of the client.'}),
                             ('client:ipv4', ('inet:ipv4', {}), {
                                 'doc': 'The server IPv4 address that the request was sent from.'}),
                             ('client:ipv6', ('inet:ipv6', {}), {
@@ -1837,7 +1835,7 @@ class InetModule(s_module.CoreModule):
                             ('client:host', ('it:host', {}), {
                                 'doc': 'The host that the request was sent from.'}),
                             ('server', ('inet:server', {}), {
-                                'doc': 'The inet:addr of the server.'}),
+                                'doc': 'The socket address of the server.'}),
                             ('server:ipv4', ('inet:ipv4', {}), {
                                 'doc': 'The server IPv4 address that the request was sent to.'}),
                             ('server:ipv6', ('inet:ipv6', {}), {
@@ -2129,7 +2127,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The file that was downloaded.'
                         }),
                         ('server', ('inet:server', {}), {
-                            'doc': 'The inet:addr of the server.'
+                            'doc': 'The socket address of the server.'
                         }),
                         ('server:host', ('it:host', {}), {
                             'doc': 'The it:host node for the server.'
@@ -2147,7 +2145,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The server network layer protocol.'
                         }),
                         ('client', ('inet:client', {}), {
-                            'doc': 'The inet:addr of the client.'
+                            'doc': 'The socket address of the client.'
                         }),
                         ('client:host', ('it:host', {}), {
                             'doc': 'The it:host node for the client.'
@@ -2611,7 +2609,7 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('server', ('inet:server', {}), {
                             'ro': True,
-                            'doc': 'The inet:addr of the server.'
+                            'doc': 'The listening socket address of the server.'
                         }),
                         ('server:proto', ('str', {'lower': True}), {
                             'ro': True,
