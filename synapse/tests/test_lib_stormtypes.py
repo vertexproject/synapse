@@ -4678,6 +4678,11 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'vars': {'iden': iden0}}
 
+            # for coverage...
+            self.false(await core.killCronTask('newp'))
+            self.false(await core._killCronTask('newp'))
+            self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
+
             cdef = await core.callStorm('return($lib.cron.get($iden).pack())', opts=opts)
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
