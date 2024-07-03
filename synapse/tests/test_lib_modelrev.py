@@ -473,3 +473,7 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:mitre:attack:technique=T0100')
             self.len(1, nodes)
             self.eq('lockpicking', nodes[0].get('name'))
+
+    async def test_modelrev_0_2_25(self):
+        async with self.getRegrCore('model-0.2.25') as core:
+            self.len(1, await core.nodes('econ:currency=usd'))
