@@ -1628,7 +1628,7 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': visi.iden, 'vars': {'iden': nodes[0].iden()}}
             sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
             self.eq(sode['form'], 'inet:ipv4')
-            self.eq(sode['valu'], (0x01020304, 4))
+            self.eq(sode['valu'], (0x01020304, 4, None))
 
             # check auth deny...
             layriden = await core.callStorm('return($lib.view.get().fork().layers.0.iden)')

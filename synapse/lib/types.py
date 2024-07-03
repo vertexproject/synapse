@@ -56,8 +56,8 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
-        self.subindx = {}
-        self.subtypes = {}
+        self.virts = {}
+        self.virtindx = {}
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
@@ -107,26 +107,29 @@ class Type:
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
 
-    def getStorCmprs(self, cmpr, valu):
+    def getStorCmprs(self, cmpr, valu, virts=None):
+
+        if virts:
+            substor = self.virts[virts[0]][0]
+            return substor.getStorCmprs(cmpr, valu, virts[1:])
 
         func = self.storlifts.get(cmpr)
         if func is None:
             mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg)
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
 
         return func(cmpr, valu)
 
-    def getSubType(self, name, valu):
-        (subtype, getr) = self.subtypes.get(name, (None, None))
-        if subtype is None:
-            raise s_exc.NoSuchType(name=name, valu=valu, mesg=f'Invalid subtype {name} for type {self.name}')
+    def getVirtValu(self, name, valu):
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
 
-        return (subtype, getr(valu))
+        return virt[1](valu)
 
-    def getSubIndx(self, name):
-        indx = self.subindx.get(name, s_common.novalu)
+    def getVirtIndx(self, name):
+        indx = self.virtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for type {self.name}')
+            raise s_exc.NoSuchVirt.init(name, self)
 
         return indx
 
@@ -452,6 +455,7 @@ class Array(Type):
 
         adds = []
         norms = []
+        virts = {}
 
         form = self.modl.form(self.arraytype.name)
 
@@ -461,6 +465,9 @@ class Array(Type):
             if form is not None:
                 adds.append((form.name, norm, info))
             norms.append(norm)
+
+            if (virt := info.get('virts')) is not None:
+                virts[norm] = virt
 
         if self.isuniq:
 
@@ -478,7 +485,22 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        return tuple(norms), {'adds': adds}
+        norminfo = {'adds': adds}
+
+        if virts:
+            realvirts = {}
+
+            for norm in norms:
+                if (virt := virts.get(norm)) is not None:
+                    for vkey, (vval, vtyp) in virt.items():
+                        if (curv := realvirts.get(vkey)) is not None:
+                            curv[0].append(vval)
+                        else:
+                            realvirts[vkey] = ([vval], vtyp | s_layer.STOR_FLAG_ARRAY)
+
+            norminfo['virts'] = realvirts
+
+        return tuple(norms), norminfo
 
     def repr(self, valu):
         rval = [self.arraytype.repr(v) for v in valu]
@@ -1198,25 +1220,26 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
         self.duratype = self.modl.type('duration')
 
-        self.subtypes.update({
+        self.virts.update({
             'min': (self.timetype, self._getMin),
             'max': (self.timetype, self._getMax),
             'duration': (self.duratype, self._getDuration),
         })
 
-        self.subindx.update({
+        self.virtindx.update({
             'min': None,
             'max': s_layer.INDX_IVAL_MAX,
             'duration': s_layer.INDX_IVAL_DURATION
         })
 
-        self.tagsubindx = {
+        self.tagvirtindx = {
             'min': s_layer.INDX_TAG,
             'max': s_layer.INDX_TAG_MAX,
             'duration': s_layer.INDX_TAG_DURATION
         }
 
         # Range stuff with ival's don't make sense
+        self.storlifts.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
@@ -1241,6 +1264,17 @@ class Ival(Type):
 
         for oper in ('=', '<', '>', '<=', '>='):
             self.storlifts[f'duration{oper}'] = self._storLiftDuration
+
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        func = self.storlifts.get(cmpr)
+        if func is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
 
     def _storLiftAt(self, cmpr, valu):
 
@@ -1318,26 +1352,37 @@ class Ival(Type):
     def _getMin(self, valu):
         if valu is None:
             return None
+
+        if len(valu) == 3:
+            return valu[0][0]
         return valu[0]
 
     def _getMax(self, valu):
         if valu is None:
             return None
+
+        if len(valu) == 3:
+            return valu[0][1]
         return valu[1]
 
     def _getDuration(self, valu):
         if valu is None:
             return None
 
-        if valu[1] == self.futsize:
+        if len(valu) == 3:
+            ival = valu[0]
+        else:
+            ival = valu
+
+        if ival[1] == self.futsize:
             return self.duratype.maxval
 
-        return valu[1] - valu[0]
+        return ival[1] - ival[0]
 
-    def getTagSubIndx(self, name):
-        indx = self.tagsubindx.get(name, s_common.novalu)
+    def getTagVirtIndx(self, name):
+        indx = self.tagvirtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for tag ival')
+            raise s_exc.NoSuchVirt.init(name, self)
 
         return indx
 
@@ -1497,7 +1542,7 @@ class Ndef(Type):
 
         nameopts = {'lower': True, 'strip': True}
         self.formnametype = Str(self.modl, 'formname', {}, nameopts)
-        self.subtypes |= {
+        self.virts |= {
             'form': (self.formnametype, self._getForm),
         }
 
@@ -1526,6 +1571,16 @@ class Ndef(Type):
 
             self.formfilter = filtfunc
 
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        if (func := self.storlifts.get(cmpr)) is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
+
     def _storLiftForm(self, cmpr, valu):
         valu = valu.lower().strip()
         if self.modl.form(valu) is None:
@@ -1536,9 +1591,11 @@ class Ndef(Type):
         )
 
     def _getForm(self, valu):
-        if valu is None:
-            return None
-        return valu[0]
+        valu = valu[0]
+        if isinstance(valu[0], str):
+            return valu[0]
+
+        return (v[0] for v in valu)
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)

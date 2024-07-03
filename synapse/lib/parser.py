@@ -26,8 +26,8 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
-    'BYNAME': 'named comparison operator',
-    'BYNAMECMPR': 'named comparison operator',
+    'BYNAME': 'named comparison operator name',
+    'BYNAMECMPR': 'named comparison operator cmpr',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -135,6 +135,7 @@ terminalEnglishMap = {
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_STOP': 'stop',
+    '_SUBPROP': 'subprop',
     '_WALKNJOINN1': '--+>',
     '_WALKNJOINN2': '<+--',
     '_WALKNPIVON1': '-->',
@@ -463,7 +464,8 @@ class AstConverter(lark.Transformer):
     def byname(self, meta, kids):
         kids = self._convert_children(kids)
         astinfo = self.metaToAstInfo(meta)
-        return s_ast.ByNameCmpr(astinfo, kids[0].valu + kids[1].valu, kids)
+        names = [kid.valu for kid in kids[:-1]]
+        return s_ast.ByNameCmpr(astinfo, (names, kids[-1].valu), kids)
 
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
@@ -716,7 +718,6 @@ ruleClassMap = {
     'return': s_ast.Return,
     'relprop': lambda astinfo, kids: s_ast.RelProp(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
-    'relpropvalu': lambda astinfo, kids: s_ast.RelPropValue(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
     'search': s_ast.Search,
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
@@ -735,7 +736,6 @@ ruleClassMap = {
     'tagpropcond': s_ast.TagPropCond,
     'trycatch': s_ast.TryCatch,
     'univprop': s_ast.UnivProp,
-    'univpropvalu': s_ast.UnivPropValue,
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,

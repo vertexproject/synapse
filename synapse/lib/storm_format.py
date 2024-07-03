@@ -117,6 +117,7 @@ TerminalPygMap = {
     '_RIGHTJOIN': p_t.Punctuation,
     '_RIGHTPIVOT': p_t.Punctuation,
     '_STOP': p_t.Keyword,
+    '_SUBPROP': p_t.Operator,
     '_WALKNJOINN1': p_t.Punctuation,
     '_WALKNJOINN2': p_t.Punctuation,
     '_WALKNPIVON1': p_t.Punctuation,

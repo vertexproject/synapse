@@ -2693,6 +2693,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
             self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
             self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 :asn=8080 ]'))
+            self.len(1, await core.nodes('[ inet:ipv4=6.7.8.9 ]'))
 
             self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
 
@@ -2703,6 +2704,9 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
             nodes = await core.nodes('inet:ipv4 +:asn::name')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:ipv4.created +:asn::name')
             self.len(1, nodes)
 
             await core.nodes('[ ps:contact=* :web:acct=vertex.link/pivuser ]')
@@ -2727,6 +2731,9 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4 +:asn::_pivo')
             self.len(1, nodes)
 
+            await core.nodes('[ risk:vulnerable=* :node=(inet:ipv4, 1.2.3.4) ]')
+            self.len(1, await core.nodes('risk:vulnerable +:node::asn::name'))
+
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
 
@@ -2738,10 +2745,6 @@ class CortexTest(s_t_utils.SynTest):
 
             core.model.delForm('_hehe:haha')
             with self.raises(s_exc.NoSuchForm):
-                await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
-
-            core.model.delFormProp('inet:asn', '_pivo')
-            with self.raises(s_exc.NoSuchProp):
                 await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
 
 class CortexBasicTest(s_t_utils.SynTest):
@@ -6461,9 +6464,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             item0 = await genr.__anext__()
             expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.nid, 'test:str',
-                            ((s_layer.EDIT_NODE_ADD, ('foo', 1)),
+                            ((s_layer.EDIT_NODE_ADD, ('foo', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME)))),)
+                                                      s_layer.STOR_TYPE_MINTIME, None)))),)
             self.eq(expect[1:], item0[1:3])
             self.eq(expectedits, item0[3])
             self.isin('time', item0[4])
@@ -6519,9 +6522,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.nid, 'test:str',
-                            [(s_layer.EDIT_NODE_ADD, ('bar', 1)),
+                            [(s_layer.EDIT_NODE_ADD, ('bar', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME))]),)
+                                                      s_layer.STOR_TYPE_MINTIME, None))]),)
 
             self.eq(expect[1:], item4[1:3])
             self.eq(expectedits, item4[3])
@@ -6550,7 +6553,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)))
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item0[1:])
 
             layr = await core.addLayer()
@@ -6581,7 +6584,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item4 = await genr.__anext__()
             expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8)))
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item4[1:])
 
             # Make sure progress every 1000 layer log entries works

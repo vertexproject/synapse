@@ -136,7 +136,7 @@ class LayerTest(s_t_utils.SynTest):
             layr = core.getLayer()
             sode = layr.getStorNode(nid)
             asn = sode['props']['asn']
-            sode['props']['asn'] = (asn[0], 8675309)
+            sode['props']['asn'] = (asn[0], 8675309, None)
 
             layr.dirty[nid] = sode
 
@@ -174,7 +174,7 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = layr._getStorNode(nid)
             names = sode['props']['names']
-            sode['props']['names'] = (names[0], 8675309)
+            sode['props']['names'] = (names[0], 8675309, None)
             layr.dirty[nid] = sode
 
             scanconf = {'include': [('ps:contact', 'names')]}
@@ -599,7 +599,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (nid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL)),
+                    (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL, None)),
                 )),
             ]
 
@@ -609,7 +609,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (nid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
                 )),
             ]
 
@@ -620,7 +620,7 @@ class LayerTest(s_t_utils.SynTest):
 
             nodeedits = [
                 (nid, 'inet:ipv4', (
-                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME)),
+                    (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
                 )),
             ]
 
@@ -857,7 +857,7 @@ class LayerTest(s_t_utils.SynTest):
             mdef = {'forms': ['test:str']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (strnode.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)),
+                (strnode.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)),
                 (strnode.nid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
             ])
 
@@ -865,7 +865,7 @@ class LayerTest(s_t_utils.SynTest):
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
             self.eq(events, [
-                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL)),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL, None)),
                 (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL)),
             ])
 
@@ -873,7 +873,7 @@ class LayerTest(s_t_utils.SynTest):
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
             self.eq(events, [
-                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64)),
+                (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64, None)),
                 (ipv4node.nid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
             ])
 
@@ -2339,6 +2339,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')
             await core.nodes('[ risk:vulnerable=* :node=(it:dev:int, 1) ]')
             await core.nodes('[ risk:vulnerable=* :node=(inet:fqdn, foo.com) ]')
+            await core.nodes('[ risk:vulnerable=* ]')
 
             self.len(0, await core.nodes('risk:vulnerable:node=(it:dev:str, newp)'))
 
@@ -2346,9 +2347,236 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vulnerable:node*form=inet:fqdn'))
             self.len(0, await core.nodes('risk:vulnerable:node*form=it:dev:str'))
 
+            self.len(2, await core.nodes('risk:vulnerable.created +:node*form'))
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=inet:fqdn'))
+
             self.len(2, await core.nodes('test:str:ndefs*[form=it:dev:int]'))
             self.len(1, await core.nodes('test:str:ndefs*[form=inet:fqdn]'))
             self.len(0, await core.nodes('test:str:ndefs*[form=it:dev:str]'))
 
+            self.len(1, await core.nodes('test:str.created +:ndefs*[form=inet:fqdn]'))
+
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('risk:vulnerable:node*form=newp')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('risk:vulnerable:node*newp=newp')
+
+    async def test_layer_virt_indexes(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('''[
+                inet:server=host://vertex.link:12345
+                inet:server=tcp://127.0.0.1:12345
+                inet:server=tcp://127.0.0.3:12345
+                inet:server=tcp://127.0.0.2:12345
+                inet:server="tcp://[::3]:12345"
+                inet:server="tcp://[::1]:12345"
+                inet:server="tcp://[::2]:12345"
+                (inet:http:request=* :server=tcp://127.0.0.4:12345)
+                (inet:http:request=* :server=tcp://127.0.0.5:12345)
+                (inet:http:request=* :server=tcp://127.0.0.6:12345)
+                (inet:http:request=* :server="tcp://[::4]:12345")
+                (inet:http:request=* :server="tcp://[::5]:12345")
+                (inet:http:request=* :server="tcp://[::6]:12345")
+                (ps:contact=* .virtuniv=tcp://127.0.0.4:12345)
+                (ps:contact=* .virtuniv=tcp://127.0.0.5:12345)
+                (ps:contact=* .virtuniv=tcp://127.0.0.6:12345)
+                (ps:contact=* .virtuniv="tcp://[::4]:12345")
+                (ps:contact=* .virtuniv="tcp://[::5]:12345")
+                (ps:contact=* .virtuniv="tcp://[::6]:12345")
+                (ou:org=* .virtunivarray=(tcp://127.0.0.4:12345, tcp://127.0.0.5:12345))
+                (ou:org=* .virtunivarray=("tcp://[::4]:12345", "tcp://[::5]:12345"))
+                (ou:org=* .virtunivarray=(tcp://127.0.0.4:12345, "tcp://[::5]:12345"))
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user1 :signup:client=tcp://127.0.0.1:12345 ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user2 :signup:client=tcp://127.0.0.2:12345 ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user3 :signup:client=tcp://127.0.0.3:12345 ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user4 :signup:client="tcp://[::4]:12345" ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user5 :signup:client="tcp://[::5]:12345" ]})
+                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user6 :signup:client="tcp://[::6]:12345" ]})
+                (test:virtiface=* :servers=(tcp://127.0.0.1:12345, tcp://127.0.0.2:12345))
+                (test:virtiface=* :servers=("tcp://[::1]:12345", "tcp://[::2]:12345"))
+                (test:virtiface=* :servers=("tcp://127.0.0.1:12345", "tcp://[::2]:12345"))
+            ]''')
+
+            self.len(6, await core.nodes('inet:server*ipv4'))
+            self.len(6, await core.nodes('inet:server*ipv6'))
+            self.len(1, await core.nodes('inet:server*ipv4=127.0.0.1'))
+            self.len(2, await core.nodes('inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)'))
+            nodes = await core.nodes('inet:server*ipv6="::1"')
+            self.len(1, nodes)
+            self.eq(nodes[0].valu(), 'tcp://[::1]:12345')
+
+            self.len(6, await core.nodes('.created +inet:server*ipv4'))
+            self.len(6, await core.nodes('inet:server.created +inet:server*ipv4'))
+            self.len(6, await core.nodes('inet:server.created +inet:server*ipv6'))
+            self.len(1, await core.nodes('inet:server.created +inet:server*ipv4=127.0.0.2'))
+            self.len(2, await core.nodes('inet:server.created +inet:server*ipv4*range=(127.0.0.2, 127.0.0.3)'))
+
+            self.len(3, await core.nodes('inet:http:request:server*ipv4'))
+            self.len(3, await core.nodes('inet:http:request:server*ipv6'))
+            self.len(1, await core.nodes('inet:http:request:server*ipv4=127.0.0.5'))
+            self.len(1, await core.nodes('inet:http:request:server*ipv6="::5"'))
+            self.len(2, await core.nodes('inet:http:request:server*ipv4*range=(127.0.0.5, 127.0.0.6)'))
+
+            self.len(3, await core.nodes('inet:http:request.created +:server*ipv4'))
+            self.len(1, await core.nodes('inet:http:request.created +:server*ipv4=127.0.0.4'))
+            self.len(2, await core.nodes('inet:http:request.created +:server*ipv4*range=(127.0.0.4, 127.0.0.5)'))
+
+            self.len(3, await core.nodes('inet:proto:request:server*ipv4'))
+            self.len(3, await core.nodes('inet:proto:request:server*ipv6'))
+            self.len(1, await core.nodes('inet:proto:request:server*ipv4=127.0.0.5'))
+            self.len(1, await core.nodes('inet:proto:request:server*ipv6="::5"'))
+            self.len(2, await core.nodes('inet:proto:request:server*ipv4*range=(127.0.0.5, 127.0.0.6)'))
+
+            self.len(3, await core.nodes('inet:proto:request +inet:proto:request:server*ipv4'))
+            self.len(1, await core.nodes('inet:proto:request +inet:proto:request:server*ipv4=127.0.0.4'))
+            self.len(2, await core.nodes('inet:proto:request +inet:proto:request:server*ipv4*range=(127.0.0.4, 127.0.0.5)'))
+
+            self.len(3, await core.nodes('ps:contact.virtuniv*ipv4'))
+            self.len(3, await core.nodes('ps:contact.virtuniv*ipv6'))
+            self.len(1, await core.nodes('ps:contact.virtuniv*ipv4=127.0.0.5'))
+            self.len(1, await core.nodes('ps:contact.virtuniv*ipv6="::5"'))
+            self.len(2, await core.nodes('ps:contact.virtuniv*ipv4*range=(127.0.0.5, 127.0.0.6)'))
+
+            self.len(3, await core.nodes('.virtuniv*ipv4'))
+            self.len(3, await core.nodes('.virtuniv*ipv6'))
+            self.len(1, await core.nodes('.virtuniv*ipv4=127.0.0.5'))
+            self.len(1, await core.nodes('.virtuniv*ipv6="::5"'))
+            self.len(2, await core.nodes('.virtuniv*ipv4*range=(127.0.0.5, 127.0.0.6)'))
+
+            self.len(3, await core.nodes('ps:contact.created +.virtuniv*ipv4'))
+            self.len(1, await core.nodes('ps:contact.created +.virtuniv*ipv4=127.0.0.4'))
+            self.len(2, await core.nodes('ps:contact.created +.virtuniv*ipv4*range=(127.0.0.4, 127.0.0.5)'))
+
+            self.len(1, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv4=127.0.0.2'))
+            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv4*range=(127.0.0.2, 127.0.0.3)'))
+            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv6>"::4"'))
+            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ipv6*range=("::5", "::6")'))
+
+            self.len(2, await core.nodes('test:virtiface.created +:servers*[ipv4=127.0.0.1]'))
+            self.len(2, await core.nodes('test:virtiface.created +:servers*[ipv6="::2"]'))
+            self.len(2, await core.nodes('test:virtiface.created +:servers*[ipv4*range=(127.0.0.1, 127.0.0.2)]'))
+
+            self.len(2, await core.nodes('test:virtiface:servers*[ipv4=127.0.0.1]'))
+            self.len(2, await core.nodes('test:virtiface:servers*[ipv6="::2"]'))
+            self.len(3, await core.nodes('test:virtiface:servers*[ipv4*range=(127.0.0.1, 127.0.0.2)]'))
+
+            self.len(2, await core.nodes('test:virtarray:servers*[ipv4=127.0.0.1]'))
+            self.len(2, await core.nodes('test:virtarray:servers*[ipv6="::2"]'))
+            self.len(3, await core.nodes('test:virtarray:servers*[ipv4*range=(127.0.0.1, 127.0.0.2)]'))
+
+            self.len(2, await core.nodes('ou:org.virtunivarray*[ipv4=127.0.0.4]'))
+            self.len(2, await core.nodes('ou:org.virtunivarray*[ipv6="::5"]'))
+            self.len(3, await core.nodes('ou:org.virtunivarray*[ipv4*range=(127.0.0.4, 127.0.0.5)]'))
+
+            self.len(2, await core.nodes('.virtunivarray*[ipv4=127.0.0.4]'))
+            self.len(2, await core.nodes('.virtunivarray*[ipv6="::5"]'))
+            self.len(3, await core.nodes('.virtunivarray*[ipv4*range=(127.0.0.4, 127.0.0.5)]'))
+
+            self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ipv4=127.0.0.4]'))
+            self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ipv6="::5"]'))
+            self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ipv4*range=(127.0.0.4, 127.0.0.5)]'))
+
+            await core.nodes('.virtunivarray*[ipv4=127.0.0.4] [ .virtunivarray=(tcp://127.0.0.1, tcp://127.0.0.2) ]')
+
+            self.len(0, await core.nodes('ou:org.virtunivarray*[ipv4=127.0.0.4]'))
+            self.len(2, await core.nodes('ou:org.virtunivarray*[ipv4=127.0.0.1]'))
+
+            await core.nodes('inet:http:request:server*ipv4 | [ -:server ]')
+            self.len(0, await core.nodes('inet:http:request:server*ipv4'))
+
+            await core.nodes('ps:contact.virtuniv*ipv4 | [ -.virtuniv ]')
+            self.len(0, await core.nodes('ps:contact.virtuniv*ipv4'))
+
+            await core.nodes('test:virtiface:servers | [ -:servers ]')
+            self.len(0, await core.nodes('test:virtiface:servers*[ipv4=127.0.0.1]'))
+
+            await core.nodes('ou:org.virtunivarray | [ -.virtunivarray ]')
+            self.len(0, await core.nodes('ou:org.virtunivarray*[ipv4=127.0.0.4]'))
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            nodes = await core.nodes('inet:server=tcp://127.0.0.4:12345', opts=viewopts2)
+            self.len(1, nodes)
+
+            await core.nodes('inet:server=tcp://127.0.0.4:12345 | delnode', opts=viewopts2)
+            self.len(0, await core.nodes('inet:server=tcp://127.0.0.4:12345', opts=viewopts2))
+            self.len(0, await core.nodes('inet:server*ipv4=127.0.0.4', opts=viewopts2))
+            self.len(1, await core.nodes('inet:server*ipv4=127.0.0.4'))
+
+            node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
+            self.none(node.valu(virts='foo'))
+            self.none(node.valuvirts())
+
+            await core.nodes('[ inet:server=tcp://127.0.0.4:12345 +(refs)> { inet:server=tcp://127.0.0.4:12345 }]', opts=viewopts2)
+            await core.nodes('inet:server=tcp://127.0.0.4:12345 [+(refs)> { inet:server=tcp://127.0.0.4:12345 }]', opts=viewopts2)
+            self.len(1, await core.nodes('inet:server*ipv4=127.0.0.4', opts=viewopts2))
+
+            nodes = await core.nodes('[ it:dev:str=foo ]')
+            await core.nodes('[ it:dev:str=foo .seen=now ]', opts=viewopts2)
+            await core.nodes('it:dev:str=foo | delnode')
+
+            node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
+            self.none(node.valu(virts='foo'))
+
+            await core.nodes('inet:server*ipv4 | delnode')
+            self.len(0, await core.nodes('inet:server*ipv4'))
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:server*newp*ipv4=127.0.0.1')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:virtiface:servers*[newp=127.0.0.1]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:virtiface:servers*[newp*newp=127.0.0.1]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:virtiface +:servers*[newp*newp=127.0.0.1]')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:virtiface +:servers*[@=127.0.0.1]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('inet:proto:request +inet:proto:request:server*newp*newp=newp')
+
+            with self.raises(s_exc.BadCmprType):
+                await core.nodes('inet:proto:request +:server*[newp=newp]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('ps:contact +ps:contact.virtuniv*newp*newp=newp')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('ps:contact +.virtuniv*newp*newp=newp')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('ps:contact +.virtuniv@=newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('ps:contact.created +:newp*ipv4=newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:virtiface +:newp*[ipv4=127.0.0.1]')
+
+            self.len(0, await core.nodes('$val = (null) ps:contact.created +.virtuniv*ipv4=$val'))
+            self.len(0, await core.nodes('ps:contact.created +:newp::servers*ipv4=127.0.0.1'))
+            self.len(0, await core.nodes('test:virtiface +:newp::servers*[ipv4=127.0.0.1]'))
+
+            self.none(await core.callStorm('ps:contact.created return(:newp::servers)'))
+
+            layr = core.getLayer()
+            indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirt: inet:http:request:server*ipv4')
+
+            indxby = s_layer.IndxByVirt(layr, None, '.virtuniv', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirt: .virtuniv*ipv4')
+
+            indxby = s_layer.IndxByVirtArray(layr, 'test:virtiface', 'servers', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirtArray: test:virtiface:servers*ipv4')
+
+            indxby = s_layer.IndxByVirtArray(layr, None, '.virtunivarray', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirtArray: .virtunivarray*ipv4')
