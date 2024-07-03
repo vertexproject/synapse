@@ -371,31 +371,53 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:algorithm', {}, ()),
 
                 ('crypto:key', {}, (
+
                     ('algorithm', ('crypto:algorithm', {}), {
                         'ex': 'aes256',
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
+
                     ('mode', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The algorithm specific mode in use.'}),
+
                     ('iv', ('hex', {}), {
                         'doc': 'The hex encoded initialization vector.'}),
+
+                    ('iv:text', ('it:dev:str', {}), {
+                        'doc': 'Set only if the :iv proprty decodes to ASCII.'}),
+
                     ('public', ('hex', {}), {
                         'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
+
+                    ('public:text', ('it:dev:str', {}), {
+                        'doc': 'Set only if the :public property decodes to ASCII.'}),
+
                     ('public:md5', ('hash:md5', {}), {
                         'doc': 'The MD5 hash of the public key in raw binary form.'}),
+
                     ('public:sha1', ('hash:sha1', {}), {
                         'doc': 'The SHA1 hash of the public key in raw binary form.'}),
+
                     ('public:sha256', ('hash:sha256', {}), {
                         'doc': 'The SHA256 hash of the public key in raw binary form.'}),
+
                     ('private', ('hex', {}), {
                         'doc': 'The hex encoded private key material. All symmetric keys are private.'}),
+
+                    ('private:text', ('it:dev:str', {}), {
+                        'doc': 'Set only if the :private property decodes to ASCII.'}),
+
                     ('private:md5', ('hash:md5', {}), {
                         'doc': 'The MD5 hash of the private key in raw binary form.'}),
+
                     ('private:sha1', ('hash:sha1', {}), {
                         'doc': 'The SHA1 hash of the private key in raw binary form.'}),
+
                     ('private:sha256', ('hash:sha256', {}), {
                         'doc': 'The SHA256 hash of the private key in raw binary form.'}),
+
                     ('seed:passwd', ('inet:passwd', {}), {
                         'doc': 'The seed password used to generate the key material.'}),
+
                     ('seed:algorithm', ('crypto:algorithm', {}), {
                         'ex': 'pbkdf2',
                         'doc': 'The algorithm used to generate the key from the seed password.'})

@@ -129,8 +129,21 @@ class EconTest(s_utils.SynTest):
 
                     :time=20180202
                     :purchase={perc.ndef[1]}
+
+                    :place=*
+                    :place:loc=us.ny.brooklyn
+                    :place:name=myhouse
+                    :place:address="123 main street, brooklyn, ny, 11223"
+                    :place:latlong=(90,80)
             ]'''
-            await core.nodes(text)
+            nodes = await core.nodes(text)
+
+            self.eq('myhouse', nodes[0].get('place:name'))
+            self.eq((90, 80), nodes[0].get('place:latlong'))
+            self.eq('us.ny.brooklyn', nodes[0].get('place:loc'))
+            self.eq('123 main street, brooklyn, ny, 11223', nodes[0].get('place:address'))
+
+            self.len(1, await core.nodes('econ:acct:payment -> geo:place'))
 
             self.len(1, await core.nodes('econ:acct:payment +:time@=(2017,2019) +{-> econ:pay:card +:name="bob smith"}'))
 
