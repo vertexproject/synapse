@@ -434,7 +434,7 @@ class Node(NodeBase):
             return self.ndef[1]
 
         for sode in self.sodes:
-            if sode.get('antivalu') is not None:  # pragma: no cover
+            if sode.get('antivalu') is not None:
                 return defv
 
             if (valu := sode.get('valu')) is not None:
@@ -446,7 +446,7 @@ class Node(NodeBase):
 
     def valuvirts(self, defv=None):
         for sode in self.sodes:
-            if sode.get('antivalu') is not None:  # pragma: no cover
+            if sode.get('antivalu') is not None:
                 return defv
 
             if (valu := sode.get('valu')) is not None:
