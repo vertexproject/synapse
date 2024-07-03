@@ -2386,6 +2386,9 @@ class LayerTest(s_t_utils.SynTest):
                 (ps:contact=* .virtuniv="tcp://[::4]:12345")
                 (ps:contact=* .virtuniv="tcp://[::5]:12345")
                 (ps:contact=* .virtuniv="tcp://[::6]:12345")
+                (ou:org=* .virtunivarray=(tcp://127.0.0.4:12345, tcp://127.0.0.5:12345))
+                (ou:org=* .virtunivarray=("tcp://[::4]:12345", "tcp://[::5]:12345"))
+                (ou:org=* .virtunivarray=(tcp://127.0.0.4:12345, "tcp://[::5]:12345"))
                 (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user1 :signup:client=tcp://127.0.0.1:12345 ]})
                 (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user2 :signup:client=tcp://127.0.0.2:12345 ]})
                 (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user3 :signup:client=tcp://127.0.0.3:12345 ]})
@@ -2424,6 +2427,12 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:contact.virtuniv*ipv6="::5"'))
             self.len(2, await core.nodes('ps:contact.virtuniv*ipv4*range=(127.0.0.5, 127.0.0.6)'))
 
+            self.len(3, await core.nodes('.virtuniv*ipv4'))
+            self.len(3, await core.nodes('.virtuniv*ipv6'))
+            self.len(1, await core.nodes('.virtuniv*ipv4=127.0.0.5'))
+            self.len(1, await core.nodes('.virtuniv*ipv6="::5"'))
+            self.len(2, await core.nodes('.virtuniv*ipv4*range=(127.0.0.5, 127.0.0.6)'))
+
             self.len(3, await core.nodes('ps:contact.created +.virtuniv*ipv4'))
             self.len(1, await core.nodes('ps:contact.created +.virtuniv*ipv4=127.0.0.4'))
             self.len(2, await core.nodes('ps:contact.created +.virtuniv*ipv4*range=(127.0.0.4, 127.0.0.5)'))
@@ -2441,5 +2450,45 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv6="::2"]'))
             self.len(3, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv4*range=(127.0.0.1, 127.0.0.2)]'))
 
+            self.len(2, await core.nodes('ou:org.virtunivarray*[ipv4=127.0.0.4]'))
+            self.len(2, await core.nodes('ou:org.virtunivarray*[ipv6="::5"]'))
+            self.len(3, await core.nodes('ou:org.virtunivarray*[ipv4*range=(127.0.0.4, 127.0.0.5)]'))
+
+            self.len(2, await core.nodes('.virtunivarray*[ipv4=127.0.0.4]'))
+            self.len(2, await core.nodes('.virtunivarray*[ipv6="::5"]'))
+            self.len(3, await core.nodes('.virtunivarray*[ipv4*range=(127.0.0.4, 127.0.0.5)]'))
+
+            self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ipv4=127.0.0.4]'))
+            self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ipv6="::5"]'))
+            self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ipv4*range=(127.0.0.4, 127.0.0.5)]'))
+
+            await core.nodes('inet:download:server*ipv4 | [ -:server ]')
+            self.len(0, await core.nodes('inet:download:server*ipv4'))
+
+            await core.nodes('ps:contact.virtuniv*ipv4 | [ -.virtuniv ]')
+            self.len(0, await core.nodes('ps:contact.virtuniv*ipv4'))
+
+            await core.nodes('it:sec:c2:config:dns:resolvers | [ -:dns:resolvers ]')
+            self.len(0, await core.nodes('it:sec:c2:config:dns:resolvers*[ipv4=127.0.0.1]'))
+
+            await core.nodes('ou:org.virtunivarray | [ -.virtunivarray ]')
+            self.len(0, await core.nodes('ou:org.virtunivarray*[ipv4=127.0.0.4]'))
+
+            await core.nodes('inet:server*ipv4 | delnode')
+            self.len(0, await core.nodes('inet:server*ipv4'))
+
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('it:sec:c2:config:dns:resolvers*[newp=127.0.0.1]')
+
+            layr = core.getLayer()
+            indxby = s_layer.IndxByVirt(layr, 'inet:download', 'server', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirt: inet:download:server*ipv4')
+
+            indxby = s_layer.IndxByVirt(layr, None, '.virtuniv', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirt: .virtuniv*ipv4')
+
+            indxby = s_layer.IndxByVirtArray(layr, 'it:sec:c2:config', 'dns:resolvers', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirtArray: it:sec:c2:config:dns:resolvers*ipv4')
+
+            indxby = s_layer.IndxByVirtArray(layr, None, '.virtunivarray', ['ipv4'])
+            self.eq(str(indxby), 'IndxByVirtArray: .virtunivarray*ipv4')

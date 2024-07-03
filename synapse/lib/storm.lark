@@ -421,7 +421,7 @@ tagvalucond: tagmatch _cmpr _valu
 tagcond: tagmatch
 
 condsubq: "{" query "}" [ _cmpr _valu]
-arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"
+arraycond: (relprop | univprop) _ARRAYCONDSTART _safe_cmpr _valu "]"
 _ARRAYCONDSTART.3: "*["
 
 // Filter boolean conditions
