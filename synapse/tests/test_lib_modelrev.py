@@ -486,6 +486,13 @@ class ModelRevTest(s_tests.SynTest):
                 'recon',
             ))
 
+            namess = [n.get('names') for n in nodes]
+            self.sorteq(namess, (
+                ('defcon 2024',),
+                ('recon 2024 conference',),
+                ('sleuthcon 2024',),
+            ))
+
             connames = (
                 'sleuthcon', 'sleuthcon 2024',
                 'defcon', 'defcon 2024',
@@ -496,8 +503,6 @@ class ModelRevTest(s_tests.SynTest):
             self.len(6, nodes)
             names = [n.ndef[1] for n in nodes]
             self.sorteq(names, connames)
-
-            nodes = await core.nodes('ou:conference $node.data.load(_migrated:ou:conference:names)')
 
             nodes = await core.nodes('ou:conference -> entity:name')
             self.len(6, nodes)
