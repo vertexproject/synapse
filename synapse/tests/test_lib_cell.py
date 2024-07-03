@@ -2659,6 +2659,8 @@ class CellTest(s_t_utils.SynTest):
                 ('nexus:version', s_cell.NEXUS_VERSION),
                 ('synapse:version', s_version.version)
             ))
+            with self.raises(s_exc.BadArg):
+                await s_t_utils.alist(cell.iterSlabData('newp'))
 
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):

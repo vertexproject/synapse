@@ -208,7 +208,7 @@ class SafeKeyVal:
 
         if len(_name) > 511:
             maxlen = 511 - self.preflen
-            mesg = 'SafeKeyVal keys with prefix {self.prefix} must be less < {maxlen} bytes in length.'
+            mesg = f'SafeKeyVal keys with prefix {self.prefix} must be less < {maxlen} bytes in length.'
             raise s_exc.BadArg(mesg, prefix=self.prefix, name=name[:1024])
         return _name
 
@@ -987,7 +987,11 @@ class Slab(s_base.Base):
         self.onfini(mq)
         return mq
 
-    def getSafeKeyVal(self, name, prefix=''):
+    def getSafeKeyVal(self, name, prefix='', create=True):
+        if not create and not self.dbexists(name):
+            mesg = f'Database {name=} does not exist.'
+            raise s_exc.BadArg(mesg=mesg)
+
         return SafeKeyVal(self, name, prefix=prefix)
 
     def statinfo(self):

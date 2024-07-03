@@ -4188,7 +4188,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)
 
     async def iterSlabData(self, prefix=''):
-        slabkv = self.slab.getSafeKeyVal(prefix)
+        slabkv = self.slab.getSafeKeyVal(prefix, create=False)
         for key, valu in slabkv.items():
             yield key, valu
             await asyncio.sleep(0)
