@@ -2773,7 +2773,7 @@ class CellTest(s_t_utils.SynTest):
 
         stream.seek(0)
         data = stream.getvalue()
-        raw_mesgs = [m for m in data.split('\\n') if m]
+        raw_mesgs = [m for m in data.split('\n') if m]
         msgs = [json.loads(m) for m in raw_mesgs]
 
         self.len(1, msgs)

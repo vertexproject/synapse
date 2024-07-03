@@ -3890,16 +3890,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addStormPkg(otherpkg)
 
             visi = await core.auth.addUser('visi')
-            async with core.getLocalProxy(user='visi') as asvisi:
-                uopts = dict(opts)
-                uopts['user'] = visi.iden
-                opts['vars']['useriden'] = visi.iden
+            uopts = dict(opts)
+            uopts['user'] = visi.iden
+            opts['vars']['useriden'] = visi.iden
 
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
-                await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
-                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+            await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+            await core.nodes('$lib.graph.del($iden2)', opts=uopts)
 
-                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+            self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))

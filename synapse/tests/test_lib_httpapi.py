@@ -525,7 +525,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 async with self.getHttpSess() as noobsess:
                     info = {'user': 'noob', 'passwd': 'nooblet'}
-                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                    async with noobsess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
 
