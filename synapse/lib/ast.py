@@ -1586,6 +1586,7 @@ class LiftByArray(LiftOper):
                     cmpr = f'{names[-1]}{cmpr}'
                 else:
                     raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
+
             if vnames:
                 virts = vnames
 
@@ -1794,12 +1795,19 @@ class LiftProp(LiftOper):
             return
 
         relname = props[0].name
-        def cmprkey(node):
-            return node.get(relname)
+
+        if virt:
+            if (vinfo := props[0].type.virts.get(virt)) is not None:
+                virts = (vinfo[1],)
+                def cmprkey(node):
+                    return node.get(relname, virts=virts)
+        else:
+            def cmprkey(node):
+                return node.get(relname)
 
         genrs = []
         for prop in props:
-            genrs.append(self.proplift(prop, runt, path))
+            genrs.append(self.proplift(prop, runt, path, virt=virt))
 
         async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
             yield node
@@ -1903,6 +1911,7 @@ class LiftPropBy(LiftOper):
                     cmpr = f'{names[-1]}{cmpr}'
                 else:
                     raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
+
             if vnames:
                 virts = vnames
 
