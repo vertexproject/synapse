@@ -2693,6 +2693,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
             self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=200 ]'))
             self.len(1, await core.nodes('[ inet:ipv4=5.6.7.8 :asn=8080 ]'))
+            self.len(1, await core.nodes('[ inet:ipv4=6.7.8.9 ]'))
 
             self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
 
@@ -2703,6 +2704,9 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
 
             nodes = await core.nodes('inet:ipv4 +:asn::name')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:ipv4.created +:asn::name')
             self.len(1, nodes)
 
             await core.nodes('[ ps:contact=* :web:acct=vertex.link/pivuser ]')
@@ -2727,6 +2731,9 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4 +:asn::_pivo')
             self.len(1, nodes)
 
+            await core.nodes('[ risk:vulnerable=* :node=(inet:ipv4, 1.2.3.4) ]')
+            self.len(1, await core.nodes('risk:vulnerable +:node::asn::name'))
+
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
 
@@ -2739,10 +2746,6 @@ class CortexTest(s_t_utils.SynTest):
             core.model.delForm('_hehe:haha')
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
-
-#            core.model.delFormProp('inet:asn', '_pivo')
-#            with self.raises(s_exc.NoSuchProp):
-#                await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''

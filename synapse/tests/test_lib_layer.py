@@ -2500,15 +2500,28 @@ class LayerTest(s_t_utils.SynTest):
             view2 = core.getView(viewiden2)
             viewopts2 = {'view': viewiden2}
 
-            self.len(1, await core.nodes('inet:server=tcp://127.0.0.4:12345', opts=viewopts2))
+            nodes = await core.nodes('inet:server=tcp://127.0.0.4:12345', opts=viewopts2)
+            self.len(1, nodes)
+
             await core.nodes('inet:server=tcp://127.0.0.4:12345 | delnode', opts=viewopts2)
             self.len(0, await core.nodes('inet:server=tcp://127.0.0.4:12345', opts=viewopts2))
             self.len(0, await core.nodes('inet:server*ipv4=127.0.0.4', opts=viewopts2))
             self.len(1, await core.nodes('inet:server*ipv4=127.0.0.4'))
 
+            node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
+            self.none(node.valu(virts='foo'))
+            self.none(node.valuvirts())
+
             await core.nodes('[ inet:server=tcp://127.0.0.4:12345 +(refs)> { inet:server=tcp://127.0.0.4:12345 }]', opts=viewopts2)
             await core.nodes('inet:server=tcp://127.0.0.4:12345 [+(refs)> { inet:server=tcp://127.0.0.4:12345 }]', opts=viewopts2)
             self.len(1, await core.nodes('inet:server*ipv4=127.0.0.4', opts=viewopts2))
+
+            nodes = await core.nodes('[ it:dev:str=foo ]')
+            await core.nodes('[ it:dev:str=foo .seen=now ]', opts=viewopts2)
+            await core.nodes('it:dev:str=foo | delnode')
+
+            node = await view2.getNodeByBuid(nodes[0].buid, tombs=True)
+            self.none(node.valu(virts='foo'))
 
             await core.nodes('inet:server*ipv4 | delnode')
             self.len(0, await core.nodes('inet:server*ipv4'))
@@ -2523,10 +2536,37 @@ class LayerTest(s_t_utils.SynTest):
                 await core.nodes('test:virtiface:servers*[newp*newp=127.0.0.1]')
 
             with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:virtiface +:servers*[newp*newp=127.0.0.1]')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:virtiface +:servers*[@=127.0.0.1]')
+
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('inet:proto:request +inet:proto:request:server*newp*newp=newp')
+
+            with self.raises(s_exc.BadCmprType):
+                await core.nodes('inet:proto:request +:server*[newp=newp]')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('ps:contact +ps:contact.virtuniv*newp*newp=newp')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('ps:contact +.virtuniv*newp*newp=newp')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('ps:contact +.virtuniv@=newp')
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('ps:contact.created +:newp*ipv4=newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:virtiface +:newp*[ipv4=127.0.0.1]')
+
+            self.len(0, await core.nodes('$val = (null) ps:contact.created +.virtuniv*ipv4=$val'))
+            self.len(0, await core.nodes('ps:contact.created +:newp::servers*ipv4=127.0.0.1'))
+            self.len(0, await core.nodes('test:virtiface +:newp::servers*[ipv4=127.0.0.1]'))
+
+            self.none(await core.callStorm('ps:contact.created return(:newp::servers)'))
 
             layr = core.getLayer()
             indxby = s_layer.IndxByVirt(layr, 'inet:http:request', 'server', ['ipv4'])
