@@ -45,21 +45,25 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
-                ('ou:orgtype', ('taxonomy', {}), {
-                    'doc': 'An org type taxonomy.',
+                # FIXME
+                #('ou:orgtype', ('taxonomy', {}), {
+                ('ou:org:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                }),
+                    'doc': 'An org type taxonomy.'}),
+
                 ('ou:contract', ('guid', {}), {
-                    'doc': 'An contract between multiple entities.',
-                }),
-                ('ou:conttype', ('taxonomy', {}), {
-                    'doc': 'A contract type taxonomy.',
+                    'doc': 'An contract between multiple entities.'}),
+
+                #FIXME
+                #('ou:conttype', ('taxonomy', {}), {
+                ('ou:contract:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                }),
-                ('ou:contract:type', ('str', {'enum': contracttypes}), {
-                    'deprecated': True,
-                    'doc': 'A pre-defined set of contract types.',
-                }),
+                    'doc': 'A contract type taxonomy.'}),
+
+                #('ou:contract:type', ('str', {'enum': contracttypes}), {
+                #    'deprecated': True,
+                #    'doc': 'A pre-defined set of contract types.',
+                #}),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
                     'display': {
@@ -70,65 +74,74 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An industry type taxonomy.',
-                }),
-                ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The name of an industry.',
-                }),
+                    'doc': 'An industry type taxonomy.'}),
+
+                # FIXME entity:name
+                #('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
+                    #'doc': 'The name of an industry.'}),
+
+                # FIXME i think we should get rid of this...
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
-                    'doc': 'An alias for the org GUID.',
                     'ex': 'vertexproject',
-                }),
-                ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
-                    'deprecated': True,
-                    'doc': 'The knowledge that an organization has an alias.',
-                }),
+                    'doc': 'An alias for the org GUID.'}),
+
+                #('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
+                #    'deprecated': True,
+                #    'doc': 'The knowledge that an organization has an alias.',
+                #}),
                 ('ou:orgnet4', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net4'))}), {
                     'doc': "An organization's IPv4 netblock.",
                 }),
                 ('ou:orgnet6', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net6'))}), {
                     'doc': "An organization's IPv6 netblock.",
                 }),
+
+                # FIXME entity:name
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The name of an organization. This may be a formal name or informal name of the '
                            'organization.',
                     'ex': 'acme corporation',
                 }),
-                ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:position.',
-                }),
+
+                #('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
+                #    'deprecated': True,
+                #    'doc': 'Deprecated. Please use ou:position.',
+                #}),
                 ('ou:position', ('guid', {}), {
                     'doc': 'A position within an org.  May be organized into an org chart.',
                 }),
                 ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
                 }),
-                ('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
-                           'potentially during a specific period of time.',
-                }),
-                ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
-                    'doc': 'A user name within an organization.',
-                }),
-                ('ou:role', ('str', {'lower': True, 'regex': r'^\w+$'}), {
-                    'ex': 'staff',
-                    'doc': 'A named role when participating in an event.',
-                }),
+                #('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
+                #    'deprecated': True,
+                #    'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
+                #           'potentially during a specific period of time.',
+                #}),
+
+                # FIXME ditch this trash
+                #('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
+                #    'doc': 'A user name within an organization.',
+                #}),
+                #('ou:role', ('str', {'lower': True, 'regex': r'^\w+$'}), {
+                #    'ex': 'staff',
+                #    'doc': 'A named role when participating in an event.',
+                #}),
+
+                # FIXME "attendable" interface?
                 ('ou:attendee', ('guid', {}), {
-                    'doc': 'A node representing a person attending a meeting, conference, or event.',
-                }),
+                    'doc': 'A node representing a person attending a meeting, conference, or event.'}),
+
                 ('ou:meet', ('guid', {}), {
-                    'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
-                }),
+                    'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.'}),
+
                 ('ou:preso', ('guid', {}), {
-                    'doc': 'A webinar, conference talk, or other type of presentation.',
-                }),
-                ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
+                    'doc': 'A webinar, conference talk, or other type of presentation.'}),
+
+                #('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
+                #    'deprecated': True,
+                #    'doc': 'Deprecated. Please use ou:attendee.',
+                #}),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
                     'display': {
@@ -138,23 +151,27 @@ class OuModule(s_module.CoreModule):
                         ),
                     },
                 }),
-                ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
+                #('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
+                #    'deprecated': True,
+                #    'doc': 'Deprecated. Please use ou:attendee.',
+                #}),
+                # FIXME "attendable"
                 ('ou:conference:event', ('guid', {}), {
                     'doc': 'A conference event with a name and associated conference.',
                 }),
-                ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
+                #('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
+                #    'deprecated': True,
+                #    'doc': 'Deprecated. Please use ou:attendee.',
+                #}),
+                # FIXME "attendable"
                 ('ou:contest', ('guid', {}), {
-                    'doc': 'A competitive event resulting in a ranked set of participants.',
-                }),
+                    'doc': 'A competitive event resulting in a ranked set of participants.'}),
+
                 ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'ps:contact'))}), {
                     'doc': 'The results from a single contest participant.',
                 }),
+
+                # FIXME entity:goal? something else? doesn't belong in ou:
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
                     'display': {
@@ -163,23 +180,27 @@ class OuModule(s_module.CoreModule):
                         ),
                     },
                 }),
-                ('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A goal name.',
-                }),
+                # FIXME entity:name
+                #('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
+                #    'doc': 'A goal name.',
+                #}),
                 ('ou:goal:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of goal types.',
                 }),
-                ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:org:goals.',
-                }),
-                ('ou:camptype', ('taxonomy', {}), {
-                    'doc': 'An campaign type taxonomy.',
+                #('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
+                #    'deprecated': True,
+                #    'doc': 'Deprecated. Please use ou:org:goals.',
+                #}),
+                # FIXME
+                #('ou:camptype', ('taxonomy', {}), {
+                ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                }),
-                ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A campaign name.'}),
+                    'doc': 'An campaign type taxonomy.'}),
+
+                # FIXME entity:name
+                #('ou:campname', ('str', {'lower': True, 'onespace': True}), {
+                    #'doc': 'A campaign name.'}),
 
                 ('ou:campaign', ('guid', {}), {
                     'doc': "Represents an org's activity in pursuit of a goal.",
@@ -193,8 +214,8 @@ class OuModule(s_module.CoreModule):
                     }}),
 
                 ('ou:conflict', ('guid', {}), {
-                    'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
-                }),
+                    'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
+
                 ('ou:contribution', ('guid', {}), {
                     'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
@@ -210,8 +231,9 @@ class OuModule(s_module.CoreModule):
 
                 ('ou:technique:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
-                }),
+                    'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.'}),
+
+                # FIXME discuss... Might be best to use an `:id` field on entity:contact
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
                 }),
@@ -225,27 +247,28 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A status update to an org:id:number.',
                 }),
                 ('ou:award', ('guid', {}), {
-                    'doc': 'An award issued by an organization.',
-                }),
+                    'doc': 'An award issued by an organization.'}),
+
                 ('ou:vitals', ('guid', {}), {
-                    'doc': 'Vital statistics about an org for a given time period.',
-                }),
+                    'doc': 'Vital statistics about an org for a given time period.'}),
+
                 ('ou:opening', ('guid', {}), {
-                    'doc': 'A job/work opening within an org.',
-                }),
+                    'doc': 'A job/work opening within an org.'}),
+
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
-                    'doc': 'A taxonomy of job types.',
                     'interfaces': ('meta:taxonomy',),
-                }),
+                    'doc': 'A taxonomy of job types.'}),
+
                 ('ou:employment', ('taxonomy', {}), {
                     'ex': 'fulltime.salary',
-                    'doc': 'An employment type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
-                }),
+                    'doc': 'An employment type taxonomy.'}),
+
+                # FIXME entity:name?
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A title for a position within an org.',
-                }),
+                    'doc': 'A title for a position within an org.'}),
+
                 ('ou:requirement', ('guid', {}), {
                     'doc': 'A specific requirement.'}),
             ),
@@ -1136,56 +1159,62 @@ class OuModule(s_module.CoreModule):
                 )),
                 ('ou:contest', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the contest.',
                         'ex': 'defcon ctf 2020',
-                    }),
+                        'doc': 'The name of the contest.'}),
+
                     ('type', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The type of contest.',
                         'ex': 'cyber ctf',
-                    }),
+                        'doc': 'The type of contest.'}),
+
                     ('family', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'A name for a series of recurring contests.',
                         'ex': 'defcon ctf',
-                    }),
+                        'doc': 'A name for a series of recurring contests.'}),
+
                     ('desc', ('str', {'lower': True}), {
-                        'doc': 'A description of the contest.',
                         'ex': 'the capture-the-flag event hosted at defcon 2020',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the contest.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The contest website URL.'
-                    }),
-                    ('start', ('time', {}), {
-                        'doc': 'The contest start date / time.',
-                    }),
-                    ('end', ('time', {}), {
-                        'doc': 'The contest end date / time.',
-                    }),
-                    ('loc', ('loc', {}), {
-                        'doc': 'The geopolitical affiliation of the contest.',
-                    }),
+                        'doc': 'The contest website URL.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period where the contest was running.'}),
+                    # FIXME deprecate
+                    #('start', ('time', {}), {
+                    #    'doc': 'The contest start date / time.',
+                    #}),
+                    #('end', ('time', {}), {
+                    #    'doc': 'The contest end date / time.',
+                    #}),
+
+                    # FIXME geo:placed
                     ('place', ('geo:place', {}), {
                         'doc': 'The geo:place where the contest was held.',
                     }),
-                    ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The latlong where the contest was held.',
-                    }),
+                    #('loc', ('loc', {}), {
+                    #    'doc': 'The geopolitical affiliation of the contest.',
+                    #}),
+                    #('latlong', ('geo:latlong', {}), {
+                    #    'doc': 'The latlong where the contest was held.',
+                    #}),
+
                     ('conference', ('ou:conference', {}), {
-                        'doc': 'The conference that the contest is associated with.',
-                    }),
+                        'doc': 'The conference that the contest is associated with.'}),
+
                     ('contests', ('array', {'type': 'ou:contest', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of sub-contests that contributed to the rankings.',
-                    }),
+                        'doc': 'An array of sub-contests that contributed to the rankings.'}),
+
                     ('sponsors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Contact information for contest sponsors.',
-                    }),
+                        'doc': 'Contact information for contest sponsors.'}),
+
                     ('organizers', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Contact information for contest organizers.',
-                    }),
+                        'doc': 'Contact information for contest organizers.'}),
+
                     ('participants', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Contact information for contest participants.',
-                    }),
+                        'doc': 'Contact information for contest participants.'}),
                 )),
+                # FIXME unify the use case between results and participant
                 ('ou:contest:result', {}, (
                     ('contest', ('ou:contest', {}), {
                         'ro': True,
