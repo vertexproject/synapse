@@ -153,6 +153,7 @@ class TelcoModule(s_module.CoreModule):
                 ('tel:call', ('guid', {}), {
                     'doc': 'A guid for a telephone call record.'}),
 
+                # FIXME tel:text? tel:message? inet:service:message?
                 ('tel:txtmesg', ('guid', {}), {
                     'doc': 'A guid for an individual text message.'}),
 
@@ -160,6 +161,7 @@ class TelcoModule(s_module.CoreModule):
                     'ex': '49015420',
                     'doc': 'A mobile Type Allocation Code.'}),
 
+                # FIXME audit for comp types still being OK
                 ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
                     'ex': '(490154203237518, 310150123456789)',
                     'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
@@ -172,16 +174,13 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'A single mobile telemetry measurement.'}),
 
                 ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': 1}), {
-                    'doc': 'ITU Mobile Country Code.',
-                }),
+                    'doc': 'ITU Mobile Country Code.'}),
 
                 ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': 1}), {
-                    'doc': 'ITU Mobile Network Code.',
-                }),
+                    'doc': 'ITU Mobile Network Code.'}),
 
                 ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
-                    'doc': 'The fusion of a MCC/MNC.'
-                }),
+                    'doc': 'The fusion of a MCC/MNC.'}),
 
                 ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
                                                       ('lac', ('int', {})),
@@ -193,97 +192,109 @@ class TelcoModule(s_module.CoreModule):
 
             'forms': (
                 ('tel:phone', {}, (
-                    ('loc', ('loc', {}), {
-                        'doc': 'The location associated with the number.',
-                    }),
+                    # FIXME geo:placed?
+                    #('loc', ('loc', {}), {
+                    #    'doc': 'The location associated with the number.',
+                    #}),
                 )),
                 ('tel:call', {}, (
+                    # FIXME src/dst -> source/target?
                     ('src', ('tel:phone', {}), {
-                        'doc': 'The source phone number for a call.'
-                    }),
+                        'doc': 'The source phone number for a call.'}),
+
                     ('dst', ('tel:phone', {}), {
-                        'doc': 'The destination phone number for a call.'
-                    }),
-                    ('time', ('time', {}), {
-                        'doc': 'The time the call was initiated.'
-                    }),
-                    ('duration', ('int', {}), {
-                        'doc': 'The duration of the call in seconds.'
-                    }),
+                        'doc': 'The destination phone number for a call.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of the phone call.'}),
+
+                    # FIXME deprecate
+                    #('time', ('time', {}), {
+                        #'doc': 'The time the call was initiated.'}),
+
+                    #('duration', ('int', {}), {
+                        #'doc': 'The duration of the call in seconds.'
+                    #}),
                     ('connected', ('bool', {}), {
-                        'doc': 'Indicator of whether the call was connected.',
-                    }),
+                        'doc': 'Indicator of whether the call was connected.'}),
+
                     ('text', ('str', {}), {
-                        'doc': 'The text transcription of the call.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The text transcription of the call.'}),
+
                     ('file', ('file:bytes', {}), {
-                        'doc': 'A file containing related media.',
-                    }),
+                        'doc': 'A file containing related media.'}),
                 )),
+
                 ('tel:txtmesg', {}, (
                     ('from', ('tel:phone', {}), {
-                        'doc': 'The phone number assigned to the sender.'
-                    }),
+                        'doc': 'The phone number assigned to the sender.'}),
+
                     ('to', ('tel:phone', {}), {
-                        'doc': 'The phone number assigned to the primary recipient.'
-                    }),
+                        'doc': 'The phone number assigned to the primary recipient.'}),
+
                     ('recipients', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of phone numbers for additional recipients of the message.',
-                    }),
+                        'doc': 'An array of phone numbers for additional recipients of the message.'}),
+
                     ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': 1, 'lower': 1}), {
-                        'doc': 'The message service type (sms, mms, rcs).',
-                    }),
+                        'doc': 'The message service type (sms, mms, rcs).'}),
+
                     ('time', ('time', {}), {
-                        'doc': 'The time the message was sent.'
-                    }),
+                        'doc': 'The time the message was sent.'}),
+
                     ('text', ('str', {}), {
-                        'doc': 'The text of the message.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The text of the message.'}),
+
                     ('file', ('file:bytes', {}), {
-                        'doc': 'A file containing related media.',
-                    }),
+                        'doc': 'A file containing related media.' }),
+
                 )),
+
                 ('tel:mob:tac', {}, (
+                    #FIXME refactor!
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org guid for the manufacturer.',
-                    }),
+                        'doc': 'The org guid for the manufacturer.' }),
+
                     ('manu', ('str', {'lower': 1}), {
-                        'doc': 'The TAC manufacturer name.',
-                    }),
+                        'doc': 'The TAC manufacturer name.'}),
+
                     ('model', ('str', {'lower': 1}), {
-                        'doc': 'The TAC model name.',
-                    }),
+                        'doc': 'The TAC model name.'}),
+
                     ('internal', ('str', {'lower': 1}), {
-                        'doc': 'The TAC internal model name.',
-                    }),
+                        'doc': 'The TAC internal model name.'}),
+
                 )),
+
                 ('tel:mob:imei', {}, (
+
                     ('tac', ('tel:mob:tac', {}), {
                         'ro': True,
-                        'doc': 'The Type Allocate Code within the IMEI.'
-                    }),
+                        'doc': 'The Type Allocate Code within the IMEI.'}),
+
                     ('serial', ('int', {}), {
                         'ro': True,
-                        'doc': 'The serial number within the IMEI.',
-                    })
+                        'doc': 'The serial number within the IMEI.' })
                 )),
+
                 ('tel:mob:imsi', {}, (
+
                     ('mcc', ('tel:mob:mcc', {}), {
                         'ro': True,
-                        'doc': 'The Mobile Country Code.',
-                    }),
+                        'doc': 'The Mobile Country Code.'}),
+
                 )),
                 ('tel:mob:imid', {}, (
+
                     ('imei', ('tel:mob:imei', {}), {
                         'ro': True,
-                        'doc': 'The IMEI for the phone hardware.'
-                    }),
+                        'doc': 'The IMEI for the phone hardware.'}),
+
                     ('imsi', ('tel:mob:imsi', {}), {
                         'ro': True,
-                        'doc': 'The IMSI for the phone subscriber.'
-                    }),
+                        'doc': 'The IMSI for the phone subscriber.'}),
+
                 )),
                 ('tel:mob:imsiphone', {}, (
                     ('phone', ('tel:phone', {}), {
@@ -296,30 +307,40 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:mob:mcc', {}, (
-                    ('loc', ('loc', {}), {'doc': 'Location assigned to the MCC.'}),
+                    # FIXME geo:placed
+                    #('loc', ('loc', {}), {'doc': 'Location assigned to the MCC.'}),
                 )),
                 ('tel:mob:carrier', {}, (
+
                     ('mcc', ('tel:mob:mcc', {}), {
-                        'ro': True,
-                    }),
+                        'ro': True}),
+
                     ('mnc', ('tel:mob:mnc', {}), {
-                        'ro': True,
-                    }),
+                        'ro': True}),
+
+                    # FIXME operator
                     ('org', ('ou:org', {}), {
-                        'doc': 'Organization operating the carrier.'
-                    }),
-                    ('loc', ('loc', {}), {
-                        'doc': 'Location the carrier operates from.'
-                    }),
+                        'doc': 'Organization operating the carrier.'}),
+
+                    # FIXME trash
+                    #('loc', ('loc', {}), {
+                    #    'doc': 'Location the carrier operates from.'}),
                 )),
+
+                # FIXME to guid
                 ('tel:mob:cell', {}, (
                     ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
-                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.', 'ro': True, }),
-                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.', 'ro': True, }),
-                    ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.',
-                                          'ro': True, }),
+                    # FIXME deprecate
+                    #('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.', 'ro': True, }),
+                    #('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.', 'ro': True, }),
+                    ('lac', ('int', {}), {
+                        'ro': True,
+                        'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
+
                     ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
                     ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
+
+                    # FIXME geo:placed
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
 
                     ('loc', ('loc', {}), {
@@ -332,21 +353,24 @@ class TelcoModule(s_module.CoreModule):
                 ('tel:mob:telem', {}, (
 
                     ('time', ('time', {}), {}),
-                    ('latlong', ('geo:latlong', {}), {}),
 
-                    ('http:request', ('inet:http:request', {}), {
-                        'doc': 'The HTTP request that the telemetry was extracted from.',
-                    }),
+                    # FIXME <(refs)-
+                    #('http:request', ('inet:http:request', {}), {
+                        #'doc': 'The HTTP request that the telemetry was extracted from.',
+                    #}),
 
+                    # FIXME it:host:activity?
                     ('host', ('it:host', {}), {
                         'doc': 'The host that generated the mobile telemetry data.'}),
 
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The place representing the location of the mobile telemetry sample.'}),
+                    # FIXME geo:placed
+                    #('place', ('geo:place', {}), {
+                    #    'doc': 'The place representing the location of the mobile telemetry sample.'}),
 
-                    ('loc', ('loc', {}), {
-                        'doc': 'The geo-political location of the mobile telemetry sample.',
-                    }),
+                    #('latlong', ('geo:latlong', {}), {}),
+                    #('loc', ('loc', {}), {
+                    #    'doc': 'The geo-political location of the mobile telemetry sample.',
+                    #}),
 
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The reported accuracy of the latlong telemetry reading.',
@@ -360,9 +384,10 @@ class TelcoModule(s_module.CoreModule):
                     ('phone', ('tel:phone', {}), {}),
 
                     # inet protocol addresses
+                    ('ip', ('inet:ip', {}), {}),
                     ('mac', ('inet:mac', {}), {}),
-                    ('ipv4', ('inet:ipv4', {}), {}),
-                    ('ipv6', ('inet:ipv6', {}), {}),
+                    #('ipv4', ('inet:ipv4', {}), {}),
+                    #('ipv6', ('inet:ipv6', {}), {}),
 
                     ('wifi', ('inet:wifi:ap', {}), {}),
                     ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
@@ -370,10 +395,13 @@ class TelcoModule(s_module.CoreModule):
 
                     # host specific data
                     ('adid', ('it:adid', {}), {}),
-                    ('aaid', ('it:os:android:aaid', {}), {}),
-                    ('idfa', ('it:os:ios:idfa', {}), {}),
+
+                    # FIXME deprecated
+                    #('aaid', ('it:os:android:aaid', {}), {}),
+                    #('idfa', ('it:os:ios:idfa', {}), {}),
 
                     # User related data
+                    # FIXME contact
                     ('name', ('ps:name', {}), {}),
                     ('email', ('inet:email', {}), {}),
                     ('acct', ('inet:web:acct', {}), {}),

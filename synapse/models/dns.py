@@ -91,6 +91,7 @@ class DnsModule(s_module.CoreModule):
 
             'types': (
 
+                # FIXME how to limit use of inet:ip to specific versions?
                 ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv4', 'inet:ipv4'))}), {
                     'ex': '(vertex.link,1.2.3.4)',
                     'doc': 'The result of a DNS A record lookup.'}),
@@ -214,8 +215,9 @@ class DnsModule(s_module.CoreModule):
                 ('inet:dns:query', {}, (
                     ('client', ('inet:client', {}), {'ro': True, }),
                     ('name', ('inet:dns:name', {}), {'ro': True, }),
-                    ('name:ipv4', ('inet:ipv4', {}), {}),
-                    ('name:ipv6', ('inet:ipv6', {}), {}),
+                    ('name:ip', ('inet:ip', {}), {}),
+                    #('name:ipv4', ('inet:ipv4', {}), {}),
+                    #('name:ipv6', ('inet:ipv6', {}), {}),
                     ('name:fqdn', ('inet:fqdn', {}), {}),
                     ('type', ('int', {}), {'ro': True, }),
                 )),
@@ -250,6 +252,7 @@ class DnsModule(s_module.CoreModule):
 
                 )),
 
+                # FIXME should requests contain answers rather than both existing?
                 ('inet:dns:answer', {}, (
 
                     ('ttl', ('int', {}), {}),
@@ -308,6 +311,7 @@ class DnsModule(s_module.CoreModule):
                     ('fqdn', ('inet:fqdn', {}), {
                         'doc': 'The FQDN registered within a dynamic DNS provider.'}),
 
+                    # FIXME entity
                     ('provider', ('ou:org', {}), {
                         'doc': 'The organization which provides the dynamic DNS FQDN.'}),
 
@@ -326,11 +330,11 @@ class DnsModule(s_module.CoreModule):
                     ('client', ('inet:client', {}), {
                         'doc': 'The network client address used to register the dynamic FQDN.'}),
 
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The client IPv4 address used to register the dynamic FQDN.'}),
+                    #('client:ipv4', ('inet:ipv4', {}), {
+                    #    'doc': 'The client IPv4 address used to register the dynamic FQDN.'}),
 
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The client IPv6 address used to register the dynamic FQDN.'}),
+                    #('client:ipv6', ('inet:ipv6', {}), {
+                    #    'doc': 'The client IPv6 address used to register the dynamic FQDN.'}),
                 )),
             )
 

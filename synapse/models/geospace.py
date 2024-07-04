@@ -440,6 +440,34 @@ class GeoModule(s_module.CoreModule):
                     }),
                 ),
 
+                'interfaces': (
+                    # FIXME name
+                    ('geo:placed', {
+                        'doc': 'Properties shared by nodes which can occupy a geographic location.',
+                        'props': (
+
+                            ('place', ('geo:place', {}), {
+                                'doc': 'The place where the {form} is located.'}),
+
+                            # FIXME should we even keep loc?
+                            ('place:loc', ('geo:name', {}), {
+                                'doc': 'The loc of the place where the {form} is located.'}),
+
+                            ('place:country:code', ('pol:iso2', {}), {
+                                'doc': 'The country code of the place where {form} is located.'})
+
+                            ('place:name', ('geo:name', {}), {
+                                'doc': 'The name of the place where the {form} is located.'}),
+
+                            ('place:latlong', ('geo:latlong', {}), {
+                                'doc': 'The latlong of the place where the {form} is located.'}),
+
+                            ('place:address', ('geo:address', {}), {
+                                'doc': 'The address of the place where the {form} is located.'}),
+                        ),
+                    }),
+                ),
+
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
                         'doc': 'The source node was seen at the geo:telem node place and time.'}),

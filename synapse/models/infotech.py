@@ -572,6 +572,7 @@ class ItModule(s_module.CoreModule):
         subs = info.get('subs')
         return valu, subs
 
+    # FIXME discuss case insensitive string indexing
     async def _onFormItDevStr(self, node):
         await node.set('norm', node.ndef[1])
 
@@ -889,24 +890,24 @@ class ItModule(s_module.CoreModule):
                     'doc': 'Deprecated. Please use it:av:scan:result.'}),
 
                 ('it:auth:passwdhash', ('guid', {}), {
-                    'doc': 'An instance of a password hash.',
-                }),
+                    'doc': 'An instance of a password hash.'}),
+
                 ('it:exec:proc', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
-                }),
+                    'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
+
                 ('it:exec:thread', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A thread executing in a process.',
-                }),
+                    'doc': 'A thread executing in a process.'}),
+
                 ('it:exec:loadlib', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A library load event in a process.',
-                }),
+                    'doc': 'A library load event in a process.'}),
+
                 ('it:exec:mmap', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A memory mapped segment located in a process.',
-                }),
+                    'doc': 'A memory mapped segment located in a process.'}),
+
                 ('it:cmd', ('str', {'strip': True}), {
                     'doc': 'A unique command-line string.',
                     'ex': 'foo.exe --dostuff bar'}),
@@ -918,93 +919,97 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A single command executed within a session.'}),
 
                 ('it:query', ('str', {'strip': True}), {
-                    'doc': 'A unique query string.',
-                }),
+                    'doc': 'A unique query string.'}),
+
                 ('it:exec:query', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of an executed query.',
-                }),
+                    'doc': 'An instance of an executed query.'}),
+
                 ('it:exec:mutex', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A mutex created by a process at runtime.',
-                }),
+                    'doc': 'A mutex created by a process at runtime.'}),
+
                 ('it:exec:pipe', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A named pipe created by a process at runtime.',
-                }),
+                    'doc': 'A named pipe created by a process at runtime.'}),
+
                 ('it:exec:url', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host requesting a URL.',
-                }),
+                    'doc': 'An instance of a host requesting a URL.'}),
+
                 ('it:exec:bind', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host binding a listening port.',
-                }),
+                    'doc': 'An instance of a host binding a listening port.'}),
+
                 ('it:fs:file', ('guid', {}), {
-                    'doc': 'A file on a host.'
-                }),
+                    'doc': 'A file on a host.'}),
+
                 ('it:exec:file:add', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host adding a file to a filesystem.',
-                }),
+                    'doc': 'An instance of a host adding a file to a filesystem.'}),
+
                 ('it:exec:file:del', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host deleting a file from a filesystem.',
-                }),
+                    'doc': 'An instance of a host deleting a file from a filesystem.'}),
+
                 ('it:exec:file:read', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host reading a file from a filesystem.',
-                }),
+                    'doc': 'An instance of a host reading a file from a filesystem.'}),
+
                 ('it:exec:file:write', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host writing a file to a filesystem.',
-                }),
+                    'doc': 'An instance of a host writing a file to a filesystem.'}),
+
                 ('it:exec:reg:get', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host getting a registry key.',
-                }),
+                    'doc': 'An instance of a host getting a registry key.'}),
+
                 ('it:exec:reg:set', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host creating or setting a registry key.',
-                }),
+                    'doc': 'An instance of a host creating or setting a registry key.'}),
+
                 ('it:exec:reg:del', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host deleting a registry key.',
-                }),
+                    'doc': 'An instance of a host deleting a registry key.'}),
+
                 ('it:app:yara:rule', ('guid', {}), {
-                    'doc': 'A YARA rule unique identifier.',
-                }),
+                    'doc': 'A YARA rule unique identifier.'}),
+
                 ('it:sec:stix:bundle', ('guid', {}), {
-                    'doc': 'A STIX bundle.',
-                }),
+                    'doc': 'A STIX bundle.'}),
+
                 ('it:sec:stix:indicator', ('guid', {}), {
-                    'doc': 'A STIX indicator pattern.',
-                }),
+                    'doc': 'A STIX indicator pattern.'}),
+
+                # FIXME undo comp and make match target an ndef
                 ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
-                    'doc': 'A YARA rule match to a file.',
-                }),
+                    'doc': 'A YARA rule match to a file.'}),
+
+                # FIXME deprecate
                 ('it:app:yara:procmatch', ('guid', {}), {
-                    'doc': 'An instance of a YARA rule match to a process.',
-                }),
+                    'doc': 'An instance of a YARA rule match to a process.'}),
+
                 ('it:app:snort:rule', ('guid', {}), {
-                    'doc': 'A snort rule.',
-                }),
+                    'doc': 'A snort rule.'}),
+
                 ('it:app:snort:hit', ('guid', {}), {
-                    'doc': 'An instance of a snort rule hit.',
-                }),
+                    'doc': 'An instance of a snort rule hit.'}),
+
+                # FIXME convert it:reveng -> it:dev
                 ('it:reveng:function', ('guid', {}), {
-                    'doc': 'A function inside an executable.',
-                }),
+                    'doc': 'A function inside an executable.'}),
+
+                # FIXME deprecate. This can go away. should use light edge ( one time knowledge )
                 ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
-                    'doc': 'An instance of a function in an executable.',
-                }),
-                ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
-                    'deprecated': True,
-                    'doc': 'A reference to a string inside a function.',
-                }),
+                    'doc': 'An instance of a function in an executable.'}),
+
+                #('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
+                    #'deprecated': True,
+                    #'doc': 'A reference to a string inside a function.',
+                #}),
                 ('it:reveng:impfunc', ('str', {'lower': 1}), {
-                    'doc': 'A function from an imported library.',
-                }),
+                    'doc': 'A function from an imported library.'}),
+
                 ('it:sec:c2:config', ('guid', {}), {
                     'doc': 'An extracted C2 config from an executable.'}),
 
@@ -1036,16 +1041,22 @@ class ItModule(s_module.CoreModule):
                 ('it:host:activity', {
                     'doc': 'Properties common to instances of activity on a host.',
                     'props': (
+
                         ('exe', ('file:bytes', {}), {
                             'doc': 'The executable file which caused the activity.'}),
+
                         ('proc', ('it:exec:proc', {}), {
                             'doc': 'The host process which caused the activity.'}),
+
                         ('thread', ('it:exec:thread', {}), {
                             'doc': 'The host thread which caused the activity.'}),
+
                         ('host', ('it:host', {}), {
                             'doc': 'The host on which the activity occurred.'}),
+
                         ('time', ('time', {}), {
                             'doc': 'The time that the activity started.'}),
+
                         ('sandbox:file', ('file:bytes', {}), {
                             'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                     ),
@@ -1074,17 +1085,21 @@ class ItModule(s_module.CoreModule):
                     ('domain', ('it:domain', {}), {
                         'doc': 'The authentication domain that the host is a member of.'}),
 
-                    ('ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The last known ipv4 address for the host.'}),
+                    ('ip', ('inet:ip', {}), {
+                        'doc': 'The current IP address of the host.'}),
 
-                    ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The last known location for the host.'}),
+                    #('ipv4', ('inet:ipv4', {}), {
+                        #'doc': 'The last known ipv4 address for the host.'}),
+
+                    # FIXME place protocol
+                    #('latlong', ('geo:latlong', {}), {
+                        #'doc': 'The last known location for the host.'}),
 
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the host resides.'}),
 
-                    ('loc', ('loc', {}), {
-                        'doc': 'The geo-political location string for the node.'}),
+                    #('loc', ('loc', {}), {
+                        #'doc': 'The geo-political location string for the node.'}),
 
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'}),
@@ -1095,13 +1110,13 @@ class ItModule(s_module.CoreModule):
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'The hardware specification for this host.'}),
 
-                    ('manu', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Please use :hardware::manufacturer:name.'}),
+                    #('manu', ('str', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Please use :hardware::manufacturer:name.'}),
 
-                    ('model', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Please use :hardware::model.'}),
+                    #('model', ('str', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Please use :hardware::model.'}),
 
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.'}),
@@ -1204,17 +1219,19 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The software which produced the log entry.'}),
 
                 )),
+
                 ('it:domain', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the domain.',
-                    }),
+                        'doc': 'The name of the domain.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A brief description of the domain.',
-                    }),
+                        'doc': 'A brief description of the domain.'}),
+
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org that operates the given domain.',
-                    }),
+                        'doc': 'The org that operates the given domain.'}),
                 )),
+
                 ('it:network:type:taxonomy', {}, ()),
                 ('it:network', {}, (
 
@@ -1230,13 +1247,15 @@ class ItModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that owns/operates the network.'}),
 
-                    ('net4', ('inet:net4', {}), {
-                        'doc': 'The optional contiguous IPv4 address range of this network.'}),
+                    # FIXME array of new inet:ipnet or whatever
+                    #('net4', ('inet:net4', {}), {
+                    #    'doc': 'The optional contiguous IPv4 address range of this network.'}),
 
-                    ('net6', ('inet:net6', {}), {
-                        'doc': 'The optional contiguous IPv6 address range of this network.'}),
+                    #('net6', ('inet:net6', {}), {
+                    #    'doc': 'The optional contiguous IPv6 address range of this network.'}),
 
                 )),
+                # FIXME decide what to do about it:account
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
                         'doc': 'The username associated with the account',
@@ -1276,73 +1295,80 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of groups that the account is a member of.',
                     }),
                 )),
+                # FIXME decide what to do with this
                 ('it:group', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the group.',
-                    }),
+                        'doc': 'The name of the group.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A brief description of the group.',
-                    }),
+                        'doc': 'A brief description of the group.'}),
+
                     ('host', ('it:host', {}), {
-                        'doc': 'The host where the group is registered.',
-                    }),
+                        'doc': 'The host where the group is registered.'}),
+
                     ('domain', ('it:domain', {}), {
-                        'doc': 'The authentication domain where the group is registered.',
-                    }),
+                        'doc': 'The authentication domain where the group is registered.'}),
+
                     ('groups', ('array', {'type': 'it:group', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Groups that are a member of this group.',
-                    }),
+                        'doc': 'Groups that are a member of this group.'}),
+
                     ('posix:gid', ('int', {}), {
-                        'doc': 'The primary group ID of the account.',
                         'ex': '1001',
-                    }),
+                        'doc': 'The primary group ID of the account.'}),
+
                     ('windows:sid', ('it:os:windows:sid', {}), {
-                        'doc': 'The Microsoft Windows Security Identifier of the group.',
-                    }),
+                        'doc': 'The Microsoft Windows Security Identifier of the group.'}),
+
                 )),
-                ('it:logon', {}, (
-                    ('time', ('time', {}), {
-                        'doc': 'The time the logon occurred.',
-                    }),
-                    ('success', ('bool', {}), {
-                        'doc': 'Set to false to indicate an unsuccessful logon attempt.',
-                    }),
-                    ('logoff:time', ('time', {}), {
-                        'doc': 'The time the logon session ended.',
-                    }),
-                    ('host', ('it:host', {}), {
-                        'doc': 'The host that the account logged in to.',
-                    }),
-                    ('account', ('it:account', {}), {
-                        'doc': 'The account that logged in.',
-                    }),
-                    ('creds', ('auth:creds', {}), {
-                        'doc': 'The credentials that were used for the logon.',
-                    }),
-                    ('duration', ('duration', {}), {
-                        'doc': 'The duration of the logon session.',
-                    }),
-                    ('client:host', ('it:host', {}), {
-                        'doc': 'The host where the logon originated.',
-                    }),
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 where the logon originated.',
-                    }),
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 where the logon originated.',
-                    }),
-                )),
-                ('it:hosturl', {}, (
-                    ('host', ('it:host', {}), {
-                        'ro': True,
-                        'doc': 'Host serving a url.',
-                    }),
-                    ('url', ('inet:url', {}), {
-                        'ro': True,
-                        'doc': 'URL available on the host.',
-                    }),
-                )),
+                # FIXME deprecate?
+                #('it:logon', {}, (
+                #    ('time', ('time', {}), {
+                #        'doc': 'The time the logon occurred.',
+                #    }),
+                #    ('success', ('bool', {}), {
+                #        'doc': 'Set to false to indicate an unsuccessful logon attempt.',
+                #    }),
+                #    ('logoff:time', ('time', {}), {
+                #        'doc': 'The time the logon session ended.',
+                #    }),
+                #    ('host', ('it:host', {}), {
+                #        'doc': 'The host that the account logged in to.',
+                #    }),
+                #    ('account', ('it:account', {}), {
+                #        'doc': 'The account that logged in.',
+                #    }),
+                #    ('creds', ('auth:creds', {}), {
+                #        'doc': 'The credentials that were used for the logon.',
+                #    }),
+                #    ('duration', ('duration', {}), {
+                #        'doc': 'The duration of the logon session.',
+                #    }),
+                #    ('client:host', ('it:host', {}), {
+                #        'doc': 'The host where the logon originated.',
+                #    }),
+                #    ('client:ipv4', ('inet:ipv4', {}), {
+                #        'doc': 'The IPv4 where the logon originated.',
+                #    }),
+                #    ('client:ipv6', ('inet:ipv6', {}), {
+                #        'doc': 'The IPv6 where the logon originated.',
+                #    }),
+                #)),
+
+                # FIXME deprecate?
+                #('it:hosturl', {}, (
+                #    ('host', ('it:host', {}), {
+                #        'ro': True,
+                #        'doc': 'Host serving a url.',
+                #    }),
+                #    ('url', ('inet:url', {}), {
+                #        'ro': True,
+                #        'doc': 'URL available on the host.',
+                #    }),
+                #)),
+
                 ('it:screenshot', {}, (
+                    # FIXME needs :host or even host:activity?
                     ('image', ('file:bytes', {}), {
                         'doc': 'The image file.'}),
                     ('desc', ('str', {}), {
@@ -1371,65 +1397,76 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {
-                        'doc': 'The CPE 2.2 string which is equivalent to the primary property.',
-                    }),
+                        'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
+
                     ('part', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "part" field from the CPE 2.3 string.'}),
+
                     ('vendor', ('ou:name', {}), {
                         'ro': True,
                         'doc': 'The "vendor" field from the CPE 2.3 string.'}),
+
                     ('product', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "product" field from the CPE 2.3 string.'}),
+
                     ('version', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "version" field from the CPE 2.3 string.'}),
+
                     ('update', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "update" field from the CPE 2.3 string.'}),
+
                     ('edition', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "edition" field from the CPE 2.3 string.'}),
+
                     ('language', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "language" field from the CPE 2.3 string.'}),
+
                     ('sw_edition', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
+
                     ('target_sw', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
+
                     ('target_hw', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
+
                     ('other', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "other" field from the CPE 2.3 string.'}),
                 )),
                 ('it:sec:cwe', {}, (
+
                     ('name', ('str', {}), {
                         'doc': 'The CWE description field.',
-                        'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)',
-                    }),
+                        'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'The CWE description field.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The CWE description field.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL linking this CWE to a full description.',
-                    }),
+                        'doc': 'A URL linking this CWE to a full description.'}),
+
                     ('parents', ('array', {'type': 'it:sec:cwe',
                                            'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ChildOf CWE Relationships.'
-                    }),
+                        'doc': 'An array of ChildOf CWE Relationships.'}),
                 )),
 
                 ('it:sec:metrics', {}, (
 
+                    # FIXME entity / org protocol / interface?
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization whose security program is being measured.'}),
-
+ 
                     ('org:name', ('ou:name', {}), {
                         'doc': 'The organization name. Used for entity resolution.'}),
 
@@ -1534,53 +1571,54 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:mitre:attack:group', {}, (
+
                     ('org', ('ou:org', {}), {
-                        'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
-                    }),
+                        'doc': 'Used to map an ATT&CK group to a synapse ou:org.'}),
+
                     ('name', ('ou:name', {}), {
-                        'doc': 'The primary name for the ATT&CK group.',
-                    }),
+                        'doc': 'The primary name for the ATT&CK group.'}),
+
                     ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate names for the ATT&CK group.',
-                    }),
+                        'doc': 'An array of alternate names for the ATT&CK group.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the ATT&CK group.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the ATT&CK group.'}),
+
                     ('isnow', ('it:mitre:attack:group', {}), {
-                        'doc': 'If deprecated, this field may contain the current value for the group.',
-                    }),
+                        'doc': 'If deprecated, this field may contain the current value for the group.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK group.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK group.'}),
 
                     ('tag', ('syn:tag', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use a risk:threat:tag.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                        'doc': 'An array of URLs that document the ATT&CK group.',
-                    }),
+                        'doc': 'An array of URLs that document the ATT&CK group.'}),
+
                     ('techniques', ('array', {'type': 'it:mitre:attack:technique',
                                               'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ATT&CK technique IDs used by the group.',
-                    }),
+                        'doc': 'An array of ATT&CK technique IDs used by the group.'}),
+
                     ('software', ('array', {'type': 'it:mitre:attack:software',
                                             'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ATT&CK software IDs used by the group.',
-                    }),
+                        'doc': 'An array of ATT&CK software IDs used by the group.'}),
                 )),
+
                 ('it:mitre:attack:tactic', {}, (
+
                     ('name', ('str', {'strip': True}), {
-                        'doc': 'The primary name for the ATT&CK tactic.',
-                    }),
+                        'doc': 'The primary name for the ATT&CK tactic.'}),
+
                     ('matrix', ('it:mitre:attack:matrix', {}), {
-                        'doc': 'The ATT&CK matrix which defines the tactic.',
-                    }),
+                        'doc': 'The ATT&CK matrix which defines the tactic.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the ATT&CK tactic.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the ATT&CK tactic.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK tactic.'}),
 
@@ -1589,71 +1627,72 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Deprecated.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                        'doc': 'An array of URLs that document the ATT&CK tactic.',
-                    }),
+                        'doc': 'An array of URLs that document the ATT&CK tactic.'}),
+
                 )),
+
                 ('it:mitre:attack:technique', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The primary name for the ATT&CK technique.',
-                    }),
+                        'doc': 'The primary name for the ATT&CK technique.'}),
+
                     ('matrix', ('it:mitre:attack:matrix', {}), {
-                        'doc': 'The ATT&CK matrix which defines the technique.',
-                    }),
+                        'doc': 'The ATT&CK matrix which defines the technique.'}),
+
                     ('status', ('it:mitre:attack:status', {}), {
-                        'doc': 'The status of this ATT&CK technique.',
-                    }),
+                        'doc': 'The status of this ATT&CK technique.'}),
+
                     ('isnow', ('it:mitre:attack:technique', {}), {
-                        'doc': 'If deprecated, this field may contain the current value for the technique.',
-                    }),
+                        'doc': 'If deprecated, this field may contain the current value for the technique.'}),
+
                     ('desc', ('str', {'strip': True}), {
-                        'doc': 'A description of the ATT&CK technique.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the ATT&CK technique.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK technique.'}),
 
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:technique:tag.'}),
+                    #('tag', ('syn:tag', {}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated. Please use ou:technique:tag.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                        'doc': 'An array of URLs that document the ATT&CK technique.',
-                    }),
+                        'doc': 'An array of URLs that document the ATT&CK technique.'}),
+
                     ('parent', ('it:mitre:attack:technique', {}), {
-                        'doc': 'The parent ATT&CK technique on this sub-technique.',
-                    }),
+                        'doc': 'The parent ATT&CK technique on this sub-technique.'}),
+
                     ('tactics', ('array', {'type': 'it:mitre:attack:tactic',
                                            'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ATT&CK tactics that include this technique.',
-                    }),
+                        'doc': 'An array of ATT&CK tactics that include this technique.'}),
+
                     ('data:components', ('array', {'type': 'it:mitre:attack:data:component',
                                                    'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.',
-                    }),
+                        'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.'}),
                 )),
+
                 ('it:mitre:attack:software', {}, (
                     ('software', ('it:prod:soft', {}), {
-                        'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.',
-                    }),
+                        'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.'}),
+
                     ('name', ('it:prod:softname', {}), {
-                        'doc': 'The primary name for the ATT&CK software.',
-                    }),
+                        'doc': 'The primary name for the ATT&CK software.'}),
+
                     ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Associated names for the ATT&CK software.',
-                    }),
+                        'doc': 'Associated names for the ATT&CK software.'}),
+
                     ('desc', ('str', {'strip': True}), {
-                        'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the ATT&CK software.'}),
+
                     ('isnow', ('it:mitre:attack:software', {}), {
-                        'doc': 'If deprecated, this field may contain the current value for the software.',
-                    }),
+                        'doc': 'If deprecated, this field may contain the current value for the software.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK software.'}),
 
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:tool:software:tag.'}),
+                    #('tag', ('syn:tag', {}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated. Please use risk:tool:software:tag.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK software.',
@@ -1666,106 +1705,122 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:mitigation', {}, (
                     # TODO map to an eventual risk:mitigation
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The primary name for the ATT&CK mitigation.',
-                    }),
+                        'doc': 'The primary name for the ATT&CK mitigation.'}),
+
                     ('matrix', ('it:mitre:attack:matrix', {}), {
-                        'doc': 'The ATT&CK matrix which defines the mitigation.',
-                    }),
+                        'doc': 'The ATT&CK matrix which defines the mitigation.'}),
+
                     ('desc', ('str', {'strip': True}), {
-                        'doc': 'A description of the ATT&CK mitigation.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the ATT&CK mitigation.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK mitigation.'}),
 
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:mitigation:tag.'}),
+                    #('tag', ('syn:tag', {}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated. Please use risk:mitigation:tag.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                        'doc': 'An array of URLs that document the ATT&CK mitigation.',
-                    }),
+                        'doc': 'An array of URLs that document the ATT&CK mitigation.'}),
+
                     ('addresses', ('array', {'type': 'it:mitre:attack:technique',
                                              'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
-                    }),
+                        'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.'}),
                 )),
+
                 ('it:mitre:attack:campaign', {}, (
+
                     ('name', ('ou:campname', {}), {
-                        'doc': 'The primary name for the ATT&CK campaign.',
-                    }),
+                        'doc': 'The primary name for the ATT&CK campaign.'}),
+
                     ('names', ('array', {'type': 'ou:campname', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alternate names for the ATT&CK campaign.',
-                    }),
+                        'doc': 'An array of alternate names for the ATT&CK campaign.'}),
+
                     ('desc', ('str', {'strip': True}), {
-                        'doc': 'A description of the ATT&CK campaign.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the ATT&CK campaign.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL that documents the ATT&CK campaign.',
-                    }),
+                        'doc': 'The URL that documents the ATT&CK campaign.'}),
+
                     ('groups', ('array', {'type': 'it:mitre:attack:group',
                                              'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ATT&CK group IDs attributed to the campaign.',
-                    }),
+                        'doc': 'An array of ATT&CK group IDs attributed to the campaign.'}),
+
                     ('software', ('array', {'type': 'it:mitre:attack:software',
                                              'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ATT&CK software IDs used in the campaign.',
-                    }),
+                        'doc': 'An array of ATT&CK software IDs used in the campaign.'}),
+
                     ('techniques', ('array', {'type': 'it:mitre:attack:technique',
                                              'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'An array of ATT&CK technique IDs used in the campaign.',
-                    }),
+                        'doc': 'An array of ATT&CK technique IDs used in the campaign.'}),
+
                     ('matrices', ('array', {'type': 'it:mitre:attack:matrix',
                                             'uniq': True, 'sorted': True, 'split': ','}), {
-                        'doc': 'The ATT&CK matrices which define the campaign.',
-                    }),
+                        'doc': 'The ATT&CK matrices which define the campaign.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                        'doc': 'An array of URLs that document the ATT&CK campaign.',
-                    }),
+                        'doc': 'An array of URLs that document the ATT&CK campaign.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time interval when the campaign was active.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time that the campaign was created by MITRE.'}),
+
                     ('updated', ('time', {}), {
                         'doc': 'The time that the campaign was last updated by MITRE.'}),
 
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:campaign:tag.'}),
+                    #('tag', ('syn:tag', {}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated. Please use ou:campaign:tag.'}),
 
                 )),
                 ('it:mitre:attack:flow', {}, (
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the attack-flow diagram.'}),
+
                     ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
                         'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time that the diagram was created.'}),
+
                     ('updated', ('time', {}), {
                         'doc': 'The time that the diagram was last updated.'}),
+
                     ('author:user', ('syn:user', {}), {
                         'doc': 'The Synapse user that created the node.'}),
+
                     ('author:contact', ('ps:contact', {}), {
                         'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
+
                 )),
                 ('it:mitre:attack:datasource', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the datasource.'}),
+
                     ('description', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the datasource.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of URLs that document the datasource.',
-                    }),
+                        'doc': 'An array of URLs that document the datasource.'}),
                 )),
+
                 ('it:mitre:attack:data:component', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'ro': True,
                         'doc': 'The name of the data component.'}),
+
                     ('description', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the data component.'}),
+
                     ('datasource', ('it:mitre:attack:datasource', {}), {
                         'ro': True,
                         'doc': 'The datasource this data component belongs to.'}),
@@ -1792,212 +1847,216 @@ class ItModule(s_module.CoreModule):
                 # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
                 ('it:dev:repo:type:taxonomy', {}, ()),
                 ('it:dev:repo', {}, (
+
                     ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The name of the repository.',
-                    }),
+                        'doc': 'The name of the repository.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A free-form description of the repository.',
-                    }),
+                        'doc': 'A free-form description of the repository.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'When the repository was created.',
-                    }),
+                        'doc': 'When the repository was created.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL where the repository is hosted.',
-                    }),
+                        'doc': 'A URL where the repository is hosted.'}),
+
                     ('type', ('it:dev:repo:type:taxonomy', {}), {
-                        'doc': 'The type of the version control system used.',
-                        'ex': 'svn'
-                    }),
+                        'ex': 'svn',
+                        'doc': 'The type of the version control system used.'}),
+
                     ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
-                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits.",
-                    }),
+                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
                 )),
 
                 ('it:dev:repo:remote', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name the repo is using for the remote repo.',
-                        'ex': 'origin'
-                    }),
+                        'ex': 'origin',
+                        'doc': 'The name the repo is using for the remote repo.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL the repo is using to access the remote repo.',
-                    }),
+                        'doc': 'The URL the repo is using to access the remote repo.'}),
+
                     ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repo that is tracking the remote repo.',
-                    }),
+                        'doc': 'The repo that is tracking the remote repo.'}),
+
                     ('remote', ('it:dev:repo', {}), {
-                        'doc': 'The instance of the remote repo.',
-                    }),
+                        'doc': 'The instance of the remote repo.'}),
                 )),
 
                 ('it:dev:repo:branch', {}, (
+
                     ('parent', ('it:dev:repo:branch', {}), {
-                        'doc': 'The branch this branch was branched from.',
-                    }),
+                        'doc': 'The branch this branch was branched from.'}),
+
                     ('start', ('it:dev:repo:commit', {}), {
-                        'doc': 'The commit in the parent branch this branch was created at.'
-                    }),
+                        'doc': 'The commit in the parent branch this branch was created at.'}),
+
                     ('name', ('str', {'strip': True}), {
-                        'doc': 'The name of the branch.',
-                    }),
+                        'doc': 'The name of the branch.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the branch is hosted.',
-                    }),
+                        'doc': 'The URL where the branch is hosted.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time this branch was created',
-                    }),
+                        'doc': 'The time this branch was created'}),
+
                     ('merged', ('time', {}), {
-                        'doc': 'The time this branch was merged back into its parent.',
-                    }),
+                        'doc': 'The time this branch was merged back into its parent.'}),
+
                     ('deleted', ('time', {}), {
-                        'doc': 'The time this branch was deleted.',
-                    }),
+                        'doc': 'The time this branch was deleted.'}),
+
                 )),
 
                 ('it:dev:repo:commit', {}, (
+
                     ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repository the commit lives in.',
-                    }),
+                        'doc': 'The repository the commit lives in.'}),
+
                     ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
-                        'doc': 'The commit or commits this commit is immediately based on.',
-                    }),
+                        'doc': 'The commit or commits this commit is immediately based on.'}),
+
                     ('branch', ('it:dev:repo:branch', {}), {
-                        'doc': 'The name of the branch the commit was made to.',
-                    }),
+                        'doc': 'The name of the branch the commit was made to.'}),
+
                     ('mesg', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The commit message describing the changes in the commit.',
-                    }),
+                        'doc': 'The commit message describing the changes in the commit.'}),
+
                     ('id', ('str', {}), {
-                        'doc': 'The version control system specific commit identifier.',
-                    }),
+                        'doc': 'The version control system specific commit identifier.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the commit was made.',
-                    }),
+                        'doc': 'The time the commit was made.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the commit is hosted.',
-                    }),
+                        'doc': 'The URL where the commit is hosted.'}),
                 )),
 
                 ('it:dev:repo:diff', {}, (
+
                     ('commit', ('it:dev:repo:commit', {}), {
-                        'doc': 'The commit that produced this diff.',
-                    }),
+                        'doc': 'The commit that produced this diff.'}),
+
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file after the commit has been applied',
-                    }),
+                        'doc': 'The file after the commit has been applied'}),
+
                     ('path', ('file:path', {}), {
-                        'doc': 'The path to the file in the repo that the diff is being applied to.',
-                    }),
+                        'doc': 'The path to the file in the repo that the diff is being applied to.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the diff is hosted.',
-                    }),
+                        'doc': 'The URL where the diff is hosted.'}),
+
                 )),
 
                 ('it:dev:repo:issue', {}, (
+
                     ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repo where the issue was logged.',
-                    }),
+                        'doc': 'The repo where the issue was logged.'}),
+
                     ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The title of the issue.'
-                    }),
+                        'doc': 'The title of the issue.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The text describing the issue.'
-                    }),
+                        'doc': 'The text describing the issue.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the issue was created.',
-                    }),
+                        'doc': 'The time the issue was created.'}),
+
                     ('updated', ('time', {}), {
-                        'doc': 'The time the issue was updated.',
-                    }),
+                        'doc': 'The time the issue was updated.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the issue is hosted.',
-                    }),
+                        'doc': 'The URL where the issue is hosted.'}),
+
                     ('id', ('str', {'strip': True}), {
-                        'doc': 'The ID of the issue in the repository system.',
-                    }),
+                        'doc': 'The ID of the issue in the repository system.'}),
                 )),
 
                 ('it:dev:repo:label', {}, (
+
                     ('id', ('str', {'strip': True}), {
-                        'doc': 'The ID of the label.',
-                    }),
+                        'doc': 'The ID of the label.'}),
+
                     ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The human friendly name of the label.',
-                    }),
+                        'doc': 'The human friendly name of the label.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The description of the label.',
-                    }),
+                        'doc': 'The description of the label.'}),
                 )),
 
                 ('it:dev:repo:issue:label', {}, (
+
                     ('issue', ('it:dev:repo:issue', {}), {
-                        'doc': 'The issue the label was applied to.',
-                    }),
+                        'doc': 'The issue the label was applied to.'}),
+
                     ('label', ('it:dev:repo:label', {}), {
-                        'doc': 'The label that was applied to the issue.',
-                    }),
+                        'doc': 'The label that was applied to the issue.'}),
+
                     ('applied', ('time', {}), {
-                        'doc': 'The time the label was applied.',
-                    }),
+                        'doc': 'The time the label was applied.'}),
+
                     ('removed', ('time', {}), {
-                        'doc': 'The time the label was removed.',
-                    }),
+                        'doc': 'The time the label was removed.'}),
+
                 )),
 
+                # FIXME migrate all this to ine:service
                 ('it:dev:repo:issue:comment', {}, (
+
                     ('issue', ('it:dev:repo:issue', {}), {
-                        'doc': 'The issue thread that the comment was made in.',
-                    }),
+                        'doc': 'The issue thread that the comment was made in.'}),
+
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The body of the comment.',
-                    }),
+                        'doc': 'The body of the comment.'}),
+
                     ('replyto', ('it:dev:repo:issue:comment', {}), {
-                        'doc': 'The comment that this comment is replying to.',
-                    }),
+                        'doc': 'The comment that this comment is replying to.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the comment is hosted.',
-                    }),
+                        'doc': 'The URL where the comment is hosted.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the comment was created.',
-                    }),
+                        'doc': 'The time the comment was created.'}),
+
                     ('updated', ('time', {}), {
-                        'doc': 'The time the comment was updated.',
-                    }),
+                        'doc': 'The time the comment was updated.'}),
                 )),
 
                 ('it:dev:repo:diff:comment', {}, (
                     ('diff', ('it:dev:repo:diff', {}), {
-                        'doc': 'The diff the comment is being added to.',
-                    }),
+                        'doc': 'The diff the comment is being added to.'}),
+
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The body of the comment.',
-                    }),
+                        'doc': 'The body of the comment.'}),
+
                     ('replyto', ('it:dev:repo:diff:comment', {}), {
-                        'doc': 'The comment that this comment is replying to.',
-                    }),
+                        'doc': 'The comment that this comment is replying to.'}),
+
                     ('line', ('int', {}), {
-                        'doc': 'The line in the file that is being commented on.',
-                    }),
+                        'doc': 'The line in the file that is being commented on.'}),
+
                     ('offset', ('int', {}), {
-                        'doc': 'The offset in the line in the file that is being commented on.',
-                    }),
+                        'doc': 'The offset in the line in the file that is being commented on.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the comment is hosted.',
-                    }),
+                        'doc': 'The URL where the comment is hosted.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the comment was created.',
-                    }),
+                        'doc': 'The time the comment was created.'}),
+
                     ('updated', ('time', {}), {
-                        'doc': 'The time the comment was updated.',
-                    }),
+                        'doc': 'The time the comment was updated.'}),
                 )),
 
                 ('it:prod:hardwaretype', {}, ()),
+                # FIXME it:prod -> it
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
@@ -2012,9 +2071,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The organization that manufactures this hardware.'}),
                     ('manufacturer:name', ('ou:name', {}), {
                         'doc': 'The name of the organization that manufactures this hardware.'}),
-                    ('make', ('ou:name', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :manufacturer:name.'}),
+                    #('make', ('ou:name', {}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated. Please use :manufacturer:name.'}),
                     ('model', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The model name or number for this hardware specification.'}),
                     ('version', ('str', {'lower': True, 'onespace': True}), {
@@ -2087,6 +2146,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
 
+                # FIXME deprecate. entity:name
+                # FIXME entity:name -> proper noun?
                 ('it:prod:softname', {}, ()),
                 ('it:prod:softid', {}, (
 
@@ -2104,8 +2165,12 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:adid', {}, ()),
-                ('it:os:ios:idfa', {}, ()),
-                ('it:os:android:aaid', {}, ()),
+
+                # FIXME deprecate
+                #('it:os:ios:idfa', {}, ()),
+                #('it:os:android:aaid', {}, ()),
+
+                # FIXME refactor?
                 ('it:os:android:perm', {}, ()),
                 ('it:os:android:intent', {}, ()),
 
@@ -2118,6 +2183,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The android permission requested by the app.'}),
                 )),
 
+                # FIXME yuck
                 ('it:prod:softos', {}, (
 
                     ('soft', ('it:prod:softver', {}), {'ro': True,
@@ -2146,6 +2212,7 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
+                # FIXME it:software
                 ('it:prod:softver', {}, (
 
                     ('software', ('it:prod:soft', {}), {
@@ -2206,6 +2273,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
+                # FIXME yuck..
                 ('it:prod:softlib', {}, (
 
                     ('soft', ('it:prod:softver', {}), {'ro': True,
@@ -2637,15 +2705,15 @@ class ItModule(s_module.CoreModule):
                     ('client', ('inet:client', {}), {
                         'doc': 'The address of the client during the URL retrieval.'
                     }),
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 of the client during the URL retrieval.'
-                    }),
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 of the client during the URL retrieval.'
-                    }),
-                    ('client:port', ('inet:port', {}), {
-                        'doc': 'The client port during the URL retrieval.'
-                    }),
+                    #('client:ipv4', ('inet:ipv4', {}), {
+                    #    'doc': 'The IPv4 of the client during the URL retrieval.'
+                    #}),
+                    #('client:ipv6', ('inet:ipv6', {}), {
+                    #    'doc': 'The IPv6 of the client during the URL retrieval.'
+                    #}),
+                    #('client:port', ('inet:port', {}), {
+                    #    'doc': 'The client port during the URL retrieval.'
+                    #}),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
@@ -2959,20 +3027,20 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The inet:flow that matched the snort rule.'}),
                     ('src', ('inet:sockaddr', {}), {
                         'doc': 'The source address of flow that caused the hit.'}),
-                    ('src:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The source IPv4 address of the flow that caused the hit.'}),
-                    ('src:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The source IPv6 address of the flow that caused the hit.'}),
-                    ('src:port', ('inet:port', {}), {
-                        'doc': 'The source port of the flow that caused the hit.'}),
+                    #('src:ipv4', ('inet:ipv4', {}), {
+                    #    'doc': 'The source IPv4 address of the flow that caused the hit.'}),
+                    #('src:ipv6', ('inet:ipv6', {}), {
+                    #    'doc': 'The source IPv6 address of the flow that caused the hit.'}),
+                    #('src:port', ('inet:port', {}), {
+                    #    'doc': 'The source port of the flow that caused the hit.'}),
                     ('dst', ('inet:sockaddr', {}), {
                         'doc': 'The destination address of the trigger.'}),
-                    ('dst:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:port', ('inet:port', {}), {
-                        'doc': 'The destination port of the flow that caused the hit.'}),
+                    #('dst:ipv4', ('inet:ipv4', {}), {
+                    #    'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
+                    #('dst:ipv6', ('inet:ipv6', {}), {
+                    #    'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
+                    #('dst:port', ('inet:port', {}), {
+                    #    'doc': 'The destination port of the flow that caused the hit.'}),
                     ('time', ('time', {}), {
                         'doc': 'The time of the network flow that caused the hit.'}),
                     ('sensor', ('it:host', {}), {
