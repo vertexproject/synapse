@@ -127,10 +127,6 @@ class AhaServicesV1(s_httpapi.Handler):
 class AhaApi(s_cell.CellApi):
 
     @s_cell.adminapi()
-    async def getAhaClone(self, iden):
-        return await self.cell.getAhaClone(iden)
-
-    @s_cell.adminapi()
     async def addAhaClone(self, host, port=27492, conf=None):
         return await self.cell.addAhaClone(host, port=port, conf=conf)
 
