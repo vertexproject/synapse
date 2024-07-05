@@ -1401,13 +1401,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to check if the Axon contains a file.'},
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
-
-            {'perm': ('cron', 'kill'), 'gate': 'cronjob',
-             'desc': 'Controls the ability to terminate a running cron job.'},
-            {'perm': ('cron', 'set'), 'gate': 'cronjob',
-             'desc': 'Controls the ability to set any editable property on a cron job.'},
-            {'perm': ('cron', 'set', '<name>'), 'gate': 'cronjob',
-             'desc': 'Controls the ability to set the named editable property on a cron job.'},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
