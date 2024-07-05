@@ -171,6 +171,8 @@ however many AHA mirrors you deem appropriate.
 NOTE: AHA uses two default ports ETC. The following steps assume you will be running each of your AHA servers
 on a different host. The use of ``network_mode; host`` ETC
 
+**Inside the AHA container**
+
 Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.clone 01.aha.<dns-network>
@@ -178,6 +180,8 @@ Generate a one-time use provisioning URL::
 You should see output that looks similar to this::
 
     one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+
+**On the Host**
 
 Create the container directory::
 

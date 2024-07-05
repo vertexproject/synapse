@@ -1496,6 +1496,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if self.ahaclient is not None:
                 await self.ahaclient.fini()
 
+            async def onlink(proxy):
+                ahauser = self.conf.req('aha:user')
+                ahaurls = await proxy.getAhaUrls(user=ahauser)
+
             self.ahaclient = await s_telepath.Client.anit(ahaurl)
             self.onfini(self.ahaclient)
 

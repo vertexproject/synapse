@@ -285,7 +285,8 @@ class ConfTest(s_test.SynTest):
                 # Trying to make a cell with a missing key it wants fails
                 async with await SchemaCell.anit(dirn, conf={}) as cell:
                     pass
-            self.eq(cm.exception.get('key'), 'apikey')
+
+            self.eq(cm.exception.get('name'), 'apikey')
 
     def test_hideconf(self):
         hide_schema = {
