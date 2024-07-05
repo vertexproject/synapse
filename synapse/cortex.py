@@ -1033,7 +1033,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 async with await node.open(('triggers',)) as trignodes:
                     for iden, trig in trignodes:
                         valu = trig.valu
-                        if valu.get('view', s_common.novalu) != iden:
+                        if valu.get('view', s_common.novalu) != view_iden:
                             valu['view'] = view_iden
                         trigdict.set(iden, valu)
 
