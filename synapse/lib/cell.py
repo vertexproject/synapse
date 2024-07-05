@@ -904,7 +904,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'nexslog:async': {
             'default': True,
-            'description': 'Set to false to disable async memory mapping of the nexus change log.',
+            'description': 'Deprecated. This option ignored.',
             'type': 'boolean',
             'hidedocs': True,
             'hidecmdl': True,

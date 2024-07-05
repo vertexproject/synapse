@@ -709,6 +709,8 @@ class Slab(s_base.Base):
         kwargs.setdefault('lockmemory', False)
         kwargs.setdefault('map_async', True)
 
+        assert kwargs.get('map_async')
+
         opts = kwargs
 
         self.path = path

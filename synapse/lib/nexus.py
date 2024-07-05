@@ -109,9 +109,7 @@ class NexsRoot(s_base.Base):
 
         logpath = s_common.genpath(self.dirn, 'slabs', 'nexuslog')
 
-        self.map_async = self.cell.conf.get('nexslog:async')
-        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=self.map_async)
-        self.nexsslab.addResizeCallback(cell.checkFreeSpace)
+        self.nexsslab = await cell._initSlabFile(path)
 
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
@@ -125,8 +123,7 @@ class NexsRoot(s_base.Base):
         elif vers != 2:
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
-        slabopts = {'map_async': self.map_async}
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts, cell=cell)
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, cell=cell)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()
@@ -194,8 +191,7 @@ class NexsRoot(s_base.Base):
 
         # Open a fresh slab where the old one used to be
         logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
-        self.nexsslab = await s_lmdbslab.Slab.anit(nexspath, map_async=self.map_async)
-        self.nexsslab.addResizeCallback(self.cell.checkFreeSpace)
+        self.nexsslab = await self.cell._initSlabFile(nexspath)
 
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
@@ -633,6 +629,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             assert prev is not None, f'Failed removing {self.nexsiden}'
 
         self.onfini(onfini)
+        self.onfini(nexsroot)
 
         self.nexsroot = nexsroot
 
