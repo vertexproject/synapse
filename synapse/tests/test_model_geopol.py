@@ -14,6 +14,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                     :iso2=vi
                     :iso3=vis
                     :isonum=31337
+                    :currencies=(usd,)
                 ]
             ''')
             self.len(1, nodes)
@@ -24,7 +25,9 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('vi', nodes[0].get('iso2'))
             self.eq('vis', nodes[0].get('iso3'))
             self.eq(31337, nodes[0].get('isonum'))
+            self.eq(('usd',), nodes[0].get('currencies'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
+            self.len(1, await core.nodes('pol:country -> econ:currency'))
 
             nodes = await core.nodes('''
                     [ pol:vitals=*

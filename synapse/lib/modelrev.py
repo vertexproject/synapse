@@ -759,6 +759,7 @@ class ModelRev:
             await self._normVelocityProps(layers, form, props)
 
     async def revModel_0_2_25(self, layers):
+        await self._typeToForm(layers, 'econ:currency', 'econ:currency')
         await self._normPropValu(layers, 'ou:position:title')
         await self._propToForm(layers, 'ou:position:title', 'ou:jobtitle')
 
@@ -1126,6 +1127,10 @@ class ModelRev:
         }
         '''
         await self.runStorm(storm, opts=opts)
+
+    async def _typeToForm(self, layers, typename, formname):
+        for prop in layers[0].core.model.getPropsByType(typename):
+            await self._propToForm(layers, prop.full, formname)
 
     async def _propArrayToForm(self, layers, propfull, formname):
 

@@ -477,6 +477,8 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_25(self):
         async with self.getRegrCore('model-0.2.25') as core:
 
+            self.len(1, await core.nodes('econ:currency=usd'))
+
             nodes = await core.nodes('ou:conference')
             self.len(3, nodes)
             names = [n.get('name') for n in nodes]
