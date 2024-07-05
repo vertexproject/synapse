@@ -99,6 +99,7 @@ class EconModule(s_module.CoreModule):
 
             'forms': (
 
+                ('econ:currency', {}, ()),
                 ('econ:pay:iin', {}, (
 
                     ('org', ('ou:org', {}), {
@@ -205,6 +206,9 @@ class EconModule(s_module.CoreModule):
                     ('fee', ('econ:price', {}), {
                         'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
 
+                    ('from:cash', ('bool', {}), {
+                        'doc': 'Set to true if the payment input was in cash.'}),
+
                     ('from:account', ('econ:bank:account', {}), {
                         'doc': 'The bank account which made the payment.'}),
 
@@ -219,6 +223,9 @@ class EconModule(s_module.CoreModule):
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the entity making the payment.'}),
+
+                    ('to:cash', ('bool', {}), {
+                        'doc': 'Set to true if the payment output was in cash.'}),
 
                     ('to:account', ('econ:bank:account', {}), {
                         'doc': 'The bank account which received the payment.'}),
@@ -256,6 +263,20 @@ class EconModule(s_module.CoreModule):
                     ('receipt', ('econ:acct:receipt', {}), {
                         'doc': 'The receipt that was issued for the payment.'}),
 
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the payment occurred.'}),
+
+                    ('place:name', ('geo:name', {}), {
+                        'doc': 'The name of the place where the payment occurred.'}),
+
+                    ('place:address', ('geo:address', {}), {
+                        'doc': 'The address of the place where the payment occurred.'}),
+
+                    ('place:loc', ('loc', {}), {
+                        'doc': 'The loc of the place where the payment occurred.'}),
+
+                    ('place:latlong', ('geo:latlong', {}), {
+                        'doc': 'The latlong where the payment occurred.'}),
                 )),
 
                 ('econ:acct:balance', {}, (
