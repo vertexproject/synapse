@@ -18,7 +18,6 @@ import calendar
 import functools
 import contextlib
 import collections
-from typing import Any
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -8440,7 +8439,9 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        viewiden = self.runt.snap.view.iden
+        viewiden = self.valu.get('view')
+
+        view = self.runt.snap.core.reqView(viewiden)
 
         name = await tostr(name)
         if name in ('async', 'enabled', ):
@@ -8453,7 +8454,7 @@ class Trigger(Prim):
         else:
             self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
-        await self.runt.snap.view.setTriggerInfo(trigiden, name, valu)
+        await view.setTriggerInfo(trigiden, name, valu)
 
         self.valu[name] = valu
 

@@ -473,3 +473,60 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:mitre:attack:technique=T0100')
             self.len(1, nodes)
             self.eq('lockpicking', nodes[0].get('name'))
+
+    async def test_modelrev_0_2_25(self):
+        async with self.getRegrCore('model-0.2.25') as core:
+
+            self.len(1, await core.nodes('econ:currency=usd'))
+
+            nodes = await core.nodes('ou:conference')
+            self.len(3, nodes)
+            names = [n.get('name') for n in nodes]
+            self.sorteq(names, (
+                'sleuthcon',
+                'defcon',
+                'recon',
+            ))
+
+            namess = [n.get('names') for n in nodes]
+            self.sorteq(namess, (
+                ('defcon 2024',),
+                ('recon 2024 conference',),
+                ('sleuthcon 2024',),
+            ))
+
+            connames = (
+                'sleuthcon', 'sleuthcon 2024',
+                'defcon', 'defcon 2024',
+                'recon', 'recon 2024 conference',
+            )
+
+            nodes = await core.nodes('entity:name')
+            self.len(6, nodes)
+            names = [n.ndef[1] for n in nodes]
+            self.sorteq(names, connames)
+
+            nodes = await core.nodes('ou:conference -> entity:name')
+            self.len(6, nodes)
+            names = [n.ndef[1] for n in nodes]
+            self.sorteq(names, connames)
+
+            positions = (
+                'president of the united states',
+                'vice president of the united states',
+            )
+
+            nodes = await core.nodes('ou:position')
+            self.len(2, nodes)
+            titles = [n.get('title') for n in nodes]
+            self.sorteq(titles, positions)
+
+            nodes = await core.nodes('ou:jobtitle')
+            self.len(2, nodes)
+            titles = [n.ndef[1] for n in nodes]
+            self.sorteq(titles, positions)
+
+            nodes = await core.nodes('ou:position -> ou:jobtitle')
+            self.len(2, nodes)
+            titles = [n.ndef[1] for n in nodes]
+            self.sorteq(titles, positions)
