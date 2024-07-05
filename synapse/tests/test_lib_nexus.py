@@ -111,6 +111,14 @@ class NexusTest(s_t_utils.SynTest):
                     stream.seek(0)
                     self.isin('while replaying log', stream.read())
 
+    async def test_nexus_modroot(self):
+
+        async with self.getTestCell(s_cell.Cell) as cell:
+            await cell.sync()
+            async with cell.nexslock:
+                cell.modNexsRoot(cell._ctorNexsRoot)
+            await cell.sync()
+
     async def test_nexus_mixin(self):
         with self.getTestDir() as dirn:
             dir1 = s_common.genpath(dirn, 'nexus1')

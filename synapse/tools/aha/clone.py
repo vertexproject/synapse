@@ -33,8 +33,11 @@ async def main(argv, outp=s_output.stdout):
                 outp.printf('one-time use URL: {curl}')
                 return 0
 
-        except s_exc.SynErr as e:
-            mesg = e.errinfo.get('mesg', repr(e))
+        except Exception as e:
+            mesg = repr(e)
+            if isinstance(e, s_exc.SynErr):
+                mesg = e.errinfo.get('mesg', repr(e))
+
             outp.printf(f'ERROR: {mesg}')
             return 1
 

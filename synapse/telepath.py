@@ -1543,7 +1543,7 @@ async def openinfo(info):
             path, name = path.split(':')
         link = await s_link.unixconnect(path)
 
-    else:
+    elif scheme in ('tcp', 'ssl'):
 
         path = info.get('path')
         name = info.get('name', path[1:])
@@ -1591,6 +1591,9 @@ async def openinfo(info):
             linkinfo['ssl'] = sslctx
 
         link = await s_link.connect(host, port, linkinfo=linkinfo)
+
+    else:
+        raise s_exc.BadUrl(mesg=f'Invalid URL scheme: {scheme}')
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)
