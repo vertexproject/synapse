@@ -383,7 +383,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The hex encoded initialization vector.'}),
 
                     ('iv:text', ('it:dev:str', {}), {
-                        'doc': 'Set only if the :iv proprty decodes to ASCII.'}),
+                        'doc': 'Set only if the :iv property decodes to ASCII.'}),
 
                     ('public', ('hex', {}), {
                         'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
