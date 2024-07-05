@@ -9,6 +9,7 @@ import synapse.lib.cell as s_cell
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.aha.list as s_a_list
+import synapse.tools.aha.clone as s_a_clone
 import synapse.tools.aha.enroll as s_a_enroll
 import synapse.tools.aha.easycert as s_a_easycert
 import synapse.tools.aha.provision.user as s_a_provision_user
@@ -92,6 +93,10 @@ class AhaToolsTest(s_t_utils.SynTest):
     async def test_aha_enroll(self):
 
         async with self.getTestAha() as aha:
+
+            argv = ['--url', aha.getLocalUrl(), '01.aha.loop.vertex.link']
+            retn, outp = await self.execToolMain(s_a_clone.main, argv)
+            self.isin('one-time use URL:', str(outp))
 
             argv = ['--url', aha.getLocalUrl(), 'visi']
             retn, outp = await self.execToolMain(s_a_provision_user.main, argv)

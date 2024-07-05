@@ -65,19 +65,6 @@ When using AHA, you may run any of the **other** services on additional hosts as
 directly to the AHA service.  You may also shutdown a service, move it's volume to a different host, and
 start it backup without changing anything.
 
-Decide on a Name
-================
-
-Throughout the examples, we will be using ``<yournetwork>`` as the AHA network name which is also used as the
-common-name (CN) for the CA certificate. This should be changed to an appropriate network name used by your
-synapse deployment such as ``syn.acmecorp.com``. We will use ``<yournetwork>`` in the following configs to
-specify locations which should be replaced with your selected AHA network name. For a **test** deployment which
-runs **all** docker containers on one host, you may use ``loop.vertex.link``.
-
-.. note::
-    It is important that you choose a name and stick with it for a given deployment. Once we begin generating
-    host and service account certificates, changing this name will be difficult.
-
 Deploy AHA Service
 ==================
 
@@ -87,18 +74,43 @@ by name, so it is likely that you need to create a DNS A/AAAA record in your exi
 using AHA, the only host that needs DNS or other external name resolution is the AHA service.
 
 .. note::
-    It is important to ensure that ``aha.<yournetwork>`` is resolvable via DNS or docker container service
-    name resolution from within the container environment! There are configuration options you may use if
-    this is impossible, but the configuration is far simpler if we can make this assumption.
+    FIXME AHA FLAT NETWORK STUFF
+
+Choose an AHA Network Name
+--------------------------
+
+Your AHA network name is separate from DNS and is used by services within the AHA service deployment. It is
+generally a good idea to chose a name that aligns with the use case for the synapse deployment. For example,
+if you plan to have a test/dev/prod deployment, choosing a name like ``prod.synapse`` will make it clear which
+deployment is which. Changing this name later is difficult, so choose carefully! Throughout the examples, we
+will be using ``prod.synapse`` as the AHA network name which is also used as the common-name (CN) for the CA
+certificate.
+
+Configure an AHA DNS Name
+-------------------------
+
+When choosing the DNS name for your AHA server, it is important to keep in mind that you may eventually want to
+deploy AHA mirrors for a high-availability deployment. Choosing a name like ``00.aha.<dns-network>``,
+where ``<dns-network>`` is a DNS zone you control, will allow you to deploy mirrors with a consistent naming
+convention in the future. Once you have selected the DNS name for your AHA server, you will need to ensure that
+all deployed Synapse services will be able to resolve that name.
+
+.. note::
+    It is important to ensure that ``00.aha.<dns-network>`` is resolvable via DNS or docker container service
+    name resolution from within the container environment!
+
+
+Deploy the AHA Container
+------------------------
 
 Create the container directory::
 
-    mkdir -p /srv/syn/aha/storage
+    mkdir -p /srv/syn/00.aha/storage
 
-Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/00.aha/docker-compose.yaml`` file with contents::
 
     services:
-      aha:
+      00.aha:
         user: "999"
         image: vertexproject/synapse-aha:v2.x.x
         network_mode: host
@@ -106,22 +118,23 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
         volumes:
             - ./storage:/vertex/storage
         environment:
+            # disable HTTPS API for now to prevent port collisions
             - SYN_AHA_HTTPS_PORT=null
-            - SYN_AHA_AHA_NAME=aha
-            - SYN_AHA_DNS_NAME=aha.<yuournetwork>
+            - SYN_AHA_AHA_NETWORK=prod.synapse
+            - SYN_AHA_DNS_NAME=00.aha.<yuournetwork>
 
 .. note::
 
-    Don't forget to replace ``<yournetwork>`` with your chosen network name!
+    Don't forget to replace ``<dns-network>`` with your configured DNS suffix.
 
 Change ownership of the storage directory to the user you will use to run the container::
 
-    chown -R 999 /srv/syn/aha/storage
+    chown -R 999 /srv/syn/00.aha/storage
 
 Start the container using ``docker compose``::
 
-    docker compose --file /srv/syn/aha/docker-compose.yaml pull
-    docker compose --file /srv/syn/aha/docker-compose.yaml up -d
+    docker compose --file /srv/syn/00.aha/docker-compose.yaml pull
+    docker compose --file /srv/syn/00.aha/docker-compose.yaml up -d
 
 To view the container logs at any time you may run the following command on the *host* from the
 ``/srv/syn/aha`` directory::
@@ -131,10 +144,39 @@ To view the container logs at any time you may run the following command on the 
 You may also execute a shell inside the container using ``docker compose`` from the ``/srv/syn/aha``
 directory on the *host*. This will be necessary for some of the additional provisioning steps::
 
-    docker compose exec aha /bin/bash
-
+    docker compose exec 00.aha /bin/bash
 
 .. _deploy_axon:
+
+Deploy AHA Mirrors (optional)
+=============================
+
+For high-availability deployments, you will want to deploy an AHA mirror or two. Typical Synapse service
+mirroring is configured using AHA based provisioning. Bootstrapping AHA mirrors is simple, but requires
+a slightly different procedure because you cannot bootstrap AHA via AHA :)
+
+For this example, we will assume you chose a DNS name for your primary AHA server similar to the steps
+listed above. If so, you can simply replace ``00`` with sequential numbers and repeat this step to deploy
+however many AHA mirrors you deem appropriate.
+
+NOTE: AHA uses two default ports ETC. The following steps assume you will be running each of your AHA servers
+on a different host. The use of ``network_mode; host`` ETC
+
+Generate a one-time use provisioning URL::
+
+    python -m synapse.tools.aha.clone 01.aha.<dns-network>
+
+You should see output that looks similar to this::
+
+    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+
+Create the container directory::
+
+    mkdir -p /srv/syn/01.aha/storage
+    chown -R 999 /srv/syn/01.aha/storage
+
+::NOTE You can deploy AHA mirrors at any time in the future. Once the mirrors are deployed, each AHA enabled
+       Synapse service will retrieve the updated list of AHA servers the next time it is restarted.
 
 Deploy Axon Service
 ===================
@@ -161,11 +203,11 @@ to re-use the one-time use URL!
     We strongly encourage you to use a numbered hierarchical naming convention for services where the
     first part of the name is a 0 padded number and the second part is the service type. The above example
     ``00.axon`` will allow you to deploy mirror instances in the future, such as ``01.axon``, where the AHA
-    name ``axon.<yournetwork>`` will automatically resolve to which ever one is the current leader.
+    name ``axon.prod.synapse`` will automatically resolve to which ever one is the current leader.
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -187,7 +229,7 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_AXON_HTTPS_PORT=null
-            - SYN_AXON_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+            - SYN_AXON_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -209,7 +251,7 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -231,7 +273,7 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_JSONSTOR_HTTPS_PORT=null
-            - SYN_JSONSTOR_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+            - SYN_JSONSTOR_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -253,7 +295,7 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -275,7 +317,7 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
         environment:
             - SYN_CORTEX_AXON=aha://axon...
             - SYN_CORTEX_JSONSTOR=aha://jsonstor...
-            - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+            - SYN_CORTEX_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -309,7 +351,7 @@ Generate a one-time use URL for provisioning from *inside the AHA container*::
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -333,7 +375,7 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
             - SYN_CORTEX_JSONSTOR=aha://jsonstor...
             # disable HTTPS API for now to prevent port collisions
             - SYN_CORTEX_HTTPS_PORT=null
-            - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+            - SYN_CORTEX_AHA_PROVISION=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -372,17 +414,17 @@ following command from **inside the AHA container** to generate a one-time use U
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 Then the **user** may run::
 
-    python -m synapse.tools.aha.enroll ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    python -m synapse.tools.aha.enroll ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
 
 Once they are enrolled, they will have a user certificate located in ``~/.syn/certs/users`` and their telepath
 configuration located in ``~/.syn/telepath.yaml`` will be updated to reflect the use of the AHA server. From there
 the user should be able to use standard Synapse CLI tools using the ``aha://`` URL such as::
 
-    python -m synapse.tools.storm aha://visi@cortex.<yournetwork>
+    python -m synapse.tools.storm aha://visi@cortex.<dns-network>
 
 .. _deployment-guide-storm-pool:
 
