@@ -42,6 +42,7 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -1400,6 +1401,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to check if the Axon contains a file.'},
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
+
+            {'perm': ('cron', 'kill'), 'gate': 'cronjob',
+             'desc': 'Controls the ability to terminate a running cron job.'},
+            {'perm': ('cron', 'set'), 'gate': 'cronjob',
+             'desc': 'Controls the ability to set any editable property on a cron job.'},
+            {'perm': ('cron', 'set', '<name>'), 'gate': 'cronjob',
+             'desc': 'Controls the ability to set the named editable property on a cron job.'},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
@@ -2549,7 +2557,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = pkgdef.get('name')
         olddef = self.pkghive.get(name, None)
         if olddef is not None:
-            await self._dropStormPkg(olddef)
+            if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
+                await self._dropStormPkg(olddef)
+            else:
+                return
 
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
@@ -2964,16 +2975,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete storm packages associated with a service.
         '''
-        oldpkgs = []
-        for _, pdef in self.pkghive.items():
-            pkgiden = pdef.get('svciden')
-            if pkgiden and pkgiden == iden:
-                oldpkgs.append(pdef)
-
-        for pkg in oldpkgs:
+        for pkg in self.getStormSvcPkgs(iden):
             name = pkg.get('name')
             if name:
                 await self._delStormPkg(name)
+
+    def getStormSvcPkgs(self, iden):
+        pkgs = []
+        for _, pdef in self.pkghive.items():
+            pkgiden = pdef.get('svciden')
+            if pkgiden and pkgiden == iden:
+                pkgs.append(pdef)
+        return pkgs
 
     async def setStormSvcEvents(self, iden, edef):
         '''
@@ -6112,6 +6125,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
+        await self._killCronTask(iden)
         try:
             await self.agenda.delete(iden)
         except s_exc.NoSuchIden:
@@ -6151,7 +6165,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
+        await self._killCronTask(iden)
         await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
+
+    async def killCronTask(self, iden):
+        if self.agenda.appts.get(iden) is None:
+            return False
+        return await self._push('cron:task:kill', iden)
+
+    @s_nexus.Pusher.onPush('cron:task:kill')
+    async def _killCronTask(self, iden):
+
+        appt = self.agenda.appts.get(iden)
+        if appt is None:
+            return False
+
+        task = appt.task
+        if task is None:
+            return False
+
+        await task.kill()
+        return True
 
     async def listCronJobs(self):
         '''
