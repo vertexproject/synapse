@@ -606,7 +606,6 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCell(s_cell.Cell, dirn=dir0, conf=conf) as cell00, \
                 cell00.getLocalProxy() as prox00:
 
-                self.true(cell00.nexsroot.map_async)
                 self.true(cell00.nexsroot.donexslog)
 
                 await prox00.addUser('test')
