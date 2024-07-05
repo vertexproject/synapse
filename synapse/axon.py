@@ -493,7 +493,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
     async def wants(self, sha256s):
         '''
-        Get a list of sha256 values the axon does not have from a input list.
+        Get a list of sha256 values the axon does not have from an input list.
 
         Args:
             sha256s (list): A list of sha256 values as bytes.
