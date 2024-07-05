@@ -4410,10 +4410,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Everything still works when no nexus log is kept
         '''
-        conf = {'layer:lmdb:map_async': True,
-                'nexslog:en': False,
-                'layers:logedits': True,
-                }
+        conf = {'nexslog:en': False, 'layers:logedits': True}
         async with self.getTestCore(conf=conf) as core:
             self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
@@ -4422,10 +4419,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Everything still works when no layer log is kept
         '''
-        conf = {'layer:lmdb:map_async': True,
-                'nexslog:en': True,
-                'layers:logedits': False,
-                }
+        conf = {'nexslog:en': True, 'layers:logedits': False}
         async with self.getTestCore(conf=conf) as core:
             self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
@@ -4443,18 +4437,12 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Make sure settings make it down to the slab
         '''
-        conf = {
-            'layer:lmdb:map_async': False,
-            'layer:lmdb:max_replay_log': 500,
-            'layers:lockmemory': True,
-        }
+        conf = {'layers:lockmemory': True}
         async with self.getTestCore(conf=conf) as core:
             layr = core.getLayer()
             slab = layr.layrslab
 
             self.true(slab.lockmemory)
-            self.eq(500, slab.max_xactops_len)
-            self.true(500, slab.mapasync)
 
     async def test_feed_syn_nodes(self):
 
@@ -8141,7 +8129,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 return ret
 
         conf = {
-            'layer:lmdb:map_async': True,
             'nexslog:en': True,
             'layers:logedits': True,
         }

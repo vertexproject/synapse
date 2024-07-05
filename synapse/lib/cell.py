@@ -1188,9 +1188,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.initServiceEarly()
 
-        root = await self._ctorNexsRoot()
+        nexsroot = await self._ctorNexsRoot()
 
-        self.setNexsRoot(root)
+        self.setNexsRoot(nexsroot)
+
+        async def fini():
+            await self.nexsroot.fini()
+
+        self.onfini(fini)
 
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu

@@ -304,7 +304,6 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
 
@@ -629,8 +628,6 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             assert prev is not None, f'Failed removing {self.nexsiden}'
 
         self.onfini(onfini)
-        self.onfini(nexsroot)
-
         self.nexsroot = nexsroot
 
     async def modNexsRoot(self, ctor):
