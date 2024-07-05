@@ -1512,7 +1512,8 @@ class SynTest(unittest.TestCase):
             The config data for the cell is pushed into dirn/cell.yaml.
             The cells are created with the ``ctor.anit()`` function.
         '''
-        svcfull = f'{svcname}.{aha._getAhaNetwork()}'
+        ahanetw = aha.conf.req('aha:network')
+        svcfull = f'{svcname}.{ahanetw}'
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
         conf = self.getCellConf(conf=conf)

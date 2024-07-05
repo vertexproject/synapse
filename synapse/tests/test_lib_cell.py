@@ -925,11 +925,11 @@ class CellTest(s_t_utils.SynTest):
                         # 1) cmdline
                         # 2) envars
                         # 3) cell.yaml
-                        self.true(cell.conf.reqConfValu('nexslog:en'))
-                        self.true(cell.conf.reqConfValu('nexslog:async'))
-                        self.none(cell.conf.reqConfValu('dmon:listen'))
-                        self.none(cell.conf.reqConfValu('https:port'))
-                        self.eq(cell.conf.reqConfValu('aha:name'), 'some:cell')
+                        self.true(cell.conf.req('nexslog:en'))
+                        self.true(cell.conf.req('nexslog:async'))
+                        self.none(cell.conf.req('dmon:listen'))
+                        self.none(cell.conf.req('https:port'))
+                        self.eq(cell.conf.req('aha:name'), 'some:cell')
                         root = cell.auth.rootuser
                         self.true(await root.tryPasswd('secret'))
 
@@ -937,7 +937,7 @@ class CellTest(s_t_utils.SynTest):
                 with self.getTestDir() as dirn:
                     s_common.yamlsave({'nexslog:en': False}, dirn, 'cell.mods.yaml')
                     async with await s_cell.Cell.initFromArgv([dirn]) as cell:
-                        self.false(cell.conf.reqConfValu('nexslog:en'))
+                        self.false(cell.conf.req('nexslog:en'))
                         # We can remove the valu from the overrides file with the pop API
                         # This is NOT reactive API which causes the whole behavior
                         # of the cell to suddenly change. This is intended to be used with

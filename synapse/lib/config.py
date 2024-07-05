@@ -392,28 +392,16 @@ class Config(c_abc.MutableMapping):
         else:
             return
 
-    def reqConfValu(self, key):
+    def req(self, name):
         '''
-        Get a configuration value.  If that value is not present in the schema
-        or is not set, then raise an exception.
-
-        Args:
-            key (str): The key to require.
-
-        Returns:
-            The requested value.
+        Return a configuration value or raise NeedConfValu if it is unset.
         '''
-        # Ensure that the key is in self.json_schema
-        if key not in self.json_schema.get('properties', {}):
-            raise s_exc.BadArg(mesg='Required key is not present in the configuration schema.',
-                               key=key)
+        valu = self.conf.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
 
-        # Ensure that the key is present in self.conf
-        if key not in self.conf:
-            raise s_exc.NeedConfValu(mesg='Required key is not present in configuration data.',
-                                     key=key)
-
-        return self.conf.get(key)
+        mesg = f'The {name} configuration option is required.'
+        raise s_exc.NeedConfValu(mesg=mesg, name=name)
 
     def reqKeyValid(self, key, value):
         '''

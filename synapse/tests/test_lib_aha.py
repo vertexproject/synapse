@@ -951,7 +951,7 @@ class AhaTest(s_test.SynTest):
                 svc1dirn = s_common.gendir(dirn, 'svc01')
                 async with await s_base.Base.anit() as cm:
 
-                    aconf = {'dns:name': 'aha.loop.vertex.link'}
+                    aconf = {'dns:name': 'aha.loop.vertex.link', 'aha:network': 'synapse'}
 
                     aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
                     await cm.enter_context(aha)

@@ -31,7 +31,7 @@ class SchemaCell(s_cell.Cell):
         await s_cell.Cell.__anit__(self, dirn, conf, readonly, *args, **kwargs)
         # This captures a design pattern that reduces boilerplate
         # code used by Cell implementators.
-        self.conf.reqConfValu('apikey')
+        self.conf.req('apikey')
 
 
 class ConfTest(s_test.SynTest):
@@ -162,10 +162,9 @@ class ConfTest(s_test.SynTest):
         })
 
         # We can ensure that certain vars are loaded
-        self.eq('Funky string time!', conf.reqConfValu('key:string'))
+        self.eq('Funky string time!', conf.req('key:string'))
         # And throw if they are not, or if the requested key isn't even schema valid
-        self.raises(s_exc.NeedConfValu, conf.reqConfValu, 'key:bool:nodefval')
-        self.raises(s_exc.BadArg, conf.reqConfValu, 'key:newp')
+        self.raises(s_exc.NeedConfValu, conf.req, 'key:bool:nodefval')
 
         # Since we're an Mutable mapping, we have some dict methods available to us
         self.len(8, conf)  # __len__

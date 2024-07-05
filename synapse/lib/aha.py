@@ -269,7 +269,6 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.signHostCsr(csrtext, signas=signas, sans=sans)
 
     async def signUserCsr(self, csrtext, signas=None):
-
         await self._reqUserAllowed(('aha', 'csr', 'user'))
         return await self.cell.signUserCsr(csrtext, signas=signas)
 
@@ -428,17 +427,17 @@ class EnrollApi:
         return {
             'aha:urls': await self.aha.getAhaUrls(user=user),
             'aha:user': user,
-            'aha:network': self.aha._getAhaNetwork(),
+            'aha:network': self.aha.conf.req('aha:network'),
         }
 
     async def getCaCert(self):
-        ahanetw = self.aha._getAhaNetwork()
+        ahanetw = self.aha.conf.req('aha:network')
         return self.aha.certdir.getCaCertBytes(ahanetw)
 
     async def signUserCsr(self, byts):
 
         ahauser = self.userinfo.get('name')
-        ahanetw = self.aha._getAhaNetwork()
+        ahanetw = self.aha.conf.req('aha:network')
 
         username = f'{ahauser}@{ahanetw}'
 
@@ -464,7 +463,7 @@ class ProvApi:
         return self.provinfo
 
     async def getCaCert(self):
-        ahanetw = self.aha._getAhaNetwork()
+        ahanetw = self.aha.conf.req('aha:network')
         return self.aha.certdir.getCaCertBytes(ahanetw)
 
     async def signHostCsr(self, byts):
@@ -686,7 +685,7 @@ class AhaCell(s_cell.Cell):
         if self.isactive:
 
             # bootstrap a CA for our aha:network
-            netw = self._getAhaNetwork()
+            netw = self.conf.req('aha:network')
 
             if self.certdir.getCaCertPath(netw) is None:
                 logger.info(f'Adding CA certificate for {netw}')
@@ -714,9 +713,10 @@ class AhaCell(s_cell.Cell):
         if hostname is not None:
             return hostname
 
-        name = self.conf.get('aha:name')
-        if name is not None:
-            return f'{name}.{self._getAhaNetwork()}'
+        ahaname = self.conf.get('aha:name')
+        ahanetw = self.conf.get('aha:network')
+        if ahaname is not None and ahanetw is not None:
+            return f'{ahaname}.{ahanetw}'
 
     def _getProvListen(self):
 
@@ -737,7 +737,7 @@ class AhaCell(s_cell.Cell):
         if lisn is not s_common.novalu:
             return lisn
 
-        network = self._getAhaNetwork()
+        network = self.conf.req('aha:network')
         dnsname = self._getDnsName()
         if dnsname is not None:
             return f'ssl://0.0.0.0?hostname={dnsname}&ca={network}'
@@ -753,9 +753,8 @@ class AhaCell(s_cell.Cell):
     async def initServiceNetwork(self):
 
         # bootstrap CA/host certs first
-        network = self._getAhaNetwork()
-        if network is not None:
-            await self._genCaCert(network)
+        network = self.conf.req('aha:network')
+        await self._genCaCert(network)
 
         hostname = self._getDnsName()
         if hostname is not None and network is not None:
@@ -862,7 +861,7 @@ class AhaCell(s_cell.Cell):
     def _getAhaName(self, name):
         # the modern version of names is absolute or ...
         if name.endswith('...'):
-            return name[:-2] + self._getAhaNetwork()
+            return name[:-2] + self.conf.req('aha:network')
         return name
 
     async def getAhaPool(self, name):
@@ -1228,18 +1227,20 @@ class AhaCell(s_cell.Cell):
         if urls is not None:
             return urls
 
-        network = self._getAhaNetwork()
+        network = self.conf.req('aha:network')
+
         urls = []
         for server in await self.getAhaServers():
             host = server.get('host')
             port = server.get('port')
             urls.append(f'ssl://{host}:{port}?certname={user}@{network}')
+
         return urls
 
     def _getAhaUrl(self, user='root'):
         port = self.sockaddr[1]
         host = self._getDnsName()
-        network = self._getAhaNetwork()
+        network = self.conf.req('aha:network')
         return f'ssl://{host}:{port}?certname={user}@{network}'
 
     async def getAhaClone(self, iden):
@@ -1253,7 +1254,7 @@ class AhaCell(s_cell.Cell):
         if conf is None:
             conf = {}
 
-        network = self._getAhaNetwork()
+        network = self.conf.req('aha:network')
 
         conf['mirror'] = self._getAhaUrl()
 
@@ -1293,7 +1294,7 @@ class AhaCell(s_cell.Cell):
 
         conf = provinfo.setdefault('conf', {})
 
-        netw = self._getAhaNetwork()
+        netw = self.conf.req('aha:network')
 
         ahaadmin = self.conf.get('aha:admin')
         if ahaadmin is not None: # pragma: no cover
@@ -1418,7 +1419,7 @@ class AhaCell(s_cell.Cell):
             raise s_exc.BadArg(mesg='Empty name values are not allowed for provisioning.')
 
         provurl = self._reqProvListen()
-        ahanetw = self._getAhaNetwork()
+        ahanetw = self.conf.req('aha:network')
 
         username = f'{name}@{ahanetw}'
 
