@@ -132,7 +132,7 @@ def format(opts: argparse.Namespace,
     date = opts.date
     if date is None:
         date = datetime.datetime.utcnow().strftime('%Y-%m-%d')
-    header = f'{opts.version} {date}'
+    header = f'{opts.version} - {date}'
     text = f'{header}\n{"=" * len(header)}\n'
 
     for key, header in s_schemas._changelogTypes.items():
