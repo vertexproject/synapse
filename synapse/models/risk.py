@@ -59,9 +59,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:vuln:soft:range', ('guid', {}), {
                     'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
 
-                ('risk:hasvuln', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use risk:vulnerable.'}),
+                #('risk:hasvuln', ('guid', {}), {
+                    #'deprecated': True,
+                    #'doc': 'Deprecated. Please use risk:vulnerable.'}),
 
                 ('risk:vulnerable', ('guid', {}), {
                     'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
@@ -266,9 +266,9 @@ class RiskModule(s_module.CoreModule):
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': "The reporting organization's assessed sophistication of the threat cluster."}),
 
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+                    #('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('merged:time', ('time', {}), {
                         'doc': 'The time that the reporting organization merged this threat cluster into another.'}),
@@ -326,9 +326,9 @@ class RiskModule(s_module.CoreModule):
                     ('soft:names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the tool, according to the reporting organization.'}),
 
-                    ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+                    #('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('mitre:attack:software', ('it:mitre:attack:software', {}), {
                         'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
@@ -421,181 +421,183 @@ class RiskModule(s_module.CoreModule):
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
 
-                    ('cve:desc', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'The description of the vulnerability according to the CVE database.'}),
+                    # FIXME deprecate?
+                    #('cve:desc', ('str', {}), {
+                    #    'disp': {'hint': 'text'},
+                    #    'doc': 'The description of the vulnerability according to the CVE database.'}),
 
-                    ('cve:url', ('inet:url', {}), {
-                        'doc': 'A URL linking this vulnerability to the CVE description.'}),
+                    #('cve:url', ('inet:url', {}), {
+                    #    'doc': 'A URL linking this vulnerability to the CVE description.'}),
 
-                    ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of documentation URLs provided by the CVE database.'}),
+                    #('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                    #    'doc': 'An array of documentation URLs provided by the CVE database.'}),
 
-                    ('nist:nvd:source', ('ou:name', {}), {
-                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
+                    #('nist:nvd:source', ('ou:name', {}), {
+                    #    'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
 
-                    ('nist:nvd:published', ('time', {}), {
-                        'doc': 'The date the vulnerability was first published in the NVD.'}),
+                    #('nist:nvd:published', ('time', {}), {
+                    #    'doc': 'The date the vulnerability was first published in the NVD.'}),
 
-                    ('nist:nvd:modified', ('time', {"ismax": True}), {
-                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
+                    #('nist:nvd:modified', ('time', {"ismax": True}), {
+                    #    'doc': 'The date the vulnerability was last modified in the NVD.'}),
 
-                    ('cisa:kev:name', ('str', {}), {
-                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
+                    #('cisa:kev:name', ('str', {}), {
+                    #    'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
 
-                    ('cisa:kev:desc', ('str', {}), {
-                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
+                    #('cisa:kev:desc', ('str', {}), {
+                    #    'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
 
-                    ('cisa:kev:action', ('str', {}), {
-                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
+                    #('cisa:kev:action', ('str', {}), {
+                    #    'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
 
-                    ('cisa:kev:vendor', ('ou:name', {}), {
-                        'doc': 'The vendor name listed in the CISA KEV database.'}),
+                    #('cisa:kev:vendor', ('ou:name', {}), {
+                    #    'doc': 'The vendor name listed in the CISA KEV database.'}),
 
-                    ('cisa:kev:product', ('it:prod:softname', {}), {
-                        'doc': 'The product name listed in the CISA KEV database.'}),
+                    #('cisa:kev:product', ('it:prod:softname', {}), {
+                    #    'doc': 'The product name listed in the CISA KEV database.'}),
 
-                    ('cisa:kev:added', ('time', {}), {
-                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
+                    #('cisa:kev:added', ('time', {}), {
+                    #    'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
 
-                    ('cisa:kev:duedate', ('time', {}), {
-                        'doc': 'The date the action is due according to the CISA KEV database.'}),
+                    #('cisa:kev:duedate', ('time', {}), {
+                    #    'doc': 'The date the action is due according to the CISA KEV database.'}),
 
-                    ('cvss:v2', ('cvss:v2', {}), {
-                        'doc': 'The CVSS v2 vector for the vulnerability.'}),
+                    #('cvss:v2', ('cvss:v2', {}), {
+                    #    'doc': 'The CVSS v2 vector for the vulnerability.'}),
 
-                    ('cvss:v2_0:score', ('float', {}), {
-                        'doc': 'The CVSS v2.0 overall score for the vulnerability.'}),
+                    #('cvss:v2_0:score', ('float', {}), {
+                    #    'doc': 'The CVSS v2.0 overall score for the vulnerability.'}),
 
-                    ('cvss:v2_0:score:base', ('float', {}), {
-                        'doc': 'The CVSS v2.0 base score for the vulnerability.'}),
+                    #('cvss:v2_0:score:base', ('float', {}), {
+                    #    'doc': 'The CVSS v2.0 base score for the vulnerability.'}),
 
-                    ('cvss:v2_0:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS v2.0 temporal score for the vulnerability.'}),
+                    #('cvss:v2_0:score:temporal', ('float', {}), {
+                    #    'doc': 'The CVSS v2.0 temporal score for the vulnerability.'}),
 
-                    ('cvss:v2_0:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS v2.0 environmental score for the vulnerability.'}),
+                    #('cvss:v2_0:score:environmental', ('float', {}), {
+                    #    'doc': 'The CVSS v2.0 environmental score for the vulnerability.'}),
 
+                    # FIXME virtual props?
                     ('cvss:v3', ('cvss:v3', {}), {
                         'doc': 'The CVSS v3 vector for the vulnerability.'}),
 
-                    ('cvss:v3_0:score', ('float', {}), {
-                        'doc': 'The CVSS v3.0 overall score for the vulnerability.'}),
+                    #('cvss:v3_0:score', ('float', {}), {
+                    #    'doc': 'The CVSS v3.0 overall score for the vulnerability.'}),
 
-                    ('cvss:v3_0:score:base', ('float', {}), {
-                        'doc': 'The CVSS v3.0 base score for the vulnerability.'}),
+                    #('cvss:v3_0:score:base', ('float', {}), {
+                    #    'doc': 'The CVSS v3.0 base score for the vulnerability.'}),
 
-                    ('cvss:v3_0:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS v3.0 temporal score for the vulnerability.'}),
+                    #('cvss:v3_0:score:temporal', ('float', {}), {
+                    #    'doc': 'The CVSS v3.0 temporal score for the vulnerability.'}),
 
-                    ('cvss:v3_0:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS v3.0 environmental score for the vulnerability.'}),
+                    #('cvss:v3_0:score:environmental', ('float', {}), {
+                    #    'doc': 'The CVSS v3.0 environmental score for the vulnerability.'}),
 
-                    ('cvss:v3_1:score', ('float', {}), {
-                        'doc': 'The CVSS v3.1 overall score for the vulnerability.'}),
+                    #('cvss:v3_1:score', ('float', {}), {
+                    #    'doc': 'The CVSS v3.1 overall score for the vulnerability.'}),
 
-                    ('cvss:v3_1:score:base', ('float', {}), {
-                        'doc': 'The CVSS v3.1 base score for the vulnerability.'}),
+                    #('cvss:v3_1:score:base', ('float', {}), {
+                    #    'doc': 'The CVSS v3.1 base score for the vulnerability.'}),
 
-                    ('cvss:v3_1:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS v3.1 temporal score for the vulnerability.'}),
+                    #('cvss:v3_1:score:temporal', ('float', {}), {
+                    #    'doc': 'The CVSS v3.1 temporal score for the vulnerability.'}),
 
-                    ('cvss:v3_1:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS v3.1 environmental score for the vulnerability.'}),
+                    #('cvss:v3_1:score:environmental', ('float', {}), {
+                    #    'doc': 'The CVSS v3.1 environmental score for the vulnerability.'}),
 
-                    ('cvss:av', ('str', {'enums': 'N,A,P,L'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:av', ('str', {'enums': 'N,A,P,L'}), {
+                        #'deprecated': True,
+                        #'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:ac', ('str', {'enums': 'L,H'}), {
-                        'disp': {'enums': (('Low', 'L'), ('High', 'H'))},
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:ac', ('str', {'enums': 'L,H'}), {
+                    #    'disp': {'enums': (('Low', 'L'), ('High', 'H'))},
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:pr', ('str', {'enums': 'N,L,H'}), {
-                        'disp': {'enums': (
-                            {'title': 'None', 'value': 'N', 'doc': 'FIXME privs stuff'},
-                            {'title': 'Low', 'value': 'L', 'doc': 'FIXME privs stuff'},
-                            {'title': 'High', 'value': 'H', 'doc': 'FIXME privs stuff'},
-                        )},
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:pr', ('str', {'enums': 'N,L,H'}), {
+                    #    'disp': {'enums': (
+                    #        {'title': 'None', 'value': 'N', 'doc': 'FIXME privs stuff'},
+                    #        {'title': 'Low', 'value': 'L', 'doc': 'FIXME privs stuff'},
+                    #        {'title': 'High', 'value': 'H', 'doc': 'FIXME privs stuff'},
+                    #    )},
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:ui', ('str', {'enums': 'N,R'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:ui', ('str', {'enums': 'N,R'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:s', ('str', {'enums': 'U,C'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:s', ('str', {'enums': 'U,C'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:c', ('str', {'enums': 'N,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:c', ('str', {'enums': 'N,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:i', ('str', {'enums': 'N,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:i', ('str', {'enums': 'N,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:a', ('str', {'enums': 'N,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:a', ('str', {'enums': 'N,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:e', ('str', {'enums': 'X,U,P,F,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:e', ('str', {'enums': 'X,U,P,F,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:rl', ('str', {'enums': 'X,O,T,W,U'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:rl', ('str', {'enums': 'X,O,T,W,U'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:rc', ('str', {'enums': 'X,U,R,C'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:rc', ('str', {'enums': 'X,U,R,C'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:mav', ('str', {'enums': 'X,N,A,L,P'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:mav', ('str', {'enums': 'X,N,A,L,P'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:mac', ('str', {'enums': 'X,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:mac', ('str', {'enums': 'X,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:mpr', ('str', {'enums': 'X,N,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:mpr', ('str', {'enums': 'X,N,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:mui', ('str', {'enums': 'X,N,R'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:mui', ('str', {'enums': 'X,N,R'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:ms', ('str', {'enums': 'X,U,C'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:ms', ('str', {'enums': 'X,U,C'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:mc', ('str', {'enums': 'X,N,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:mc', ('str', {'enums': 'X,N,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:mi', ('str', {'enums': 'X,N,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:mi', ('str', {'enums': 'X,N,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:ma', ('str', {'enums': 'X,N,L,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:ma', ('str', {'enums': 'X,N,L,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:cr', ('str', {'enums': 'X,L,M,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:cr', ('str', {'enums': 'X,L,M,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:ir', ('str', {'enums': 'X,L,M,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:ir', ('str', {'enums': 'X,L,M,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
-                    ('cvss:ar', ('str', {'enums': 'X,L,M,H'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :cvss:v3.'}),
+                    #('cvss:ar', ('str', {'enums': 'X,L,M,H'}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:score', ('float', {}), {
                         'deprecated': True,
@@ -626,32 +628,35 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The maximum version which is vulnerable in this range.'}),
                 )),
 
-                ('risk:hasvuln', {}, (
-                    ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The vulnerability present in the target.'}),
-                    ('person', ('ps:person', {}), {
-                        'doc': 'The vulnerable person.'}),
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The vulnerable org.'}),
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The vulnerable place.'}),
-                    ('software', ('it:prod:softver', {}), {
-                        'doc': 'The vulnerable software.'}),
-                    ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The vulnerable hardware.'}),
-                    ('spec', ('mat:spec', {}), {
-                        'doc': 'The vulnerable material specification.'}),
-                    ('item', ('mat:item', {}), {
-                        'doc': 'The vulnerable material item.'}),
-                    ('host', ('it:host', {}), {
-                        'doc': 'The vulnerable host.'})
-                )),
+                #('risk:hasvuln', {}, (
+                #    ('vuln', ('risk:vuln', {}), {
+                #        'doc': 'The vulnerability present in the target.'}),
+                #    ('person', ('ps:person', {}), {
+                #        'doc': 'The vulnerable person.'}),
+                #    ('org', ('ou:org', {}), {
+                #        'doc': 'The vulnerable org.'}),
+                #    ('place', ('geo:place', {}), {
+                #        'doc': 'The vulnerable place.'}),
+                #    ('software', ('it:prod:softver', {}), {
+                #        'doc': 'The vulnerable software.'}),
+                #    ('hardware', ('it:prod:hardware', {}), {
+                #        'doc': 'The vulnerable hardware.'}),
+                #    ('spec', ('mat:spec', {}), {
+                #        'doc': 'The vulnerable material specification.'}),
+                #    ('item', ('mat:item', {}), {
+                #        'doc': 'The vulnerable material item.'}),
+                #    ('host', ('it:host', {}), {
+                #        'doc': 'The vulnerable host.'})
+                #)),
 
                 ('risk:vulnerable', {}, (
+
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
+
                     ('node', ('ndef', {}), {
                         'doc': 'The node which is vulnerable.'}),
                 )),
@@ -659,6 +664,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:alert:taxonomy', {}, {}),
                 ('risk:alert:verdict:taxonomy', {}, {}),
                 ('risk:alert', {}, (
+
                     ('type', ('risk:alert:taxonomy', {}), {
                         'doc': 'A type for the alert, as a taxonomy entry.'}),
 
@@ -805,11 +811,13 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
                 ('risk:attacktype', {}, ()),
+
                 ('risk:attack', {}, (
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the attack.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the attack.'}),
+
                     ('type', ('risk:attacktype', {}), {
                         'ex': 'cno.phishing',
                         'doc': 'A type for the attack, as a taxonomy entry.'}),
@@ -850,88 +858,90 @@ class RiskModule(s_module.CoreModule):
                     ('prev', ('risk:attack', {}), {
                         'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                    ('actor:org', ('ou:org', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
+                    #('actor:org', ('ou:org', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
 
-                    ('actor:person', ('ps:person', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
+                    #('actor:person', ('ps:person', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
 
+                    # FIXME entity interface via ndef
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information representing the attacker.'}),
 
-                    ('target', ('ps:contact', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+                    #('target', ('ps:contact', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
 
-                    ('target:org', ('ou:org', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+                    #('target:org', ('ou:org', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
 
-                    ('target:host', ('it:host', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+                    #('target:host', ('it:host', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
 
-                    ('target:person', ('ps:person', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+                    #('target:person', ('ps:person', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
 
-                    ('target:place', ('geo:place', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+                    #('target:place', ('geo:place', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
 
-                    ('via:ipv4', ('inet:ipv4', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('via:ipv4', ('inet:ipv4', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('via:ipv6', ('inet:ipv6', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('via:ipv6', ('inet:ipv6', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('via:email', ('inet:email', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('via:email', ('inet:email', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('via:phone', ('tel:phone', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('via:phone', ('tel:phone', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('used:vuln', ('risk:vuln', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('used:vuln', ('risk:vuln', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('used:url', ('inet:url', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('used:url', ('inet:url', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('used:host', ('it:host', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('used:host', ('it:host', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('used:email', ('inet:email', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('used:email', ('inet:email', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('used:file', ('file:bytes', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('used:file', ('file:bytes', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('used:server', ('inet:server', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('used:server', ('inet:server', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('used:software', ('it:prod:softver', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+                    #('used:software', ('it:prod:softver', {}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
 
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+                    #('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                    #    'deprecated': True,
+                    #    'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the attack.'}),
 
+                    # FIXME debate use of :ext
                     ('ext:id', ('str', {}), {
                         'doc': 'An external unique ID for the attack.'}),
 
@@ -1053,12 +1063,16 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Payments made from the target to the attacker.'}),
                 )),
                 ('risk:technique:masquerade', {}, (
+
                     ('node', ('ndef', {}), {
                         'doc': 'The node masquerading as another.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time period when the masquerading was active.'}),
+
                     ('target', ('ndef', {}), {
                         'doc': 'The being masqueraded as.'}),
+
                     ('technique', ('ou:technique', {}), {
                         'doc': 'The specific technique which describes the type of masquerading.'}),
                 )),

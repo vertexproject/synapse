@@ -217,7 +217,7 @@ STOR_TYPE_LATLONG = 14
 STOR_TYPE_LOC = 15
 STOR_TYPE_TAG = 16
 STOR_TYPE_FQDN = 17
-STOR_TYPE_IPV6 = 18
+STOR_TYPE_IPV6 = 18     # retired....
 
 STOR_TYPE_U128 = 19
 STOR_TYPE_I128 = 20
@@ -229,6 +229,8 @@ STOR_TYPE_HUGENUM = 23
 
 STOR_TYPE_MAXTIME = 24
 STOR_TYPE_NDEF = 25
+
+STOR_TYPE_IPADDR = 26
 
 STOR_FLAG_ARRAY = 0x8000
 
@@ -1378,6 +1380,79 @@ class StorTypeMsgp(StorType):
     def indx(self, valu):
         return (s_common.buid(valu),)
 
+class StorTypeIPAddr(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_IPADDR)
+        self.lifters.update({
+            '=': self._liftAddrEq,
+            '<': self._liftAddrLt,
+            '>': self._liftAddrGt,
+            '<=': self._liftAddrLe,
+            '>=': self._liftAddrGe,
+            'range=': self._liftAddrRange,
+        })
+
+    async def _liftAddrEq(self, liftby, valu, reverse=False):
+        indx = self._getIndxByts(valu)
+        for item in liftby.keyNidsByDups(indx, reverse=reverse):
+            yield item
+
+    def _getMaxIndx(self, valu):
+
+        if valu[0] == 4:
+            return b'\x04\xff\xff\xff\xff'
+
+        return b'\x06\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
+
+    def _getMinIndx(self, valu):
+
+        if valu[0] == 4:
+            return b'\x04\x00\x00\x00\x00'
+
+        return b'\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+    async def _liftAddrLe(self, liftby, valu, reverse=False):
+        minindx = self._getMinIndx(valu)
+        maxindx = self._getIndxByts(valu)
+        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+            yield item
+
+    async def _liftAddrGe(self, liftby, valu, reverse=False):
+        minindx = self._getIndxByts(valu)
+        maxindx = self._getMaxIndx(valu)
+        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+            yield item
+
+    async def _liftAddrLt(self, liftby, valu, reverse=False):
+        async for item in self._liftAddrLe(liftby, (valu[0], valu[1] - 1), reverse=reverse):
+            yield item
+
+    async def _liftAddrGt(self, liftby, valu, reverse=False):
+        async for item in self._liftAddrGe(liftby, (valu[0], valu[1] + 1), reverse=reverse):
+            yield item
+
+    async def _liftAddrRange(self, liftby, valu, reverse=False):
+
+        minindx = self._getIndxByts(valu[0])
+        maxindx = self._getIndxByts(valu[1])
+        for item in liftby.keyNidsByRange(minindx, maxindx, reverse=reverse):
+            yield item
+
+    def indx(self, valu):
+        return (self._getIndxByts(valu),)
+
+    def _getIndxByts(self, valu):
+
+        if valu[0] == 4:
+            return b'\x04' + valu[1].to_bytes(4, 'big')
+
+        if valu[0] == 6:
+            return b'\x06' + valu[1].to_bytes(16, 'big')
+
+        mesg = 'Invalid STOR_TYPE_IPADDR: {valu}'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
 class StorTypeNdef(StorType):
 
     def __init__(self, layr):
@@ -1566,6 +1641,7 @@ class Layer(s_nexus.Pusher):
 
             StorTypeTime(self),  # STOR_TYPE_MAXTIME
             StorTypeNdef(self),
+            StorTypeIPAddr(self),
         ]
 
         self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
