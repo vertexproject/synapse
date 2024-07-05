@@ -614,12 +614,12 @@ class Pusher(s_base.Base, metaclass=RegMethType):
         self.nexsroot: Optional[NexsRoot] = None
 
         if nexsroot is not None:
-            await self.setNexsRoot(nexsroot)
+            self.setNexsRoot(nexsroot)
 
         for event, func, passitem in self._regclstupls:  # type: ignore
             self._nexshands[event] = func, passitem
 
-    async def setNexsRoot(self, nexsroot):
+    def setNexsRoot(self, nexsroot):
 
         nexsroot._nexskids[self.nexsiden] = self
 
@@ -627,8 +627,7 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             prev = nexsroot._nexskids.pop(self.nexsiden, None)
             assert prev is not None, f'Failed removing {self.nexsiden}'
 
-        nexsroot.onfini(onfini)
-        self.onfini(nexsroot)
+        self.onfini(onfini)
 
         self.nexsroot = nexsroot
 
@@ -639,9 +638,9 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
         nexsroot = await ctor()
 
-        await self.setNexsRoot(nexsroot)
+        self.setNexsRoot(nexsroot)
 
-        await self.nexsroot.startup()
+        await nexsroot.startup()
 
     @classmethod
     def onPush(cls, event: str, passitem=False) -> Callable:

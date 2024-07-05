@@ -1190,7 +1190,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         root = await self._ctorNexsRoot()
 
-        await self.setNexsRoot(root)
+        self.setNexsRoot(root)
 
         self.apikeydb = self.slab.initdb('user:apikeys')  # apikey -> useriden
         self.usermetadb = self.slab.initdb('user:meta')  # useriden + <valu> -> dict valu
@@ -1489,16 +1489,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initAhaRegistry(self):
 
         # NOTE: This API needs to be safe to call again
-        ahaurl = self.conf.get('aha:registry')
-        if ahaurl is not None:
+        ahaurls = self.conf.get('aha:registry')
+        if ahaurls is not None:
 
-            info = await s_telepath.addAhaUrl(ahaurl)
+            info = await s_telepath.addAhaUrl(ahaurls)
             if self.ahaclient is not None:
                 await self.ahaclient.fini()
 
             async def onlink(proxy):
                 ahauser = self.conf.req('aha:user')
-                ahaurls = await proxy.getAhaUrls(user=ahauser)
+                newurls = await proxy.getAhaUrls(user=ahauser)
+                if newurls and newurls != self.conf.get('aha:registry'):
+                    self.modCellConf({'aha:registry': newurls})
 
             self.ahaclient = await s_telepath.Client.anit(ahaurl)
             self.onfini(self.ahaclient)
