@@ -4,6 +4,7 @@ import logging
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
@@ -139,31 +140,49 @@ class StormSvcClient(s_base.Base):
         self.core.svcsbysvcname[self.svcname] = self
 
         await self.core.feedBeholder('svc:set', {'name': self.name, 'iden': self.iden, 'svcname': self.svcname, 'version': self.svcvers})
+        # if the old service is the same as the new service, just skip
 
-        try:
-            await self.core._delStormSvcPkgs(self.iden)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception:
-            logger.exception(f'_delStormSvcPkgs failed for service {self.name} ({self.iden})')
+        oldpkgs = self.core.getStormSvcPkgs(self.iden)
+        byname = {}
+        done = set()
+        for pdef in oldpkgs:
+            iden = s_hashitem.hashitem(pdef)
+            byname[pdef.get('name')] = iden
 
         # Register new packages
         for pdef in self.info.get('pkgs', ()):
+            try:
+                pdef['svciden'] = self.iden
+                await self.core._normStormPkg(pdef)
+            except Exception:
+                name = pdef.get('name')
+                logger.exception(f'normStormPkg ({name}) failed for service {self.name} ({self.iden})')
+                continue
+
+            name = pdef.get('name')
+            iden = s_hashitem.hashitem(pdef)
+
+            done.add(name)
+            if name in byname:
+                if byname[name] != iden:
+                    await self.core._delStormPkg(name)  # we're updating an old package, so delete the old and then re-add
+                else:
+                    continue  # pkg unchanged. Can skip.
 
             try:
                 # push the svciden in the package metadata for later reference.
-                pdef['svciden'] = self.iden
-                await self.core._normStormPkg(pdef)
                 await self.core._addStormPkg(pdef)
 
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
             except Exception:
-                name = pdef.get('name')
                 logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
+
+        # clean up any packages that no longer exist
+        for name in byname.keys():
+            if name not in done:
+                await self.core._delStormPkg(name)
 
         # Set events and fire as needed
         evts = self.info.get('evts')
