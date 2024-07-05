@@ -1488,7 +1488,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initAhaRegistry(self):
 
-        # NOTE: This API needs to be safe to call again
         ahaurls = self.conf.get('aha:registry')
         if ahaurls is not None:
 
@@ -1513,15 +1512,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahaadmin = self.conf.get('aha:admin')
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
-
-    def reqAhaUser(self):
-
-        ahauser = self.conf.get('aha:user')
-        if ahauser is not None:
-            return ahauser
-
-        mesg = 'An aha:user configuration option is required.'
-        raise s_exc.NeedConfValu(mesg=mesg)
 
     def _getDmonListen(self):
 
