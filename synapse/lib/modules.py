@@ -17,6 +17,7 @@ coremods = (
     'synapse.models.telco.TelcoModule',
     'synapse.models.inet.InetModule',
     'synapse.models.material.MatModule',
+    'synapse.models.entity.EntityModule',
     'synapse.models.language.LangModule',
     'synapse.models.crypto.CryptoModule',
     'synapse.models.gov.cn.GovCnModule',
