@@ -1011,7 +1011,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (2, self._storLayrFeedDefaults),
+            (3, self._updateTriggerViewIdens),
         ), nexs=False)
+
+    async def _updateTriggerViewIdens(self):
+        for view in self.views.values():
+            for trigiden, trigger in await view.listTriggers():
+                if trigger.get('view') != view.iden:
+                    trigger.tdef['view'] = view.iden
+                    await view.trigdict.set(trigiden, trigger.tdef)
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():
