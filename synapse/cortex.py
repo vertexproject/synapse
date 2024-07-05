@@ -3025,7 +3025,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def getStormSvcPkgs(self, iden):
         pkgs = []
-        for _, pdef in self.pkghive.items():
+        for _, pdef in self.pkgdefs.items():
             pkgiden = pdef.get('svciden')
             if pkgiden and pkgiden == iden:
                 pkgs.append(pdef)
