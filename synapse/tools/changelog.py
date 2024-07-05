@@ -2,10 +2,10 @@ import os
 import sys
 import pprint
 import asyncio
-import logging
 import argparse
 import datetime
 import textwrap
+import traceback
 import subprocess
 import collections
 
@@ -15,8 +15,6 @@ import synapse.common as s_common
 
 import synapse.lib.output as s_output
 import synapse.lib.schemas as s_schemas
-
-logger = logging.getLogger(__name__)
 
 defstruct = (
     ('type', None),
@@ -169,7 +167,7 @@ async def main(argv, outp=None):
     try:
         return opts.func(opts, outp)
     except Exception as e:
-        logger.exception(f'Error running {opts.func}: {e}')
+        outp.printf(f'Error running {opts.func}: {traceback.format_exc()}')
     return 1
 
 def makeargparser():
@@ -224,5 +222,4 @@ def makeargparser():
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
     sys.exit(asyncio.run(main(sys.argv[1:], s_output.stdout)))
