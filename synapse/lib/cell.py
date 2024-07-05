@@ -1501,11 +1501,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if newurls and newurls != self.conf.get('aha:registry'):
                     self.modCellConf({'aha:registry': newurls})
 
-            self.ahaclient = await s_telepath.Client.anit(ahaurl)
+            self.ahaclient = await s_telepath.Client.anit(ahaurls)
             self.onfini(self.ahaclient)
 
             async def fini():
-                await s_telepath.delAhaUrl(ahaurl)
+                await s_telepath.delAhaUrl(ahaurls)
 
             self.ahaclient.onfini(fini)
 
