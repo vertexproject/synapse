@@ -8826,6 +8826,8 @@ class LibCron(Lib):
          'desc': 'Permits a user to create a cron job.'},
         {'perm': ('cron', 'del'), 'gate': 'cronjob',
          'desc': 'Permits a user to remove a cron job.'},
+        {'perm': ('cron', 'kill'), 'gate': 'cronjob',
+         'desc': 'Controls the ability to terminate a running cron job.'},
         {'perm': ('cron', 'get'), 'gate': 'cronjob',
          'desc': 'Permits a user to list cron jobs.'},
         {'perm': ('cron', 'set'), 'gate': 'cronjob',

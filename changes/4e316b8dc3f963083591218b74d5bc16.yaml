@@ -1,0 +1,6 @@
+---
+desc: Add a ``kill()`` API to the Storm ``cron`` objects.
+prs:
+- 3787
+type: feat
+...
