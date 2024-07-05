@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 24)
+maxvers = (0, 2, 25)
 
 class ModelRev:
 
@@ -38,6 +38,7 @@ class ModelRev:
             ((0, 2, 22), self.revModel_0_2_22),
             ((0, 2, 23), self.revModel_0_2_23),
             ((0, 2, 24), self.revModel_0_2_24),
+            ((0, 2, 25), self.revModel_0_2_25),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -757,6 +758,17 @@ class ModelRev:
         for form, props in formprops.items():
             await self._normVelocityProps(layers, form, props)
 
+    async def revModel_0_2_25(self, layers):
+        await self._typeToForm(layers, 'econ:currency', 'econ:currency')
+        await self._normPropValu(layers, 'ou:position:title')
+        await self._propToForm(layers, 'ou:position:title', 'ou:jobtitle')
+
+        await self._normPropValu(layers, 'ou:conference:name')
+        await self._propToForm(layers, 'ou:conference:name', 'entity:name')
+
+        await self._normPropValu(layers, 'ou:conference:names')
+        await self._propArrayToForm(layers, 'ou:conference:names', 'entity:name')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -1115,6 +1127,10 @@ class ModelRev:
         }
         '''
         await self.runStorm(storm, opts=opts)
+
+    async def _typeToForm(self, layers, typename, formname):
+        for prop in layers[0].core.model.getPropsByType(typename):
+            await self._propToForm(layers, prop.full, formname)
 
     async def _propArrayToForm(self, layers, propfull, formname):
 

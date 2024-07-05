@@ -88,6 +88,9 @@ class PolModule(s_module.CoreModule):
 
                         ('vitals', ('pol:vitals', {}), {
                             'doc': 'The most recent known vitals for the country.'}),
+
+                        ('currencies', ('array', {'type': 'econ:currency'}), {
+                            'doc': 'The official currencies used in the country.'}),
                     )),
                     ('pol:immigration:status:type:taxonomy', {}, ()),
                     ('pol:immigration:status', {}, (

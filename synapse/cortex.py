@@ -947,7 +947,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
-            (3, self._storCortexHiveMigration),
+            (4, self._storCortexHiveMigration),
         ), nexs=False)
 
         # Perform module loading
@@ -1023,16 +1023,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         viewdefs = self.cortexdata.getSubKeyVal('view:info:')
         async with await self.hive.open(('cortex', 'views')) as viewnodes:
-            for iden, node in viewnodes:
+            for view_iden, node in viewnodes:
                 viewdict = await node.dict()
                 viewinfo = viewdict.pack()
-                viewinfo.setdefault('iden', iden)
-                viewdefs.set(iden, viewinfo)
+                viewinfo.setdefault('iden', view_iden)
+                viewdefs.set(view_iden, viewinfo)
 
-                trigdict = self.cortexdata.getSubKeyVal(f'view:{iden}:trigger:')
+                trigdict = self.cortexdata.getSubKeyVal(f'view:{view_iden}:trigger:')
                 async with await node.open(('triggers',)) as trignodes:
                     for iden, trig in trignodes:
-                        trigdict.set(iden, trig.valu)
+                        valu = trig.valu
+                        if valu.get('view', s_common.novalu) != iden:
+                            valu['view'] = view_iden
+                        trigdict.set(iden, valu)
 
         layrdefs = self.cortexdata.getSubKeyVal('layer:info:')
         async with await self.hive.open(('cortex', 'layers')) as layrnodes:
