@@ -34,7 +34,7 @@ def gen(opts: argparse.Namespace,
 
     name = opts.name
     if name is None:
-        name = s_common.guid()
+        name = f'{s_common.guid()}.yaml'
     fp = s_common.genpath(opts.cdir, name)
 
     data = dict(defstruct)
