@@ -42,6 +42,7 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -2564,7 +2565,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = pkgdef.get('name')
         olddef = self.pkghive.get(name, None)
         if olddef is not None:
-            await self._dropStormPkg(olddef)
+            if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
+                await self._dropStormPkg(olddef)
+            else:
+                return
 
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
@@ -2979,16 +2983,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete storm packages associated with a service.
         '''
-        oldpkgs = []
-        for _, pdef in self.pkghive.items():
-            pkgiden = pdef.get('svciden')
-            if pkgiden and pkgiden == iden:
-                oldpkgs.append(pdef)
-
-        for pkg in oldpkgs:
+        for pkg in self.getStormSvcPkgs(iden):
             name = pkg.get('name')
             if name:
                 await self._delStormPkg(name)
+
+    def getStormSvcPkgs(self, iden):
+        pkgs = []
+        for _, pdef in self.pkghive.items():
+            pkgiden = pdef.get('svciden')
+            if pkgiden and pkgiden == iden:
+                pkgs.append(pdef)
+        return pkgs
 
     async def setStormSvcEvents(self, iden, edef):
         '''
