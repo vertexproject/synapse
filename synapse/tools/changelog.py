@@ -136,7 +136,7 @@ def format(opts: argparse.Namespace,
     for key, header in s_schemas._changelogTypes.items():
         dataz = entries.get(key)
         if dataz:
-            text = text + f'\n{header}\n{"=" * len(header)}'
+            text = text + f'\n{header}\n{"-" * len(header)}'
             dataz.sort(key=lambda x: x.get('prs'))
             for data in dataz:
                 desc = data.get('desc')
