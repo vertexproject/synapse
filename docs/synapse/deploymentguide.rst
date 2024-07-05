@@ -20,6 +20,7 @@ orchestration mechanisms such as Kubernetes but for simplicity's sake, this guid
 ``docker compose`` based deployments.
 
 .. note::
+
     Due to `known networking limitations of docker on Mac`_ we do **not** support or recommend the use
     of Docker for Mac for testing or deploying production Synapse instances. Containers run within
     separate ``docker compose`` commands will not be able to reliably communicate with each other.
@@ -29,6 +30,7 @@ within the directory ``/vertex/storage`` which should be a persistent mapped vol
 given volume at a time.
 
 .. note::
+
     To allow hosts to be provisioned on one system, this guide instructs you to disable HTTP API listening
     ports on all services other than the main Cortex. You may remove those configuration options if you are
     running on separate hosts or select alternate ports which do not conflict.
@@ -74,6 +76,7 @@ by name, so it is likely that you need to create a DNS A/AAAA record in your exi
 using AHA, the only host that needs DNS or other external name resolution is the AHA service.
 
 .. note::
+
     FIXME AHA FLAT NETWORK STUFF
 
 Choose an AHA Network Name
@@ -96,6 +99,7 @@ convention in the future. Once you have selected the DNS name for your AHA serve
 all deployed Synapse services will be able to resolve that name.
 
 .. note::
+
     It is important to ensure that ``00.aha.<dns-network>`` is resolvable via DNS or docker container service
     name resolution from within the container environment!
 
@@ -121,7 +125,7 @@ Create the ``/srv/syn/00.aha/docker-compose.yaml`` file with contents::
             # disable HTTPS API for now to prevent port collisions
             - SYN_AHA_HTTPS_PORT=null
             - SYN_AHA_AHA_NETWORK=prod.synapse
-            - SYN_AHA_DNS_NAME=00.aha.<yuournetwork>
+            - SYN_AHA_DNS_NAME=00.aha.<dns-network>
 
 .. note::
 
@@ -155,6 +159,11 @@ For high-availability deployments, you will want to deploy an AHA mirror or two.
 mirroring is configured using AHA based provisioning. Bootstrapping AHA mirrors is simple, but requires
 a slightly different procedure because you cannot bootstrap AHA via AHA :)
 
+.. note::
+
+     You can deploy AHA mirrors at any time in the future. Once the mirrors are deployed, each AHA enabled
+     Synapse service will retrieve the updated list of AHA servers the next time it is restarted.
+
 For this example, we will assume you chose a DNS name for your primary AHA server similar to the steps
 listed above. If so, you can simply replace ``00`` with sequential numbers and repeat this step to deploy
 however many AHA mirrors you deem appropriate.
@@ -175,8 +184,25 @@ Create the container directory::
     mkdir -p /srv/syn/01.aha/storage
     chown -R 999 /srv/syn/01.aha/storage
 
-::NOTE You can deploy AHA mirrors at any time in the future. Once the mirrors are deployed, each AHA enabled
-       Synapse service will retrieve the updated list of AHA servers the next time it is restarted.
+Create the ``/srv/syn/01.aha/docker-compose.yaml`` file with contents::
+
+    services:
+      01.aha:
+        user: "999"
+        image: vertexproject/synapse-aha:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+            - ./storage:/vertex/storage
+        environment:
+            # disable HTTPS API for now to prevent port collisions
+            - SYN_AHA_HTTPS_PORT=null
+            - SYN_AHA_CLONE=ssl://00.aha.<dns-network>:27272/<guid>?certhash=<sha256>
+
+Start the container::
+
+    docker compose --file /srv/syn/01.aha/docker-compose.yaml pull
+    docker compose --file /srv/syn/01.aha/docker-compose.yaml up -d
 
 Deploy Axon Service
 ===================
@@ -404,6 +430,7 @@ Cortex container**::
     python -m synapse.tools.moduser --add --admin true visi
 
 .. note::
+
     If you are a Synapse Enterprise customer, using the Synapse UI with SSO, the admin may now login to the
     Synapse UI. You may skip the following steps if the admin will not be using CLI tools to access the Cortex.
 
