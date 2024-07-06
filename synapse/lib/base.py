@@ -590,7 +590,7 @@ class Base:
         await self.addSignalHandlers()
         return await self.waitfini()
 
-    def waiter(self, count, *names):
+    def waiter(self, count, *names, timeout=None):
         '''
         Construct and return a new Waiter for events on this base.
 
@@ -615,16 +615,17 @@ class Base:
             race conditions with this mechanism ;)
 
         '''
-        return Waiter(self, count, *names)
+        return Waiter(self, count, *names, timeout=timeout)
 
 class Waiter:
     '''
     A helper to wait for a given number of events on a Base.
     '''
-    def __init__(self, base, count, *names):
+    def __init__(self, base, count, *names, timeout=None):
         self.base = base
         self.names = names
         self.count = count
+        self.timeout = timeout
         self.event = asyncio.Event()
 
         self.events = []
@@ -656,6 +657,9 @@ class Waiter:
                 doStuff(evnt)
 
         '''
+        if timeout is None:
+            timeout = self.timeout
+
         try:
 
             retn = await s_coro.event_wait(self.event, timeout)
@@ -675,6 +679,15 @@ class Waiter:
         if not self.names:
             self.base.unlink(self._onWaitEvent)
         del self.event
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc, cls, tb):
+        if exc is None:
+            if await self.wait() is None:
+                mesg = f'timeout waiting for {self.count} events {self.names}'
+                raise s_exc.TimeOut(mesg=mesg)
 
 class BaseRef(Base):
     '''

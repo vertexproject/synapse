@@ -182,45 +182,38 @@ class AhaTest(s_test.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 # force a reconnect...
-                waiter = aha.waiter(1, 'aha:svcadd')
                 proxy = await cryo.ahaclient.proxy(timeout=2)
-                await proxy.fini()
-                self.nn(await waiter.wait(timeout=6))
+                async with aha.waiter(2, 'aha:svcadd'):
+                    await proxy.fini()
 
                 async with await s_telepath.openurl('aha://cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                waiter = aha.waiter(1, 'aha:svcadd')
                 # force the service into passive mode...
-                await cryo.setCellActive(False)
+                async with aha.waiter(3, 'aha:svcdown', 'aha:svcadd', timeout=6):
+                    await cryo.setCellActive(False)
 
                 with self.raises(s_exc.NoSuchName):
                     async with await s_telepath.openurl('aha://cryo...') as proxy:
                         pass
 
-                self.nn(await waiter.wait(timeout=6))
-
                 async with await s_telepath.openurl('aha://0.cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                await cryo.setCellActive(True)
+                async with aha.waiter(1, 'aha:svcadd', timeout=6):
+                    await cryo.setCellActive(True)
 
                 async with await s_telepath.openurl('aha://cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                # some coverage edge cases...
-                cryo.conf.pop('aha:leader', None)
-                await cryo.setCellActive(False)
-                # remove the admin flag from the account.
+            wait01 = aha.waiter(2, 'aha:svcadd')
 
-            wait01 = aha.waiter(1, 'aha:svcadd')
             conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
             async with self.getTestCryo(conf=conf) as cryo:
 
                 info = await cryo.getCellInfo()
-                cnfo = info.get('cell')
-                anfo = cnfo.get('aha')
-                self.eq(cnfo.get('aha'), {'name': '0.cryo', 'leader': 'cryo', 'network': 'synapse'})
+
+                self.eq(info['cell']['aha'], {'name': '0.cryo', 'leader': 'cryo', 'network': 'synapse'})
 
                 await wait01.wait(timeout=2)
 
@@ -986,13 +979,12 @@ class AhaTest(s_test.SynTest):
                     # Pool has no members....
                     pool = await s_telepath.open('aha://pool00...')
                     self.eq(0, pool.size())
-                    waiter = pool.waiter(0, 'svc:add')
 
-                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (00...) added to service pool (pool00.synapse)', msgs)
+                    async with pool.waiter(1, 'svc:add', timeout=12):
+                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (00...) added to service pool (pool00.synapse)', msgs)
 
-                    self.len(1, await waiter.wait(timeout=12))
                     prox = await pool.proxy(timeout=12)
                     info = await prox.getCellInfo()
                     self.eq('00', info.get('cell').get('aha').get('name'))
@@ -1017,17 +1009,15 @@ class AhaTest(s_test.SynTest):
                         replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
                         nevents = 5 if replay else 3
 
-                        waiter = pool.waiter(nevents, 'svc:add')
+                        async with pool.waiter(nevents, 'svc:add', timeout=3):
 
-                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
+                            msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
 
-                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
-
-                        await waiter.wait(timeout=3)
+                            msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
 
                         poolinfo = await aha.getAhaPool('pool00...')
                         self.len(2, poolinfo['services'])
@@ -1050,24 +1040,21 @@ class AhaTest(s_test.SynTest):
 
                         waiter = pool.waiter(1, 'pool:reset')
 
-                        ahaproxy = await pool.aha.proxy()
-                        await ahaproxy.fini()
-
-                        await waiter.wait(timeout=3)
+                        async with pool.waiter(1, 'pool:reset', timeout=3):
+                            ahaproxy = await pool.aha.proxy()
+                            await ahaproxy.fini()
 
                         # wait for the pool to be notified of the topology change
-                        waiter = pool.waiter(1, 'svc:del')
+                        async with pool.waiter(1, 'svc:del', timeout=3):
 
-                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (00.synapse) removed from service pool (pool00.synapse)',
-                                            msgs)
+                            msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('AHA service (00.synapse) removed from service pool (pool00.synapse)', msgs)
 
-                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('Did not remove (00...) from the service pool.', msgs)
+                            msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('Did not remove (00...) from the service pool.', msgs)
 
-                        await waiter.wait(timeout=3)
                         run00 = await (await pool.proxy(timeout=3)).getCellRunId()
                         self.eq(run00, await (await pool.proxy(timeout=3)).getCellRunId())
 
