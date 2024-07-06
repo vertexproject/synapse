@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.174.0 - 2024-07-05
+v2.174.0 - 2024-07-06
 =====================
 
 Automatic Migrations
@@ -107,8 +107,8 @@ Features and Enhancements
 - Add additional context to structured log information when a long LMDB commit
   is detected.
   (`#3747 <https://github.com/vertexproject/synapse/pull/3747>`_)
-- Add support for to msgpack for integers requiring more than 64 bits to store
-  them.
+- Add support to ``synapse.lib.msgpack`` functions for handling integers
+  requiring more than 64 bits to store them.
   (`#3767 <https://github.com/vertexproject/synapse/pull/3767>`_)
   (`#3780 <https://github.com/vertexproject/synapse/pull/3780>`_)
 - Add support for Storm variables in array filters.
