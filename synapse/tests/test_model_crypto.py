@@ -49,7 +49,9 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :algorithm=aes256
                         :mode=CBC
                         :iv=41414141
+                        :iv:text=AAAA
                         :private=00000000
+                        :private:text=hehe
                         :private:md5=$md5
                         :private:sha1=$sha1
                         :private:sha256=$sha256
@@ -57,6 +59,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :public:md5=$md5
                         :public:sha1=$sha1
                         :public:sha256=$sha256
+                        :public:text=haha
                         :seed:passwd=s3cret
                         :seed:algorithm=pbkdf2 ]
                 }]
@@ -72,6 +75,9 @@ class CryptoModelTest(s_t_utils.SynTest):
                         +:mode=cbc
                         +:iv=41414141
             '''))
+            self.len(1, await core.nodes('it:dev:str=AAAA -> crypto:key'))
+            self.len(1, await core.nodes('it:dev:str=hehe -> crypto:key'))
+            self.len(1, await core.nodes('it:dev:str=haha -> crypto:key'))
             self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:key -> crypto:currency:address'))
 
             self.len(2, await core.nodes('crypto:key -> hash:md5'))

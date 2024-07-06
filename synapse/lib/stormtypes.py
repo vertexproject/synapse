@@ -18,7 +18,6 @@ import calendar
 import functools
 import contextlib
 import collections
-from typing import Any
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -8440,7 +8439,9 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        viewiden = self.runt.snap.view.iden
+        viewiden = self.valu.get('view')
+
+        view = self.runt.snap.core.reqView(viewiden)
 
         name = await tostr(name)
         if name in ('async', 'enabled', ):
@@ -8449,11 +8450,11 @@ class Trigger(Prim):
             valu = await tostr(valu)
 
         if name == 'user':
-            self.runt.user.confirm(('trigger', 'set', 'user'))
+            self.runt.confirm(('trigger', 'set', 'user'))
         else:
-            self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
+            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
-        await self.runt.snap.view.setTriggerInfo(trigiden, name, valu)
+        await view.setTriggerInfo(trigiden, name, valu)
 
         self.valu[name] = valu
 
@@ -8825,6 +8826,8 @@ class LibCron(Lib):
          'desc': 'Permits a user to create a cron job.'},
         {'perm': ('cron', 'del'), 'gate': 'cronjob',
          'desc': 'Permits a user to remove a cron job.'},
+        {'perm': ('cron', 'kill'), 'gate': 'cronjob',
+         'desc': 'Controls the ability to terminate a running cron job.'},
         {'perm': ('cron', 'get'), 'gate': 'cronjob',
          'desc': 'Permits a user to list cron jobs.'},
         {'perm': ('cron', 'set'), 'gate': 'cronjob',
@@ -9276,14 +9279,19 @@ class CronJob(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set on the definition.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The ``cronjob``', }}},
+
+        {'name': 'kill', 'desc': 'If the job is currently running, terminate the task.',
+         'type': {'type': 'function', '_funcname': '_methCronJobKill',
+                  'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the task was terminated.'}}},
+
         {'name': 'pack', 'desc': 'Get the Cronjob definition.',
          'type': {'type': 'function', '_funcname': '_methCronJobPack',
-                  'returns': {'type': 'dict', 'desc': 'The definition.', }}},
+                  'returns': {'type': 'dict', 'desc': 'The definition.'}}},
         {'name': 'pprint', 'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
          'type': {'type': 'function', '_funcname': '_methCronJobPprint',
                   'returns':
                       {'type': 'dict',
-                       'desc': 'A dictionary containing structured data about a cronjob for display purposes.', }}},
+                       'desc': 'A dictionary containing structured data about a cronjob for display purposes.'}}},
     )
     _storm_typename = 'cronjob'
     _ismutable = False
@@ -9300,9 +9308,15 @@ class CronJob(Prim):
     def getObjLocals(self):
         return {
             'set': self._methCronJobSet,
+            'kill': self._methCronJobKill,
             'pack': self._methCronJobPack,
             'pprint': self._methCronJobPprint,
         }
+
+    async def _methCronJobKill(self):
+        iden = self.valu.get('iden')
+        self.runt.confirm(('cron', 'kill'), gateiden=iden)
+        return await self.runt.snap.core.killCronTask(iden)
 
     async def _methCronJobSet(self, name, valu):
         name = await tostr(name)
@@ -9312,9 +9326,9 @@ class CronJob(Prim):
         if name == 'creator':
             # this permission must be granted cortex wide
             # to prevent abuse...
-            self.runt.user.confirm(('cron', 'set', 'creator'))
+            self.runt.confirm(('cron', 'set', 'creator'))
         else:
-            self.runt.user.confirm(('cron', 'set', name), gateiden=iden)
+            self.runt.confirm(('cron', 'set', name), gateiden=iden)
 
         self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
 

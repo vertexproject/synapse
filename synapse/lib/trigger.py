@@ -522,10 +522,6 @@ class Trigger:
                 logger.warning(f'Skipping trigger execution because user {self.user.iden} is locked')
             return
 
-        tag = self.tdef.get('tag')
-        cond = self.tdef.get('cond')
-        form = self.tdef.get('form')
-        prop = self.tdef.get('prop')
         storm = self.tdef.get('storm')
 
         query = await self.view.core.getStormQuery(storm)

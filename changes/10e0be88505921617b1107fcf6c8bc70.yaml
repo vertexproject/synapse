@@ -1,0 +1,6 @@
+---
+desc: Only fire the beholder ``pkg:add`` events when the contents of a Storm package change.
+prs:
+- 3785
+type: bug
+...

@@ -731,8 +731,7 @@ class OuModule(s_module.CoreModule):
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact info for the person who holds the position.',
                     }),
-                    # TODO migrate to ou:jobtitle
-                    ('title', ('str', {'lower': True, 'onespace': True}), {
+                    ('title', ('ou:jobtitle', {}), {
                         'doc': 'The title of the position.',
                     }),
                     ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
@@ -1024,11 +1023,11 @@ class OuModule(s_module.CoreModule):
                     ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts which sponsored the conference.',
                     }),
-                    ('name', ('str', {'lower': True}), {
+                    ('name', ('entity:name', {}), {
                         'doc': 'The full name of the conference.',
                         'ex': 'defcon 2017'}),
 
-                    ('names', ('array', {'type': 'str', 'typeopts': {'lower': True}, 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the conference.'}),
 
                     ('desc', ('str', {'lower': True}), {

@@ -11,6 +11,7 @@ import types
 import base64
 import shutil
 import struct
+import typing
 import asyncio
 import decimal
 import fnmatch
@@ -379,7 +380,7 @@ def reqbytes(*paths):
     with reqfile(*paths) as fd:
         return fd.read()
 
-def genfile(*paths):
+def genfile(*paths) -> typing.BinaryIO:
     '''
     Create or open (for read/write) a file path join.
 
@@ -396,7 +397,7 @@ def genfile(*paths):
         to append.
 
     Returns:
-        io.BufferedRandom: A file-object which can be read/written too.
+        A file-object which can be read/written too.
     '''
     path = genpath(*paths)
     gendir(os.path.dirname(path))
@@ -535,13 +536,26 @@ def yamlload(*paths):
     with io.open(path, 'rb') as fd:
         return yamlloads(fd)
 
+def yamldump(obj, stream: typing.Optional[typing.BinaryIO] =None) -> bytes:
+    '''
+    Dump a object to yaml.
+
+    Args:
+        obj: The object to serialize.
+        stream: The optional stream to write the stream too.
+
+    Returns:
+        The raw yaml bytes if stream is not provided.
+    '''
+    return yaml.dump(obj, allow_unicode=True, default_flow_style=False,
+                     default_style='', explicit_start=True, explicit_end=True,
+                     encoding='utf8', stream=stream, Dumper=Dumper)
+
 def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
         fd.truncate(0)
-        yaml.dump(obj, allow_unicode=True, default_flow_style=False,
-                  default_style='', explicit_start=True, explicit_end=True,
-                  encoding='utf8', stream=fd, Dumper=Dumper)
+        yamldump(obj, stream=fd)
 
 def yamlmod(obj, *paths):
     '''
