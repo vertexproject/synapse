@@ -1,0 +1,7 @@
+---
+desc: Add missing item information when an error occurs while replaying a nexus change
+  entry upon startup
+prs:
+- 3778
+type: bug
+...

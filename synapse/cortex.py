@@ -42,6 +42,7 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.hashitem as s_hashitem
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -949,6 +950,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # Initialize our storage and views
         await self._initCoreAxon()
+        await self._initJsonStor()
 
         await self._initCoreLayers()
         await self._initCoreViews()
@@ -1009,7 +1011,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (2, self._storLayrFeedDefaults),
+            (3, self._updateTriggerViewIdens),
         ), nexs=False)
+
+    async def _updateTriggerViewIdens(self):
+        for view in self.views.values():
+            for trigiden, trigger in await view.listTriggers():
+                if trigger.get('view') != view.iden:
+                    trigger.tdef['view'] = view.iden
+                    await view.trigdict.set(trigiden, trigger.tdef)
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():
@@ -1462,8 +1472,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
-        await self._initJsonStor()
-
         if self.isactive:
             await self._checkNexsIndx()
 
@@ -2550,7 +2558,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = pkgdef.get('name')
         olddef = self.pkghive.get(name, None)
         if olddef is not None:
-            await self._dropStormPkg(olddef)
+            if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
+                await self._dropStormPkg(olddef)
+            else:
+                return
 
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
@@ -2965,16 +2976,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete storm packages associated with a service.
         '''
-        oldpkgs = []
-        for _, pdef in self.pkghive.items():
-            pkgiden = pdef.get('svciden')
-            if pkgiden and pkgiden == iden:
-                oldpkgs.append(pdef)
-
-        for pkg in oldpkgs:
+        for pkg in self.getStormSvcPkgs(iden):
             name = pkg.get('name')
             if name:
                 await self._delStormPkg(name)
+
+    def getStormSvcPkgs(self, iden):
+        pkgs = []
+        for _, pdef in self.pkghive.items():
+            pkgiden = pdef.get('svciden')
+            if pkgiden and pkgiden == iden:
+                pkgs.append(pdef)
+        return pkgs
 
     async def setStormSvcEvents(self, iden, edef):
         '''
@@ -6113,6 +6126,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
+        await self._killCronTask(iden)
         try:
             await self.agenda.delete(iden)
         except s_exc.NoSuchIden:
@@ -6152,7 +6166,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
+        await self._killCronTask(iden)
         await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
+
+    async def killCronTask(self, iden):
+        if self.agenda.appts.get(iden) is None:
+            return False
+        return await self._push('cron:task:kill', iden)
+
+    @s_nexus.Pusher.onPush('cron:task:kill')
+    async def _killCronTask(self, iden):
+
+        appt = self.agenda.appts.get(iden)
+        if appt is None:
+            return False
+
+        task = appt.task
+        if task is None:
+            return False
+
+        await task.kill()
+        return True
 
     async def listCronJobs(self):
         '''

@@ -2283,9 +2283,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
-            replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
-            nevents = 4 if replay else 2
-            waiter = core.waiter(nevents, 'core:pkg:onload:complete')
+            # onload will on fire once. all other pkg.load events will effectively bounce
+            # because the pkg hasn't changed so no loading occurs
+            waiter = core.waiter(1, 'core:pkg:onload:complete')
 
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
@@ -2301,10 +2301,10 @@ class StormTest(s_t_utils.SynTest):
             self.isin("No var with name: newp", buf)
             self.len(1, await core.nodes(f'ps:contact={cont}'))
 
-            evnts = await waiter.wait(timeout=2)
-            exp = []
-            for _ in range(nevents):
-                exp.append(('core:pkg:onload:complete', {'pkg': 'testload'}))
+            evnts = await waiter.wait(timeout=4)
+            exp = [
+                ('core:pkg:onload:complete', {'pkg': 'testload'})
+            ]
             self.eq(exp, evnts)
 
     async def test_storm_tree(self):

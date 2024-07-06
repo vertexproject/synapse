@@ -7,8 +7,27 @@ import synapse.exc as s_exc
 
 logger = logging.getLogger(__name__)
 
+def _ext_un(code, byts):
+    if code == 0:
+        return int.from_bytes(byts, 'big')
+    elif code == 1:
+        return int.from_bytes(byts, 'big', signed=True)
+    else:  # pragma: no cover
+        mesg = f'Invalid msgpack ext code: {code} ({repr(byts)[:20]})'
+        raise s_exc.SynErr(mesg=mesg)
+
+def _ext_en(item):
+    if isinstance(item, int):
+        if item > 0xffffffffffffffff:
+            size = (item.bit_length() + 7) // 8
+            return msgpack.ExtType(0, item.to_bytes(size, 'big'))
+        if item < -0x8000000000000000:
+            size = (item.bit_length() // 8) + 1
+            return msgpack.ExtType(1, item.to_bytes(size, 'big', signed=True))
+    return item
+
 # Single Packer object which is reused for performance
-pakr = msgpack.Packer(use_bin_type=True, unicode_errors='surrogatepass')
+pakr = msgpack.Packer(use_bin_type=True, unicode_errors='surrogatepass', default=_ext_en)
 if isinstance(pakr, m_fallback.Packer):  # pragma: no cover
     logger.warning('******************************************************************************************************')
     logger.warning('* msgpack is using the pure python fallback implementation. This will impact performance negatively. *')
@@ -21,6 +40,7 @@ unpacker_kwargs = {
     'raw': False,
     'use_list': False,
     'strict_map_key': False,
+    'ext_hook': _ext_un,
     'max_buffer_size': 2**32 - 1,
     'unicode_errors': 'surrogatepass'
 }
@@ -67,7 +87,8 @@ def _fallback_en(item):
         bytes: The serialized bytes in msgpack format.
     '''
     try:
-        return msgpack.packb(item, use_bin_type=True, unicode_errors='surrogatepass')
+        return msgpack.packb(item, use_bin_type=True,
+                             unicode_errors='surrogatepass', default=_ext_en)
     except TypeError as e:
         mesg = f'{e.args[0]}: {repr(item)[:20]}'
         raise s_exc.NotMsgpackSafe(mesg=mesg) from e
@@ -95,7 +116,8 @@ def un(byts, use_list=False):
         obj: The de-serialized object
     '''
     # This uses a subset of unpacker_kwargs
-    return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False, unicode_errors='surrogatepass')
+    return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False,
+                         unicode_errors='surrogatepass', ext_hook=_ext_un)
 
 def isok(item):
     '''

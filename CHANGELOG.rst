@@ -6,6 +6,319 @@
 Synapse Changelog
 *****************
 
+v2.173.1 - 2024-06-25
+=====================
+
+This release also includes the changes from v2.173.0, which was not released
+due to an issue with CI pipelines.
+
+Model Changes
+-------------
+- Updates to the ``ou``, ``plan``, and ``ps`` models.
+  (`#3772 <https://github.com/vertexproject/synapse/pull/3772>`_)
+  (`#3773 <https://github.com/vertexproject/synapse/pull/3773>`_)
+
+  **New Properties**
+
+  ``ou:conference``
+    The form had the following property added to it:
+
+    ``names``
+      An array of alternate names for the conference.
+
+  ``ps:contact``
+    The form had the following property added to it:
+
+    ``titles``
+      An array of alternate titles for the contact.
+
+  **Light Edges**
+
+  ``uses``
+    When used with a ``plan:procedure:step`` node, the edge indicates the
+    step in the procedure makes use of the target node.
+
+Bugfixes
+--------
+- Fix a bug in the ``view.merge`` optimizations from ``v2.172.0`` where deny
+  rules were not properly accounted for when checking for fast paths on the
+  ``node`` permission hierarchy.
+  (`#3771 <https://github.com/vertexproject/synapse/pull/3771>`_)
+
+v2.173.0 - 2024-06-25
+=====================
+
+This release was replaced with ``v2.173.1``.
+
+v2.172.0 - 2024-06-24
+=====================
+
+Model Changes
+-------------
+- Updates to the ``biz``, ``econ``, ``inet``, ``meta``, ``ou`` ``risk``,
+ and ``transit`` models.
+  (`#3561 <https://github.com/vertexproject/synapse/pull/3561>`_)
+  (`#3756 <https://github.com/vertexproject/synapse/pull/3756>`_)
+
+  **New Interfaces**
+
+  ``inet:service:base``
+    Properties common to most forms within a service platform.
+
+  ``inet:service:object``
+    Properties common to objects within a service platform. This inherits
+    from the ``inet:service:base`` interface.
+
+  **New Forms**
+
+  ``inet:service:access``
+    Represents a user access request to a service resource.
+
+  ``inet:service:account``
+    An account within a service platform. Accounts may be instance specific.
+
+  ``inet:service:bucket``
+    A file/blob storage object within a service architecture.
+
+  ``inet:service:bucket:item``
+    An individual file stored within a bucket.
+
+  ``inet:service:channel``
+    A channel used to distribute messages.
+
+  ``inet:service:channel:member``
+    Represents a service account being a member of a channel.
+
+  ``inet:service:group``
+    A group or role which contains member accounts.
+
+  ``inet:service:group:member``
+    Represents a service account being a member of a group.
+
+  ``inet:service:instance``
+    An instance of the platform such as Slack or Discord instances.
+
+  ``inet:service:login``
+    A login event for a service account.
+
+  ``inet:service:message``
+    A message or post created by an account.
+
+  ``inet:service:message:link``
+    A URL link included within a message.
+
+  ``inet:service:message:attachment``
+    A file attachment included within a message.
+
+  ``inet:service:login:method:taxonomy``
+    A taxonomy of inet service login methods.
+
+  ``inet:service:object:status``
+    An object status enumeration.
+
+  ``inet:service:permission``
+    A permission which may be granted to a service account or role.
+
+  ``inet:service:permission:type:taxonomy``
+    A permission type taxonomy.
+
+  ``inet:service:platform``
+    A network platform which provides services.
+
+  ``inet:service:resource``
+    A generic resource provided by the service architecture.
+
+  ``inet:service:resource:type:taxonomy``
+    A taxonomy of inet service resource types.
+
+  ``inet:service:rule``
+    A rule which grants or denies a permission to a service account or role.
+
+  ``inet:service:session``
+    An authenticated session.
+
+  ``it:cmd:history``
+    A single command executed within a session.
+
+  ``it:cmd:session``
+    A command line session with multiple commands run over time.
+
+  ``it:host:tenancy``
+    A time window where a host was a tenant run by another host.
+
+  ``it:network:type:taxonomy``
+    A taxonomy of network types.
+
+  ``it:software:image:type:taxonomy``
+    A taxonomy of software image types.
+
+  ``it:software:image``
+    The base image used to create a container or OS.
+
+  ``it:storage:mount``
+    A storage volume that has been attached to an image.
+
+  ``it:storage:volume``
+    A physical or logical storage volume that can be attached to a
+    physical/virtual machine or container.
+
+  ``it:storage:volume:type:taxonomy``
+    A taxonomy of storage volume types.
+
+  **New Properties**
+
+  ``biz:listing``
+    The form had the following properties added to it:
+
+    ``count:remaining``
+      The current remaining number of instances for sale.
+
+    ``count:total``
+      The number of instances for sale.
+
+  ``econ:purchase``
+    The form had the following property added to it:
+
+    ``listing``
+      The purchase was made based on the given listing.
+
+  ``it:exec:proc``
+    The form had the following property added to it:
+
+    ``cmd:history``
+      The command history entry which caused this process to be run.
+
+  ``it:exec:query``
+    The form had the following property added to it:
+
+    ``synuser``
+      The synapse user who executed the query.
+
+  ``it:host``
+    The form had the following property added to it:
+
+    ``image``
+      The container image or OS image running on the host.
+
+  ``it:network``
+    The form had the following property added to it:
+
+    ``type``
+      The type of network.
+
+  ``meta:note``
+    The form had the following property added to it:
+
+    ``replyto``
+      The note is a reply to the specified note.
+
+  ``ou:campaign``
+    The form had the following property added to it:
+
+    ``ext:id``
+      An external identifier for the campaign.
+
+  ``ou:org``
+    The form had the following property added to it:
+
+    ``ext:id``
+      An external identifier for the organization.
+
+  ``ou:technique``
+    The form had the following property added to it:
+
+    ``ext:id``
+      An external identifier for the technique.
+
+  ``risk:extortion``
+    The form had the following properties added to it:
+
+    ``paid:price``
+      The total price paid by the target of the extortion.
+
+    ``payments``
+      Payments made from the target to the attacker.
+
+  ``risk:leak``
+    The form had the following properties added to it:
+
+    ``size:count``
+      The number of files included in the leaked data.
+
+    ``size:percent``
+      The total percent of the data leaked.
+
+  ``risk:threat``
+    The form had the following property added to it:
+
+    ``ext:id``
+      An external identifier for the threat.
+
+  **Updated Types**
+
+  ``inet:web:hashtag``
+    Update the regex to allow the middle dot (U+00B7) character to be part of
+    the hashtag after the first unicode word character.
+
+  ``transport:air:flightnum``
+    Loosen the regex for flight number validation.
+
+  **Updated Forms**
+
+  ``it:host``
+    The form now inherits from the ``inet:service:object`` interface.
+
+
+Features and Enhancements
+-------------------------
+- Update the permission checking for View merging ( ``view.merge`` ) to
+  optimize the permission checking based on user permissions and layer index
+  data.
+  (`#3736 <https://github.com/vertexproject/synapse/pull/3736>`_)
+  (`#3750 <https://github.com/vertexproject/synapse/pull/3750>`_)
+  (`#3758 <https://github.com/vertexproject/synapse/pull/3758>`_)
+- Add a hotfix that can be used to migrate ``risk:hasvuln`` nodes to
+  ``risk:vulnerable`` nodes.
+  (`#3745 <https://github.com/vertexproject/synapse/pull/3745>`_)
+- Add a Storm API, ``$lib.env.get()``, to get environment variables from
+  the Cortex process which start with the prefix ``SYN_STORM_ENV_``.
+  (`#3761 <https://github.com/vertexproject/synapse/pull/3761>`_)
+- Add a ``edited()`` API to the ``layer`` object in Storm. This API can be
+  used to get the last time a given layer was edited. Add a ``reverse``
+  argument to the ``layer.edits()`` API to return the node edits in reverse
+  order.
+  (`#3763 <https://github.com/vertexproject/synapse/pull/3763>`_)
+- Add a ``setArchived()`` API to the ``auth:user`` object in Storm.
+  (`#3759 <https://github.com/vertexproject/synapse/pull/3759>`_)
+- The ``synapse.tool.storm`` tool now returns a non-zero status code when
+  it is invoked to execute a single command and the command encounters an
+  error.
+  (`#3765 <https://github.com/vertexproject/synapse/pull/3765>`_)
+- Add a ``nodup`` option to the ``slab.scanKeys()`` API. Use this to increase
+  the efficiency of the the Storm ``model.edge.list`` command.
+  (`#3762 <https://github.com/vertexproject/synapse/pull/3762>`_)
+- Add a ``synapse.common.trimText()`` API for trimming strings in a consistent
+  fashion. Use that API to trim long text strings that may be included in
+  exception messages.
+  (`#3753 <https://github.com/vertexproject/synapse/pull/3753>`_)
+- When a Storm subquery assignment yields more than a single node, add the
+  trimmed subquery text to the ``BadTypeValu`` exception that is raised.
+  (`#3753 <https://github.com/vertexproject/synapse/pull/3753>`_)
+
+Bugfixes
+--------
+- Fix a typo in the Storm ``gen.it.av.scan.result`` command help output.
+  (`#3766 <https://github.com/vertexproject/synapse/pull/3766>`_)
+- Fix a typo in the Rapid Power-Up development documentation.
+  (`#3766 <https://github.com/vertexproject/synapse/pull/3766>`_)
+
+Improved Documentation
+----------------------
+
+- Add documentation for ``$lib.auth.easyperm.level`` constants and the
+  ``$lib.dict.has()`` function.
+  (`#3706 <https://github.com/vertexproject/synapse/pull/3706>`_)
+
 
 v2.171.0 - 2024-06-07
 =====================
