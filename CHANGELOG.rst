@@ -6,6 +6,135 @@
 Synapse Changelog
 *****************
 
+v2.174.0 - 2024-07-05
+=====================
+
+Automatic Migrations
+--------------------
+- Renormalize ``ou:position:title``, ``ou:conference:name``, and
+  ``ou:conference:names`` secondary properites.
+  (`#3701 <https://github.com/vertexproject/synapse/pull/3701>`_)
+- Migrate instances of ``econ:currency`` properties into their own nodes.
+  (`#3790 <https://github.com/vertexproject/synapse/pull/3790>`_)
+- Add a Cortex storage migration to set the correct View iden value on all
+  Trigger definitions.
+  (`#3760 <https://github.com/vertexproject/synapse/pull/3760>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Add a new model, ``entity``, for modeling elements related to entity
+  resolution.
+  (`#3781 <https://github.com/vertexproject/synapse/pull/3781>`_)
+- Updates to the ``crypto``, ``econ``, ``files``, ``ou``, and ``pol`` models.
+  (`#3790 <https://github.com/vertexproject/synapse/pull/3790>`_)
+  (`#3781 <https://github.com/vertexproject/synapse/pull/3781>`_)
+
+  **New Forms**
+
+  ``econ:currency``
+    The name of a system of money in general use.
+
+  ``entity:name``
+    A name used to refer to an entity.
+
+  **New Properties**
+
+  ``crypto:key``
+    The form had the following properties added to it:
+
+    ``private:text``
+      Set only if the ``:private`` property decodes to ASCII.
+
+    ``public:text``
+      Set only if the ``:public`` property decodes to ASCII.
+
+  ``econ:acct:payment``
+    The form had the following properties added to it:
+
+    ``from:cash``
+      Set to true if the payment input was in cash.
+
+    ``to:cash``
+      Set to true if the payment output was in cash.
+
+    ``place``
+      The place where the payment occurred.
+
+    ``place:address``
+      The address of the place where the payment occurred.
+
+    ``place:latlong``
+      The latlong where the payment occurred.
+
+    ``place:loc``
+      The loc of the place where the payment occurred.
+
+    ``place:name``
+      The name of the place where the payment occurred.
+
+  ``pol:country``
+    The form had the following property added to it:
+
+    ``currencies``
+      The name of the place where the payment occurred.
+
+  **Updated Properties**
+
+  ``ou:position``
+    The form had the following property updated on it:
+
+    ``title``
+      This property is now a ``entity:name`` type.
+
+  ``ou:conference``
+    The form had the following properties updated on it:
+
+    ``name``
+      This property is now a ``entity:name`` type.
+
+    ``names``
+      This property is now an array of ``entity:name`` type.
+
+  **Light Edges**
+
+  ``refs``
+    When used with a ``files:bytes`` and an ``it:dev:str`` node, the edge
+    indicates the source file contains the target string..
+
+Features and Enhancements
+-------------------------
+- Add additional context to structured log information when a long LMDB commit
+  is detected.
+  (`#3747 <https://github.com/vertexproject/synapse/pull/3747>`_)
+- Add support for to msgpack for integers requiring more than 64 bits to store
+  them.
+  (`#3767 <https://github.com/vertexproject/synapse/pull/3767>`_)
+  (`#3780 <https://github.com/vertexproject/synapse/pull/3780>`_)
+- Add support for Storm variables in array filters.
+  (`#3775 <https://github.com/vertexproject/synapse/pull/3775>`_)
+- Add a ``kill()`` API to the Storm ``cron`` objects.
+  (`#3787 <https://github.com/vertexproject/synapse/pull/3787>`_)
+
+Bugfixes
+--------
+- Trigger definitions now always have the View iden that they belong to set
+  upon View creation. The Storm ``$lib.trigger.set()`` API now uses the trigger
+  view instead of the current view when checking permissions.
+  (`#3760 <https://github.com/vertexproject/synapse/pull/3760>`_)
+- Add missing item information when an error occurs while replaying a nexus
+  change entry upon startup
+  (`#3778 <https://github.com/vertexproject/synapse/pull/3778>`_)
+- Fix the startup order for the Cortex embedded JSONStor to avoid an issue with
+  the nexus replay on startup.
+  (`#3779 <https://github.com/vertexproject/synapse/pull/3779>`_)
+- Wrap the Nexus mirror loop setup code in a try/except blook to handle
+  unexpected errors.
+  (`#3781 <https://github.com/vertexproject/synapse/pull/3781>`_)
+- Only fire the beholder ``pkg:add`` events when the contents of a Storm
+  package change.
+  (`#3785 <https://github.com/vertexproject/synapse/pull/3785>`_)
+
 v2.173.1 - 2024-06-25
 =====================
 
