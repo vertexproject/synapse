@@ -1503,10 +1503,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async def onlink(proxy):
                 ahauser = self.conf.get('aha:user', 'root')
                 newurls = await proxy.getAhaUrls(user=ahauser)
-                if newurls and newurls != self.conf.get('aha:registry'):
+                oldurls = tuple(self.conf.get('aha:registry'))
+                if newurls and newurls != oldurls:
                     self.modCellConf({'aha:registry': newurls})
+                    self.ahaclient.setBootUrls(newurls)
 
-            self.ahaclient = await s_telepath.Client.anit(ahaurls)
+            self.ahaclient = await s_telepath.Client.anit(ahaurls, onlink=onlink)
             self.onfini(self.ahaclient)
 
             async def fini():

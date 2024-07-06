@@ -571,6 +571,9 @@ class NexsRoot(s_base.Base):
                         if respfutu is not None:
                             respfutu.set_result(retn)
 
+            except s_exc.LinkShutDown:
+                logger.warning(f'mirror loop: leader closed the connection.')
+
             except Exception as exc:  # pragma: no cover
                 logger.exception(f'error in mirror loop: {exc}')
 
