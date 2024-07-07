@@ -792,7 +792,6 @@ class AhaCell(s_cell.Cell):
     async def _waitAhaSvcOnline(self, name, timeout=None):
 
         name = self._getAhaName(name)
-        print(f'WAITING FOR ONLINE {name}')
 
         while True:
 
@@ -810,7 +809,6 @@ class AhaCell(s_cell.Cell):
     async def _waitAhaSvcDown(self, name, timeout=None):
 
         name = self._getAhaName(name)
-        print(f'WAITING FOR DOWN {name}')
 
         while True:
 
