@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.174.0 - 2024-07-06
+v2.174.0 - 2024-07-08
 =====================
 
 Automatic Migrations
@@ -77,7 +77,7 @@ Model Changes
     The form had the following property added to it:
 
     ``currencies``
-      The name of the place where the payment occurred.
+      The official currencies used in the country.
 
   **Updated Properties**
 
