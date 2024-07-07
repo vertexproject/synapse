@@ -53,11 +53,12 @@ class AhaTest(s_test.SynTest):
 
             async with self.getTestAha(dirn=dir0) as aha0:
 
+                ahacount = len(await aha0.getAhaUrls())
                 async with aha0.getLocalProxy() as proxy0:
-                    self.len(1, await proxy0.getAhaUrls())
-                    self.len(1, await proxy0.getAhaServers())
+                    self.len(ahacount, await proxy0.getAhaUrls())
+                    self.len(ahacount, await proxy0.getAhaServers())
 
-                    purl = await proxy0.addAhaClone('01.aha.loop.vertex.link')
+                    purl = await proxy0.addAhaClone('zoinks.aha.loop.vertex.link')
 
                 conf1 = {'clone': purl}
                 async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
@@ -70,7 +71,7 @@ class AhaTest(s_test.SynTest):
                     serv0 = await aha0.getAhaServers()
                     serv1 = await aha1.getAhaServers()
 
-                    self.len(2, serv0)
+                    self.len(ahacount + 1, serv0)
                     self.eq(serv0, serv1)
 
                     # ensure some basic functionality is being properly mirrored
@@ -89,16 +90,17 @@ class AhaTest(s_test.SynTest):
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.eq(mnfo.get('name'), 'test.example.net')
 
-                    wait00 = aha0.waiter(1, 'aha:svcdown')
-                    await aha0.setAhaSvcDown('test', iden, network='example.net')
-                    self.isin(len(await wait00.wait(timeout=6)), (1, 2))
+                    async with aha0.waiter(1, 'aha:svcdown', timeout=6):
+                        await aha0.setAhaSvcDown('test', iden, network='example.net')
 
                     await aha1.sync()
+
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.notin('online', mnfo)
 
                     await aha0.delAhaSvc('test', network='example.net')
                     await aha1.sync()
+
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.none(mnfo)
 
@@ -323,16 +325,19 @@ class AhaTest(s_test.SynTest):
 
                 conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
 
+                # can't assume just one due to enterprise tests with raft...
+                ahacount = len(await aha.getAhaUrls())
+
                 async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
-                    self.len(1, cell.conf.get('aha:registry'))
+                    self.len(ahacount, cell.conf.get('aha:registry'))
 
-                await aha.addAhaServer({'host': '01.aha.loop.vertex.link'})
+                await aha.addAhaServer({'host': 'zoinks.aha.loop.vertex.link'})
 
-                self.len(2, await aha.getAhaServers())
+                self.len(ahacount + 1, await aha.getAhaServers())
 
                 async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
                     await cell.ahaclient.proxy()
-                    self.len(2, cell.conf.get('aha:registry'))
+                    self.len(ahacount + 1, cell.conf.get('aha:registry'))
 
     async def test_lib_aha_loadenv(self):
 
@@ -389,9 +394,11 @@ class AhaTest(s_test.SynTest):
 
                 proxy = await cryo.ahaclient.proxy()
 
-                await aha.fini()
+                # avoid race to notify client...
+                async with cryo.ahaclient.waiter(1, 'tele:client:linkloop', timeout=2):
+                    await aha.fini()
+                    self.true(await proxy.waitfini(timeout=10))
 
-                self.true(await proxy.waitfini(timeout=10))
                 with self.raises(asyncio.TimeoutError):
                     await cryo.ahaclient.proxy(timeout=0.1)
 
@@ -436,12 +443,12 @@ class AhaTest(s_test.SynTest):
                 }
 
                 async with self.getTestAha(dirn=dirn, conf=conf) as aha:
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.crt')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.key')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'hosts', 'aha.do.vertex.link.crt')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'hosts', 'aha.do.vertex.link.key')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'users', 'root@do.vertex.link.crt')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'users', 'root@do.vertex.link.key')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'cas', 'do.vertex.link.crt')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'cas', 'do.vertex.link.key')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', 'aha.do.vertex.link.crt')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', 'aha.do.vertex.link.key')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'users', 'root@do.vertex.link.crt')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'users', 'root@do.vertex.link.key')))
 
                     host, port = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.do.vertex.link&ca=do.vertex.link')
 
@@ -471,10 +478,7 @@ class AhaTest(s_test.SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {
-                'aha:name': 'aha',
-                'dns:name': 'aha.loop.vertex.link',
-            }
+            conf = {'dns:name': 'aha.loop.vertex.link'}
             async with self.getTestAha(dirn=dirn, conf=conf) as aha:
 
                 ahaport = aha.sockaddr[1]
@@ -556,7 +560,8 @@ class AhaTest(s_test.SynTest):
                     self.eq('00.axon', yamlconf.get('aha:name'))
                     self.eq('synapse', yamlconf.get('aha:network'))
                     self.none(yamlconf.get('aha:admin'))
-                    self.eq((f'ssl://aha.loop.vertex.link:{ahaport}?certname=root@synapse',), yamlconf.get('aha:registry'))
+
+                    self.eq(await aha.getAhaUrls(), yamlconf.get('aha:registry'))
                     self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
 
                     unfo = await axon.addUser('visi')
@@ -583,7 +588,7 @@ class AhaTest(s_test.SynTest):
 
                         teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                         self.eq(teleyaml.get('version'), 1)
-                        self.eq(teleyaml.get('aha:servers'), (f'ssl://aha.loop.vertex.link:{ahaport}?certname=visi@synapse',))
+                        self.sorteq(teleyaml.get('aha:servers'), await aha.getAhaUrls(user='visi'))
 
                         certdir = s_telepath.s_certdir.CertDir(os.path.join(syndir, 'certs'))
                         async with await s_telepath.openurl('aha://visi@axon...', certdir=certdir) as prox:

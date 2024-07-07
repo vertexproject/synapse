@@ -143,6 +143,9 @@ class NexsRoot(s_base.Base):
 
         self.onfini(fini)
 
+    def getNexsKids(self):
+        return list(self._nexskids.values())
+
     async def _migrateV1toV2(self, nexspath, logpath):
         '''
         Close the slab, move it to the new multislab location, then copy out the nexshot
@@ -635,12 +638,14 @@ class Pusher(s_base.Base, metaclass=RegMethType):
 
     async def modNexsRoot(self, ctor):
 
+        kids = [self]
         if self.nexsroot is not None:
+            kids = self.nexsroot.getNexsKids()
             await self.nexsroot.fini()
 
         nexsroot = await ctor()
 
-        self.setNexsRoot(nexsroot)
+        [kid.setNexsRoot(nexsroot) for kid in kids]
 
         await nexsroot.startup()
 

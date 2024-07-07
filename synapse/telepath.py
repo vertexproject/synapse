@@ -1273,6 +1273,7 @@ class Client(s_base.Base):
     async def _fireLinkLoop(self):
         self._t_proxy = None
         self._t_ready.clear()
+        await self.fire('tele:client:linkloop')
         self.schedCoro(self._teleLinkLoop())
 
     async def _teleLinkLoop(self):
