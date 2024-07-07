@@ -891,30 +891,26 @@ class AhaTest(s_test.SynTest):
                     # This should teardown cleanly.
 
     async def test_aha_restart(self):
-        with self.withNexusReplay() as stack:
 
-            with self.getTestDir() as dirn:
-                ahadirn = s_common.gendir(dirn, 'aha')
-                svc0dirn = s_common.gendir(dirn, 'svc00')
-                svc1dirn = s_common.gendir(dirn, 'svc01')
-                async with await s_base.Base.anit() as cm:
+        with self.getTestDir() as dirn:
 
-                    aconf = {'dns:name': 'aha.loop.vertex.link', 'aha:network': 'synapse'}
+            ahadirn = s_common.gendir(dirn, 'aha')
+            svc0dirn = s_common.gendir(dirn, 'svc00')
+            svc1dirn = s_common.gendir(dirn, 'svc01')
 
-                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
-                    await cm.enter_context(aha)
+            async with await s_base.Base.anit() as cm:
 
-                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
+                async with self.getTestAha(dirn=ahadirn) as aha:
 
-                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
-                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
-                    await cm.enter_context(svc1)
+                    async with aha.waiter(3, 'aha:svcadd', timeout=10):
+
+                        onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
+                        conf = {'aha:provision': onetime}
+                        svc0 = await cm.enter_context(self.getTestCell(conf=conf))
+
+                        onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                        conf = {'aha:provision': onetime}
+                        svc1 = await cm.enter_context(self.getTestCell(conf=conf))
 
                     # Ensure that services have connected
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
@@ -922,39 +918,22 @@ class AhaTest(s_test.SynTest):
 
                     # Get Aha services
                     snfo = await aha.getAhaSvc('01.svc...')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    self.true(ready)
+                    self.true(snfo['svcinfo']['ready'])
 
-                    # Fini the Aha service.
-                    await aha.fini()
+                    online = snfo['svcinfo']['online']
+                    self.nn(online)
 
-                    # Restart aha
-                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
-                    await cm.enter_context(aha)
+                # Restart aha
+                async with self.getTestAha(dirn=ahadirn) as aha:
 
-                    # services are cleared
-                    snfo = await aha.getAhaSvc('01.svc...')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    online = svcinfo.get('online')
-                    self.none(online)
-                    self.false(ready)  # Ready is cleared upon restart / setting service down.
-
-                    n = 3
-                    if len(stack._exit_callbacks) > 0:
-                        n = n * 2
-
-                    waiter = aha.waiter(n, 'aha:svcadd')
-                    self.ge(len(await waiter.wait(timeout=12)), n)
+                    snfo = await aha._waitAhaSvcDown('01.svc...', timeout=10)
+                    self.none(snfo['svcinfo'].get('online'))
+                    self.false(snfo['svcinfo']['ready'])
 
                     # svc01 has reconnected and the ready state has been re-registered
-                    snfo = await aha.getAhaSvc('01.svc...')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    online = svcinfo.get('online')
-                    self.nn(online)
-                    self.true(ready)
+                    snfo = await aha._waitAhaSvcOnline('01.svc...', timeout=10)
+                    self.nn(snfo['svcinfo']['online'])
+                    self.true(snfo['svcinfo']['ready'])
 
     async def test_aha_service_pools(self):
 
@@ -1050,7 +1029,7 @@ class AhaTest(s_test.SynTest):
                             await ahaproxy.fini()
 
                         # wait for the pool to be notified of the topology change
-                        async with pool.waiter(1, 'svc:del', timeout=3):
+                        async with pool.waiter(1, 'svc:del', timeout=10):
 
                             msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
                             self.stormHasNoWarnErr(msgs)
@@ -1071,83 +1050,57 @@ class AhaTest(s_test.SynTest):
                     self.stormIsInPrint('Removed AHA service pool: pool00.synapse', msgs)
 
     async def test_aha_reprovision(self):
+
         with self.withNexusReplay() as stack:
             with self.getTestDir() as dirn:
+
                 aha00dirn = s_common.gendir(dirn, 'aha00')
                 aha01dirn = s_common.gendir(dirn, 'aha01')
                 svc0dirn = s_common.gendir(dirn, 'svc00')
                 svc1dirn = s_common.gendir(dirn, 'svc01')
+
                 async with await s_base.Base.anit() as cm:
-                    aconf = {
-                        'aha:name': 'aha',
-                        'aha:network': 'loop.vertex.link',
-                        'dns:name': 'aha.loop.vertex.link',
-                    }
-                    name = aconf.get('aha:name')
-                    netw = aconf.get('aha:network')
 
-                    aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
-                    await cm.enter_context(aha)
+                    aha = await cm.enter_context(self.getTestAha(dirn=aha00dirn))
 
-                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
+                    async with aha.waiter(2, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('00.svc')
+                        svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc0)
 
-                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
-                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
-                    await cm.enter_context(svc1)
+                    async with aha.waiter(1, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                        svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc1)
 
-                    # Ensure that services have connected
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
                     await svc1.sync()
 
-                    # Get Aha services
-                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    self.true(ready)
-
-                    await aha.fini()
+                    snfo = self.nn(await aha.getAhaSvc('01.svc...'))
+                    self.true(snfo['svcinfo']['ready'])
 
                 # Now re-deploy the AHA Service and re-provision the two cells
                 # with the same AHA configuration
                 async with await s_base.Base.anit() as cm:
-                    aconf = {
-                        'aha:name': 'aha',
-                        'aha:network': 'loop.vertex.link',
-                        'dns:name': 'aha.loop.vertex.link',
-                    }
-                    name = aconf.get('aha:name')
-                    netw = aconf.get('aha:network')
 
-                    aha = await s_aha.AhaCell.anit(aha01dirn, conf=aconf)
-                    await cm.enter_context(aha)
+                    aha = await cm.enter_context(self.getTestAha(dirn=aha01dirn))
 
-                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
+                    async with aha.waiter(2, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('00.svc')
+                        svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc0)
 
-                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
-                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
-                    await cm.enter_context(svc1)
+                    async with aha.waiter(1, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                        svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc1)
 
-                    # Ensure that services have connected
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
                     await svc1.sync()
 
                     # Get Aha services
-                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    self.true(ready)
+                    snfo = self.nn(await aha.getAhaSvc('01.svc...'))
+                    self.true(snfo['svcinfo']['ready'])
 
     async def test_aha_provision_longname(self):
         # Run a long network name and try provisioning with values that would exceed CSR

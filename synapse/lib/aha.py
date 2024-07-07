@@ -534,12 +534,13 @@ class AhaCell(s_cell.Cell):
 
     async def _initCellBoot(self):
 
-        path = s_common.genpath(self.dirn, 'cell.guid')
-        if os.path.isfile(path):
-            return
-
         curl = self.conf.get('clone')
         if curl is None:
+            return
+
+        path = s_common.genpath(self.dirn, 'cell.guid')
+        if os.path.isfile(path):
+            logger.info('Cloneing AHA: cell.guid detected. Skipping.')
             return
 
         logger.warning(f'Cloning AHA: {curl}')
@@ -788,6 +789,43 @@ class AhaCell(s_cell.Cell):
         # Wait until we are cancelled or the cell is fini.
         await self.waitfini()
 
+    async def _waitAhaSvcOnline(self, name, timeout=None):
+
+        name = self._getAhaName(name)
+        print(f'WAITING FOR ONLINE {name}')
+
+        while True:
+
+            async with self.nexslock:
+
+                retn = await self.getAhaSvc(name)
+                if retn['svcinfo'].get('online') is not None:
+                    return retn
+
+                waiter = self.waiter(1, f'aha:svcadd:{name}')
+
+            if await waiter.wait(timeout=timeout) is None:
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for aha:svcadd:{name}')
+
+    async def _waitAhaSvcDown(self, name, timeout=None):
+
+        name = self._getAhaName(name)
+        print(f'WAITING FOR DOWN {name}')
+
+        while True:
+
+            async with self.nexslock:
+
+                retn = await self.getAhaSvc(name)
+                online = retn['svcinfo'].get('online')
+                if online is None:
+                    return retn
+
+                waiter = self.waiter(1, f'aha:svcdown:{name}')
+
+            if await waiter.wait(timeout=timeout) is None:
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for aha:svcdown:{name}')
+
     async def getAhaSvcs(self, network=None):
         path = ('aha', 'services')
         if network is not None:
@@ -1003,8 +1041,10 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPush('aha:svc:down')
     async def _setAhaSvcDown(self, name, linkiden, network=None):
+
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
+
         if await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden):
             await self.jsonstor.setPathObjProp(path, 'svcinfo/ready', False)
 
@@ -1016,6 +1056,7 @@ class AhaCell(s_cell.Cell):
                 await link.fini()
 
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
+        await self.fire(f'aha:svcdown:{svcfull}', svcname=svcname, svcnetw=svcnetw)
 
         logger.info(f'Set [{svcfull}] offline.',
                         extra=await self.getLogExtra(name=svcname, netw=svcnetw))

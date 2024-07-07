@@ -1105,6 +1105,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._reloadfuncs = {}  # name -> func
 
         self.nexslock = asyncio.Lock()
+        self.netready = asyncio.Event()
 
         self.conf = self._initCellConf(conf)
 
@@ -1186,6 +1187,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._initCellSlab(readonly=readonly)
 
+        # initialize network daemons (but do not listen yet)
+        # to allow registration of callbacks and shared objects
+        await self._initCellHttp()
+        await self._initCellDmon()
+
         await self.initServiceEarly()
 
         nexsroot = await self._ctorNexsRoot()
@@ -1266,12 +1272,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # initialize network backend infrastructure
         await self._initAhaRegistry()
-
-        # initialize network daemons (but do not listen yet)
-        # to allow registration of callbacks and shared objects
-        # within phase 2/4.
-        await self._initCellHttp()
-        await self._initCellDmon()
 
         # phase 2 - service storage
         await self.initServiceStorage()
@@ -1562,7 +1562,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if self.minfree is not None:
                 self.schedCoro(self._runFreeSpaceLoop())
 
-    async def initServiceNetwork(self):
+    async def _bindDmonListen(self):
+
+        # functionalized so Raft code can bind early...
+        if self.sockaddr is not None:
+            return
 
         # start a unix local socket daemon listener
         sockpath = os.path.join(self.dirn, 'sock')
@@ -1570,23 +1574,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await self.dmon.listen(sockurl)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
         except OSError as e:
             logger.error(f'Failed to listen on unix socket at: [{sockpath}][{e}]')
             logger.error('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
         except Exception:  # pragma: no cover
             logging.exception('Unknown dmon listen error.')
-            raise
-
-        self.sockaddr = None
 
         turl = self._getDmonListen()
         if turl is not None:
             logger.info(f'dmon listening: {turl}')
             self.sockaddr = await self.dmon.listen(turl)
 
+    async def initServiceNetwork(self):
+
+        await self._bindDmonListen()
+
         await self._initAhaService()
+
+        self.netready.set()
 
         port = self.conf.get('https:port')
         if port is not None:
@@ -2975,9 +2980,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellDmon(self):
 
-        ahainfo = {
-            'name': self.ahasvcname
-        }
+        ahainfo = {'name': self.ahasvcname}
 
         self.dmon = await s_daemon.Daemon.anit(ahainfo=ahainfo)
         self.dmon.share('*', self)

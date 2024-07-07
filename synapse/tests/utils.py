@@ -1386,7 +1386,7 @@ class SynTest(unittest.TestCase):
             s_certdir.delCertPath(certpath)
 
     @contextlib.asynccontextmanager
-    async def getTestCell(self, ctor, conf=None, dirn=None):
+    async def getTestCell(self, ctor=s_cell.Cell, conf=None, dirn=None):
         '''
         Get a test Cell.
         '''
@@ -2019,6 +2019,7 @@ class SynTest(unittest.TestCase):
         Assert X is not None
         '''
         self.assertIsNotNone(x, msg=msg)
+        return x
 
     def none(self, x, msg=None):
         '''
