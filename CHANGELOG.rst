@@ -14,7 +14,7 @@ Automatic Migrations
 - Renormalize ``ou:position:title``, ``ou:conference:name``, and
   ``ou:conference:names`` secondary properites.
   (`#3701 <https://github.com/vertexproject/synapse/pull/3701>`_)
-- Migrate instances of ``econ:currency`` properties into their own nodes.
+- Populate new ``econ:currency`` nodes from existing secondary properties.
   (`#3790 <https://github.com/vertexproject/synapse/pull/3790>`_)
 - Add a Cortex storage migration to set the correct View iden value on all
   Trigger definitions.
@@ -85,13 +85,13 @@ Model Changes
     The form had the following property updated on it:
 
     ``title``
-      This property is now a ``entity:name`` type.
+      This property is now an ``entity:name`` type.
 
   ``ou:conference``
     The form had the following properties updated on it:
 
     ``name``
-      This property is now a ``entity:name`` type.
+      This property is now an ``entity:name`` type.
 
     ``names``
       This property is now an array of ``entity:name`` type.
