@@ -1307,7 +1307,6 @@ class StorTypeNdef(StorType):
         StorType.__init__(self, layr, STOR_TYPE_NDEF)
         self.lifters.update({
             '=': self._liftMsgpEq,
-            '~=': self._liftRegx,
         })
 
     async def _liftMsgpEq(self, liftby, valu, reverse=False):
