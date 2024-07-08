@@ -1,0 +1,6 @@
+---
+desc: Add log messages when a cron job is enabled or disabled.
+prs:
+- 3793
+type: feat
+...
