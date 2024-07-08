@@ -748,10 +748,6 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('it:dev:int=1 <- *'))
             self.len(0, await core.nodes('it:dev:int=2 <- *'))
 
-            print(core.model.props.get('test:str:bar').type.name)
-            print(core.model.props.get('test:str:bar').type.info)
-            print(core.model.props.get('test:ndef:ndef2').type.info)
-
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!
         async with self.getTestCore() as core:
