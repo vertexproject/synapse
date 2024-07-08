@@ -67,7 +67,7 @@ def gen(opts: argparse.Namespace,
         if opts.verbose:
             outp.printf(f'stddout={ret.stdout}')
             outp.printf(f'stderr={ret.stderr}')
-            ret.check_returncode()
+        ret.check_returncode()
 
     return 0
 
@@ -158,7 +158,7 @@ def format(opts: argparse.Namespace,
             if opts.verbose:
                 outp.printf(f'stddout={ret.stdout}')
                 outp.printf(f'stderr={ret.stderr}')
-                ret.check_returncode()
+            ret.check_returncode()
 
     outp.printf(text)
 
