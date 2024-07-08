@@ -536,12 +536,26 @@ class ModelRevTest(s_tests.SynTest):
 
             nodes = await core.nodes('it:dev:int=1 <- *')
             self.len(3, nodes)
+            forms = [node.ndef[0] for node in nodes]
+            self.sorteq(forms, ['risk:vulnerable', 'risk:vulnerable', 'inet:fqdn'])
 
             nodes = await core.nodes('it:dev:int=2 <- *')
             self.len(2, nodes)
+            forms = [node.ndef[0] for node in nodes]
+            self.sorteq(forms, ['inet:fqdn', 'inet:fqdn'])
 
             nodes = await core.nodes('it:dev:int=3 <- *')
             self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'risk:vulnerable')
 
             nodes = await core.nodes('it:dev:int=4 <- *')
             self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:fqdn')
+
+            nodes = await core.nodes('risk:vulnerable:node=(it:dev:int, 1)')
+            self.len(2, nodes)
+
+            rnodes = await core.nodes('reverse(risk:vulnerable:node=(it:dev:int, 1))')
+            self.len(2, rnodes)
+
+            self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
