@@ -1465,6 +1465,12 @@ class SynTest(unittest.TestCase):
 
             with self.mayTestDir(dirn) as dirn:
 
+                if conf.get('aha:network') == 'synapse':
+                    dstpath = os.path.join(dirn, 'certs')
+                    if not os.path.isdir(dstpath):
+                        srcpath = self.getTestFilePath('aha/certs')
+                        shutil.copytree(srcpath, os.path.join(dirn, 'certs'))
+
                 async with await ctor(dirn, conf=conf) as aha:
 
                     mods = {}
