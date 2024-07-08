@@ -3,6 +3,7 @@ import copy
 import random
 import asyncio
 import logging
+import contextlib
 import collections
 
 import cryptography.x509 as c_x509
@@ -703,11 +704,24 @@ class AhaCell(s_cell.Cell):
             runs.add(svcrun)
             yield svcdef
 
+    @contextlib.asynccontextmanager
+    async def getAhaSvcProxy(self, svcdef):
+
+        svcname = svcdef.get('svcname')
+        svcnetw = svcdef.get('svcnetw')
+        svcfull = f'{svcname}.{svcnetw}'
+
+        host = svcdef['svcinfo']['urlinfo']['host']
+        port = svcdef['svcinfo']['urlinfo']['port']
+
+        svcurl = f'ssl://{host}:{port}?hostname={svcfull}&certname=root@{svcnetw}'
+
+        async with await s_telepath.openurl(svcurl) as proxy:
+            yield proxy
+
     async def runGatherCall(self, iden, todo, timeout=None):
 
         queue = asyncio.Queue()
-        network = self.conf.get('aha:network')
-
         async def call(svcdef):
 
             svcname = svcdef.get('svcname')
@@ -715,13 +729,7 @@ class AhaCell(s_cell.Cell):
             svcfull = f'{svcname}.{svcnetw}'
 
             try:
-
-                host = svcdef['svcinfo']['urlinfo']['host']
-                port = svcdef['svcinfo']['urlinfo']['port']
-
-                svcurl = f'ssl://{host}:{port}?hostname={svcfull}&certname=root@{svcnetw}'
-
-                async with await s_telepath.openurl(svcurl) as proxy:
+                async with self.getAhaSvcProxy(svcdef) as proxy:
                     valu = await asyncio.wait_for(proxy.taskv2(todo), timeout=timeout)
                     await queue.put((svcfull, (True, valu)))
 
@@ -739,7 +747,6 @@ class AhaCell(s_cell.Cell):
     async def runGatherGenr(self, iden, todo, timeout=None):
 
         queue = asyncio.Queue()
-        network = self.conf.get('aha:network')
 
         async def call(svcdef):
 
@@ -748,13 +755,7 @@ class AhaCell(s_cell.Cell):
             svcfull = f'{svcname}.{svcnetw}'
 
             try:
-
-                host = svcdef['svcinfo']['urlinfo']['host']
-                port = svcdef['svcinfo']['urlinfo']['port']
-
-                svcurl = f'ssl://{host}:{port}?hostname={svcfull}&certname=root@{svcnetw}'
-
-                async with await s_telepath.openurl(svcurl) as proxy:
+                async with self.getAhaSvcProxy(svcdef) as proxy:
                     async for item in await proxy.taskv2(todo):
                         await queue.put((svcfull, (True, item)))
 
