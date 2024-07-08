@@ -38,6 +38,7 @@ def getDocPath(fn, root=None):
     Raises:
         ValueError if the file does not exist or directory traversal attempted..
     '''
+    s_common.deprecated('synapse.lib.jupyter.getDocPath', curv='2.175.0', eolv='3.0.0')
     cwd = pathlib.Path(os.getcwd())
     if root:
         cwd = pathlib.Path(root)
@@ -84,6 +85,7 @@ def getDocData(fp, root=None):
     Raises:
         ValueError if the file does not exist or directory traversal attempted..
     '''
+    s_common.deprecated('synapse.lib.jupyter.getDocData', curv='2.175.0', eolv='3.0.0')
     fpath = getDocPath(fp, root)
     if fpath.endswith('.yaml'):
         return s_common.yamlload(fpath)
@@ -103,6 +105,7 @@ def getDocData(fp, root=None):
 @contextlib.asynccontextmanager
 async def genTempCoreProxy(mods=None):
     '''Get a temporary cortex proxy.'''
+    s_common.deprecated('synapse.lib.jupyter.genTempCoreProxy', curv='2.175.0', eolv='3.0.0')
     with s_common.getTempDir() as dirn:
         async with await s_cortex.Cortex.anit(dirn) as core:
             if mods:
@@ -115,6 +118,8 @@ async def genTempCoreProxy(mods=None):
 
 @contextlib.asynccontextmanager
 async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
+    s_common.deprecated('synapse.lib.jupyter.genTempStormsvcProxy', curv='2.175.0', eolv='3.0.0')
+
     if conf is None:
         conf = {}
 
@@ -142,12 +147,14 @@ async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
 
 async def getItemStorm(prox, outp=None):
     '''Get a Storm CLI instance with prepopulated locs'''
+    s_common.deprecated('synapse.lib.jupyter.getItemStorm', curv='2.175.0', eolv='3.0.0')
     storm = await s_t_storm.StormCli.anit(prox, outp=outp)
     storm.echoline = True
     return storm
 
 async def getItemCmdr(prox, outp=None, locs=None):
     '''Get a Cmdr instance with prepopulated locs'''
+    s_common.deprecated('synapse.lib.jupyter.getItemCmdr', curv='2.175.0', eolv='3.0.0')
     cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
     cmdr.echoline = True
     if locs:
@@ -159,6 +166,7 @@ def suppress_logging(suppress):
     '''
     Context manager to suppress specific loggers.
     '''
+    s_common.deprecated('synapse.lib.jupyter.suppress_logging', curv='2.175.0', eolv='3.0.0')
     logs = {}
     if not suppress:
         yield None
@@ -197,6 +205,7 @@ class StormCore(s_base.Base):
         '''
         Context manager to suppress specific loggers.
         '''
+        s_common.deprecated('StormCore.suppress_logging', curv='2.175.0', eolv='3.0.0')
         with suppress_logging(suppress):
             yield None
 
@@ -204,6 +213,7 @@ class StormCore(s_base.Base):
         '''
         Run a line of text directly via storm cli.
         '''
+        s_common.deprecated('StormCore.runCmdLine', curv='2.175.0', eolv='3.0.0')
         await self.stormcli.runCmdLine(text, opts=opts)
 
     async def _runStorm(self, text, opts=None, cli=False, suppress_logging=False):
@@ -240,6 +250,7 @@ class StormCore(s_base.Base):
         Returns:
             list: A list of storm messages.
         '''
+        s_common.deprecated('StormCore.storm', curv='2.175.0', eolv='3.0.0')
         mesgs = await self._runStorm(text, opts, cli, suppress_logging)
         if num is not None:
             nodes = [m for m in mesgs if m[0] == 'node']
@@ -265,12 +276,14 @@ class CmdrCore(s_base.Base):
         '''
         Add feed data to the cortex.
         '''
+        s_common.deprecated('CmdrCore.addFeedData', curv='2.175.0', eolv='3.0.0')
         return await self.core.addFeedData(name, items, viewiden=viewiden)
 
     async def runCmdLine(self, text):
         '''
         Run a line of text directly via cmdr.
         '''
+        s_common.deprecated('CmdrCore.runCmdLine', curv='2.175.0', eolv='3.0.0')
         await self.cmdr.runCmdLine(text)
 
     @contextlib.contextmanager
@@ -278,6 +291,7 @@ class CmdrCore(s_base.Base):
         '''
         Context manager to suppress specific loggers.
         '''
+        s_common.deprecated('CmdrCore.suppress_logging', curv='2.175.0', eolv='3.0.0')
         with suppress_logging(suppress):
             yield None
 
@@ -318,6 +332,7 @@ class CmdrCore(s_base.Base):
         Returns:
             list: A list of storm messages.
         '''
+        s_common.deprecated('CmdrCore.storm', curv='2.175.0', eolv='3.0.0')
         mesgs = await self._runStorm(text, opts, cmdr, suppress_logging)
         if num is not None:
             nodes = [m for m in mesgs if m[0] == 'node']
@@ -342,6 +357,7 @@ class CmdrCore(s_base.Base):
         Returns:
             list: A list of packed nodes.
         '''
+        s_common.deprecated('CmdrCore.eval', curv='2.175.0', eolv='3.0.0')
         mesgs = await self._runStorm(text, opts, cmdr)
         for mesg in mesgs:
             if mesg[0] == 'err':  # pragma: no cover
@@ -375,6 +391,7 @@ async def getTempCoreProx(mods=None):
     Returns:
         s_telepath.Proxy
     '''
+    s_common.deprecated('synapse.lib.jupyter.getTempCoreProx', curv='2.175.0', eolv='3.0.0')
     acm = genTempCoreProxy(mods)
     prox = await acm.__aenter__()
     # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
@@ -399,6 +416,7 @@ async def getTempCoreStorm(mods=None, outp=None):
     Returns:
         StormCore: A StormCore instance.
     '''
+    s_common.deprecated('synapse.lib.jupyter.getTempCoreStorm', curv='2.175.0', eolv='3.0.0')
     acm = genTempCoreProxy(mods)
     prox = await acm.__aenter__()
     stormcore = await StormCore.anit(prox, outp=outp)
@@ -419,6 +437,7 @@ async def getTempCoreCmdr(mods=None, outp=None):
     Returns:
         CmdrCore: A CmdrCore instance.
     '''
+    s_common.deprecated('synapse.lib.jupyter.getTempCoreCmdr', curv='2.175.0', eolv='3.0.0')
     acm = genTempCoreProxy(mods)
     prox = await acm.__aenter__()
     cmdrcore = await CmdrCore.anit(prox, outp=outp)
@@ -441,6 +460,7 @@ async def getTempCoreCmdrStormsvc(svcname, svcctor, svcconf=None, outp=None):
     Returns:
         (CmdrCore, Proxy): A CmdrCore instance and proxy to the Storm service
     '''
+    s_common.deprecated('synapse.lib.jupyter.getTempCoreCmdrStormsvc', curv='2.175.0', eolv='3.0.0')
     cmdrcore = await getTempCoreCmdr(outp=outp)
 
     acm = genTempStormsvcProxy(cmdrcore, svcname, svcctor, svcconf)
@@ -470,6 +490,7 @@ async def getTempCoreStormStormsvc(svcname, svcctor, svcconf=None, outp=None):
     Returns:
         (StormCore, Proxy): A StormCore instance and proxy to the Storm service
     '''
+    s_common.deprecated('synapse.lib.jupyter.getTempCoreStormStormsvc', curv='2.175.0', eolv='3.0.0')
     stormcore = await getTempCoreStorm(outp=outp)
 
     acm = genTempStormsvcProxy(stormcore, svcname, svcctor, svcconf)
