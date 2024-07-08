@@ -2878,7 +2878,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         log_method(mesg, extra=extra)
 
     async def _getCellHttpOpts(self):
-        return None
+        # Generate/Load a Cookie Secret
+        secpath = os.path.join(self.dirn, 'cookie.secret')
+        if not os.path.isfile(secpath):
+            with s_common.genfile(secpath) as fd:
+                fd.write(s_common.guid().encode('utf8'))
+
+        with s_common.getfile(secpath) as fd:
+            secret = fd.read().decode('utf8')
+
+        return {
+            'cookie_secret': secret,
+            'log_function': self._log_web_request,
+            'websocket_ping_interval': 10
+        }
 
     async def _initCellHttp(self):
 
@@ -2892,29 +2905,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(fini)
 
-        # Generate/Load a Cookie Secret
-        secpath = os.path.join(self.dirn, 'cookie.secret')
-        if not os.path.isfile(secpath):
-            with s_common.genfile(secpath) as fd:
-                fd.write(s_common.guid().encode('utf8'))
-
-        with s_common.getfile(secpath) as fd:
-            secret = fd.read().decode('utf8')
-
         opts = await self._getCellHttpOpts()
-        if opts is None:
-            opts = {}
-        else:
-            # Don't allow these
-            opts.pop('handlers', None)
-            opts.pop('default_host', None)
-            opts.pop('transforms', None)
-
-        opts.update({
-            'cookie_secret': secret,
-            'log_function': self._log_web_request,
-            'websocket_ping_interval': 10
-        })
 
         self.wapp = t_web.Application(**opts)
         self._initCellHttpApis()

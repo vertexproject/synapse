@@ -227,13 +227,12 @@ class HandlerBase:
 
         return True
 
-    async def sess(self, gen=True, remember=True):
+    async def sess(self, gen=True):
         '''
         Get the heavy Session object for the request.
 
         Args:
             gen (bool): If set to True, generate a new session if there is no sess cookie.
-            remember (bool): If set to True, the session will be valid for 14 days. Otherwise, one day.
 
         Notes:
             This stores the identifier in the ``sess`` cookie for with a 14 day expiration, stored
@@ -251,11 +250,7 @@ class HandlerBase:
             if iden is None:
                 if gen:
                     iden = s_common.guid().encode()
-                    if remember:
-                        expires_days = 14
-                    else:
-                        expires_days = 1
-                    opts = {'expires_days': expires_days, 'secure': True, 'httponly': True}
+                    opts = {'expires_days': 14, 'secure': True, 'httponly': True}
                     self.set_secure_cookie('sess', iden, **opts)
                 else:
                     return None
