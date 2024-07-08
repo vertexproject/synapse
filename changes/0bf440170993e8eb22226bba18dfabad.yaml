@@ -1,6 +1,0 @@
----
-desc: Add support for Storm variables in array filters.
-prs:
-- 3775
-type: feat
-...

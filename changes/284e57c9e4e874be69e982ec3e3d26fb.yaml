@@ -1,7 +1,0 @@
----
-desc: Fix the startup order for the Cortex embedded JSONStor to avoid an issue with
-  the nexus replay on startup.
-prs:
-- 3779
-type: bug
-...

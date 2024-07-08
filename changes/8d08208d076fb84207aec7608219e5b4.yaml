@@ -1,8 +1,0 @@
----
-desc: Add support for to msgpack for integers requiring more than 64 bits to store
-  them.
-prs:
-- 3767
-- 3780
-type: feat
-...
