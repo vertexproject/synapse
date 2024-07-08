@@ -115,6 +115,8 @@ Features and Enhancements
   (`#3775 <https://github.com/vertexproject/synapse/pull/3775>`_)
 - Add a ``kill()`` API to the Storm ``cron`` objects.
   (`#3787 <https://github.com/vertexproject/synapse/pull/3787>`_)
+- Add log messages when a cron job is enabled or disabled.
+  (`#3793 <https://github.com/vertexproject/synapse/pull/3793>`_)
 
 Bugfixes
 --------
