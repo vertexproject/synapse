@@ -530,3 +530,18 @@ class ModelRevTest(s_tests.SynTest):
             self.len(2, nodes)
             titles = [n.ndef[1] for n in nodes]
             self.sorteq(titles, positions)
+
+    async def test_modelrev_0_2_26(self):
+        async with self.getRegrCore('model-0.2.26') as core:
+
+            nodes = await core.nodes('it:dev:int=1 <- *')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('it:dev:int=2 <- *')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:int=3 <- *')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:int=4 <- *')
+            self.len(1, nodes)

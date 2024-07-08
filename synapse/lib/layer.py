@@ -227,6 +227,7 @@ STOR_TYPE_FLOAT64 = 22
 STOR_TYPE_HUGENUM = 23
 
 STOR_TYPE_MAXTIME = 24
+STOR_TYPE_NDEF = 25
 
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
@@ -1300,6 +1301,28 @@ class StorTypeMsgp(StorType):
     def indx(self, valu):
         return (s_common.buid(valu),)
 
+class StorTypeNdef(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_NDEF)
+        self.lifters.update({
+            '=': self._liftMsgpEq,
+            '~=': self._liftRegx,
+        })
+
+    async def _liftMsgpEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByDupsBack
+        else:
+            scan = liftby.keyBuidsByDups
+
+        indx = s_common.buid(valu)
+        for item in scan(indx):
+            yield item
+
+    def indx(self, valu):
+        return (s_common.buid(valu),)
+
 class StorTypeLatLon(StorType):
 
     def __init__(self, layr):
@@ -1459,6 +1482,7 @@ class Layer(s_nexus.Pusher):
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
 
             StorTypeTime(self),  # STOR_TYPE_MAXTIME
+            StorTypeNdef(self),
         ]
 
         await self._initLayerStorage()
@@ -2689,6 +2713,7 @@ class Layer(s_nexus.Pusher):
 
         self.bytag = self.layrslab.initdb('bytag', dupsort=True)
         self.byform = self.layrslab.initdb('byform', dupsort=True)
+        self.byndef = self.layrslab.initdb('byndef', dupsort=True)
         self.byprop = self.layrslab.initdb('byprop', dupsort=True)
         self.byarray = self.layrslab.initdb('byarray', dupsort=True)
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
@@ -3491,10 +3516,15 @@ class Layer(s_nexus.Pusher):
 
             if oldt & STOR_FLAG_ARRAY:
 
+                realtype = oldt & 0x7fff
+
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(abrv + oldi, buid, db=self.byarray)
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, buid, db=self.byarray)
+
+                    if realtype == STOR_TYPE_NDEF:
+                        self.layrslab.delete(oldi, buid + abrv, db=self.byndef)
 
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
                     self.layrslab.delete(abrv + indx, buid, db=self.byprop)
@@ -3508,6 +3538,9 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, buid, db=self.byprop)
 
+                    if oldt == STOR_TYPE_NDEF:
+                        self.layrslab.delete(oldi, buid + abrv, db=self.byndef)
+
         if sode.get('form') is None:
             formabrv = self.setPropAbrv(form, None)
             self.layrslab.put(formabrv, buid, db=self.byform)
@@ -3517,10 +3550,15 @@ class Layer(s_nexus.Pusher):
 
         if stortype & STOR_FLAG_ARRAY:
 
+            realtype = stortype & 0x7fff
+
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byarray)
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, buid, db=self.byarray)
+
+                if realtype == STOR_TYPE_NDEF:
+                    self.layrslab.put(indx, buid + abrv, db=self.byndef)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
@@ -3533,6 +3571,9 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
+
+                if stortype == STOR_TYPE_NDEF:
+                    self.layrslab.put(indx, buid + abrv, db=self.byndef)
 
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
@@ -3568,6 +3609,9 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + indx, buid, db=self.byarray)
 
+                    if realtype == STOR_TYPE_NDEF:
+                        self.layrslab.delete(indx, buid + abrv, db=self.byndef)
+
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
@@ -3579,6 +3623,9 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, buid, db=self.byprop)
+
+                if stortype == STOR_TYPE_NDEF:
+                    self.layrslab.delete(indx, buid + abrv, db=self.byndef)
 
         self.mayDelBuid(buid, sode)
         return (
@@ -3878,6 +3925,10 @@ class Layer(s_nexus.Pusher):
     async def hasNodeEdge(self, buid1, verb, buid2):
         lkey = buid1 + verb.encode()
         return self.layrslab.hasdup(lkey, buid2, db=self.edgesn1)
+
+    async def getNdefRefs(self, buid):
+        for _, byts in self.layrslab.scanByDups(buid, db=self.byndef):
+            yield byts[:32], byts[32:]
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''
