@@ -716,8 +716,8 @@ class CellApi(s_base.Base):
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.cell.getNexusChanges(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.cell.getNexusChanges(offs, tellready=tellready, wait=wait):
             yield item
 
     @adminapi()
@@ -2007,8 +2007,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initServicePassive(self):  # pragma: no cover
         pass
 
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.nexsroot.iter(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.nexsroot.iter(offs, tellready=tellready, wait=wait):
             yield item
 
     def _reqBackDirn(self, name):

@@ -1188,3 +1188,54 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.CryptoErr) as errcm:
                         await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
                     self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
+
+    async def test_aha_gather(self):
+
+        async with self.getTestAha() as aha:
+
+            async with aha.waiter(3, 'aha:svcadd', timeout=10):
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
+                cell00 = await aha.enter_context(self.getTestCell(conf=conf))
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
+                cell01 = await aha.enter_context(self.getTestCell(conf=conf))
+
+            await cell01.sync()
+
+            nexsindx = await cell00.getNexsIndx()
+
+            # test the call endpoint
+            todo = s_common.todo('getCellInfo')
+            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+            self.true(all(item[0] for item in items.values()))
+            self.eq(cell00.runid, items['00.cell.synapse'][1]['cell']['run'])
+            self.eq(cell01.runid, items['01.cell.synapse'][1]['cell']['run'])
+
+            todo = s_common.todo('newp')
+            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            self.false(any(item[0] for item in items.values()))
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+            # test the genr endpoint
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = [item async for item in aha.runGatherGenr(cell00.iden, todo, timeout=3) if item[1]]
+            self.len(nexsindx * 2, items)
+
+            # ensure we handle down services correctly
+            async with aha.waiter(1, 'aha:svcdown', timeout=10):
+                await cell01.fini()
+
+            # test the call endpoint
+            todo = s_common.todo('getCellInfo')
+            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse',))
+            self.true(all(item[0] for item in items.values()))
+            self.eq(cell00.runid, items['00.cell.synapse'][1]['cell']['run'])
+
+            # test the genr endpoint
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = [item async for item in aha.runGatherGenr(cell00.iden, todo, timeout=3) if item[1]]
+            self.len(nexsindx, items)
+            self.true(all(item[1][0] for item in items))
