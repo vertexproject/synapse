@@ -274,7 +274,6 @@ class _Appt:
     def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False):
         self.doc = ''
         self.name = ''
-        self.task = None
         self.stor = stor
         self.pool = pool
         self.iden = iden
@@ -802,12 +801,7 @@ class Agenda(s_base.Base):
 
         coro = self._runJob(user, appt)
         task = self.core.runActiveTask(coro)
-
         appt.task = await self.core.boss.promotetask(task, f'Cron {appt.iden}', user, info=info)
-        async def fini():
-            appt.task = None
-
-        appt.task.onfini(fini)
 
     async def _markfailed(self, appt, reason):
         now = self._getNowTick()

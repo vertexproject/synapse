@@ -6126,7 +6126,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        await self._killCronTask(iden)
         try:
             await self.agenda.delete(iden)
         except s_exc.NoSuchIden:
@@ -6167,28 +6166,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
-        await self._killCronTask(iden)
         await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
         logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
-
-    async def killCronTask(self, iden):
-        if self.agenda.appts.get(iden) is None:
-            return False
-        return await self._push('cron:task:kill', iden)
-
-    @s_nexus.Pusher.onPush('cron:task:kill')
-    async def _killCronTask(self, iden):
-
-        appt = self.agenda.appts.get(iden)
-        if appt is None:
-            return False
-
-        task = appt.task
-        if task is None:
-            return False
-
-        await task.kill()
-        return True
 
     async def listCronJobs(self):
         '''
