@@ -113,10 +113,10 @@ class NexusTest(s_t_utils.SynTest):
 
     async def test_nexus_modroot(self):
 
-        async with self.getTestCell(s_cell.Cell) as cell:
+        async with self.getTestCell() as cell:
             await cell.sync()
             async with cell.nexslock:
-                cell.modNexsRoot(cell._ctorNexsRoot)
+                await cell.modNexsRoot(cell._ctorNexsRoot)
             await cell.sync()
 
     async def test_nexus_mixin(self):
