@@ -227,7 +227,7 @@ class BaseTest(s_t_utils.SynTest):
 
         with self.raises(s_exc.TimeOut):
             async with base0.waiter(1, 'newp', timeout=0.01):
-                await asyncio.sleep(1)
+                pass
 
     async def test_baseref(self):
 
