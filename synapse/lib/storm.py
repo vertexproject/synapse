@@ -202,7 +202,7 @@ permdef_schema = {
 
 reqValidPermDef = s_config.getJsValidator(permdef_schema)
 
-pkgdef_schema = {
+reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string'},
@@ -516,8 +516,7 @@ pkgdef_schema = {
             'required': ('name',),
         },
     }
-}
-reqValidPkgdef = s_config.getJsValidator(pkgdef_schema)
+})
 
 reqValidDdef = s_config.getJsValidator({
     'type': 'object',
