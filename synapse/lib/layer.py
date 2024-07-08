@@ -1306,10 +1306,10 @@ class StorTypeNdef(StorType):
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_NDEF)
         self.lifters.update({
-            '=': self._liftMsgpEq,
+            '=': self._liftNdefEq,
         })
 
-    async def _liftMsgpEq(self, liftby, valu, reverse=False):
+    async def _liftNdefEq(self, liftby, valu, reverse=False):
         if reverse:
             scan = liftby.keyBuidsByDupsBack
         else:
