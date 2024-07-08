@@ -16,8 +16,6 @@ import synapse.common as s_common
 import synapse.lib.output as s_output
 import synapse.lib.schemas as s_schemas
 
-# pragma: no cov
-
 defstruct = (
     ('type', None),
     ('desc', ''),
