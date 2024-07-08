@@ -1,7 +1,0 @@
----
-desc: Wrap the Nexus mirror loop setup code in a try/except blook to handle unexpected
-  errors.
-prs:
-- 3781
-type: bug
-...
