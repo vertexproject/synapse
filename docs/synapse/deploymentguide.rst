@@ -455,7 +455,7 @@ Once they are enrolled, they will have a user certificate located in ``~/.syn/ce
 configuration located in ``~/.syn/telepath.yaml`` will be updated to reflect the use of the AHA server. From there
 the user should be able to use standard Synapse CLI tools using the ``aha://`` URL such as::
 
-    python -m synapse.tools.storm aha://visi@cortex.<dns-network>
+    python -m synapse.tools.storm aha://visi@cortex...
 
 .. _deployment-guide-storm-pool:
 
