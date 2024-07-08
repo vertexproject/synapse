@@ -12,7 +12,7 @@ v2.174.0 - 2024-07-08
 Automatic Migrations
 --------------------
 - Renormalize ``ou:position:title``, ``ou:conference:name``, and
-  ``ou:conference:names`` secondary properites.
+  ``ou:conference:names`` secondary properties.
   (`#3701 <https://github.com/vertexproject/synapse/pull/3701>`_)
 - Populate new ``econ:currency`` nodes from existing secondary properties.
   (`#3790 <https://github.com/vertexproject/synapse/pull/3790>`_)
@@ -128,7 +128,7 @@ Bugfixes
 - Fix the startup order for the Cortex embedded JSONStor to avoid an issue with
   the nexus replay on startup.
   (`#3779 <https://github.com/vertexproject/synapse/pull/3779>`_)
-- Wrap the Nexus mirror loop setup code in a try/except blook to handle
+- Wrap the Nexus mirror loop setup code in a try/except block to handle
   unexpected errors.
   (`#3781 <https://github.com/vertexproject/synapse/pull/3781>`_)
 - Only fire the beholder ``pkg:add`` events when the contents of a Storm
