@@ -6187,7 +6187,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if task is None:
             return False
 
-        await task.kill()
+        self.schedCoro(task.kill())
         return True
 
     async def listCronJobs(self):
