@@ -61,6 +61,9 @@ _provSvcSchema = {
 }
 provSvcSchema = s_config.getJsValidator(_provSvcSchema)
 
+STATE_LEAD = 0      # lead...
+STATE_FOLLOW = 1    # follow...
+STATE_INVALID = 2   # or get out of the way!
 
 class AhaProvisionServiceV1(s_httpapi.Handler):
 
@@ -579,6 +582,8 @@ class AhaCell(s_cell.Cell):
 
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
+
+        self.slab.initdb('aha:leadterms')
 
         self.slab.initdb('aha:clones')
         self.slab.initdb('aha:servers')
@@ -1254,6 +1259,95 @@ class AhaCell(s_cell.Cell):
         pkey, cert = self.certdir.signUserCsr(xcsr, signas=signas)
 
         return self.certdir._certToByts(cert).decode()
+
+    async def getLeadTerm(self, iden):
+        '''
+        Get the current leader term for the specified service cluster.
+        '''
+        lkey = s_common.uhex(termdef.get('iden'))
+        byts = self.slab.get(b'\x00' + lkey, db='aha:leadterms')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    @s_cell.from_leader()
+    async def setLeadTerm(self, termdef):
+        '''
+        Set the current leader term for the specified service cluster.
+        '''
+        # TODO schema
+        termdef['time'] = s_common.now()
+        s_schema.reqValidLeadTerm(termdef)
+        return await self._push('aha:lead:set', termdef)
+
+    @s_nexus.Pusher.onPush('aha:lead:set')
+    async def _setLeadTerm(self, termdef):
+        s_schema.reqValidLeadTerm(termdef)
+        lkey = s_common.uhex(termdef.get('iden'))
+        self.slab.put(b'\x00' + lkey, s_msgpack.en(termdef), db='aha:leadterms')
+
+    @s_cell.from_leader()
+    async def nextLeadTerm(self, iden, name, nexs):
+        '''
+        Force a change in leadership for the given cluster iden.
+        '''
+        async with self.nexslock:
+
+            term = 0
+            leadterm = self.getLeadTerm(iden)
+            if leadterm is not None:
+                term = leadterm.get('term') + 1
+
+            newterm = {
+                'iden': iden,
+                'name': name,
+                'term': term,
+                'nexs': nexs,
+            }
+            return await self.addLeadTerm(leadterm)
+
+    @s_cell.from_leader()
+    async def mayLeadTerm(self, iden, name, term, nexs):
+        '''
+        Determine if the caller is still the valid leader.
+        Returns: (<status>, <termdef>) tuple.
+
+        The <status> may be one of the following values:
+        STATE_LEAD: you are the leader
+        STATE_FOLLOW: you must become a follower
+        STATE_INVALID: you are divergent and must reprovision.
+        '''
+
+        # we hold the nexus lock so this may only be run on the leader
+        async with self.nexslock:
+
+            leadterm = await self.getLeadTerm(iden)
+            if leadterm is None:
+                leadterm = {
+                    'iden': iden,
+                    'name': ahaname,
+                    'term': term,
+                    'nexs': nexs,
+                }
+                await self.addLeadTerm(leadterm)
+                return (STATE_LEAD, {})
+
+            # if we were the last known leader, we can jump right in
+            if leadterm.get('name') == ahaname:
+                return (STATE_LEAD, leadterm)
+
+            # has someone else taken the lead in our absense?
+            if leadterm.get('term') > term:
+
+                # if someone else was promoted and their nexs index
+                # was less than ours at the time, we are divergent :(
+                if leadterm.get('nexs') < nexs:
+                    return (STATE_INVALID, leadterm)
+
+                # if they took over but had an equal nexs index we can
+                # become a follower...
+                return (STATE_FOLLOW, leadterm)
+
+            return (STATE_INVALID, leadterm)
 
     async def getAhaUrls(self, user='root'):
 

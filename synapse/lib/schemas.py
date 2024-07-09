@@ -3,6 +3,19 @@ import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 
 
+leadTermSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'term': {'type': 'number'},
+        'nexs': {'type': 'number'},
+        'time': {'type': 'number'},
+    },
+    'required': ['iden', 'term', 'nexs', 'name', 'time'],
+}
+reqValidLeadTerm = s_config.getJsValidator(leadTermSchema)
+
 easyPermSchema = {
     'type': 'object',
     'properties': {
