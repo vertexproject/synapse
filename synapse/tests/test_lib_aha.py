@@ -104,6 +104,15 @@ class AhaTest(s_test.SynTest):
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.none(mnfo)
 
+                    self.true(aha0.isactive)
+                    self.false(aha1.isactive)
+
+                    async with aha1.getLocalProxy() as proxy:
+                        await proxy.promote(graceful=True)
+
+                    self.false(aha0.isactive)
+                    self.true(aha1.isactive)
+
     async def test_lib_aha_offon(self):
         with self.getTestDir() as dirn:
             cryo0_dirn = s_common.gendir(dirn, 'cryo0')
