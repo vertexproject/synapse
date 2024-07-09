@@ -1468,13 +1468,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to check if the Axon contains a file.'},
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
-
-            {'perm': ('cron', 'kill'), 'gate': 'cronjob',
-             'desc': 'Controls the ability to terminate a running cron job.'},
-            {'perm': ('cron', 'set'), 'gate': 'cronjob',
-             'desc': 'Controls the ability to set any editable property on a cron job.'},
-            {'perm': ('cron', 'set', '<name>'), 'gate': 'cronjob',
-             'desc': 'Controls the ability to set the named editable property on a cron job.'},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
@@ -6199,6 +6192,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         await self.agenda.enable(iden)
         await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
+        logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
 
     @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
@@ -6211,6 +6205,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.agenda.disable(iden)
         await self._killCronTask(iden)
         await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
+        logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
 
     async def killCronTask(self, iden):
         if self.agenda.appts.get(iden) is None:
@@ -6228,7 +6223,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if task is None:
             return False
 
-        await task.kill()
+        self.schedCoro(task.kill())
         return True
 
     async def listCronJobs(self):
