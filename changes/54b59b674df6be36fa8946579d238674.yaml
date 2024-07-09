@@ -1,6 +1,0 @@
----
-desc: Add a Cortex storage migration to set the correct View iden value on all Triggers.
-prs:
-- 3760
-type: migration
-...

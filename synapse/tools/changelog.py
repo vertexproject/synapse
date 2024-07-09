@@ -67,7 +67,7 @@ def gen(opts: argparse.Namespace,
         if opts.verbose:
             outp.printf(f'stddout={ret.stdout}')
             outp.printf(f'stderr={ret.stderr}')
-            ret.check_returncode()
+        ret.check_returncode()
 
     return 0
 
@@ -149,6 +149,17 @@ def format(opts: argparse.Namespace,
                 text = text + '\n- See :ref:`datamigration` for more information about automatic migrations.'
             text = text + '\n'
 
+    if opts.rm:
+        if opts.verbose:
+            outp.printf('Staging file removals in git')
+        for fp in files_processed:
+            argv = ['git', 'rm', fp]
+            ret = subprocess.run(argv, capture_output=True)
+            if opts.verbose:
+                outp.printf(f'stddout={ret.stdout}')
+                outp.printf(f'stderr={ret.stderr}')
+            ret.check_returncode()
+
     outp.printf(text)
 
     return 0
@@ -185,8 +196,6 @@ def makeargparser():
                           help='The changelog type.')
     gen_pars.add_argument('desc', type=str,
                           help='The description to populate the initial changelog entry with.', )
-    gen_pars.add_argument('-m', '--migration-desc', default=None, action='store', type=str,
-                          help='Description of any automatic migrations associated with your changelog entry.', )
     gen_pars.add_argument('-p', '--pr', type=int, default=False,
                           help='PR number associated with the changelog entry.')
     gen_pars.add_argument('-a', '--add', default=False, action='store_true',
@@ -210,6 +219,8 @@ def makeargparser():
                              help='Version number')
     format_pars.add_argument('-d', '--date', action='store', type=str,
                              help='Date to use with the changelog entry')
+    format_pars.add_argument('-r', '--rm', default=False, action='store_true',
+                             help='Stage the changelog files as deleted files in git.')
 
     for p in (gen_pars, format_pars):
         p.add_argument('-v', '--verbose', default=False, action='store_true',
