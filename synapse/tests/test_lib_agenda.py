@@ -333,6 +333,14 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(core.view.iden, appt.task.info.get('view'))
 
                 self.true(await core._killCronTask(guid))
+
+                events = [
+                    {'event': 'cron:stop', 'info': {'iden': appt.iden}},
+                ]
+
+                task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+                await asyncio.wait_for(task, timeout=5)
+
                 self.false(await core._killCronTask(guid))
 
                 appt = await agenda.get(guid)
