@@ -884,7 +884,7 @@ class AhaTest(s_test.SynTest):
         async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             async with self.addSvcToAha(aha, '00.exec', ExecTeleCaller) as conn:
-                ahaurl = aha._getAhaUrl()
+                ahaurl = aha.getMyUrl()
                 await conn.exectelecall(ahaurl, 'getNexsIndx')
 
             self.true(conn.ahaclient.isfini)

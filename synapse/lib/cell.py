@@ -1774,10 +1774,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        myurl = self.getMyUrl()
         logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}.')
 
         if graceful:
+
+            myurl = self.getMyUrl()
 
             logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff.')
             async with await s_telepath.openurl(mirurl) as lead:
