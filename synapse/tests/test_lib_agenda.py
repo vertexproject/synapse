@@ -820,9 +820,9 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = {
                 'creator': core.auth.rootuser.iden, 'iden': guid,
                 'storm': q,
-                'reqs': {s_agenda.TimeUnit.NOW: True}
+                'reqs': {'now': True}
             }
-            await core.agenda.add(cdef)
+            await core.addCronJob(cdef)
 
             q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
             valu = await core.callStorm(q)
@@ -892,10 +892,10 @@ class AgendaTest(s_t_utils.SynTest):
                     cdef = {
                         'creator': core00.auth.rootuser.iden, 'iden': guid,
                         'storm': q,
-                        'reqs': {s_agenda.TimeUnit.NOW: True},
+                        'reqs': {'NOW': True},
                         'pool': True,
                     }
-                    await core00.agenda.add(cdef)
+                    await core00.addCronJob(cdef)
 
                     q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
                     valu = await core00.callStorm(q, opts={'mirror': False})
@@ -910,5 +910,11 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.true(await asyncio.wait_for(evt.wait(), timeout=12))
 
-                    cdef = await core00.callStorm(get_cron, opts=opts)
-                    self.false(cdef.get('isrunning'))
+                    cdef00 = await core00.callStorm(get_cron, opts=opts)
+                    self.false(cdef00.get('isrunning'))
+
+                    cdef01 = await core01.callStorm(get_cron, opts=opts)
+                    self.false(cdef01.get('isrunning'))
+                    self.eq(cdef01.get('lastresult'), 'cancelled')
+                    self.gt(cdef00['laststarttime'], 0)
+                    self.eq(cdef00['laststarttime'], cdef01['laststarttime'])
