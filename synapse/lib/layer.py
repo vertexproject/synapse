@@ -3446,13 +3446,10 @@ class Layer(s_nexus.Pusher):
 
     async def _editNodeDel(self, buid, form, edit, sode, meta):
 
-        valt = sode.pop('valu', None)
+        valt = sode.get('valu', None)
         if valt is None:
-            # TODO tombstone
             self.mayDelBuid(buid, sode)
             return ()
-
-        self.setSodeDirty(buid, sode, form)
 
         valu, stortype = valt
 
@@ -3482,7 +3479,9 @@ class Layer(s_nexus.Pusher):
 
         self.buidcache.pop(buid, None)
 
+        sode.pop('valu', None)
         self.mayDelBuid(buid, sode)
+        self.setSodeDirty(buid, sode, form)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
@@ -3594,13 +3593,10 @@ class Layer(s_nexus.Pusher):
         if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
             univabrv = self.setPropAbrv(None, prop)
 
-        valt = sode['props'].pop(prop, None)
+        valt = sode['props'].get(prop, None)
         if valt is None:
-            # FIXME tombstone
             self.mayDelBuid(buid, sode)
             return ()
-
-        self.setSodeDirty(buid, sode, form)
 
         valu, stortype = valt
 
@@ -3634,7 +3630,10 @@ class Layer(s_nexus.Pusher):
                 if stortype == STOR_TYPE_NDEF:
                     self.layrslab.delete(indx, buid + abrv, db=self.byndef)
 
+        sode['props'].pop(prop, None)
         self.mayDelBuid(buid, sode)
+        self.setSodeDirty(buid, sode, form)
+
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
         )
