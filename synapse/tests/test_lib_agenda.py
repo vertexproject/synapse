@@ -333,6 +333,14 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(core.view.iden, appt.task.info.get('view'))
 
                 self.true(await core._killCronTask(guid))
+
+                events = [
+                    {'event': 'cron:stop', 'info': {'iden': appt.iden}},
+                ]
+
+                task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+                await asyncio.wait_for(task, timeout=5)
+
                 self.false(await core._killCronTask(guid))
 
                 appt = await agenda.get(guid)
@@ -800,3 +808,121 @@ class AgendaTest(s_t_utils.SynTest):
                 stream.seek(0)
                 data = stream.read()
                 self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)
+
+    async def test_cron_kill(self):
+        async with self.getTestCore() as core:
+
+            data = []
+            evt = asyncio.Event()
+
+            async def task():
+                async for mesg in core.behold():
+                    data.append(mesg)
+                    if mesg.get('event') == 'cron:stop':
+                        evt.set()
+
+            core.schedCoro(task())
+
+            q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
+            guid = s_common.guid()
+            cdef = {
+                'creator': core.auth.rootuser.iden, 'iden': guid,
+                'storm': q,
+                'reqs': {'now': True}
+            }
+            await core.addCronJob(cdef)
+
+            q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
+            valu = await core.callStorm(q)
+            self.eq(valu, 0)
+
+            opts = {'vars': {'iden': guid}}
+            get_cron = 'return($lib.cron.get($iden).pack())'
+            cdef = await core.callStorm(get_cron, opts=opts)
+            self.true(cdef.get('isrunning'))
+
+            self.true(await core.callStorm('return($lib.cron.get($iden).kill())', opts=opts))
+
+            self.true(await asyncio.wait_for(evt.wait(), timeout=12))
+
+            cdef = await core.callStorm(get_cron, opts=opts)
+            self.false(cdef.get('isrunning'))
+
+    async def test_cron_kill_pool(self):
+
+        async with self.getTestAhaProv() as aha:
+
+            import synapse.cortex as s_cortex
+            import synapse.lib.base as s_base
+
+            async with await s_base.Base.anit() as base:
+
+                with self.getTestDir() as dirn:
+
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
+                    provinfo = {'mirror': '00.core'}
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
+
+                    self.len(1, await core00.nodes('[inet:asn=0]'))
+                    await core01.sync()
+                    self.len(1, await core01.nodes('inet:asn=0'))
+
+                    msgs = await core00.stormlist('aha.pool.add pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+
+                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration set.', msgs)
+
+                    await core00.stormpool.waitready(timeout=12)
+
+                    data = []
+                    evt = asyncio.Event()
+
+                    async def task():
+                        async for mesg in core00.behold():
+                            data.append(mesg)
+                            if mesg.get('event') == 'cron:stop':
+                                evt.set()
+
+                    core00.schedCoro(task())
+
+                    q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
+                    guid = s_common.guid()
+                    cdef = {
+                        'creator': core00.auth.rootuser.iden, 'iden': guid,
+                        'storm': q,
+                        'reqs': {'NOW': True},
+                        'pool': True,
+                    }
+                    await core00.addCronJob(cdef)
+
+                    q = '$q=$lib.queue.gen(test) for $valu in $q.get((0), wait=(true)) { return ($valu) }'
+                    valu = await core00.callStorm(q, opts={'mirror': False})
+                    self.eq(valu, 0)
+
+                    opts = {'vars': {'iden': guid}, 'mirror': False}
+                    get_cron = 'return($lib.cron.get($iden).pack())'
+                    cdef = await core00.callStorm(get_cron, opts=opts)
+                    self.true(cdef.get('isrunning'))
+
+                    self.true(await core00.callStorm('return($lib.cron.get($iden).kill())', opts=opts))
+
+                    self.true(await asyncio.wait_for(evt.wait(), timeout=12))
+
+                    cdef00 = await core00.callStorm(get_cron, opts=opts)
+                    self.false(cdef00.get('isrunning'))
+
+                    cdef01 = await core01.callStorm(get_cron, opts=opts)
+                    self.false(cdef01.get('isrunning'))
+                    self.eq(cdef01.get('lastresult'), 'cancelled')
+                    self.gt(cdef00['laststarttime'], 0)
+                    self.eq(cdef00['laststarttime'], cdef01['laststarttime'])
