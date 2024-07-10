@@ -1,0 +1,6 @@
+---
+desc: Store the listening HTTPS host and port information in the base Cell. Expose
+  the listening https information in the getCellInfo API.
+prs: []
+type: feat
+...
