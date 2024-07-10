@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import pprint
 import asyncio
@@ -103,40 +102,19 @@ def format(opts: argparse.Namespace,
 
         s_schemas._reqChanglogSchema(data)
 
-        data.setdefault('prs', [])
-        prs = data.get('prs')
-
         if opts.prs_from_git:
+            outp.printf('--prs-from-git not yet implemented.')
+            return 1
 
-            argv = ['git', 'log', '--pretty=oneline', fp]
-            ret = subprocess.run(argv, capture_output=True)
-            if opts.verbose:
-                outp.printf(f'stddout={ret.stdout}')
-                outp.printf(f'stderr={ret.stderr}')
-            ret.check_returncode()
-
-            for line in ret.stdout.splitlines():
-                line = line.decode()
-                line = line.strip()
-                if not line:
-                    continue
-                match = re.search('\\(#(?P<pr>\\d{1,})\\)', line)
-                if match:
-                    for pr in match.groups():
-                        pr = int(pr)
-                        if pr not in prs:
-                            prs.append(pr)
-                            if opts.verbose:
-                                outp.printf(f'Added PR #{pr} to the pr list from [{line=}]')
-
-        if opts.enforce_prs and not prs:
+        if opts.enforce_prs and not data.get('prs'):
             outp.printf(f'Entry is missing PR numbers: {fp=}')
             return 1
+        data.setdefault('prs', [])
 
         if opts.verbose:
             outp.printf(f'Got data from {fp=}')
 
-        prs.sort() # sort the PRs inplace
+        data.get('prs').sort()  # sort the PRs inplace
         entries[data.get('type')].append(data)
 
     if not entries:
