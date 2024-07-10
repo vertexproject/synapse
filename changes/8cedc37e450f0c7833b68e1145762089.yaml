@@ -1,0 +1,5 @@
+---
+desc: Implement ``--prs-from-git`` in ``synapse.tools.changelog``.
+prs: []
+type: feat
+...
