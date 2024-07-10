@@ -3328,7 +3328,7 @@ class Layer(s_nexus.Pusher):
             changes = []
             for edit in edits:
 
-                delt = self.editors[edit[0]](buid, form, edit, sode, meta)
+                delt = await self.editors[edit[0]](buid, form, edit, sode, meta)
                 if delt and edit[2]:
                     nodeedits.extend(edit[2])
 
@@ -3398,7 +3398,7 @@ class Layer(s_nexus.Pusher):
         self._reqNotReadOnly()
         await self._push('edits', nodeedits, meta)
 
-    def _editNodeAdd(self, buid, form, edit, sode, meta):
+    async def _editNodeAdd(self, buid, form, edit, sode, meta):
 
         valt = edit[1]
         valu, stortype = valt
@@ -3417,6 +3417,7 @@ class Layer(s_nexus.Pusher):
 
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
@@ -3439,11 +3440,11 @@ class Layer(s_nexus.Pusher):
             tick = s_common.now()
 
         edit = (EDIT_PROP_SET, ('.created', tick, None, STOR_TYPE_MINTIME), ())
-        retn.extend(self._editPropSet(buid, form, edit, sode, meta))
+        retn.extend(await self._editPropSet(buid, form, edit, sode, meta))
 
         return retn
 
-    def _editNodeDel(self, buid, form, edit, sode, meta):
+    async def _editNodeDel(self, buid, form, edit, sode, meta):
 
         valt = sode.pop('valu', None)
         if valt is None:
@@ -3461,6 +3462,7 @@ class Layer(s_nexus.Pusher):
 
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(abrv + indx, buid, db=self.byarray)
+                await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, buid, db=self.byprop)
@@ -3486,7 +3488,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODE_DEL, (valu, stortype), ()),
         )
 
-    def _editPropSet(self, buid, form, edit, sode, meta):
+    async def _editPropSet(self, buid, form, edit, sode, meta):
 
         prop, valu, oldv, stortype = edit[1]
 
@@ -3525,6 +3527,8 @@ class Layer(s_nexus.Pusher):
                     if realtype == STOR_TYPE_NDEF:
                         self.layrslab.delete(oldi, buid + abrv, db=self.byndef)
 
+                    await asyncio.sleep(0)
+
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
                     self.layrslab.delete(abrv + indx, buid, db=self.byprop)
                     if univabrv is not None:
@@ -3559,6 +3563,8 @@ class Layer(s_nexus.Pusher):
                 if realtype == STOR_TYPE_NDEF:
                     self.layrslab.put(indx, buid + abrv, db=self.byndef)
 
+                await asyncio.sleep(0)
+
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
@@ -3578,7 +3584,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
         )
 
-    def _editPropDel(self, buid, form, edit, sode, meta):
+    async def _editPropDel(self, buid, form, edit, sode, meta):
 
         prop, oldv, stortype = edit[1]
 
@@ -3611,6 +3617,8 @@ class Layer(s_nexus.Pusher):
                     if realtype == STOR_TYPE_NDEF:
                         self.layrslab.delete(indx, buid + abrv, db=self.byndef)
 
+                await asyncio.sleep(0)
+
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
@@ -3631,7 +3639,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
         )
 
-    def _editTagSet(self, buid, form, edit, sode, meta):
+    async def _editTagSet(self, buid, form, edit, sode, meta):
 
         if form is None:  # pragma: no cover
             logger.warning(f'Invalid tag set edit, form is None: {edit}')
@@ -3664,7 +3672,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAG_SET, (tag, valu, oldv), ()),
         )
 
-    def _editTagDel(self, buid, form, edit, sode, meta):
+    async def _editTagDel(self, buid, form, edit, sode, meta):
 
         tag, oldv = edit[1]
         formabrv = self.setPropAbrv(form, None)
@@ -3686,7 +3694,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAG_DEL, (tag, oldv), ()),
         )
 
-    def _editTagPropSet(self, buid, form, edit, sode, meta):
+    async def _editTagPropSet(self, buid, form, edit, sode, meta):
 
         if form is None:  # pragma: no cover
             logger.warning(f'Invalid tagprop set edit, form is None: {edit}')
@@ -3738,7 +3746,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),
         )
 
-    def _editTagPropDel(self, buid, form, edit, sode, meta):
+    async def _editTagPropDel(self, buid, form, edit, sode, meta):
         tag, prop, valu, stortype = edit[1]
 
         tp_dict = sode['tagprops'].get(tag)
@@ -3767,7 +3775,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
         )
 
-    def _editNodeDataSet(self, buid, form, edit, sode, meta):
+    async def _editNodeDataSet(self, buid, form, edit, sode, meta):
 
         name, valu, oldv = edit[1]
         abrv = self.setPropAbrv(name, None)
@@ -3792,7 +3800,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_SET, (name, valu, oldv), ()),
         )
 
-    def _editNodeDataDel(self, buid, form, edit, sode, meta):
+    async def _editNodeDataDel(self, buid, form, edit, sode, meta):
 
         name, valu = edit[1]
         abrv = self.setPropAbrv(name, None)
@@ -3810,7 +3818,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_NODEDATA_DEL, (name, oldv), ()),
         )
 
-    def _editNodeEdgeAdd(self, buid, form, edit, sode, meta):
+    async def _editNodeEdgeAdd(self, buid, form, edit, sode, meta):
 
         if form is None:  # pragma: no cover
             logger.warning(f'Invalid node edge edit, form is None: {edit}')
@@ -3841,7 +3849,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_EDGE_ADD, (verb, n2iden), ()),
         )
 
-    def _editNodeEdgeDel(self, buid, form, edit, sode, meta):
+    async def _editNodeEdgeDel(self, buid, form, edit, sode, meta):
 
         verb, n2iden = edit[1]
 
