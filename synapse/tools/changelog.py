@@ -41,8 +41,6 @@ def gen(opts: argparse.Namespace,
     data['type'] = opts.type
     data['desc'] = opts.desc
 
-    if opts.migration_desc:
-        data['migration_desc'] = opts.migration_desc
     if opts.pr:
         data['prs'] = [opts.pr]
 
