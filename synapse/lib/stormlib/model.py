@@ -920,6 +920,13 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                  ),
                  'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
         {'name': 'inetSslCertToTlsServerCert', 'desc': '''
+            Create a inet:tls:servercert node from the provided inet:ssl:cert node.
+
+            Edits will be made to the inet:tls:servercert node in the current write layer.
+
+            Tags, tag properties, edges, and node data will be copied
+            to the inet:tls:servercert node. However, existing tag properties and
+            node data will not be overwritten.
         ''',
         'type': {'type': 'function', '_funcname': '_storm_query',
                  'args': (
