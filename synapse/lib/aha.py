@@ -540,7 +540,7 @@ class AhaCell(s_cell.Cell):
 
         path = s_common.genpath(self.dirn, 'cell.guid')
         if os.path.isfile(path):
-            logger.info('Cloneing AHA: cell.guid detected. Skipping.')
+            logger.info('Cloning AHA: cell.guid detected. Skipping.')
             return
 
         logger.warning(f'Cloning AHA: {curl}')
