@@ -1,4 +1,6 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 
@@ -827,3 +829,106 @@ class StormlibModelTest(s_test.SynTest):
             with self.raises(s_exc.BadArg) as ectx:
                 await core.nodes('$lib.model.migration.s.riskHasVulnToVulnerable(newp)')
             self.isin('must be a node', ectx.exception.errinfo['mesg'])
+
+    async def test_stormlib_model_migration_s_inet_ssl_to_tls_servercert(self):
+        async with self.getRegrCore('inet_ssl_to_tls_servercert') as core:
+            nodes = await core.nodes('meta:source')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('meta:source -(seen)> *')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq(node.ndef[0], 'inet:ssl:cert')
+
+            nodes = await core.nodes('inet:ssl:cert')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('file:bytes')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:tls:servercert')
+            self.len(0, nodes)
+
+            q = 'inet:ssl:cert | $lib.model.migration.s.inetSslCertToTlsServerCert($node)'
+            await core.nodes(q)
+
+            nodes = await core.nodes('crypto:x509:cert')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('inet:tls:servercert')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert=(cert1,)')
+            self.len(1, nodes)
+            cert1 = nodes[0]
+
+            nodes = await core.nodes('inet:tls:servercert:server="tcp://1.2.3.4:443"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('.seen'), (1688947200000, 1688947200001))
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            self.eq(nodes[0].get('cert'), cert1.ndef[1])
+            self.isin('ssl.migration.one', nodes[0].tags)
+
+            nodes = await core.nodes('crypto:x509:cert=(cert2,)')
+            self.len(1, nodes)
+            cert2 = nodes[0]
+
+            nodes = await core.nodes('inet:tls:servercert:server="tcp://[fe80::1]:8080"')
+            self.len(1, nodes)
+            self.none(nodes[0].get('.seen'))
+            self.eq(nodes[0].get('server'), 'tcp://[fe80::1]:8080')
+            self.eq(nodes[0].get('cert'), cert2.ndef[1])
+            self.isin('ssl.migration.two', nodes[0].tags)
+
+            sha256 = 'aa0366ffb013ba2053e45cd7e4bcc8acd6a6c1bafc82eddb4e155876734c5e25'
+            opts = {'vars': {'sha256': sha256}}
+
+            nodes = await core.nodes('file:bytes=$sha256', opts=opts)
+            self.len(1, nodes)
+            file = nodes[0]
+
+            # This cert was created by the migration code so do a little extra
+            # checking
+            nodes = await core.nodes('crypto:x509:cert:file=$sha256', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('file'), file.ndef[1])
+            self.eq(nodes[0].ndef, ('crypto:x509:cert', s_common.guid((file.ndef[1],))))
+            cert3 = nodes[0]
+
+            nodes = await core.nodes('inet:tls:servercert:server="tcp://8.8.8.8:53" $node.data.load(foo)')
+            self.len(1, nodes)
+            self.none(nodes[0].get('.seen'))
+            self.eq(nodes[0].get('server'), 'tcp://8.8.8.8:53')
+            self.eq(nodes[0].get('cert'), cert3.ndef[1])
+            self.isin('ssl.migration.three', nodes[0].tags)
+            self.eq(nodes[0].nodedata, {'foo': 'bar'})
+
+            # Check that edges were migrated
+            nodes = await core.nodes('meta:source -(seen)> *')
+            self.len(6, nodes)
+            self.sorteq(
+                [k.ndef[0] for k in nodes],
+                (
+                    'inet:ssl:cert', 'inet:ssl:cert', 'inet:ssl:cert',
+                    'inet:tls:servercert', 'inet:tls:servercert', 'inet:tls:servercert',
+                )
+            )
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('inet:server | $lib.model.migration.s.inetSslCertToTlsServerCert($node)')
+            self.isin(', not inet:server', exc.exception.get('mesg'))
+
+        async with self.getRegrCore('inet_ssl_to_tls_servercert') as core:
+            q = 'inet:ssl:cert | $lib.model.migration.s.inetSslCertToTlsServerCert($node, nodata=$lib.true)'
+            await core.nodes(q)
+
+            nodes = await core.nodes('inet:tls:servercert:server="tcp://8.8.8.8:53" $node.data.load(foo)')
+            self.len(1, nodes)
+            self.none(nodes[0].get('.seen'))
+            self.eq(nodes[0].get('server'), 'tcp://8.8.8.8:53')
+            self.eq(nodes[0].get('cert'), cert3.ndef[1])
+            self.isin('ssl.migration.three', nodes[0].tags)
+            self.eq(nodes[0].nodedata, {'foo': None})

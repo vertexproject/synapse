@@ -919,8 +919,67 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
                  ),
                  'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
+        {'name': 'inetSslCertToTlsServerCert', 'desc': '''
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The inet:ssl:cert node to migrate.'},
+                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                       'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
+                 ),
+                 'returns': {'type': 'list', 'desc': 'A list of idens for the inet:tls:servercert nodes.'}}},
+
     )
     _storm_lib_path = ('model', 'migration', 's')
+    _storm_query = '''
+        function _getNode(form, valu) {
+            *$form = $valu
+            return($node)
+        }
+
+        function _getCryptoNode(file) {
+            if (not $file) {
+                return()
+            }
+
+            crypto:x509:cert:file = $file
+            return($node)
+
+            $filenode = $_getNode(file:bytes, $file)
+            if ($filenode and $filenode.props.sha256) {
+                crypto:x509:cert:sha256 = $filenode.props.sha256
+                return($node)
+            }
+
+            [ crypto:x509:cert=($file,)
+                :file?=$file
+            ]
+            return($node)
+        }
+
+        function inetSslCertToTlsServerCert(n, nodata=$lib.false) {
+            $form = $n.form()
+            if ($form != 'inet:ssl:cert') {
+                $mesg = `$lib.model.migration.s.inetSslCertToTlsServerCert() only accepts inet:ssl:cert nodes, not {$form}`
+                $lib.raise(BadArg, $mesg)
+            }
+
+            $server = $n.props.server
+            $crypto = $_getCryptoNode($n.props.file)
+
+            [ inet:tls:servercert=($server, $crypto)
+                .seen ?= $n.props.".seen"
+            ]
+
+            $lib.model.migration.copyTags($n, $node, overwrite=$lib.false)
+            $lib.model.migration.copyEdges($n, $node)
+            if (not $nodata) {
+                $lib.model.migration.copyData($n, $node, overwrite=$lib.false)
+            }
+
+            return($node)
+        }
+    '''
 
     def getObjLocals(self):
         return {
