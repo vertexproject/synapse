@@ -3362,22 +3362,22 @@ class Layer(s_nexus.Pusher):
     def mayDelBuid(self, buid, sode):
 
         if sode.get('valu'):
-            return
+            return False
 
         if sode.get('props'):
-            return
+            return False
 
         if sode.get('tags'):
-            return
+            return False
 
         if sode.get('tagprops'):
-            return
+            return False
 
         if self.dataslab.prefexists(buid, self.nodedata):
-            return
+            return False
 
         if self.layrslab.prefexists(buid, db=self.edgesn1):
-            return
+            return False
 
         # no more refs in this layer.  time to pop it...
         try:
@@ -3388,6 +3388,8 @@ class Layer(s_nexus.Pusher):
         self.dirty.pop(buid, None)
         self.buidcache.pop(buid, None)
         self.layrslab.delete(buid, db=self.bybuidv3)
+
+        return True
 
     async def storNodeEditsNoLift(self, nodeedits, meta):
         '''
@@ -3480,8 +3482,9 @@ class Layer(s_nexus.Pusher):
         self.buidcache.pop(buid, None)
 
         sode.pop('valu', None)
-        self.mayDelBuid(buid, sode)
-        self.setSodeDirty(buid, sode, form)
+
+        if not self.mayDelBuid(buid, sode):
+            self.setSodeDirty(buid, sode, form)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
@@ -3631,8 +3634,9 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(indx, buid + abrv, db=self.byndef)
 
         sode['props'].pop(prop, None)
-        self.mayDelBuid(buid, sode)
-        self.setSodeDirty(buid, sode, form)
+
+        if not self.mayDelBuid(buid, sode):
+            self.setSodeDirty(buid, sode, form)
 
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
