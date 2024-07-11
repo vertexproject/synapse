@@ -3784,54 +3784,59 @@ class MergeCmd(Cmd):
 
         return None
 
-    async def _checkNodePerms(self, node, sode, runt):
+    async def _checkNodePerms(self, node, sode, runt, allows):
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
 
-        if sode.get('valu') is not None:
+        if not allows['forms'] and sode.get('valu') is not None:
             runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
-        for name in sode.get('props', {}).keys():
-            prop = node.form.prop(name)
-            runt.confirmPropDel(prop, layriden=layr0)
-            runt.confirmPropSet(prop, layriden=layr1)
+        if not allows['props']:
+            for name in sode.get('props', {}).keys():
+                prop = node.form.prop(name)
+                runt.confirmPropDel(prop, layriden=layr0)
+                runt.confirmPropSet(prop, layriden=layr1)
 
-        tags = []
-        tagadds = []
-        for tag, valu in sode.get('tags', {}).items():
-            if valu != (None, None):
+        if not allows['tags']:
+
+            tags = []
+            tagadds = []
+            for tag, valu in sode.get('tags', {}).items():
+                if valu != (None, None):
+                    tagadds.append(tag)
+                    tagperm = tuple(tag.split('.'))
+                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                    runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                else:
+                    tags.append((len(tag), tag))
+
+            for _, tag in sorted(tags, reverse=True):
+                look = tag + '.'
+                if any([tagadd.startswith(look) for tagadd in tagadds]):
+                    continue
+
                 tagadds.append(tag)
                 tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-            else:
-                tags.append((len(tag), tag))
 
-        for _, tag in sorted(tags, reverse=True):
-            look = tag + '.'
-            if any([tagadd.startswith(look) for tagadd in tagadds]):
-                continue
+            for tag in sode.get('tagprops', {}).keys():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-            tagadds.append(tag)
-            tagperm = tuple(tag.split('.'))
-            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+        if not allows['ndata']:
+            async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
+                runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-        for tag in sode.get('tagprops', {}).keys():
-            tagperm = tuple(tag.split('.'))
-            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-
-        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
-            runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-            runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
-
-        async for edge in runt.snap.view.layers[0].iterNodeEdgeVerbsN1(node.buid):
-            verb = edge[0]
-            runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-            runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+        if not allows['edges']:
+            async for edge in runt.snap.view.layers[0].iterNodeEdgeVerbsN1(node.buid):
+                verb = edge[0]
+                runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3849,7 +3854,23 @@ class MergeCmd(Cmd):
         layr0 = runt.snap.view.layers[0]
         layr1 = runt.snap.view.layers[1]
 
-        isadmin = runt.isAdmin(gateiden=layr0.iden) and runt.isAdmin(gateiden=layr1.iden)
+        doperms = doapply and not (runt.isAdmin(gateiden=layr0.iden) and runt.isAdmin(gateiden=layr1.iden))
+
+        if doperms:
+            allows = {
+                'forms': runt.user.allowed(('node', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'add'), gateiden=layr1.iden, deepdeny=True),
+                'props': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'prop', 'set'), gateiden=layr1.iden, deepdeny=True),
+                'tags': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                        runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
+                'ndata': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
+                'edges': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
+            }
+
+            doperms = not all(allows.values())
 
         if self.opts.diff:
 
@@ -3897,8 +3918,8 @@ class MergeCmd(Cmd):
                         subs.clear()
 
                 # check all node perms first
-                if doapply and not isadmin:
-                    await self._checkNodePerms(node, sode, runt)
+                if doperms:
+                    await self._checkNodePerms(node, sode, runt, allows)
 
                 form = node.form.name
                 if form == 'syn:tag':
