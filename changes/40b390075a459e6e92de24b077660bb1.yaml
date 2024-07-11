@@ -1,0 +1,6 @@
+---
+desc: Update Cell with ``_getCellHttpOpts`` method to allow for overriding default
+  HTTP options.
+prs: []
+type: feat
+...
