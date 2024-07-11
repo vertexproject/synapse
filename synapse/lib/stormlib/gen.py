@@ -442,14 +442,14 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             // Try to lift crypto:x509:cert by file
-            crypto:x509:cert:file = { file:bytes:sha256=$sha256 }
+            file:bytes:sha256=$sha256 -> crypto:x509:cert:file
             { -:sha256 [ :sha256 = $sha256 ] }
             return($node)
 
             // Create a new crypto:x509:cert with file and sha256
             [ crypto:x509:cert=(gen, sha256, $sha256,)
                 :file = {[ file:bytes=$sha256 ]}
-                :sha256 ?= $sha256
+                :sha256 = $sha256
             ]
             return($node)
         }

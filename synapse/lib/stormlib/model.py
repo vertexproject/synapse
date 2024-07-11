@@ -934,7 +934,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                       {'name': 'nodata', 'type': 'bool', 'default': False,
                        'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
                  ),
-                 'returns': {'type': 'list', 'desc': 'A list of idens for the inet:tls:servercert nodes.'}}},
+                 'returns': {'type': 'node', 'desc': 'The newly created inet:tls:servercert node.'}}},
 
     )
     _storm_lib_path = ('model', 'migration', 's')
