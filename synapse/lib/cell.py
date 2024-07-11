@@ -1209,6 +1209,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # for runtime cell configuration values
         self.slab.initdb('cell:conf')
+        self.slab.initdb('cell:meta')
 
         self._sslctx_cache = s_cache.FixedCache(self._makeCachedSslCtx, size=SSLCTX_CACHE_SIZE)
 
@@ -1285,6 +1286,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    def getCellMeta(self, name, defv=None):
+        byts = self.slab.get(name.encode(), s_msgpack.en(valu), db='cell:meta')
+        if byts is not None:
+            return s_msgpack.un(byts)
+        return defv
+
+    def setCellMeta(self, name, valu):
+        # NOTE: these changes are NOT nexus enabled!
+        self.slab.put(name.encode(), s_msgpack.en(valu), db='cell:meta')
+        return valu
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -1557,6 +1569,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.cellparent is None:
             await self.nexsroot.recover()
             await self.nexsroot.startup()
+
+            mirurl = self.conf.get('mirror')
+            if mirurl is None:
+                # we think we should lead...
+                nexs
+
             await self.setCellActive(self.conf.get('mirror') is None)
 
             if self.minfree is not None:
