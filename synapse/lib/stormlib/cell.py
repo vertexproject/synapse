@@ -81,18 +81,6 @@ for $view in $lib.view.list(deporder=$lib.true) {
 }
 '''
 
-storm_migration_inet_ssl_cert = '''
-for $view in $lib.view.list(deporder=$lib.true) {
-    view.exec $view.iden {
-        $layer = $lib.layer.get()
-        for ($buid, $sode) in $layer.getStorNodesByForm(inet:ssl:cert) {
-            yield $buid
-            $lib.model.migration.s.inetSslCertToTlsServerCert($node)
-        }
-    }
-}
-'''
-
 hotfixes = (
     ((1, 0, 0), {
         'desc': 'Create nodes for known missing autoadds.',
@@ -119,20 +107,6 @@ hotfixes = (
             to the risk:vulnerable nodes.
         ''',
         'query': storm_migrate_riskhasvuln,
-    }),
-    ((5, 0, 0), {
-        'desc': '''
-            Create inet:tls:servercert nodes from existing inet:ssl:cert nodes.
-
-            This hotfix should only be applied after all logic that would create
-            inet:ssl:cert nodes has been updated. The hotfix uses the
-            $lib.model.migration.s.inetSslCertToTlsServerCert() function,
-            which can be used directly for testing.
-
-            Tags, tag properties, edges, and node data will all be copied
-            to the inet:tls:servercert nodes.
-        ''',
-        'query': storm_migration_inet_ssl_cert,
     }),
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'

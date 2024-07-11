@@ -1,5 +1,0 @@
----
-desc: Add hotfix for migrating ``inet:ssl:cert`` nodes to ``inet:tls:servercert`` nodes
-prs: []
-type: feat
-...

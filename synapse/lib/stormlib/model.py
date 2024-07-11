@@ -939,31 +939,6 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
     )
     _storm_lib_path = ('model', 'migration', 's')
     _storm_query = '''
-        function _getNode(form, valu) {
-            *$form = $valu
-            return($node)
-        }
-
-        function _getCryptoNode(file) {
-            if (not $file) {
-                return()
-            }
-
-            crypto:x509:cert:file = $file
-            return($node)
-
-            $filenode = $_getNode(file:bytes, $file)
-            if ($filenode and $filenode.props.sha256) {
-                crypto:x509:cert:sha256 = $filenode.props.sha256
-                return($node)
-            }
-
-            [ crypto:x509:cert=($file,)
-                :file?=$file
-            ]
-            return($node)
-        }
-
         function inetSslCertToTlsServerCert(n, nodata=$lib.false) {
             $form = $n.form()
             if ($form != 'inet:ssl:cert') {
@@ -972,11 +947,25 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             }
 
             $server = $n.props.server
-            $crypto = $_getCryptoNode($n.props.file)
+            $sha256 = { yield $n -> file:bytes -> hash:sha256 }
 
-            [ inet:tls:servercert=($server, $crypto)
-                .seen ?= $n.props.".seen"
-            ]
+            if $sha256 {
+
+                yield $lib.gen.inetTlsServerCertByServerAndSha256($server, $sha256)
+
+            } else {
+
+                // File doesn't have a :sha256, try to lift/create a crypto:x509:node based on the file link
+                $crypto = { crypto:x509:cert:file = $n.props.file }
+                if (not $crypto) {
+                    $crypto = {[ crypto:x509:cert=($n.props.file,) :file=$n.props.file ]}
+                }
+
+                [ inet:tls.servercert=($server, $crypto) ]
+
+            }
+
+            [ .seen ?= $n.props.".seen" ]
 
             $lib.model.migration.copyTags($n, $node, overwrite=$lib.false)
             $lib.model.migration.copyEdges($n, $node)

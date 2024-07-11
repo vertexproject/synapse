@@ -855,6 +855,9 @@ class StormlibModelTest(s_test.SynTest):
             q = 'inet:ssl:cert | $lib.model.migration.s.inetSslCertToTlsServerCert($node)'
             await core.nodes(q)
 
+            nodes = await core.nodes('file:bytes')
+            self.len(3, nodes)
+
             nodes = await core.nodes('crypto:x509:cert')
             self.len(3, nodes)
 
@@ -895,7 +898,7 @@ class StormlibModelTest(s_test.SynTest):
             nodes = await core.nodes('crypto:x509:cert:file=$sha256', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('file'), file.ndef[1])
-            self.eq(nodes[0].ndef, ('crypto:x509:cert', s_common.guid((file.ndef[1],))))
+            self.eq(nodes[0].ndef, ('crypto:x509:cert', s_common.guid(('gen', 'sha256', sha256))))
             cert3 = nodes[0]
 
             nodes = await core.nodes('inet:tls:servercert:server="tcp://8.8.8.8:53" $node.data.load(foo)')
