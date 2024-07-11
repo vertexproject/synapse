@@ -3908,6 +3908,10 @@ class Layer(s_nexus.Pusher):
             verb = lkey[32:].decode()
             yield verb, s_common.ehex(n2buid)
 
+    async def iterNodeEdgeVerbsN1(self, buid):
+        for lkey in self.layrslab.scanKeysByPref(buid, db=self.edgesn1, nodup=True):
+            yield lkey[32:].decode()
+
     async def iterNodeEdgesN2(self, buid, verb=None):
         pref = buid
         if verb is not None:
