@@ -1,7 +1,0 @@
----
-desc: Renormalize ``ou:position:title``, ``ou:position:title``, and ``ou:conference:names``
-  secondary properites.
-prs:
-- 3701
-type: migration
-...

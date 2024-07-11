@@ -1366,7 +1366,7 @@ class AhaCell(s_cell.Cell):
 
         return urls
 
-    def _getAhaUrl(self, user='root'):
+    def getMyUrl(self, user='root'):
         port = self.sockaddr[1]
         host = self._getDnsName()
         network = self.conf.req('aha:network')
@@ -1385,7 +1385,7 @@ class AhaCell(s_cell.Cell):
 
         network = self.conf.req('aha:network')
 
-        conf['mirror'] = self._getAhaUrl()
+        conf['mirror'] = self.getMyUrl()
 
         conf['dns:name'] = host
         conf['aha:network'] = network

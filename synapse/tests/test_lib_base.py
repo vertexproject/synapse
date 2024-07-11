@@ -226,7 +226,7 @@ class BaseTest(s_t_utils.SynTest):
         self.len(2, evts)
 
         with self.raises(s_exc.TimeOut):
-            async with base0.waiter(1, 'newp', timeout=0.01):
+            async with base0.waiter(1, 'newp', 'nuuh', timeout=0.01):
                 pass
 
     async def test_baseref(self):
