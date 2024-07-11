@@ -1,6 +1,7 @@
 ---
-desc: Store the listening HTTPS host and port information in the base Cell. Expose
-  the listening HTTPS information in the getCellInfo API.
+desc: |
+  The base Cell now captures runtime information for its listening HTTPS host and port information. This runtime
+  information is now exposed in the ``getCellInfo`` API.
 prs: []
 type: feat
 ...
