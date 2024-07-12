@@ -1292,7 +1292,7 @@ class Client(s_base.Base):
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
                     url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
-                    logger.warning(f'telepath client ({url}) encountered an error: {e}')
+                    logger.warning(f'telepath client ({url}) encountered an error: {e}', exc_info=e)
                     lastlog = now
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
