@@ -543,7 +543,7 @@ class AhaCell(s_cell.Cell):
 
         path = s_common.genpath(self.dirn, 'cell.guid')
         if os.path.isfile(path):
-            logger.info('Cloneing AHA: cell.guid detected. Skipping.')
+            logger.info('Cloning AHA: cell.guid detected. Skipping.')
             return
 
         logger.warning(f'Cloning AHA: {curl}')
@@ -616,7 +616,6 @@ class AhaCell(s_cell.Cell):
         host = server.get('host')
         port = server.get('port')
 
-        oldv = None
         lkey = s_msgpack.en((host, port))
 
         byts = self.slab.get(lkey, db='aha:servers')
@@ -756,7 +755,6 @@ class AhaCell(s_cell.Cell):
 
         # bootstrap CA/host certs first
         network = self.conf.req('aha:network')
-        await self._genCaCert(network)
 
         hostname = self._getDnsName()
         if hostname is not None and network is not None:
@@ -1160,6 +1158,8 @@ class AhaCell(s_cell.Cell):
 
     async def _genCaCert(self, network):
 
+        # generate a CA cert if one does not exist
+        # ( but don't read it in if it does )
         if os.path.isfile(os.path.join(self.dirn, 'certs', 'cas', f'{network}.crt')):
             return
 
