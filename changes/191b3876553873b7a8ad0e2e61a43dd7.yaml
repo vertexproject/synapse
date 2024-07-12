@@ -1,7 +1,6 @@
 ---
 desc: |
-  The base Cell now captures runtime information for its listening HTTPS host and port information. This runtime
-  information is now exposed in the ``getCellInfo`` API.
+  Update the ``getCellInfo()`` API to include HTTPS listener addresses and ports.
 prs: []
 type: feat
 ...
