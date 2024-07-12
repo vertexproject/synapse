@@ -18,7 +18,6 @@ jobs:
       name: python311_replay
       codecov_flag: linux_replay
       syn_vendor_test: 0
-      parallelism: 6
       filters:
         tags:
           only: /.*/

@@ -4,7 +4,7 @@ parameters:
     type: string
   run_syntax:
     default: 1
-    type: string
+    type: integer
   syn_regression_repo:
     default: ~/git/synapse-regression
     type: string
@@ -19,18 +19,15 @@ parameters:
     type: string
   syndev_nexus_replay:
     default: 0
-    type: string
+    type: integer
   syn_vendor_test:
     default: 0
-    type: string
+    type: integer
   codecov_flag:
     default: linux
     type: string
-  parallelism:
-    default: 8
-    type: number
 
-parallelism: << parameters.parallelism >>
+parallelism: 8
 docker:
   - image: << parameters.image >>
     environment:
