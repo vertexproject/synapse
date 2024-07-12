@@ -3101,7 +3101,7 @@ class Layer(s_nexus.Pusher):
             lastbuid = buid
 
             sode = self._getStorNode(buid)
-            if sode is not None: # pragma: no cover
+            if sode is None: # pragma: no cover
                 continue
 
             yield None, buid, deepcopy(sode)
