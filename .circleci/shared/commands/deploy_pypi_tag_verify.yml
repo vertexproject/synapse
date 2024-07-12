@@ -1,0 +1,7 @@
+description: "Verify the git tag"
+steps:
+  - run:
+      name: verify git tag vs. version
+      command: |
+        . venv/bin/activate
+        python ./scripts/verify_version.py

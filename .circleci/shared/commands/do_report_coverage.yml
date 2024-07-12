@@ -1,0 +1,24 @@
+description: "Codecov report upload"
+steps:
+  - run:
+      name: Upload Coverage Results
+      command: |
+        # Download and verify the codecov binary
+        curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import # One-time step
+        curl -Os https://uploader.codecov.io/latest/linux/codecov
+        curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
+        curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
+        gpg --verify codecov.SHA256SUM.sig codecov.SHA256SUM
+        shasum -a 256 -c codecov.SHA256SUM
+        chmod +x codecov
+        # Activate our venv and generate a xml report
+        . venv/bin/activate
+        python -m coverage xml
+        # Execute the binary...
+        ./codecov \
+          -t "${CODECOV_TOKEN}" \
+          -n "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}" \
+          -F "${CODECOV_FLAG}" \
+          -f ./coverage.xml \
+          -v \
+          -Z || echo 'Codecov upload failed'

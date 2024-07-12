@@ -1,0 +1,15 @@
+description: "Install packages and set commit."
+steps:
+  - run:
+      name: install packages
+      command: |
+        apk add python3 py3-pip git "cosign~2." bash
+  - run:
+      name: install awscli
+      command: |
+        python3 -m pip install "pyyaml<5.4"
+        python3 -m pip install awscli
+  - run:
+      name: setcommit
+      command: |
+        python3 scripts/replace_commit.py

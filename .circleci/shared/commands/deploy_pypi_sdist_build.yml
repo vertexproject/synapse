@@ -1,0 +1,21 @@
+description: "Build sdist packages for pypi"
+steps:
+  - run:
+      name: create packages
+      command: |
+        . venv/bin/activate
+        python -m build --sdist
+
+  - run:
+      name: smoke packages
+      command: |
+        mkdir -p /tmp/sdisttest
+        python3 -m venv /tmp/sdisttest/venv
+        cp dist/*.tar.gz /tmp/sdisttest
+        cd /tmp/sdisttest
+        . ./venv/bin/activate
+        python3 -m pip install -U wheel pip twine "importlib_metadata==7.2.1"
+        python3 -m twine check *.tar.gz
+        python3 -m pip install *.tar.gz
+        python3 -c "$PYPI_SMOKE_CODE"
+        deactivate

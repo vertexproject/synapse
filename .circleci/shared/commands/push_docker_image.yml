@@ -1,0 +1,86 @@
+description: "Push a docker image up to a registry"
+parameters:
+  registry:
+    type: string
+  secondaryregistry:
+    type: string
+  image-tag:
+    type: string
+  source-tag:
+    type: string
+    default: ""
+  cosign:
+    type: boolean
+    default: false
+steps:
+
+  - do_docker_login
+
+  - when:
+      condition: << parameters.source-tag >>
+      steps:
+        - run:
+            name: retag images
+            command: |
+              docker/scripts/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
+
+  - run:
+      name: push images
+      command: |
+        docker/scripts/push_all.sh << parameters.image-tag >> << parameters.registry >> imageDigests.txt
+
+  - when:
+      condition: << parameters.cosign >>
+      steps:
+        - run:
+            name: extract and setup certdir
+            command: |
+              mkdir -p /mnt/ramdisk/certdir/cas/
+              mkdir -p /mnt/ramdisk/certdir/code/
+              mkdir -p /mnt/ramdisk/certdir/cosign/
+              echo $VTX_BUILD_CRT | base64 -d > /mnt/ramdisk/certdir/code/signer.crt
+              echo $VTX_BUILD_KEY | base64 -d > /mnt/ramdisk/certdir/code/signer.key
+              echo $VTX_BUILD_CA_FULLCHAIN | base64 -d > /mnt/ramdisk/certdir/cas/fullchain.crt
+
+        - run:
+            name: sign images
+            command: |
+              # Generate a random password to encode the signing key with
+              export COSIGN_PASSWORD=`hexdump -vn16 -e'4/4 "%08X" 1 "\n"' /dev/urandom`
+
+              # Export the key material to /mnt/ramdisk/certdir/cosign/signer.key + signer.pub
+              cosign import-key-pair --verbose --key /mnt/ramdisk/certdir/code/signer.key -o /mnt/ramdisk/certdir/cosign/signer
+
+              # Sign the artifacts we just built!
+              cat imageDigests.txt | while read IMAGETOSIGN
+              do
+                echo 'Signing $IMAGETOSIGN'
+                cosign sign -a commit=<<pipeline.git.revision>> -a jobid=$CIRCLE_WORKFLOW_JOB_ID --certificate-chain /mnt/ramdisk/certdir/cas/fullchain.crt --cert /mnt/ramdisk/certdir/code/signer.crt --key /mnt/ramdisk/certdir/cosign/signer.key --tlog-upload=false $IMAGETOSIGN
+              done
+
+        - run:
+            name: clean up certdir
+            command: |
+              dirs="/mnt/ramdisk/certdir/code /mnt/ramdisk/certdir/cosign"
+              echo "$dirs" | tr ' ' '\n' | while read dirn;
+              do
+                for f in $(ls $dirn)
+                do
+                  fullpath=$dirn/$f
+                  echo "Wiping $fullpath"
+                  read blocks blocksize < <(stat -c "%b %B" ${fullpath})
+                  dd if=/dev/zero bs=${blocksize} count=${blocks} of=${fullpath} conv=notrunc
+                  sync $fullpath
+                  rm ${fullpath}
+                done
+              done
+
+  - run:
+      name: copy image and signatures to secondary registry
+      command: |
+        if [ -z $DOCKER_FAILOVER ]
+        then
+          docker/scripts/copy_all.sh << parameters.image-tag >> << parameters.registry >> << parameters.secondaryregistry >>
+        else
+          echo "Skipping secondary registry copy."
+        fi

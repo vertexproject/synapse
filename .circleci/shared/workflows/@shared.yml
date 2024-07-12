@@ -1,0 +1,5 @@
+version: 2.1
+
+orbs:
+  gh-release: vertexproject/github-release@0
+

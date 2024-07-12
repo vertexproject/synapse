@@ -1,0 +1,23 @@
+description: "Build wheel packages for pypi"
+steps:
+  - run:
+      name: create packages
+      command: |
+        . venv/bin/activate
+        export DIST_EXTRA_CONFIG=/tmp/build-opts.cfg
+        echo -e "[bdist_wheel]\npython_tag=$PYTHON_TAG" > $DIST_EXTRA_CONFIG
+        python -m build --wheel
+
+  - run:
+      name: smoke packages
+      command: |
+        mkdir -p /tmp/wheeltest
+        python3 -m venv /tmp/wheeltest/venv
+        cp dist/*.whl /tmp/wheeltest
+        cd /tmp/wheeltest
+        . ./venv/bin/activate
+        python3 -m pip install -U wheel pip twine "importlib_metadata==7.2.1"
+        python3 -m twine check *.whl
+        python3 -m pip install *.whl
+        python3 -c "$PYPI_SMOKE_CODE"
+        deactivate

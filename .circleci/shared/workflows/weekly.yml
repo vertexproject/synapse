@@ -1,0 +1,12 @@
+triggers:
+  - schedule:
+      cron: "0 12 1 * *"
+      filters:
+        branches:
+          only:
+            - master
+jobs:
+  - python311:
+      codecov_flag: linux_replay
+      syn_vendor_test: 0
+      parallelism: 6

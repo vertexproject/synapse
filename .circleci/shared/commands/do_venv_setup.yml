@@ -1,0 +1,15 @@
+description: "Setup venv for testing"
+steps:
+  - run:
+      name: setup venv
+      command: |
+        python3 -m venv --copies venv
+        . venv/bin/activate
+        python3 -m pip install -U wheel pip
+        python3 -m pip install -U -r requirements_dev.txt
+
+  - run:
+      name: install synapse
+      command: |
+        . venv/bin/activate
+        python3 -m pip install -U --upgrade-strategy=eager -e .

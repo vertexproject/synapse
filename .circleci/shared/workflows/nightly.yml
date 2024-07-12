@@ -1,0 +1,10 @@
+triggers:
+  - schedule:
+      cron: "0 12 * * *"
+      filters:
+        branches:
+          only:
+            - master
+jobs:
+  - doctests
+  - python311

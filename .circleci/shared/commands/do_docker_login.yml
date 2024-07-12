@@ -1,0 +1,25 @@
+description: "Login to docker"
+steps:
+  - run:
+      name: "Login to primary registry"
+      command: |
+        if [ $DOCKER_PRIMARY_REGISTRY = docker.io/ ]
+        then
+          docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+        else
+          aws ecr get-login-password | docker login --username AWS --password-stdin $AWS_ECR_REGISTRY
+        fi
+  - run:
+      name: "Login to secondary registry"
+      command: |
+        if [ -z $DOCKER_FAILOVER ]
+        then
+          if [ $DOCKER_PRIMARY_REGISTRY = docker.io/ ]
+          then
+            aws ecr get-login-password | docker login --username AWS --password-stdin $AWS_ECR_REGISTRY
+          else
+            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+          fi
+        else
+          echo "Not logging into secondary docker account."
+        fi

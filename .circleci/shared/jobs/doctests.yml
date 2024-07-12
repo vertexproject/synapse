@@ -1,0 +1,10 @@
+parallelism: 1
+docker:
+  - image: cimg/python:3.11
+    environment:
+      PYVERS: 3.11
+
+working_directory: ~/repo
+
+steps:
+  - test_steps_doc

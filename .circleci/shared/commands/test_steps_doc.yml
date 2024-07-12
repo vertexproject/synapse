@@ -1,0 +1,37 @@
+description: "Documentation test steps"
+steps:
+  - checkout
+
+  - run:
+      name: install deps
+      command: |
+        sudo apt-get update
+        sudo apt-get -y install pandoc
+
+  - restore_cache:
+      keys:
+        - v4-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+  - run:
+      name: setup venv
+      command: |
+        python3 -m venv --copies venv
+        . venv/bin/activate
+        python3 -m pip install -U wheel pip
+
+  - run:
+      name: install synapse requirements
+      command: |
+        . venv/bin/activate
+        python3 -m pip install -U --upgrade-strategy=eager -r requirements_doc.txt
+
+  - save_cache:
+      paths:
+        - ./venv
+      key: v4-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+  - run:
+      name: executing docs jupyter notebooks
+      command: |
+        . venv/bin/activate
+        ./scripts/doctests.py

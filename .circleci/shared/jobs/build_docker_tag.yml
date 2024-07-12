@@ -1,0 +1,20 @@
+docker:
+  - image: docker:24.0.2
+# Use a shell override to force a login shell that loads profile for each step.
+shell: /bin/sh -leo pipefail
+environment:
+  - BASH_ENV: /etc/profile
+steps:
+  - build_docker:
+      image-tag: ${CIRCLE_TAG}
+  - push_docker_image:
+      image-tag: ${CIRCLE_TAG}
+      cosign: true
+      registry: ${DOCKER_PRIMARY_REGISTRY}
+      secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
+  - check_tag_for_major_release
+  - push_docker_image:
+      image-tag: ${DOCKER_TAG}
+      source-tag: ${CIRCLE_TAG}
+      registry: ${DOCKER_PRIMARY_REGISTRY}
+      secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}

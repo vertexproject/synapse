@@ -1,0 +1,7 @@
+description: "Upload packages to pypi"
+steps:
+  - run:
+      name: upload to pypi
+      command: |
+        . venv/bin/activate
+        twine upload dist/*

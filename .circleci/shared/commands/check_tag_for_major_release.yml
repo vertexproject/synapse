@@ -1,0 +1,16 @@
+description: "Check circle_tag to see if its a major release and export it, halt if not."
+steps:
+  - run:
+      name: check tag for major release
+      command: |
+        # Pull major tag
+        IFS="."
+        read MAJOR MINOR PATCH \<< EOF
+        $CIRCLE_TAG
+        EOF
+        unset IFS
+        # Exit early if we're a non-numeric patch value.
+        echo $PATCH | grep -E "[^0-9]" && circleci-agent step halt && exit 0
+        DOCKER_TAG=$MAJOR.x.x
+        echo "Found DOCKER_TAG=${DOCKER_TAG}"
+        echo "export DOCKER_TAG=${DOCKER_TAG}" >> $BASH_ENV

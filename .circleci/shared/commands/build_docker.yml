@@ -1,0 +1,16 @@
+description: "Build a docker image"
+parameters:
+  image-tag:
+    type: string
+steps:
+  - checkout
+  - setup_remote_docker
+  - do_docker_prep
+  - run:
+      name: build images
+      command: |
+        docker/build_all.sh << parameters.image-tag >>
+  - run:
+      name: smoke test images
+      command: |
+        docker/scripts/test_all.sh << parameters.image-tag >>

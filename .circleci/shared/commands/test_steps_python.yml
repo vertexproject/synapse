@@ -1,0 +1,38 @@
+description: "Python test steps"
+steps:
+  - checkout
+
+  - check_runner_has_work
+
+  - run:
+      name: checkout regression repo
+      command: |
+        git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
+
+  - restore_cache:
+      keys:
+        - v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+  - do_venv_setup
+
+  - save_cache:
+      paths:
+        - ./venv
+      key: v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+  - run:
+      name: syntax
+      command: |
+        . venv/bin/activate
+        if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
+        if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
+
+
+  - do_test_execution
+  - do_report_coverage
+
+  - store_test_results:
+      path: test-reports
+
+  - store_artifacts:
+      path: test-reports

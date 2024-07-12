@@ -1,0 +1,48 @@
+parameters:
+  pyvers:
+    default: 3.11
+    type: string
+  run_syntax:
+    default: 1
+    type: integer
+  syn_regression_repo:
+    default: ~/git/synapse-regression
+    type: string
+  coverage_args:
+    default: --cov synapse
+    type: string
+  image:
+    default: cimg/python:3.11
+    type: string
+  working_directory:
+    default: ~/repo
+    type: string
+  syndev_nexus_replay:
+    default: 0
+    type: integer
+  syn_vendor_test:
+    default: 0
+    type: integer
+  codecov_flag:
+    default: linux
+    type: string
+  parallelism:
+    default: 8
+    type: integer
+
+parallelism: << parameters.parallelism >>
+docker:
+  - image: << parameters.image >>
+    environment:
+      PYVERS: << parameters.pyvers >>
+      RUN_SYNTAX: << parameters.run_syntax >>
+      SYN_VENDOR_TEST: << parameters.syn_vendor_test >>
+      CODECOV_FLAG: << parameters.codecov_flag >>
+      SYN_REGRESSION_REPO: << parameters.syn_regression_repo >>
+      COVERAGE_ARGS: << parameters.coverage_args >>
+      SYNDEV_NEXUS_REPLAY: << parameters.syndev_nexus_replay >>
+
+working_directory: << parameters.working_directory >>
+
+steps:
+  - test_steps_python

@@ -1,0 +1,33 @@
+description: "Common Pypi prologue"
+steps:
+  - checkout
+
+  - restore_cache:
+      keys:
+        - v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+  - run:
+      name: install python dependencies
+      command: |
+        python3 -m venv venv
+        . venv/bin/activate
+        python3 -m pip install -U wheel pip twine build "importlib_metadata==7.2.1"
+        python3 -m pip install -U -r requirements_dev.txt
+
+  - save_cache:
+      paths:
+        - ./venv
+      key: v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+  - run:
+      name: init .pypirc
+      command: |
+        echo -e "[pypi]" >> ~/.pypirc
+        echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
+        echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
+
+  - run:
+      name: set commit
+      command: |
+        . venv/bin/activate
+        python ./scripts/replace_commit.py

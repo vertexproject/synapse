@@ -1,0 +1,92 @@
+jobs:
+  - doctests:
+      filters:
+        tags:
+          only: /.*/
+        branches:
+           only: /.*/
+
+  - python311:
+      name: python311
+      filters:
+        tags:
+          only: /.*/
+        branches:
+          only: /.*/
+
+  - python311:
+      name: python311_replay
+      codecov_flag: linux_replay
+      syn_vendor_test: 0
+      parallelism: 6
+      filters:
+        tags:
+          only: /.*/
+        branches:
+          only:
+            - master
+
+  - python_package_smoketest:
+      filters:
+        tags:
+          only: /.*/
+        branches:
+          only:
+            - master
+
+  - deploy_pypi:
+      requires:
+        - doctests
+        - python311
+        - python311_replay
+        - python_package_smoketest
+      context:
+        - PublicPypiAccess
+      filters:
+        tags:
+          only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+        branches:
+          ignore: /.*/
+
+  - gh-release/dorelease:
+      requires:
+        - doctests
+        - python311
+        - python311_replay
+        - python_package_smoketest
+      context:
+        - GithubMachine
+        - Mailgun
+      filters:
+        tags:
+          only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+        branches:
+          ignore: /.*/
+
+  - build_docker_branch:
+      requires:
+        - doctests
+        - python311
+      context:
+        - AWSEcrPusherOSS
+        - SynapseDockerCloudUpload
+        - VTXDockerControl
+      filters:
+        branches:
+          only:
+            - master
+
+  - build_docker_tag:
+      requires:
+        - doctests
+        - python311
+      context:
+        - AWSEcrPusherOSS
+        - SynapseDockerCloudUpload
+        - VTXCodeSign
+        - VTXDockerControl
+      filters:
+        tags:
+          only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+        branches:
+          ignore: /.*/
