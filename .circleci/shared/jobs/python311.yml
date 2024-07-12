@@ -28,7 +28,7 @@ parameters:
     type: string
   parallelism:
     default: 8
-    type: string
+    type: number
 
 parallelism: << parameters.parallelism >>
 docker:
