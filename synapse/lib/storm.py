@@ -3525,24 +3525,7 @@ class DiffCmd(Cmd):
 
             layr = runt.snap.view.layers[0]
 
-            if len(tagnames) == 1:
-                async for _, buid, sode in layr.liftByTag(tagnames[0]):
-                    node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
-                    if node is not None:
-                        yield node, runt.initPath(node)
-                return
-
-            genrs = [layr.liftByTag(tagname) for tagname in tagnames]
-            lastbuid = None
-
-            async for _, buid, sode in s_common.merggenr2(genrs, cmprkey=lambda x: x[1]):
-
-                if buid == lastbuid:
-                    lastbuid = buid
-                    await asyncio.sleep(0)
-                    continue
-
-                lastbuid = buid
+            async for _, buid, sode in layr.liftByTags(tagnames):
                 node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
                 if node is not None:
                     yield node, runt.initPath(node)
