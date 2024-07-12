@@ -9,4 +9,3 @@ jobs:
   - python311:
       codecov_flag: linux_replay
       syn_vendor_test: 0
-      parallelism: 6

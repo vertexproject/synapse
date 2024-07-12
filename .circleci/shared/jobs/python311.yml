@@ -1,6 +1,6 @@
 parameters:
   pyvers:
-    default: 3.11
+    default: "3.11"
     type: string
   run_syntax:
     default: 1
