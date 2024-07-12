@@ -1329,7 +1329,7 @@ class AhaCell(s_cell.Cell):
                     'nexs': nexs,
                 }
                 await self.addLeadTerm(leadterm)
-                return (STATE_LEAD, {})
+                return (STATE_LEAD, leadterm)
 
             # if we were the last known leader, we can jump right in
             if leadterm.get('name') == ahaname:

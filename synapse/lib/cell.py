@@ -1503,6 +1503,39 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await self.waitfini(self.SYSCTL_CHECK_FREQ)
 
+    async def _askAhaToLead(self, proxy):
+
+        async with self.nexslock:
+
+            name = self.conf.get('aha:name')
+            nexs = self.getNexsIndx()
+            term = self.getCellMeta('aha:term', 0)
+
+            state, leadterm = await proxy.mayLeadTerm(self.iden, name, term, nexs)
+
+            if state == s_aha.STATE_LEAD:
+                self.conf.modCellConf({'mirror': None})
+                await self.setCellActive(True)
+                await self.nexsroot.startup()
+                return
+
+            if state == s_aha.STATE_FOLLOW:
+                lead = leadterm.get('name')
+                user = self.conf.get('aha:user', 'root')
+                self.conf.modCellConf({'mirror': f'aha://{user}@{lead}...'})
+                await self.setCellActive(False)
+                await self.nexsroot.startup()
+                return
+
+            if state == s_aha.STATE_INVALID:
+                await self._terStateInvalid()
+
+    async def _termStateInvalid(self):
+        # hook point for enterprise behavior
+        logger.error('Leadership schism detected!')
+        logger.error('See: FIXME DOCS URL')
+        await self.fini()
+
     async def _initAhaRegistry(self):
 
         ahaurls = self.conf.get('aha:registry')
@@ -1519,6 +1552,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if newurls and newurls != oldurls:
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
+
+                if self.conf.get('mirror') is None:
+
+                    # if i think i'm the leader, lets check with AHA
+                    ahainfo = await proxy.getCellInfo()
+                    if ahainfo['features'].get('aha:leadterm'):
 
             self.ahaclient = await s_telepath.Client.anit(ahaurls, onlink=onlink)
             self.onfini(self.ahaclient)
