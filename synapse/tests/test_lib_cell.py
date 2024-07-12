@@ -504,8 +504,11 @@ class CellTest(s_t_utils.SynTest):
             cell.VERSION = (1, 2, 3)
             cell.VERSTRING = '1.2.3'
 
-            await cell.addHttpsPort(0)
-            await cell.addHttpsPort(0, host='127.0.0.1')
+            http_info = []
+            host, port = await cell.addHttpsPort(0)
+            http_info.append({'host': host, 'port': port})
+            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+            http_info.append({'host': host, 'port': port})
 
             async with cell.getLocalProxy() as prox:
                 info = await prox.getCellInfo()
@@ -533,9 +536,7 @@ class CellTest(s_t_utils.SynTest):
 
                 netw = cnfo.get('network')
                 https = netw.get('https')
-                self.len(2, https)
-                self.eq({'0.0.0.0', '127.0.0.1'}, {d.get('host') for d in https})
-                self.len(2, {d.get('port') for d in https})
+                self.eq(https, http_info)
 
     async def test_cell_dyncall(self):
 
