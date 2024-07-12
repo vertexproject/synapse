@@ -956,12 +956,12 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             } else {
 
                 // File doesn't have a :sha256, try to lift/create a crypto:x509:node based on the file link
-                $crypto = { yield $n.props.file -> crypto:x509:cert:file }
+                $crypto = { yield $n -> file:bytes -> crypto:x509:cert:file }
                 if (not $crypto) {
                     $crypto = {[ crypto:x509:cert=($n.props.file,) :file=$n.props.file ]}
                 }
 
-                [ inet:tls.servercert=($server, $crypto) ]
+                [ inet:tls:servercert=($server, $crypto) ]
 
             }
 
