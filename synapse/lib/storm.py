@@ -3833,8 +3833,7 @@ class MergeCmd(Cmd):
                 runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
         if not allows['edges']:
-            async for edge in runt.snap.view.layers[0].iterNodeEdgeVerbsN1(node.buid):
-                verb = edge[0]
+            async for verb in runt.snap.view.layers[0].iterNodeEdgeVerbsN1(node.buid):
                 runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
                 runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
@@ -3901,21 +3900,6 @@ class MergeCmd(Cmd):
                     editor = s_snap.SnapEditor(snap)
 
                 subs = []
-
-                async def sync():
-
-                    if not self.opts.apply:
-                        subs.clear()
-                        return
-
-                    addedits = editor.getNodeEdits()
-                    if addedits:
-                        await runt.snap.view.parent.storNodeEdits(addedits, meta=meta)
-
-                    if subs:
-                        subedits = [(node.buid, node.form.name, subs)]
-                        await runt.snap.view.storNodeEdits(subedits, meta=meta)
-                        subs.clear()
 
                 # check all node perms first
                 if doperms:
