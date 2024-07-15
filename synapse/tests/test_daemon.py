@@ -103,6 +103,14 @@ class DaemonTest(s_t_utils.SynTest):
                         await link.send(byts)
                         self.true(await stream.wait(timeout=6))
 
+                # bad t2:init message
+                async with await prox.getPoolLink() as link:
+                    mesg = ('t2:init', {})
+                    emsg = "Error on t2:init:"
+                    with self.getAsyncLoggerStream('synapse.daemon', emsg) as stream:
+                        await link.tx(mesg)
+                        self.true(await stream.wait(timeout=6))
+
 class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'foo'
     _storm_svc_pkgs = (  # type:  ignore
