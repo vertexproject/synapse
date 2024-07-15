@@ -1100,6 +1100,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
+        self.https_listeners = []
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
@@ -2822,6 +2823,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             self.addReloadableSystem('https:certs', reload)
 
+        self.https_listeners.append({'host': lhost, 'port': lport})
+
         return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
@@ -4073,6 +4076,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
                     'network': self.conf.get('aha:network'),
+                },
+                'network': {
+                    'https': self.https_listeners,
                 }
             },
             'features': {
