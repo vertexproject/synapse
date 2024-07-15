@@ -1,0 +1,7 @@
+---
+desc: Deprecate the use of the ``synapse.lib.jupyter`` library. This will be removed on
+  2024-08-26.
+prs:
+- 3803
+type: deprecation
+...

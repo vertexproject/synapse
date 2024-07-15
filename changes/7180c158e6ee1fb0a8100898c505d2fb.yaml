@@ -1,0 +1,5 @@
+---
+desc: Add additional indexing for ndef based secondary properties.
+prs: [ 3794 ]
+type: feat
+...
