@@ -3849,15 +3849,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            if 'dmon:listen' not in cell.conf:
-                await cell.dmon.listen(opts.telepath)
-                logger.info(f'...{cell.getCellType()} API (telepath): {opts.telepath}')
-            else:
-                lisn = cell.conf.get('dmon:listen')
-                if lisn is None:
-                    lisn = cell.getLocalUrl()
+            turl = cell._getDmonListen()
+            if turl is None:
+                turl = opts.telepath
+                await cell.dmon.listen(turl)
 
-                logger.info(f'...{cell.getCellType()} API (telepath): {lisn}')
+            logger.info(f'...{cell.getCellType()} API (telepath): {turl}')
 
             if 'https:port' not in cell.conf:
                 await cell.addHttpsPort(opts.https)
