@@ -77,7 +77,11 @@ class StormExecCmd(s_storm.Cmd):
 
                 async for item in genr:
                     text = await s_stormtypes.tostr(self.opts.query)
-                    subr.query = await runt.getStormQuery(text)
+                    query = await runt.getStormQuery(text)
+
+                    subr.runtvars.clear()
+                    subr.query = query
+                    subr._initRuntVars(query)
 
                     extra = await self.runt.snap.core.getLogExtra(text=text)
                     stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
