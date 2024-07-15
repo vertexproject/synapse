@@ -303,10 +303,11 @@ class Link(s_base.Base):
                 raise
 
             except Exception as e:
+                mesg = f'rx error {e} link={self.getAddrInfo()}'
                 if isinstance(e, (BrokenPipeError, ConnectionResetError)):
-                    logger.warning('rx error: %s', e)
+                    logger.warning(mesg)
                 else:
-                    logger.exception('rx error')
+                    logger.exception(mesg)
                 await self.fini()
                 return None
 

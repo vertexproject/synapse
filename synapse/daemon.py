@@ -385,19 +385,18 @@ class Daemon(s_base.Base):
         try:
             func = self.mesgfuncs.get(mesg[0])
             if func is None:
-                logger.exception('Dmon.onLinkMesg Invalid: %.80r' % (mesg,))
+                logger.error(f'Dmon.onLinkMesg Invalid mesg: mesg={s_common.trimText(repr(mesg), n=80)} '
+                             f'link={link.getAddrInfo()}')
                 return
 
             await func(link, mesg)
 
-        except asyncio.CancelledError:  # pragma: no cover  # TODO: remove once >= py 3.8 only
-            raise
-
         except ConnectionResetError:
-            logger.debug('Dmon.onLinkMesg Handler: connection reset')
+            logger.debug(f'Dmon.onLinkMesg Handler: connection reset link={link.getAddrInfo()}')
 
         except Exception:
-            logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
+            logger.exception(f'Dmon.onLinkMesg Handler: mesg={s_common.trimText(repr(mesg), n=80)} '
+                             f'link={link.getAddrInfo()}')
 
     async def _onShareFini(self, link, mesg):
 
@@ -473,7 +472,7 @@ class Daemon(s_base.Base):
             reply[1]['sess'] = sess.iden
 
         except Exception as e:
-            logger.exception('tele:syn error')
+            logger.exception(f'tele:syn error: {e}')
             reply[1]['retn'] = s_common.retnexc(e)
 
         await link.tx(reply)
