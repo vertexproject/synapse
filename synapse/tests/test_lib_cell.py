@@ -913,7 +913,7 @@ class CellTest(s_t_utils.SynTest):
                         pass
                 stream.seek(0)
                 buf = stream.read()
-                self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
+                self.isin(f'...cell API (telepath): tcp://0.0.0.0:27492', buf)
                 self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_initargv_conf(self):
