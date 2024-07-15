@@ -3492,13 +3492,18 @@ class DiffCmd(Cmd):
         // Lift the nodes with the tag #cno.mal.redtree added in the top layer.
 
         diff --tag cno.mal.redtree
+
+        // Lift nodes by multiple tags (results are uniqued)
+
+        diff --tag cno.mal.redtree rep.vt
     '''
     name = 'diff'
     readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--tag', default=None, help='Lift only nodes with the given tag in the top layer.')
+        pars.add_argument('--tag', default=None, nargs='*',
+                          help='Lift only nodes with the given tag (or tags) in the top layer.')
         pars.add_argument('--prop', default=None, help='Lift nodes with changes to the given property the top layer.')
         return pars
 
@@ -3517,10 +3522,11 @@ class DiffCmd(Cmd):
 
         if self.opts.tag:
 
-            tagname = await s_stormtypes.tostr(self.opts.tag)
+            tagnames = [await s_stormtypes.tostr(tag) for tag in self.opts.tag]
 
             layr = runt.snap.view.layers[0]
-            async for _, buid, sode in layr.liftByTag(tagname):
+
+            async for _, buid, sode in layr.liftByTags(tagnames):
                 node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
                 if node is not None:
                     yield node, runt.initPath(node)
