@@ -1,0 +1,6 @@
+---
+desc: Add storm.exec command for executing arbitrary text as Storm
+prs:
+- 3807
+type: feat
+...
