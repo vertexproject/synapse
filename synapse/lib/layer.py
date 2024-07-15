@@ -3072,6 +3072,35 @@ class Layer(s_nexus.Pusher):
 
             yield None, buid, deepcopy(sode)
 
+    async def liftByTags(self, tags):
+        # todo: support form and reverse kwargs
+
+        genrs = []
+
+        for tag in tags:
+            try:
+                abrv = self.tagabrv.bytsToAbrv(tag.encode())
+                genrs.append(s_coro.agen(self.layrslab.scanByPref(abrv, db=self.bytag)))
+            except s_exc.NoSuchAbrv:
+                continue
+
+        lastbuid = None
+
+        async for lkey, buid in s_common.merggenr2(genrs, cmprkey=lambda x: x[1]):
+
+            if buid == lastbuid:
+                lastbuid = buid
+                await asyncio.sleep(0)
+                continue
+
+            lastbuid = buid
+
+            sode = self._getStorNode(buid)
+            if sode is None: # pragma: no cover
+                continue
+
+            yield None, buid, deepcopy(sode)
+
     async def liftByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
 
         try:
