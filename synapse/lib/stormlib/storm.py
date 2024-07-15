@@ -49,6 +49,9 @@ class StormExecCmd(s_storm.Cmd):
 
         item = None
         async for item in genr:
+            break
+
+        if item is not None:
 
             text = await s_stormtypes.tostr(self.opts.query)
             query = await runt.getStormQuery(text)
@@ -57,7 +60,14 @@ class StormExecCmd(s_storm.Cmd):
                 async for subp in subr.execute(genr=s_common.agen(item)):
                     yield subp
 
-        if item is None and self.runtsafe:
+                async for item in genr:
+                    text = await s_stormtypes.tostr(self.opts.query)
+                    subr.query = await runt.getStormQuery(text)
+
+                    async for subp in subr.execute(genr=s_common.agen(item)):
+                        yield subp
+
+        elif self.runtsafe:
 
             text = await s_stormtypes.tostr(self.opts.query)
             query = await runt.getStormQuery(text)
