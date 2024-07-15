@@ -14,6 +14,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.ast as s_ast
 import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
 import synapse.lib.time as s_time
@@ -3765,73 +3766,76 @@ class MergeCmd(Cmd):
     def _getPropFilter(self):
         if self.opts.include_props:
 
+            _include_props = set(self.opts.include_props)
+
             def propfilter(prop):
-                if prop in self.opts.include_props:
-                    return False
-                return True
+                return prop not in _include_props
 
             return propfilter
 
         if self.opts.exclude_props:
 
+            _exclude_props = set(self.opts.exclude_props)
+
             def propfilter(prop):
-                if prop in self.opts.exclude_props:
-                    return True
-                return False
+                return prop in _exclude_props
 
             return propfilter
 
         return None
 
-    async def _checkNodePerms(self, node, sode, runt):
+    async def _checkNodePerms(self, node, sode, runt, allows):
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
 
-        if sode.get('valu') is not None:
+        if not allows['forms'] and sode.get('valu') is not None:
             runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
-        for name, (valu, stortype) in sode.get('props', {}).items():
-            prop = node.form.prop(name)
-            runt.confirmPropDel(prop, layriden=layr0)
-            runt.confirmPropSet(prop, layriden=layr1)
+        if not allows['props']:
+            for name in sode.get('props', {}).keys():
+                prop = node.form.prop(name)
+                runt.confirmPropDel(prop, layriden=layr0)
+                runt.confirmPropSet(prop, layriden=layr1)
 
-        tags = []
-        tagadds = []
-        for tag, valu in sode.get('tags', {}).items():
-            if valu != (None, None):
+        if not allows['tags']:
+
+            tags = []
+            tagadds = []
+            for tag, valu in sode.get('tags', {}).items():
+                if valu != (None, None):
+                    tagadds.append(tag)
+                    tagperm = tuple(tag.split('.'))
+                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                    runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                else:
+                    tags.append((len(tag), tag))
+
+            for _, tag in sorted(tags, reverse=True):
+                look = tag + '.'
+                if any([tagadd.startswith(look) for tagadd in tagadds]):
+                    continue
+
                 tagadds.append(tag)
                 tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-            else:
-                tags.append((len(tag), tag))
 
-        for _, tag in sorted(tags, reverse=True):
-            look = tag + '.'
-            if any([tagadd.startswith(look) for tagadd in tagadds]):
-                continue
-
-            tagadds.append(tag)
-            tagperm = tuple(tag.split('.'))
-            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-
-        for tag, tagdict in sode.get('tagprops', {}).items():
-            for prop, (valu, stortype) in tagdict.items():
+            for tag in sode.get('tagprops', {}).keys():
                 tagperm = tuple(tag.split('.'))
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
-            runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-            runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+        if not allows['ndata']:
+            async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
+                runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-        async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.buid):
-            verb = edge[0]
-            runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-            runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+        if not allows['edges']:
+            async for verb in runt.snap.view.layers[0].iterNodeEdgeVerbsN1(node.buid):
+                runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3841,12 +3845,31 @@ class MergeCmd(Cmd):
 
         notags = self.opts.no_tags
         onlytags = self.opts.only_tags
+        doapply = self.opts.apply
 
         tagfilter = self._getTagFilter()
         propfilter = self._getPropFilter()
 
-        layr0 = runt.snap.view.layers[0].iden
-        layr1 = runt.snap.view.layers[1].iden
+        layr0 = runt.snap.view.layers[0]
+        layr1 = runt.snap.view.layers[1]
+
+        doperms = doapply and not (runt.isAdmin(gateiden=layr0.iden) and runt.isAdmin(gateiden=layr1.iden))
+
+        if doperms:
+            allows = {
+                'forms': runt.user.allowed(('node', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'add'), gateiden=layr1.iden, deepdeny=True),
+                'props': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'prop', 'set'), gateiden=layr1.iden, deepdeny=True),
+                'tags': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                        runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
+                'ndata': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
+                'edges': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                         runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
+            }
+
+            doperms = not all(allows.values())
 
         if self.opts.diff:
 
@@ -3854,7 +3877,7 @@ class MergeCmd(Cmd):
                 yield node, path
 
             async def diffgenr():
-                async for buid, sode in runt.snap.view.layers[0].getStorNodes():
+                async for buid, sode in layr0.getStorNodes():
                     node = await runt.snap.getNodeByBuid(buid)
                     if node is not None:
                         yield node, runt.initPath(node)
@@ -3873,33 +3896,19 @@ class MergeCmd(Cmd):
                 sodes = await node.getStorNodes()
                 sode = sodes[0]
 
-                if self.opts.apply:
+                if doapply:
                     editor = s_snap.SnapEditor(snap)
 
                 subs = []
 
-                async def sync():
-
-                    if not self.opts.apply:
-                        subs.clear()
-                        return
-
-                    addedits = editor.getNodeEdits()
-                    if addedits:
-                        await runt.snap.view.parent.storNodeEdits(addedits, meta=meta)
-
-                    if subs:
-                        subedits = [(node.buid, node.form.name, subs)]
-                        await runt.snap.view.storNodeEdits(subedits, meta=meta)
-                        subs.clear()
-
                 # check all node perms first
-                if self.opts.apply:
-                    await self._checkNodePerms(node, sode, runt)
+                if doperms:
+                    await self._checkNodePerms(node, sode, runt, allows)
 
                 form = node.form.name
                 if form == 'syn:tag':
                     if notags:
+                        await asyncio.sleep(0)
                         continue
                 else:
                     # avoid merging a tag if the node won't exist below us
@@ -3908,6 +3917,7 @@ class MergeCmd(Cmd):
                             if undr.get('valu') is not None:
                                 break
                         else:
+                            await asyncio.sleep(0)
                             continue
 
                 protonode = None
@@ -3916,23 +3926,24 @@ class MergeCmd(Cmd):
                     valu = sode.get('valu')
                     if valu is not None:
 
-                        if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
+                        if tagfilter is not None and form == 'syn:tag' and tagfilter(valu[0]):
+                            await asyncio.sleep(0)
                             continue
 
-                        if not self.opts.apply:
+                        if not doapply:
                             valurepr = node.form.type.repr(valu[0])
                             await runt.printf(f'{nodeiden} {form} = {valurepr}')
                         else:
                             delnode = True
                             protonode = await editor.addNode(form, valu[0])
 
-                    elif self.opts.apply:
+                    elif doapply:
                         protonode = await editor.addNode(form, node.ndef[1], norminfo={})
 
                     for name, (valu, stortype) in sode.get('props', {}).items():
 
                         prop = node.form.prop(name)
-                        if propfilter:
+                        if propfilter is not None:
                             if name[0] == '.':
                                 if propfilter(name):
                                     continue
@@ -3942,7 +3953,7 @@ class MergeCmd(Cmd):
 
                         if prop.info.get('ro'):
                             if name == '.created':
-                                if self.opts.apply:
+                                if doapply:
                                     protonode.props['.created'] = valu
                                     subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
                                 continue
@@ -3952,8 +3963,8 @@ class MergeCmd(Cmd):
                                 props = undr.get('props')
                                 if props is not None:
                                     curv = props.get(name)
-                                    if curv is not None and curv[0] != valu:
-                                        isset = True
+                                    if curv is not None:
+                                        isset = curv[0] != valu
                                         break
 
                             if isset:
@@ -3963,24 +3974,23 @@ class MergeCmd(Cmd):
                                 await runt.snap.warn(mesg)
                                 continue
 
-                        if not self.opts.apply:
+                        if not doapply:
                             valurepr = prop.type.repr(valu)
                             await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                         else:
                             await protonode.set(name, valu)
                             subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
-                if self.opts.apply and protonode is None:
+                if doapply and protonode is None:
                     protonode = await editor.addNode(form, node.ndef[1], norminfo={})
 
                 if not notags:
                     for tag, valu in sode.get('tags', {}).items():
 
-                        if tagfilter and tagfilter(tag):
+                        if tagfilter is not None and tagfilter(tag):
                             continue
 
-                        tagperm = tuple(tag.split('.'))
-                        if not self.opts.apply:
+                        if not doapply:
                             valurepr = ''
                             if valu != (None, None):
                                 tagrepr = runt.model.type('ival').repr(valu)
@@ -3992,12 +4002,11 @@ class MergeCmd(Cmd):
 
                     for tag, tagdict in sode.get('tagprops', {}).items():
 
-                        if tagfilter and tagfilter(tag):
+                        if tagfilter is not None and tagfilter(tag):
                             continue
 
                         for prop, (valu, stortype) in tagdict.items():
-                            tagperm = tuple(tag.split('.'))
-                            if not self.opts.apply:
+                            if not doapply:
                                 valurepr = repr(valu)
                                 await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                             else:
@@ -4006,31 +4015,33 @@ class MergeCmd(Cmd):
 
                 if not onlytags or form == 'syn:tag':
 
-                    layr = runt.snap.view.layers[0]
-                    async for name, valu in layr.iterNodeData(node.buid):
-                        if not self.opts.apply:
+                    async for name, valu in s_coro.pause(layr0.iterNodeData(node.buid)):
+                        if not doapply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                         else:
                             await protonode.setData(name, valu)
                             subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
-                            if len(subs) >= 1000:
-                                await asyncio.sleep(0)
 
-                    async for edge in layr.iterNodeEdgesN1(node.buid):
+                    async for edge in s_coro.pause(layr0.iterNodeEdgesN1(node.buid)):
                         name, dest = edge
-                        if not self.opts.apply:
+                        if not doapply:
                             await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
                         else:
                             await protonode.addEdge(name, dest)
                             subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                            if len(subs) >= 1000:
-                                await asyncio.sleep(0)
 
                 if delnode:
                     subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
-                await sync()
+                if doapply:
+                    addedits = editor.getNodeEdits()
+                    if addedits:
+                        await runt.snap.view.parent.storNodeEdits(addedits, meta=meta)
+
+                    if subs:
+                        subedits = [(node.buid, node.form.name, subs)]
+                        await runt.snap.view.storNodeEdits(subedits, meta=meta)
 
                 runt.snap.clearCachedNode(node.buid)
                 yield await runt.snap.getNodeByBuid(node.buid), path
