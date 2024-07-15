@@ -42,7 +42,7 @@ class StormExecCmd(s_storm.Cmd):
     name = 'storm.exec'
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('query', help='The Storm query to execute.')
+        pars.add_argument('query', help='The Storm to execute.')
         return pars
 
     async def execStormCmd(self, runt, genr):
