@@ -362,6 +362,15 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.clearAhaUserEnrolls()
 
+    async def mayLeadTerm(self, iden, name, term, nexs):
+        network = self.cell.conf.get('aha:network')
+        # If we could register the service, we can lead the service...
+        await self._reqUserAllowed(('aha', 'service', 'add', network, name))
+        return await self.cell.mayLeadTerm(iden, name, term, nexs)
+
+    async def getLeadTerm(self, iden):
+        return await self.cell.getLeadTerm(iden)
+
 class ProvDmon(s_daemon.Daemon):
 
     async def __anit__(self, aha):
@@ -566,7 +575,6 @@ class AhaCell(s_cell.Cell):
 
     async def initServiceStorage(self):
 
-        # TODO plumb using a remote jsonstor?
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)
@@ -1274,7 +1282,6 @@ class AhaCell(s_cell.Cell):
         '''
         Set the current leader term for the specified service cluster.
         '''
-        # TODO schema
         termdef['time'] = s_common.now()
         s_schema.reqValidLeadTerm(termdef)
         return await self._push('aha:lead:set', termdef)

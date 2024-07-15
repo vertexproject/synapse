@@ -1505,35 +1505,43 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _askAhaToLead(self, proxy):
 
-        async with self.nexslock:
+        while not self.isfini:
+            try:
+                proxy = self.ahaclient.proxy(timeout=4)
+            except Exception as e:
+                logger.error(f'Error getting AHA proxy to check leadership: {e}')
 
-            name = self.conf.get('aha:name')
-            nexs = self.getNexsIndx()
-            term = self.getCellMeta('aha:term', 0)
+            async with self.nexslock:
 
-            state, leadterm = await proxy.mayLeadTerm(self.iden, name, term, nexs)
+                name = self.conf.get('aha:name')
+                nexs = self.getNexsIndx()
+                term = self.getCellMeta('aha:term', 0)
 
-            if state == s_aha.STATE_LEAD:
-                self.conf.modCellConf({'mirror': None})
-                await self.setCellActive(True)
-                await self.nexsroot.startup()
-                return
+                state, leadterm = await proxy.mayLeadTerm(self.iden, name, term, nexs)
 
-            if state == s_aha.STATE_FOLLOW:
-                lead = leadterm.get('name')
-                user = self.conf.get('aha:user', 'root')
-                self.conf.modCellConf({'mirror': f'aha://{user}@{lead}...'})
-                await self.setCellActive(False)
-                await self.nexsroot.startup()
-                return
+                realterm = leadterm.get('term')
+                if realterm > term:
+                    self.setCellMeta('aha:term', realterm)
 
-            if state == s_aha.STATE_INVALID:
-                await self._terStateInvalid()
+                if state == s_aha.STATE_LEAD:
+                    await self.setMirror(None)
+                    return
+
+                if state == s_aha.STATE_FOLLOW:
+                    lead = leadterm.get('name')
+                    user = self.conf.get('aha:user', 'root')
+                    await self.setMirror(f'aha://{user}@{lead}')
+                    return
+
+                if state == s_aha.STATE_INVALID:
+                    await self._termStateInvalid()
 
     async def _termStateInvalid(self):
         # hook point for enterprise behavior
         logger.error('Leadership schism detected!')
         logger.error('See: FIXME DOCS URL')
+        # TODO: should we allow an ENV var based override?
+        # TODO: should we find the leader and re-provision?
         await self.fini()
 
     async def _initAhaRegistry(self):
@@ -1605,19 +1613,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def initNexusSubsystem(self):
-        if self.cellparent is None:
-            await self.nexsroot.recover()
-            await self.nexsroot.startup()
 
-            mirurl = self.conf.get('mirror')
-            if mirurl is None:
-                # we think we should lead...
-                nexs
+        if self.cellparent is not None:
+            return
 
-            await self.setCellActive(self.conf.get('mirror') is None)
+        # If we are AHA enabled and think we're the leader,
+        # we must check before proceeding...
+        # TODO: or be readonly or a follower of None or something?
+        mirror = self.conf.get('mirror')
+        if self.ahaclient is not None:
+            self._ask
+            nexs = self.getNexsIndx()
 
-            if self.minfree is not None:
-                self.schedCoro(self._runFreeSpaceLoop())
+        await self.nexsroot.recover()
+        await self.nexsroot.startup()
+
+        # retrieve this again in case it changed
+        mirror = self.conf.get('mirror')
+        await self.setCellActive(mirror is None)
+
+        if self.minfree is not None:
+            self.schedCoro(self._runFreeSpaceLoop())
+
+    async def setMirror(self, url):
+        self.conf.update({'mirror': url})
+        await self.setCellActive(url is None)
+        await self.nexsroot.startup()
 
     async def _bindDmonListen(self):
 
@@ -1843,14 +1864,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}')
                 return
 
-        logger.debug(f'PROMOTION: Clearing mirror configuration.')
-        self.modCellConf({'mirror': None})
+        if self.ahaclient:
 
-        logger.debug(f'PROMOTION: Promoting the nexus root.')
-        await self.nexsroot.promote()
+            name = self.conf.get('aha:name')
+            proxy = await self.ahaclient.proxy(timeout=6)
 
-        logger.debug(f'PROMOTION: Setting the cell as active.')
-        await self.setCellActive(True)
+            logger.warning(f'PROMOTION: Updating AHA Leadership Term')
+            async with self.nexslock:
+                nexs = await self.getNexsIndx()
+                leadterm = await proxy.nextLeadTerm(self.iden, name, nexs)
+                self.setCellMeta('aha:term', leadterm.get('term'))
+
+        await self.setMirror(None)
 
         logger.warning(f'PROMOTION: Finished leadership promotion!')
 
@@ -1887,14 +1912,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion.')
                 await cell.promote()
 
-                logger.debug(f'HANDOFF: Setting the service as inactive.')
-                await self.setCellActive(False)
-
                 logger.debug(f'HANDOFF: Configuring service to sync from new leader.')
-                self.modCellConf({'mirror': turl})
-
-                logger.debug(f'HANDOFF: Restarting the nexus.')
-                await self.nexsroot.startup()
+                await self.setMirror(turl)
 
             logger.debug(f'HANDOFF: Released nexus lock.')
 
