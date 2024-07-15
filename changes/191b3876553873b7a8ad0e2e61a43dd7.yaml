@@ -1,6 +1,0 @@
----
-desc: |
-  Update the ``getCellInfo()`` API to include HTTPS listener addresses and ports.
-prs: []
-type: feat
-...

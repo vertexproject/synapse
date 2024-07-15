@@ -6,6 +6,59 @@
 Synapse Changelog
 *****************
 
+
+v2.175.0 - 2024-07-15
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate existing ndef secondary properties to use the new ndef property
+  indexing.
+  (`#3794 <https://github.com/vertexproject/synapse/pull/3794>`_)
+  (`#3809 <https://github.com/vertexproject/synapse/pull/3809>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Update Cell with ``_getCellHttpOpts()`` method to allow for overriding default
+  HTTP options.
+  (`#3770 <https://github.com/vertexproject/synapse/pull/3770>`_)
+- Add additional indexing for ndef based secondary properties.
+  (`#3794 <https://github.com/vertexproject/synapse/pull/3794>`_)
+  (`#3809 <https://github.com/vertexproject/synapse/pull/3809>`_)
+- Implement ``--prs-from-git`` in ``synapse.tools.changelog``.
+  (`#3800 <https://github.com/vertexproject/synapse/pull/3800>`_)
+- Update the ``getCellInfo()`` API to include HTTPS listener addresses and
+  ports.
+  (`#3802 <https://github.com/vertexproject/synapse/pull/3802>`_)
+- Improve permissions checking performance in the Storm ``merge`` command.
+  (`#3804 <https://github.com/vertexproject/synapse/pull/3804>`_)
+- Support multiple tags in the diff command, which also allows for more
+  efficient deduplication (e.g. ``diff --tag foo bar``
+  versus ``diff --tag foo | diff --tag bar | uniq``).
+  (`#3806 <https://github.com/vertexproject/synapse/pull/3806>`_)
+- Add information about the remote link when logging common server side
+  Telepath errors.
+  (`#3808 <https://github.com/vertexproject/synapse/pull/3808>`_)
+
+Bugfixes
+--------
+- Fix an AttributeError in ``synapse.tools.changelog``.
+  (`#3798 <https://github.com/vertexproject/synapse/pull/3798>`_)
+- Fix for large array props causing system lag.
+  (`#3799 <https://github.com/vertexproject/synapse/pull/3799>`_)
+
+Improved documentation
+----------------------
+- Remaining docs have been converted from Jupyter notebook format to RST.
+  (`#3803 <https://github.com/vertexproject/synapse/pull/3803>`_)
+
+Deprecations
+------------
+- Deprecate the use of the ``synapse.lib.jupyter`` library. This will be
+  removed on 2024-08-26.
+  (`#3803 <https://github.com/vertexproject/synapse/pull/3803>`_)
+
 v2.174.0 - 2024-07-09
 =====================
 
