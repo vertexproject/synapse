@@ -1,0 +1,5 @@
+---
+desc: Migrate existing ndef secondary properties to use the new ndef property indexing.
+prs: [ 3794 ]
+type: migration
+...
