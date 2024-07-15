@@ -20,7 +20,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Update Cell with ``_getCellHttpOpts`` method to allow for overriding default
+- Update Cell with ``_getCellHttpOpts()`` method to allow for overriding default
   HTTP options.
   (`#3770 <https://github.com/vertexproject/synapse/pull/3770>`_)
 - Add additional indexing for ndef based secondary properties.
@@ -34,8 +34,8 @@ Features and Enhancements
 - Improve permissions checking performance in the Storm ``merge`` command.
   (`#3804 <https://github.com/vertexproject/synapse/pull/3804>`_)
 - Support multiple tags in the diff command, which also allows for more
-  efficient deduplication (e.g.
-  ``diff --tag foo bar`` versus ``diff --tag foo | diff --tag bar | uniq``).
+  efficient deduplication (e.g. ``diff --tag foo bar``
+  versus ``diff --tag foo | diff --tag bar | uniq``).
   (`#3806 <https://github.com/vertexproject/synapse/pull/3806>`_)
 - Add information about the remote link when logging common server side
   Telepath errors.
