@@ -178,7 +178,7 @@ async def t2call(link, meth, args, kwargs):
             if isinstance(e, asyncio.CancelledError):
                 logger.info('t2call task %s cancelled', meth.__name__)
             else:
-                logger.exception('error during task %s', meth.__name__)
+                logger.exception(f'error during task {meth.__name__} {e}')
 
             if isinstance(valu, types.AsyncGeneratorType):
                 await valu.aclose()
@@ -211,7 +211,7 @@ async def t2call(link, meth, args, kwargs):
         return
 
     except (asyncio.CancelledError, Exception) as e:
-        logger.exception('error during task: %s', meth.__name__)
+        logger.exception(f'error during task: {meth.__name__} {e}')
         if not link.isfini:
             retn = s_common.retnexc(e)
             await link.tx(('t2:fini', {'retn': retn}))
@@ -380,24 +380,23 @@ class Daemon(s_base.Base):
 
         link.schedCoro(rxloop())
 
-    async def _onLinkMesg(self, link, mesg):
+    async def _onLinkMesg(self, link: s_link.Link, mesg):
 
         try:
             func = self.mesgfuncs.get(mesg[0])
             if func is None:
-                logger.exception('Dmon.onLinkMesg Invalid: %.80r' % (mesg,))
+                logger.error(f'Dmon.onLinkMesg Invalid mesg: mesg={s_common.trimText(repr(mesg), n=80)} '
+                             f'link={link.getAddrInfo()}')
                 return
 
             await func(link, mesg)
 
-        except asyncio.CancelledError:  # pragma: no cover  # TODO: remove once >= py 3.8 only
-            raise
-
         except ConnectionResetError:
-            logger.debug('Dmon.onLinkMesg Handler: connection reset')
+            logger.debug(f'Dmon.onLinkMesg Handler: connection reset link={link.getAddrInfo()}')
 
         except Exception:
-            logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
+            logger.exception(f'Dmon.onLinkMesg Handler: mesg={s_common.trimText(repr(mesg), n=80)} '
+                             f'link={link.getAddrInfo()}')
 
     async def _onShareFini(self, link, mesg):
 
@@ -473,7 +472,7 @@ class Daemon(s_base.Base):
             reply[1]['sess'] = sess.iden
 
         except Exception as e:
-            logger.exception('tele:syn error')
+            logger.exception(f'tele:syn error: {e} link={link.getAddrInfo()}')
             reply[1]['retn'] = s_common.retnexc(e)
 
         await link.tx(reply)
@@ -501,7 +500,7 @@ class Daemon(s_base.Base):
         typename = valu.typename
         return ('task:fini', {'task': task, 'retn': retn, 'type': typename})
 
-    async def _onTaskV2Init(self, link, mesg):
+    async def _onTaskV2Init(self, link: s_link.Link, mesg):
 
         # t2:init is used by the pool sockets on the client
         name = mesg[1].get('name')
@@ -539,7 +538,7 @@ class Daemon(s_base.Base):
                 sess.onfini(sessitem)
 
         except (asyncio.CancelledError, Exception) as e:
-            logger.exception('on t2:init: %r' % (mesg,))
+            logger.exception(f'Error on t2:init: {s_common.trimText(repr(mesg), n=80)} link={link.getAddrInfo()}')
             if not link.isfini:
                 retn = s_common.retnexc(e)
                 await link.tx(('t2:fini', {'retn': retn}))
