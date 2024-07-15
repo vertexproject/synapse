@@ -1,0 +1,7 @@
+---
+desc: Support multiple tags in the diff command, which also allows for more efficient
+  deduplication (e.g. ``diff --tag foo bar`` versus ``diff --tag foo | diff --tag bar |
+  uniq``).
+prs: []
+type: feat
+...
