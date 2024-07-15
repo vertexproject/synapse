@@ -47,14 +47,29 @@ class StormExecCmd(s_storm.Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        item = None
-        async for item in genr:
-            break
-
-        if item is not None:
+        if self.runtsafe:
 
             text = await s_stormtypes.tostr(self.opts.query)
             query = await runt.getStormQuery(text)
+
+            extra = await self.runt.snap.core.getLogExtra(text=text)
+            stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
+
+            async with runt.getSubRuntime(query) as subr:
+                async for subp in subr.execute(genr=genr):
+                    yield subp
+
+        else:
+
+            item = None
+            async for item in genr:
+                break
+
+            text = await s_stormtypes.tostr(self.opts.query)
+            query = await runt.getStormQuery(text)
+
+            extra = await self.runt.snap.core.getLogExtra(text=text)
+            stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
 
             async with runt.getSubRuntime(query) as subr:
                 async for subp in subr.execute(genr=s_common.agen(item)):
@@ -64,17 +79,11 @@ class StormExecCmd(s_storm.Cmd):
                     text = await s_stormtypes.tostr(self.opts.query)
                     subr.query = await runt.getStormQuery(text)
 
+                    extra = await self.runt.snap.core.getLogExtra(text=text)
+                    stormlogger.info(f'Executing storm query via storm.exec {{{text}}} as [{self.runt.user.name}]', extra=extra)
+
                     async for subp in subr.execute(genr=s_common.agen(item)):
                         yield subp
-
-        elif self.runtsafe:
-
-            text = await s_stormtypes.tostr(self.opts.query)
-            query = await runt.getStormQuery(text)
-
-            async with runt.getSubRuntime(query) as subr:
-                async for subp in subr.execute():
-                    yield subp
 
 @s_stormtypes.registry.registerLib
 class LibStorm(s_stormtypes.Lib):
