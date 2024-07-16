@@ -806,11 +806,8 @@ class ModelRev:
                     $success = $lib.model.migration.s.itSecCpe_2_170_0($oldcpe)
                     $nodedata = $oldcpe.data.get("migration.s.itSecCpe_2_170_0")
 
-                    // Migration successful and no primary property changes
-                    if ($success and not $nodedata.valu) { continue }
-
                     if $success {
-                        // No primary property changes, nothing to do
+                        // No primary property changes, nothing to do. Node has been fully migrated.
                         if (not $nodedata.valu) {
                             continue
                         }
@@ -831,45 +828,43 @@ class ModelRev:
                         { inet:flow:dst:cpes*[=$oldcpe] [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ] }
                         { inet:flow:src:cpes*[=$oldcpe] [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ] }
 
-                        // Finally, delete the broken node
-                        iden $oldcpe.iden() | delnode --force |
+                    } else {
 
-                        // Next node please
-                        continue
+                        // Node could not be automatically migrated. Collect
+                        // critical information to eventually reconstruct this node
+                        // and store it in a queue.
+
+                        $edges = ([])
+                        for $edge in $oldcpe.edges() {
+                            $edges.append($edge)
+                        }
+
+                        $references = ([])
+                        { it:prod:hardware:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
+                        { it:prod:soft:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
+                        { it:prod:softver:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
+                        { inet:flow:dst:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
+                        { inet:flow:src:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
+
+                        $sources = ([])
+                        { yield $oldcpe <(seen)- meta:source $sources.append($node.repr()) }
+
+                        $data = ({
+                            "view": $view.iden,
+                            "layer": $lib.layer.get().iden,
+                            "node": $oldcpe.iden(),
+                            "edges": $edges,
+                            "tags": $oldcpe.tags(),
+                            "data": $oldcpe.data.list(),
+                            "references": $references,
+                            "sources": $sources,
+                        })
+
+                        $queue.put($data)
                     }
 
-                    $edges = ([])
-                    for $edge in $oldcpe.edges() {
-                        $edges.append($edge)
-                    }
-
-                    $tags = ([])
-                    for $tag in $oldcpe.tags() {
-                        $tags.append($tag)
-                    }
-
-                    $references = ([])
-                    { it:prod:hardware:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
-                    { it:prod:soft:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
-                    { it:prod:softver:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
-                    { inet:flow:dst:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
-                    { inet:flow:src:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
-
-                    $sources = ([])
-                    { yield $oldcpe <(seen)- meta:source $sources.append($node.repr()) }
-
-                    $data = ({
-                        "view": $view.iden,
-                        "layer": $lib.layer.get().iden,
-                        "node": $oldcpe.iden(),
-                        "edges": $edges,
-                        "tags": $tags,
-                        "data": $oldcpe.data.list(),
-                        "references": $references,
-                        "sources": $sources,
-                    })
-
-                    $queue.put($data)
+                    // Finally, delete the broken node
+                    iden $oldcpe.iden() | delnode --force
                 }
             }
         }
