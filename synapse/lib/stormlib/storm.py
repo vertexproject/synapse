@@ -7,10 +7,18 @@ import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 
 evaldesc = '''\
-Evaluate a storm runtime value and optionally cast/coerce it.
+Evaluate a Storm runtime value and optionally cast/coerce it.
 
-NOTE: If storm logging is enabled, the expression being evaluated will be logged
-separately.
+Note:
+    If Storm logging is enabled, the expression being evaluated will be logged
+    separately.
+'''
+
+rundesc = '''
+Run a Storm query and yield the messages output by the Storm interpreter.
+
+Note:
+    If Storm logging is enabled, the query being run will be logged separately.
 '''
 
 stormlogger = logging.getLogger('synapse.storm')
@@ -101,14 +109,42 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'text', 'type': 'str', 'desc': 'A storm expression string.'},
                       {'name': 'cast', 'type': 'str', 'desc': 'A type to cast the result to.', 'default': None},
                   ),
-                  'returns': {'type': 'any', 'desc': 'The value of the expression and optional cast.', }}},
+                  'returns': {'type': 'any', 'desc': 'The value of the expression and optional cast.'}}},
+        {'name': 'run', 'desc': rundesc,
+         'type': {'type': 'function', '_funcname': '_runStorm',
+                  'args': (
+                      {'name': 'query', 'type': 'str', 'desc': 'A Storm query string.'},
+                      {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list', 'desc': 'The output messages from the Storm runtime.'}}},
     )
     _storm_lib_path = ('storm',)
 
     def getObjLocals(self):
         return {
+            'run': self._runStorm,
             'eval': self._evalStorm,
         }
+
+    async def _runStorm(self, query, opts=None):
+
+        opts = await s_stormtypes.toprim(opts)
+        query = await s_stormtypes.tostr(query)
+
+        if opts is None:
+            opts = {}
+
+        user = opts.get('user')
+        if user is None:
+            user = opts['user'] = self.runt.user.iden
+
+        if user != self.runt.user.iden:
+            self.runt.confirm(('impersonate',))
+
+        opts.setdefault('view', self.runt.snap.view.iden)
+
+        async for mesg in self.runt.snap.view.core.storm(query, opts=opts):
+            yield mesg
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _evalStorm(self, text, cast=None):
