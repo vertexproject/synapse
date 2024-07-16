@@ -1519,6 +1519,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An object status enumeration.'}),
 
                     ('inet:service:account', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
                         'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
