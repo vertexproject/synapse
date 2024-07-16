@@ -108,7 +108,7 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'cast', 'type': 'str', 'desc': 'A type to cast the result to.', 'default': None},
                   ),
                   'returns': {'type': 'any', 'desc': 'The value of the expression and optional cast.'}}},
-        {'name': 'run', 'desc': evaldesc,
+        {'name': 'run', 'desc': rundesc,
          'type': {'type': 'function', '_funcname': '_runStorm',
                   'args': (
                       {'name': 'query', 'type': 'str', 'desc': 'A storm query string.'},
