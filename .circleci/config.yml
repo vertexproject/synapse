@@ -121,8 +121,7 @@ commands:
       - run:
           name: checkout regression repo
           command: |
-            # FIXME: DELETE THE BRANCH NAME BEFORE MERGING
-            git clone https://github.com/vertexproject/synapse-regression -b blackout/inet_ssl ~/git/synapse-regression
+            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
       - restore_cache:
           keys:
