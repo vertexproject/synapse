@@ -1,5 +1,0 @@
----
-desc: Fix an AttributeError in ``synapse.tools.changelog``
-prs: []
-type: bug
-...
