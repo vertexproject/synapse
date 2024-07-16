@@ -1,5 +1,5 @@
 ---
-desc: Added .storm.run() to programatically invoke Storm.
+desc: Added $lib.storm.run() to programatically invoke Storm.
 prs: []
 type: feat
 ...
