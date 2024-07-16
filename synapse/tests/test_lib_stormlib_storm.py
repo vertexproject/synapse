@@ -5,7 +5,7 @@ import synapse.tests.utils as s_test
 
 class LibStormTest(s_test.SynTest):
 
-    async def test_lib_stormlib_storm(self):
+    async def test_lib_stormlib_storm_eval(self):
         async with self.getTestCore() as core:
 
             opts = {'vars': {'text': '(10)'}}
@@ -61,3 +61,50 @@ class LibStormTest(s_test.SynTest):
 
                 mesg = f'Executing storm query via $lib.storm.eval() {{{q}}} as [root]'
                 self.isin(mesg, data)
+
+    async def test_lib_stormlib_storm_exec(self):
+        async with self.getTestCore() as core:
+
+            q = '''
+            $query = '[ inet:fqdn=foo.com inet:fqdn=bar.com ]'
+            storm.exec $query
+            '''
+            self.len(2, await core.nodes(q))
+
+            q = '''[
+            (inet:ipv4=1.2.3.4 :asn=4)
+            (inet:ipv4=1.2.3.5 :asn=5)
+            (inet:ipv4=1.2.3.6 :asn=10)
+            ]'''
+            await core.nodes(q)
+
+            q = '''
+            $filter = '-:asn=10'
+            inet:ipv4:asn
+            storm.exec $filter
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            for node in nodes:
+                self.ne(node.get('asn'), 10)
+
+            q = '''
+            $pivot = ${ -> inet:asn }
+            inet:ipv4:asn
+            storm.exec $pivot
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq(node.form.name, 'inet:asn')
+
+            # Exec a non-runtsafe query
+            q = '''
+            inet:ipv4:asn
+            $filter = `+:asn={$node.repr().split('.').'-1'}`
+            storm.exec $filter
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            for node in nodes:
+                self.ne(node.get('asn'), 10)
