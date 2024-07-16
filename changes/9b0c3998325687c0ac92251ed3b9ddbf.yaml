@@ -1,0 +1,5 @@
+---
+desc: Added .storm.run() to programatically invoke Storm.
+prs: []
+type: feat
+...
