@@ -131,3 +131,14 @@ class LibStormTest(s_test.SynTest):
             ''', opts={'user': visi.iden})
             self.stormIsInErr('must have permission impersonate', msgs)
             self.stormNotInPrint('lolz', msgs)
+
+            # no opts provided
+            msgs = await core.stormlist('''
+                $q = ${ $lib.print('hello') }
+                for $mesg in $lib.storm.run($q) {
+                    if ( $mesg.0 = 'print' ) {
+                        $lib.print(`mesg={$mesg.1.mesg}`)
+                    }
+                }
+            ''')
+            self.stormIsInPrint('mesg=hello', msgs)
