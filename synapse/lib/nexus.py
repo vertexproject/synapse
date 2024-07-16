@@ -12,7 +12,6 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -524,27 +523,32 @@ class NexsRoot(s_base.Base):
 
     async def runMirrorLoop(self, proxy):
 
-        cellinfo = await proxy.getCellInfo()
-        features = cellinfo.get('features', {})
-        if features.get('dynmirror'):
-            await proxy.readyToMirror()
+        try:
+            cellinfo = await proxy.getCellInfo()
+            features = cellinfo.get('features', {})
+            if features.get('dynmirror'):
+                await proxy.readyToMirror()
 
-        cellvers = cellinfo['cell']['version']
-        if cellvers > self.cell.VERSION:
-            logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
-            await self.addWriteHold(leaderversion)
-            # this will fire again on reconnect...
-            return
-
-        # When we reconnect and the leader version has become ok...
-        await self.delWriteHold(leaderversion)
-
-        if self.celliden is not None:
-            if self.celliden != await proxy.getCellIden():
-                logger.error('remote cell has different iden!  Aborting mirror sync')
-                await proxy.fini()
-                await self.fini()
+            cellvers = cellinfo['cell']['version']
+            if cellvers > self.cell.VERSION:
+                logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
+                await self.addWriteHold(leaderversion)
+                # this will fire again on reconnect...
                 return
+
+            # When we reconnect and the leader version has become ok...
+            await self.delWriteHold(leaderversion)
+
+            if self.celliden is not None:
+                if self.celliden != await proxy.getCellIden():
+                    logger.error('remote cell has different iden!  Aborting mirror sync')
+                    await proxy.fini()
+                    await self.fini()
+                    return
+
+        except Exception as exc:
+            logger.exception(f'Unknown error during mirror loop startup: {exc}')
+            await proxy.fini()
 
         while not proxy.isfini:
 
@@ -600,8 +604,8 @@ class NexsRoot(s_base.Base):
                         if respfutu is not None:
                             respfutu.set_result(retn)
 
-            except Exception:  # pragma: no cover
-                logger.exception('error in mirror loop')
+            except Exception as exc:  # pragma: no cover
+                logger.exception(f'error in mirror loop: {exc}')
 
         # If we've left the mirror loop for some reason, we no longer know if we
         # will be in the realtime window or not. So we should try to set the ready

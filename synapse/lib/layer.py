@@ -83,6 +83,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
+import synapse.lib.spooled as s_spooled
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -2535,6 +2536,24 @@ class Layer(s_nexus.Pusher):
                 # yield <sortkey>, <nid>, <SodeEnvl>
                 yield lkey, nid, self.genStorNodeRef(nid)
 
+    async def liftByTags(self, tags):
+        # todo: support form and reverse kwargs
+
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as nidset:
+            for tag in tags:
+                try:
+                    abrv = self.core.getIndxAbrv(INDX_TAG, None, tag)
+                except s_exc.NoSuchAbrv:
+                    continue
+
+                for lkey, nid in self.layrslab.scanByPref(abrv, db=self.indxdb):
+                    if nid in nidset:
+                        await asyncio.sleep(0)
+                        continue
+
+                    await nidset.add(nid)
+                    yield nid, self.genStorNodeRef(nid)
+
     async def liftByTagValu(self, tag, cmprvals, form=None, reverse=False):
 
         for cmpr, valu, kind in cmprvals:
@@ -3238,6 +3257,7 @@ class Layer(s_nexus.Pusher):
             for indx in self.getStorIndx(stortype, valu):
                 kvpairs.append((arryabrv + indx, nid))
                 self.indxcounts.inc(arryabrv)
+                await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 kvpairs.append((abrv + indx, nid))
@@ -3287,6 +3307,7 @@ class Layer(s_nexus.Pusher):
             for indx in self.getStorIndx(stortype, valu):
                 self.layrslab.delete(arryabrv + indx, nid, db=self.indxdb)
                 self.indxcounts.inc(arryabrv, -1)
+                await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
@@ -3396,6 +3417,8 @@ class Layer(s_nexus.Pusher):
                     if realtype == STOR_TYPE_NDEF:
                         self.layrslab.delete(self.ndefabrv + oldi[8:], nid + abrv, db=self.indxdb)
 
+                    await asyncio.sleep(0)
+
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
                     self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
                     self.indxcounts.inc(abrv, -1)
@@ -3473,6 +3496,8 @@ class Layer(s_nexus.Pusher):
 
                 if realtype == STOR_TYPE_NDEF:
                     kvpairs.append((self.ndefabrv + indx[8:], nid + abrv))
+
+                await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 kvpairs.append((abrv + indx, nid))
@@ -3552,6 +3577,8 @@ class Layer(s_nexus.Pusher):
 
                     if realtype == STOR_TYPE_NDEF:
                         self.layrslab.delete(self.ndefabrv + indx[8:], nid + abrv, db=self.indxdb)
+
+                await asyncio.sleep(0)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
                 self.layrslab.delete(abrv + indx, nid, db=self.indxdb)
@@ -4360,6 +4387,12 @@ class Layer(s_nexus.Pusher):
     async def iterEdgeVerbs(self, n1nid, n2nid):
         for lkey, vabrv in self.layrslab.scanByPref(self.edgen1n2abrv + n1nid + n2nid, db=self.indxdb):
             yield vabrv, lkey[-1:] == FLAG_TOMB
+
+    async def iterNodeEdgeVerbsN1(self, nid):
+
+        pref = self.edgen1abrv + nid
+        for lkey in self.layrslab.scanKeysByPref(pref, db=self.indxdb, nodup=True):
+            yield lkey[-9:-1], lkey[-1:] == FLAG_TOMB
 
     async def hasNodeEdge(self, n1nid, verb, n2nid):
         try:

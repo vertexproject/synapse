@@ -416,7 +416,10 @@ class FileModule(s_module.CoreModule):
                     'doc': 'The GUID of the metadata pulled from a Windows shortcut or LNK file.',
                 }),
             ),
-
+            'edges': (
+                (('file:bytes', 'refs', 'it:dev:str'), {
+                    'doc': 'The source file contains the target string.'}),
+            ),
             'forms': (
 
                 ('file:bytes', {}, (

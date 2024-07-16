@@ -917,6 +917,7 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('cron.del $cron', opts=opts)
 
                     await core.addStormPkg(spkg)
+                    await core.addStormPkg(spkg)
                     await core.addStormSvc(ssvc)
 
                     await core.delStormSvc(ssvc['iden'])

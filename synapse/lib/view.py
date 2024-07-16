@@ -2139,6 +2139,8 @@ class View(s_nexus.Pusher):  # type: ignore
         elif self.triggers.get(iden) is not None:
             raise s_exc.DupIden(mesg='A trigger with this iden already exists')
 
+        tdef['view'] = self.iden
+
         root = await self.core.auth.getUserByName('root')
 
         tdef.setdefault('created', s_common.now())

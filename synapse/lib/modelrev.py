@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 24)
+maxvers = (0, 2, 26)
 
 class ModelRev:
 
@@ -418,6 +418,10 @@ class ModelRev:
         }
         '''
         await self.runStorm(storm, opts=opts)
+
+    async def _typeToForm(self, layers, typename, formname):
+        for prop in layers[0].core.model.getPropsByType(typename):
+            await self._propToForm(layers, prop.full, formname)
 
     async def _propArrayToForm(self, layers, propfull, formname):
 

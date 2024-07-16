@@ -90,6 +90,8 @@ the **Storm Package** YAML file to locate their contents::
     $hello = $lib.import(acme.hello)
     $hello.woot("hello storm!")
 
+.. _dev-rapid-power-ups-build:
+
 Building / Loading
 ------------------
 

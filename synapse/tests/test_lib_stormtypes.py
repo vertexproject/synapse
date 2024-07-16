@@ -322,6 +322,42 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.debug = (1) hehe.haha')
             self.stormIsInPrint('hehe.haha', msgs)
 
+    async def test_storm_doubleadd_pkg(self):
+        async with self.getTestCore() as core:
+            async with core.beholder() as wind:
+                pkg = {
+                    'name': 'hehe',
+                    'version': '1.1.1',
+                    'modules': [
+                        {'name': 'hehe', 'storm': 'function getDebug() { return($lib.debug) }'},
+                    ],
+                    'commands': [
+                        {'name': 'hehe.haha', 'storm': 'if $lib.debug { $lib.print(hehe.haha) }'},
+                    ],
+                }
+
+                # all but the first of these should bounce
+                for i in range(5):
+                    await core.addStormPkg(pkg)
+
+                pkg['version'] = '1.2.3'
+
+                # all but the first of these should bounce
+                for i in range(5):
+                    await core.addStormPkg(pkg)
+
+            events = []
+            async for m in wind:
+                events.append(m)
+            self.len(2, events)
+            self.eq('pkg:add', events[0]['event'])
+            self.eq('hehe', events[0]['info']['name'])
+            self.eq('1.1.1', events[0]['info']['version'])
+
+            self.eq('pkg:add', events[1]['event'])
+            self.eq('hehe', events[1]['info']['name'])
+            self.eq('1.2.3', events[1]['info']['version'])
+
     async def test_storm_private(self):
         async with self.getTestCore() as core:
             await core.addStormPkg({
@@ -4540,6 +4576,11 @@ class StormTypesTest(s_test.SynTest):
                     iden0 = mesg[1]['mesg'].split(' ')[-1]
 
             opts = {'vars': {'iden': iden0}}
+
+            # for coverage...
+            self.false(await core.killCronTask('newp'))
+            self.false(await core._killCronTask('newp'))
+            self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
 
             cdef = await core.callStorm('return($lib.cron.get($iden).pack())', opts=opts)
             self.eq('mydoc', cdef.get('doc'))
