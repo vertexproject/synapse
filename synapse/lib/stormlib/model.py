@@ -959,7 +959,6 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
         valu23 = None
         valu22 = None
-        invalid = ''
 
         # Check the primary property for validity.
         cpe23 = s_infotech.cpe23_regex.match(curv)
@@ -1010,7 +1009,6 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             norm, info = modl.norm(valu)
             subs = info.get('subs')
 
-            edits = []
             nodedata = {'status': 'success'}
 
             if norm != curv:

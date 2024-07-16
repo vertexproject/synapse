@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 26)
+maxvers = (0, 2, 27)
 
 class ModelRev:
 
@@ -40,6 +40,7 @@ class ModelRev:
             ((0, 2, 24), self.revModel_0_2_24),
             ((0, 2, 25), self.revModel_0_2_25),
             ((0, 2, 26), self.revModel_0_2_26),
+            ((0, 2, 27), self.revModel_0_2_27),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -782,6 +783,108 @@ class ModelRev:
             if stortype == s_layer.STOR_TYPE_NDEF:
                 logger.info(f'Updating ndef indexing for {name}')
                 await self._updatePropStortype(layers, prop.full)
+
+    async def revModel_0_2_27(self, layers):
+
+        opts = {'vars': {
+            'layridens': [layr.iden for layr in layers],
+        }}
+
+        storm = '''
+        $layers = $lib.set()
+        $layers.adds($layridens)
+
+        $queue = $lib.queue.gen("model_0_2_27")
+
+        for $view in $lib.view.list(deporder=$lib.true) {
+
+            if (not $layers.has($view.layers.0.iden)) { continue }
+
+            view.exec $view.iden {
+
+                for $oldcpe in $lib.layer.get().liftByProp(it:sec:cpe) {
+                    $success = $lib.model.migration.s.itSecCpe_2_170_0($oldcpe)
+                    $nodedata = $oldcpe.data.get("migration.s.itSecCpe_2_170_0")
+
+                    // Migration successful and no primary property changes
+                    if ($success and not $nodedata.valu) { continue }
+
+                    if $success {
+                        // No primary property changes, nothing to do
+                        if (not $nodedata.valu) {
+                            continue
+                        }
+
+                        // Create the new CPE node and migrate the edges, tags, and data
+                        $newcpe = {
+                            [ it:sec:cpe=$nodedata.valu ]
+                            $lib.model.migration.copyEdges($oldcpe, $node)
+                            $lib.model.migration.copyTags($oldcpe, $node)
+                            $lib.model.migration.copyData($oldcpe, $node)
+                            $node.data.pop("migration.s.itSecCpe_2_170_0")
+                        }
+
+                        // Migrate references
+                        { it:prod:hardware:cpe=$oldcpe [ :cpe=$newcpe ] }
+                        { it:prod:soft:cpe=$oldcpe [ :cpe=$newcpe ] }
+                        { it:prod:softver:cpe=$oldcpe [ :cpe=$newcpe ] }
+                        { inet:flow:dst:cpes*[=$oldcpe] [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ] }
+                        { inet:flow:src:cpes*[=$oldcpe] [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ] }
+
+                        // Finally, delete the broken node
+                        iden $oldcpe.iden() | delnode --force |
+
+                        // Next node please
+                        continue
+                    }
+
+                    $edges = ([])
+                    for $edge in $oldcpe.edges() {
+                        $edges.append($edge)
+                    }
+
+                    $tags = ([])
+                    for $tag in $oldcpe.tags() {
+                        $tags.append($tag)
+                    }
+
+                    $references = ([])
+                    { it:prod:hardware:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
+                    { it:prod:soft:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
+                    { it:prod:softver:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
+                    { inet:flow:dst:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
+                    { inet:flow:src:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
+
+                    $sources = ([])
+                    { yield $oldcpe <(seen)- meta:source $sources.append($node.repr()) }
+
+                    $data = ({
+                        "view": $view.iden,
+                        "layer": $lib.layer.get().iden,
+                        "node": $oldcpe.iden(),
+                        "edges": $edges,
+                        "tags": $tags,
+                        "data": $oldcpe.data.list(),
+                        "references": $references,
+                        "sources": $sources,
+                    })
+
+                    $queue.put($data)
+                }
+            }
+        }
+        '''
+
+        # TODO: Get the queue items with this query:
+        '''
+        $q = $lib.queue.get("model_0_2_27")
+        for $ii in $lib.range($q.size()) {
+            ($offs, $item) = $q.get($ii, cull=$lib.false, wait=$lib.false)
+            $lib.print(`{$offs}: {$item}`)
+        }
+        '''
+
+        await self.runStorm(storm, opts=opts)
 
     async def runStorm(self, text, opts=None):
         '''
