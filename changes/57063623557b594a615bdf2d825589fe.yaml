@@ -1,5 +1,0 @@
----
-desc: Fix for large array props causing system lag.
-prs: []
-type: bug
-...
