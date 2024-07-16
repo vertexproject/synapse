@@ -111,7 +111,7 @@ class LibStorm(s_stormtypes.Lib):
         {'name': 'run', 'desc': rundesc,
          'type': {'type': 'function', '_funcname': '_runStorm',
                   'args': (
-                      {'name': 'query', 'type': 'str', 'desc': 'A storm query string.'},
+                      {'name': 'query', 'type': 'str', 'desc': 'A Storm query string.'},
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
                   'returns': {'name': 'yields', 'type': 'list', 'desc': 'The output messages from the Storm runtime.'}}},
