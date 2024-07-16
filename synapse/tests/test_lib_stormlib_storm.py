@@ -62,7 +62,8 @@ class LibStormTest(s_test.SynTest):
                 mesg = f'Executing storm query via $lib.storm.eval() {{{q}}} as [root]'
                 self.isin(mesg, data)
 
-    async def test_lib_stormlib_storm_exec(self):
+    async def test_lib_stormlib_storm(self):
+
         async with self.getTestCore() as core:
 
             q = '''
@@ -108,3 +109,36 @@ class LibStormTest(s_test.SynTest):
             self.len(2, nodes)
             for node in nodes:
                 self.ne(node.get('asn'), 10)
+
+            iden = await core.callStorm('return($lib.view.get().fork().iden)')
+            msgs = await core.stormlist('''
+                $query = "[inet:fqdn=vertex.link +#haha] $lib.print(woot)"
+                $opts = ({"view": $view})
+                for $mesg in $lib.storm.run($query, opts=$opts) {
+                    if ($mesg.0 = "print") { $lib.print($mesg.1.mesg) }
+                }
+            ''', opts={'vars': {'view': iden}})
+            self.stormIsInPrint('woot', msgs)
+            self.len(1, await core.nodes('inet:fqdn#haha', opts={'view': iden}))
+
+            visi = await core.auth.addUser('visi')
+            msgs = await core.stormlist('''
+                $opts=({"user": $lib.auth.users.byname(root).iden})
+                for $mesg in $lib.storm.run("$lib.print(lolz)", opts=$opts) {
+                    if ($mesg.0 = "err") { $lib.print($mesg) }
+                    if ($mesg.0 = "print") { $lib.print($mesg) }
+                }
+            ''', opts={'user': visi.iden})
+            self.stormIsInErr('must have permission impersonate', msgs)
+            self.stormNotInPrint('lolz', msgs)
+
+            # no opts provided
+            msgs = await core.stormlist('''
+                $q = ${ $lib.print('hello') }
+                for $mesg in $lib.storm.run($q) {
+                    if ( $mesg.0 = 'print' ) {
+                        $lib.print(`mesg={$mesg.1.mesg}`)
+                    }
+                }
+            ''')
+            self.stormIsInPrint('mesg=hello', msgs)
