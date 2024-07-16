@@ -1557,6 +1557,10 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:service:object',),
                         'doc': 'A channel used to distribute messages.'}),
 
+                    ('inet:service:thread', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'A message thread.'}),
+
                     ('inet:service:channel:member', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
                         'doc': 'Represents a service account being a member of a channel.'}),
@@ -3657,8 +3661,14 @@ class InetModule(s_module.CoreModule):
                         ('channel', ('inet:service:channel', {}), {
                             'doc': 'The channel that the message was sent to.'}),
 
+                        ('thread', ('inet:service:thread', {}), {
+                            'doc': 'The thread which contains the message.'}),
+
                         ('public', ('bool', {}), {
                             'doc': 'Set to true if the message is publicly visible.'}),
+
+                        ('title', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The message title.'}),
 
                         ('text', ('str', {}), {
                             'disp': {'hint': 'text'},
@@ -3723,6 +3733,15 @@ class InetModule(s_module.CoreModule):
 
                         ('period', ('ival', {}), {
                             'doc': 'The time period where the channel was available.'}),
+                    )),
+
+                    ('inet:service:thread', {}, (
+
+                        ('title', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The title of the thread.'}),
+
+                        ('message', ('inet:service:message', {}), {
+                            'doc': 'The message which initiated the thread.'}),
                     )),
 
                     ('inet:service:channel:member', {}, (
