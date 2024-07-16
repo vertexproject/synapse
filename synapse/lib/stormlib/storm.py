@@ -7,7 +7,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 
 evaldesc = '''\
-Evaluate a storm runtime value and optionally cast/coerce it.
+Evaluate a Storm runtime value and optionally cast/coerce it.
 
 Note:
     If Storm logging is enabled, the expression being evaluated will be logged
@@ -15,7 +15,7 @@ Note:
 '''
 
 rundesc = '''
-Run a storm query and yield the messages output by the Storm interpreter.
+Run a Storm query and yield the messages output by the Storm interpreter.
 
 Note:
     If Storm logging is enabled, the query being run will be logged separately.
