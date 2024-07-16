@@ -10,7 +10,7 @@ evaldesc = '''\
 Evaluate a storm runtime value and optionally cast/coerce it.
 
 Note:
-    If storm logging is enabled, the expression being evaluated will be logged
+    If Storm logging is enabled, the expression being evaluated will be logged
     separately.
 '''
 
