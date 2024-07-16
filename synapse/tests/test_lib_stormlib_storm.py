@@ -120,3 +120,14 @@ class LibStormTest(s_test.SynTest):
             ''', opts={'vars': {'view': iden}})
             self.stormIsInPrint('woot', msgs)
             self.len(1, await core.nodes('inet:fqdn#haha', opts={'view': iden}))
+
+            visi = await core.auth.addUser('visi')
+            msgs = await core.stormlist('''
+                $opts=({"user": $lib.auth.users.byname(root).iden})
+                for $mesg in $lib.storm.run("$lib.print(lolz)", opts=$opts) {
+                    if ($mesg.0 = "err") { $lib.print($mesg) }
+                    if ($mesg.0 = "print") { $lib.print($mesg) }
+                }
+            ''', opts={'user': visi.iden})
+            self.stormIsInErr('must have permission impersonate', msgs)
+            self.stormNotInPrint('lolz', msgs)

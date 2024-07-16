@@ -137,7 +137,7 @@ class LibStorm(s_stormtypes.Lib):
             user = opts['user'] = self.runt.user.iden
 
         if user != self.runt.user.iden:
-            self.runt.confirm('impersonate')
+            self.runt.confirm(('impersonate',))
 
         opts.setdefault('view', self.runt.snap.view.iden)
 
