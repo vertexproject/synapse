@@ -602,6 +602,9 @@ class FileTest(s_t_utils.SynTest):
                     :target:created="2023/01/25 18:57:45.284"
                     :target:accessed="2023/01/25 18:57:45.284"
                     :target:written="2023/01/25 18:57:45.284"
+
+                    :driveserial=0x6af54670
+                    :machineid=stellarcollapse
             ]''')
             self.len(1, nodes)
             node = nodes[0]

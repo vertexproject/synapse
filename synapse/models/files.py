@@ -741,6 +741,11 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The access time of the target file according to the LNK header.'}),
                     ('target:written', ('time', {}), {
                         'doc': 'The write time of the target file according to the LNK header.'}),
+
+                    ('driveserial', ('int', {}), {
+                        'doc': 'The drive serial number of the volume the link target is stored on.'}),
+                    ('machineid', ('str', {}), {
+                        'doc': 'The NetBIOS name of the machine where the link target was last located.'}),
                 )),
             ),
 
