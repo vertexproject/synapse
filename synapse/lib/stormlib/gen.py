@@ -136,6 +136,21 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the place.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A geo:place node with the given name.'}}},
+
+        {'name': 'inetServicePlatformByFqdn', 'desc': 'Generates an inet:service:platform by FQDN.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'fqdn', 'type': 'str', 'desc': 'The FQDN used to identify the platform.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'An inet:servce:platform node.'}}},
+
+        {'name': 'inetServiceAccountByFqdnUser', 'desc': 'Generates an inet:service:account from an FQDN and username.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'fqdn', 'type': 'str', 'desc': 'The FQDN used to identify a platform.'},
+                      {'name': 'user', 'type': 'str', 'desc': 'The user name which identifies the platform user.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'An inet:servce:account node.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -423,6 +438,27 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             [ geo:place=(gen, name, $geoname) :name=$geoname ]
+            return($node)
+        }
+
+        function inetServicePlatformByFqdn(fqdn) {
+            $fqdn = $lib.cast(inet:fqdn, $fqdn)
+
+            inet:fqdn=$fqdn -> inet:servce:platform:fqdns
+            return($node)
+
+            [ inet:service:platform=(byfqdn, $fqdn) :fqdns+=$fqdn ]
+            return($node)
+        }
+
+        function inetServiceAccountByFqdnUser(fqdn, user) {
+            $user = $lib.cast(inet:user, $user)
+            $platform = $inetServicePlatformByFqdn($fqdn)
+
+            inet:service:account:user=$user +:platform=$platform
+            return($node)
+
+            [ inet:service:account=($platform, $user) :platform=$platform :user=$user ]
             return($node)
         }
     '''

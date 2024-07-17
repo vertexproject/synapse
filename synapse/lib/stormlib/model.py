@@ -919,8 +919,56 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
                  ),
                  'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
+
+        {'name': 'inetWebToService', 'desc': '''
+            Generate inet:service model elements from existing inet:web nodes.
+
+            The following forms are migrated:
+                inet:web:acct -> inet:service:account
+                inet:web:post -> inet:service:message
+                inet:web:mesg -> inet:service:message
+                inet:web:group -> inet:service:group
+                inet:web:logon -> inet:service:login
+                inet:web:channel -> inet:service:channel
+                inet:web:instance -> inet:service:instance
+                inet:web:member -> inet:service:group:member / inet:service:channel:member
+                inet:web:attachment -> inet:service:message:attachment
+                inet:web:post:link -> inet:service:message:link
+         ''',
+         'type': {'type': 'function', '_funcname': 'stormcode', 'args': (), 'returns': {'type': 'null'}},
     )
     _storm_lib_path = ('model', 'migration', 's')
+    _storm_query = '''
+        function __webAcctToService() {
+            inet:web:acct
+            $acct = $lib.gen.inetServiceAccountByFqdnUser(:fqdn, :user)
+            $lib.model.migration.copyData($node, $acct)
+            $lib.model.migration.copyTags($node, $acct)
+            $lib.model.migration.copyEdges($node, $acct)
+            fini { return() }
+        }
+        function __webPostToService(acct, post) {
+            inet:web:post
+
+            $iden = $node.repr()
+            $props = $node.props
+
+            -> {[ inet:service:message=$iden ]}
+            if ($props.acct) {
+                [ :account=$lib.gen.inetServiceByFqdnUser($props.acct.0, $props.acct.1) ]
+            }
+
+            if $props.url {[ :url=$props.url ]}
+            if $props.text {[ :text=$props.text ]}
+            if $props.time {[ :period=($props.time, ?) ]}
+            if $props.client {[ :client=$props.client ]}
+            if $props.deleted {[ :status=removed ]}
+        }
+        function inetWebToService() {
+            $__webAcctToService()
+            $__webPostToService()
+        }
+    '''
 
     def getObjLocals(self):
         return {
