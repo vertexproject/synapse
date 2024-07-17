@@ -794,6 +794,8 @@ class ModelRev:
         $layers = $lib.set()
         $layers.adds($layridens)
 
+        $migrated = ({})
+
         $queue = $lib.queue.gen("model_0_2_27")
 
         for $view in $lib.view.list(deporder=$lib.true) {
@@ -812,6 +814,13 @@ class ModelRev:
                             continue
                         }
 
+                        // At this point, we have a node that can be fixed but
+                        // needs to be migrated to a new node because the primary
+                        // property needs to be changed. We'll create a new
+                        // (correct) node, and copy everything from the old node.
+                        // Then we put it in the "migrated" list to later move the
+                        // references.
+
                         // Create the new CPE node and migrate the edges, tags, and data
                         $newcpe = {
                             [ it:sec:cpe=$nodedata.valu ]
@@ -821,12 +830,8 @@ class ModelRev:
                             $node.data.pop("migration.s.itSecCpe_2_170_0")
                         }
 
-                        // Migrate references
-                        { it:prod:hardware:cpe=$oldcpe [ :cpe=$newcpe ] }
-                        { it:prod:soft:cpe=$oldcpe [ :cpe=$newcpe ] }
-                        { it:prod:softver:cpe=$oldcpe [ :cpe=$newcpe ] }
-                        { inet:flow:dst:cpes*[=$oldcpe] [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ] }
-                        { inet:flow:src:cpes*[=$oldcpe] [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ] }
+                        $old = $oldcpe.repr()
+                        $migrated.$old = $newcpe
 
                     } else {
 
@@ -840,11 +845,30 @@ class ModelRev:
                         }
 
                         $references = ([])
-                        { it:prod:hardware:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
-                        { it:prod:soft:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
-                        { it:prod:softver:cpe=$oldcpe $references.append($node.iden()) [ -:cpe ] }
-                        { inet:flow:dst:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
-                        { inet:flow:src:cpes*[=$oldcpe] $references.append($node.iden()) [ :dst:cpes-=$oldcpe ] }
+                        { it:prod:hardware:cpe=$oldcpe
+                            [ -:cpe ]
+                            $references.append($node.iden())
+                        }
+
+                        { it:prod:soft:cpe=$oldcpe
+                            [ -:cpe ]
+                            $references.append($node.iden())
+                        }
+
+                        { it:prod:softver:cpe=$oldcpe
+                            [ -:cpe ]
+                            $references.append($node.iden())
+                        }
+
+                        { inet:flow:dst:cpes*[=$oldcpe]
+                            [ :dst:cpes-=$oldcpe ]
+                            $references.append($node.iden())
+                        }
+
+                        { inet:flow:src:cpes*[=$oldcpe]
+                            [ :dst:cpes-=$oldcpe ]
+                            $references.append($node.iden())
+                        }
 
                         $sources = ([])
                         { yield $oldcpe <(seen)- meta:source $sources.append($node.repr()) }
@@ -852,7 +876,10 @@ class ModelRev:
                         $data = ({
                             "view": $view.iden,
                             "layer": $lib.layer.get().iden,
-                            "node": $oldcpe.iden(),
+                            "node": {
+                                "valu": $oldcpe.repr(),
+                                "v2_2": $oldcpe.props.v2_2,
+                            },
                             "edges": $edges,
                             "tags": $oldcpe.tags(),
                             "data": $oldcpe.data.list(),
@@ -865,6 +892,40 @@ class ModelRev:
 
                     // Finally, delete the broken node
                     iden $oldcpe.iden() | delnode --force
+                }
+
+                // Now that the it:sec:cpe nodes are fixed up in this layer, fix references to those broken nodes.
+
+                // These forms have regular secondary props that might point to a broken it:sec:cpe node.
+                for $prop in (it:prod:hardware:cpe, it:prod:soft:cpe, it:prod:softver:cpe) {
+                    for $n in $lib.layer.get().liftByProp($prop) {
+                        $cpe = $n.props.cpe
+                        $newcpe = $migrated.$cpe
+                        if (not $newcpe) {
+                            continue
+                        }
+
+                        yield $n
+                        [ :cpe=$newcpe ]
+
+                        spin
+                    }
+                }
+
+                // inet:flow has two arrays which could contain it:sec:cpe nodes
+                for $n in $lib.layer.get().liftByProp(inet:flow) {
+                    yield $n
+                    { for ($oldcpe, $newcpe) in $migrated {
+                        { +:dst:cpes*[=$oldcpe]
+                            [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ]
+                        }
+
+                        { +:src:cpes*[=$oldcpe]
+                            [ :src:cpes-=$oldcpe :src:cpes+=$newcpe ]
+                        }
+                    }}
+
+                    spin
                 }
             }
         }
