@@ -7,17 +7,22 @@ import synapse.common as s_common
 import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
-reqValidTableConf = s_config.getJsValidator(schema := {
+reqValidTableConf = s_config.getJsValidator(schemaTableConf := {
     'type': 'object',
     'properties': {
         'separators': {
             'type': 'object',
             'properties': {
-                'row:outline': {'type': 'boolean', 'default': False},
-                'column:outline': {'type': 'boolean', 'default': False},
-                'header:row': {'type': 'string', 'default': '='},
-                'data:row': {'type': 'string', 'default': '-'},
-                'column': {'type': 'string', 'default': '|'},
+                'row:outline': {'type': 'boolean', 'default': False,
+                                'description': 'Add the row separator before the header data and after each row.'},
+                'column:outline': {'type': 'boolean', 'default': False,
+                                   'description': 'Add the column separator to the beginning and end of each row.'},
+                'header:row': {'type': 'string', 'default': '=',
+                               'description': 'The string to use to create a separator row when printing the header.'},
+                'data:row': {'type': 'string', 'default': '-',
+                             'description': 'The string to use to create a separator row when printing data rows.'},
+                'column': {'type': 'string', 'default': '|',
+                           'description': 'The string to use to separate columns.'},
             },
             'additionalProperties': False,
         },
@@ -26,10 +31,15 @@ reqValidTableConf = s_config.getJsValidator(schema := {
             'items': {
                 'type': 'object',
                 'properties': {
-                    'name': {'type': 'string', 'description': 'TODO'},  # todo: descriptions?
-                    'width': {'type': 'number', 'default': None, 'exclusiveMinimum': 0},
-                    'justify': {'type': 'string', 'default': 'left', 'enum': ['left', 'center', 'right']},
-                    'overflow': {'type': 'string', 'default': 'trim', 'enum': ['wrap', 'trim']},
+                    'name': {'type': 'string',
+                             'description': 'The column name which will be used in the header row.'},
+                    'width': {'type': 'number', 'default': None, 'exclusiveMinimum': 0,
+                              'description': 'If not provided each cell will expand to fit the data.'},
+                    'justify': {'type': 'string', 'default': 'left', 'enum': ['left', 'center', 'right'],
+                                'description': 'Justification for the header titles and data rows.'},
+                    'overflow': {'type': 'string', 'default': 'trim', 'enum': ['wrap', 'trim'],
+                                 'description': 'For text exceeding the width, '
+                                                'either wrap text in multiple lines or trim and append "...".'},
                 },
                 'required': ['name'],
                 'minItems': 1,
@@ -48,28 +58,71 @@ justers = {
 }
 
 @s_stormtypes.registry.registerLib
-class TabularLib(s_stormtypes.Lib):
+class LibTabular(s_stormtypes.Lib):
     '''
-    TODO
-    $columns = ([
-        {"name": "woot", "width": 20, "justify": right},
-        {"name": "hehe", "width" 30},
-    ])
-    $printer = $lib.tabular.printer($columns)
+    A Storm Library for creating printable tables.
     '''
     _storm_locals = (
-        {'name': 'printer', 'desc': 'Construct a new printer.',
-         'type': {'type': 'function', '_funcname': 'printer',
+        {'name': 'printer', 'desc': '''
+        Construct a new printer.
+
+        Examples:
+            Create a simple table using the default separators::
+
+                $conf = ({
+                    "columns": [
+                        {"name": "Year", "width": 4},
+                        {"name": "Author", "width": 20},
+                        {"name": "Title", "width": 12},
+                    ]
+                })
+
+                $printer = $lib.tabular.printer($conf)
+
+                $lib.print($printer.header())
+
+                for ($year, $author, $title, $publisher) in $data {
+                    $lib.print($printer.row(($year, $author, $title))
+                }
+
+            Create a configuration with custom separators and column options::
+
+                $conf = ({
+                    "separators": {
+                        "row:outline": true,
+                        "column:outline": true,
+                        "header:row": "#",
+                        "data:row": "*",
+                        "column": "+",
+                    },
+                    "columns": [
+                        {"name": "Year", "width": 4, "justify": "right"},
+                        {"name": "Author", "width": 20, "justify": "center"},
+                        {"name": "Title", "width": 12, "overflow": "wrap"},
+                    ]
+                })
+
+                $printer = $lib.tabular.printer($conf)
+        ''',
+         'type': {'type': 'function', '_funcname': '_methPrinter',
                   'args': (
-                      {'name': 'conf', 'type': 'list',
-                       'desc': 'TODO'},
+                      {'name': 'conf', 'type': 'dict',
+                       'desc': 'The table configuration dictionary.'},
                   ),
                   'returns': {'type': 'tabular:printer',
                               'desc': 'The newly constructed tabular:printer.'}}},
-        {'name': 'schema', 'desc': 'TODO',
-         'type': {'type': 'gtor', '_gtorfunc': '_gtorSchema',
+        {'name': 'schema', 'desc': '''
+        Get a copy of the table configuration schema.
+
+        Examples:
+            Print a human-readable version of the schema::
+
+                $schema = $lib.tabular.schema()
+                $lib.print($lib.yaml.save($schema))
+        ''',
+         'type': {'type': 'function', '_funcname': '_methSchema',
                   'returns': {'type': 'dict',
-                              'desc': 'TODO'}}},
+                              'desc': 'The table configuration schema.'}}},
     )
     _storm_lib_path = ('tabular',)
 
@@ -80,7 +133,7 @@ class TabularLib(s_stormtypes.Lib):
         }
 
     async def _methSchema(self):
-        return copy.deepcopy(schema)
+        return copy.deepcopy(schemaTableConf)
 
     async def _methPrinter(self, conf):
         conf = await s_stormtypes.toprim(conf)
@@ -91,26 +144,21 @@ class TabularLib(s_stormtypes.Lib):
 @s_stormtypes.registry.registerType
 class TabularPrinter(s_stormtypes.StormType):
     '''
-    TODO
-    $lib.print($printer.header())
-    for $row in $rows {
-        $lib.print($printer.row($row))
-    }
+    A storm object for printing tabular data using a defined configuration.
     '''
     _storm_typename = 'tabular:printer'
     _storm_locals = (
-        {'name': 'row',
-         'desc': 'TODO',
+        {'name': 'row', 'desc': 'Create a new row string from a data list.',
          'type': {'type': 'function', '_funcname': 'row',
                   'args': (
                       {'name': 'data', 'type': 'list',
-                       'desc': 'TODO'},
+                       'desc': 'The data to create the row from; length must match the number of configured columns.'},
                   ),
-                  'returns': {'type': 'str', 'desc': 'TODO'}}},
+                  'returns': {'type': 'str', 'desc': 'The row string.'}}},
         {'name': 'header',
-         'desc': 'TODO',
+         'desc': 'Create a heaer row string.',
          'type': {'type': 'function', '_funcname': 'header',
-                  'returns': {'type': 'str', 'desc': 'TODO'}}},
+                  'returns': {'type': 'str', 'desc': 'The header row string.'}}},
     )
 
     def __init__(self, runt, conf):
@@ -131,11 +179,18 @@ class TabularPrinter(s_stormtypes.StormType):
             'header': self.header,
         })
 
-    def _makeRowItems(self, values: list):
-        '''
-        Justify, trim/wrap, and fill cells.
-        Returns list of string lines for each column.
-        '''
+    def _formatRowLine(self, lineitems, pad=' '):
+        sepr = self.seprconf['column']
+        endstr = sepr if self.seprconf['column:outline'] else ''
+        return f'{endstr}{pad}{f"{pad}{sepr}{pad}".join(lineitems)}{pad}{endstr}'
+
+    def _makeSeparatorRowStr(self, rowsepr):
+        if rowsepr:
+            lineitems = (width * rowsepr for width in self.colwidths)
+            return self._formatRowLine(lineitems, pad=rowsepr)
+        return None
+
+    def _makeDataRowStrs(self, values):
 
         items = []
         for coldef, valu in zip(self.colconf, values):
@@ -156,30 +211,18 @@ class TabularPrinter(s_stormtypes.StormType):
 
             items.append([justers[coldef['justify']](item, width) for item in textwrap.wrap(valu, width)])
 
-        rowitems = []
+        rowstrs = []
         for lineitems in itertools.zip_longest(*items, fillvalue=None):
-            rowitems.append([item or self.colwidths[i] * ' ' for i, item in enumerate(lineitems)])
+            lineitems = ([item or self.colwidths[i] * ' ' for i, item in enumerate(lineitems)])
+            rowstrs.append(self._formatRowLine(lineitems))
 
-        return rowitems
-
-    def _formatRowLine(self, lineitems, sepr, doends, pad=' '):
-        endstr = sepr if doends else ''
-        return f'{endstr}{pad}{f"{pad}{sepr}{pad}".join(lineitems)}{pad}{endstr}'
-
-    def _separator(self, colsepr, rowsepr, doends):
-        lineitems = (width * rowsepr for width in self.colwidths)
-        return self._formatRowLine(lineitems, colsepr, doends, pad=rowsepr)
+        return rowstrs
 
     async def header(self):
-        colsepr = self.seprconf['column']  # fixme: dont need to pass this around
-        colends = self.seprconf['column:outline']  # fixme: don't need to pass this around
+        rowstrs = self._makeDataRowStrs([col['name'] for col in self.colconf])
 
-        # fixme: change to _makeRowStrs(values, colsepr, colends)
-        rowitems = self._makeRowItems([col['name'] for col in self.colconf])
-        rowstrs = [self._formatRowLine(lineitems, colsepr, colends) for lineitems in rowitems]
-
-        if rowsepr := self.seprconf['header:row']:
-            rowstrs.append(seprstr := self._separator(colsepr, rowsepr, colends))
+        if seprstr := self._makeSeparatorRowStr(self.seprconf['header:row']):
+            rowstrs.append(seprstr)
             if self.seprconf['row:outline']:
                 rowstrs.insert(0, seprstr)
 
@@ -195,15 +238,9 @@ class TabularPrinter(s_stormtypes.StormType):
             mesg = 'tabular:printer row() requires data length to equal column count'
             raise s_exc.BadArg(mesg=mesg, length=len(data), column_length=self.colcnt)
 
-        colsepr = self.seprconf['column']  # fixme: don't need to pass this around
-        colends = self.seprconf['column:outline']  # fixme: don't need to pass this around
+        rowstrs = self._makeDataRowStrs(data)
 
-        # fixme: change to _makeRowStrs(values, colsepr, colends)
-        rowitems = self._makeRowItems(data)
-        rowstrs = [self._formatRowLine(lineitems, colsepr, colends) for lineitems in rowitems]
-
-        if rowsepr := self.seprconf['data:row']:
-            seprstr = self._separator(colsepr, rowsepr, colends)
+        if seprstr := self._makeSeparatorRowStr(self.seprconf['data:row']):
             if self.seprconf['row:outline']:
                 rowstrs.append(seprstr)
             elif self.firstrow:

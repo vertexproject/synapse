@@ -23,9 +23,9 @@ class TabularTest(s_test.SynTest):
 
             # get schema
 
-            mesgs = await core.stormlist('$lib.pprint($lib.tabular.schema())')
+            mesgs = await core.stormlist('$lib.print($lib.yaml.save($lib.tabular.schema()))')
             self.stormHasNoWarnErr(mesgs)
-            # todo
+            self.stormIsInPrint('column:outline', mesgs)
 
             # single line defaults
 
