@@ -2550,8 +2550,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The time the web search was issued.',
                         }),
                         ('acct', ('inet:web:acct', {}), {
-                            'doc': 'The account that the query was issued as.',
-                        }),
+                            'doc': 'The account that the query was issued as.'}),
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The service account which ran the query.'}),
+
                         ('host', ('it:host', {}), {
                             'doc': 'The host that issued the query.',
                         }),
@@ -3510,6 +3513,9 @@ class InetModule(s_module.CoreModule):
                             'ex': 'https://twitter.com',
                             'doc': 'The primary URL of the platform.'}),
 
+                        ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of FQDNs used by the platform.'}),
+
                         ('name', ('str', {'onespace': True, 'lower': True}), {
                             'ex': 'twitter',
                             'doc': 'A friendly name for the platform.'}),
@@ -3537,6 +3543,9 @@ class InetModule(s_module.CoreModule):
                         ('url', ('inet:url', {}), {
                             'ex': 'https://v.vtx.lk/slack',
                             'doc': 'The primary URL which identifies the service instance.'}),
+
+                        ('fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of FQDNs used by the instance.'}),
 
                         ('name', ('str', {'lower': True, 'onespace': True}), {
                             'ex': 'synapse users slack',
