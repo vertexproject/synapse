@@ -786,17 +786,32 @@ class ModelRev:
 
     async def revModel_0_2_27(self, layers):
 
+        refforms = []
+        for form in self.core.model.forms.values():
+            for prop in form.props.values():
+                (proptype, typeinfo) = prop.typedef
+                if proptype not in ('array', 'it:sec:cpe'):
+                    continue
+
+                if proptype == 'array' and typeinfo.get('type') != 'it:sec:cpe':
+                    continue
+
+                refforms.append((prop.full, prop.name, proptype))
+
+        # FIXME: Get extended model props that are it:sec:cpe
+
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
+            'refforms': refforms,
         }}
 
         storm = '''
-        $layers = $lib.set()
+        $layers = $lib.spooled.set()
         $layers.adds($layridens)
 
-        $migrated = $lib.spooled.dict()
-
-        $queue = $lib.queue.gen("model_0_2_27")
+        $cpeq = $lib.queue.gen("model_0_2_27:cpes")
+        $refsq = $lib.queue.gen("model_0_2_27:cpes:refs")
+        $edgeq = $lib.queue.gen("model_0_2_27:cpes:edges")
 
         for $view in $lib.view.list(deporder=$lib.true) {
 
@@ -805,33 +820,57 @@ class ModelRev:
             view.exec $view.iden {
 
                 for $oldcpe in $lib.layer.get().liftByProp(it:sec:cpe) {
-                    $success = $lib.model.migration.s.itSecCpe_2_170_0($oldcpe)
-                    $nodedata = $oldcpe.data.get("migration.s.itSecCpe_2_170_0")
+                    $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
+
+                    $success = ($info.status = "success")
 
                     if $success {
                         // No primary property changes, nothing to do. Node has been fully migrated.
-                        if (not $nodedata.valu) {
+                        if (not $info.valu) {
                             continue
                         }
 
-                        // At this point, we have a node that can be fixed but
-                        // needs to be migrated to a new node because the primary
-                        // property needs to be changed. We'll create a new
-                        // (correct) node, and copy everything from the old node.
-                        // Then we put it in the "migrated" list to later move the
-                        // references.
+                        /*
+                         * At this point, we have a node that can be fixed but
+                         * needs to be migrated to a new node because the primary
+                         * property needs to be changed. We'll create a new
+                         * (correct) node, and copy everything from the old node.
+                         * Then we complete the migration by recursing through
+                         * all the views to fix the references.
+                         */
 
                         // Create the new CPE node and migrate the edges, tags, and data
                         $newcpe = {
-                            [ it:sec:cpe=$nodedata.valu ]
+                            [ it:sec:cpe=$info.valu ]
                             $lib.model.migration.copyEdges($oldcpe, $node)
                             $lib.model.migration.copyTags($oldcpe, $node)
                             $lib.model.migration.copyData($oldcpe, $node)
-                            $node.data.pop("migration.s.itSecCpe_2_170_0")
                         }
 
-                        $old = $oldcpe.repr()
-                        $migrated.$old = ($oldcpe.iden(), $newcpe)
+                        // Recursively iterate through the views again and fix up all the references
+                        for $rview in $lib.view.list(deporder=$lib.true) {
+                            if (not $layers.has($rview.layers.0.iden)) { continue }
+
+                            view.exec $rview.iden {
+
+                                // Fix references that point to old node to now point to new node
+                                for ($full, $prop, $type) in $refforms {
+                                    switch $type {
+                                        "it:sec:cpe": {
+                                            { *$full=$oldcpe
+                                                [ :$prop=$newcpe ]
+                                            }
+                                        }
+
+                                        "array": {
+                                            { *$full*[=$oldcpe]
+                                                [ :$prop-=$oldcpe :$prop+=$newcpe ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                     } else {
 
@@ -839,110 +878,71 @@ class ModelRev:
                         // critical information to eventually reconstruct this node
                         // and store it in a queue.
 
+                        $iden = $oldcpe.iden()
+
                         $edges = ([])
                         for $edge in $oldcpe.edges() {
                             $edges.append($edge)
+
+                            if ($edges.size() > 1000) {
+                                $edgeq.put(($iden, $edges))
+                                $edges = ([])
+                            }
+                        }
+
+                        if $edges {
+                            $edgeq.put(($iden, $edges))
                         }
 
                         $references = ([])
-                        { it:prod:hardware:cpe=$oldcpe
-                            [ -:cpe ]
-                            $references.append($node.iden())
+                        // Get references and store them in queue
+                        for $refform in $refforms {
+                            ($full, $prop, $type) = $refform
+                            switch $type {
+                                "it:sec:cpe": {
+                                    { *$full=$oldcpe [ -:$prop ] }
+                                }
+
+                                "array": {
+                                    { *$full*[=$oldcpe] [ :$prop-=$oldcpe ] }
+                                }
+                            }
+                            $references.append(($node.iden(), $refform))
+
+                            if ($references.size() > 1000) {
+                                $refsq.put(($iden, $references))
+                                $references = ([])
+                            }
                         }
 
-                        { it:prod:soft:cpe=$oldcpe
-                            [ -:cpe ]
-                            $references.append($node.iden())
-                        }
-
-                        { it:prod:softver:cpe=$oldcpe
-                            [ -:cpe ]
-                            $references.append($node.iden())
-                        }
-
-                        { inet:flow:dst:cpes*[=$oldcpe]
-                            [ :dst:cpes-=$oldcpe ]
-                            $references.append($node.iden())
-                        }
-
-                        { inet:flow:src:cpes*[=$oldcpe]
-                            [ :dst:cpes-=$oldcpe ]
-                            $references.append($node.iden())
+                        if $references {
+                            $edgeq.put(($iden, $edges))
                         }
 
                         $sources = ([])
-                        { yield $oldcpe <(seen)- meta:source $sources.append($node.repr()) }
+                        {
+                            yield $oldcpe <(seen)- meta:source
+                            $sources.append($node.repr())
+                        }
 
                         $data = ({
                             "view": $view.iden,
                             "layer": $lib.layer.get().iden,
                             "node": {
+                                "iden": $iden,
                                 "valu": $oldcpe.repr(),
                                 "v2_2": $oldcpe.props.v2_2,
                             },
-                            "edges": $edges,
                             "tags": $oldcpe.tags(),
                             "data": $oldcpe.data.list(),
-                            "references": $references,
                             "sources": $sources,
                         })
 
-                        $queue.put($data)
+                        $cpeq.put($data)
 
                         // Finally, delete the broken node
                         iden $oldcpe.iden() | delnode --force
                     }
-                }
-
-                // Now that the it:sec:cpe nodes are fixed up in this layer, fix references to those broken nodes.
-
-                // These forms have regular secondary props that might point to a broken it:sec:cpe node.
-                for $prop in (it:prod:hardware:cpe, it:prod:soft:cpe, it:prod:softver:cpe) {
-                    for $n in $lib.layer.get().liftByProp($prop) {
-                        $cpe = $n.props.cpe
-                        $info = $migrated.$cpe
-                        if (not $info) {
-                            continue
-                        }
-
-                        ($iden, $newcpe) = $info
-
-                        yield $n
-                        [ :cpe=$newcpe ]
-
-                        spin
-                    }
-                }
-
-                // inet:flow has two arrays which could contain it:sec:cpe nodes
-                for $n in $lib.layer.get().liftByProp(inet:flow) {
-                    yield $n
-                    { for ($oldiden, $newcpe) in $lib.dict.values($migrated) {
-                        iden $oldiden |
-                        $oldcpe = $node
-
-                        { +inet:flow
-                            { +:dst:cpes*[=$oldcpe]
-                                [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ]
-                            }
-
-                            { +:src:cpes*[=$oldcpe]
-                                [ :src:cpes-=$oldcpe :src:cpes+=$newcpe ]
-                            }
-                        }
-                    }}
-                }
-            }
-        }
-
-        // Remove the migrated CPE nodes
-        for $view in $lib.view.list(deporder=$lib.true) {
-
-            if (not $layers.has($view.layers.0.iden)) { continue }
-
-            view.exec $view.iden {
-                for $iden in $lib.dict.keys($migrated) {
-                    iden $iden | delnode --force
                 }
             }
         }

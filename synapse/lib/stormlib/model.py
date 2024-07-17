@@ -898,6 +898,23 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
+        {'name': 'itSecCpe_2_170_0_internal',
+         'desc': '''This function is the internal implementation of ``itSecCpe_2_170_0``.''',
+         'type': {'type': 'function', '_funcname': '_itSecCpe_2_170_0_internal',
+                  'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
+                      {'name': 'prefer_v22', 'type': 'bool', 'default': False,
+                       'desc': '''
+                        Try to renormalize using the :v2_2 prop instead of the
+                        primary property. This can be especially useful when the
+                        primary property is a valid but incorrect CPE string.
+                        '''},
+                      {'name': 'force', 'type': 'bool', 'default': False,
+                       'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
+                      {'name': 'set_nodedata', 'type': 'bool', 'default': False,
+                       'desc': 'Set nodedata on the node during migration.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'Dictionary with migration status and associated information.'}}},
         {'name': 'riskHasVulnToVulnerable', 'desc': '''
             Create a risk:vulnerable node from the provided risk:hasvuln node.
 
@@ -925,10 +942,15 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
     def getObjLocals(self):
         return {
             'itSecCpe_2_170_0': self._itSecCpe_2_170_0,
+            'itSecCpe_2_170_0_internal': self._itSecCpe_2_170_0_internal,
             'riskHasVulnToVulnerable': self._riskHasVulnToVulnerable,
         }
 
     async def _itSecCpe_2_170_0(self, n, prefer_v22=False, force=False):
+        info = self._itSecCpe_2_170_0_internal(n, prefer_v22=prefer_v22, force=force, set_nodedata=True)
+        return info.get('status') == 'success'
+
+    async def _itSecCpe_2_170_0_internal(self, n, prefer_v22=False, force=False, set_nodedata=False):
 
         if not isinstance(n, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.s.itSecCpe_2_170_0() argument must be a node.')
@@ -953,7 +975,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             if self.runt.debug:
                 mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node already migrated.'
                 await self.runt.printf(mesg)
-            return True
+            return nodedata
 
         modl = self.runt.model.type('it:sec:cpe')
 
@@ -980,11 +1002,12 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node is valid, no migration necessary.'
                     await self.runt.printf(mesg)
 
-                await proto.setData('migration.s.itSecCpe_2_170_0', {
-                    'status': 'success',
-                })
+                if set_nodedata:
+                    await proto.setData('migration.s.itSecCpe_2_170_0', {
+                        'status': 'success',
+                    })
 
-                return True
+                return nodedata
 
             if valu23 is None and valu22 is None:
                 reason = 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.'
@@ -993,12 +1016,13 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                 mesg = f'itSecCpe_2_170_0({reprvalu}): {reason}'
                 await self.runt.warn(mesg)
 
-                await proto.setData('migration.s.itSecCpe_2_170_0', {
-                    'status': 'failed',
-                    'reason': reason,
-                })
+                if set_nodedata:
+                    await proto.setData('migration.s.itSecCpe_2_170_0', {
+                        'status': 'failed',
+                        'reason': reason,
+                    })
 
-                return False
+                return nodedata
 
             if prefer_v22:
                 valu = valu22 or valu23
@@ -1040,7 +1064,8 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                 # Update the existing property with the re-normalized property value.
                 await proto.set(propname, subscurv, ignore_ro=True)
 
-            await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
+            if set_nodedata:
+                await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
 
             if self.runt.debug:
                 if nodedata.get('updated'):
@@ -1050,7 +1075,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): No property updates required.'
                     await self.runt.printf(mesg)
 
-            return True
+            return nodedata
 
     async def _riskHasVulnToVulnerable(self, n, nodata=False):
 
