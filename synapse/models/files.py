@@ -744,7 +744,7 @@ class FileModule(s_module.CoreModule):
 
                     ('driveserial', ('int', {}), {
                         'doc': 'The drive serial number of the volume the link target is stored on.'}),
-                    ('machineid', ('str', {}), {
+                    ('machineid', ('it:hostname', {}), {
                         'doc': 'The NetBIOS name of the machine where the link target was last located.'}),
                 )),
             ),
