@@ -631,3 +631,6 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('target:created'), time)
             self.eq(node.get('target:accessed'), time)
             self.eq(node.get('target:written'), time)
+
+            self.eq(node.get('driveserial'), 0x6af54670)
+            self.eq(node.get('machineid'), 'stellarcollapse')
