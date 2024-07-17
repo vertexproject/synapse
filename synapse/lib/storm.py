@@ -1857,6 +1857,14 @@ class Runtime(s_base.Base):
                     valu.incref()
             self.vars.update(varz)
 
+        self._initRuntVars(query)
+
+        self.proxies = {}
+
+        self.onfini(self._onRuntFini)
+
+    def _initRuntVars(self, query):
+
         # declare path builtins as non-runtsafe
         self.runtvars = {
             'node': False,
@@ -1865,17 +1873,14 @@ class Runtime(s_base.Base):
 
         # inherit runtsafe vars from our root
         if self.root is not None:
-            self.runtvars.update(root.runtvars)
+            self.runtvars.update(self.root.runtvars)
             self.runtvars.update({k: True for k in self.root.getScopeVars().keys()})
 
         # all vars/ctors are de-facto runtsafe
         self.runtvars.update({k: True for k in self.vars.keys()})
         self.runtvars.update({k: True for k in self.ctors.keys()})
 
-        self.proxies = {}
-
         self._loadRuntVars(query)
-        self.onfini(self._onRuntFini)
 
     async def keepalive(self, period):
         while not await self.waitfini(period):
