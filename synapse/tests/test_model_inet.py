@@ -3308,6 +3308,10 @@ class InetModelTest(s_t_utils.SynTest):
                     inet:service:thread=*
                         :title="Woot  Woot"
                         :message=(visi, says, hello)
+                        :channel={[
+                            inet:service:channel=(synapse, subreddit)
+                                :name="/r/synapse"
+                        ]}
                 ]}
             ]
             '''
@@ -3320,3 +3324,10 @@ class InetModelTest(s_t_utils.SynTest):
                 +:title="woot woot"
             '''))
             self.len(2, await core.nodes('inet:service:thread -> inet:service:message'))
+
+            self.len(1, await core.nodes('''
+                inet:service:message:title="hehe haha"
+                :thread -> inet:service:thread
+                :channel -> inet:service:channel
+                +:name="/r/synapse"
+            '''))
