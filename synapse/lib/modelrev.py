@@ -794,7 +794,7 @@ class ModelRev:
         $layers = $lib.set()
         $layers.adds($layridens)
 
-        $migrated = ({})
+        $migrated = $lib.spooled.dict()
 
         $queue = $lib.queue.gen("model_0_2_27")
 
@@ -831,7 +831,7 @@ class ModelRev:
                         }
 
                         $old = $oldcpe.repr()
-                        $migrated.$old = $newcpe
+                        $migrated.$old = ($oldcpe.iden(), $newcpe)
 
                     } else {
 
@@ -888,10 +888,10 @@ class ModelRev:
                         })
 
                         $queue.put($data)
-                    }
 
-                    // Finally, delete the broken node
-                    iden $oldcpe.iden() | delnode --force
+                        // Finally, delete the broken node
+                        iden $oldcpe.iden() | delnode --force
+                    }
                 }
 
                 // Now that the it:sec:cpe nodes are fixed up in this layer, fix references to those broken nodes.
@@ -900,10 +900,12 @@ class ModelRev:
                 for $prop in (it:prod:hardware:cpe, it:prod:soft:cpe, it:prod:softver:cpe) {
                     for $n in $lib.layer.get().liftByProp($prop) {
                         $cpe = $n.props.cpe
-                        $newcpe = $migrated.$cpe
-                        if (not $newcpe) {
+                        $info = $migrated.$cpe
+                        if (not $info) {
                             continue
                         }
+
+                        ($iden, $newcpe) = $info
 
                         yield $n
                         [ :cpe=$newcpe ]
@@ -915,17 +917,32 @@ class ModelRev:
                 // inet:flow has two arrays which could contain it:sec:cpe nodes
                 for $n in $lib.layer.get().liftByProp(inet:flow) {
                     yield $n
-                    { for ($oldcpe, $newcpe) in $migrated {
-                        { +:dst:cpes*[=$oldcpe]
-                            [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ]
-                        }
+                    { for ($oldiden, $newcpe) in $lib.dict.values($migrated) {
+                        iden $oldiden |
+                        $oldcpe = $node
 
-                        { +:src:cpes*[=$oldcpe]
-                            [ :src:cpes-=$oldcpe :src:cpes+=$newcpe ]
+                        { +inet:flow
+                            { +:dst:cpes*[=$oldcpe]
+                                [ :dst:cpes-=$oldcpe :dst:cpes+=$newcpe ]
+                            }
+
+                            { +:src:cpes*[=$oldcpe]
+                                [ :src:cpes-=$oldcpe :src:cpes+=$newcpe ]
+                            }
                         }
                     }}
+                }
+            }
+        }
 
-                    spin
+        // Remove the migrated CPE nodes
+        for $view in $lib.view.list(deporder=$lib.true) {
+
+            if (not $layers.has($view.layers.0.iden)) { continue }
+
+            view.exec $view.iden {
+                for $iden in $lib.dict.keys($migrated) {
+                    iden $iden | delnode --force
                 }
             }
         }
