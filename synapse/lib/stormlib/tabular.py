@@ -112,7 +112,7 @@ class TabularPrinter(s_stormtypes.StormType):
                   ),
                   'returns': {'type': 'str', 'desc': 'The row string.'}}},
         {'name': 'header',
-         'desc': 'Create a heaer row string.',
+         'desc': 'Create a header row string.',
          'type': {'type': 'function', '_funcname': 'header',
                   'returns': {'type': 'str', 'desc': 'The header row string.'}}},
     )
