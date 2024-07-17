@@ -822,6 +822,8 @@ class ModelRev:
                 for $oldcpe in $lib.layer.get().liftByProp(it:sec:cpe) {
                     $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
 
+                    $lib.log.debug(`INFO: {$oldcpe.repr()} -> {$info}`)
+
                     $success = ($info.status = "success")
 
                     if $success {
@@ -841,6 +843,7 @@ class ModelRev:
 
                         // Create the new CPE node and migrate the edges, tags, and data
                         $newcpe = {
+                            $lib.log.debug(`Migrating {$oldcpe.repr()} -> {$info.valu}`)
                             [ it:sec:cpe=$info.valu ]
                             $lib.model.migration.copyEdges($oldcpe, $node)
                             $lib.model.migration.copyTags($oldcpe, $node)
@@ -857,13 +860,15 @@ class ModelRev:
                                 for ($full, $prop, $type) in $refforms {
                                     switch $type {
                                         "it:sec:cpe": {
-                                            { *$full=$oldcpe
+                                            {*$full=$oldcpe
+                                                $lib.log.debug(`MIGRATE CPE PROP: {$full} {$node}`)
                                                 [ :$prop=$newcpe ]
                                             }
                                         }
 
                                         "array": {
-                                            { *$full*[=$oldcpe]
+                                            {*$full*[=$oldcpe]
+                                                $lib.log.debug(`MIGRATE ARRAY PROP: {$full} {$node}`)
                                                 [ :$prop-=$oldcpe :$prop+=$newcpe ]
                                             }
                                         }
@@ -938,11 +943,13 @@ class ModelRev:
                             "sources": $sources,
                         })
 
+                        $lib.log.debug(`Queueing {$oldcpe.repr()}`)
                         $cpeq.put($data)
-
-                        // Finally, delete the broken node
-                        iden $oldcpe.iden() | delnode --force
                     }
+
+                    // Finally, delete the broken node
+                    $lib.log.debug(`Deleting broken it:sec:cpe node: {$oldcpe.repr()}`)
+                    iden $oldcpe.iden() | delnode --force
                 }
             }
         }

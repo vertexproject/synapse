@@ -1002,10 +1002,9 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node is valid, no migration necessary.'
                     await self.runt.printf(mesg)
 
+                nodedata = {'status': 'success'}
                 if set_nodedata:
-                    await proto.setData('migration.s.itSecCpe_2_170_0', {
-                        'status': 'success',
-                    })
+                    await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
 
                 return nodedata
 
@@ -1016,11 +1015,12 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                 mesg = f'itSecCpe_2_170_0({reprvalu}): {reason}'
                 await self.runt.warn(mesg)
 
+                nodedata = {
+                    'status': 'failed',
+                    'reason': reason,
+                }
                 if set_nodedata:
-                    await proto.setData('migration.s.itSecCpe_2_170_0', {
-                        'status': 'failed',
-                        'reason': reason,
-                    })
+                    await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
 
                 return nodedata
 
