@@ -704,7 +704,7 @@ class AhaCell(s_cell.Cell):
             yield svcdef
 
     @contextlib.asynccontextmanager
-    async def getAhaSvcProxy(self, svcdef):
+    async def getAhaSvcProxy(self, svcdef, user='root'):
 
         svcname = svcdef.get('svcname')
         svcnetw = svcdef.get('svcnetw')
@@ -713,7 +713,7 @@ class AhaCell(s_cell.Cell):
         host = svcdef['svcinfo']['urlinfo']['host']
         port = svcdef['svcinfo']['urlinfo']['port']
 
-        svcurl = f'ssl://{host}:{port}?hostname={svcfull}&certname=root@{svcnetw}'
+        svcurl = f'ssl://{host}:{port}?hostname={svcfull}&certname={user}@{svcnetw}'
 
         async with await s_telepath.openurl(svcurl) as proxy:
             yield proxy
@@ -721,63 +721,65 @@ class AhaCell(s_cell.Cell):
     async def runGatherCall(self, iden, todo, timeout=None):
 
         queue = asyncio.Queue()
-        async def call(svcdef):
+        async with await s_base.Base.anit() as base:
+            async def call(svcdef):
 
-            svcname = svcdef.get('svcname')
-            svcnetw = svcdef.get('svcnetw')
-            svcfull = f'{svcname}.{svcnetw}'
+                svcname = svcdef.get('svcname')
+                svcnetw = svcdef.get('svcnetw')
+                svcfull = f'{svcname}.{svcnetw}'
 
-            try:
-                async with self.getAhaSvcProxy(svcdef) as proxy:
-                    valu = await asyncio.wait_for(proxy.taskv2(todo), timeout=timeout)
-                    await queue.put((svcfull, (True, valu)))
+                try:
+                    async with self.getAhaSvcProxy(svcdef) as proxy:
+                        valu = await asyncio.wait_for(proxy.taskv2(todo), timeout=timeout)
+                        await queue.put((svcfull, (True, valu)))
 
-            except Exception as e:
-                await queue.put((svcfull, (False, s_common.excinfo(e))))
+                except Exception as e:
+                    await queue.put((svcfull, (False, s_common.excinfo(e))))
 
-        count = 0
-        async for svcdef in self.getAhaSvcsByIden(iden):
-            count += 1
-            self.schedCoro(call(svcdef))
+            count = 0
+            async for svcdef in self.getAhaSvcsByIden(iden):
+                count += 1
+                self.base(call(svcdef))
 
-        for i in range(count):
-            yield await queue.get()
+            for i in range(count):
+                yield await queue.get()
 
     async def runGatherGenr(self, iden, todo, timeout=None):
 
         queue = asyncio.Queue()
 
-        async def call(svcdef):
+        async with await s_base.Base.anit() as base:
 
-            svcname = svcdef.get('svcname')
-            svcnetw = svcdef.get('svcnetw')
-            svcfull = f'{svcname}.{svcnetw}'
+            async def call(svcdef):
 
-            try:
-                async with self.getAhaSvcProxy(svcdef) as proxy:
-                    async for item in await proxy.taskv2(todo):
-                        await queue.put((svcfull, (True, item)))
+                svcname = svcdef.get('svcname')
+                svcnetw = svcdef.get('svcnetw')
+                svcfull = f'{svcname}.{svcnetw}'
 
-            except Exception as e:
-                await queue.put((svcfull, (False, s_exc.excinfo(e))))
+                try:
+                    async with self.getAhaSvcProxy(svcdef) as proxy:
+                        async for item in await proxy.taskv2(todo):
+                            await queue.put((svcfull, (True, item)))
 
-            finally:
-                await queue.put((svcfull, None))
+                except Exception as e:
+                    await queue.put((svcfull, (False, s_common.excinfo(e))))
 
-        count = 0
-        async for svcdef in self.getAhaSvcsByIden(iden):
-            count += 1
-            self.schedCoro(call(svcdef))
+                finally:
+                    await queue.put((svcfull, None))
 
-        while count > 0:
+            count = 0
+            async for svcdef in self.getAhaSvcsByIden(iden):
+                count += 1
+                base.schedCoro(call(svcdef))
 
-            item = await queue.get()
+            while count > 0:
 
-            yield item
+                item = await asyncio.wait_for(queue.get(), timeout=timeout)
+                if item[1] is None:
+                    count -= 1
+                    continue
 
-            if item[1] is None:
-                count -= 1
-                continue
+                yield item
 
     async def initServiceRuntime(self):
 

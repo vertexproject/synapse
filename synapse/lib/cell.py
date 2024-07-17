@@ -4043,6 +4043,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
+    async def ahaGatherPs(self, user):
+
+        if self.ahaclient is None:
+            return await self.ps()
+
+        retn = []
+        todo = s_common.todo('ps')
+
+        isallowed = await self.isUserAllowed(user.iden, ('task', 'get'))
+
+        try:
+            proxy = self.ahaclient.proxy(timeout=4)
+            async for svcfull, (ok, tasks) in proxy.runGatherCall(todo, timeout=4):
+                if ok:
+                    for task in tasks:
+                        if isallowed or task['user'] == user.name:
+                            retn.append(task)
+                else:
+                    logger.warning(f'AHA gather ps() from {svcfull}: {tasks}')
+
+        except Exception as e:
+            logger.warning(f'AHA gather ps() on {self.ahasvcname}: {e}')
+
+    # async def _ahaGatherKill(self, user, iden):
+
     async def kill(self, user, iden):
         perm = ('task', 'del')
         isallowed = await self.isUserAllowed(user.iden, perm)
