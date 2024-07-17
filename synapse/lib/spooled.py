@@ -185,3 +185,7 @@ class Dict(Spooled):
 
         for item in list(self.realdict.items()):
             yield item
+
+    async def update(self, other):
+        for key, valu in other.items():
+            await self.set(key, valu)
