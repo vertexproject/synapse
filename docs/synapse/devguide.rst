@@ -18,9 +18,8 @@ The Dev Guide is a living document and will continue to be updated and expanded 
 
     devguides/power-ups
     devguides/architecture
-    devguides/cortex_quickstart
     devguides/docker
-    devguides/stormservices
+    devguides/adv_power_ups
     devguides/storm_api
 
 .. _Slack: https://v.vtx.lk/join-slack
