@@ -4,52 +4,8 @@ import itertools
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.config as s_config
+import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
-
-reqValidTableConf = s_config.getJsValidator(schemaTableConf := {
-    'type': 'object',
-    'properties': {
-        'separators': {
-            'type': 'object',
-            'properties': {
-                'row:outline': {'type': 'boolean', 'default': False,
-                                'description': 'Add the row separator before the header data and after each row.'},
-                'column:outline': {'type': 'boolean', 'default': False,
-                                   'description': 'Add the column separator to the beginning and end of each row.'},
-                'header:row': {'type': 'string', 'default': '=',
-                               'description': 'The string to use to create a separator row when printing the header.'},
-                'data:row': {'type': 'string', 'default': '-',
-                             'description': 'The string to use to create a separator row when printing data rows.'},
-                'column': {'type': 'string', 'default': '|',
-                           'description': 'The string to use to separate columns.'},
-            },
-            'additionalProperties': False,
-        },
-        'columns': {
-            'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'name': {'type': 'string',
-                             'description': 'The column name which will be used in the header row.'},
-                    'width': {'type': 'number', 'default': None, 'exclusiveMinimum': 0,
-                              'description': 'If not provided each cell will expand to fit the data.'},
-                    'justify': {'type': 'string', 'default': 'left', 'enum': ['left', 'center', 'right'],
-                                'description': 'Justification for the header titles and data rows.'},
-                    'overflow': {'type': 'string', 'default': 'trim', 'enum': ['wrap', 'trim'],
-                                 'description': 'For text exceeding the width, '
-                                                'either wrap text in multiple lines or trim and append "...".'},
-                },
-                'required': ['name'],
-                'minItems': 1,
-                'additionalProperties': False,
-            },
-        },
-    },
-    'required': ['columns'],
-    'additionalProperties': False,
-})
 
 justers = {
     'left': str.ljust,
@@ -133,12 +89,12 @@ class LibTabular(s_stormtypes.Lib):
         }
 
     async def _methSchema(self):
-        return copy.deepcopy(schemaTableConf)
+        return copy.deepcopy(s_schemas.tabularConfSchema)
 
     async def _methPrinter(self, conf):
         conf = await s_stormtypes.toprim(conf)
         conf.setdefault('separators', {})
-        conf = reqValidTableConf(conf)
+        conf = s_schemas.reqValidTabularConf(conf)
         return TabularPrinter(self.runt, conf)
 
 @s_stormtypes.registry.registerType
