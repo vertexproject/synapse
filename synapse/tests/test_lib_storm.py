@@ -1348,6 +1348,12 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('diff', opts=altview))
 
+            await core.nodes('[ ps:contact=* :name=con0 +#con0 +#con0.foo +#conalt ]', opts=altview)
+            await core.nodes('[ ps:contact=* :name=con1 +#con1 +#conalt ]', opts=altview)
+
+            nodes = await core.nodes('diff --tag conalt con1 con0.foo con0 newp', opts=altview)
+            self.sorteq(['con0', 'con1'], [n.get('name') for n in nodes])
+
             q = '''
             [ ou:name=foo +(bar)> {[ ou:name=bar ]} ]
             { for $i in $lib.range(1001) { $node.data.set($i, $i) }}
@@ -1536,6 +1542,112 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('inet:ipv4'))
             await core.nodes('inet:ssl:cert | merge --apply', opts=altview)
             self.len(1, await core.nodes('inet:ipv4'))
+
+    async def test_storm_merge_perms(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            visi = await core.auth.addUser('visi')
+            opts = {'user': visi.iden}
+
+            view2 = await core.callStorm('return($lib.view.get().fork())')
+            view2opts = opts | {'view': view2['iden']}
+            layr2 = view2['layers'][0]['iden']
+            layr1 = view2['layers'][1]['iden']
+
+            await visi.addRule((True, ('view',)))
+            await visi.addRule((True, ('node', 'add')), gateiden=layr2)
+            await visi.addRule((True, ('node', 'prop', 'set')), gateiden=layr2)
+            await visi.addRule((True, ('node', 'tag', 'add')), gateiden=layr2)
+            await visi.addRule((True, ('node', 'data', 'set')), gateiden=layr2)
+            await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr2)
+
+            await core.nodes('[ ou:name=test ]')
+
+            await core.nodes('''
+                [ ps:contact=*
+                    :name=test0
+                    +(test)> { ou:name=test }
+                    +#test1.foo=now
+                    +#test2
+                    +#test3:score=42
+                ]
+                $node.data.set(foo, bar)
+            ''', opts=view2opts)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.del.ps:contact', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'del')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.add.ps:contact', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'add')), gateiden=layr1)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.prop.del.ps:contact..created', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'prop', 'del')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.prop.set.ps:contact..created', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'prop', 'set')), gateiden=layr1)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.tag.del.test1.foo', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'tag', 'del', 'test1', 'foo')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.tag.add.test1.foo', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'tag', 'add', 'test1', 'foo')), gateiden=layr1)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.tag.del.test3', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'tag', 'del', 'test3')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.tag.add.test3', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'tag', 'add', 'test3')), gateiden=layr1)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.tag.del.test2', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'tag', 'del', 'test2')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.tag.add.test2', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'tag', 'add', 'test2')), gateiden=layr1)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.data.pop.foo', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'data', 'pop')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.data.set.foo', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'data', 'set')), gateiden=layr1)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.edge.del.test', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'edge', 'del')), gateiden=layr2)
+
+            with self.raises(s_exc.AuthDeny) as ecm:
+                await core.nodes('ps:contact merge --apply', opts=view2opts)
+            self.eq('node.edge.add.test', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr1)
+
+            await core.nodes('ps:contact merge --apply', opts=view2opts)
 
     async def test_storm_movenodes(self):
 
@@ -2912,27 +3024,30 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }'
             nodes = await core.nodes(q)
-            self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('inet:asn', 0))
-            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef, ('inet:ipv4', 0x01020304))
-
-            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> edge:refs:n2 :n1 -> * }'
-            nodes = await core.nodes(q)
             self.len(4, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('media:news'))
+            self.eq(nodes[2].ndef[0], ('edge:refs'))
             self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> edge:refs:n2 :n1 -> * }'
+            nodes = await core.nodes(q)
+            self.len(5, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('edge:refs'))
+            self.eq(nodes[3].ndef[0], ('media:news'))
+            self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # Queries can be a heavy list
             q = '$list = $lib.list(${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }) inet:ipv4=1.2.3.4 | tee --join $list'
             nodes = await core.nodes(q)
-            self.len(4, nodes)
+            self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('media:news'))
-            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[2].ndef[0], ('edge:refs'))
+            self.eq(nodes[3].ndef[0], ('media:news'))
+            self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # A empty list of queries still works as an nop
             q = '$list = $lib.list() | tee $list'
@@ -2959,11 +3074,12 @@ class StormTest(s_t_utils.SynTest):
             q = 'inet:ipv4=1.2.3.4 | tee --join $list'
             queries = ('-> *', '<- *', '-> edge:refs:n2 :n1 -> *')
             nodes = await core.nodes(q, {'vars': {'list': queries}})
-            self.len(4, nodes)
+            self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('media:news'))
-            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[2].ndef[0], ('edge:refs'))
+            self.eq(nodes[3].ndef[0], ('media:news'))
+            self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # Empty queries are okay - they will just return the input node
             q = 'inet:ipv4=1.2.3.4 | tee {}'

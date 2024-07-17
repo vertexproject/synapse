@@ -1100,6 +1100,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
+        self.https_listeners = []
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
@@ -1759,6 +1760,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setNexsIndx(self, indx):
         return await self.nexsroot.setindex(indx)
 
+    def getMyUrl(self, user='root'):
+        host = self.conf.req('aha:name')
+        network = self.conf.req('aha:network')
+        return f'aha://{host}.{network}'
+
     async def promote(self, graceful=False):
         '''
         Transform this cell from a passive follower to
@@ -1769,45 +1775,37 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        ahaname = self.conf.get('aha:name')
-        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful} ahaname={ahaname}')
+        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}.')
 
         if graceful:
 
-            if ahaname is None: # pragma: no cover
-                mesg = 'Cannot gracefully promote without aha:name configured.'
-                raise s_exc.BadArg(mesg=mesg)
+            myurl = self.getMyUrl()
 
-            ahanetw = self.conf.req('aha:network')
-
-            myurl = f'aha://{ahaname}.{ahanetw}'
-            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff to ahaname={ahaname}')
+            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff.')
             async with await s_telepath.openurl(mirurl) as lead:
-                logger.debug(f'PROMOTION: Requesting leadership handoff to ahaname={ahaname}')
                 await lead.handoff(myurl)
-                logger.warning(f'PROMOTION: Completed leadership handoff to ahaname={ahaname}')
+                logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}')
                 return
 
-        logger.debug(f'PROMOTION: Clearing mirror configuration for ahaname={ahaname}')
+        logger.debug(f'PROMOTION: Clearing mirror configuration.')
         self.modCellConf({'mirror': None})
 
-        logger.debug(f'PROMOTION: Promoting the nexus root for ahaname={ahaname}')
+        logger.debug(f'PROMOTION: Promoting the nexus root.')
         await self.nexsroot.promote()
 
-        logger.debug(f'PROMOTION: Setting the cell as active ahaname={ahaname}')
+        logger.debug(f'PROMOTION: Setting the cell as active.')
         await self.setCellActive(True)
 
-        logger.warning(f'PROMOTION: Finished leadership promotion ahaname={ahaname}')
+        logger.warning(f'PROMOTION: Finished leadership promotion!')
 
     async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
-        ahaname = self.conf.get("aha:name")
-        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
+        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}.')
         async with await s_telepath.openurl(turl) as cell:
 
-            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)} from ahaname={ahaname}')
+            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}.')
 
             if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
@@ -1817,33 +1815,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            logger.debug(f'HANDOFF: Obtaining nexus lock ahaname={ahaname}')
+            logger.debug(f'HANDOFF: Obtaining nexus lock.')
 
             async with self.nexslock:
 
-                logger.debug(f'HANDOFF: Obtained nexus lock ahaname={ahaname}')
+                logger.debug(f'HANDOFF: Obtained nexus lock.')
                 indx = await self.getNexsIndx()
 
-                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}, ahaname={ahaname}')
+                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}.')
                 if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)
 
-                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion ahaname={ahaname}')
+                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion.')
                 await cell.promote()
 
-                logger.debug(f'HANDOFF: Setting the service as inactive ahaname={ahaname}')
+                logger.debug(f'HANDOFF: Setting the service as inactive.')
                 await self.setCellActive(False)
 
-                logger.debug(f'HANDOFF: Configuring service to use the new leader as its mirror ahaname={ahaname}')
+                logger.debug(f'HANDOFF: Configuring service to sync from new leader.')
                 self.modCellConf({'mirror': turl})
 
-                logger.debug(f'HANDOFF: Restarting the nexus ahaname={ahaname}')
+                logger.debug(f'HANDOFF: Restarting the nexus.')
                 await self.nexsroot.startup()
 
-            logger.debug(f'HANDOFF: Released nexus lock ahaname={ahaname}')
-        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)} ahaname={self.conf.get("aha:name")}')
+            logger.debug(f'HANDOFF: Released nexus lock.')
+
+        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}.')
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
@@ -2850,6 +2849,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             self.addReloadableSystem('https:certs', reload)
 
+        self.https_listeners.append({'host': lhost, 'port': lport})
+
         return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
@@ -2905,6 +2906,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         log_method(mesg, extra=extra)
 
+    async def _getCellHttpOpts(self):
+        # Generate/Load a Cookie Secret
+        secpath = os.path.join(self.dirn, 'cookie.secret')
+        if not os.path.isfile(secpath):
+            with s_common.genfile(secpath) as fd:
+                fd.write(s_common.guid().encode('utf8'))
+
+        with s_common.getfile(secpath) as fd:
+            secret = fd.read().decode('utf8')
+
+        return {
+            'cookie_secret': secret,
+            'log_function': self._log_web_request,
+            'websocket_ping_interval': 10
+        }
+
     async def _initCellHttp(self):
 
         self.httpds = []
@@ -2917,20 +2934,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(fini)
 
-        # Generate/Load a Cookie Secret
-        secpath = os.path.join(self.dirn, 'cookie.secret')
-        if not os.path.isfile(secpath):
-            with s_common.genfile(secpath) as fd:
-                fd.write(s_common.guid().encode('utf8'))
-
-        with s_common.getfile(secpath) as fd:
-            secret = fd.read().decode('utf8')
-
-        opts = {
-            'cookie_secret': secret,
-            'log_function': self._log_web_request,
-            'websocket_ping_interval': 10
-        }
+        opts = await self._getCellHttpOpts()
 
         self.wapp = t_web.Application(**opts)
         self._initCellHttpApis()
@@ -3848,15 +3852,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            if 'dmon:listen' not in cell.conf:
-                await cell.dmon.listen(opts.telepath)
-                logger.info(f'...{cell.getCellType()} API (telepath): {opts.telepath}')
-            else:
-                lisn = cell.conf.get('dmon:listen')
-                if lisn is None:
-                    lisn = cell.getLocalUrl()
+            turl = cell._getDmonListen()
+            if turl is None:
+                turl = opts.telepath
+                await cell.dmon.listen(turl)
 
-                logger.info(f'...{cell.getCellType()} API (telepath): {lisn}')
+            logger.info(f'...{cell.getCellType()} API (telepath): {turl}')
 
             if 'https:port' not in cell.conf:
                 await cell.addHttpsPort(opts.https)
@@ -4104,6 +4105,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
                     'network': self.conf.get('aha:network'),
+                },
+                'network': {
+                    'https': self.https_listeners,
                 }
             },
             'features': {

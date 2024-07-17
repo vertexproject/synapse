@@ -1,0 +1,5 @@
+---
+desc: Ensure the ``synapse.storm`` structured log messages contain the view iden.
+prs: []
+type: feat
+...

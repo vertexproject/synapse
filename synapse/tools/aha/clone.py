@@ -22,7 +22,8 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('dnsname', help='The DNS name of the new AHA server.')
     pars.add_argument('--port', type=int, default=27492, help='The port that the new AHA server should listen on.')
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
-
+    pars.add_argument('--only-url', help='Only output the URL upon successful execution',
+                      action='store_true', default=False)
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -30,7 +31,11 @@ async def main(argv, outp=s_output.stdout):
         try:
             async with await s_telepath.openurl(opts.url) as aha:
                 curl = await aha.addAhaClone(opts.dnsname, port=opts.port)
-                outp.printf('one-time use URL: {curl}')
+
+                if opts.only_url:
+                    outp.printf(curl)
+                else:
+                    outp.printf(f'one-time use URL: {curl}')
                 return 0
 
         except Exception as e:

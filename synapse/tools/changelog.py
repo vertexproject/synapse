@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import pprint
 import asyncio
@@ -41,8 +42,6 @@ def gen(opts: argparse.Namespace,
     data['type'] = opts.type
     data['desc'] = opts.desc
 
-    if opts.migration_desc:
-        data['migration_desc'] = opts.migration_desc
     if opts.pr:
         data['prs'] = [opts.pr]
 
@@ -67,7 +66,7 @@ def gen(opts: argparse.Namespace,
         if opts.verbose:
             outp.printf(f'stddout={ret.stdout}')
             outp.printf(f'stderr={ret.stderr}')
-            ret.check_returncode()
+        ret.check_returncode()
 
     return 0
 
@@ -104,19 +103,40 @@ def format(opts: argparse.Namespace,
 
         s_schemas._reqChanglogSchema(data)
 
-        if opts.prs_from_git:
-            outp.printf('--prs-from-git not yet implemented.')
-            return 1
+        data.setdefault('prs', [])
+        prs = data.get('prs')
 
-        if opts.enforce_prs and not data.get('prs'):
+        if opts.prs_from_git:
+
+            argv = ['git', 'log', '--pretty=oneline', fp]
+            ret = subprocess.run(argv, capture_output=True)
+            if opts.verbose:
+                outp.printf(f'stddout={ret.stdout}')
+                outp.printf(f'stderr={ret.stderr}')
+            ret.check_returncode()
+
+            for line in ret.stdout.splitlines():
+                line = line.decode()
+                line = line.strip()
+                if not line:
+                    continue
+                match = re.search('\\(#(?P<pr>\\d{1,})\\)', line)
+                if match:
+                    for pr in match.groups():
+                        pr = int(pr)
+                        if pr not in prs:
+                            prs.append(pr)
+                            if opts.verbose:
+                                outp.printf(f'Added PR #{pr} to the pr list from [{line=}]')
+
+        if opts.enforce_prs and not prs:
             outp.printf(f'Entry is missing PR numbers: {fp=}')
             return 1
-        data.setdefault('prs', [])
 
         if opts.verbose:
             outp.printf(f'Got data from {fp=}')
 
-        data.get('prs').sort()  # sort the PRs inplace
+        prs.sort() # sort the PRs inplace
         entries[data.get('type')].append(data)
 
     if not entries:
@@ -148,6 +168,17 @@ def format(opts: argparse.Namespace,
             if key == 'migration':
                 text = text + '\n- See :ref:`datamigration` for more information about automatic migrations.'
             text = text + '\n'
+
+    if opts.rm:
+        if opts.verbose:
+            outp.printf('Staging file removals in git')
+        for fp in files_processed:
+            argv = ['git', 'rm', fp]
+            ret = subprocess.run(argv, capture_output=True)
+            if opts.verbose:
+                outp.printf(f'stddout={ret.stdout}')
+                outp.printf(f'stderr={ret.stderr}')
+            ret.check_returncode()
 
     outp.printf(text)
 
@@ -185,8 +216,6 @@ def makeargparser():
                           help='The changelog type.')
     gen_pars.add_argument('desc', type=str,
                           help='The description to populate the initial changelog entry with.', )
-    gen_pars.add_argument('-m', '--migration-desc', default=None, action='store', type=str,
-                          help='Description of any automatic migrations associated with your changelog entry.', )
     gen_pars.add_argument('-p', '--pr', type=int, default=False,
                           help='PR number associated with the changelog entry.')
     gen_pars.add_argument('-a', '--add', default=False, action='store_true',
@@ -210,6 +239,8 @@ def makeargparser():
                              help='Version number')
     format_pars.add_argument('-d', '--date', action='store', type=str,
                              help='Date to use with the changelog entry')
+    format_pars.add_argument('-r', '--rm', default=False, action='store_true',
+                             help='Stage the changelog files as deleted files in git.')
 
     for p in (gen_pars, format_pars):
         p.add_argument('-v', '--verbose', default=False, action='store_true',

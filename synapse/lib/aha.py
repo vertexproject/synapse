@@ -551,7 +551,7 @@ class AhaCell(s_cell.Cell):
 
         path = s_common.genpath(self.dirn, 'cell.guid')
         if os.path.isfile(path):
-            logger.info('Cloneing AHA: cell.guid detected. Skipping.')
+            logger.info('Cloning AHA: cell.guid detected. Skipping.')
             return
 
         logger.warning(f'Cloning AHA: {curl}')
@@ -621,7 +621,6 @@ class AhaCell(s_cell.Cell):
         host = server.get('host')
         port = server.get('port')
 
-        oldv = None
         lkey = s_msgpack.en((host, port))
 
         byts = self.slab.get(lkey, db='aha:servers')
@@ -856,7 +855,6 @@ class AhaCell(s_cell.Cell):
 
         # bootstrap CA/host certs first
         network = self.conf.req('aha:network')
-        await self._genCaCert(network)
 
         hostname = self._getDnsName()
         if hostname is not None and network is not None:
@@ -1260,6 +1258,8 @@ class AhaCell(s_cell.Cell):
 
     async def _genCaCert(self, network):
 
+        # generate a CA cert if one does not exist
+        # ( but don't read it in if it does )
         if os.path.isfile(os.path.join(self.dirn, 'certs', 'cas', f'{network}.crt')):
             return
 
@@ -1270,7 +1270,7 @@ class AhaCell(s_cell.Cell):
         if signas is not None:
             await self._genCaCert(signas)
 
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'hosts', '{hostname}.crt')):
+        if os.path.isfile(os.path.join(self.dirn, 'certs', 'hosts', f'{hostname}.crt')):
             return
 
         pkey, cert = await s_coro.executor(self.certdir.genHostCert, hostname, signas=signas, save=False)
@@ -1280,7 +1280,7 @@ class AhaCell(s_cell.Cell):
 
     async def _genUserCert(self, username, signas=None):
 
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'users', '{username}.crt')):
+        if os.path.isfile(os.path.join(self.dirn, 'certs', 'users', f'{username}.crt')):
             return
 
         logger.info(f'Adding user certificate for {username}')
@@ -1377,7 +1377,7 @@ class AhaCell(s_cell.Cell):
 
         return urls
 
-    def _getAhaUrl(self, user='root'):
+    def getMyUrl(self, user='root'):
         port = self.sockaddr[1]
         host = self._getDnsName()
         network = self.conf.req('aha:network')
@@ -1396,7 +1396,7 @@ class AhaCell(s_cell.Cell):
 
         network = self.conf.req('aha:network')
 
-        conf['mirror'] = self._getAhaUrl()
+        conf['mirror'] = self.getMyUrl()
 
         conf['dns:name'] = host
         conf['aha:network'] = network

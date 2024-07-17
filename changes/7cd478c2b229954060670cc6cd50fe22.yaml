@@ -1,7 +1,0 @@
----
-desc: Trigger definitions now always have the View iden that they belong to set upon View creation.
-  The Storm ``$lib.trigger.set()`` API now uses the trigger view instead of the current view when checking permissions.
-prs:
-- 3760
-type: bug
-...

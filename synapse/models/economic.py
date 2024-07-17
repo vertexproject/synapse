@@ -48,11 +48,11 @@ class EconModule(s_module.CoreModule):
                     'doc': 'An invoice issued requesting payment.'}),
 
                 ('econ:price', ('hugenum', {'norm': False}), {
-                    'doc': 'The amount of money expected, required, or given in payment for something',
+                    'doc': 'The amount of money expected, required, or given in payment for something.',
                     'ex': '2.20'}),
 
                 ('econ:currency', ('str', {'lower': True, 'strip': False}), {
-                    'doc': 'The name of a system of money in general use',
+                    'doc': 'The name of a system of money in general use.',
                     'ex': 'usd'}),
 
                 ('econ:fin:exchange', ('guid', {}), {

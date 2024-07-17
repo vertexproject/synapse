@@ -83,7 +83,7 @@ Choose an AHA Network Name
 --------------------------
 
 Your AHA network name is separate from DNS and is used by services within the AHA service deployment. It is
-generally a good idea to chose a name that aligns with the use case for the synapse deployment. For example,
+generally a good idea to chose a name that aligns with the use case for the Synapse deployment. For example,
 if you plan to have a test/dev/prod deployment, choosing a name like ``prod.synapse`` will make it clear which
 deployment is which. Changing this name later is difficult, so choose carefully! Throughout the examples, we
 will be using ``prod.synapse`` as the AHA network name which is also used as the common-name (CN) for the CA

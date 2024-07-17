@@ -1602,6 +1602,19 @@ class Snap(s_base.Base):
             last = verb
             yield verb
 
+    async def getNdefRefs(self, buid):
+        last = None
+        gens = [layr.getNdefRefs(buid) for layr in self.layers]
+
+        async for refsbuid, _ in s_common.merggenr2(gens):
+            if refsbuid == last:
+                continue
+
+            await asyncio.sleep(0)
+            last = refsbuid
+
+            yield refsbuid
+
     async def hasNodeData(self, buid, name):
         '''
         Return True if the buid has nodedata set on it under the given name

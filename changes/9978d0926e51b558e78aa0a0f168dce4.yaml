@@ -1,7 +1,0 @@
----
-desc: Add additional context to structured log information when a long LMDB commit
-  is detected.
-prs:
-- 3747
-type: feat
-...

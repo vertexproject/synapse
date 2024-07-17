@@ -686,7 +686,8 @@ class Waiter:
     async def __aexit__(self, exc, cls, tb):
         if exc is None:
             if await self.wait() is None:
-                mesg = f'timeout waiting for {self.count} events {self.names}'
+                events = ','.join(self.names)
+                mesg = f'timeout waiting for {self.count} event(s): {events}'
                 raise s_exc.TimeOut(mesg=mesg)
 
 class BaseRef(Base):

@@ -392,6 +392,10 @@ class Config(c_abc.MutableMapping):
         else:
             return
 
+    def reqConfValu(self, name):
+        s_common.deprecated('reqConfValu()')
+        return self.req(name)
+
     def req(self, name):
         '''
         Return a configuration value or raise NeedConfValu if it is unset.
