@@ -1,5 +1,5 @@
 ---
-desc: Add ``$lib.model.migration.s.fileBytesBySha256()`` migration helper to create
+desc: Add ``$lib.gen.fileBytesBySha256()`` helper function to create
   ``file:bytes`` nodes from a SHA256.
 prs: []
 type: feat
