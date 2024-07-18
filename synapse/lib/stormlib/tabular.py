@@ -154,8 +154,13 @@ class TabularPrinter(s_stormtypes.StormType):
             valu = str(valu) if valu is not None else ''
 
             if width is None:
-                items.append([valu])
+                if coldef['newlines'] == 'split':
+                    items.append(valu.split('\n'))
+                else:
+                    items.append([valu.replace('\n', ' ')])
                 continue
+
+            valu = valu.replace('\n', ' ')
 
             if len(valu) <= width:
                 items.append([justers[coldef['justify']](valu, width)])

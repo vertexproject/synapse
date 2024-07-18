@@ -352,6 +352,9 @@ tabularConfSchema = {
                     'overflow': {'type': 'string', 'default': 'trim', 'enum': ['wrap', 'trim'],
                                  'description': 'For text exceeding the width, '
                                                 'either wrap text in multiple lines or trim and append "...".'},
+                    'newlines': {'type': 'string', 'default': 'replace', 'enum': ['replace', 'split'],
+                                'description': 'Replace newlines with a space or split into multiple lines.'
+                                               'Split is only applied if width is undefined.'},
                 },
                 'required': ['name'],
                 'minItems': 1,

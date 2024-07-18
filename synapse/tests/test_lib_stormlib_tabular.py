@@ -158,6 +158,31 @@ class TabularTest(s_test.SynTest):
                 '        |            | War        ',
             ], printlines(mesgs))
 
+            # newlines
+
+            mesgs = await core.stormlist('''
+                $printer = $lib.tabular.printer(({
+                    "columns": [
+                        {"name": "Foo", "width": 10},
+                        {"name": "Bar", "width": 10, "newlines": "split"},
+                        {"name": "Baz", "newlines": "split"},
+                    ],
+                }))
+
+                $lib.print($printer.header())
+                $lib.print($printer.row(("aaa\\nbbb", "ccc\\nddd", "eee\\nfff")))
+                $lib.print($printer.row(("a", "dummy", "row")))
+            ''', opts=opts)
+            self.stormHasNoWarnErr(mesgs)
+            self.eq([
+                ' Foo        | Bar        | Baz ',
+                '============|============|=====',
+                ' aaa bbb    | ccc ddd    | eee ',
+                '            |            | fff ',
+                '------------|------------|-----',
+                ' a          | dummy      | row ',
+            ], printlines(mesgs))
+
             # reprs
 
             mesgs = await core.stormlist('''
