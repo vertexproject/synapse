@@ -7,6 +7,48 @@ Synapse Changelog
 *****************
 
 
+v2.176.0 - 2024-07-18
+=====================
+
+Model Changes
+-------------
+- Updates to the ``inet`` model.
+  (`#3811 <https://github.com/vertexproject/synapse/pull/3811>`_)
+  (`#3814 <https://github.com/vertexproject/synapse/pull/3814>`_)
+
+  **New Forms**
+
+  ``inet:service:thread``
+    A message thread.
+
+  **New Properties**
+
+  ``inet:service:message``
+    The form had the following properties added to it:
+
+    ``thread``
+      The thread which contains the message.
+
+    ``title``
+      The message title.
+
+  **Updated Forms**
+
+  ``inet:service:account``
+    The form now inherits from the ``inet:service:object`` interface.
+
+Features and Enhancements
+-------------------------
+- Add ``storm.exec`` command for executing arbitrary text as Storm.
+  (`#3807 <https://github.com/vertexproject/synapse/pull/3807>`_)
+  (`#3812 <https://github.com/vertexproject/synapse/pull/3812>`_)
+- Ensure the ``synapse.storm`` structured log messages contain the view iden.
+  (`#3812 <https://github.com/vertexproject/synapse/pull/3812>`_)
+- Added ``$lib.storm.run()`` to programmatically invoke Storm.
+  (`#3813 <https://github.com/vertexproject/synapse/pull/3813>`_)
+- Remove the per-node pivot errors from the Cortex log output.
+  (`#3819 <https://github.com/vertexproject/synapse/pull/3819>`_)
+
 v2.175.0 - 2024-07-15
 =====================
 
