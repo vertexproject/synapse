@@ -1,0 +1,5 @@
+---
+desc: Remove the per-node pivot errors from the Cortex log output.
+prs: []
+type: feat
+...
