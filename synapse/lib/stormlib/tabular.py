@@ -100,7 +100,7 @@ class LibTabular(s_stormtypes.Lib):
 @s_stormtypes.registry.registerType
 class TabularPrinter(s_stormtypes.StormType):
     '''
-    A storm object for printing tabular data using a defined configuration.
+    A Storm object for printing tabular data using a defined configuration.
     '''
     _storm_typename = 'tabular:printer'
     _storm_locals = (
