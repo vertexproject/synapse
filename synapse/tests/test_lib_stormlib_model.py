@@ -898,7 +898,7 @@ class StormlibModelTest(s_test.SynTest):
             nodes = await core.nodes('crypto:x509:cert:file=$sha256', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].get('file'), file.ndef[1])
-            self.eq(nodes[0].ndef, ('crypto:x509:cert', s_common.guid((sha256,))))
+            self.eq(nodes[0].ndef, ('crypto:x509:cert', s_common.guid(sha256)))
             cert3 = nodes[0]
 
             nodes = await core.nodes('inet:tls:servercert:server="tcp://8.8.8.8:53" $node.data.load(foo)')

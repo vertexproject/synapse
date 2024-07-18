@@ -136,6 +136,15 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the place.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A geo:place node with the given name.'}}},
+        {'name': 'fileBytesBySha256',
+         'desc': 'Returns a file:bytes node by SHA256, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'sha256', 'type': ['str', 'hash:sha256'], 'desc': 'The SHA256 fingerprint for the file:bytes node.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'A crypto:x509:cert node with the given SHA256.'}}},
         {'name': 'cryptoX509CertBySha256',
          'desc': 'Returns a crypto:x509:cert node by SHA256, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -445,6 +454,17 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
+        function fileBytesBySha256(sha256, try=$lib.false) {
+            ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
+            if (not $ok) { return() }
+
+            file:bytes:sha256=$sha256
+            return($node)
+
+            [ file:bytes=$sha256 ]
+            return($node)
+        }
+
         function cryptoX509CertBySha256(sha256, try=$lib.false) {
             ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
             if (not $ok) { return() }
@@ -466,7 +486,7 @@ class LibGen(s_stormtypes.Lib):
 
             // Create a new crypto:x509:cert with file and sha256
             [ crypto:x509:cert=$guid
-                :file = {[ file:bytes=$sha256 ]}
+                :file = $fileBytesBySha256($sha256, try=$try)
                 :sha256 = $sha256
             ]
             return($node)

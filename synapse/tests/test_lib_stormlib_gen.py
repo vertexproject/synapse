@@ -247,6 +247,34 @@ class StormLibGenTest(s_test.SynTest):
             self.len(1, names)
             self.isin('rhodesia', names)
 
+    async def test_stormlib_gen_fileBytes(self):
+
+        async with self.getTestCore() as core:
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+
+            nodes = await core.nodes('yield $lib.gen.fileBytesBySha256($sha256)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('sha256'), sha256)
+
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+
+            q = '''
+                [ file:bytes=(file1,) :sha256=$sha256 ]
+                spin |
+                yield $lib.gen.fileBytesBySha256($sha256)
+            '''
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'guid:' + s_common.guid(('file1',)))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('$lib.gen.fileBytesBySha256(newp)', opts=opts)
+
+            q = 'return($lib.gen.fileBytesBySha256(newp, try=$lib.true))'
+            self.none(await core.callStorm(q, opts=opts))
+
     async def test_stormlib_gen_inetTlsServerCert(self):
 
         async with self.getTestCore() as core:
