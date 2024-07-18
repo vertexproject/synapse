@@ -24,7 +24,7 @@ Model Changes
   **New Properties**
 
   ``inet:service:message``
-   The form had the following properties added to it:
+    The form had the following properties added to it:
 
     ``thread``
       The thread which contains the message.
