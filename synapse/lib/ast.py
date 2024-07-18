@@ -286,7 +286,7 @@ class Search(Query):
         view = runt.view
 
         if not view.core.stormiface_search:
-            await runt.warn('Storm search interface is not enabled!')
+            await runt.warn('Storm search interface is not enabled!', log=False)
             return
 
         async def searchgenr():
@@ -2305,7 +2305,7 @@ class FormPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
-                await runt.warn(mesg, **items)
+                await runt.warn(mesg, log=False, **items)
 
 class PropPivotOut(PivotOper):
     '''
@@ -2344,7 +2344,7 @@ class PropPivotOut(PivotOper):
                 if runt.model.forms.get(fname) is None:
                     if not warned:
                         mesg = f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.'
-                        await runt.warn(mesg)
+                        await runt.warn(mesg, log=False)
                         warned = True
                     continue
 
@@ -2368,7 +2368,7 @@ class PropPivotOut(PivotOper):
             fname = prop.type.name
             if prop.modl.form(fname) is None:
                 if warned is False:
-                    await runt.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.')
+                    await runt.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.', log=False)
                     warned = True
                 continue
 
@@ -2490,7 +2490,7 @@ class PropPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                await runt.warn(mesg, **items)
+                await runt.warn(mesg, log=False, **items)
 
 class Value(AstNode):
     '''
