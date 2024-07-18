@@ -3745,6 +3745,9 @@ class InetModule(s_module.CoreModule):
                         ('title', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The title of the thread.'}),
 
+                        ('channel', ('inet:service:channel', {}), {
+                            'doc': 'The channel that contains the thread.'}),
+
                         ('message', ('inet:service:message', {}), {
                             'doc': 'The message which initiated the thread.'}),
                     )),
