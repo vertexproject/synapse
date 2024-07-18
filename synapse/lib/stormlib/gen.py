@@ -449,6 +449,12 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
             if (not $ok) { return() }
 
+            $guid = $lib.guid(valu=$sha256)
+
+            // Try to lift crypto:x509:cert by guid
+            crypto:x509:cert=$guid
+            return($node)
+
             // Try to lift crypto:x509:cert by sha256
             crypto:x509:cert:sha256=$sha256
             return($node)
@@ -459,7 +465,7 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             // Create a new crypto:x509:cert with file and sha256
-            [ crypto:x509:cert=($sha256,)
+            [ crypto:x509:cert=$guid
                 :file = {[ file:bytes=$sha256 ]}
                 :sha256 = $sha256
             ]
