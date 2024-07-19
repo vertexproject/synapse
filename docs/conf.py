@@ -248,26 +248,6 @@ def run_stormtypes(_):
     r = subprocess.run(args, cwd=synpd)
     assert r.returncode == 0, f'Failed to convert stormtypes.'
 
-def convert_ipynb(_):
-    import synapse.common as s_common
-    import nbconvert.nbconvertapp as nba
-    cwd = os.getcwd()
-    for fdir, dirs, fns in os.walk(cwd):
-        if '.ipynb_checkpoints' in dirs:
-            dirs.remove('.ipynb_checkpoints')
-        for fn in fns:
-            if fn.endswith('.ipynb'):
-                # if 'httpapi' not in fn:
-                #     continue
-                tick = s_common.now()
-                fp = os.path.join(fdir, fn)
-                args = ['--execute', '--template', 'vertex', '--to', 'rst', fp]
-                nba.main(args)
-                tock = s_common.now()
-                took = (tock - tick) / 1000
-                print(f'convert_ipynb: Notebook {fn} execution took {took} seconds.')
-
-
 def convert_rstorm(_):
     import subprocess
 
@@ -302,6 +282,5 @@ def setup(app):
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)
-    app.connect('builder-inited', convert_ipynb)
     app.connect('builder-inited', convert_rstorm)
     app.connect('builder-inited', run_stormtypes)

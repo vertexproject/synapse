@@ -3300,3 +3300,34 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('resource'), resource.ndef[1])
             self.true(nodes[0].get('success'))
             self.eq(nodes[0].get('time'), 1715856900000)
+
+            q = '''
+            [ inet:service:message=(visi, says, relax)
+                :title="Hehe Haha"
+                :thread={[
+                    inet:service:thread=*
+                        :title="Woot  Woot"
+                        :message=(visi, says, hello)
+                        :channel={[
+                            inet:service:channel=(synapse, subreddit)
+                                :name="/r/synapse"
+                        ]}
+                ]}
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.len(1, await core.nodes('inet:service:message=(visi, says, hello) -> inet:service:thread:message'))
+            self.len(1, await core.nodes('''
+                inet:service:message:title="hehe haha"
+                :thread -> inet:service:thread
+                +:title="woot woot"
+            '''))
+            self.len(2, await core.nodes('inet:service:thread -> inet:service:message'))
+
+            self.len(1, await core.nodes('''
+                inet:service:message:title="hehe haha"
+                :thread -> inet:service:thread
+                :channel -> inet:service:channel
+                +:name="/r/synapse"
+            '''))

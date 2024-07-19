@@ -374,3 +374,36 @@ _passwdPolicySchema = {
     'additionalProperties': False,
 }
 reqValidPasswdPolicy = s_config.getJsValidator(_passwdPolicySchema)
+
+
+# These types are order sensitive
+_changelogTypes = {'migration': 'Automatic Migrations',
+                   'model': 'Model Changes',
+                   'feat': 'Features and Enhancements',
+                   'bug': 'Bugfixes',
+                   'doc': 'Improved documentation',
+                   'deprecation': 'Deprecations'}
+
+_changelogSchema = {
+    'type': 'object',
+    'properties': {
+        'type': {
+            'type': 'string',
+            'enum': list(_changelogTypes.keys()),
+        },
+        'desc': {
+            'type': 'string',
+            'minLength': 1,
+        },
+        'prs': {
+            'type': 'array',
+            'items': {
+                'type': 'integer',
+            }
+        }
+    },
+    'additionalProperties': False,
+    'required': ['type', 'desc']
+}
+_reqChanglogSchema = s_config.getJsValidator(_changelogSchema)
+
