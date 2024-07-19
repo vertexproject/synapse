@@ -806,6 +806,23 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                       {'name': 'reverse', 'type': 'boolean', 'default': False, 'desc': 'If True, return results in reverse order.', },
                   ),
                   'returns': {'type': 'str', }}},
+        {'name': 'setNodePropValuNoNorm',
+         'desc': '''
+            Set a node property value without norming them first.
+
+            NOTE: This function can only be used by administrators and even then should be used with extreme caution.
+            The intent of this function is to be able to set node prop values during a migration in the extremely rare case where
+            there is invalid data stored within the Cortex. Specifically, this is intended for updating array properties
+            where there might still be invalid data in the array and we want to remove one invalid element but not all
+            of them (yet).
+         ''',
+         'type': {'type': 'function', '_funcname': '_methLiftByPropValuNoNorm',
+                  'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The node to operate on.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name of the node(s) to lift.', },
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to query when performing the lift.', },
+                  ),
+                  'returns': {'type': 'node', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -815,6 +832,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
             'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
+            'setNodePropValuNoNorm': self._methSetNodePropValuNoNorm,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -860,7 +878,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
     async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
         if not self.runt.isAdmin():
-            mesg = 'This API is restricted to admins only.'
+            mesg = '$lib.model.migration.liftByPropValuNoNorm() is restricted to admins only.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         formname = await s_stormtypes.tostr(formname)
@@ -888,6 +906,27 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         async for _, buid, _ in liftfunc(formname, propname, cmprvals, reverse=reverse):
             yield await self.runt.snap.getNodeByBuid(buid)
+
+    async def _methSetNodePropValuNoNorm(self, n, propname, valu):
+        # I'm sure there are all kinds of edges cases that this function doesn't account for. At the time of it's
+        # creation, this was intended to be used to update array properties with bad it:sec:cpe values in them. It works
+        # for that use case (see model migration 0.2.27). Any additional use of this function should perform heavy
+        # testing.
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.model.migration.setNodePropValuNoNorm() is restricted to admins only.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
+
+        propname = await s_stormtypes.tostr(propname)
+        valu = await s_stormtypes.toprim(valu)
+
+        async with self.runt.snap.getNodeEditor(n) as proto:
+            await proto.set(propname, valu, norminfo={})
+
+        return n
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):

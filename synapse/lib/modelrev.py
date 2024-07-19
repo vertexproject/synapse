@@ -839,7 +839,7 @@ class ModelRev:
                          * needs to be migrated to a new node because the primary
                          * property needs to be changed. We'll create a new
                          * (correct) node, and copy everything from the old node.
-                         * Then we complete the migration by recursing through
+                         * Then we complete the migration by iterating through
                          * all the views to fix the references.
                          */
 
@@ -851,7 +851,7 @@ class ModelRev:
                             $lib.model.migration.copyData($oldcpe, $node)
                         }
 
-                        // Recursively iterate through the views again and fix up all the references
+                        // Iterate through the views again and fix up all the references
                         for $rview in $lib.view.list(deporder=$lib.true) {
                             if (not $layers.has($rview.layers.0.iden)) { continue }
 
@@ -861,21 +861,21 @@ class ModelRev:
                                 for ($form, $prop, $isarray) in $refforms {
                                     yield $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
 
+                                    empty { continue }
+
                                     if $isarray {
+
                                         // We can't just [ :$prop-=$repr ] because the norm() function gets called
                                         // on the array type deep down in the AST. So, instead, we have to operate on
                                         // the whole array.
 
-                                        $valu = :$prop
+                                        $valu = $lib.copy(:$prop)
+                                        $valu.remove($repr)
 
-                                        if ($valu.size() = 1) {
-                                            // Optimized case where the only item in the array is the bad CPE
-                                            [ -:$prop :$prop+=$newcpe]
-                                        } else {
-                                            $valu.remove($repr)
-                                            $valu.append($newcpe)
-                                            [ :$prop=$valu ]
-                                        }
+                                        $lib.model.migration.setNodePropValuNoNorm($node, $prop, $valu)
+
+                                        // We want the new CPE valu to go through norming
+                                        [ :$prop+=$newcpe ]
 
                                     } else {
                                         [ -:$prop :$prop=$newcpe ]
@@ -915,13 +915,21 @@ class ModelRev:
                                 for ($form, $prop, $isarray) in $refforms {
                                     yield $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
 
+                                    empty { continue }
+
                                     if $isarray {
-                                        $valu = :$prop
-                                        if ($valu.size() = 1) {
-                                            [ -:$prop ]
+
+                                        // We can't just [ :$prop-=$repr ] because the norm() function gets called
+                                        // on the array type deep down in the AST. So, instead, we have to operate on
+                                        // the whole array.
+
+                                        $valu = $lib.copy(:$prop)
+                                        $valu.remove($repr)
+
+                                        if $valu {
+                                            $lib.model.migration.setNodePropValuNoNorm($node, $prop, $valu)
                                         } else {
-                                            $valu.remove($repr)
-                                            [ :$prop=$valu ]
+                                            [ -:$prop ]
                                         }
 
                                     } else {
