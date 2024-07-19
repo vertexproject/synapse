@@ -5061,6 +5061,12 @@ class List(Prim):
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
          'type': {'type': 'function', '_funcname': '_methListUnique',
                   'returns': {'type': 'list'}}},
+        {'name': 'remove', 'desc': 'Remove a specific item from anywhere in the list.',
+         'type': {'type': 'function', '_funcname': '_methListRemove',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'An item in the list.'},
+                  ),
+                  'returns': {'type': 'null'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -5082,6 +5088,7 @@ class List(Prim):
             'slice': self._methListSlice,
             'extend': self._methListExtend,
             'unique': self._methListUnique,
+            'remove': self._methListRemove,
         }
 
     @stormfunc(readonly=True)
@@ -5176,7 +5183,6 @@ class List(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
-    @stormfunc(readonly=True)
     async def _methListExtend(self, valu):
         async for item in toiter(valu):
             self.valu.append(item)
@@ -5203,6 +5209,13 @@ class List(Prim):
             checkret.append(_cval)
             ret.append(val)
         return ret
+
+    async def _methListRemove(self, item):
+        item = await toprim(item)
+        try:
+            self.valu.remove(item)
+        except ValueError:
+            pass
 
     async def stormrepr(self):
         reprs = [await torepr(k) for k in self.valu]

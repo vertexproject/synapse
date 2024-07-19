@@ -3,6 +3,7 @@ import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.models.infotech as s_infotech
@@ -788,6 +789,23 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Copy tag property value even if the property exists on the destination node.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'liftByPropValuNoNorm',
+         'desc': '''
+            Lift nodes from the current write layer without norming them first.
+
+            NOTE: This function can only be used by administrators and even then should be used with extreme caution.
+            The intent of this function is to be able to lift nodes during a migration in the extremely rare case where
+            there is invalid data stored within the Cortex.
+         ''',
+         'type': {'type': 'function', '_funcname': '_methLiftByPropValuNoNorm',
+                  'args': (
+                      {'name': 'formname', 'type': 'str', 'desc': 'The form name of the node(s) to lift.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name of the node(s) to lift.', },
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to query when performing the lift.', },
+                      {'name': 'cmpr', 'type': 'str', 'default': '=', 'desc': 'The comparison to perform when performing the query.', },
+                      {'name': 'reverse', 'type': 'boolean', 'default': False, 'desc': 'If True, return results in reverse order.', },
+                  ),
+                  'returns': {'type': 'str', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -796,6 +814,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyData': self._methCopyData,
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
+            'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -838,6 +857,37 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
+
+    async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
+        if not self.runt.isAdmin():
+            mesg = 'This API is restricted to admins only.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        formname = await s_stormtypes.tostr(formname)
+        propname = await s_stormtypes.tostr(propname)
+        valu = await s_stormtypes.tostr(valu)
+
+        prop = self.runt.snap.core.model.prop(f'{formname}:{propname}')
+        if prop is None:
+            mesg = f'Could not find prop: {formname}:{propname}'
+            raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
+
+        stortype = prop.type.stortype
+
+        # Normally we'd call proptype.getStorCmprs() here to get the cmprvals
+        # but getStorCmprs() calls norm() which we're  trying to avoid so build
+        # cmprvals manually here.
+
+        if prop.type.isarray:
+            stortype &= (~s_layer.STOR_FLAG_ARRAY)
+            liftfunc = self.runt.snap.wlyr.liftByPropArray
+        else:
+            liftfunc = self.runt.snap.wlyr.liftByPropValu
+
+        cmprvals = ((cmpr, valu, stortype),)
+
+        async for _, buid, _ in liftfunc(formname, propname, cmprvals, reverse=reverse):
+            yield await self.runt.snap.getNodeByBuid(buid)
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):

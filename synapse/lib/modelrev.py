@@ -789,14 +789,14 @@ class ModelRev:
         refforms = []
         for form in self.core.model.forms.values():
             for prop in form.props.values():
-                (proptype, typeinfo) = prop.typedef
-                if proptype not in ('array', 'it:sec:cpe'):
+
+                if prop.type.name not in ('array', 'it:sec:cpe'):
                     continue
 
-                if proptype == 'array' and typeinfo.get('type') != 'it:sec:cpe':
+                if prop.type.isarray and prop.type.arraytype.name != 'it:sec:cpe':
                     continue
 
-                refforms.append((prop.full, prop.name, proptype))
+                refforms.append((form.name, prop.name, prop.type.isarray))
 
         # FIXME: Get extended model props that are it:sec:cpe
 
@@ -819,10 +819,12 @@ class ModelRev:
 
             view.exec $view.iden {
 
-                for $oldcpe in $lib.layer.get().liftByProp(it:sec:cpe) {
+                $layer = $lib.layer.get()
+
+                for $oldcpe in $layer.liftByProp(it:sec:cpe) {
                     $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
 
-                    $lib.log.debug(`INFO: {$oldcpe.repr()} -> {$info}`)
+                    $repr = $oldcpe.repr()
 
                     $success = ($info.status = "success")
 
@@ -843,7 +845,6 @@ class ModelRev:
 
                         // Create the new CPE node and migrate the edges, tags, and data
                         $newcpe = {
-                            $lib.log.debug(`Migrating {$oldcpe.repr()} -> {$info.valu}`)
                             [ it:sec:cpe=$info.valu ]
                             $lib.model.migration.copyEdges($oldcpe, $node)
                             $lib.model.migration.copyTags($oldcpe, $node)
@@ -857,21 +858,27 @@ class ModelRev:
                             view.exec $rview.iden {
 
                                 // Fix references that point to old node to now point to new node
-                                for ($full, $prop, $type) in $refforms {
-                                    switch $type {
-                                        "it:sec:cpe": {
-                                            {*$full=$oldcpe
-                                                $lib.log.debug(`MIGRATE CPE PROP: {$full} {$node}`)
-                                                [ :$prop=$newcpe ]
-                                            }
+                                for ($form, $prop, $isarray) in $refforms {
+                                    yield $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
+
+                                    if $isarray {
+                                        // We can't just [ :$prop-=$repr ] because the norm() function gets called
+                                        // on the array type deep down in the AST. So, instead, we have to operate on
+                                        // the whole array.
+
+                                        $valu = :$prop
+
+                                        if ($valu.size() = 1) {
+                                            // Optimized case where the only item in the array is the bad CPE
+                                            [ -:$prop :$prop+=$newcpe]
+                                        } else {
+                                            $valu.remove($repr)
+                                            $valu.append($newcpe)
+                                            [ :$prop=$valu ]
                                         }
 
-                                        "array": {
-                                            {*$full*[=$oldcpe]
-                                                $lib.log.debug(`MIGRATE ARRAY PROP: {$full} {$node}`)
-                                                [ :$prop-=$oldcpe :$prop+=$newcpe ]
-                                            }
-                                        }
+                                    } else {
+                                        [ -:$prop :$prop=$newcpe ]
                                     }
                                 }
                             }
@@ -900,28 +907,39 @@ class ModelRev:
                         }
 
                         $references = ([])
-                        // Get references and store them in queue
-                        for $refform in $refforms {
-                            ($full, $prop, $type) = $refform
-                            switch $type {
-                                "it:sec:cpe": {
-                                    { *$full=$oldcpe [ -:$prop ] }
+                        for $rview in $lib.view.list(deporder=$lib.true) {
+                            if (not $layers.has($rview.layers.0.iden)) { continue }
+
+                            view.exec $rview.iden {
+                                // Get references and store them in queue
+                                for ($form, $prop, $isarray) in $refforms {
+                                    yield $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
+
+                                    if $isarray {
+                                        $valu = :$prop
+                                        if ($valu.size() = 1) {
+                                            [ -:$prop ]
+                                        } else {
+                                            $valu.remove($repr)
+                                            [ :$prop=$valu ]
+                                        }
+
+                                    } else {
+                                        [ -:$prop ]
+                                    }
+
+                                    $references.append(($node.iden(), ($form, $prop)))
+
+                                    if ($references.size() > 1000) {
+                                        $refsq.put(($iden, $references))
+                                        $references = ([])
+                                    }
                                 }
 
-                                "array": {
-                                    { *$full*[=$oldcpe] [ :$prop-=$oldcpe ] }
+                                if $references {
+                                    $refsq.put(($iden, $references))
                                 }
                             }
-                            $references.append(($node.iden(), $refform))
-
-                            if ($references.size() > 1000) {
-                                $refsq.put(($iden, $references))
-                                $references = ([])
-                            }
-                        }
-
-                        if $references {
-                            $edgeq.put(($iden, $edges))
                         }
 
                         $sources = ([])
@@ -935,7 +953,7 @@ class ModelRev:
                             "layer": $lib.layer.get().iden,
                             "node": {
                                 "iden": $iden,
-                                "valu": $oldcpe.repr(),
+                                "valu": $repr,
                                 "v2_2": $oldcpe.props.v2_2,
                             },
                             "tags": $oldcpe.tags(),
@@ -943,12 +961,11 @@ class ModelRev:
                             "sources": $sources,
                         })
 
-                        $lib.log.debug(`Queueing {$oldcpe.repr()}`)
                         $cpeq.put($data)
                     }
 
-                    // Finally, delete the broken node
-                    $lib.log.debug(`Deleting broken it:sec:cpe node: {$oldcpe.repr()}`)
+                    // Finally, delete the invalid node
+                    $lib.log.debug(`Deleting invalid it:sec:cpe node: {$repr}`)
                     iden $oldcpe.iden() | delnode --force
                 }
             }
