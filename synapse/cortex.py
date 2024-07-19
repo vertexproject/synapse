@@ -4063,6 +4063,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
+        self.addStormCmd(s_stormlib_storm.StormExecCmd)
         self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
         self.addStormCmd(s_stormlib_cortex.StormPoolDelCmd)
         self.addStormCmd(s_stormlib_cortex.StormPoolGetCmd)

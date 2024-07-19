@@ -1402,7 +1402,7 @@ class Loc(Type):
 
 class Ndef(Type):
 
-    stortype = s_layer.STOR_TYPE_MSGP
+    stortype = s_layer.STOR_TYPE_NDEF
 
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)

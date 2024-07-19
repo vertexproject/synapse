@@ -1106,6 +1106,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
+        self.https_listeners = []
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
@@ -3022,6 +3023,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             self.addReloadableSystem('https:certs', reload)
 
+        self.https_listeners.append({'host': lhost, 'port': lport})
+
         return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
@@ -3077,6 +3080,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         log_method(mesg, extra=extra)
 
+    async def _getCellHttpOpts(self):
+        # Generate/Load a Cookie Secret
+        secpath = os.path.join(self.dirn, 'cookie.secret')
+        if not os.path.isfile(secpath):
+            with s_common.genfile(secpath) as fd:
+                fd.write(s_common.guid().encode('utf8'))
+
+        with s_common.getfile(secpath) as fd:
+            secret = fd.read().decode('utf8')
+
+        return {
+            'cookie_secret': secret,
+            'log_function': self._log_web_request,
+            'websocket_ping_interval': 10
+        }
+
     async def _initCellHttp(self):
 
         self.httpds = []
@@ -3089,20 +3108,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(fini)
 
-        # Generate/Load a Cookie Secret
-        secpath = os.path.join(self.dirn, 'cookie.secret')
-        if not os.path.isfile(secpath):
-            with s_common.genfile(secpath) as fd:
-                fd.write(s_common.guid().encode('utf8'))
-
-        with s_common.getfile(secpath) as fd:
-            secret = fd.read().decode('utf8')
-
-        opts = {
-            'cookie_secret': secret,
-            'log_function': self._log_web_request,
-            'websocket_ping_interval': 10
-        }
+        opts = await self._getCellHttpOpts()
 
         self.wapp = t_web.Application(**opts)
         self._initCellHttpApis()
@@ -4272,6 +4278,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
                     'network': self.conf.get('aha:network'),
+                },
+                'network': {
+                    'https': self.https_listeners,
                 }
             },
             'features': {

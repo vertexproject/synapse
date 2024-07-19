@@ -521,6 +521,13 @@ class CellTest(s_t_utils.SynTest):
             cell.COMMIT = 'mycommit'
             cell.VERSION = (1, 2, 3)
             cell.VERSTRING = '1.2.3'
+
+            http_info = []
+            host, port = await cell.addHttpsPort(0)
+            http_info.append({'host': host, 'port': port})
+            host, port = await cell.addHttpsPort(0, host='127.0.0.1')
+            http_info.append({'host': host, 'port': port})
+
             async with cell.getLocalProxy() as prox:
                 info = await prox.getCellInfo()
                 # Cell information
@@ -544,6 +551,10 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(snfo.get('version'), s_version.version)
                 self.eq(snfo.get('verstring'), s_version.verstring),
                 self.eq(snfo.get('commit'), s_version.commit)
+
+                netw = cnfo.get('network')
+                https = netw.get('https')
+                self.eq(https, http_info)
 
     async def test_cell_dyncall(self):
 

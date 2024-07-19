@@ -75,6 +75,42 @@ class DaemonTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}') as proxy:
                 self.eq(proxy._ahainfo, ahainfo)
 
+    async def test_dmon_errors(self):
+
+        async with self.getTestCell(s_cell.Cell, conf={'dmon:listen': 'tcp://0.0.0.0:0/', 'auth:anon': 'root'}) as cell:
+            host, port = cell.sockaddr
+
+            async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}') as prox:
+
+                # Throw an exception when trying to handle mesg outright
+                async with await prox.getPoolLink() as link:
+                    with self.getAsyncLoggerStream('synapse.daemon', 'Dmon.onLinkMesg Handler: mesg=') as stream:
+                        await link.tx(31337)
+                        self.true(await stream.wait(timeout=6))
+
+                # Valid format; do not know what the message is.
+                async with await prox.getPoolLink() as link:
+                    mesg = ('newp', {})
+                    emsg = "Dmon.onLinkMesg Invalid mesg: mesg=('newp', {})"
+                    with self.getAsyncLoggerStream('synapse.daemon', emsg) as stream:
+                        await link.tx(mesg)
+                        self.true(await stream.wait(timeout=6))
+
+                # Invalid data casues a link to fail on rx
+                async with await prox.getPoolLink() as link:
+                    with self.getAsyncLoggerStream('synapse.lib.link', 'rx error') as stream:
+                        byts = b'\x16\x03\x01\x02\x00\x01\x00\x01\xfc\x03\x03\xa6\xa3D\xd5\xdf%\xac\xa9\x92\xc3'
+                        await link.send(byts)
+                        self.true(await stream.wait(timeout=6))
+
+                # bad t2:init message
+                async with await prox.getPoolLink() as link:
+                    mesg = ('t2:init', {})
+                    emsg = "Error on t2:init:"
+                    with self.getAsyncLoggerStream('synapse.daemon', emsg) as stream:
+                        await link.tx(mesg)
+                        self.true(await stream.wait(timeout=6))
+
 class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'foo'
     _storm_svc_pkgs = (  # type:  ignore
