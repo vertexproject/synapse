@@ -816,7 +816,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             where there might still be invalid data in the array and we want to remove one invalid element but not all
             of them (yet).
          ''',
-         'type': {'type': 'function', '_funcname': '_methLiftByPropValuNoNorm',
+         'type': {'type': 'function', '_funcname': '_methSetNodePropValuNoNorm',
                   'args': (
                       {'name': 'n', 'type': 'node', 'desc': 'The node to operate on.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name of the node(s) to lift.', },
@@ -1036,7 +1036,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         }
 
     async def _itSecCpe_2_170_0(self, n, prefer_v22=False, force=False):
-        info = self._itSecCpe_2_170_0_internal(n, prefer_v22=prefer_v22, force=force, set_nodedata=True)
+        info = await self._itSecCpe_2_170_0_internal(n, prefer_v22=prefer_v22, force=force, set_nodedata=True)
         return info.get('status') == 'success'
 
     async def _itSecCpe_2_170_0_internal(self, n, prefer_v22=False, force=False, set_nodedata=False):
