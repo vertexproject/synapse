@@ -960,23 +960,6 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
-        {'name': 'itSecCpe_2_170_0_internal',
-         'desc': '''This function is the internal implementation of ``itSecCpe_2_170_0``.''',
-         'type': {'type': 'function', '_funcname': '_itSecCpe_2_170_0_internal',
-                  'args': (
-                      {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
-                      {'name': 'prefer_v22', 'type': 'bool', 'default': False,
-                       'desc': '''
-                        Try to renormalize using the :v2_2 prop instead of the
-                        primary property. This can be especially useful when the
-                        primary property is a valid but incorrect CPE string.
-                        '''},
-                      {'name': 'force', 'type': 'bool', 'default': False,
-                       'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
-                      {'name': 'set_nodedata', 'type': 'bool', 'default': False,
-                       'desc': 'Set nodedata on the node during migration.'},
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'Dictionary with migration status and associated information.'}}},
         {'name': 'riskHasVulnToVulnerable', 'desc': '''
             Create a risk:vulnerable node from the provided risk:hasvuln node.
 
