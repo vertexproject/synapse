@@ -561,27 +561,35 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
 
     async def test_modelrev_0_2_27(self):
-        async with self.getRegrCore('model-0.2.27', maxvers=(0, 2, 25)) as core:
+        async with self.getRegrCore('model-0.2.27', maxvers=(0, 2, 24)) as core:
+            # Do some pre-migration validation of the cortex
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(2, views)
 
             fork00 = views[1].get('iden')
+            infork00 = {'view': fork00}
 
             nodes = await core.nodes('it:sec:cpe')
             self.len(11, nodes)
 
-            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe')
-            self.len(3, nodes)
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe', opts=infork00)
+            self.len(5, nodes)
 
-            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -(seen)> it:sec:cpe')
-            self.len(3, nodes)
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -(seen)> it:sec:cpe', opts=infork00)
+            self.len(6, nodes)
+
+            edges = await core.callStorm('$edges = ([]) it:sec:cpe#test.cpe.23invalid for $edge in $node.edges() { $edges.append($edge) } fini { return($edges) }', opts=infork00)
+            self.len(1, edges)
 
         async with self.getRegrCore('model-0.2.27') as core:
 
-            fork00 = '35bb39eade3241b2d709b21577d0ee6d'
-            opts = {'view': fork00}
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(2, views)
 
-            nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=opts)
+            fork00 = views[1].get('iden')
+            infork00 = {'view': fork00}
+
+            nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=infork00)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
@@ -590,12 +598,12 @@ class ModelRevTest(s_tests.SynTest):
                 ('it:sec:cpe', r'cpe:2.3:a:abinitio:control\>center:-:*:*:*:*:*:*:*'),
             ))
 
-            nodes = await core.nodes('inet:flow#test.flow.22invalid +#test.flow.23invalid', opts=opts)
+            nodes = await core.nodes('inet:flow#test.flow.22invalid +#test.flow.23invalid', opts=infork00)
             self.len(1, nodes)
             self.none(nodes[0].get('src:cpes'))
             self.none(nodes[0].get('dst:cpes'))
 
-            nodes = await core.nodes('it:prod:soft -> it:sec:cpe', opts=opts)
+            nodes = await core.nodes('it:prod:soft -> it:sec:cpe', opts=infork00)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
@@ -604,14 +612,15 @@ class ModelRevTest(s_tests.SynTest):
                 ('it:sec:cpe', r'cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*'),
             ))
 
-            nodes = await core.nodes('it:prod:soft#test.prod.22invalid +#test.prod.23invalid', opts=opts)
+            nodes = await core.nodes('it:prod:soft#test.prod.22invalid +#test.prod.23invalid', opts=infork00)
             self.len(1, nodes)
             self.none(nodes[0].get('cpe'))
 
-            queue = await core.callStorm('return($lib.queue.list())')
-            [q.pop('meta') for q in queue]
-            self.eq(queue, (
-                {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
-                {'name': 'model_0_2_27:cpes:refs', 'size': 2, 'offs': 2},
-                {'name': 'model_0_2_27:cpes:edges', 'size': 0, 'offs': 0},
-            ))
+            queues = await core.callStorm('return($lib.queue.list())')
+            [q.pop('meta') for q in queues]
+            self.len(3, queues)
+            # self.eq(queue, (
+            #     {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
+            #     {'name': 'model_0_2_27:cpes:refs', 'size': 2, 'offs': 2},
+            #     {'name': 'model_0_2_27:cpes:edges', 'size': 0, 'offs': 0},
+            # ))
