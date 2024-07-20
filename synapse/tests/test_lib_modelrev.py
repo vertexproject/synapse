@@ -592,3 +592,11 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:prod:soft#test.prod.22invalid +#test.prod.23invalid', opts=opts)
             self.len(1, nodes)
             self.none(nodes[0].get('cpe'))
+
+            queue = await core.callStorm('return($lib.queue.list())')
+            [q.pop('meta') for q in queue]
+            self.eq(queue, (
+                {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
+                {'name': 'model_0_2_27:cpes:refs', 'size': 2, 'offs': 2},
+                {'name': 'model_0_2_27:cpes:edges', 'size': 0, 'offs': 0},
+            ))
