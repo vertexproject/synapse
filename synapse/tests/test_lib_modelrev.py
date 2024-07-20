@@ -561,9 +561,24 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
 
     async def test_modelrev_0_2_27(self):
+        async with self.getRegrCore('model-0.2.27', maxvers=(0, 2, 25)) as core:
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(2, views)
+
+            fork00 = views[1].get('iden')
+
+            nodes = await core.nodes('it:sec:cpe')
+            self.len(11, nodes)
+
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -(seen)> it:sec:cpe')
+            self.len(3, nodes)
+
         async with self.getRegrCore('model-0.2.27') as core:
 
-            fork00 = '4414dc828a555e833b4e5c0969d1854d'
+            fork00 = '35bb39eade3241b2d709b21577d0ee6d'
             opts = {'view': fork00}
 
             nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=opts)

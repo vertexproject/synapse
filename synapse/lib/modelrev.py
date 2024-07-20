@@ -894,28 +894,15 @@ class ModelRev:
                         $iden = $oldcpe.iden()
 
                         $edges = ([])
-                        for $edge in $oldcpe.edges() {
-                            $edges.append($edge)
-
-                            if ($edges.size() > 1000) {
-                                $edgeq.put(($iden, $edges))
-                                $edges = ([])
-                            }
-                        }
-
-                        if $edges {
-                            $edgeq.put(($iden, $edges))
-                        }
-
-                        $lib.log.debug(`EDGES: {$edges}`)
-
+                        $sources = ([])
                         $references = ([])
                         for $rview in $lib.view.list(deporder=$lib.true) {
                             if (not $layers.has($rview.layers.0.iden)) { continue }
 
                             view.exec $rview.iden {
                                 // Get references and store them in queue
-                                for ($form, $prop, $isarray) in $refforms {
+                                for $refform in $refforms {
+                                    ($form, $prop, $isarray) = $refform
                                     $n = $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
                                     if (not $n) { continue }
 
@@ -940,29 +927,49 @@ class ModelRev:
                                         [ -:$prop ]
                                     }
 
-                                    $references.append(($node.iden(), ($form, $prop)))
+                                    $ref = ({
+                                        "node": $node.iden(),
+                                        "refform": $refform,
+                                    })
+
+                                    $references.append($ref)
 
                                     if ($references.size() > 1000) {
-                                        $refsq.put(($iden, $references))
+                                        $refsq.put(($iden, $rview.iden, $references))
                                         $references = ([])
                                     }
                                 }
 
                                 if $references {
-                                    $refsq.put(($iden, $references))
+                                    $refsq.put(($iden, $rview.iden, $references))
+                                    $references = ([])
                                 }
+
+                                spin |
+
+                                iden $iden |
+
+                                // Get edges and store them in the queue
+                                $lib.log.debug(`NODE: {$node.repr()}, {$rview.iden}`)
+                                for $edge in $node.edges() {
+                                    $lib.log.debug(`EDGE: {$edge}`)
+                                    $edges.append($edge)
+
+                                    if ($edges.size() > 1000) {
+                                        $edgeq.put(($iden, $rview.iden, $edges))
+                                        $edges = ([])
+                                    }
+                                }
+
+                                if $edges {
+                                    $edgeq.put(($iden, $rview.iden, $edges))
+                                }
+
+                                // Get sources and store them in the queue
+                                <(seen)- meta:source
+                                $sources.append($node.repr())
                             }
                         }
-
-                        $sources = ([])
-                        iden $oldcpe.iden() |
-                        $lib.log.debug(`OLDCPE: {$node}`)
-                        <(seen)- meta:source
-                        $lib.log.debug(`{$oldcpe} <- {$node.repr()}`)
-                        $sources.append($node.repr())
-                        spin |
-
-                        $lib.log.debug(`SOURCES: {$sources}`)
 
                         $data = ({
                             "view": $view.iden,
