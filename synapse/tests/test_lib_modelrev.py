@@ -559,3 +559,36 @@ class ModelRevTest(s_tests.SynTest):
             self.len(2, rnodes)
 
             self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
+
+    async def test_modelrev_0_2_27(self):
+        async with self.getRegrCore('model-0.2.27') as core:
+
+            fork00 = '282289e37aa4e500129afed30054d531'
+            opts = {'view': fork00}
+
+            nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=opts)
+            self.len(3, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:a:abine:donottrackme_-_mobile_privacy:1.1.8:*:*:*:*:android:*:*'),
+                ('it:sec:cpe', r'cpe:2.3:a:abinitio:control\>center:-:*:*:*:*:*:*:*'),
+            ))
+
+            nodes = await core.nodes('inet:flow#test.flow.22invalid +#test.flow.23invalid', opts=opts)
+            self.len(1, nodes)
+            self.none(nodes[0].get('src:cpes'))
+            self.none(nodes[0].get('dst:cpes'))
+
+            nodes = await core.nodes('it:prod:soft -> it:sec:cpe', opts=opts)
+            self.len(3, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:cpe', 'cpe:2.3:a:01generator:pireospay:-:*:*:*:*:prestashop:*:*'),
+                ('it:sec:cpe', r'cpe:2.3:a:1c:1c\:enterprise:-:*:*:*:*:*:*:*'),
+                ('it:sec:cpe', r'cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*'),
+            ))
+
+            nodes = await core.nodes('it:prod:soft#test.prod.22invalid +#test.prod.23invalid', opts=opts)
+            self.len(1, nodes)
+            self.none(nodes[0].get('cpe'))

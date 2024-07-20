@@ -121,7 +121,8 @@ commands:
       - run:
           name: checkout regression repo
           command: |
-            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
+            # FIXME: Remove branch before merging
+            git clone https://github.com/vertexproject/synapse-regression -b blackout/model-0.2.27 ~/git/synapse-regression
 
       - restore_cache:
           keys:

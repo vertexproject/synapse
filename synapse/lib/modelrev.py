@@ -859,9 +859,10 @@ class ModelRev:
 
                                 // Fix references that point to old node to now point to new node
                                 for ($form, $prop, $isarray) in $refforms {
-                                    yield $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
+                                    $n = $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
+                                    if (not $n) { continue }
 
-                                    empty { continue }
+                                    yield $n
 
                                     if $isarray {
 
@@ -913,9 +914,10 @@ class ModelRev:
                             view.exec $rview.iden {
                                 // Get references and store them in queue
                                 for ($form, $prop, $isarray) in $refforms {
-                                    yield $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
+                                    $n = $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
+                                    if (not $n) { continue }
 
-                                    empty { continue }
+                                    yield $n
 
                                     if $isarray {
 
