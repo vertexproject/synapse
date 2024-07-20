@@ -563,7 +563,7 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_27(self):
         async with self.getRegrCore('model-0.2.27') as core:
 
-            fork00 = '282289e37aa4e500129afed30054d531'
+            fork00 = '4414dc828a555e833b4e5c0969d1854d'
             opts = {'view': fork00}
 
             nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=opts)

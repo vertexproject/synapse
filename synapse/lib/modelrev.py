@@ -907,6 +907,8 @@ class ModelRev:
                             $edgeq.put(($iden, $edges))
                         }
 
+                        $lib.log.debug(`EDGES: {$edges}`)
+
                         $references = ([])
                         for $rview in $lib.view.list(deporder=$lib.true) {
                             if (not $layers.has($rview.layers.0.iden)) { continue }
@@ -953,10 +955,14 @@ class ModelRev:
                         }
 
                         $sources = ([])
-                        {
-                            yield $oldcpe <(seen)- meta:source
-                            $sources.append($node.repr())
-                        }
+                        iden $oldcpe.iden() |
+                        $lib.log.debug(`OLDCPE: {$node}`)
+                        <(seen)- meta:source
+                        $lib.log.debug(`{$oldcpe} <- {$node.repr()}`)
+                        $sources.append($node.repr())
+                        spin |
+
+                        $lib.log.debug(`SOURCES: {$sources}`)
 
                         $data = ({
                             "view": $view.iden,
