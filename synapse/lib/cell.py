@@ -42,6 +42,7 @@ import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
 import synapse.lib.output as s_output
+import synapse.lib.resmon as s_resmon
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
@@ -841,6 +842,11 @@ class CellApi(s_base.Base):
     async def reload(self, subsystem=None):
         return await self.cell.reload(subsystem=subsystem)
 
+    @adminapi()
+    async def getResourceProbes(self, mint=0, maxt=0xffffffffffffffff, wait=False):
+        async for item in self.cell.getResourceProbes(mint=mint, maxt=maxt, wait=wait):
+            yield item
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -1124,6 +1130,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._initCellBoot()
 
+        await self.initResourceMonitor()
+
         # we need to know this pretty early...
         self.ahasvcname = None
         ahaname = self.conf.get('aha:name')
@@ -1280,6 +1288,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def initResourceMonitor():
+        ctx = multiprocessing.get_context('spawn')
+
+        def main():
+            self.resproc = ctx.Process(target=s_resmon.main, args=(self.dirn, self.conf.asDict()))
+            self.resproc.start()
+
+        def wait():
+            self.resproc.join()
+            if self.resproc.exitcode:
+                    raise s_exc.SpawnExit(code=proc.exitcode)
+
+        await s_coro.executor(main)
+        self.resclient = s_telepath.Client('unix:///{self.dirn}/resmon')
+
+        await self.schedCoro(s_coro.executor(wait))
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -4523,3 +4548,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def getResourceProbes(self, mint=0, maxt=0xffffffffffffffff, wait=False):
+        proxy = self.resclient.proxy(timeout=3)
+        async for item in proxy.getResourceProbes(mint=mint, maxt=maxt, wait=wait):
+            yield item
