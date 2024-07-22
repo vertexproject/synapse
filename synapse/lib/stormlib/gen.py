@@ -144,7 +144,7 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'node', 'desc': 'A crypto:x509:cert node with the given SHA256.'}}},
+                  'returns': {'type': 'node', 'desc': 'A file:bytes node with the given SHA256.'}}},
         {'name': 'cryptoX509CertBySha256',
          'desc': 'Returns a crypto:x509:cert node by SHA256, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -486,7 +486,7 @@ class LibGen(s_stormtypes.Lib):
 
             // Create a new crypto:x509:cert with file and sha256
             [ crypto:x509:cert=$guid
-                :file = $fileBytesBySha256($sha256, try=$try)
+                :file = $fileBytesBySha256($sha256)
                 :sha256 = $sha256
             ]
             return($node)
@@ -497,6 +497,8 @@ class LibGen(s_stormtypes.Lib):
             if (not $ok) { return() }
 
             $crypto = $cryptoX509CertBySha256($sha256, try=$try)
+            if (not $crypto) { return() }
+
             [ inet:tls:servercert=($server, $crypto) ]
             return($node)
         }
