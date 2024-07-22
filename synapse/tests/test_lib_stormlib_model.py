@@ -401,6 +401,22 @@ class StormlibModelTest(s_test.SynTest):
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
 
+            with self.raises(s_exc.NoSuchProp) as exc:
+                await core.callStorm('$lib.model.migration.liftByPropValuNoNorm(formname, propname, valu)')
+            self.eq(exc.exception.get('mesg'), 'Could not find prop: formname:propname')
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('$lib.model.migration.liftByPropValuNoNorm(it:prod:soft, cpe, valu)')
+            self.eq(exc.exception.get('mesg'), '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.')
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm('$lib.model.migration.setNodePropValuNoNorm(notanode, propname, valu)')
+            self.eq(exc.exception.get('mesg'), '$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('test:str $lib.model.migration.setNodePropValuNoNorm($node, propname, valu)')
+            self.eq(exc.exception.get('mesg'), '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.')
+
     async def test_model_migration_s_itSecCpe_2_170_0(self):
 
         async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 26)) as core:

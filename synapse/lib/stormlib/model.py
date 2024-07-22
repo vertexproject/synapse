@@ -846,10 +846,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         '''
         No storm docs for this on purpose. It is restricted for use during model migrations only.
         '''
-        if not self.runt.snap.core.migration:
-            mesg = '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
         formname = await s_stormtypes.tostr(formname)
         propname = await s_stormtypes.tostr(propname)
         valu = await s_stormtypes.tostr(valu)
@@ -858,6 +854,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if prop is None:
             mesg = f'Could not find prop: {formname}:{propname}'
             raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
+
+        if not self.runt.snap.core.migration:
+            mesg = '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         stortype = prop.type.stortype
 
@@ -886,12 +886,12 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         # for that use case (see model migration 0.2.27). Any additional use of this function should perform heavy
         # testing.
 
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
+
         if not self.runt.snap.core.migration:
             mesg = '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        if not isinstance(n, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
 
         propname = await s_stormtypes.tostr(propname)
         valu = await s_stormtypes.toprim(valu)

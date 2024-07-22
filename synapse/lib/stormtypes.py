@@ -9468,9 +9468,6 @@ def fromprim(valu, path=None, basetypes=True):
     if isinstance(valu, (float, decimal.Decimal)):
         return Number(valu, path=path)
 
-    if isinstance(valu, set):
-        return Set(valu, path=path)
-
     if isinstance(valu, StormType):
         return valu
 
