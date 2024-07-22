@@ -1565,7 +1565,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _bindDmonListen(self):
 
-        # functionalized so Raft code can bind early...
+        # functionalized so downstream code can bind early.
         if self.sockaddr is not None:
             return
 
