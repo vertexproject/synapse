@@ -4888,3 +4888,10 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))
+
+    async def test_lib_storm_trace(self):
+
+        async with self.getTestCore() as core:
+            opts = {'trace': True}
+            msgs = await core.stormlist('[ inet:fqdn=vertex.link ] | sleep 0.1 | [ +#woot ]', opts=opts)
+            [print(repr(m)) for m in msgs]

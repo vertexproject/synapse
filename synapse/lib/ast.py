@@ -1,3 +1,4 @@
+import time
 import types
 import asyncio
 import decimal
@@ -183,6 +184,128 @@ class AstNode:
 
 class LookList(AstNode): pass
 
+class Trace:
+
+    def __init__(self, runt):
+        self.runt = runt
+        self.traceopers = []
+        # TODO how to track edits per oper?
+        # TODO ensure we can handle recursion
+        # and make sense of the resulting messages
+        # TODO decide how to specify / implement recursion
+
+    async def wrapgenr(self, oper, genr):
+        # sudo make me a genr sandwich
+        pref = TracePreOper(self, oper, genr)
+        post = TracePostOper(self, oper, pref.wrapgenr())
+        self.traceopers.append((pref, oper, post))
+        return post.wrapgenr()
+
+    def report(self):
+        retn = []
+        for (pref, oper, post) in self.traceopers:
+
+            stats = pref.stats()
+            stats.update(post.stats())
+
+            retn.append({
+                'stats': stats,
+                'posinfo': post.posinfo,
+            })
+        return retn
+
+class PathTraceInfo:
+
+    def __init__(self):
+        self.times = []
+        self.ticks = collections.deque()
+
+    def pack(self):
+        return {'times': self.times}
+
+    def fork(self):
+        info = PathTraceInfo()
+        info.times.extend(self.times)
+        info.ticks.extend(self.ticks)
+        return info
+
+class TracePreOper:
+
+    def __init__(self, trace, oper, genr):
+        self.genr = genr
+        self.oper = oper
+        self.trace = trace
+
+        self.count = 0
+        self.inittime = None
+        self.input = collections.defaultdict(int)
+
+    async def wrapgenr(self):
+
+        self.inittime = time.monotonic_ns()
+        async for node, path in self.genr:
+
+            tick = time.monotonic_ns()
+
+            if path.traceinfo is None:
+                path.traceinfo = PathTraceInfo()
+
+            self.count += 1
+            self.input[node.form.name] += 1
+            path.traceinfo.ticks.append(tick)
+
+            yield node, path
+
+    def stats(self):
+        return {'time:init': self.inittime, 'input': dict(self.input)}
+
+class TracePostOper:
+
+    def __init__(self, trace, oper, genr):
+        self.genr = genr
+        self.oper = oper
+        self.trace = trace
+        self.posinfo = None
+
+        if oper is not None:
+            self.posinfo = oper.getPosInfo()
+
+        self.count = 0
+        self.finitime = 0
+        self.lifted = collections.defaultdict(int)
+        self.output = collections.defaultdict(int)
+
+    def stats(self):
+        return {
+            'count': self.count,
+            'lifted': dict(self.lifted),
+            'output': dict(self.output),
+            'time:fini': self.finitime,
+        }
+
+    async def wrapgenr(self):
+
+        async for node, path in self.genr:
+
+            tock = time.monotonic_ns()
+
+            self.count += 1
+            self.output[node.form.name] += 1
+
+            if path.traceinfo is None:
+                # this storm operator added the node to the pipeline
+                self.lifted[node.form.name] += 1
+                path.traceinfo = PathTraceInfo()
+
+            if path.traceinfo.ticks:
+                tick = path.traceinfo.ticks.pop()
+                took = tock - tick
+                path.traceinfo.times.append((tick, tock, took, self.posinfo))
+
+            yield node, path
+
+        self.finitime = time.monotonic_ns()
+
 class Query(AstNode):
 
     def __init__(self, astinfo, kids=()):
@@ -195,13 +318,28 @@ class Query(AstNode):
 
     async def run(self, runt, genr):
 
-        async with contextlib.AsyncExitStack() as stack:
-            for oper in self.kids:
-                genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
+        trace = None
+        if runt.opts.get('trace', False):
+            trace = Trace(runt)
+            genr = await trace.wrapgenr(None, genr)
 
-            async for node, path in genr:
-                runt.tick()
-                yield node, path
+        # FIXME discuss this change...
+        # async with contextlib.AsyncExitStack() as stack:
+            # for oper in self.kids:
+                # genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
+
+        for oper in self.kids:
+            genr = await runt.withgenr(oper.run(runt, genr))
+
+            if trace is not None:
+                genr = await trace.wrapgenr(oper, genr)
+
+        async for node, path in genr:
+            runt.tick()
+            yield node, path
+
+        if trace is not None:
+            await runt.snap.fire('trace', report=trace.report())
 
     async def iterNodePaths(self, runt, genr=None):
 
