@@ -392,20 +392,32 @@ class Config(c_abc.MutableMapping):
         else:
             return
 
-    def reqConfValu(self, name):
-        s_common.deprecated('reqConfValu()')
-        return self.req(name)
+    def reqConfValu(self, key):  # pragma: no cover
+        '''
+        Deprecated. Use ``req(key)`` API instead.
+        '''
+        s_common.deprecated('Config.reqConfValu(), use req() instead.')
+        return self.req(key)
 
-    def req(self, name):
+    def req(self, key):
         '''
-        Return a configuration value or raise NeedConfValu if it is unset.
+        Get a configuration value. If that value is not present in the schema or is not set, then raise an exception.
+
+        Args:
+            key (str): The key to require.
+
+        Returns:
+            The requested value.
         '''
-        valu = self.conf.get(name, s_common.novalu)
+        if key not in self.json_schema.get('properties', {}):
+            raise s_exc.BadArg(mesg=f'The {key} configuration option is not present in the configuration schema.',
+                               name=key)
+
+        valu = self.conf.get(key, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
 
-        mesg = f'The {name} configuration option is required.'
-        raise s_exc.NeedConfValu(mesg=mesg, name=name)
+        raise s_exc.NeedConfValu(mesg=f'The {key} configuration option is required.', name=key)
 
     def reqKeyValid(self, key, value):
         '''
