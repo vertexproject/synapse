@@ -1037,7 +1037,6 @@ class ModelRev:
                             }
                         }
 
-                        $lib.log.warning(`IDEN: {$iden}`)
                         $item = ({
                             "node": $iden,
                             "props": {

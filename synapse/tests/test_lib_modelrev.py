@@ -673,7 +673,7 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(queues, (
                 {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
                 {'name': 'model_0_2_27:cpes:refs', 'size': 3, 'offs': 3},
-                {'name': 'model_0_2_27:cpes:edges', 'size': 2, 'offs': 2},
+                {'name': 'model_0_2_27:cpes:edges', 'size': 4, 'offs': 4},
             ))
 
             # Data from "model_0_2_27:cpes" are the info for the it:sec:cpe
@@ -789,19 +789,33 @@ class ModelRevTest(s_tests.SynTest):
             # Data from "model_0_2_27:cpes:edges" are the info for any N1/N2
             # edges from the unmigrated it:sec:cpe nodes
 
+            nodes = await core.nodes('risk:vuln')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('risk:vuln', s_common.guid(('risk', 'vuln'))))
+            vuln00 = nodes[0]
+
             q = '''
                 $edges = ([])
                 $q = $lib.queue.get("model_0_2_27:cpes:edges")
-                for $ii in $lib.range(2) {
+                for $ii in $lib.range(4) {
                     $edge = $q.get($ii, cull=$lib.false, wait=$lib.false)
                     $edges.append($edge.1)
                 }
                 return($edges)
             '''
             edges = await core.callStorm(q)
-            self.len(2, edges)
+            self.len(4, edges)
 
             self.eq(edges[0], {
+                'node': node00,
+                'view': view00,
+                'direction': 'n1',
+                'edges': (
+                    ('refs', vuln00.iden()),
+                ),
+            })
+
+            self.eq(edges[1], {
                 'node': node00,
                 'view': view01,
                 'direction': 'n2',
@@ -811,7 +825,16 @@ class ModelRevTest(s_tests.SynTest):
                 ),
             })
 
-            self.eq(edges[1], {
+            self.eq(edges[2], {
+                'node': node01,
+                'view': view00,
+                'direction': 'n1',
+                'edges': (
+                    ('refs', vuln00.iden()),
+                ),
+            })
+
+            self.eq(edges[3], {
                 'node': node01,
                 'view': view01,
                 'direction': 'n2',
