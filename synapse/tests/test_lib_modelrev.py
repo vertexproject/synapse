@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.modelrev as s_modelrev
@@ -578,8 +579,19 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('meta:source:name="cpe.23.invalid" -(seen)> it:sec:cpe', opts=infork00)
             self.len(6, nodes)
 
-            edges = await core.callStorm('$edges = ([]) it:sec:cpe#test.cpe.23invalid for $edge in $node.edges() { $edges.append($edge) } fini { return($edges) }', opts=infork00)
-            self.len(1, edges)
+            q = '''
+                $edges = ([])
+                it:sec:cpe#test.cpe.23invalid
+                for $edge in $node.edges(reverse=$lib.true) {
+                    $edges.append($edge)
+                }
+
+                fini {
+                    return($edges)
+                }
+            '''
+            edges = await core.callStorm(q, opts=infork00)
+            self.len(8, edges)
 
         async with self.getRegrCore('model-0.2.27') as core:
 
@@ -616,11 +628,104 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('cpe'))
 
+            # FIXME: extended model checks
+
+        async with self.getRegrCore('model-0.2.27') as core:
+
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(2, views)
+
+            view01 = views[1].get('iden') # forked view
+            layr01 = views[1].get('layers')[0].get('iden')
+
+            view00 = views[0].get('iden') # default view
+            layr00 = views[0].get('layers')[0].get('iden')
+
+            source22 = s_common.guid(('cpe', '22', 'invalid'))
+            source23 = s_common.guid(('cpe', '23', 'invalid'))
+
+            # There are two CPEs that we couldn't migrate. They should be fully
+            # represented in the following three queues for potentially being
+            # rebuilt later.
+
+            # it:sec:cpe="it:sec:cpe=cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*"
+            # it:sec:cpe="it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*"
+
             queues = await core.callStorm('return($lib.queue.list())')
             [q.pop('meta') for q in queues]
             self.len(3, queues)
-            # self.eq(queue, (
-            #     {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
-            #     {'name': 'model_0_2_27:cpes:refs', 'size': 2, 'offs': 2},
-            #     {'name': 'model_0_2_27:cpes:edges', 'size': 0, 'offs': 0},
-            # ))
+            self.eq(queues, (
+                {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
+                {'name': 'model_0_2_27:cpes:refs', 'size': 4, 'offs': 4},
+                {'name': 'model_0_2_27:cpes:edges', 'size': 2, 'offs': 2},
+            ))
+
+            # Data from "model_0_2_27:cpes" are the info for the it:sec:cpe
+            # nodes we couldn't migrate
+            q = '''
+                $q = $lib.queue.get("model_0_2_27:cpes")
+                return($q.get((0), cull=$lib.false, wait=$lib.false))
+            '''
+            (_, item00) = await core.callStorm(q)
+            node00 = item00.pop('node')
+            self.nn(node00)
+            self.eq(item00, {
+                # 'node': <iden>,
+                'props': {
+                    'valu': 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*',
+                    'v2_2': 'cpe:/a:openbsd:openssh:7.4\r\n'
+                },
+                'view': view00,
+                'layer': layr00,
+                'tags': ('test', 'test.cpe', 'test.cpe.23invalid', 'test.cpe.22invalid'),
+                'data': (('cpe22', 'invalid'), ('cpe23', 'invalid')),
+                'sources': (source23, source22),
+            })
+
+            q = '''
+                $q = $lib.queue.get("model_0_2_27:cpes")
+                return($q.get((1), cull=$lib.false, wait=$lib.false))
+            '''
+            (_, item01) = await core.callStorm(q)
+
+            node01 = item01.pop('node')
+            self.nn(node01)
+            self.eq(item01, {
+                # 'node': <iden>,
+                'props': {
+                    'valu': 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*',
+                    'v2_2': 'cpe:/a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2'
+                },
+                'view': view00,
+                'layer': layr00,
+                'tags': ('test', 'test.cpe', 'test.cpe.23invalid', 'test.cpe.22invalid'),
+                'data': (('cpe22', 'invalid'), ('cpe23', 'invalid')),
+                'sources': (source23, source22)
+            })
+
+            # Data from "model_0_2_27:cpes:refs" are the info for any nodes in
+            # the cortex that reference the unmigrated it:sec:cpe nodes via
+            # secondary properties
+
+            q = '''
+                $q = $lib.queue.get("model_0_2_27:cpes:refs")
+                return($q.get((0), cull=$lib.false, wait=$lib.false))
+            '''
+            (_, item00) = await core.callStorm(q)
+
+            ref00 = item00.get('refs')[0].pop('node')
+            self.eq(item00, {
+                'node': node00,
+                'view': view01,
+                'refs': (
+                    {
+                        'refform': ('inet:flow', 'src:cpes', True),
+                    },
+                ),
+            })
+
+            opts = {'vars': {'iden': ref00}, 'view': view01}
+            nodes = await core.nodes('iden $iden', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:flow', s_common.guid(('flow', '22i', '23i'))))
+            self.none(nodes[0].get('src:cpes'))

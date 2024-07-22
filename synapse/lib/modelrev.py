@@ -834,6 +834,8 @@ class ModelRev:
                             continue
                         }
 
+                        $lib.log.debug(`Migrating invalid it:sec:cpe node: {$repr}`)
+
                         /*
                          * At this point, we have a node that can be fixed but
                          * needs to be migrated to a new node because the primary
@@ -935,13 +937,25 @@ class ModelRev:
                                     $references.append($ref)
 
                                     if ($references.size() > 1000) {
-                                        $refsq.put(($iden, $rview.iden, $references))
+                                        $item = ({
+                                            "node": $iden,
+                                            "view": $rview.iden,
+                                            "refs": $references,
+                                        })
+
+                                        $refsq.put($item)
                                         $references = ([])
                                     }
                                 }
 
                                 if $references {
-                                    $refsq.put(($iden, $rview.iden, $references))
+                                    $item = ({
+                                        "node": $iden,
+                                        "view": $rview.iden,
+                                        "refs": $references,
+                                    })
+
+                                    $refsq.put($item)
                                     $references = ([])
                                 }
 
@@ -949,20 +963,62 @@ class ModelRev:
 
                                 iden $iden |
 
-                                // Get edges and store them in the queue
-                                $lib.log.debug(`NODE: {$node.repr()}, {$rview.iden}`)
-                                for $edge in $node.edges() {
-                                    $lib.log.debug(`EDGE: {$edge}`)
+                                // Get N1 edges and store them in the queue
+                                { for $edge in $node.edges() {
                                     $edges.append($edge)
 
                                     if ($edges.size() > 1000) {
-                                        $edgeq.put(($iden, $rview.iden, $edges))
+                                        $item = ({
+                                            "node": $iden,
+                                            "view": $rview.iden,
+                                            "direction": "n1",
+                                            "edges": $edges,
+                                        })
+
+                                        $edgeq.put($item)
                                         $edges = ([])
                                     }
-                                }
+                                }}
 
                                 if $edges {
-                                    $edgeq.put(($iden, $rview.iden, $edges))
+                                    $item = ({
+                                        "node": $iden,
+                                        "view": $rview.iden,
+                                        "direction": "n1",
+                                        "edges": $edges,
+                                    })
+
+                                    $edgeq.put($item)
+                                    $edges = ([])
+                                }
+
+                                // Get N2 edges and store them in the queue
+                                { for $edge in $node.edges(reverse=$lib.true) {
+                                    $edges.append($edge)
+
+                                    if ($edges.size() > 1000) {
+                                        $item = ({
+                                            "node": $iden,
+                                            "view": $rview.iden,
+                                            "direction": "n2",
+                                            "edges": $edges,
+                                        })
+
+                                        $edgeq.put($item)
+                                        $edges = ([])
+                                    }
+                                }}
+
+                                if $edges {
+                                    $item = ({
+                                        "node": $iden,
+                                        "view": $rview.iden,
+                                        "direction": "n2",
+                                        "edges": $edges,
+                                    })
+
+                                    $edgeq.put($item)
+                                    $edges = ([])
                                 }
 
                                 // Get sources and store them in the queue
@@ -971,25 +1027,25 @@ class ModelRev:
                             }
                         }
 
-                        $data = ({
-                            "view": $view.iden,
-                            "layer": $lib.layer.get().iden,
-                            "node": {
-                                "iden": $iden,
+                        $item = ({
+                            "node": $iden,
+                            "props": {
                                 "valu": $repr,
                                 "v2_2": $oldcpe.props.v2_2,
                             },
+                            "view": $view.iden,
+                            "layer": $lib.layer.get().iden,
                             "tags": $oldcpe.tags(),
                             "data": $oldcpe.data.list(),
                             "sources": $sources,
                         })
 
-                        $cpeq.put($data)
+                        $cpeq.put($item)
                     }
 
                     // Finally, delete the invalid node
                     $lib.log.debug(`Deleting invalid it:sec:cpe node: {$repr}`)
-                    iden $oldcpe.iden() | delnode --force
+                    iden $oldcpe.iden() | delnode --deledges --force
                 }
             }
         }
