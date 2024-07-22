@@ -603,7 +603,6 @@ workflows:
             branches:
               only:
                 - master
-                - migrate-hive
 
       - build_docker_tag:
           requires:
