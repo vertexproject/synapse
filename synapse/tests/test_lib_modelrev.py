@@ -628,7 +628,14 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('cpe'))
 
-            # FIXME: extended model checks
+            nodes = await core.nodes('_ext:model:form -> it:sec:cpe', opts=infork00)
+            self.len(3, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:cpe', 'cpe:2.3:a:01generator:pireospay:-:*:*:*:*:prestashop:*:*'),
+                ('it:sec:cpe', r'cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*'),
+                ('it:sec:cpe', r'cpe:2.3:a:1c:1c\:enterprise:-:*:*:*:*:*:*:*'),
+            ))
 
         async with self.getRegrCore('model-0.2.27') as core:
 
@@ -636,13 +643,22 @@ class ModelRevTest(s_tests.SynTest):
             self.len(2, views)
 
             view01 = views[1].get('iden') # forked view
-            layr01 = views[1].get('layers')[0].get('iden')
 
             view00 = views[0].get('iden') # default view
             layr00 = views[0].get('layers')[0].get('iden')
 
-            source22 = s_common.guid(('cpe', '22', 'invalid'))
-            source23 = s_common.guid(('cpe', '23', 'invalid'))
+            opts = {'view': view01}
+
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid"', opts=opts)
+            self.len(1, nodes)
+            source00 = nodes[0]
+
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid"', opts=opts)
+            self.len(1, nodes)
+            source01 = nodes[0]
+
+            source22 = source00.ndef[1]
+            source23 = source01.ndef[1]
 
             # There are two CPEs that we couldn't migrate. They should be fully
             # represented in the following three queues for potentially being
@@ -656,7 +672,7 @@ class ModelRevTest(s_tests.SynTest):
             self.len(3, queues)
             self.eq(queues, (
                 {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
-                {'name': 'model_0_2_27:cpes:refs', 'size': 4, 'offs': 4},
+                {'name': 'model_0_2_27:cpes:refs', 'size': 3, 'offs': 3},
                 {'name': 'model_0_2_27:cpes:edges', 'size': 2, 'offs': 2},
             ))
 
@@ -708,13 +724,19 @@ class ModelRevTest(s_tests.SynTest):
             # secondary properties
 
             q = '''
+                $refs = ([])
                 $q = $lib.queue.get("model_0_2_27:cpes:refs")
-                return($q.get((0), cull=$lib.false, wait=$lib.false))
+                for $ii in $lib.range(3) {
+                    $ref = $q.get($ii, cull=$lib.false, wait=$lib.false)
+                    $refs.append($ref.1)
+                }
+                return($refs)
             '''
-            (_, item00) = await core.callStorm(q)
+            refs = await core.callStorm(q)
+            self.len(3, refs)
 
-            ref00 = item00.get('refs')[0].pop('node')
-            self.eq(item00, {
+            ref00 = refs[0].get('refs')[0].pop('node')
+            self.eq(refs[0], {
                 'node': node00,
                 'view': view01,
                 'refs': (
@@ -729,3 +751,72 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:flow', s_common.guid(('flow', '22i', '23i'))))
             self.none(nodes[0].get('src:cpes'))
+
+            ref01 = refs[1].get('refs')[0].pop('node')
+            self.eq(refs[1], {
+                'node': node01,
+                'view': view01,
+                'refs': (
+                    {
+                        'refform': ('it:prod:soft', 'cpe', False),
+                    },
+                ),
+            })
+
+            opts = {'vars': {'iden': ref01}, 'view': view01}
+            nodes = await core.nodes('iden $iden', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:prod:soft', s_common.guid(('prod', '22i', '23i'))))
+            self.none(nodes[0].get('cpe'))
+
+            ref02 = refs[2].get('refs')[0].pop('node')
+            self.eq(refs[2], {
+                'node': node01,
+                'view': view01,
+                'refs': (
+                    {
+                        'refform': ('_ext:model:form', 'cpe', False),
+                    },
+                ),
+            })
+
+            opts = {'vars': {'iden': ref02}, 'view': view01}
+            nodes = await core.nodes('iden $iden', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('_ext:model:form', '22i-23i'))
+            self.none(nodes[0].get('cpe'))
+
+            # Data from "model_0_2_27:cpes:edges" are the info for any N1/N2
+            # edges from the unmigrated it:sec:cpe nodes
+
+            q = '''
+                $edges = ([])
+                $q = $lib.queue.get("model_0_2_27:cpes:edges")
+                for $ii in $lib.range(2) {
+                    $edge = $q.get($ii, cull=$lib.false, wait=$lib.false)
+                    $edges.append($edge.1)
+                }
+                return($edges)
+            '''
+            edges = await core.callStorm(q)
+            self.len(2, edges)
+
+            self.eq(edges[0], {
+                'node': node00,
+                'view': view01,
+                'direction': 'n2',
+                'edges': (
+                    ('seen', source01.iden()),
+                    ('seen', source00.iden())
+                ),
+            })
+
+            self.eq(edges[1], {
+                'node': node01,
+                'view': view01,
+                'direction': 'n2',
+                'edges': (
+                    ('seen', source01.iden()),
+                    ('seen', source00.iden())
+                ),
+            })

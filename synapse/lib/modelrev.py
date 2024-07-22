@@ -905,38 +905,49 @@ class ModelRev:
                                 // Get references and store them in queue
                                 for $refform in $refforms {
                                     ($form, $prop, $isarray) = $refform
-                                    $n = $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
-                                    if (not $n) { continue }
+                                    for $n in $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr) {
+                                        yield $n
 
-                                    yield $n
+                                        if $isarray {
 
-                                    if $isarray {
+                                            // We can't just [ :$prop-=$repr ] because the norm() function gets called
+                                            // on the array type deep down in the AST. So, instead, we have to operate on
+                                            // the whole array.
 
-                                        // We can't just [ :$prop-=$repr ] because the norm() function gets called
-                                        // on the array type deep down in the AST. So, instead, we have to operate on
-                                        // the whole array.
+                                            $valu = $lib.copy(:$prop)
+                                            $valu.remove($repr)
 
-                                        $valu = $lib.copy(:$prop)
-                                        $valu.remove($repr)
+                                            if $valu {
+                                                $lib.model.migration.setNodePropValuNoNorm($node, $prop, $valu)
+                                            } else {
+                                                [ -:$prop ]
+                                            }
 
-                                        if $valu {
-                                            $lib.model.migration.setNodePropValuNoNorm($node, $prop, $valu)
                                         } else {
                                             [ -:$prop ]
                                         }
 
-                                    } else {
-                                        [ -:$prop ]
+                                        $ref = ({
+                                            "node": $node.iden(),
+                                            "refform": $refform,
+                                        })
+
+                                        $references.append($ref)
+
+                                        // Flush to the queue if the list grows too large
+                                        if ($references.size() > 1000) {
+                                            $item = ({
+                                                "node": $iden,
+                                                "view": $rview.iden,
+                                                "refs": $references,
+                                            })
+
+                                            $refsq.put($item)
+                                            $references = ([])
+                                        }
                                     }
 
-                                    $ref = ({
-                                        "node": $node.iden(),
-                                        "refform": $refform,
-                                    })
-
-                                    $references.append($ref)
-
-                                    if ($references.size() > 1000) {
+                                    if $references {
                                         $item = ({
                                             "node": $iden,
                                             "view": $rview.iden,
@@ -948,25 +959,24 @@ class ModelRev:
                                     }
                                 }
 
-                                if $references {
-                                    $item = ({
-                                        "node": $iden,
-                                        "view": $rview.iden,
-                                        "refs": $references,
-                                    })
-
-                                    $refsq.put($item)
-                                    $references = ([])
-                                }
-
                                 spin |
 
                                 iden $iden |
 
+                                // Get sources and store them in the queue
+                                // Do this before we store/delete edges.
+                                { <(seen)- meta:source
+                                    $sources.append($node.repr())
+                                }
+
                                 // Get N1 edges and store them in the queue
                                 { for $edge in $node.edges() {
+                                    ($verb, $dst) = $edge
                                     $edges.append($edge)
 
+                                    [ -($verb)> { iden $dst } ]
+
+                                    // Flush to the queue if the list grows too large
                                     if ($edges.size() > 1000) {
                                         $item = ({
                                             "node": $iden,
@@ -994,8 +1004,12 @@ class ModelRev:
 
                                 // Get N2 edges and store them in the queue
                                 { for $edge in $node.edges(reverse=$lib.true) {
+                                    ($verb, $src) = $edge
                                     $edges.append($edge)
 
+                                    [ <($verb)- { iden $src } ]
+
+                                    // Flush to the queue if the list grows too large
                                     if ($edges.size() > 1000) {
                                         $item = ({
                                             "node": $iden,
@@ -1020,13 +1034,10 @@ class ModelRev:
                                     $edgeq.put($item)
                                     $edges = ([])
                                 }
-
-                                // Get sources and store them in the queue
-                                <(seen)- meta:source
-                                $sources.append($node.repr())
                             }
                         }
 
+                        $lib.log.warning(`IDEN: {$iden}`)
                         $item = ({
                             "node": $iden,
                             "props": {
@@ -1045,7 +1056,7 @@ class ModelRev:
 
                     // Finally, delete the invalid node
                     $lib.log.debug(`Deleting invalid it:sec:cpe node: {$repr}`)
-                    iden $oldcpe.iden() | delnode --deledges --force
+                    iden $oldcpe.iden() | delnode --force
                 }
             }
         }
