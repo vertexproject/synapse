@@ -798,8 +798,6 @@ class ModelRev:
 
                 refforms.append((form.name, prop.name, prop.type.isarray))
 
-        # FIXME: Get extended model props that are it:sec:cpe
-
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
             'refforms': refforms,

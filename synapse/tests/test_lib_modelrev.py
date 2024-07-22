@@ -601,6 +601,7 @@ class ModelRevTest(s_tests.SynTest):
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
 
+            # Check forms referencing it:sec:cpe in arrays
             nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=infork00)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
@@ -615,6 +616,7 @@ class ModelRevTest(s_tests.SynTest):
             self.none(nodes[0].get('src:cpes'))
             self.none(nodes[0].get('dst:cpes'))
 
+            # Check forms referencing it:sec:cpe
             nodes = await core.nodes('it:prod:soft -> it:sec:cpe', opts=infork00)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
@@ -628,6 +630,7 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('cpe'))
 
+            # Check extended model forms referencing it:sec:cpe
             nodes = await core.nodes('_ext:model:form -> it:sec:cpe', opts=infork00)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
@@ -636,6 +639,52 @@ class ModelRevTest(s_tests.SynTest):
                 ('it:sec:cpe', r'cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*'),
                 ('it:sec:cpe', r'cpe:2.3:a:1c:1c\:enterprise:-:*:*:*:*:*:*:*'),
             ))
+
+            # Check that we correctly copied over the edges
+            nodes = await core.nodes('risk:vuln <(refs)- it:sec:cpe')
+            self.len(9, nodes)
+
+            # Check that we correctly copied over the tags
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            # Check that we correctly copied over the node data
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
+
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
 
         async with self.getRegrCore('model-0.2.27') as core:
 
