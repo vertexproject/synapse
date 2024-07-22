@@ -1,0 +1,5 @@
+---
+desc: 'Added Storm library for creating printable tables: ``$lib.tabular``.'
+prs: []
+type: feat
+...
