@@ -1154,8 +1154,7 @@ class AhaCell(s_cell.Cell):
     async def _genCaCert(self, network):
 
         # generate a CA cert if one does not exist
-        # ( but don't read it in if it does )
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'cas', f'{network}.crt')):
+        if self.certdir.getCaCertPath(network):
             return
 
         await self.genCaCert(network)
@@ -1165,7 +1164,7 @@ class AhaCell(s_cell.Cell):
         if signas is not None:
             await self._genCaCert(signas)
 
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'hosts', f'{hostname}.crt')):
+        if self.certdir.getHostCertPath(hostname):
             return
 
         pkey, cert = await s_coro.executor(self.certdir.genHostCert, hostname, signas=signas, save=False)
@@ -1175,7 +1174,7 @@ class AhaCell(s_cell.Cell):
 
     async def _genUserCert(self, username, signas=None):
 
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'users', f'{username}.crt')):
+        if self.certdir.getHostCertPath(username):
             return
 
         logger.info(f'Adding user certificate for {username}')
@@ -1222,8 +1221,8 @@ class AhaCell(s_cell.Cell):
 
         hostname = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
-        hostpath = s_common.genpath(self.dirn, 'certs', 'hosts', f'{hostname}.crt')
-        if os.path.isfile(hostpath):
+        hostpath = self.certdir.getHostCertPath(hostname)
+        if hostpath:
             os.unlink(hostpath)
 
         if signas is None:
@@ -1241,8 +1240,8 @@ class AhaCell(s_cell.Cell):
 
         username = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
-        userpath = s_common.genpath(self.dirn, 'certs', 'users', f'{username}.crt')
-        if os.path.isfile(userpath):
+        userpath = self.certdir.getUserCertPath(username)
+        if userpath:
             os.unlink(userpath)
 
         if signas is None:
