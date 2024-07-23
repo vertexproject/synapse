@@ -458,6 +458,9 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
             if (not $ok) { return() }
 
+            file:bytes=$sha256
+            return($node)
+
             file:bytes:sha256=$sha256
             return($node)
 
