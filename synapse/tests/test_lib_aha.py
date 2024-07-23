@@ -781,8 +781,8 @@ class AhaTest(s_test.SynTest):
                     provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
                     enrlursl.append(await proxy.addAhaUserEnroll('bob'))
                     enrlursl.append(await proxy.addAhaUserEnroll('alice'))
-                    clonurls.append(await proxy.addAhaClone('hehe.haha.come'))
-                    clonurls.append(await proxy.addAhaClone('wow.haha.come', port='12345'))
+                    clonurls.append(await proxy.addAhaClone('hehe.haha.com'))
+                    clonurls.append(await proxy.addAhaClone('wow.haha.com', port='12345'))
 
                     await proxy.clearAhaSvcProvs()
                     await proxy.clearAhaUserEnrolls()
