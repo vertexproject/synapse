@@ -96,10 +96,17 @@ class AhaToolsTest(s_t_utils.SynTest):
 
             argv = ['--url', aha.getLocalUrl(), '01.aha.loop.vertex.link']
             retn, outp = await self.execToolMain(s_a_clone.main, argv)
+            self.eq(retn, 0)
             self.isin('one-time use URL:', str(outp))
+
+            argv = ['--url', aha.getLocalUrl(), '01.aha.loop.vertex.link', '--only-url']
+            retn, outp = await self.execToolMain(s_a_clone.main, argv)
+            self.eq(retn, 0)
+            self.notin('one-time use URL:', str(outp))
 
             argv = ['--url', 'newp://1.2.3.4', '01.aha.loop.vertex.link']
             retn, outp = await self.execToolMain(s_a_clone.main, argv)
+            self.eq(retn, 1)
             self.isin('ERROR: Invalid URL scheme: newp', str(outp))
 
             argv = ['--url', aha.getLocalUrl(), 'visi']
