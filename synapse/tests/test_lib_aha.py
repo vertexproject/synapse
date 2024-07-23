@@ -46,6 +46,8 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_clone(self):
 
+        zoinks = 'zoinks.aha.loop.vertex.link'
+
         with self.getTestDir() as dirn:
 
             dir0 = s_common.gendir(dirn, 'aha0')
@@ -58,7 +60,7 @@ class AhaTest(s_test.SynTest):
                     self.len(ahacount, await proxy0.getAhaUrls())
                     self.len(ahacount, await proxy0.getAhaServers())
 
-                    purl = await proxy0.addAhaClone('zoinks.aha.loop.vertex.link')
+                    purl = await proxy0.addAhaClone(zoinks)
 
                 conf1 = {'clone': purl}
                 async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
@@ -112,6 +114,21 @@ class AhaTest(s_test.SynTest):
 
                     self.false(aha0.isactive)
                     self.true(aha1.isactive)
+
+            # Remove 00.aha.loop.vertex.link since we're done with him + coverage
+            async with self.getTestAha(conf={'dns:name': zoinks}, dirn=dir1) as aha1:
+                async with aha1.getLocalProxy() as proxy1:
+                    srvs = await proxy1.getAhaServers()
+                    self.len(2, srvs)
+                    aha00 = [info for info in srvs if info.get('host') == '00.aha.loop.vertex.link'][0]
+                    data = await proxy1.delAhaServer(aha00.get('host'), aha00.get('port'))
+                    self.eq(data.get('host'), aha00.get('host'))
+                    self.eq(data.get('port'), aha00.get('port'))
+
+                    srvs = await proxy1.getAhaServers()
+                    self.len(1, srvs)
+                    urls = await proxy1.getAhaUrls()
+                    self.len(1, urls)
 
     async def test_lib_aha_offon(self):
         with self.getTestDir() as dirn:
