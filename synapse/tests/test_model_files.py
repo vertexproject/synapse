@@ -604,7 +604,7 @@ class FileTest(s_t_utils.SynTest):
                     :entry:primary="c:\\some\\stuff\\prog~2\\cmd.exe"
                     :entry:secondary="c:\\some\\stuff\program files\\cmd.exe"
                     :entry:extended="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
-                    :entry:localized="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
+                    :entry:localized="c:\\some\\actual\\archivos\\I\\swear\\cmd.exe"
                     :entry:icon="%windir%\\system32\\notepad.exe"
 
                     :environment:path="%windir%\\system32\\cmd.exe"
@@ -620,6 +620,10 @@ class FileTest(s_t_utils.SynTest):
                     :target:created="2023/01/25 18:57:45.284"
                     :target:accessed="2023/01/25 18:57:45.284"
                     :target:written="2023/01/25 18:57:45.284"
+
+                    :driveserial=0x6af54670
+                    :machineid=stellarcollapse
+                    :iconindex=1
             ]''')
             self.len(1, nodes)
             node = nodes[0]
@@ -627,7 +631,7 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('entry:primary'), 'c:/some/stuff/prog~2/cmd.exe')
             self.eq(node.get('entry:secondary'), 'c:/some/stuff/program files/cmd.exe')
             self.eq(node.get('entry:extended'), 'c:/some/actual/stuff/i/swear/cmd.exe')
-            self.eq(node.get('entry:localized'), 'c:/some/actual/stuff/i/swear/cmd.exe')
+            self.eq(node.get('entry:localized'), 'c:/some/actual/archivos/i/swear/cmd.exe')
 
             self.eq(node.get('entry:icon'), '%windir%/system32/notepad.exe')
             self.eq(node.get('environment:path'), '%windir%/system32/cmd.exe')
@@ -646,3 +650,9 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('target:created'), time)
             self.eq(node.get('target:accessed'), time)
             self.eq(node.get('target:written'), time)
+
+            self.eq(node.get('driveserial'), 0x6af54670)
+            self.eq(node.get('machineid'), 'stellarcollapse')
+            self.eq(node.get('iconindex'), 1)
+
+            self.len(1, await core.nodes('file:mime:lnk -> it:hostname'))
