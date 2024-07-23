@@ -562,6 +562,7 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
 
     async def test_modelrev_0_2_27(self):
+
         async with self.getRegrCore('model-0.2.27', maxvers=(0, 2, 24)) as core:
             # Do some pre-migration validation of the cortex
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')

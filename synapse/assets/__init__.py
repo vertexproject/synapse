@@ -4,7 +4,7 @@ import synapse.common as s_common
 
 dirname = os.path.dirname(__file__)
 
-def get(name):
+def getStorm(*names):
     '''
     Return a storm file from the synapse storm folder.
 
@@ -12,7 +12,11 @@ def get(name):
 
         text = storm.get('migrate.storm')
         await core.callStorm(text)
+
+    Example #2:
+        text = storm.get('migrations', 'model-0.2.27.storm')
+        await core.callStorm(text)
     '''
-    with s_common.genfile(dirname, name) as fp:
+    with s_common.genfile(dirname, 'storm', *names) as fp:
         text = fp.read()
     return text.decode('utf8')

@@ -7,4 +7,4 @@ omit =
 plugins = synapse.utils.stormcov
 
 [synapse.utils.stormcov]
-storm_dirs = synapse/storm
+storm_dirs = synapse/assets/storm
