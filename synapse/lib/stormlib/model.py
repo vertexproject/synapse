@@ -848,7 +848,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         '''
         formname = await s_stormtypes.tostr(formname)
         propname = await s_stormtypes.tostr(propname)
-        valu = await s_stormtypes.tostr(valu)
+        valu = await s_stormtypes.toprim(valu)
 
         prop = self.runt.snap.core.model.prop(f'{formname}:{propname}')
         if prop is None:

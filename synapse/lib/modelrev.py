@@ -790,13 +790,21 @@ class ModelRev:
         for form in self.core.model.forms.values():
             for prop in form.props.values():
 
-                if prop.type.name not in ('array', 'it:sec:cpe'):
+                isarray = False
+
+                if prop.type.name not in ('array', 'it:sec:cpe', 'ndef'):
                     continue
 
-                if prop.type.isarray and prop.type.arraytype.name != 'it:sec:cpe':
-                    continue
+                proptype = prop.type.name
 
-                refforms.append((form.name, prop.name, prop.type.isarray))
+                if prop.type.isarray:
+                    if prop.type.arraytype.name not in ('it:sec:cpe', 'ndef'):
+                        continue
+
+                    isarray = True
+                    proptype = prop.type.arraytype.name
+
+                refforms.append((form.name, prop.name, proptype, isarray))
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
@@ -822,6 +830,8 @@ class ModelRev:
                 for $oldcpe in $layer.liftByProp(it:sec:cpe) {
                     $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
 
+                    $iden = $oldcpe.iden()
+                    $ndef = $oldcpe.ndef()
                     $repr = $oldcpe.repr()
 
                     $success = ($info.status = "success")
@@ -858,40 +868,55 @@ class ModelRev:
                             view.exec $rview.iden {
 
                                 // Fix references that point to old node to now point to new node
-                                for ($form, $prop, $isarray) in $refforms {
-                                    $n = $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr)
+                                for $refform in $refforms {
+                                    ($form, $prop, $proptype, $isarray) = $refform
+                                    if ($proptype = "ndef") {
+                                        $valu = $ndef
+                                    } else {
+                                        $valu = $repr
+                                    }
+
+                                    $n = $lib.model.migration.liftByPropValuNoNorm($form, $prop, $valu)
                                     if (not $n) { continue }
 
                                     yield $n
 
                                     if $isarray {
 
-                                        // We can't just [ :$prop-=$repr ] because the norm() function gets called
+                                        // We can't just [ :$prop-=$valu ] because the norm() function gets called
                                         // on the array type deep down in the AST. So, instead, we have to operate on
                                         // the whole array.
 
-                                        $valu = $lib.copy(:$prop)
-                                        $valu.remove($repr)
+                                        $list = $lib.copy(:$prop)
+                                        while $list.has($valu) {
+                                            $list.remove($valu)
+                                        }
 
-                                        $lib.model.migration.setNodePropValuNoNorm($node, $prop, $valu)
+                                        $lib.model.migration.setNodePropValuNoNorm($node, $prop, $list)
 
                                         // We want the new CPE valu to go through norming
                                         [ :$prop+=$newcpe ]
 
                                     } else {
-                                        [ -:$prop :$prop=$newcpe ]
+                                        try {
+                                            [ -:$prop :$prop=$newcpe ]
+                                        } catch ReadOnlyProp as exc {
+                                            // The property is readonly so we can only delete it
+                                            $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Deleting node: {$node.repr()}`)
+                                            delnode --deledges --force
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        iden $iden
 
                     } else {
 
                         // Node could not be automatically migrated. Collect
                         // critical information to eventually reconstruct this node
                         // and store it in a queue.
-
-                        $iden = $oldcpe.iden()
 
                         $edges = ([])
                         $sources = ([])
@@ -902,27 +927,43 @@ class ModelRev:
                             view.exec $rview.iden {
                                 // Get references and store them in queue
                                 for $refform in $refforms {
-                                    ($form, $prop, $isarray) = $refform
-                                    for $n in $lib.model.migration.liftByPropValuNoNorm($form, $prop, $repr) {
+
+                                    ($form, $prop, $proptype, $isarray) = $refform
+                                    if ($proptype = "ndef") {
+                                        $valu = $ndef
+                                    } else {
+                                        $valu = $repr
+                                    }
+
+                                    for $n in $lib.model.migration.liftByPropValuNoNorm($form, $prop, $valu) {
                                         yield $n
 
                                         if $isarray {
 
-                                            // We can't just [ :$prop-=$repr ] because the norm() function gets called
+                                            // We can't just [ :$prop-=$valu ] because the norm() function gets called
                                             // on the array type deep down in the AST. So, instead, we have to operate on
                                             // the whole array.
 
-                                            $valu = $lib.copy(:$prop)
-                                            $valu.remove($repr)
+                                            $list = $lib.copy(:$prop)
+                                            while $list.has($valu) {
+                                                $list.remove($valu)
+                                            }
 
-                                            if $valu {
-                                                $lib.model.migration.setNodePropValuNoNorm($node, $prop, $valu)
+                                            if $list {
+                                                $lib.model.migration.setNodePropValuNoNorm($node, $prop, $list)
                                             } else {
                                                 [ -:$prop ]
                                             }
 
                                         } else {
-                                            [ -:$prop ]
+                                            try {
+                                                [ -:$prop ]
+                                            } catch ReadOnlyProp as exc {
+                                                // The property is readonly so we can only delete it
+                                                $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Deleting node: {$node.repr()}`)
+                                                delnode --deledges --force
+                                                continue
+                                            }
                                         }
 
                                         $ref = ({
@@ -1053,7 +1094,7 @@ class ModelRev:
 
                     // Finally, delete the invalid node
                     $lib.log.debug(`Deleting invalid it:sec:cpe node: {$repr}`)
-                    iden $oldcpe.iden() | delnode --force
+                    delnode --force
                 }
             }
         }

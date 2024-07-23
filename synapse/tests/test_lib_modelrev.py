@@ -790,7 +790,7 @@ class ModelRevTest(s_tests.SynTest):
                 'view': view01,
                 'refs': (
                     {
-                        'refform': ('inet:flow', 'src:cpes', True),
+                        'refform': ('inet:flow', 'src:cpes', 'it:sec:cpe', True),
                     },
                 ),
             })
@@ -807,7 +807,7 @@ class ModelRevTest(s_tests.SynTest):
                 'view': view01,
                 'refs': (
                     {
-                        'refform': ('it:prod:soft', 'cpe', False),
+                        'refform': ('it:prod:soft', 'cpe', 'it:sec:cpe', False),
                     },
                 ),
             })
@@ -824,7 +824,7 @@ class ModelRevTest(s_tests.SynTest):
                 'view': view01,
                 'refs': (
                     {
-                        'refform': ('_ext:model:form', 'cpe', False),
+                        'refform': ('_ext:model:form', 'cpe', 'it:sec:cpe', False),
                     },
                 ),
             })
