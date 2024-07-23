@@ -394,8 +394,8 @@ class ProvDmon(s_daemon.Daemon):
 
         clone = await self.aha.getAhaClone(name)
         if clone is not None:
-            mesg = f'Retrieved AHA clone info for {name}'
             host = clone.get('host')
+            mesg = f'Retrieved AHA clone info for {host} iden {name}'
             logger.info(mesg, extra=await self.aha.getLogExtra(iden=name, host=host))
             return CloneApi(self.aha, clone)
 
@@ -1312,7 +1312,7 @@ class AhaCell(s_cell.Cell):
         }
         await self._push('aha:clone:add', clone)
 
-        logger.info(f'Created AHA clone for {host} with iden {iden}',
+        logger.info(f'Created AHA clone provisioning for {host} with iden {iden}',
                      extra=await self.getLogExtra(iden=iden, name=host, netw=network))
 
         return self._getProvClientUrl(iden)
