@@ -1,0 +1,6 @@
+---
+desc: Add model elements to represent the DriveSerialNumber and MachineID properties of an LNK file.
+prs:
+- 3817
+type: model
+...

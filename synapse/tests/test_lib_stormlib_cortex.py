@@ -489,10 +489,10 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 await core.callStorm(q, opts={'vars': {'iden': iden3}})
 
             msgs = await core.stormlist('cortex.httpapi.list')
-            self.stormIsInPrint(f'0     {iden0}', msgs)
-            self.stormIsInPrint(f'1     {iden1}', msgs)
-            self.stormIsInPrint(f'2     {iden2}', msgs)
-            self.stormIsInPrint(f'3     {iden3}', msgs)
+            self.stormIsInPrint(f'0     | {iden0}', msgs)
+            self.stormIsInPrint(f'1     | {iden1}', msgs)
+            self.stormIsInPrint(f'2     | {iden2}', msgs)
+            self.stormIsInPrint(f'3     | {iden3}', msgs)
 
             q = '''
             $ret = $lib.null $api = $lib.cortex.httpapi.getByPath($path)
@@ -528,10 +528,10 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.eq(iden0, await core.callStorm(q, opts={'vars': {'path': 'hehe/ohmy'}}))
 
             msgs = await core.stormlist('cortex.httpapi.list')
-            self.stormIsInPrint(f'0     {iden1}', msgs)
-            self.stormIsInPrint(f'1     {iden0}', msgs)
-            self.stormIsInPrint(f'2     {iden2}', msgs)
-            self.stormIsInPrint(f'3     {iden3}', msgs)
+            self.stormIsInPrint(f'0     | {iden1}', msgs)
+            self.stormIsInPrint(f'1     | {iden0}', msgs)
+            self.stormIsInPrint(f'2     | {iden2}', msgs)
+            self.stormIsInPrint(f'3     | {iden3}', msgs)
 
             # The wildcard handler does not match the more specific request as a result of the new order
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
@@ -569,10 +569,10 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'Set HTTP API {iden0} to index 3', msgs)
 
             msgs = await core.stormlist('cortex.httpapi.list')
-            self.stormIsInPrint(f'0     {iden1}', msgs)
-            self.stormIsInPrint(f'1     {iden2}', msgs)
-            self.stormIsInPrint(f'2     {iden3}', msgs)
-            self.stormIsInPrint(f'3     {iden0}', msgs)
+            self.stormIsInPrint(f'0     | {iden1}', msgs)
+            self.stormIsInPrint(f'1     | {iden2}', msgs)
+            self.stormIsInPrint(f'2     | {iden3}', msgs)
+            self.stormIsInPrint(f'3     | {iden0}', msgs)
 
             # iden Prefix + name matching
             msgs = await core.stormlist('cortex.httpapi.index $iden 0', opts={'vars': {'iden': iden1[:6]}})
