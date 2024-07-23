@@ -278,7 +278,7 @@ for $view in $lib.view.list(deporder=$lib.true) {
                             "sources": $sources,
                         })
 
-                        $cpeq.put($item)
+                        $nodeq.put($item)
 
                         // Finally, delete the invalid node
                         $lib.log.debug(`Deleting invalid it:sec:cpe node: {$repr}`)

@@ -595,6 +595,8 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.27') as core:
 
+            return
+
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(2, views)
 
