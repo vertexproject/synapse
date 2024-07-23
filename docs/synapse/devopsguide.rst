@@ -1275,11 +1275,12 @@ these endpoints to be ordered from most specific to least specific.
 To list the registered APIs, their order, and path information, use the ``cortex.httpapi.list`` command::
 
     storm> cortex.httpapi.list
-    order iden                             owner                auth  runas  path
-    0     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
-    1     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
-    2     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/path01
-    3     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
+     order | iden                             | owner                | auth  | runas  | path
+    =======|==================================|======================|=======|========|======
+    0      | 50cf80d0e332a31608331490cd453103 | root                 | true  | owner  | demo/([a-z0-9]*)
+    1      | 586311d3a7a26d6138bdc07169e4cde5 | root                 | true  | owner  | demo/path00
+    2      | 1896bda5dbd97615ee553059079620ba | root                 | true  | owner  | demo/path01
+    3      | daaf33e23b16540acdc872fee2de1b61 | root                 | true  | owner  | something/Else
 
 In this example, there are four items listed. The ``path`` of the first item will match the paths for the second and
 third items. The index for the first item needs to be moved using the ``cortex.httpapi.index`` commmand. That command
@@ -1289,11 +1290,13 @@ allows users to change the order in which the API endpoints are matched::
     Set HTTP API 50cf80d0e332a31608331490cd453103 to index 3
 
     storm> cortex.httpapi.list
-    order iden                             owner                auth  runas  path
-    0     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
-    1     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/path01
-    2     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
-    3     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+     order | iden                             | owner                | auth  | runas  | path
+    =======|==================================|======================|=======|========|======
+    0      | 586311d3a7a26d6138bdc07169e4cde5 | root                 | true  | owner  | demo/path00
+    1      | 1896bda5dbd97615ee553059079620ba | root                 | true  | owner  | demo/path01
+    2      | daaf33e23b16540acdc872fee2de1b61 | root                 | true  | owner  | something/Else
+    3      | 50cf80d0e332a31608331490cd453103 | root                 | true  | owner  | demo/([a-z0-9]*)
+
 
 The endpoints in the example are now checked in a "more specific" to "least specific" order.
 
@@ -1304,11 +1307,12 @@ the ``http:api`` object in Storm::
     complete. 0 nodes in 8 ms (0/sec).
 
     storm> cortex.httpapi.list
-    order iden                             owner                auth  runas  path
-    0     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
-    1     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/mynew/path
-    2     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
-    3     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+     order | iden                             | owner                | auth  | runas  | path
+    =======|==================================|======================|=======|========|======
+    0      | 586311d3a7a26d6138bdc07169e4cde5 | root                 | true  | owner  | demo/path00
+    1      | 1896bda5dbd97615ee553059079620ba | root                 | true  | owner  | demo/mynew/path
+    2      | daaf33e23b16540acdc872fee2de1b61 | root                 | true  | owner  | something/Else
+    3      | 50cf80d0e332a31608331490cd453103 | root                 | true  | owner  | demo/([a-z0-9]*)
 
 The path components which match each regular expression capture group in the ``path`` will be set in the
 ``$request.args`` data. An endpoint can capture multiple args this way::
