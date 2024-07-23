@@ -2,3 +2,9 @@
 omit =
     */synapse/tests/test_*
     */synapse/tools/changelog.py
+
+[run]
+plugins = synapse.utils.stormcov
+
+[synapse.utils.stormcov]
+storm_dirs = synapse/storm
