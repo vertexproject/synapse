@@ -2,6 +2,7 @@ import regex
 import logging
 
 import synapse.exc as s_exc
+import synapse.storm as s_storm
 import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
@@ -815,9 +816,17 @@ class ModelRev:
         $layers = $lib.spooled.set()
         $layers.adds($layridens)
 
-        $cpeq = $lib.queue.gen("model_0_2_27:cpes")
-        $refsq = $lib.queue.gen("model_0_2_27:cpes:refs")
-        $edgeq = $lib.queue.gen("model_0_2_27:cpes:edges")
+        $nodeq = $lib.queue.gen("model_0_2_27:nodes")
+        $refsq = $lib.queue.gen("model_0_2_27:nodes:refs")
+        $edgeq = $lib.queue.gen("model_0_2_27:nodes:edges")
+
+        function copyCpe(oldcpe, newval) {
+            [ it:sec:cpe=$newval ]
+            $lib.model.migration.copyEdges($oldcpe, $node)
+            $lib.model.migration.copyTags($oldcpe, $node)
+            $lib.model.migration.copyData($oldcpe, $node)
+            return($node)
+        }
 
         for $view in $lib.view.list(deporder=$lib.true) {
 
@@ -854,12 +863,7 @@ class ModelRev:
                          */
 
                         // Create the new CPE node and migrate the edges, tags, and data
-                        $newcpe = {
-                            [ it:sec:cpe=$info.valu ]
-                            $lib.model.migration.copyEdges($oldcpe, $node)
-                            $lib.model.migration.copyTags($oldcpe, $node)
-                            $lib.model.migration.copyData($oldcpe, $node)
-                        }
+                        $newcpe = $copyCpe($oldcpe, $info.valu)
 
                         // Iterate through the views again and fix up all the references
                         for $rview in $lib.view.list(deporder=$lib.true) {
@@ -872,8 +876,10 @@ class ModelRev:
                                     ($form, $prop, $proptype, $isarray) = $refform
                                     if ($proptype = "ndef") {
                                         $valu = $ndef
+                                        $newvalu = $newcpe.ndef()
                                     } else {
                                         $valu = $repr
+                                        $newvalu = $newcpe.repr()
                                     }
 
                                     $n = $lib.model.migration.liftByPropValuNoNorm($form, $prop, $valu)
@@ -895,11 +901,11 @@ class ModelRev:
                                         $lib.model.migration.setNodePropValuNoNorm($node, $prop, $list)
 
                                         // We want the new CPE valu to go through norming
-                                        [ :$prop+=$newcpe ]
+                                        [ :$prop+=$newvalu ]
 
                                     } else {
                                         try {
-                                            [ -:$prop :$prop=$newcpe ]
+                                            [ -:$prop :$prop=$newvalu ]
                                         } catch ReadOnlyProp as exc {
                                             // The property is readonly so we can only delete it
                                             $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Deleting node: {$node.repr()}`)
@@ -1073,31 +1079,31 @@ class ModelRev:
                                     $edgeq.put($item)
                                     $edges = ([])
                                 }
-                            }
-                        }
 
-                        $item = ({
-                            "node": $iden,
-                            "props": {
-                                "valu": $repr,
-                                "v2_2": $oldcpe.props.v2_2,
-                            },
-                            "view": $view.iden,
-                            "layer": $lib.layer.get().iden,
-                            "tags": $oldcpe.tags(),
-                            "data": $oldcpe.data.list(),
-                            "sources": $sources,
-                        })
+                                $item = ({
+                                    "node": $iden,
+                                    "props": {
+                                        "valu": $repr,
+                                        "v2_2": $oldcpe.props.v2_2,
+                                    },
+                                    "view": $view.iden,
+                                    "layer": $lib.layer.get().iden,
+                                    "tags": $oldcpe.tags(),
+                                    "data": $oldcpe.data.list(),
+                                    "sources": $sources,
+                                })
 
-                        $cpeq.put($item)
-                    }
+                                $cpeq.put($item)
 
-                    // Finally, delete the invalid node
-                    $lib.log.debug(`Deleting invalid it:sec:cpe node: {$repr}`)
-                    delnode --force
-                }
-            }
-        }
+                                // Finally, delete the invalid node
+                                $lib.log.debug(`Deleting invalid it:sec:cpe node: {$repr}`)
+                                delnode --force
+                            } // view.exec $rview.iden
+                        } // for $rview in ...
+                    } // else
+                } // for $oldcpe in $layer.liftByProp
+            } // view.exec $view.iden
+        } // for $view in $lib.view.list
         '''
 
         # TODO: Get the queue items with this query:
@@ -1109,6 +1115,7 @@ class ModelRev:
         }
         '''
 
+        storm = s_storm.get('model-0.2.27-migration.storm')
         await self.runStorm(storm, opts=opts)
 
     async def runStorm(self, text, opts=None):
