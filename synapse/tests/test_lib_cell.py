@@ -2683,7 +2683,7 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_nexus_compat(self):
         with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):
             async with self.getRegrCore('hive-migration') as core0:
-                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 169)):
+                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 177)):
                     conf = {'mirror': core0.getLocalUrl()}
                     async with self.getRegrCore('hive-migration', conf=conf) as core1:
                         await core1.sync()
@@ -2701,9 +2701,9 @@ class CellTest(s_t_utils.SynTest):
                         self.none(await core0.callStorm('return($lib.user.profile.get(bar))'))
 
                         self.eq((0, 0), core1.nexsvers)
-                        await core0.setNexsVers((2, 169))
+                        await core0.setNexsVers((2, 177))
                         await core1.sync()
-                        self.eq((2, 169), core1.nexsvers)
+                        self.eq((2, 177), core1.nexsvers)
 
                         await core1.nodes('$lib.user.vars.set(foo, bar)')
                         self.eq('bar', await core0.callStorm('return($lib.user.vars.get(foo))'))
