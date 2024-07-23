@@ -365,6 +365,13 @@ class AhaTest(s_test.SynTest):
                     await cell.ahaclient.proxy()
                     self.len(ahacount + 1, cell.conf.get('aha:registry'))
 
+                self.nn(await aha.delAhaServer('zoinks.aha.loop.vertex.link', 27492))
+                self.len(ahacount, await aha.getAhaServers())
+
+                async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                    await cell.ahaclient.proxy()
+                    self.len(ahacount, cell.conf.get('aha:registry'))
+
     async def test_lib_aha_loadenv(self):
 
         with self.getTestDir() as dirn:
