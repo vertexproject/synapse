@@ -1,0 +1,7 @@
+---
+desc: Add synapse.lib.lmdbslab.SafeKeyValu class for managing prefix-based key/value
+  storage in Slabs with key length enforcement.
+prs:
+- 3698
+type: feat
+...
