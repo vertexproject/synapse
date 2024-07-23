@@ -359,6 +359,14 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.clearAhaUserEnrolls()
 
+    @s_cell.adminapi()
+    async def clearAhaClones(self):
+        '''
+        Remove all unused AHA clone provisioning values.
+        '''
+        return await self.cell.clearAhaClones()
+
+
 class ProvDmon(s_daemon.Daemon):
 
     async def __anit__(self, aha):
@@ -1278,8 +1286,7 @@ class AhaCell(s_cell.Cell):
         return f'ssl://{host}:{port}?certname={user}@{network}'
 
     async def getAhaClone(self, iden):
-        lkey = s_common.uhex(iden)
-        byts = self.slab.get(lkey, db='aha:clones')
+        byts = self.slab.get(iden.encode(), db='aha:clones')
         if byts is not None:
             return s_msgpack.un(byts)
 
@@ -1304,13 +1311,16 @@ class AhaCell(s_cell.Cell):
             'conf': conf,
         }
         await self._push('aha:clone:add', clone)
+
+        logger.info(f'Created AHA clone for {host} with iden {iden}',
+                     extra=await self.getLogExtra(iden=iden, name=host, netw=network))
+
         return self._getProvClientUrl(iden)
 
     @s_nexus.Pusher.onPush('aha:clone:add')
     async def _addAhaClone(self, clone):
         iden = clone.get('iden')
-        lkey = s_common.uhex(iden)
-        self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
+        self.slab.put(iden.encode(), s_msgpack.en(clone), db='aha:clones')
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -1442,6 +1452,13 @@ class AhaCell(s_cell.Cell):
             self.slab.delete(iden, db='aha:enrolls')
             userinfo = s_msgpack.un(byts)
             logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
+
+    @s_nexus.Pusher.onPushAuto('aha:clone:clear')
+    async def clearAhaClones(self):
+        for iden, byts in self.slab.scanByFull(db='aha:clones'):
+            self.slab.delete(iden, db='aha:clones')
+            cloninfo = s_msgpack.un(byts)
+            logger.info(f'Deleted AHA clone enrollment username={cloninfo.get("host")}, iden={iden.decode()}')
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):

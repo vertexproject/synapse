@@ -775,14 +775,18 @@ class AhaTest(s_test.SynTest):
                 # We can generate urls and then drop them en-mass. They will not usable.
                 provurls = []
                 enrlursl = []
+                clonurls = []
                 async with aha.getLocalProxy() as proxy:
                     provurls.append(await proxy.addAhaSvcProv('00.cell'))
                     provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
                     enrlursl.append(await proxy.addAhaUserEnroll('bob'))
                     enrlursl.append(await proxy.addAhaUserEnroll('alice'))
+                    clonurls.append(await proxy.addAhaClone('hehe.haha.come'))
+                    clonurls.append(await proxy.addAhaClone('wow.haha.come', port='12345'))
 
                     await proxy.clearAhaSvcProvs()
                     await proxy.clearAhaUserEnrolls()
+                    await proxy.clearAhaClones()
 
                 for url in provurls:
                     with self.raises(s_exc.NoSuchName) as cm:
@@ -792,6 +796,10 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.NoSuchName) as cm:
                         async with await s_telepath.openurl(url) as prox:
                             self.fail(f'Connected to an expired enrollment URL {url}')  # pragma: no cover
+                for url in clonurls:
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        async with await s_telepath.openurl(url) as prox:
+                            self.fail(f'Connected to an expired clone URL {url}')  # pragma: no cover
 
     async def test_aha_httpapi(self):
 
