@@ -105,6 +105,25 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
             ),
             'interfaces': (
+                ('meta:relationship', {
+                    'doc': 'Properties common to relationships between specific forms.',
+                    'props': (
+                        ('source', ('guid', {}), {
+                            'doc': 'The node that is related to the target node.'}),
+
+                        ('target', ('guid', {}), {
+                            'doc': 'The node that the source node is related to.'}),
+
+                        ('type', ('taxonomy', {}), {
+                            'doc': 'The type of relationship that the source node has to the target node.'}),
+
+                        ('status', ('str', {'enums': 'TODO'}), {
+                            'doc': 'The latest known status of the relationship.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period that the relationship existed.'}),
+                    ),
+                }),
                 ('meta:taxonomy', {
                     'doc': 'Properties common to taxonomies.',
                     'props': (
