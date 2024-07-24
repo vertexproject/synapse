@@ -283,7 +283,7 @@ class CortexTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
-                self.nn(await core.cellinfo.pop('cortex:version'))
+                self.nn(core.cellinfo.pop('cortex:version'))
 
             with self.raises(s_exc.BadStorageVersion):
                 async with self.getTestCore(dirn=dirn) as core:
@@ -2521,6 +2521,8 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('.hehe [ -.hehe ]'))
             self.len(0, await core.nodes('.hehe'))
 
+            self.none(await core._addUnivProp('hehe', None, None))
+
         # ensure that we can delete univ props in a authenticated setting
         async with self.getTestCoreAndProxy() as (realcore, core):
 
@@ -2918,6 +2920,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pkgs = await proxy.getStormPkgs()
             self.len(0, pkgs)
             await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
+
+            self.none(await core._delStormPkg('foosball'))
 
             # This segfaults in regex < 2022.9.11
             query = '''test:str~="(?(?<=A)|(?(?![^B])C|D))"'''
@@ -3630,16 +3634,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addStormPkg(otherpkg)
 
             visi = await core.auth.addUser('visi')
-            async with core.getLocalProxy(user='visi') as asvisi:
-                uopts = dict(opts)
-                uopts['user'] = visi.iden
-                opts['vars']['useriden'] = visi.iden
+            uopts = dict(opts)
+            uopts['user'] = visi.iden
+            opts['vars']['useriden'] = visi.iden
 
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
-                await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
-                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+            await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+            await core.nodes('$lib.graph.del($iden2)', opts=uopts)
 
-                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+            self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
@@ -4094,12 +4097,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.len(2, await core.nodes('[ inet:dns:a=(vertex.link,1.2.3.4) inet:dns:a=(woot.com,5.6.7.8)]'))
             self.len(4, await core.nodes('inet:dns:a inet:fqdn=:fqdn'))
-
-    async def test_cortex_hive(self):
-        async with self.getTestCore() as core:
-            await core.hive.set(('visi',), 200)
-            async with core.getLocalProxy(share='cortex/hive') as hive:
-                self.eq(200, await hive.get(('visi',)))
 
     async def test_cortex_delnode_perms(self):
 
@@ -5683,10 +5680,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCoreAndProxy(dirn=dirn) as (core, prox):
 
-                # nexus recover() previously failed on adding to the hive
-                # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
-                self.nn(core.stormdmonhive.get(iden))
+                self.nn(core.stormdmondefs.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -5728,7 +5723,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)
-                await visi.profile.set('cortex:view', view2_iden)
+                await visi.setProfileValu('cortex:view', view2_iden)
 
                 await core.nodes('$q=$lib.queue.add(dmon2)')
                 q = '''
@@ -5779,6 +5774,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.CantDelCmd):
                 await core.delStormCmd('sleep')
+
+            self.none(await core._delStormCmd('newp'))
 
     async def test_cortex_storm_lib_dmon_cmds(self):
         async with self.getTestCore() as core:
@@ -5896,7 +5893,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
                 # manually edit in a borked form entry
-                await core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
 
             async with self.getTestCore(dirn=dirn) as core:
 
@@ -6440,7 +6437,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await proxy.popStormVar('hehe')
 
             async with core.getLocalProxy() as proxy:
-                self.none(await proxy.setStormVar('hehe', 'haha'))
+                self.eq('haha', await proxy.setStormVar('hehe', 'haha'))
                 self.eq('haha', await proxy.getStormVar('hehe'))
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))
@@ -7841,3 +7838,36 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await alist(core01.storm('inet:asn=0', opts={'mirror': False}))
                     self.len(1, [m for m in msgs if m[0] == 'node'])
+
+    async def test_cortex_check_nexus_init(self):
+        # This test is a simple safety net for making sure no nexus events
+        # happen before the nexus subsystem is initialized (initNexusSubsystem).
+        # It's possible for code which calls nexus APIs to run but not do
+        # anything which wouldn't be caught here. I don't think there's a good
+        # way to check for that condition though.
+
+        class Cortex(s_cortex.Cortex):
+            async def initServiceStorage(self):
+                self._test_pre_service_storage_index = await self.nexsroot.index()
+                ret = await super().initServiceStorage()
+                self._test_post_service_storage_index = await self.nexsroot.index()
+                return ret
+
+            async def initNexusSubsystem(self):
+                self._test_pre_nexus_index = await self.nexsroot.index()
+                ret = await super().initNexusSubsystem()
+                self._test_post_nexus_index = await self.nexsroot.index()
+                return ret
+
+        conf = {
+            'layer:lmdb:map_async': True,
+            'nexslog:en': True,
+            'layers:logedits': True,
+        }
+
+        with self.getTestDir() as dirn:
+            async with await Cortex.anit(dirn, conf=conf) as core:
+                offs = core._test_pre_service_storage_index
+                self.eq(core._test_post_service_storage_index, offs)
+                self.eq(core._test_pre_nexus_index, offs)
+                self.ge(core._test_post_nexus_index, core._test_pre_nexus_index)

@@ -478,7 +478,10 @@ class StormLibAuthTest(s_test.SynTest):
             othr = await core.auth.addUser('othr')
             asothr = {'user': othr.iden}
 
-            await core.callStorm('$lib.user.vars.set(foo, foovalu)', opts=asvisi)
+            await core.callStorm('$lib.user.vars.foo = foovalu', opts=asvisi)
+
+            msgs = await core.stormlist('for $valu in $lib.user.vars { $lib.print($valu) }', opts=asvisi)
+            self.stormIsInPrint("('foo', 'foovalu')", msgs)
 
             q = 'return($lib.auth.users.byname(visi).vars.foo)'
             self.eq('foovalu', await core.callStorm(q, opts=asvisi))
@@ -493,6 +496,16 @@ class StormLibAuthTest(s_test.SynTest):
 
             await core.callStorm('$lib.auth.users.byname(visi).vars.foo=$lib.undef')
             self.none(await core.callStorm('return($lib.auth.users.byname(visi).vars.foo)'))
+
+            await core.callStorm('$lib.user.profile.bar = foovalu', opts=asvisi)
+
+            self.eq('foovalu', await core.callStorm('return($lib.user.profile.bar)', opts=asvisi))
+
+            msgs = await core.stormlist('for $valu in $lib.user.profile { $lib.print($valu) }', opts=asvisi)
+            self.stormIsInPrint("('bar', 'foovalu')", msgs)
+
+            await core.callStorm('$lib.user.profile.bar = $lib.undef', opts=asvisi)
+            self.none(await core.callStorm('return($lib.user.profile.bar)', opts=asvisi))
 
     async def test_stormlib_auth_base(self):
 

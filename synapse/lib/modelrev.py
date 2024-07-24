@@ -98,7 +98,7 @@ class ModelRev:
         # that we are not able to rev ourselves and bail...
 
         layers = []
-        for layr in self.core.layers.values():
+        for layr in list(self.core.layers.values()):
 
             if layr.fresh:
                 await layr.setModelVers(version)

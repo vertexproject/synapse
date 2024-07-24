@@ -266,7 +266,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             await core.fini()
 
-            # Restarting the cortex warns again for various items that it loads from the hive
+            # Restarting the cortex warns again for various items that it loads
             # with deprecated types in them. This is a coverage test for extended properties.
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
                 async with await s_cortex.Cortex.anit(dirn, conf) as core:

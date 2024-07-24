@@ -7,11 +7,11 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.auth as s_auth
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
-import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tools.backup as s_tools_backup
 
@@ -1735,6 +1735,8 @@ class LayerTest(s_t_utils.SynTest):
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
 
+            self.none(await core._cloneLayer(readlayrinfo['iden'], readlayrinfo, None))
+
     async def test_layer_ro(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -1993,7 +1995,7 @@ class LayerTest(s_t_utils.SynTest):
                 parent = core.view.layers[0]
 
                 seen.clear()
-                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_auth.User, 'confirm', confirm):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, parent.iden)
@@ -2052,7 +2054,7 @@ class LayerTest(s_t_utils.SynTest):
                 ''', opts=opts)
 
                 seen.clear()
-                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_auth.User, 'confirm', confirm):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, parent.iden)
@@ -2101,7 +2103,7 @@ class LayerTest(s_t_utils.SynTest):
                 })
 
                 seen.clear()
-                with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+                with mock.patch.object(s_auth.User, 'confirm', confirm):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                         with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                             await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
@@ -2179,7 +2181,7 @@ class LayerTest(s_t_utils.SynTest):
             parent = core.view.layers[0]
 
             seen.clear()
-            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+            with mock.patch.object(s_auth.User, 'confirm', confirm):
                 with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                         await layr.confirmLayerEditPerms(user, parent.iden)
@@ -2194,7 +2196,7 @@ class LayerTest(s_t_utils.SynTest):
             await user.delRule((False, ('node', 'data', 'set', 'hehe')))
 
             seen.clear()
-            with mock.patch.object(s_hiveauth.HiveUser, 'confirm', confirm):
+            with mock.patch.object(s_auth.User, 'confirm', confirm):
                 with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
                     with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
                         await layr.confirmLayerEditPerms(user, parent.iden)
@@ -2213,13 +2215,6 @@ class LayerTest(s_t_utils.SynTest):
             await core.addTagProp('footime', ('ival', {}), {})
 
             self.len(0, await core.nodes('ou:campaign#bar:footime*min=2020-01-01'))
-
-            await core.nodes('''[
-                ou:campaign=(foo,)
-                    :period=(2020-01-01, ?)
-                    +#foo=(2020-01-01, ?)
-                    +#bar:footime=(2020-01-01, ?)
-            ]''')
 
             await core.nodes('''[
                 ou:campaign=(foo,)

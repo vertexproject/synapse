@@ -9,7 +9,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-import synapse.lib.hive as s_hive
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tools.backup as s_tools_backup
 
@@ -484,6 +483,13 @@ class AgendaTest(s_t_utils.SynTest):
                 guid3 = adef.get('iden')
 
                 await core.updateCronJob(guid3, '#bahhumbug')
+
+                # Add a job with invalid storage version
+                cdef = (await core.listCronJobs())[0]
+                guid = s_common.guid()
+                cdef['ver'] = 0
+                cdef['iden'] = guid
+                core.agenda.apptdefs.set(guid, cdef)
 
             async with self.getTestCore(dirn=dirn) as core:
 

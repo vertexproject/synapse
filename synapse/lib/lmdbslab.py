@@ -167,6 +167,148 @@ class SlabDict:
         self.set(name, curv)
         return curv
 
+class SafeKeyVal:
+    '''
+    Key/value storage that does not store items in memory and ensures keys are < 512 characters in length.
+
+        Note:
+            The key size limitation includes the length of any prefixes added by
+            using getSubKeyVal().
+    '''
+    def __init__(self, slab, name, prefix=''):
+
+        self.prefix = prefix
+        self._prefix = prefix.encode('utf8')
+        self.preflen = len(self._prefix)
+
+        if self.preflen > 510:
+            mesg = 'SafeKeyVal prefix lengths must be < 511 bytes.'
+            raise s_exc.BadArg(mesg, prefix=self._prefix[:1024])
+
+        self.name = name
+        self.slab = slab
+        self.valudb = slab.initdb(name)
+
+    def getSubKeyVal(self, prefix):
+
+        if not prefix or not isinstance(prefix, str):
+            mesg = 'SafeKeyVal.getSubKeyVal() requires a string prefix of at least one character.'
+            raise s_exc.BadArg(mesg, prefix=prefix)
+
+        if self.prefix:
+            prefix = self.prefix + prefix
+
+        return SafeKeyVal(self.slab, self.name, prefix=prefix)
+
+    def reqValidName(self, name):
+
+        _name = name.encode('utf-8')
+
+        if self._prefix:
+            _name = self._prefix + _name
+
+        if len(_name) > 511:
+            maxlen = 511 - self.preflen
+            mesg = f'SafeKeyVal keys with prefix {self.prefix} must be less < {maxlen} bytes in length.'
+            raise s_exc.BadArg(mesg, prefix=self.prefix, name=name[:1024])
+        return _name
+
+    def get(self, name, defv=None):
+        '''
+        Get the value for a key.
+
+        Note:
+            This may only be used for keys < 512 characters in length.
+        '''
+        name = self.reqValidName(name)
+
+        if (byts := self.slab.get(name, db=self.valudb)) is None:
+            return defv
+        return s_msgpack.un(byts)
+
+    def set(self, name, valu):
+
+        name = self.reqValidName(name)
+
+        self.slab.put(name, s_msgpack.en(valu), db=self.valudb)
+        return valu
+
+    def pop(self, name, defv=None):
+
+        name = self.reqValidName(name)
+
+        if (byts := self.slab.pop(name, db=self.valudb)) is not None:
+            return s_msgpack.un(byts)
+        return defv
+
+    def delete(self, name):
+        '''
+        Delete a key.
+        '''
+        name = self.reqValidName(name)
+        return self.slab.delete(name, db=self.valudb)
+
+    async def truncate(self, pref=''):
+        '''
+        Delete all keys.
+        '''
+        pref = self.reqValidName(pref)
+
+        if not pref:
+            genr = self.slab.scanKeys(db=self.valudb)
+        else:
+            genr = self.slab.scanKeysByPref(pref, db=self.valudb)
+
+        for lkey in genr:
+            self.slab.delete(lkey, db=self.valudb)
+            await asyncio.sleep(0)
+
+    def items(self, pref=''):
+
+        pref = self.reqValidName(pref)
+
+        if not pref:
+            genr = self.slab.scanByFull(db=self.valudb)
+        else:
+            genr = self.slab.scanByPref(pref, db=self.valudb)
+
+        if self.prefix:
+            for lkey, byts in genr:
+                yield lkey[self.preflen:].decode('utf8'), s_msgpack.un(byts)
+            return
+
+        for lkey, byts in genr:
+            yield lkey.decode('utf8'), s_msgpack.un(byts)
+
+    def keys(self, pref=''):
+
+        pref = self.reqValidName(pref)
+
+        if not pref:
+            genr = self.slab.scanKeys(db=self.valudb)
+        else:
+            genr = self.slab.scanKeysByPref(pref, db=self.valudb)
+
+        if self.prefix:
+            for lkey in genr:
+                yield lkey[self.preflen:].decode('utf8')
+            return
+
+        for lkey in genr:
+            yield lkey.decode('utf8')
+
+    def values(self, pref=''):
+
+        pref = self.reqValidName(pref)
+
+        if not pref:
+            genr = self.slab.scanByFull(db=self.valudb)
+        else:
+            genr = self.slab.scanByPref(pref, db=self.valudb)
+
+        for lkey, byts in genr:
+            yield s_msgpack.un(byts)
+
 class SlabAbrv:
     '''
     A utility for translating arbitrary bytes into fixed with id bytes
@@ -938,6 +1080,13 @@ class Slab(s_base.Base):
         mq = await MultiQueue.anit(self, name, nexsroot=None)
         self.onfini(mq)
         return mq
+
+    def getSafeKeyVal(self, name, prefix='', create=True):
+        if not create and not self.dbexists(name):
+            mesg = f'Database {name=} does not exist.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return SafeKeyVal(self, name, prefix=prefix)
 
     def statinfo(self):
         return {

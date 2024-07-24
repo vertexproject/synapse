@@ -1595,6 +1595,74 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 self.eq(3, slab.count(b'foo', db=dupsdb))
 
+    async def test_safekeyval(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                safekv = slab.getSafeKeyVal('test')
+
+                subkv1 = safekv.getSubKeyVal('pref1')
+                subkv2 = subkv1.getSubKeyVal('pref2')
+
+                self.eq(subkv2.prefix, 'pref1pref2')
+
+                subkv2.set('foo', 'bar')
+                subkv2.set('baz', 'faz')
+
+                self.eq(list(subkv2.keys()), ['baz', 'foo'])
+                self.eq(list(safekv.keys()), ['pref1pref2baz', 'pref1pref2foo'])
+                self.eq(list(safekv.values()), ['faz', 'bar'])
+
+                await safekv.truncate()
+                self.len(0, safekv.items())
+
+                subkv2.set('wow', 'guys')
+
+                newp = 'a' * 512
+
+                with self.raises(s_exc.BadArg):
+                    safekv.getSubKeyVal(newp)
+
+                with self.raises(s_exc.BadArg):
+                    safekv.get(newp)
+
+                with self.raises(s_exc.BadArg):
+                    safekv.set(newp, 'newp')
+
+                with self.raises(s_exc.BadArg):
+                    safekv.pop(newp)
+
+                with self.raises(s_exc.BadArg):
+                    safekv.delete(newp)
+
+                with self.raises(s_exc.BadArg):
+                    list(safekv.keys(pref=newp))
+
+                with self.raises(s_exc.BadArg):
+                    list(safekv.items(pref=newp))
+
+                with self.raises(s_exc.BadArg):
+                    list(safekv.values(pref=newp))
+
+                with self.raises(s_exc.BadArg):
+                    await safekv.truncate(pref=newp)
+
+                with self.raises(s_exc.BadArg):
+                    safekv.getSubKeyVal('')
+
+                with self.raises(s_exc.BadArg):
+                    slab.getSafeKeyVal('newp', create=False)
+
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+                safekv = slab.getSafeKeyVal('test', create=False)
+                subkv1 = safekv.getSubKeyVal('pref1')
+                subkv2 = subkv1.getSubKeyVal('pref2')
+                self.eq(list(subkv2.keys()), ['wow'])
+
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):

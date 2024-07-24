@@ -55,7 +55,6 @@ import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.hive as s_hive
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
@@ -1731,7 +1730,7 @@ class SynTest(unittest.TestCase):
                     await stream.wait(timeout=10)
 
                 data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\\n') if m]
+                raw_mesgs = [m for m in data.split('\n') if m]
                 msgs = [json.loads(m) for m in raw_mesgs]
                 # Do something with messages
 
@@ -2245,42 +2244,6 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
-
-    @contextlib.asynccontextmanager
-    async def getTestHive(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveFromDirn(self, dirn):
-
-        import synapse.lib.const as s_const
-        map_size = s_const.gibibyte
-
-        async with await s_lmdbslab.Slab.anit(dirn, map_size=map_size) as slab:
-
-            async with await s_hive.SlabHive.anit(slab) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveDmon(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                async with self.getTestDmon() as dmon:
-                    dmon.share('hive', hive)
-                    yield dmon
-
-    @contextlib.asynccontextmanager
-    async def getTestTeleHive(self):
-
-        async with self.getTestHiveDmon() as dmon:
-
-            turl = self.getTestUrl(dmon, 'hive')
-
-            async with await s_hive.openurl(turl) as hive:
-
-                yield hive
 
     def stablebuid(self, valu=None):
         '''

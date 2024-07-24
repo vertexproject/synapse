@@ -632,19 +632,22 @@ class UserProfile(s_stormtypes.Prim):
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        self.runt.confirm(('auth', 'user', 'get', 'profile', name))
-        return copy.deepcopy(await self.runt.view.core.getUserProfInfo(self.valu, name))
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile', name))
+        return await self.runt.view.core.getUserProfInfo(self.valu, name)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
 
         if valu is s_stormtypes.undef:
-            self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
+            if self.runt.user.iden != self.valu:
+                self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.view.core.popUserProfInfo(self.valu, name)
             return
 
         valu = await s_stormtypes.toprim(valu)
-        self.runt.confirm(('auth', 'user', 'set', 'profile', name))
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'set', 'profile', name))
         await self.runt.view.core.setUserProfInfo(self.valu, name, valu)
 
     async def iter(self):
@@ -653,8 +656,9 @@ class UserProfile(s_stormtypes.Prim):
             yield item
 
     async def value(self):
-        self.runt.confirm(('auth', 'user', 'get', 'profile'))
-        return copy.deepcopy(await self.runt.view.core.getUserProfile(self.valu))
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile'))
+        return await self.runt.view.core.getUserProfile(self.valu)
 
 @s_stormtypes.registry.registerType
 class UserJson(s_stormtypes.Prim):
@@ -807,7 +811,7 @@ class UserVars(s_stormtypes.Prim):
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
-        return copy.deepcopy(await self.runt.view.core.getUserVarValu(self.valu, name))
+        return await self.runt.view.core.getUserVarValu(self.valu, name)
 
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
@@ -821,7 +825,7 @@ class UserVars(s_stormtypes.Prim):
 
     async def iter(self):
         async for name, valu in self.runt.view.core.iterUserVars(self.valu):
-            yield name, copy.deepcopy(valu)
+            yield name, valu
             await asyncio.sleep(0)
 
 @s_stormtypes.registry.registerType
@@ -1604,10 +1608,12 @@ class LibUser(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
-        {'name': 'vars', 'desc': "Get a Hive dictionary representing the current user's persistent variables.",
-         'type': 'hive:dict', },
-        {'name': 'profile', 'desc': "Get a Hive dictionary representing the current user's profile information.",
-         'type': 'hive:dict', },
+        {'name': 'vars', 'desc': "Get a dictionary representing the current user's persistent variables.",
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
+                  'returns': {'type': 'auth:user:vars'}}},
+        {'name': 'profile', 'desc': "Get a dictionary representing the current user's profile information.",
+        'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
+                 'returns': {'type': 'auth:user:profile', }}},
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )
@@ -1622,9 +1628,12 @@ class LibUser(s_stormtypes.Lib):
     def addLibFuncs(self):
         super().addLibFuncs()
         self.locls.update({
-            'vars': s_stormtypes.StormHiveDict(self.runt, self.runt.user.vars),
             'json': UserJson(self.runt, self.runt.user.iden),
-            'profile': s_stormtypes.StormHiveDict(self.runt, self.runt.user.profile),
+        })
+
+        self.ctors.update({
+            'vars': self._ctorUserVars,
+            'profile': self._ctorUserProfile,
         })
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1639,6 +1648,12 @@ class LibUser(s_stormtypes.Lib):
 
         perm = permname.split('.')
         return self.runt.user.allowed(perm, gateiden=gateiden, default=default)
+
+    def _ctorUserProfile(self, path=None):
+        return UserProfile(self.runt, self.runt.user.iden)
+
+    def _ctorUserVars(self, path=None):
+        return UserVars(self.runt, self.runt.user.iden)
 
 @s_stormtypes.registry.registerLib
 class LibUsers(s_stormtypes.Lib):

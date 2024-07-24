@@ -102,7 +102,6 @@ class BadCoreStore(SynErr):
 
 class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
-class BadHivePath(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadTypeDef(SynErr): pass

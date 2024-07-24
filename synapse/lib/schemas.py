@@ -288,6 +288,93 @@ _stormPoolOptsSchema = {
 }
 reqValidStormPoolOpts = s_config.getJsValidator(_stormPoolOptsSchema)
 
+_authRulesSchema = {
+    'type': 'array',
+    'items': {
+        'type': 'array',
+        'items': [
+            {'type': 'boolean'},
+            {'type': 'array', 'items': {'type': 'string'}},
+        ],
+        'minItems': 2,
+        'maxItems': 2,
+    }
+}
+reqValidRules = s_config.getJsValidator(_authRulesSchema)
+
+_passwdPolicySchema = {
+    'type': 'object',
+    'properties': {
+        'complexity': {
+            'type': ['object', 'null'],
+            'properties': {
+                'length': {
+                    'type': ['number', 'null'],
+                    'minimum': 1,
+                    'description': 'Minimum password character length.',
+                },
+                'sequences': {
+                    'type': ['number', 'null'],
+                    'minimum': 2,
+                    'description': 'Maximum sequence length in a password. Sequences can be letters or number, forward or reverse.',
+                },
+                'upper:count': {
+                    'type': ['number', 'null'],
+                    'description': 'The minimum number of uppercase characters required in password.',
+                },
+                'upper:valid': {
+                    'type': ['string', 'null'],
+                    'minLength': 1,
+                    'description': 'All valid uppercase characters.',
+                },
+                'lower:count': {
+                    'type': ['number', 'null'],
+                    'minimum': 0,
+                    'description': 'The minimum number of lowercase characters required in password.',
+                },
+                'lower:valid': {
+                    'type': ['string', 'null'],
+                    'minLength': 1,
+                    'description': 'All valid lowercase characters.',
+                },
+                'special:count': {
+                    'type': ['number', 'null'],
+                    'minimum': 0,
+                    'description': 'The minimum number of special characters required in password.',
+                },
+                'special:valid': {
+                    'type': ['string', 'null'],
+                    'minLength': 1,
+                    'description': 'All valid special characters.',
+                },
+                'number:count': {
+                    'type': ['number', 'null'],
+                    'minimum': 0,
+                    'description': 'The minimum number of digit characters required in password.',
+                },
+                'number:valid': {
+                    'type': ['string', 'null'],
+                    'minLength': 1,
+                    'description': 'All valid digit characters.',
+                },
+            },
+            'additionalProperties': False,
+        },
+        'attempts': {
+            'type': ['number', 'null'],
+            'minimum': 1,
+            'description': 'Maximum number of incorrect attempts before locking user account.',
+        },
+        'previous': {
+            'type': ['number', 'null'],
+            'minimum': 1,
+            'description': 'Number of previous passwords to disallow.',
+        },
+    },
+    'additionalProperties': False,
+}
+reqValidPasswdPolicy = s_config.getJsValidator(_passwdPolicySchema)
+
 # These types are order sensitive
 _changelogTypes = {'migration': 'Automatic Migrations',
                    'model': 'Model Changes',

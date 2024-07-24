@@ -2409,7 +2409,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
-                    # Storing a valu into the hive gets toprim()'d
+                    # Storing a valu gets toprim()'d
                     q = '[test:str=test] $lib.user.vars.set(mynode, $node) return($lib.user.vars.get(mynode))'
                     data = await prox.callStorm(q)
                     self.eq(data, 'test')
@@ -2527,7 +2527,7 @@ class StormTypesTest(s_test.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
                 # And our variables do persist AFTER restarting the cortex,
-                # so they are persistent via the hive.
+                # so they are persistent via the slab.
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
 

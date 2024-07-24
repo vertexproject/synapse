@@ -23,6 +23,7 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
@@ -31,7 +32,6 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
 import synapse.lib.platforms.linux as s_linux
@@ -129,12 +129,6 @@ class EchoAuth(s_cell.Cell):
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
 
-async def altAuthCtor(cell):
-    authconf = cell.conf.get('auth:conf')
-    assert authconf['foo'] == 'bar'
-    authconf['baz'] = 'faz'
-    return await s_cell.Cell._initCellHiveAuth(cell)
-
 class CellTest(s_t_utils.SynTest):
 
     async def test_cell_auth(self):
@@ -211,30 +205,6 @@ class CellTest(s_t_utils.SynTest):
                     # Basic auth checks
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
-
-                    # happy path perms
-                    await visi.addRule((True, ('hive:set', 'foo', 'bar')))
-                    await visi.addRule((True, ('hive:get', 'foo', 'bar')))
-                    await visi.addRule((True, ('hive:pop', 'foo', 'bar')))
-
-                    val = await echo.setHiveKey(('foo', 'bar'), 'thefirstval')
-                    self.eq(None, val)
-
-                    # check that we get the old val back
-                    val = await echo.setHiveKey(('foo', 'bar'), 'wootisetit')
-                    self.eq('thefirstval', val)
-
-                    val = await echo.getHiveKey(('foo', 'bar'))
-                    self.eq('wootisetit', val)
-
-                    val = await echo.popHiveKey(('foo', 'bar'))
-                    self.eq('wootisetit', val)
-
-                    val = await echo.setHiveKey(('foo', 'bar', 'baz'), 'a')
-                    val = await echo.setHiveKey(('foo', 'bar', 'faz'), 'b')
-                    val = await echo.setHiveKey(('foo', 'bar', 'haz'), 'c')
-                    val = await echo.listHiveKey(('foo', 'bar'))
-                    self.eq(('baz', 'faz', 'haz'), val)
 
                     # visi user can change visi user pass
                     await proxy.setUserPasswd(visi.iden, 'foobar')
@@ -327,26 +297,14 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
-                await echo.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
-                self.eq([1, 2, 3, 4], await echo.getHiveKey(('foo', 'bar')))
-                self.isin('foo', await echo.listHiveKey())
-                self.eq(['bar'], await echo.listHiveKey(('foo',)))
-                await echo.popHiveKey(('foo', 'bar'))
-                self.eq([], await echo.listHiveKey(('foo',)))
-
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
-                    rule = (True, ('hive:set', 'foo', 'bar'))
+                    rule = (True, ('foo', 'bar'))
                     self.isin(rule, visi.info.get('rules'))
                     await proxy.delUserRule(visi.iden, rule)
                     self.notin(rule, visi.info.get('rules'))
                     # Removing a non-existing rule by *rule* has no consequence
                     await proxy.delUserRule(visi.iden, rule)
-
-                    rule = visi.info.get('rules')[0]
-                    self.isin(rule, visi.info.get('rules'))
-                    await proxy.delUserRule(visi.iden, rule)
-                    self.notin(rule, visi.info.get('rules'))
 
                 self.eq(echo.getDmonUser(), echo.auth.rootuser.iden)
 
@@ -417,8 +375,6 @@ class CellTest(s_t_utils.SynTest):
         # Ensure the cell and its auth have been fini'd
         self.true(echo.isfini)
         self.true(echo.auth.isfini)
-        root = await echo.auth.getUserByName('root')
-        self.true(root.isfini)
 
     async def test_cell_userapi(self):
 
@@ -694,7 +650,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(0, await prox.trimNexsLog())
 
                     for i in range(5):
-                        await prox.setHiveKey(('foo', 'bar'), i)
+                        await cell.sync()
 
                     ind = await prox.getNexsIndx()
                     offs = await prox.rotateNexsLog()
@@ -723,7 +679,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq('nexslog:cull', retn[0][1][1])
 
                     for i in range(6, 10):
-                        await prox.setHiveKey(('foo', 'bar'), i)
+                        await cell.sync()
 
                     # trim
                     ind = await prox.getNexsIndx()
@@ -736,7 +692,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(ind + 2, await prox.trimNexsLog())
 
                     for i in range(10, 15):
-                        await prox.setHiveKey(('foo', 'bar'), i)
+                        await cell.sync()
 
             # nexus log exists but logging is disabled
             conf['nexslog:en'] = False
@@ -776,8 +732,8 @@ class CellTest(s_t_utils.SynTest):
             }
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
 
-                await cell.setHiveKey(('foo', 'bar'), 0)
-                await cell.setHiveKey(('foo', 'bar'), 1)
+                await cell.sync()
+                await cell.sync()
 
                 await cell.rotateNexsLog()
 
@@ -789,7 +745,7 @@ class CellTest(s_t_utils.SynTest):
                 self.len(2, cell.nexsroot.nexslog._ranges)
                 self.eq(0, cell.nexsroot.nexslog.tailseqn.size)
 
-                await cell.setHiveKey(('foo', 'bar'), 2)
+                await cell.sync()
 
                 # new item is added to the right log
                 self.len(2, cell.nexsroot.nexslog._ranges)
@@ -871,17 +827,6 @@ class CellTest(s_t_utils.SynTest):
                     for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
                                  'cellapprdisk', 'totalmem', 'availmem'):
                         self.lt(0, info.get(prop))
-
-    async def test_cell_hiveapi(self):
-
-        async with self.getTestCore() as core:
-
-            await core.setHiveKey(('foo', 'bar'), 10)
-            await core.setHiveKey(('foo', 'baz'), 30)
-
-            async with core.getLocalProxy() as proxy:
-                self.eq((), await proxy.getHiveKeys(('lulz',)))
-                self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))
 
     async def test_cell_confprint(self):
 
@@ -1178,18 +1123,6 @@ class CellTest(s_t_utils.SynTest):
                     async with await s_telepath.openurl(url) as proxy:
                         pass
 
-    async def test_cell_auth_ctor(self):
-        conf = {
-            'auth:ctor': 'synapse.tests.test_lib_cell.altAuthCtor',
-            'auth:conf': {
-                'foo': 'bar',
-            },
-        }
-        with self.getTestDir() as dirn:
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
-                self.eq('faz', cell.conf.get('auth:conf')['baz'])
-                await cell.auth.addUser('visi')
-
     async def test_cell_auth_userlimit(self):
         maxusers = 3
         conf = {
@@ -1237,7 +1170,8 @@ class CellTest(s_t_utils.SynTest):
 
         with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
             with self.getTestDir() as dirn:
-                async with await s_cell.Cell.initFromArgv([dirn, '--telepath', 'tcp://127.0.0.1:0', '--https', '0']) as cell:
+                argv = [dirn, '--https', '0', '--telepath', 'tcp://0.0.0.0:0']
+                async with await s_cell.Cell.initFromArgv(argv) as cell:
                     await cell.auth.addUser('visi1')
                     await cell.auth.addUser('visi2')
                     await cell.auth.addUser('visi3')
@@ -1597,7 +1531,7 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
             iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            user = cell.auth.user(iden)  # type: s_auth.User
             self.eq(user.name, 'foo@bar.mynet.com')
             self.eq(user.pack().get('email'), 'foo@barcorp.com')
             self.false(user.isAdmin())
@@ -1607,7 +1541,7 @@ class CellTest(s_t_utils.SynTest):
             self.false(user.allowed(('newp', 'secret')))
 
             iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            user = cell.auth.user(iden)  # type: s_auth.User
             self.eq(user.name, 'sally@bar.mynet.com')
             self.true(user.isAdmin())
 
@@ -2575,6 +2509,24 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await cell.delUserApiKey(newp)
 
+    async def test_cell_iter_slab_data(self):
+        async with self.getTestCell(s_cell.Cell) as cell:
+            data = await s_t_utils.alist(cell.iterSlabData('cell:info'))
+            self.eq(data, (
+                ('cell:version', s_version.version),
+                ('nexus:version', s_cell.NEXUS_VERSION),
+                ('synapse:version', s_version.version)
+            ))
+            with self.raises(s_exc.BadArg):
+                await s_t_utils.alist(cell.iterSlabData('newp'))
+
+            sfkv = cell.slab.getSafeKeyVal('hehe', prefix='yup')
+            sfkv.set('wow', 'yes')
+            data = await s_t_utils.alist(cell.iterSlabData('hehe'))
+            self.eq(data, [('yupwow', 'yes')])
+            data = await s_t_utils.alist(cell.iterSlabData('hehe', prefix='yup'))
+            self.eq(data, [('wow', 'yes')])
+
     async def test_cell_check_sysctl(self):
         sysctls = s_linux.getSysctls()
 
@@ -2590,7 +2542,7 @@ class CellTest(s_t_utils.SynTest):
 
         stream.seek(0)
         data = stream.getvalue()
-        raw_mesgs = [m for m in data.split('\\n') if m]
+        raw_mesgs = [m for m in data.split('\n') if m]
         msgs = [json.loads(m) for m in raw_mesgs]
 
         self.len(1, msgs)

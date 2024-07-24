@@ -525,7 +525,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 async with self.getHttpSess() as noobsess:
                     info = {'user': 'noob', 'passwd': 'nooblet'}
-                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                    async with noobsess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
 
@@ -1128,6 +1128,11 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['name'], 'rule:del')
                     self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
 
+                    deflayr, defview = await core.callStorm('''
+                        $view = $lib.view.get()
+                        return(($view.layers.0.iden, $view.iden))
+                    ''')
+
                     # user add. couple of messages fall out from it
                     await core.callStorm('auth.user.add beep --email beep@vertex.link')
                     mesg = await sock.receive_json()
@@ -1143,18 +1148,6 @@ class HttpApiTest(s_tests.SynTest):
                     mesg = await sock.receive_json()
                     data = mesg['data']
                     self.eq(data['event'], 'user:info')
-                    self.eq(data['info']['name'], 'email')
-                    self.eq(data['info']['valu'], 'beep@vertex.link')
-                    self.gt(data['offset'], base)
-                    base = data['offset']
-
-                    mesg = await sock.receive_json()
-                    data = mesg['data']
-                    deflayr, defview = await core.callStorm('''
-                        $view = $lib.view.get()
-                        return(($view.layers.0.iden, $view.iden))
-                    ''')
-                    self.eq(data['event'], 'user:info')
                     self.eq(data['info']['name'], 'role:grant')
                     self.eq(data['info']['iden'], beepiden)
                     self.eq(data['info']['role']['iden'], rall.iden)
@@ -1163,6 +1156,14 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['role']['authgates'][deflayr], {'rules': [[True, ['layer', 'read']]]})
                     self.eq(data['info']['role']['authgates'][defview], {'rules': [[True, ['view', 'read']]]})
                     self.eq(data['info']['role']['rules'], [[False, ['power-ups', 'foo', 'bar']]])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'email')
+                    self.eq(data['info']['valu'], 'beep@vertex.link')
                     self.gt(data['offset'], base)
                     base = data['offset']
 
@@ -1881,7 +1882,10 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(roles, {'all', 'ninjas'})
 
             # Remove the role from the Auth subsystem.
-            core.auth.rolesbyiden.pop(ninjas.get('iden'))
+            core.auth.roledefs.delete(ninjas.get('iden'))
+            core.auth.roleidenbyname.delete('ninjas')
+            core.auth.rolebyidencache.pop(ninjas.get('iden'))
+            core.auth.roleidenbynamecache.pop('ninjas')
 
             async with self.getHttpSess() as sess:
                 async with sess.post(f'https://localhost:{port}/api/v1/login',
