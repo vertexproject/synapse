@@ -787,29 +787,8 @@ class ModelRev:
 
     async def revModel_0_2_27(self, layers):
 
-        refforms = []
-        for form in self.core.model.forms.values():
-            for prop in form.props.values():
-
-                isarray = False
-
-                if prop.type.name not in ('array', 'it:sec:cpe', 'ndef'):
-                    continue
-
-                proptype = prop.type.name
-
-                if prop.type.isarray:
-                    if prop.type.arraytype.name not in ('it:sec:cpe', 'ndef'):
-                        continue
-
-                    isarray = True
-                    proptype = prop.type.arraytype.name
-
-                refforms.append((form.name, prop.name, proptype, isarray))
-
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
-            'refforms': refforms,
         }}
 
         text = s_assets.getStorm('migrations', 'model-0.2.27.storm')

@@ -498,6 +498,7 @@ class ModelType(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Type.', 'type': 'str', },
         {'name': 'stortype', 'desc': 'The storetype of the Type.', 'type': 'int', },
+        {'name': 'opts', 'desc': 'The options for the Type.', 'type': 'dict', },
         {'name': 'repr', 'desc': 'Get the repr of a value for the Type.',
          'type': {'type': 'function', '_funcname': '_methRepr',
                   'args': (
@@ -517,6 +518,7 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
         self.locls.update({'name': valu.name,
+                           'opts': valu.opts,
                            'stortype': valu.stortype,
                            })
 

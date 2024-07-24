@@ -723,9 +723,9 @@ class ModelRevTest(s_tests.SynTest):
             [q.pop('meta') for q in queues]
             self.len(3, queues)
             self.eq(queues, (
-                {'name': 'model_0_2_27:cpes', 'size': 2, 'offs': 2},
-                {'name': 'model_0_2_27:cpes:refs', 'size': 3, 'offs': 3},
-                {'name': 'model_0_2_27:cpes:edges', 'size': 4, 'offs': 4},
+                {'name': 'model_0_2_27:nodes', 'size': 2, 'offs': 2},
+                {'name': 'model_0_2_27:nodes:refs', 'size': 3, 'offs': 3},
+                {'name': 'model_0_2_27:nodes:edges', 'size': 4, 'offs': 4},
             ))
 
             # Data from "model_0_2_27:cpes" are the info for the it:sec:cpe
