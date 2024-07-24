@@ -318,3 +318,52 @@ _changelogSchema = {
     'required': ['type', 'desc']
 }
 _reqChanglogSchema = s_config.getJsValidator(_changelogSchema)
+
+tabularConfSchema = {
+    'type': 'object',
+    'properties': {
+        'separators': {
+            'type': 'object',
+            'properties': {
+                'row:outline': {'type': 'boolean', 'default': False,
+                                'description': 'Add the row separator before the header data and after each row.'},
+                'column:outline': {'type': 'boolean', 'default': False,
+                                   'description': 'Add the column separator to the beginning and end of each row.'},
+                'header:row': {'type': 'string', 'default': '=',
+                               'description': 'The string to use to create a separator row when printing the header.'},
+                'data:row': {'type': 'string', 'default': '-',
+                             'description': 'The string to use to create a separator row when printing data rows.'},
+                'column': {'type': 'string', 'default': '|',
+                           'description': 'The string to use to separate columns.'},
+            },
+            'additionalProperties': False,
+        },
+        'columns': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string',
+                             'description': 'The column name which will be used in the header row.'},
+                    'width': {'type': 'number', 'default': None, 'exclusiveMinimum': 0,
+                              'description': 'If not provided each cell will expand to fit the data.'},
+                    'justify': {'type': 'string', 'default': 'left', 'enum': ['left', 'center', 'right'],
+                                'description': 'Justification for the header titles and data rows.'},
+                    'overflow': {'type': 'string', 'default': 'trim', 'enum': ['wrap', 'trim'],
+                                 'description': 'For text exceeding the width, '
+                                                'either wrap text in multiple lines or trim and append "...".'},
+                    'newlines': {'type': 'string', 'default': 'replace', 'enum': ['replace', 'split'],
+                                 'description': 'Replace newlines with a space or split into multiple lines.'
+                                               'Split is only applied if width is undefined.'},
+                },
+                'required': ['name'],
+                'minItems': 1,
+                'additionalProperties': False,
+            },
+        },
+    },
+    'required': ['columns'],
+    'additionalProperties': False,
+}
+
+reqValidTabularConf = s_config.getJsValidator(tabularConfSchema)
