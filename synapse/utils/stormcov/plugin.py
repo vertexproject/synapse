@@ -244,3 +244,39 @@ class StormReporter(coverage.FileReporter):
                 source_lines.add(token.line)
 
         return source_lines
+
+    def excluded_lines(self):
+        excluded_lines = set()
+
+        pragma = 'pragma: no cover'
+        start = 'pragma: no cover start'
+        stop = 'pragma: no cover stop'
+
+        lines = self.source().splitlines()
+        nocov = [(lineno + 1, text) for (lineno, text) in enumerate(lines) if pragma in text]
+
+        block = None
+        for (lineno, text) in nocov:
+            # Invalid condition
+            if stop in text and block is None:
+                continue
+
+            # Invalid condition
+            if start in text and block is not None:
+                continue
+
+            if start in text:
+                # Start a multi-line block
+                block = lineno
+                continue
+
+            if stop in text:
+                excluded_lines |= set(range(block, lineno + 1))
+                block = None
+                continue
+
+            # This is only the pragma
+            if pragma in text and start not in text and stop not in text:
+                excluded_lines.add(lineno)
+
+        return excluded_lines

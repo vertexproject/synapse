@@ -111,7 +111,7 @@ function removeNode(n, nonorm=$lib.false) {
                     $references.append($ref)
 
                     // Flush to the queue if the list grows too large
-                    if ($references.size() > 1000) {
+                    if ($references.size() > 1000) { // pragma: no cover start
                         $item = ({
                             "node": $iden,
                             "view": $view.iden,
@@ -120,7 +120,7 @@ function removeNode(n, nonorm=$lib.false) {
 
                         $refsq.put($item)
                         $references = ([])
-                    }
+                    } // pragma: no cover stop
                 }
             }
 
@@ -153,7 +153,7 @@ function removeNode(n, nonorm=$lib.false) {
                 [ -($verb)> { iden $dst } ]
 
                 // Flush to the queue if the list grows too large
-                if ($edges.size() > 1000) {
+                if ($edges.size() > 1000) { // pragma: no cover start
                     $item = ({
                         "node": $iden,
                         "view": $view.iden,
@@ -163,7 +163,7 @@ function removeNode(n, nonorm=$lib.false) {
 
                     $edgeq.put($item)
                     $edges = ([])
-                }
+                } // pragma: no cover stop
             }}
 
             if $edges {
@@ -186,7 +186,7 @@ function removeNode(n, nonorm=$lib.false) {
                 [ <($verb)- { iden $src } ]
 
                 // Flush to the queue if the list grows too large
-                if ($edges.size() > 1000) {
+                if ($edges.size() > 1000) { // pragma: no cover start
                     $item = ({
                         "node": $iden,
                         "view": $view.iden,
@@ -196,7 +196,7 @@ function removeNode(n, nonorm=$lib.false) {
 
                     $edgeq.put($item)
                     $edges = ([])
-                }
+                } // pragma: no cover stop
             }}
 
             if $edges {
