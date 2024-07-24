@@ -243,7 +243,7 @@ class StormReporter(coverage.FileReporter):
             if token.type in TOKENS:
                 source_lines.add(token.line)
 
-        return source_lines
+        return source_lines - self.excluded_lines()
 
     def excluded_lines(self):
         excluded_lines = set()
@@ -275,7 +275,6 @@ class StormReporter(coverage.FileReporter):
                 block = None
                 continue
 
-            # This is only the pragma
             if pragma in text and start not in text and stop not in text:
                 excluded_lines.add(lineno)
 
