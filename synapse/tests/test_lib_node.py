@@ -174,13 +174,6 @@ class NodeTest(s_t_utils.SynTest):
             self.isin('tick', props)
             self.notin('newp', props)
 
-        form = 'test:str'
-        valu = 'cool'
-        props = {'tick': 12345,
-                 'hehe': 'hehe',
-                 }
-        tval = (None, None)
-
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})
             await core.addTagProp('note', ('str', {'lower': True, 'strip': 'True'}), {})

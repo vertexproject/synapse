@@ -1,3 +1,4 @@
+import string
 import pathlib
 
 import synapse.exc as s_exc
@@ -9,7 +10,7 @@ import synapse.tests.utils as s_test
 
 class AuthTest(s_test.SynTest):
 
-    async def test_hive_auth(self):
+    async def test_auth(self):
 
         async with self.getTestCore() as core:
 
@@ -29,6 +30,9 @@ class AuthTest(s_test.SynTest):
 
             with self.raises(s_exc.DupRoleName):
                 await auth.addRole('ninjas')
+
+            self.none(await auth._addUser(user.iden, 'visi@vertex.link'))
+            self.none(await auth._addRole(user.iden, 'ninjas'))
 
             self.nn(user)
 
@@ -92,9 +96,13 @@ class AuthTest(s_test.SynTest):
 
             await user.revoke(role.iden)
             self.none(user.allowed(('baz', 'faz')))
+            # second revoke does nothing
+            await user.revoke(role.iden)
 
             await user.grant(role.iden)
             self.true(user.allowed(('baz', 'faz')))
+            # second grant does nothing
+            await user.grant(role.iden)
 
             await self.asyncraises(s_exc.NoSuchRole, auth.delRole('accountants'))
 
@@ -105,6 +113,8 @@ class AuthTest(s_test.SynTest):
 
             await auth.delUser(user.iden)
             self.false(user.allowed(('baz', 'faz')))
+
+            self.none(await auth._delUser(user.iden))
 
             role = await auth.addRole('lolusers')
             role2 = await auth.addRole('lolusers2')
@@ -133,6 +143,15 @@ class AuthTest(s_test.SynTest):
             self.nn(await auth.getUserByName('user2'))
             self.none(await auth.getUserByName('user1'))
 
+            with self.raises(s_exc.NoSuchRole):
+                await auth.reqRoleByName('newp')
+
+            with self.raises(s_exc.NoSuchAuthGate):
+                await auth.delAuthGate('newp')
+
+            with self.raises(s_exc.InconsistentStorage):
+                await auth.addAuthGate(core.view.iden, 'newp')
+
     async def test_hive_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs
@@ -144,7 +163,7 @@ class AuthTest(s_test.SynTest):
 
             auth = core.auth
 
-            user = await auth.getUserByName('root')
+            user = await auth.addUser('lowuser')
             await user.setPasswd('secret')
 
             # tryPasswd
@@ -152,7 +171,7 @@ class AuthTest(s_test.SynTest):
             self.false(await user.tryPasswd('beep'))
             self.false(await user.tryPasswd(None))
 
-            # hive passwords must be non-zero length strings
+            # passwords must be non-zero length strings
             with self.raises(s_exc.BadArg):
                 await user.setPasswd('')
             with self.raises(s_exc.BadArg):
@@ -173,23 +192,23 @@ class AuthTest(s_test.SynTest):
             await user.setLocked(True)
 
             with self.raises(s_exc.AuthDeny):
-                await s_telepath.openurl(turl, user='root', passwd='secret')
+                await s_telepath.openurl(turl, user='lowuser', passwd='secret')
 
             await user.setLocked(False)
 
             # User can't access after being unlocked with wrong password
             with self.raises(s_exc.AuthDeny):
-                await s_telepath.openurl(turl, user='root', passwd='newpnewp')
+                await s_telepath.openurl(turl, user='lowuser', passwd='newpnewp')
 
             # User can access with correct password after being unlocked with
-            async with await s_telepath.openurl(turl, user='root', passwd='secret') as proxy:
+            async with await s_telepath.openurl(turl, user='lowuser', passwd='secret') as proxy:
                 await proxy.getCellInfo()
 
-    async def test_hive_authgate_perms(self):
+    async def test_authgate_perms(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            # We can retrieve the hivegate information
+            # We can retrieve the authgate information
             gate = await prox.getAuthGate(core.view.iden)
             self.eq(gate['users'][0], {
                 'iden': core.auth.rootuser.iden,
@@ -286,14 +305,23 @@ class AuthTest(s_test.SynTest):
                 await prox.delRole(friends['iden'])
                 await self.asyncraises(s_exc.AuthDeny, fredcore.count('test:int=11 [:loc=ru]', opts=viewopts))
 
+                friends = await prox.addRole('friends')
+                await prox.addRoleRule(friends['iden'], rule, gateiden=layriden)
+
+                friends = await prox.getRoleInfo('friends')
+                self.isin(layriden, friends['authgates'])
+
                 wlyr = view2.layers[0]
 
                 await core.delView(view2.iden)
                 await core.delLayer(wlyr.iden)
 
-                # Verify that trashing the layer and view deletes the authgate from the hive
+                # Verify that trashing the layer and view deletes the authgate
                 self.none(core.auth.getAuthGate(wlyr.iden))
                 self.none(core.auth.getAuthGate(view2.iden))
+
+                friends = await prox.getRoleInfo('friends')
+                self.notin(layriden, friends['authgates'])
 
                 # Verify that trashing the write layer deletes the remaining rules and backing store
                 self.false(pathlib.Path(wlyr.dirn).exists())
@@ -302,7 +330,7 @@ class AuthTest(s_test.SynTest):
                 self.len(0, fred.getRules(gateiden=wlyr.iden))
                 self.len(0, fred.getRules(gateiden=view2.iden))
 
-    async def test_hive_auth_persistence(self):
+    async def test_auth_persistence(self):
 
         with self.getTestDir() as fdir:
 
@@ -345,7 +373,7 @@ class AuthTest(s_test.SynTest):
                 self.none(await core.auth.getUserByName('fred'))
                 self.none(await core.auth.getRoleByName('friends'))
 
-    async def test_hive_auth_invalid(self):
+    async def test_auth_invalid(self):
 
         async with self.getTestCore() as core:
             with self.raises(s_exc.BadArg):
@@ -353,7 +381,11 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setName(1)
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setName('secretroot')
+            with self.raises(s_exc.BadArg):
                 await core.auth.allrole.setName(1)
+            with self.raises(s_exc.BadArg):
+                await core.auth.allrole.setName('nobody')
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.rootuser.addRule('vi.si')
             with self.raises(s_exc.SchemaViolation):
@@ -363,15 +395,286 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setAdmin('lol')
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setAdmin(False)
+            with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setLocked('lol')
             with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setLocked(True)
+            with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setArchived('lol')
+            with self.raises(s_exc.BadArg):
+                await core.auth.rootuser.setArchived(True)
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.addRule((1, ('hehe', 'haha')))
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, ('hehe', 'haha'), 'newp')])
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, )])
+
+    async def test_auth_password_policy(self):
+        policy = {
+            'complexity': {
+                'length': 12,
+                'sequences': 3,
+                'upper:count': 2,
+                'lower:count': 2,
+                'lower:valid': string.ascii_lowercase + 'αβγ',
+                'special:count': 2,
+                'number:count': 2,
+            },
+            'attempts': 3,
+            'previous': 2,
+        }
+
+        pass1 = 'jhf9_gaf-xaw-QBX4dqp'
+        pass2 = 'rek@hjv6VBV2rwe2qwd!'
+        pass3 = 'ZXN-pyv7ber-kzq2kgh'
+
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            self.nn(auth.policy)
+
+            user = await auth.addUser('blackout@vertex.link')
+
+            # Compliant passwords
+            await core.setUserPasswd(user.iden, pass1)
+            await core.setUserPasswd(user.iden, pass2)
+            await core.setUserPasswd(user.iden, pass3)
+
+            # Test password attempt reset
+            await core.tryUserPasswd(user.name, 'foo')
+            self.eq(user.info.get('policy:attempts'), 1)
+
+            await core.tryUserPasswd(user.name, pass3)
+            self.eq(user.info.get('policy:attempts'), 0)
+
+            # Test lockout from too many invalid attempts
+            self.false(await core.tryUserPasswd(user.name, 'foo'))
+            self.false(await core.tryUserPasswd(user.name, 'foo'))
+            self.false(await core.tryUserPasswd(user.name, 'foo'))
+            self.eq(user.info.get('policy:attempts'), 3)
+            self.true(user.info.get('locked'))
+
+            await user.setLocked(False)
+            self.eq(user.info.get('policy:attempts'), 0)
+
+            # Test reusing previous password
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, pass2)
+            self.eq(exc.exception.get('failures'), [
+                'Password cannot be the same as previous 2 password(s).'
+            ])
+
+            await core.setUserPasswd(user.iden, pass1)
+
+            # Test password that doesn't meet complexity requirements
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'Ff1!')
+            self.eq(exc.exception.get('failures'), [
+                'Password must be at least 12 characters.',
+                'Password must contain at least 2 uppercase characters, 1 found.',
+                'Password must contain at least 2 lowercase characters, 1 found.',
+                'Password must contain at least 2 special characters, 1 found.',
+                'Password must contain at least 2 digit characters, 1 found.'
+            ])
+
+            # Check sequences
+            seqmsg = f'Password must not contain forward/reverse sequences longer than 3 characters.'
+            passwords = [
+                # letters
+                'abcA', 'dcbA', 'Abcd', 'Acba',
+
+                # numbers
+                '123A', '432A', 'A234', 'A321',
+
+                # greek alphabet (unicode test)
+                'αβγA', 'Aαβγ', 'γβαA', 'Aγβα',
+
+            ]
+
+            for password in passwords:
+                with self.raises(s_exc.BadArg) as exc:
+                    await core.setUserPasswd(user.iden, password)
+                self.isin(seqmsg, exc.exception.get('failures'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'AAAA')
+            self.eq(exc.exception.get('failures'), [
+                'Password must be at least 12 characters.',
+                'Password must contain at least 2 lowercase characters, 0 found.',
+                'Password must contain at least 2 special characters, 0 found.',
+                'Password must contain at least 2 digit characters, 0 found.'
+            ])
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'aaaa')
+            self.eq(exc.exception.get('failures'), [
+                'Password must be at least 12 characters.',
+                'Password must contain at least 2 uppercase characters, 0 found.',
+                'Password must contain at least 2 special characters, 0 found.',
+                'Password must contain at least 2 digit characters, 0 found.'
+            ])
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, None)
+            self.isin(
+                'Password must be at least 12 characters.',
+                exc.exception.get('failures')
+            )
+
+            # Attempting to add a user with a bad passwd will add the user and fail to set the password
+            with self.raises(s_exc.BadArg):
+                await core.addUser('bob.grey', email='bob.grey@vertex.link', passwd='noncompliant')
+            user = await core.auth.getUserByName('bob.grey')
+            self.eq('bob.grey@vertex.link', user.info.get('email'))
+            self.len(1, user.info.get('roles'))  # User has the default all role
+            # Password was not set
+            self.false(await user.tryPasswd('noncompliant'))
+
+        policy = {
+            'complexity': {
+                'length': None,
+            },
+        }
+
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+
+            user = await auth.addUser('blackout@vertex.link')
+
+            await core.setUserPasswd(user.iden, None)
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, 'αβγA')
+            self.isin(
+                "Password contains invalid characters: ['α', 'β', 'γ']",
+                exc.exception.get('failures')
+            )
+
+        policy = {
+            'complexity': None,
+            'previous': 3,
+        }
+
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+
+            user = await auth.addUser('blackout@vertex.link')
+            await core.setUserPasswd(user.iden, pass1)
+            await core.setUserPasswd(user.iden, pass2)
+            await core.setUserPasswd(user.iden, pass3)
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserPasswd(user.iden, pass1)
+            self.eq(exc.exception.get('failures'), [
+                'Password cannot be the same as previous 3 password(s).'
+            ])
+
+        # Single complexity rule, uses default character lists
+        policy = {'complexity': {'length': 3}}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, 'no')
+            await core.setUserPasswd(user.iden, 'hehe')
+            await core.setUserPasswd(user.iden, 'heh')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.setUserPasswd(user.iden, 'hehαβγ')
+            self.isin('Password contains invalid characters', cm.exception.get('mesg'))
+
+        # Complexity disables the *:valid groups so they will not be checked
+        policy = {'complexity': {'length': 3,
+                                 'upper:valid': None,
+                                 'upper:count': 20,
+                                 'lower:valid': None,
+                                 'lower:count': 20,
+                                 'special:valid': None,
+                                 'special:count': 20,
+                                 'number:valid': None,
+                                 'number:count': 20,
+                                 }}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, 'no')
+            await core.setUserPasswd(user.iden, 'heh')
+            await core.setUserPasswd(user.iden, 'hehαβγ1234!!@!@!')
+
+        # Policy only allows lowercase and specials...
+        policy = {'complexity': {'length': 2,
+                                 'upper:valid': None,
+                                 'number:valid': None,
+                                 'lower:count': 1,
+                                 'special:count': 1,
+                                 }}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, 'No')
+            with self.raises(s_exc.BadArg):
+                await core.setUserPasswd(user.iden, '1o')
+            await core.setUserPasswd(user.iden, 'y#s')
+
+        # Policy enforces character sets but doesn't care about minimum entries
+        policy = {'complexity': {'length': 3,
+                                 'upper:count': None,
+                                 'lower:count': None,
+                                 'special:count': None,
+                                 'number:count': None,
+                                 }}
+        conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            await core.setUserPasswd(user.iden, 'yup')
+            await core.setUserPasswd(user.iden, 'Y!0')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.setUserPasswd(user.iden, 'sadαβγ')
+            self.isin('Password contains invalid characters', cm.exception.get('mesg'))
+
+        # No complexity rules
+        policy = {'attempts': 1}
+        conf = {'auth:passwd:policy': policy, 'auth:passwd': 'secret'}
+        async with self.getTestCore(conf=conf) as core:
+            auth = core.auth
+            user = await auth.addUser('blackout@vertex.link')
+            await core.setUserPasswd(user.iden, 'hehe')
+            self.true(await user.tryPasswd('hehe'))
+            self.false(await user.tryPasswd('newp'))
+            self.true(user.isLocked())
+            # Root user may track policy lockouts but will not be locked out by failures.
+            root = auth.rootuser
+            self.false(await root.tryPasswd('newp'))
+            self.false(await root.tryPasswd('newpx'))
+            self.eq(root.info.get('policy:attempts'), 2)
+            self.false(root.isLocked())
+            # valid passwod auth resets root atttempt counter.
+            self.true(await root.tryPasswd('secret'))
+            self.eq(root.info.get('policy:attempts'), 0)
+
+        # auth:passwd does not interact with auth:passwd:policy
+        with self.getTestDir() as dirn:
+            policy = {'complexity': {'length': 5}}
+            conf = {'auth:passwd': 'newp', 'auth:passwd:policy': policy}
+            async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                user = core.auth.rootuser
+                self.false(await user.tryPasswd('hehe'))
+                self.true(await user.tryPasswd('newp'))
+
+            conf = {'auth:passwd': 'yupp!!', 'auth:passwd:policy': policy}
+            async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                user = core.auth.rootuser
+                self.false(await user.tryPasswd('newp'))
+                self.true(await user.tryPasswd('yupp!!'))
 
     async def test_hive_auth_deepdeny(self):
         async with self.getTestCore() as core:
