@@ -20,8 +20,21 @@ stormcmds = [
         'storm': '''
         $apis = $lib.cortex.httpapi.list()
         if $apis {
-            $header = 'order iden                             owner                auth  runas  path'
-            $lib.print($header)
+            $config = (({
+                "separators": {
+                    'data:row': ''
+                },
+                "columns": [
+                    {'name': 'order', 'width': 5},
+                    {'name': 'iden', 'width': 32},
+                    {'name': 'owner', 'width': 20},
+                    {'name': 'auth', 'width': 5},
+                    {'name': 'runas', 'width': 6},
+                    {'name': 'path'},
+                ]
+            }))
+            $printer = $lib.tabular.printer($config)
+            $lib.print($printer.header())
             for ($n, $api) in $lib.iters.enum($apis) {
                 try {
                     $user = $api.owner.name
@@ -29,9 +42,7 @@ stormcmds = [
                     $user = `No user found ({$err.info.user})`
                 }
                 $auth = `{$api.authenticated}`
-                $order = `{$n}`
-                $mesg=`{$order.ljust(5)} {$api.iden} {$user.ljust(20)} {$auth.ljust(5)} {$api.runas.ljust(6)} {$api.path}`
-                $lib.print($mesg)
+                $lib.print($printer.row(($n, $api.iden, $user, $auth, $api.runas, $api.path)))
             }
         } else {
             $lib.print('No Extended HTTP API endpoints are registered.')
