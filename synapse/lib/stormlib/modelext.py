@@ -81,10 +81,10 @@ class LibModelExt(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'addEdge',
                   'args': (
                       {'name': 'n1form', 'type': 'str',
-                       'desc': 'The form of the n1 node. May be "*" to specify "any".'},
+                       'desc': 'The form of the n1 node. May be "*" or null to specify "any".'},
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
                       {'name': 'n2form', 'type': 'str',
-                       'desc': 'The form of the n2 node. May be "*" to specify "any".'},
+                       'desc': 'The form of the n2 node. May be "*" or null to specify "any".'},
                       {'name': 'edgeinfo', 'type': 'dict', 'desc': 'A Synapse edge info dictionary.'},
                   ),
                   'returns': {'type': 'null'}}},
