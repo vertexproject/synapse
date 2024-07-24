@@ -75,9 +75,8 @@ The ``Cell`` (cell.py_) is a ``Base`` implementation which has several component
 - It is a ``Base``, so it benefits from all the components a ``Base`` has.
 - It contains support for configuration directives at start time, so a cell can have well defined configuration
   options availble to it.
-- It has persistent storage available via two different mechanisms, a LMDB slab for arbitrary data that is local to the
-  cell, and a ``Hive`` for key-value data storage that can be remotely read and written.
-- It handles user authentication and authorization via user data stored in the ``Hive``.
+- It has persistent storage available via a LMDB slab for arbitrary data that is local to the cell.
+- It handles user authentication and authorization via user data stored in the slab.
 - The ``Cell`` is Telepath aware, and will start his own ``Daemon`` that allows remote access.  By default, the ``Cell``
   has a PF Unix socket available for access, so local telepath access is trivial.
 - Since the ``Cell`` is Telepath aware, there is a base ``CellApi`` that implements his RPC routines.  ``Cell``

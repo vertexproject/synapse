@@ -670,14 +670,6 @@ Help Tool
 
 See :ref:`gloss-tool-help`.
 
-.. _gloss-hive:
-
-Hive
-----
-
-The Hive is a key/value storage mechanism which is used to persist various data structures required for operating a
-Synapse :ref:`gloss-cell`.
-
 .. _gloss-hyperedge:
 
 Hyperedge

@@ -1011,8 +1011,7 @@ edges
 -----
 
 Storm includes ``edges.*`` commands that allow you to work with lightweight (light) edges. Also
-see the ``lift.byverb`` and ``model.edge.*`` commands under :ref:`storm-lift` and :ref:`storm-model`
-below.
+see the ``lift.byverb`` command under :ref:`storm-lift` below.
 
 - `edges.del`_
 
@@ -1541,8 +1540,8 @@ By default, the command lifts the N1 nodes (i.e., the nodes on the left side of 
 edge relationship: ``n1 -(<verb>)> n2``)
 
 .. NOTE::
-  For other commands associated with light edges, see ``edges.del`` and ``model.edge.*`` under
-  :ref:`storm-edges` and :ref:`storm-model` respectively.
+  For other commands associated with light edges, see ``edges.del`` under
+  :ref:`storm-edges`.
 
 **Syntax:**
 
@@ -1740,16 +1739,9 @@ marked as "deprecated", determine whether your Cortex contains deprecated nodes 
 properties, and optionally lock / unlock those properties to prevent (or allow) continued creation of
 deprecated model elements.
 
-``model.edge.*`` commands allow you to work with lightweight (light) edges. (See also the ``edges.del``
-and ``lift.byverb`` commands under :ref:`storm-edges` and :ref:`storm-lift`, respectively.)
-
 - `model.deprecated.check`_
 - `model.deprecated.lock`_
 - `model.deprecated.locks`_
-- `model.edge.list`_
-- `model.edge.set`_
-- `model.edge.get`_
-- `model.edge.del`_
 
 Help for individual ``model.*`` commands can be displayed using:
 
@@ -1791,61 +1783,6 @@ The ``model.deprecated.locks`` command displays the lock status of all deprecate
 **Syntax:**
 
 .. storm-cli:: model.deprecated.locks --help
-
-
-.. _storm-model-edge-list:
-
-model.edge.list
-+++++++++++++++
-
-The ``model.edge.list`` command displays the set of light edges currently defined in the Cortex and any
-``doc`` values set on them.
-
-**Syntax:**
-
-.. storm-cli:: model.edge.list --help
-
-
-.. _storm-model-edge-set:
-
-model.edge.set
-++++++++++++++
-
-The ``model.edge.set`` command allows you to set the value of a given key on a light edge (such as a
-``doc``  value to specify a definition for the light edge). The current list of valid keys include the
-following:
-
-- ``doc``
-
-**Syntax:**
-
-.. storm-cli:: model.edge.set --help
-
-
-.. _storm-model-edge-get:
-
-model.edge.get
-++++++++++++++
-
-The ``model.edge.get`` command allows you to retrieve all of the keys that have been set on a light edge.
-
-**Syntax:**
-
-.. storm-cli:: model.edge.get --help
-
-
-.. _storm-model-edge-del:
-
-model.edge.del
-++++++++++++++
-
-The ``model.edge.del`` command allows you to delete the key from a light edge (such as a ``doc`` property
-to specify a definition for the light edge). Deleting a key from a specific light edge does not delete
-the key from Synapse (e.g., the property can be re-added to the light edge or to other light edges).
-
-**Syntax:**
-
-.. storm-cli:: model.edge.del --help
 
 
 .. _storm-movenodes:
