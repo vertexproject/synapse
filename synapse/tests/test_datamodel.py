@@ -326,3 +326,5 @@ class DataModelTest(s_t_utils.SynTest):
 
             core.model.delEdge(('meta:rule', 'matches', None))
             self.none(core.model.edge(('meta:rule', 'matches', None)))
+
+            core.model.delEdge(('meta:rule', 'matches', None))

@@ -3611,7 +3611,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.model._reqFormName(n2form)
 
         if self.model.edge(edge) is not None:
-            raise s_exc.DupEdgeType(edge)
+            raise s_exc.DupEdgeType.init(edge)
 
         return await self._push('model:edge:add', edge, edgeinfo)
 
@@ -3632,7 +3632,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def delEdge(self, edge):
         if self.extedges.get(s_common.guid(edge)) is None:
-            raise s_exc.NoSuchEdge(edge)
+            raise s_exc.NoSuchEdge.init(edge)
 
         return await self._push('model:edge:del', edge)
 
