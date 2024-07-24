@@ -1120,5 +1120,5 @@ class Model:
     def tagprop(self, name):
         return self.tagprops.get(name)
 
-    def edge(self, name):
-        return self.edges.get(name)
+    def edge(self, edgetype):
+        return self.edges.get(edgetype)

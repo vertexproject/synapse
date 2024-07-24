@@ -3622,13 +3622,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.addEdge(edge, edgeinfo)
 
-        (n1form, verb, n2form) = edge
-
         self.extedges.set(s_common.guid(edge), (edge, edgeinfo))
-        await self.fire('core:extmodel:change', n1form=n1form, verb=verb, n2form=n2form, act='add', type='edge')
-
-        edgedef = {'n1form': n1form, 'verb': verb, 'n2form': n2form, 'info': edgeinfo}
-        await self.feedBeholder('model:edge:add', edgedef)
+        await self.fire('core:extmodel:change', edge=edge, act='add', type='edge')
+        await self.feedBeholder('model:edge:add', {'edge': edge, 'info': edgeinfo})
 
     async def delEdge(self, edge):
         if self.extedges.get(s_common.guid(edge)) is None:
@@ -3644,13 +3640,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delEdge(edge)
 
-        (n1form, verb, n2form) = edge
-
         self.extedges.pop(edgeguid, None)
-        await self.fire('core:extmodel:change', n1form=n1form, verb=verb, n2form=n2form, act='del', type='edge')
-
-        edgedef = {'n1form': n1form, 'verb': verb, 'n2form': n2form}
-        await self.feedBeholder('model:edge:del', edgedef)
+        await self.fire('core:extmodel:change', edge=edge, act='del', type='edge')
+        await self.feedBeholder('model:edge:del', {'edge': edge})
 
     async def addNodeTag(self, user, iden, tag, valu=(None, None)):
         '''

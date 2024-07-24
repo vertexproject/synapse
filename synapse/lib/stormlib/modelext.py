@@ -82,7 +82,7 @@ class LibModelExt(s_stormtypes.Lib):
                   'args': (
                       {'name': 'n1form', 'type': 'str',
                        'desc': 'The form of the n1 node. May be "*" or null to specify "any".'},
-                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb, which must begin with "_".'},
                       {'name': 'n2form', 'type': 'str',
                        'desc': 'The form of the n2 node. May be "*" or null to specify "any".'},
                       {'name': 'edgeinfo', 'type': 'dict', 'desc': 'A Synapse edge info dictionary.'},
@@ -93,7 +93,7 @@ class LibModelExt(s_stormtypes.Lib):
                   'args': (
                       {'name': 'n1form', 'type': 'str',
                        'desc': 'The form of the n1 node. May be "*" or null to specify "any".'},
-                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb, which must begin with "_".'},
                       {'name': 'n2form', 'type': 'str',
                        'desc': 'The form of the n2 node. May be "*" or null to specify "any".'},
                   ),

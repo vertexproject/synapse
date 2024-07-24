@@ -315,9 +315,7 @@ class StormtypesModelextTest(s_test.SynTest):
 
                     edgemesg = await sock.receive_json()
                     self.eq(edgemesg['data']['event'], 'model:edge:add')
-                    self.eq(edgemesg['data']['info']['verb'], '_goes')
-                    self.eq(edgemesg['data']['info']['n1form'], None)
-                    self.eq(edgemesg['data']['info']['n2form'], 'geo:place')
+                    self.eq(edgemesg['data']['info']['edge'], (None, '_goes', 'geo:place'))
                     self.eq(edgemesg['data']['info']['info'], {'doc': 'fifth string'})
 
                     await core.callStorm('''
@@ -346,9 +344,7 @@ class StormtypesModelextTest(s_test.SynTest):
 
                     deledge = await sock.receive_json()
                     self.eq(deledge['data']['event'], 'model:edge:del')
-                    self.eq(deledge['data']['info']['verb'], '_goes')
-                    self.eq(deledge['data']['info']['n1form'], None)
-                    self.eq(deledge['data']['info']['n2form'], 'geo:place')
+                    self.eq(deledge['data']['info']['edge'], (None, '_goes', 'geo:place'))
 
     async def test_lib_stormlib_modelext_delform(self):
         '''
