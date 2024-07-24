@@ -1154,8 +1154,7 @@ class AhaCell(s_cell.Cell):
     async def _genCaCert(self, network):
 
         # generate a CA cert if one does not exist
-        # ( but don't read it in if it does )
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'cas', f'{network}.crt')):
+        if self.certdir.getCaCertPath(network) is not None:
             return
 
         await self.genCaCert(network)
@@ -1165,7 +1164,7 @@ class AhaCell(s_cell.Cell):
         if signas is not None:
             await self._genCaCert(signas)
 
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'hosts', f'{hostname}.crt')):
+        if self.certdir.getHostCertPath(hostname) is not None:
             return
 
         pkey, cert = await s_coro.executor(self.certdir.genHostCert, hostname, signas=signas, save=False)
@@ -1175,7 +1174,7 @@ class AhaCell(s_cell.Cell):
 
     async def _genUserCert(self, username, signas=None):
 
-        if os.path.isfile(os.path.join(self.dirn, 'certs', 'users', f'{username}.crt')):
+        if self.certdir.getUserCertPath(username) is not None:
             return
 
         logger.info(f'Adding user certificate for {username}')
