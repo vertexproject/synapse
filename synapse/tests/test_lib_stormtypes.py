@@ -2410,7 +2410,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
                     # Storing a valu gets toprim()'d
-                    q = '[test:str=test] $lib.user.vars.set(mynode, $node) return($lib.user.vars.get(mynode))'
+                    q = '[test:str=test] $lib.user.vars.mynode = $node return($lib.user.vars.mynode)'
                     data = await prox.callStorm(q)
                     self.eq(data, 'test')
 
@@ -2429,21 +2429,21 @@ class StormTypesTest(s_test.SynTest):
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
 
-                    q = '''$lib.user.vars.set(somekey, hehe)
-                    $valu=$lib.user.vars.get(somekey)
+                    q = '''$lib.user.vars.somekey = hehe
+                    $valu=$lib.user.vars.somekey
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
                     self.stormIsInPrint('hehe', mesgs)
 
-                    q = '''$lib.user.vars.set(somekey, hehe)
-                    $lib.user.vars.set(anotherkey, weee)
-                    [test:str=$lib.user.vars.get(somekey)]
+                    q = '''$lib.user.vars.somekey = hehe
+                    $lib.user.vars.anotherkey = weee
+                    [test:str=$lib.user.vars.somekey]
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
                     self.len(1, await core.nodes('test:str=hehe'))
 
-                    listq = '''for ($key, $valu) in $lib.user.vars.list() {
+                    listq = '''for ($key, $valu) in $lib.user.vars {
                         $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
                         $lib.print($string)
                     }
@@ -2452,28 +2452,12 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('somekey is hehe', mesgs)
                     self.stormIsInPrint('anotherkey is weee', mesgs)
 
-                    popq = '''$valu = $lib.user.vars.pop(anotherkey)
-                    $lib.print("pop valu is {valu}", valu=$valu)
-                    '''
+                    popq = '''$lib.user.vars.anotherkey = $lib.undef'''
                     mesgs = await s_test.alist(uprox.storm(popq))
-                    self.stormIsInPrint('pop valu is weee', mesgs)
 
                     mesgs = await s_test.alist(uprox.storm(listq))
                     self.len(1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('somekey is hehe', mesgs)
-
-                    # get and pop take a secondary default value which may be returned
-                    q = '''$valu = $lib.user.vars.get(newp, $(0))
-                    $lib.print("get valu is {valu}", valu=$valu)
-                    '''
-                    mesgs = await s_test.alist(prox.storm(q))
-                    self.stormIsInPrint('get valu is 0', mesgs)
-
-                    q = '''$valu = $lib.user.vars.pop(newp, $(0))
-                    $lib.print("pop valu is {valu}", valu=$valu)
-                    '''
-                    mesgs = await s_test.alist(prox.storm(q))
-                    self.stormIsInPrint('pop valu is 0', mesgs)
 
                     # the user can access the specific core.vars key
                     # that they have access to but not the admin key
@@ -2543,8 +2527,8 @@ class StormTypesTest(s_test.SynTest):
 
                     # The StormHiveDict is safe when computing things
                     q = '''[test:int=1234]
-                    $lib.user.vars.set(someint, $node.value())
-                    [test:str=$lib.user.vars.get(someint)]
+                    $lib.user.vars.someint = $node.value()
+                    [test:str=$lib.user.vars.someint]
                     '''
                     mesgs = await uprox.storm(q).list()
                     podes = [m[1] for m in mesgs if m[0] == 'node']
@@ -5159,7 +5143,7 @@ class StormTypesTest(s_test.SynTest):
             await visi.setAdmin(True)
 
             opts = {'user': visi.iden}
-            await core.nodes('$lib.user.profile.set(cortex:view, $lib.view.get().fork().iden)', opts=opts)
+            await core.nodes('$lib.user.profile."cortex:view" = $lib.view.get().fork().iden', opts=opts)
 
             self.nn(visi.profile.get('cortex:view'))
 

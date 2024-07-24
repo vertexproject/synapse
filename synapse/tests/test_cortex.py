@@ -5823,11 +5823,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.nodes('''
                 $q = $lib.queue.add(visi)
-                $lib.user.vars.set(foo, $(10))
+                $lib.user.vars.foo = $(10)
 
                 $lib.dmon.add(${
 
-                    $foo = $lib.user.vars.get(foo)
+                    $foo = $lib.user.vars.foo
 
                     $lib.queue.get(visi).put(step)
 
@@ -5837,7 +5837,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         }
                     }
 
-                    $lib.user.vars.set(foo, $(20))
+                    $lib.user.vars.foo = $(20)
 
                 }, name=wootdmon)
 
