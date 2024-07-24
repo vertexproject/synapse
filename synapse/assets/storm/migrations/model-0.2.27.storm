@@ -5,8 +5,8 @@ $nodeq = $lib.queue.gen("model_0_2_27:nodes")
 $refsq = $lib.queue.gen("model_0_2_27:nodes:refs")
 $edgeq = $lib.queue.gen("model_0_2_27:nodes:edges")
 
-function getRefForms(formname) {
-    $refforms = ([])
+function getRefInfo(formname) {
+    $refinfo = ([])
 
     syn:prop:type*in=($formname, array, ndef)
     // Don't include the form we're querying
@@ -25,35 +25,24 @@ function getRefForms(formname) {
         $proptype = $prop.type.opts.type
     }
 
-    $refforms.append((:form, $prop.name, $proptype, $isarray))
+    $refinfo.append((:form, $prop.name, $proptype, $isarray))
 
-    fini { return($refforms) }
+    fini { return($refinfo) }
 }
 
 
-function removeNode(n, nonorm=$lib.false) {
+function removeNode(n) {
+
     $sources = ([])
 
     $iden = $n.iden()
+    $repr = $n.repr()
+    $form = $n.form()
+    $ndef = $n.ndef()
 
-    $refforms = $getRefForms($n.form())
+    $lib.log.debug(`Saving invalid {$form} node info: {$repr}`)
 
-    /*
-    function liftByPropValu(form, prop, oldvalu) {
-        if $nonorm {
-            for $ref in $lib.model.migration.liftByPropValuNoNorm($form, $prop, $oldvalu) {
-                yield $ref
-            }
-        } else {
-            $full = `{$form}:{$prop}`
-            $lib.log.debug(`FORM: {$form}, PROP {$prop}, FULL {$full}, {$oldvalu}`)
-            for $ref in $lib.layer.get().liftByProp($full, $oldvalu) {
-                yield $ref
-            }
-            // [ *$full=$oldvalu ]
-        }
-    }
-    */
+    $refinfos = $getRefInfo($form)
 
     for $view in $lib.view.list(deporder=$lib.true) {
         if (not $layers.has($view.layers.0.iden)) { continue }
@@ -63,49 +52,49 @@ function removeNode(n, nonorm=$lib.false) {
             $references = ([])
 
             // Get references and store them in queue
-            for $refform in $refforms {
+            for $refinfo in $refinfos {
 
-                ($form, $prop, $proptype, $isarray) = $refform
+                ($formname, $propname, $proptype, $isarray) = $refinfo
                 if ($proptype = "ndef") {
-                    $oldvalu = $n.ndef()
+                    $oldvalu = $ndef
                 } else {
-                    $oldvalu = $n.repr()
+                    $oldvalu = $repr
                 }
 
-                for $ref in $lib.model.migration.liftByPropValuNoNorm($form, $prop, $oldvalu) {
+                for $ref in $lib.model.migration.liftByPropValuNoNorm($formname, $propname, $oldvalu) {
                     yield $ref
 
                     if $isarray {
 
-                        // We can't just [ :$prop-=$oldvalu ] because the norm() function gets called
-                        // on the array type deep down in the AST. So, instead, we have to operate on
-                        // the whole array.
+                        // We can't just [ :$propname-=$oldvalu ] because the norm() function gets called on the array type
+                        // deep down in the AST. So, instead, we have to operate on the whole array.
 
-                        $list = $lib.copy(:$prop)
+                        $list = $lib.copy(:$propname)
                         while $list.has($oldvalu) {
                             $list.remove($oldvalu)
                         }
 
                         if $list {
-                            $lib.model.migration.setNodePropValuNoNorm($node, $prop, $list)
+                            $lib.model.migration.setNodePropValuNoNorm($node, $propname, $list)
                         } else {
-                            [ -:$prop ]
+                            [ -:$propname ]
                         }
 
                     } else {
                         try {
-                            [ -:$prop ]
+                            [ -:$propname ]
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
-                            $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`)
+                            $lib.log.warning(`{$formname}:{$propname} is readonly, cannot modify. Storing node: {$node.repr()}`)
                             $removeNode($node)
+                            | delnode |
                             continue
                         }
                     }
 
                     $ref = ({
-                        "node": $node.iden(),
-                        "refform": $refform,
+                        "iden": $node.iden(),
+                        "refinfo": $refinfo,
                     })
 
                     $references.append($ref)
@@ -113,7 +102,7 @@ function removeNode(n, nonorm=$lib.false) {
                     // Flush to the queue if the list grows too large
                     if ($references.size() > 1000) { // pragma: no cover start
                         $item = ({
-                            "node": $iden,
+                            "iden": $iden,
                             "view": $view.iden,
                             "refs": $references,
                         })
@@ -126,7 +115,7 @@ function removeNode(n, nonorm=$lib.false) {
 
             { if $references {
                 $item = ({
-                    "node": $iden,
+                    "iden": $iden,
                     "view": $view.iden,
                     "refs": $references,
                 })
@@ -155,7 +144,7 @@ function removeNode(n, nonorm=$lib.false) {
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
                     $item = ({
-                        "node": $iden,
+                        "iden": $iden,
                         "view": $view.iden,
                         "direction": "n1",
                         "edges": $edges,
@@ -168,7 +157,7 @@ function removeNode(n, nonorm=$lib.false) {
 
             if $edges {
                 $item = ({
-                    "node": $iden,
+                    "iden": $iden,
                     "view": $view.iden,
                     "direction": "n1",
                     "edges": $edges,
@@ -188,7 +177,7 @@ function removeNode(n, nonorm=$lib.false) {
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
                     $item = ({
-                        "node": $iden,
+                        "iden": $iden,
                         "view": $view.iden,
                         "direction": "n2",
                         "edges": $edges,
@@ -201,7 +190,7 @@ function removeNode(n, nonorm=$lib.false) {
 
             if $edges {
                 $item = ({
-                    "node": $iden,
+                    "iden": $iden,
                     "view": $view.iden,
                     "direction": "n2",
                     "edges": $edges,
@@ -214,9 +203,9 @@ function removeNode(n, nonorm=$lib.false) {
     }
 
     $item = ({
-        "node": $n.iden(),
-        "form": $n.form(),
-        "repr": $n.repr(),
+        "iden": $iden,
+        "form": $form,
+        "repr": $repr,
         "props": $n.props,
         "view": $view.iden,
         "layer": $lib.layer.get().iden,
@@ -226,10 +215,6 @@ function removeNode(n, nonorm=$lib.false) {
     })
 
     $nodeq.put($item)
-
-    $lib.log.debug(`Deleting invalid {$n.form()} node: {$n.repr()}`)
-    iden $n.iden() | delnode --deledges --force
-
     return()
 }
 
@@ -246,7 +231,7 @@ function migrateCpeNode(oldcpe, newvalu) {
     $lib.model.migration.copyTags($oldcpe, $newcpe)
     $lib.model.migration.copyData($oldcpe, $newcpe)
 
-    $refforms = $getRefForms($oldcpe.form())
+    $refinfos = $getRefInfo($oldcpe.form())
 
     // Iterate through the views and fix up all the references
     for $view in $lib.view.list(deporder=$lib.true) {
@@ -255,8 +240,8 @@ function migrateCpeNode(oldcpe, newvalu) {
         view.exec $view.iden {
 
             // Fix references that point to old node to now point to new node
-            for $refform in $refforms {
-                ($form, $prop, $proptype, $isarray) = $refform
+            for $refinfo in $refinfos {
+                ($form, $prop, $proptype, $isarray) = $refinfo
                 if ($proptype = "ndef") {
                     $oldvalu = $oldcpe.ndef()
                     $newvalu = $newcpe.ndef()
@@ -270,19 +255,19 @@ function migrateCpeNode(oldcpe, newvalu) {
 
                     if $isarray {
 
-                        // We can't just [ :$prop-=$oldvalu ] because the norm() function gets called
-                        // on the array type deep down in the AST. So, instead, we have to operate on
-                        // the whole array.
+                        // We can't just [ :$prop-=$oldvalu :$prop+=$newvalu ] because the norm() function gets called
+                        // on the array type deep down in the AST. So, instead, we have to operate on the whole array.
 
                         $list = $lib.copy(:$prop)
                         while $list.has($oldvalu) {
                             $list.remove($oldvalu)
                         }
 
-                        $lib.model.migration.setNodePropValuNoNorm($node, $prop, $list)
+                        if (not $list.has($newvalu)) {
+                            $list.append($newvalu)
+                        }
 
-                        // We want the new CPE valu to go through norming
-                        [ :$prop+=$newvalu ]
+                        $lib.model.migration.setNodePropValuNoNorm($node, $prop, $list)
 
                     } else {
                         try {
@@ -291,6 +276,8 @@ function migrateCpeNode(oldcpe, newvalu) {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`)
                             $removeNode($node)
+                            | delnode
+
                         }
                     }
                 }
@@ -341,8 +328,10 @@ for $view in $lib.view.list(deporder=$lib.true) {
                 // critical information to eventually reconstruct this node
                 // and store it in a queue.
 
-                $lib.log.debug(`Saving invalid it:sec:cpe node info: {$oldcpe.repr()}`)
-                $removeNode($oldcpe, nonorm=$lib.true)
+                $removeNode($oldcpe)
+
+                iden $oldcpe.iden() |
+                delnode --deledges --force
             }
         }
     }

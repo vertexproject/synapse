@@ -596,8 +596,6 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.27') as core:
 
-            return
-
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(2, views)
 
@@ -793,7 +791,7 @@ class ModelRevTest(s_tests.SynTest):
                 'view': view01,
                 'refs': (
                     {
-                        'refform': ('inet:flow', 'src:cpes', 'it:sec:cpe', True),
+                        'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True),
                     },
                 ),
             })
@@ -810,7 +808,7 @@ class ModelRevTest(s_tests.SynTest):
                 'view': view01,
                 'refs': (
                     {
-                        'refform': ('it:prod:soft', 'cpe', 'it:sec:cpe', False),
+                        'refinfo': ('it:prod:soft', 'cpe', 'it:sec:cpe', False),
                     },
                 ),
             })
@@ -827,7 +825,7 @@ class ModelRevTest(s_tests.SynTest):
                 'view': view01,
                 'refs': (
                     {
-                        'refform': ('_ext:model:form', 'cpe', 'it:sec:cpe', False),
+                        'refinfo': ('_ext:model:form', 'cpe', 'it:sec:cpe', False),
                     },
                 ),
             })
