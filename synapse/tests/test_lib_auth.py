@@ -3,7 +3,6 @@ import pathlib
 
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
-import synapse.lib.hiveauth as s_hiveauth
 
 import synapse.tests.utils as s_test
 
@@ -152,7 +151,7 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.InconsistentStorage):
                 await auth.addAuthGate(core.view.iden, 'newp')
 
-    async def test_hive_tele_auth(self):
+    async def test_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs
         # work using telepath remotes and property synchronize.
@@ -676,7 +675,7 @@ class AuthTest(s_test.SynTest):
                 self.false(await user.tryPasswd('newp'))
                 self.true(await user.tryPasswd('yupp!!'))
 
-    async def test_hive_auth_deepdeny(self):
+    async def test_auth_deepdeny(self):
         async with self.getTestCore() as core:
 
             # Create an authgate we can later test against
@@ -694,7 +693,7 @@ class AuthTest(s_test.SynTest):
             await core.callStorm('auth.role.addrule ninjas --gate $gate another.rule',
                                  opts={'vars': {'gate': fork}})
 
-            user = await core.auth.getUserByName('lowuser')  # type: s_hiveauth.HiveUser
+            user = await core.auth.getUserByName('lowuser')  # type: s_auth.User
             self.false(user.allowed(('hehe',)))
             self.false(user.allowed(('hehe',), deepdeny=True))
             self.true(user.allowed(('hehe', 'haha')))

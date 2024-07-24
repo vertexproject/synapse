@@ -61,14 +61,14 @@ class AhaLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methAhaList(self):
         self.runt.reqAdmin()
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         async for info in proxy.getAhaSvcs():
             yield info
 
     async def _methAhaDel(self, svcname):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         svc = await proxy.getAhaSvc(svcname)
         if svc is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service for {svcname=}')
@@ -82,7 +82,7 @@ class AhaLib(s_stormtypes.Lib):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
         filters = await s_stormtypes.toprim(filters)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         return await proxy.getAhaSvc(svcname, filters=filters)
 
 @s_stormtypes.registry.registerLib
@@ -142,7 +142,7 @@ class AhaPoolLib(s_stormtypes.Lib):
     async def _methPoolAdd(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         poolinfo = {'creator': self.runt.user.iden}
         poolinfo = await proxy.addAhaPool(name, poolinfo)
         return AhaPool(self.runt, poolinfo)
@@ -150,14 +150,14 @@ class AhaPoolLib(s_stormtypes.Lib):
     async def _methPoolDel(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         return await proxy.delAhaPool(name)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPoolGet(self, name):
         self.runt.reqAdmin()
         name = await s_stormtypes.tostr(name)
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
         poolinfo = await proxy.getAhaPool(name)
         if poolinfo is not None:
             return AhaPool(self.runt, poolinfo)
@@ -165,7 +165,7 @@ class AhaPoolLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methPoolList(self):
         self.runt.reqAdmin()
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
 
         async for poolinfo in proxy.getAhaPools():
             yield AhaPool(self.runt, poolinfo)
@@ -227,7 +227,7 @@ class AhaPool(s_stormtypes.StormType):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
 
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
 
         poolname = self.poolinfo.get('name')
 
@@ -240,7 +240,7 @@ class AhaPool(s_stormtypes.StormType):
         self.runt.reqAdmin()
         svcname = await s_stormtypes.tostr(svcname)
 
-        proxy = await self.runt.snap.core.reqAhaProxy()
+        proxy = await self.runt.view.core.reqAhaProxy()
 
         poolname = self.poolinfo.get('name')
         newinfo = await proxy.delAhaPoolSvc(poolname, svcname)

@@ -753,13 +753,6 @@ Help for individual ``cron.*`` commands can be displayed using:
 
   ``<command> --help``
 
-.. TIP::
-  
-  Cron jobs (including jobs created with ``cron.at``) are added to Synapse as **runtime nodes** ("runt
-  nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. With a few restrictions, these runt nodes
-  can be lifted, filtered, and operated on similar to the way you work with other nodes.
-
-
 .. _storm-cron-add:
 
 cron.add
@@ -777,9 +770,7 @@ The ``cron.add`` command creates an individual cron job within a Cortex.
 cron.at
 +++++++
 
-The ``cron.at`` command creates a non-recurring (one-time) cron job within a Cortex. Just like standard
-(recurring) cron jobs, jobs created with ``cron.at`` will persist (remain in the list of cron jobs and
-as ``syn:cron`` runt nodes) until they are explicitly removed using ``cron.del``.
+The ``cron.at`` command creates a non-recurring (one-time) cron job within a Cortex.
 
 **Syntax:**
 
@@ -823,8 +814,7 @@ cron.stat
 The ``cron.stat`` command displays statistics for an individual cron job and provides more detail on
 an individual job vs. ``cron.list``, including any errors and the interval at which the job executes.
 To view the stats for a job, you must provide the first portion of the job's iden (i.e., enough of the
-iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting
-the appropriate ``syn:cron`` node.
+iden that the job can be uniquely identified), which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -838,7 +828,7 @@ cron.mod
 
 The ``cron.mod`` command modifies the Storm query associated with a specific cron job. To modify a job,
 you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely
-identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+identified), which can be obtained using ``cron.list``.
 
 .. NOTE::
   
@@ -869,8 +859,7 @@ cron.disable
 
 The ``cron.disable`` command disables a job and prevents it from executing without removing it from the
 Cortex. To disable a job, you must provide the first portion of the job's iden (i.e., enough of the iden
-that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the
-appropriate ``syn:cron`` node.
+that the job can be uniquely identified), which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -884,7 +873,7 @@ cron.enable
 
 The ``cron.enable`` command enables a disabled cron job. To enable a job, you must provide the first portion
 of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained
-using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+using ``cron.list``.
 
 .. NOTE::
 
@@ -902,7 +891,7 @@ cron.del
 
 The ``cron.del`` command permanently removes a cron job from the Cortex. To delete a job, you must provide
 the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified),
-which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+which can be obtained using ``cron.list``.
 
 **Syntax:**
 
@@ -1022,8 +1011,7 @@ edges
 -----
 
 Storm includes ``edges.*`` commands that allow you to work with lightweight (light) edges. Also
-see the ``lift.byverb`` and ``model.edge.*`` commands under :ref:`storm-lift` and :ref:`storm-model`
-below.
+see the ``lift.byverb`` command under :ref:`storm-lift` below.
 
 - `edges.del`_
 
@@ -1043,32 +1031,6 @@ The ``edges.del`` command is designed to delete multiple light edges to (or from
 **Syntax:**
 
 .. storm-cli:: edges.del --help
-
-
-.. _storm-feed:
-
-feed
-----
-
-Storm includes ``feed.*`` commands that allow you to work with feeds (see :ref:`gloss-feed`).
-
-- `feed.list`_
-
-Help for individual ``feed.*`` commands can be displayed using:
-
-  ``<command> --help``
-
-
-.. _storm-feed-list:
-
-feed.list
-+++++++++
-
-The ``feed.list`` command displays available feed functions in the Cortex.
-
-**Syntax:**
-
-.. storm-cli:: feed.list --help
 
 
 .. _storm-gen:
@@ -1578,8 +1540,8 @@ By default, the command lifts the N1 nodes (i.e., the nodes on the left side of 
 edge relationship: ``n1 -(<verb>)> n2``)
 
 .. NOTE::
-  For other commands associated with light edges, see ``edges.del`` and ``model.edge.*`` under
-  :ref:`storm-edges` and :ref:`storm-model` respectively.
+  For other commands associated with light edges, see ``edges.del`` under
+  :ref:`storm-edges`.
 
 **Syntax:**
 
@@ -1777,16 +1739,9 @@ marked as "deprecated", determine whether your Cortex contains deprecated nodes 
 properties, and optionally lock / unlock those properties to prevent (or allow) continued creation of
 deprecated model elements.
 
-``model.edge.*`` commands allow you to work with lightweight (light) edges. (See also the ``edges.del``
-and ``lift.byverb`` commands under :ref:`storm-edges` and :ref:`storm-lift`, respectively.)
-
 - `model.deprecated.check`_
 - `model.deprecated.lock`_
 - `model.deprecated.locks`_
-- `model.edge.list`_
-- `model.edge.set`_
-- `model.edge.get`_
-- `model.edge.del`_
 
 Help for individual ``model.*`` commands can be displayed using:
 
@@ -1828,61 +1783,6 @@ The ``model.deprecated.locks`` command displays the lock status of all deprecate
 **Syntax:**
 
 .. storm-cli:: model.deprecated.locks --help
-
-
-.. _storm-model-edge-list:
-
-model.edge.list
-+++++++++++++++
-
-The ``model.edge.list`` command displays the set of light edges currently defined in the Cortex and any
-``doc`` values set on them.
-
-**Syntax:**
-
-.. storm-cli:: model.edge.list --help
-
-
-.. _storm-model-edge-set:
-
-model.edge.set
-++++++++++++++
-
-The ``model.edge.set`` command allows you to set the value of a given key on a light edge (such as a
-``doc``  value to specify a definition for the light edge). The current list of valid keys include the
-following:
-
-- ``doc``
-
-**Syntax:**
-
-.. storm-cli:: model.edge.set --help
-
-
-.. _storm-model-edge-get:
-
-model.edge.get
-++++++++++++++
-
-The ``model.edge.get`` command allows you to retrieve all of the keys that have been set on a light edge.
-
-**Syntax:**
-
-.. storm-cli:: model.edge.get --help
-
-
-.. _storm-model-edge-del:
-
-model.edge.del
-++++++++++++++
-
-The ``model.edge.del`` command allows you to delete the key from a light edge (such as a ``doc`` property
-to specify a definition for the light edge). Deleting a key from a specific light edge does not delete
-the key from Synapse (e.g., the property can be re-added to the light edge or to other light edges).
-
-**Syntax:**
-
-.. storm-cli:: model.edge.del --help
 
 
 .. _storm-movenodes:
@@ -2575,10 +2475,6 @@ Help for individual ``trigger.*`` commands can be displayed using:
 
   ``<command> --help``
 
-Triggers are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`)
-of the form ``syn:trigger``. These runt nodes can be lifted and filtered just like standard nodes
-in Synapse.
-
 .. _storm-trigger-add:
 
 trigger.add
@@ -2605,10 +2501,6 @@ Triggers are displayed in alphanumeric order by iden. Triggers are sorted upon C
 so newly-created triggers will be displayed at the bottom of the list until the list is re-sorted the
 next time the Cortex is restarted.
 
-.. NOTE::
-
-  Triggers can also be viewed in runt node form as ``syn:trigger`` nodes.
-
 **Syntax:**
 
 .. storm-cli:: trigger.list --help
@@ -2621,8 +2513,7 @@ trigger.mod
 
 The ``trigger.mod`` command modifies the Storm query associated with a specific trigger. To modify
 a trigger, you must provide the first portion of the trigger's iden (i.e., enough of the iden that
-the trigger can be uniquely identified), which can be obtained using ``trigger.list`` or by lifting
-the appropriate ``syn:trigger`` node.
+the trigger can be uniquely identified), which can be obtained using ``trigger.list``.
 
 .. NOTE::
 
@@ -2642,8 +2533,7 @@ trigger.disable
 
 The ``trigger.disable`` command disables a trigger and prevents it from firing without removing it from
 the Cortex. To disable a trigger, you must provide the first portion of the trigger's iden (i.e., enough
-of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list``
-or by lifting the appropriate ``syn:trigger`` node.
+of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list``.
 
 **Syntax:**
 
@@ -2657,7 +2547,7 @@ trigger.enable
 
 The ``trigger-enable`` command enables a disabled trigger. To enable a trigger, you must provide the
 first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified),
-which can be obtained using ``trigger.list`` or by lifting the appropriate ``syn:trigger`` node.
+which can be obtained using ``trigger.list``.
 
 .. NOTE::
 
@@ -2675,8 +2565,7 @@ trigger.del
 
 The ``trigger.del`` command permanently removes a trigger from the Cortex. To delete a trigger, you
 must provide the first portion of the trigger's iden (i.e., enough of the iden that the trigger can
-be uniquely identified), which can be obtained using ``trigger.list`` or by lifting the appropriate
-``syn:trigger`` node.
+be uniquely identified), which can be obtained using ``trigger.list``.
 
 **Syntax:**
 

@@ -32,6 +32,8 @@ ipv4max = 2 ** 32 - 1
 
 rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
+urlfangs = regex.compile('^(hxxp|hxxps)$')
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -905,6 +907,8 @@ class Url(s_types.Str):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol') from None
 
+        proto = urlfangs.sub(lambda match: 'http' + match.group(0)[4:], proto)
+
         subs['proto'] = proto
         # Query params first
         queryrem = ''
@@ -1057,7 +1061,7 @@ class InetModule(s_module.CoreModule):
 
             if form == 'inet:email':
 
-                whomail = await node.snap.addNode('inet:whois:email', (fqdn, valu))
+                whomail = await node.view.addNode('inet:whois:email', (fqdn, valu))
                 await whomail.set('.seen', asof)
 
     async def _onAddPasswd(self, node):
@@ -1072,7 +1076,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
-        async with node.snap.getEditor() as editor:
+        async with node.view.getEditor() as editor:
             protonode = editor.loadNode(node)
             if domain is None:
                 await protonode.set('iszone', False)
@@ -1082,7 +1086,7 @@ class InetModule(s_module.CoreModule):
             if protonode.get('issuffix') is None:
                 await protonode.set('issuffix', False)
 
-            parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+            parent = await node.view.getNodeByNdef(('inet:fqdn', domain))
             if parent is None:
                 parent = await editor.addNode('inet:fqdn', domain)
 
@@ -1107,8 +1111,8 @@ class InetModule(s_module.CoreModule):
 
         issuffix = node.get('issuffix')
 
-        async with node.snap.getEditor() as editor:
-            async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+        async with node.view.getEditor() as editor:
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                 await asyncio.sleep(0)
 
                 if child.get('iszone') == issuffix:
@@ -1133,7 +1137,7 @@ class InetModule(s_module.CoreModule):
             await node.pop('zone')
             return
 
-        parent = await node.snap.addNode('inet:fqdn', domain)
+        parent = await node.view.addNode('inet:fqdn', domain)
 
         zone = parent.get('zone')
         if zone is None:
@@ -1147,10 +1151,10 @@ class InetModule(s_module.CoreModule):
         todo = collections.deque([node.ndef[1]])
         zone = node.get('zone')
 
-        async with node.snap.getEditor() as editor:
+        async with node.view.getEditor() as editor:
             while todo:
                 fqdn = todo.pop()
-                async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                     await asyncio.sleep(0)
 
                     # if they are their own zone level, skip

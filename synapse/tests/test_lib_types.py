@@ -853,6 +853,42 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes(q)
 
+            await core.nodes('''[
+                (ou:campaign=* :period=(2020-01-01, 2020-01-02))
+                (ou:campaign=* :period=(2021-01-01, 2021-02-01))
+                (ou:campaign=* :period=(2022-01-01, 2022-05-01))
+                (ou:campaign=* :period=(2023-01-01, 2024-01-01))
+                (ou:campaign=* :period=(2024-01-01, 2026-01-01))
+                (ou:campaign=*)
+            ]''')
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*min=2020-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min<2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min<=2022-01-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*min>=2022-01-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min>2022-01-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*min@=2020'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*min@=(2020-01-01, 2022-01-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*max=2020-01-02'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max<2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max<=2022-05-01'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*max>=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max>2022-05-01'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*max@=2022-05-01'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*max@=(2020-01-02, 2022-05-01)'))
+
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration=1D'))
+            self.len(1, await core.nodes('ou:campaign.created +:period*duration<31D'))
+            self.len(2, await core.nodes('ou:campaign.created +:period*duration<=31D'))
+            self.len(4, await core.nodes('ou:campaign.created +:period*duration>=31D'))
+            self.len(3, await core.nodes('ou:campaign.created +:period*duration>31D'))
+
+            self.len(0, await core.nodes('ou:campaign.created +:period*min@=(2022-01-01, 2020-01-01)'))
+
+            with self.raises(s_exc.NoSuchFunc):
+                await core.nodes('ou:campaign.created +:period*min@=({})')
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
@@ -939,6 +975,24 @@ class TypesTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchForm, t.repr, ('test:newp', 'newp'))
             self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
+            await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
+            await core.nodes('[ risk:vulnerable=(foo,) :node=(it:dev:int, 1) ]')
+            await core.nodes('[ risk:vulnerable=(bar,) :node=(inet:fqdn, foo.com) ]')
+
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=it:dev:int'))
+            self.len(1, await core.nodes('risk:vulnerable.created +:node*form=inet:fqdn'))
+            self.len(0, await core.nodes('risk:vulnerable.created +:node*form=it:dev:str'))
+
+            self.len(1, await core.nodes('test:str.created +:ndefs*[form=it:dev:int]'))
+            self.len(0, await core.nodes('test:str.created +:ndefs*[form=it:dev:str]'))
+
+            self.eq('it:dev:int', await core.callStorm('risk:vulnerable=(foo,) return(:node*form)'))
+
+            self.none(await core.callStorm('[ risk:vulnerable=* ] return(:node*form)'))
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str.created +:ndefs*[form>it:dev:str]')
+
             ndef = core.model.type('test:ndef:formfilter1')
             ndef.norm(('inet:ipv4', '1.2.3.4'))
             ndef.norm(('inet:ipv6', '::1'))
@@ -1004,9 +1058,12 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
-            self.len(1, await core.nodes('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]'))
-            self.len(1, await core.nodes('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]'))
-            self.len(1, await core.nodes('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]'))
+            self.len(1, await core.nodes('[meta:seen=((meta:source, (foo,)), (test:comp, (2048, horton)))]'))
+            self.len(1, await core.nodes('[meta:seen=((meta:source, (bar,)), (test:comp, (9001, "A mean one")))]'))
+            self.len(1, await core.nodes('[meta:seen=((meta:source, (baz,)), (test:int, 16))]'))
+            self.len(1, await core.nodes('[test:comp=(4096, whoville)]'))
+            self.len(1, await core.nodes('[test:comp=(9999, greenham)]'))
+            self.len(1, await core.nodes('[test:comp=(40000, greeneggs)]'))
 
             self.len(0, await core.nodes('test:str=a +:tick*range=(20000101, 20101201)'))
             nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
@@ -1023,9 +1080,9 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('edge:refs +:n1*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
+            nodes = await core.nodes('meta:seen +:node*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
             self.eq({node.ndef[1] for node in nodes},
-                    {(('test:comp', (2048, 'horton')), ('test:comp', (4096, 'whoville')))})
+                    {('aeac1223f48231cabf258f1f67f052a5', ('test:comp', (2048, 'horton')))})
 
             # The following tests show range working against a string
             self.len(2, await core.nodes('test:str*range=(b, m)'))
@@ -1436,62 +1493,6 @@ class TypesTest(s_t_utils.SynTest):
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 
-    async def test_edges(self):
-        model = s_datamodel.Model()
-        e = model.type('edge')
-        t = model.type('timeedge')
-
-        self.eq(0, e.getCompOffs('n1'))
-        self.eq(1, e.getCompOffs('n2'))
-        self.none(e.getCompOffs('newp'))
-
-        self.eq(0, t.getCompOffs('n1'))
-        self.eq(1, t.getCompOffs('n2'))
-        self.eq(2, t.getCompOffs('time'))
-        self.none(t.getCompOffs('newp'))
-
-        # Sad path testing
-        self.raises(s_exc.BadTypeValu, e.norm, ('newp',))
-        self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
-
-        # Repr testing with the test model
-        async with self.getTestCore() as core:
-            e = core.model.type('edge')
-            t = core.model.type('timeedge')
-
-            norm, _ = e.norm((('test:str', '1234'), ('test:int', '1234')))
-            self.eq(norm, (('test:str', '1234'), ('test:int', 1234)))
-
-            norm, _ = t.norm((('test:str', '1234'), ('test:int', '1234'), '2001'))
-            self.eq(norm, (('test:str', '1234'), ('test:int', 1234), 978307200000))
-
-            rval = e.repr((('test:str', '1234'), ('test:str', 'hehe')))
-            self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe')))
-
-            rval = e.repr((('test:int', 1234), ('test:str', 'hehe')))
-            self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe')))
-
-            rval = e.repr((('test:str', 'hehe'), ('test:int', 1234)))
-            self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234')))
-
-            rval = e.repr((('test:int', 4321), ('test:int', 1234)))
-            self.eq(rval, (('test:int', '4321'), ('test:int', '1234')))
-
-            rval = e.repr((('test:int', 4321), ('test:comp', (1234, 'hehe'))))
-            self.eq(rval, (('test:int', '4321'), ('test:comp', ('1234', 'hehe'))))
-
-            tv = 5356800000
-            tr = '1970/03/04 00:00:00.000'
-
-            rval = t.repr((('test:str', '1234'), ('test:str', 'hehe'), tv))
-            self.eq(rval, (('test:str', '1234'), ('test:str', 'hehe'), tr))
-
-            rval = t.repr((('test:int', 1234), ('test:str', 'hehe'), tv))
-            self.eq(rval, (('test:int', '1234'), ('test:str', 'hehe'), tr))
-
-            rval = t.repr((('test:str', 'hehe'), ('test:int', 1234), tv))
-            self.eq(rval, (('test:str', 'hehe'), ('test:int', '1234'), tr))
-
     async def test_types_long_indx(self):
 
         aaaa = 'A' * 200
@@ -1602,7 +1603,7 @@ class TypesTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:int:_hehe*[~=foo]'))
             self.len(2, await core.nodes('test:int:_hehe*[~=baz]'))
 
-            buid = nodes[0].buid
+            nid = nodes[0].nid
 
-            core.getLayer()._testAddPropArrayIndx(buid, 'test:int', '_hehe', ('newp' * 100,))
+            core.getLayer()._testAddPropArrayIndx(nid, 'test:int', '_hehe', ('newp' * 100,))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))

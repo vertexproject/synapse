@@ -268,19 +268,6 @@ Operation to add the specified node(s) to a Cortex.
   of some common guid forms.
 
 
-*Create a digraph (edge) node:*
-
-
-.. storm-pre:: [ edge:refs=((media:news, 00a1f0d928e25729b9e86e2d08c127ce), (inet:fqdn, woot.com)) ]
-::
-
-    [ edge:refs=((media:news, 00a1f0d928e25729b9e86e2d08c127ce), (inet:fqdn, woot.com)) ]
-
-.. NOTE::
-  
-  In many cases, the use of an :ref:`form-edge` has been replaced by a :ref:`data-light-edge`.
-
-
 *Create multiple nodes in a single edit operation:*
 
 

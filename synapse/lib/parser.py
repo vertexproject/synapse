@@ -27,12 +27,13 @@ terminalEnglishMap = {
     'BOOL': 'boolean',
     'BREAK': 'break',
     'BYNAME': 'named comparison operator',
+    'BYNAMECMPR': 'named comparison operator',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
-    'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
+    'CMDTOKN': 'An unquoted string parsed as a cmd arg',
     'CMPR': 'comparison operator',
     'CMPROTHER': 'comparison operator',
     'COLON': ':',
@@ -369,7 +370,7 @@ class AstConverter(lark.Transformer):
         return s_ast.FuncArgs(astinfo, newkids)
 
     @lark.v_args(meta=True)
-    def cmdrargs(self, meta, kids):
+    def cmdargs(self, meta, kids):
         argv = []
         indx = 0
 
@@ -409,7 +410,7 @@ class AstConverter(lark.Transformer):
                     continue
 
             # pragma: no cover
-            mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
+            mesg = f'Unhandled AST node type in cmdargs: {kid!r}'
             self.raiseBadSyntax(mesg, kid.astinfo)
 
         return argv
@@ -458,10 +459,16 @@ class AstConverter(lark.Transformer):
         kids[0].reverseLift(astinfo)
         return kids[0]
 
+    @lark.v_args(meta=True)
+    def byname(self, meta, kids):
+        kids = self._convert_children(kids)
+        astinfo = self.metaToAstInfo(meta)
+        return s_ast.ByNameCmpr(astinfo, kids[0].valu + kids[1].valu, kids)
+
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdargs', 'evalvalu', 'search'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
@@ -565,12 +572,12 @@ class Parser:
         newtree.text = self.text
         return newtree
 
-    def cmdrargs(self):
+    def cmdargs(self):
         '''
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = LarkParser.parse(self.text, start='cmdrargs')
+            tree = LarkParser.parse(self.text, start='cmdargs')
             return AstConverter(self.text).transform(tree)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
@@ -670,14 +677,12 @@ ruleClassMap = {
     'formatstring': s_ast.FormatString,
     'formjoin_formpivot': lambda astinfo, kids: s_ast.FormPivot(astinfo, kids, isjoin=True),
     'formjoin_pivotout': lambda astinfo, _: s_ast.PivotOut(astinfo, isjoin=True),
-    'formjoinin_pivotin': lambda astinfo, kids: s_ast.PivotIn(astinfo, kids, isjoin=True),
-    'formjoinin_pivotinfrom': lambda astinfo, kids: s_ast.PivotInFrom(astinfo, kids, isjoin=True),
+    'formjoinin': lambda astinfo, kids: s_ast.PivotIn(astinfo, kids, isjoin=True),
     'formpivot_': s_ast.FormPivot,
     'formpivot_pivotout': s_ast.PivotOut,
     'formpivot_pivottotags': s_ast.PivotToTags,
     'formpivot_jointags': lambda astinfo, kids: s_ast.PivotToTags(astinfo, kids, isjoin=True),
-    'formpivotin_': s_ast.PivotIn,
-    'formpivotin_pivotinfrom': s_ast.PivotInFrom,
+    'formpivotin': s_ast.PivotIn,
     'formtagprop': s_ast.FormTagProp,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
@@ -719,6 +724,7 @@ ruleClassMap = {
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
     'stormfunc': s_ast.Function,
+    'subprop': s_ast.SubProp,
     'tagcond': s_ast.TagCond,
     'tagname': s_ast.TagName,
     'tagmatch': s_ast.TagMatch,

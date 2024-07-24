@@ -625,26 +625,6 @@ Example:
        'tags': {}}))
 
 
-scrub
------
-
-This is a set of rules that can be provided to the Storm runtime which dictate which data should be included or
-excluded from nodes that are returned in the message stream. Currently the only rule type supported is ``include`` for
-``tags``.
-
-Example:
-
-    .. code:: python3
-
-        # Only include tags which start with cno and rep.foo
-        scrub = {'include': {'tags': ['cno', 'rep.foo',]}}
-        opts = {'scrub': scrub}
-
-        # Do not include any tags in the output
-        scrub = {'include': {'tags': []}}
-        opts = {'scrub': scrub}
-
-
 show
 ----
 
