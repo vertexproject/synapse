@@ -1,5 +1,5 @@
 ---
-desc: Add synapse.lib.auth for non-hive based authentication.
+desc: Add ``synapse.lib.auth`` for non-hive based authentication.
 prs:
 - 3698
 type: feat
