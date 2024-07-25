@@ -1673,7 +1673,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahaurls = self.conf.get('aha:registry')
         if ahaurls is not None:
 
-            info = await s_telepath.addAhaUrl(ahaurls)
+            await s_telepath.addAhaUrl(ahaurls)
             if self.ahaclient is not None:
                 await self.ahaclient.fini()
 
@@ -1694,8 +1694,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.ahaclient.onfini(fini)
 
         ahaadmin = self.conf.get('aha:admin')
+        ahauser = self.conf.get('aha:user')
+
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
+
+        if ahauser is not None:
+            await self._addAdminUser(ahauser)
 
     def _getDmonListen(self):
 

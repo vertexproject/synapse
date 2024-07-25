@@ -1229,3 +1229,24 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.CryptoErr) as errcm:
                         await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
                     self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
+
+    async def test_aha_prov_with_user(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    user = 'synuser'
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    axon00 = await base.enter_context(self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=dirn00,
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(axon00.conf.get('aha:user'), user)
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn01,
+                                                                       conf={'axon': 'aha://axon...'},
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(core00.conf.get('aha:user'), user)
+                    # Svc to svc connections use the hinted aha:user value
+                    prox = self.nn(await asyncio.wait_for(core00.axon.proxy(), timeout=12))
+                    unfo = await prox.getCellUser()
+                    self.eq(unfo.get('name'), user)
