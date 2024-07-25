@@ -875,8 +875,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         cmprvals = ((cmpr, valu, stortype),)
 
-        async for iden, buid, sode in liftfunc(formname, propname, cmprvals, reverse=reverse):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        layriden = self.runt.snap.wlyr.iden
+        async for _, buid, sode in liftfunc(formname, propname, cmprvals, reverse=reverse):
+            yield await self.runt.snap._joinStorNode(buid, {layriden: sode})
 
     async def _methSetNodePropValuNoNorm(self, n, propname, valu):
         '''
