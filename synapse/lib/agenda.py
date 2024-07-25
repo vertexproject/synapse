@@ -430,9 +430,8 @@ class _Appt:
         await self.save()
 
     async def save(self):
-        full = self.stor._hivenode.full + (self.iden,)
         stordict = self.pack()
-        await self.stor.core.hive.set(full, stordict)
+        self.stor.apptdefs.set(self.iden, stordict)
 
 class Agenda(s_base.Base):
     '''
@@ -452,7 +451,7 @@ class Agenda(s_base.Base):
         self._wake_event = s_coro.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
 
-        self._hivenode = await self.core.hive.open(('agenda', 'appts'))  # Persistent storage
+        self.apptdefs = self.core.cortexdata.getSubKeyVal('agenda:appt:')
 
         await self._load_all()
 
@@ -465,10 +464,9 @@ class Agenda(s_base.Base):
         self.appts = {}
 
         to_delete = []
-        for iden, node in iter(self._hivenode):
-            val = node.valu
+        for iden, info in self.apptdefs.items():
             try:
-                appt = _Appt.unpack(self, val)
+                appt = _Appt.unpack(self, info)
                 if appt.iden != iden:
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
                 self._addappt(iden, appt)
@@ -480,9 +478,7 @@ class Agenda(s_base.Base):
                 continue
 
         for iden in to_delete:
-            node = self._hivenode.get(iden)
-            if node is not None:
-                await node.hive.pop(node.full)
+            self.apptdefs.pop(iden)
 
         # Make sure we don't assign the same index to 2 appointments
         if self.appts:
@@ -699,9 +695,7 @@ class Agenda(s_base.Base):
                 heapq.heapify(self.apptheap)
 
         del self.appts[iden]
-        node = self._hivenode.get(iden)
-        if node is not None:
-            await node.hive.pop(node.full)
+        self.apptdefs.delete(iden)
 
     def _getNowTick(self):
         return time.time() + self.tickoff
