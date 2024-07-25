@@ -1798,7 +1798,7 @@ class SynTest(unittest.TestCase):
                     await stream.wait(timeout=10)
 
                 data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\\n') if m]
+                raw_mesgs = [m for m in data.split('\n') if m]
                 msgs = [json.loads(m) for m in raw_mesgs]
                 # Do something with messages
 

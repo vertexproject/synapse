@@ -1131,6 +1131,9 @@ bar baz",vv
             bytslist = [b async for b in axon.get(sha256, 2, size=6)]
             self.eq(b'dfqwer', b''.join(bytslist))
 
+            metrics = await axon.metrics()
+            self.eq(metrics, {'size:bytes': 12, 'file:count': 1})
+
     async def test_axon_mirror(self):
 
         async with self.getTestAhaProv() as aha:
