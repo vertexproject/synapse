@@ -91,7 +91,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
     An optionally persistent atomically accessed tree which implements
     primitives for use in making distributed/clustered services.
     '''
-    async def __anit__(self, conf=None, nexsroot=None):
+    async def __anit__(self, conf=None, nexsroot=None, cell=None):
 
         await s_nexus.Pusher.__anit__(self, 'hive', nexsroot=nexsroot)
 
@@ -100,6 +100,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
         if conf is None:
             conf = {}
 
+        self.cell = cell
         self.conf = conf
         self.nodes = {}  # full=Node()
 
@@ -340,6 +341,18 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPush('hive:set')
     async def _set(self, full, valu):
+        if self.cell is not None:
+            if full[0] == 'auth':
+                if len(full) == 5:
+                    _, _, iden, dtyp, name = full
+                    if dtyp == 'vars':
+                        await self.cell.auth._hndlsetUserVarValu(iden, name, valu)
+                    elif dtyp == 'profile':
+                        await self.cell.auth._hndlsetUserProfileValu(iden, name, valu)
+
+            elif full[0] == 'cellvers':
+                self.cell.setCellVers(full[-1], valu, nexs=False)
+
         node = await self._getHiveNode(full)
 
         oldv = node.valu
@@ -376,6 +389,14 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPush('hive:pop')
     async def _pop(self, full):
+
+        if self.cell is not None and full[0] == 'auth':
+            if len(full) == 5:
+                _, _, iden, dtyp, name = full
+                if dtyp == 'vars':
+                    await self.cell.auth._hndlpopUserVarValu(iden, name)
+                elif dtyp == 'profile':
+                    await self.cell.auth._hndlpopUserProfileValu(iden, name)
 
         node = self.nodes.get(full)
         if node is None:
@@ -434,10 +455,10 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
 
 class SlabHive(Hive):
 
-    async def __anit__(self, slab, db=None, conf=None, nexsroot=None):
+    async def __anit__(self, slab, db=None, conf=None, nexsroot=None, cell=None):
         self.db = db
         self.slab = slab
-        await Hive.__anit__(self, conf=conf, nexsroot=nexsroot)
+        await Hive.__anit__(self, conf=conf, nexsroot=nexsroot, cell=cell)
         self.slab.onfini(self.fini)
 
     async def _storLoadHive(self):

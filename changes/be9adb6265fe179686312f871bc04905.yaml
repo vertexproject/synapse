@@ -1,0 +1,6 @@
+---
+desc: Prevent the root user for a Synapse service from being locked, archived, or
+  having its admin status removed.
+prs: []
+type: bug
+...
