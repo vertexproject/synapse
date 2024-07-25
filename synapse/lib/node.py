@@ -708,10 +708,11 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, vars, nodes):
+    def __init__(self, vars, nodes, traceinfo=None):
 
         self.node = None
         self.nodes = nodes
+        self.traceinfo = None
 
         if len(nodes):
             self.node = nodes[-1]
@@ -772,7 +773,11 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        path = Path(self.vars.copy(), nodes)
+        traceinfo = None
+        if self.traceinfo:
+            traceinfo = self.traceinfo.fork()
+
+        path = Path(self.vars.copy(), nodes, traceinfo=traceinfo)
 
         return path
 

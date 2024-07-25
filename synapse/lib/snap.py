@@ -757,6 +757,9 @@ class Snap(s_base.Base):
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
 
+            if path.traceinfo is not None:
+                pode[1]['trace'] = path.traceinfo.pack()
+
             if show_storage:
                 pode[1]['storage'] = await node.getStorNodes()
 

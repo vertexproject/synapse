@@ -175,6 +175,9 @@ class Base:
         assert entr is not None
         return entr()
 
+    async def withgenr(self, genr):
+        return await self.enter_context(contextlib.aclosing(genr))
+
     def onfini(self, func):
         '''
         Add a function/coroutine/Base to be called on fini().
