@@ -6306,100 +6306,109 @@ class CortexBasicTest(s_t_utils.SynTest):
                             await core.axon.metrics())
 
     async def test_cortex_delLayerView(self):
-        async with self.getTestCore() as core:
 
-            # Can't delete the default view
-            await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
-            await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
 
-            # Can't delete a layer in a view
-            await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
+                # Can't delete the default view
+                await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
+                await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
 
-            # Can't delete a nonexistent view
-            await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
-            await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
+                # Can't delete a layer in a view
+                await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
 
-            # Can't delete a nonexistent layer
-            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
+                # Can't delete a nonexistent view
+                await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
+                await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
 
-            # Fork the main view
-            vdef2 = await core.view.fork()
-            view2_iden = vdef2.get('iden')
+                # Can't delete a nonexistent layer
+                await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
 
-            # Can't delete a view twice
-            await core.delView(view2_iden)
-            await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
+                # Fork the main view
+                vdef2 = await core.view.fork()
+                view2_iden = vdef2.get('iden')
 
-            layr = await core.addLayer()
-            layriden = layr['iden']
-            vdef3 = {'layers': (layriden,)}
-            view3_iden = (await core.addView(vdef3)).get('iden')
+                # Can't delete a view twice
+                await core.delView(view2_iden)
+                await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
 
-            opts = {'view': view3_iden}
-            await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
+                layr = await core.addLayer()
+                layriden = layr['iden']
+                vdef3 = {'layers': (layriden,)}
+                view3_iden = (await core.addView(vdef3)).get('iden')
 
-            await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
+                opts = {'view': view3_iden}
+                await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
 
-            await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
+                await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
 
-            view3 = core.getView(view3_iden)
-            vdef4 = await view3.fork()
+                await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
 
-            deadlayr = view3.layers[0].iden
-            view4_iden = vdef4.get('iden')
-            view4 = core.getView(view4_iden)
+                view3 = core.getView(view3_iden)
+                vdef4 = await view3.fork()
 
-            self.eq(view4.parent, view3)
-            self.len(2, view4.layers)
+                deadlayr = view3.layers[0].iden
+                view4_iden = vdef4.get('iden')
+                view4 = core.getView(view4_iden)
 
-            await core.auth.rootuser.setPasswd('secret')
-            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
-            layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
-            varz = {'iden': layriden, 'tgt': layr2.get('iden'), 'port': port}
-            opts = {'vars': varz, 'view': view3_iden}
+                self.eq(view4.parent, view3)
+                self.len(2, view4.layers)
 
-            pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
-            pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
-            msgs = await core.stormlist(pullq, opts=opts)
-            self.stormHasNoWarnErr(msgs)
+                await core.auth.rootuser.setPasswd('secret')
+                host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+                layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
+                varz = {'iden': layriden, 'tgt': layr2.get('iden'), 'port': port}
+                opts = {'vars': varz, 'view': view3_iden}
 
-            msgs = await core.stormlist(pushq, opts=opts)
-            self.stormHasNoWarnErr(msgs)
+                pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                msgs = await core.stormlist(pullq, opts=opts)
+                self.stormHasNoWarnErr(msgs)
 
-            coros = len(core.activecoros)
+                msgs = await core.stormlist(pushq, opts=opts)
+                self.stormHasNoWarnErr(msgs)
 
-            layridens = [lyr.iden for lyr in view4.layers if lyr.iden != view3.layers[0].iden]
-            events = [
-                {'event': 'view:setlayers', 'info': {'iden': view4.iden, 'layers': layridens}},
-                {'event': 'view:set', 'info': {'iden': view4.iden, 'name': 'parent', 'valu': None}}
-            ]
-            task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+                coros = len(core.activecoros)
 
-            await core.delViewWithLayer(view3_iden)
+                layridens = [lyr.iden for lyr in view4.layers if lyr.iden != view3.layers[0].iden]
+                events = [
+                    {'event': 'view:setlayers', 'info': {'iden': view4.iden, 'layers': layridens}},
+                    {'event': 'view:set', 'info': {'iden': view4.iden, 'name': 'parent', 'valu': None}}
+                ]
+                task = core.schedCoro(s_t_utils.waitForBehold(core, events))
 
-            await asyncio.wait_for(task, timeout=1)
+                await core.delViewWithLayer(view3_iden)
 
-            # push/pull activecoros have been deleted
-            self.len(coros - 2, core.activecoros)
+                await asyncio.wait_for(task, timeout=1)
 
-            self.none(view4.parent)
-            self.len(1, view4.layers)
-            self.none(core.getLayer(deadlayr))
+                # push/pull activecoros have been deleted
+                self.len(coros - 2, core.activecoros)
 
-            vdef5 = await view4.fork()
-            view5 = core.getView(vdef5.get('iden'))
+                self.none(view4.parent)
+                self.len(1, view4.layers)
+                self.none(core.getLayer(deadlayr))
 
-            usedlayr = view4.layers[0].iden
-            vdef6 = {'layers': (usedlayr,)}
-            view6 = core.getView((await core.addView(vdef6)).get('iden'))
+                vdef5 = await view4.fork()
+                view5 = core.getView(vdef5.get('iden'))
 
-            await core.delViewWithLayer(view4_iden)
+                usedlayr = view4.layers[0].iden
+                vdef6 = {'layers': (usedlayr,)}
+                view6 = core.getView((await core.addView(vdef6)).get('iden'))
 
-            self.none(view5.parent)
-            self.len(1, view5.layers)
+                await core.delViewWithLayer(view4_iden)
 
-            self.nn(core.getLayer(usedlayr))
-            self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
+                self.none(view5.parent)
+                self.len(1, view5.layers)
+
+                self.nn(core.getLayer(usedlayr))
+                self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
+
+                views = list(core.views.keys())
+                layrs = list(core.layers.keys())
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.sorteq(views, list(core.views.keys()))
+                self.sorteq(layrs, list(core.layers.keys()))
 
     async def test_cortex_view_opts(self):
         '''
