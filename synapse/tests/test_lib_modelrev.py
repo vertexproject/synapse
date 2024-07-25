@@ -573,6 +573,21 @@ class ModelRevTest(s_tests.SynTest):
 
             nodes = await core.nodes('it:sec:cpe')
             self.len(11, nodes)
+            for node in nodes:
+                self.isin('test.cpe', node.tags)
+                data = await s_tests.alist(node.iterData())
+                self.eq([k[0] for k in data], ('cpe22', 'cpe23'))
+
+            nodes = await core.nodes('it:sec:cpe -(refs)> risk:vuln | uniq')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('risk:vuln', s_common.guid(('risk', 'vuln'))))
+
+            nodes = await core.nodes('it:sec:cpe -> risk:vulnerable | uniq')
+            breakpoint()
+            self.len(11, nodes)
+
+            nodes = await core.nodes(r'it:sec:cpe:vendor="d\-link"')
+            self.len(1, nodes)
 
             nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe', opts=infork00)
             self.len(5, nodes)
@@ -604,7 +619,7 @@ class ModelRevTest(s_tests.SynTest):
 
             # Check forms referencing it:sec:cpe in arrays
             nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=infork00)
-            self.len(3, nodes)
+            self.len(5, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
                 ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*'),
