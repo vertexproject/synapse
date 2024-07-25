@@ -4645,7 +4645,6 @@ class Layer(s_nexus.Pusher):
         '''
         self.isdeleted = True
         await self.fini()
-        self.core.layerdefs.pop(self.iden)
         shutil.rmtree(self.dirn, ignore_errors=True)
 
 def getFlatEdits(nodeedits):

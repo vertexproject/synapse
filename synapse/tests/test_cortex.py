@@ -6403,12 +6403,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(core.getLayer(usedlayr))
                 self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
 
-                views = list(core.views.keys())
                 layrs = list(core.layers.keys())
+                viewdefs = {}
+                for vdef in await core.getViewDefs():
+                    vdef['layers'] = [layr['iden'] for layr in vdef['layers']]
+                    viewdefs[vdef['iden']] = vdef
 
             async with self.getTestCore(dirn=dirn) as core:
-                self.sorteq(views, list(core.views.keys()))
                 self.sorteq(layrs, list(core.layers.keys()))
+
+                viewdefs2 = {}
+                for vdef in await core.getViewDefs():
+                    vdef['layers'] = [layr['iden'] for layr in vdef['layers']]
+                    viewdefs2[vdef['iden']] = vdef
+
+                self.eq(len(viewdefs), len(viewdefs2))
+
+                for iden, vdef in viewdefs.items():
+                    self.eq(vdef, viewdefs2.get(iden))
 
     async def test_cortex_view_opts(self):
         '''
