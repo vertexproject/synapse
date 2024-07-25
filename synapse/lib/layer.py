@@ -2031,7 +2031,7 @@ class Layer(s_nexus.Pusher):
                                                  'stortype': stortype})
 
     async def pack(self):
-        ret = self.layrinfo.pack()
+        ret = deepcopy(self.layrinfo)
         if ret.get('mirror'):
             ret['mirror'] = s_urlhelp.sanitizeUrl(ret['mirror'])
         ret['offset'] = await self.getEditIndx()
@@ -2805,9 +2805,11 @@ class Layer(s_nexus.Pusher):
 
         # TODO when we can set more props, we may need to parse values.
         if valu is None:
-            await self.layrinfo.pop(name)
+            self.layrinfo.pop(name, None)
         else:
-            await self.layrinfo.set(name, valu)
+            self.layrinfo[name] = valu
+
+        self.core.layerdefs.set(self.iden, self.layrinfo)
 
         await self.core.feedBeholder('layer:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden])
         return valu
@@ -4448,7 +4450,8 @@ class Layer(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPush('layer:set:modelvers')
     async def _setModelVers(self, vers):
-        await self.layrinfo.set('model:version', vers)
+        self.layrinfo['model:version'] = vers
+        self.core.layerdefs.set(self.iden, self.layrinfo)
 
     async def getStorNodes(self):
         '''

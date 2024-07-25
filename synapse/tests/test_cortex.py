@@ -376,7 +376,7 @@ class CortexTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
-                self.nn(await core.cellinfo.pop('cortex:version'))
+                self.nn(core.cellinfo.pop('cortex:version'))
 
             with self.raises(s_exc.BadStorageVersion):
                 async with self.getTestCore(dirn=dirn) as core:
@@ -2673,6 +2673,8 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('.hehe [ -.hehe ]'))
             self.len(0, await core.nodes('.hehe'))
 
+            self.none(await core._addUnivProp('hehe', None, None))
+
         # ensure that we can delete univ props in a authenticated setting
         async with self.getTestCoreAndProxy() as (realcore, core):
 
@@ -3124,6 +3126,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pkgs = await proxy.getStormPkgs()
             self.len(0, pkgs)
             await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
+
+            self.none(await core._delStormPkg('foosball'))
 
             # This segfaults in regex < 2022.9.11
             query = '''test:str~="(?(?<=A)|(?(?![^B])C|D))"'''
@@ -3866,16 +3870,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addStormPkg(otherpkg)
 
             visi = await core.auth.addUser('visi')
-            async with core.getLocalProxy(user='visi') as asvisi:
-                uopts = dict(opts)
-                uopts['user'] = visi.iden
-                opts['vars']['useriden'] = visi.iden
+            uopts = dict(opts)
+            uopts['user'] = visi.iden
+            opts['vars']['useriden'] = visi.iden
 
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
-                await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
-                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+            await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+            await core.nodes('$lib.graph.del($iden2)', opts=uopts)
 
-                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+            self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
@@ -5868,7 +5871,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # nexus recover() previously failed on adding to the hive
                 # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
-                self.nn(core.stormdmonhive.get(iden))
+                self.nn(core.stormdmondefs.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -5911,7 +5914,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)
-                await visi.profile.set('cortex:view', view2_iden)
+                await visi.setProfileValu('cortex:view', view2_iden)
 
                 await core.nodes('$q=$lib.queue.add(dmon2)')
                 q = '''
@@ -5962,6 +5965,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.CantDelCmd):
                 await core.delStormCmd('sleep')
+
+            self.none(await core._delStormCmd('newp'))
 
     async def test_cortex_storm_lib_dmon_cmds(self):
         async with self.getTestCore() as core:
@@ -6079,7 +6084,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
                 # manually edit in a borked form entry
-                await core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
 
             async with self.getTestCore(dirn=dirn) as core:
 
@@ -6638,7 +6643,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await proxy.popStormVar('hehe')
 
             async with core.getLocalProxy() as proxy:
-                self.none(await proxy.setStormVar('hehe', 'haha'))
+                self.eq('haha', await proxy.setStormVar('hehe', 'haha'))
                 self.eq('haha', await proxy.getStormVar('hehe'))
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))
@@ -8097,6 +8102,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # The cortex authgate does nothing
                 with self.raises(s_exc.AuthDeny) as cm:
                     await core.nodes('[test:str=hello]', opts=aslow)
+
+                # Coverage for nonexistent users/roles
+                core.auth.stor.set('gate:cortex:user:newp', {'iden': 'newp'})
+                core.auth.stor.set('gate:cortex:role:newp', {'iden': 'newp'})
 
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex

@@ -499,6 +499,110 @@ Once they are enrolled, the user can connect using the Telepath URL ``aha://cort
 
     python -m synapse.tools.storm aha://cortex.<yournetwork>
 
+.. _ devops-task-users-password:
+
+Managing Password Policies
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Services can be configured with password policies. These can be used to define the complexity of a password, the number
+of allowed login attempts, and the number of previous passwords to check against. This is configured by setting the
+``auth:password:policy`` configuration value for the service, with the desired policy settings. The policy object
+accepts the following keys:
+
+``attempts``
+    Maximum number of incorrect attempts before locking user account. This is an integer value.
+
+``previous``
+    Number of previous passwords to disallow. This is an integer value.
+
+``complexity``
+    The complexity key must be set to an object. It can have the following keys:
+
+    ``length``
+        Minimum password character length. This is an integer value with a minimum value of 1.
+
+    ``sequences``
+        Maximum sequence length in a password. Sequences can be letters or numbers, forward or reverse. This is an
+        integer value with a minimum value of 2.
+
+    ``upper:count``
+        The minimum number of uppercase characters required in password. This is an integer value.
+
+    ``upper:valid``
+        All valid uppercase characters. This defaults to a string of uppercase ASCII characters. This can be set to
+        a null value to disable any checking of the uppercase characters rules.
+
+    ``lower:count``
+        The minimum number of lowercase characters required in password. This is an integer value.
+
+    ``lower:valid``
+        All valid lowercase characters. This defaults to a string of lowercase ASCII characters. This can be set to
+        a null value to disable any checking of the lowercase character rules.
+
+    ``special:count``
+        The minimum number of special characters required in password. This is an integer value.
+
+    ``special:valid``
+        All valid special characters. This defaults to a string of ASCII punctuation characters. This can be set to
+        a null value to disable any checking of the special characters rules.
+
+    ``number:count``
+        The minimum number of digit characters required in password. This is an integer value.
+
+    ``number:valid``
+        All valid digit characters. This defaults to a string of ASCII number characters. This can be set to
+        a null value to disable any checking of the number character rules.
+
+The following example shows setting a password policy on the Cortex with the following policy:
+
+* Maximum of three failed password login attempts before locking.
+
+* Keep the previous two passwords to prevent password reuse.
+
+* Complexity rules:
+
+    * Require at least 12 total characters.
+
+    * Disallow sequences of more than 3 characters in a row.
+
+    * Require at least two uppercase characters.
+
+    * Require at least two lowercase characters.
+
+    * Specify a custom set of lowercase characters to check against (ASCII & some unicode characters).
+
+    * Require at least two special characters.
+
+    * Require at least two numbers.
+
+The following Compose file shows using the policy:
+
+::
+
+    services:
+      00.cortex:
+        user: "999"
+        image: vertexproject/synapse-cortex:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+            - ./storage:/vertex/storage
+        environment:
+            SYN_CORTEX_AXON: aha://axon...
+            SYN_CORTEX_JSONSTOR: aha://jsonstor...
+            SYN_CORTEX_AUTH_PASSWD_POLICY: '{"complexity": {"length": 12, "sequences": 3, "upper:count": 2, "lower:count": 2, "lower:valid": "abcdefghijklmnopqrstuvwxyzαβγ", "special:count": 2, "number:count": 2}, "attempts": 3, "previous": 2}'
+
+Attempting to set a user password which fails to meet the complexity requirements would produce an error::
+
+    storm> auth.user.mod lowuser --passwd hehe
+    ERROR: Cannot change password due to the following policy violations:
+      - Password must be at least 12 characters.
+      - Password must contain at least 2 uppercase characters, 0 found.
+      - Password must contain at least 2 special characters, 0 found.
+      - Password must contain at least 2 digit characters, 0 found.
+    complete. 0 nodes in 146 ms (0/sec).
+
+
 .. _devops-task-aha:
 
 Updating to AHA and Telepath TLS

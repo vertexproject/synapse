@@ -862,7 +862,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.httpextapidb = self.slab.initdb('http:ext:apis')
 
         if self.inaugural:
-            await self.cellinfo.set('cortex:version', s_version.version)
+            self.cellinfo.set('cortex:version', s_version.version)
 
         corevers = self.cellinfo.get('cortex:version')
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
@@ -886,7 +886,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
-        self.stormvars = None   # type: s_hive.HiveDict
+        self.stormvars = None   # type: s_lmdbslab.SafeKeyVal
 
         self.svcsbyiden = {}
         self.svcsbyname = {}
@@ -928,7 +928,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
 
-        await self._initCoreHive()
+        self.cortexdata = self.slab.getSafeKeyVal('cortex')
+
+        await self._initCoreInfo()
         self._initStormLibs()
         self._initFeedFuncs()
 
@@ -946,6 +948,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:extmodel', (
             (1, self._migrateTaxonomyIface),
+        ), nexs=False)
+
+        await self._bumpCellVers('cortex:storage', (
+            (1, self._storUpdateMacros),
+            (4, self._storCortexHiveMigration),
         ), nexs=False)
 
         # Perform module loading
@@ -966,8 +973,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initOAuthManager()
 
-        stormdmonhive = await self.hive.open(('cortex', 'storm', 'dmons'))
-        self.stormdmonhive = await stormdmonhive.dict()
+        self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
 
@@ -978,15 +984,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initRuntFuncs()
 
-        taghive = await self.hive.open(('cortex', 'tagmeta'))
-        cmdhive = await self.hive.open(('cortex', 'storm', 'cmds'))
-        pkghive = await self.hive.open(('cortex', 'storm', 'packages'))
-        svchive = await self.hive.open(('cortex', 'storm', 'services'))
-
-        self.taghive = await taghive.dict()
-        self.cmdhive = await cmdhive.dict()
-        self.pkghive = await pkghive.dict()
-        self.svchive = await svchive.dict()
+        self.tagmeta = self.cortexdata.getSubKeyVal('tagmeta:')
+        self.cmddefs = self.cortexdata.getSubKeyVal('storm:cmds:')
+        self.pkgdefs = self.cortexdata.getSubKeyVal('storm:packages:')
+        self.svcdefs = self.cortexdata.getSubKeyVal('storm:services:')
 
         await self._initDeprLocks()
         await self._warnDeprLocks()
@@ -1002,29 +1003,87 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # TODO - Remove this in 3.0.0
         ag = await self.auth.addAuthGate('cortex', 'cortex')
-        for (useriden, user) in ag.gateusers.items():
+        for useriden in ag.gateusers.keys():
+            user = self.auth.user(useriden)
+            if user is None:
+                continue
+
             mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
             logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
-        for (roleiden, role) in ag.gateroles.items():
+        for roleiden in ag.gateroles.keys():
+            role = self.auth.role(roleiden)
+            if role is None:
+                continue
+
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
             logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
 
         self._initVaults()
 
-        await self._bumpCellVers('cortex:storage', (
-            (1, self._storUpdateMacros),
-            (2, self._storLayrFeedDefaults),
-            (3, self._updateTriggerViewIdens),
-        ), nexs=False)
+    async def _storCortexHiveMigration(self):
 
-    async def _updateTriggerViewIdens(self):
-        for view in self.views.values():
-            for trigiden, trigger in await view.listTriggers():
-                if trigger.get('view') != view.iden:
-                    trigger.tdef['view'] = view.iden
-                    await view.trigdict.set(trigiden, trigger.tdef)
+        logger.warning('migrating Cortex data out of hive')
+
+        viewdefs = self.cortexdata.getSubKeyVal('view:info:')
+        async with await self.hive.open(('cortex', 'views')) as viewnodes:
+            for view_iden, node in viewnodes:
+                viewdict = await node.dict()
+                viewinfo = viewdict.pack()
+                viewinfo.setdefault('iden', view_iden)
+                viewdefs.set(view_iden, viewinfo)
+
+                trigdict = self.cortexdata.getSubKeyVal(f'view:{view_iden}:trigger:')
+                async with await node.open(('triggers',)) as trignodes:
+                    for iden, trig in trignodes:
+                        valu = trig.valu
+                        if valu.get('view', s_common.novalu) != view_iden:
+                            valu['view'] = view_iden
+                        trigdict.set(iden, valu)
+
+        layrdefs = self.cortexdata.getSubKeyVal('layer:info:')
+        async with await self.hive.open(('cortex', 'layers')) as layrnodes:
+            for iden, node in layrnodes:
+                layrdict = await node.dict()
+                layrinfo = layrdict.pack()
+                pushs = layrinfo.get('pushs', {})
+                if pushs:
+                    for pdef in pushs.values():
+                        pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                        pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+
+                pulls = layrinfo.get('pulls', {})
+                if pulls:
+                    pulls = layrinfo.get('pulls', {})
+                    for pdef in pulls.values():
+                        pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
+                        pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
+
+                layrdefs.set(iden, layrinfo)
+
+        migrs = (
+            (('agenda', 'appts'), 'agenda:appt:'),
+            (('cortex', 'tagmeta'), 'tagmeta:'),
+            (('cortex', 'storm', 'cmds'), 'storm:cmds:'),
+            (('cortex', 'storm', 'vars'), 'storm:vars:'),
+            (('cortex', 'storm', 'dmons'), 'storm:dmons:'),
+            (('cortex', 'storm', 'packages'), 'storm:packages:'),
+            (('cortex', 'storm', 'services'), 'storm:services:'),
+            (('cortex', 'model', 'forms'), 'model:forms:'),
+            (('cortex', 'model', 'props'), 'model:props:'),
+            (('cortex', 'model', 'univs'), 'model:univs:'),
+            (('cortex', 'model', 'tagprops'), 'model:tagprops:'),
+            (('cortex', 'model', 'deprlocks'), 'model:deprlocks:'),
+        )
+
+        for hivepath, kvpref in migrs:
+            subkv = self.cortexdata.getSubKeyVal(kvpref)
+            async with await self.hive.open(hivepath) as hivenode:
+                for name, node in hivenode:
+                    subkv.set(name, node.valu)
+
+        logger.warning('...Cortex data migration complete!')
 
     async def _viewNomergeToProtected(self):
         for view in self.views.values():
@@ -1454,26 +1513,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         role = await self.auth.getRoleByName('all')
         await role.addRule((True, ('layer', 'read')), gateiden=layriden)
 
-    async def _storLayrFeedDefaults(self):
-
-        for layer in list(self.layers.values()):
-            layrinfo = layer.layrinfo  # type: s_hive.HiveDict
-
-            pushs = layrinfo.get('pushs', {})
-            if pushs:
-                for pdef in pushs.values():
-                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
-                await layrinfo.set('pushs', pushs, nexs=False)
-
-            pulls = layrinfo.get('pulls', {})
-            if pulls:
-                pulls = layrinfo.get('pulls', {})
-                for pdef in pulls.values():
-                    pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                    pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
-                await layrinfo.set('pulls', pulls, nexs=False)
-
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
@@ -1603,8 +1642,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = 'setDeprLock() called on non-existant or non-deprecated form, property, or type.'
             raise s_exc.NoSuchProp(name=name, mesg=mesg)
 
-        self.deprlocks[name] = locked
-        await self.hive.set(('cortex', 'model', 'deprlocks'), self.deprlocks)
+        self.deprlocks.set(name, locked)
 
         for elem in todo:
             elem.locked = locked
@@ -1910,14 +1948,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await core.setTagModel("cno.cve", "regex", (None, None, "[0-9]{4}", "[0-9]{5}"))
 
         '''
-        meta = self.taghive.get(tagname)
+        meta = self.tagmeta.get(tagname)
         if meta is None:
             meta = {}
 
         meta[name] = valu
         reqValidTagModel(meta)
 
-        await self.taghive.set(tagname, meta)
+        self.tagmeta.set(tagname, meta)
 
         # clear cached entries
         if name == 'regex':
@@ -1933,7 +1971,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Arguments:
             tagname (str): The name of the tag.
         '''
-        await self.taghive.pop(tagname)
+        self.tagmeta.pop(tagname)
         self.tagvalid.clear()
         self.tagprune.clear()
 
@@ -1950,12 +1988,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (object): The current value of the property.
         '''
 
-        meta = self.taghive.get(tagname)
+        meta = self.tagmeta.get(tagname)
         if meta is None:
             return None
 
         retn = meta.pop(name, None)
-        await self.taghive.set(name, meta)
+        self.tagmeta.set(tagname, meta)
 
         if name == 'regex':
             self.tagvalid.clear()
@@ -1978,7 +2016,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         parts = s_chop.tagpath(tagname)
         for tag in s_chop.tags(tagname):
 
-            meta = self.taghive.get(tag)
+            meta = self.tagmeta.get(tag)
             if meta is None:
                 continue
 
@@ -2011,7 +2049,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 prune.append(tag)
                 continue
 
-            meta = self.taghive.get(tag)
+            meta = self.tagmeta.get(tag)
             if meta is None:
                 continue
 
@@ -2033,7 +2071,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns:
             (dict): The tag model specification or None.
         '''
-        retn = self.taghive.get(tagname)
+        retn = self.tagmeta.get(tagname)
         if retn is not None:
             return dict(retn)
 
@@ -2044,7 +2082,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns:
             ([(str, dict), ...]): A list of tag model specification tuples.
         '''
-        return list(self.taghive.items())
+        return list(self.tagmeta.items())
 
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
@@ -2090,7 +2128,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initStormDmons(self):
 
-        for iden, ddef in self.stormdmonhive.items():
+        for iden, ddef in self.stormdmondefs.items():
             try:
                 await self.runStormDmon(iden, ddef)
 
@@ -2102,7 +2140,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initStormSvcs(self):
 
-        for iden, sdef in self.svchive.items():
+        for iden, sdef in self.svcdefs.items():
 
             try:
                 await self._setStormSvc(sdef)
@@ -2165,7 +2203,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         name = cdef.get('name')
         await self._setStormCmd(cdef)
-        await self.cmdhive.set(name, cdef)
+        self.cmddefs.set(name, cdef)
 
     async def _reqStormCmd(self, cdef):
 
@@ -2501,12 +2539,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if ctor is None:
             return
 
-        cdef = self.cmdhive.get(name)
+        cdef = self.cmddefs.get(name)
         if cdef is None:
             mesg = f'The storm command ({name}) is not dynamic.'
             raise s_exc.CantDelCmd(mesg=mesg)
 
-        await self.cmdhive.pop(name)
+        self.cmddefs.pop(name)
         self.stormcmds.pop(name, None)
 
         await self.fire('core:cmd:change', cmd=name, act='del')
@@ -2561,7 +2599,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('pkg:add')
     async def _addStormPkg(self, pkgdef):
         name = pkgdef.get('name')
-        olddef = self.pkghive.get(name, None)
+        olddef = self.pkgdefs.get(name, None)
         if olddef is not None:
             if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
                 await self._dropStormPkg(olddef)
@@ -2569,7 +2607,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
         await self.loadStormPkg(pkgdef)
-        await self.pkghive.set(name, pkgdef)
+        self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
 
@@ -2582,7 +2620,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('pkg:add', pkgdef, gates=gates, perms=perms)
 
     async def delStormPkg(self, name):
-        pkgdef = self.pkghive.get(name, None)
+        pkgdef = self.pkgdefs.get(name)
         if pkgdef is None:
             mesg = f'No storm package: {name}.'
             raise s_exc.NoSuchPkg(mesg=mesg)
@@ -2594,7 +2632,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete a storm package by name.
         '''
-        pkgdef = await self.pkghive.pop(name, None)
+        pkgdef = self.pkgdefs.pop(name, None)
         if pkgdef is None:
             return
 
@@ -2617,7 +2655,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self._getStormPkgs()
 
     def _getStormPkgs(self):
-        return copy.deepcopy(list(self.pkghive.values()))
+        return copy.deepcopy(list(self.pkgdefs.values()))
 
     async def getStormMods(self):
         return copy.deepcopy(self.stormmods)
@@ -2932,13 +2970,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return ssvc.sdef
 
         ssvc = await self._setStormSvc(sdef)
-        await self.svchive.set(iden, sdef)
+        self.svcdefs.set(iden, sdef)
 
         await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden})
         return ssvc.sdef
 
     async def delStormSvc(self, iden):
-        sdef = self.svchive.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg, iden=iden)
@@ -2950,7 +2988,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Delete a registered storm service from the cortex.
         '''
-        sdef = self.svchive.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:  # pragma: no cover
             return
 
@@ -2962,7 +3000,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
 
-        sdef = await self.svchive.pop(iden)
+        sdef = self.svcdefs.pop(iden)
 
         await self._delStormSvcPkgs(iden)
 
@@ -2988,7 +3026,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def getStormSvcPkgs(self, iden):
         pkgs = []
-        for _, pdef in self.pkghive.items():
+        for _, pdef in self.pkgdefs.items():
             pkgiden = pdef.get('svciden')
             if pkgiden and pkgiden == iden:
                 pkgs.append(pdef)
@@ -3025,17 +3063,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns:
             dict: An updated storm service definition dictionary.
         '''
-        sdef = self.svchive.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
         sdef['evts'] = edef
-        await self.svchive.set(iden, sdef)
+        self.svcdefs.set(iden, sdef)
         return sdef
 
     async def _runStormSvcAdd(self, iden):
-        sdef = self.svchive.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
@@ -3052,12 +3090,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         sdef['added'] = True
-        await self.svchive.set(iden, sdef)
+        self.svcdefs.set(iden, sdef)
 
     async def runStormSvcEvent(self, iden, name):
         assert name in ('add', 'del')
 
-        sdef = self.svchive.get(iden)
+        sdef = self.svcdefs.get(iden)
         if sdef is None:
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
@@ -3090,15 +3128,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     # Global stormvars APIs
 
     async def getStormVar(self, name, default=None):
-        return self.stormvars.get(name, default=default)
+        return self.stormvars.get(name, defv=default)
 
     @s_nexus.Pusher.onPushAuto('stormvar:pop')
     async def popStormVar(self, name, default=None):
-        return await self.stormvars.pop(name, default=default)
+        return self.stormvars.pop(name, defv=default)
 
     @s_nexus.Pusher.onPushAuto('stormvar:set')
     async def setStormVar(self, name, valu):
-        return await self.stormvars.set(name, valu)
+        return self.stormvars.set(name, valu)
 
     async def itemsStormVar(self):
         for item in self.stormvars.items():
@@ -3130,10 +3168,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _loadExtModel(self):
 
-        self.extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
-        self.extprops = await (await self.hive.open(('cortex', 'model', 'props'))).dict()
-        self.extunivs = await (await self.hive.open(('cortex', 'model', 'univs'))).dict()
-        self.exttagprops = await (await self.hive.open(('cortex', 'model', 'tagprops'))).dict()
+        self.extforms = self.cortexdata.getSubKeyVal('model:forms:')
+        self.extprops = self.cortexdata.getSubKeyVal('model:props:')
+        self.extunivs = self.cortexdata.getSubKeyVal('model:univs:')
+        self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
 
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             try:
@@ -3312,7 +3350,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.addUnivProp(name, tdef, info)
 
-        await self.extunivs.set(name, (name, tdef, info))
+        self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
         base = '.' + name
         univ = self.model.univ(base)
@@ -3354,7 +3392,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.model.addType(formname, basetype, typeopts, typeinfo)
         self.model.addForm(formname, {}, ())
 
-        await self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
+        self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
         form = self.model.form(formname)
         ftyp = self.model.type(formname)
@@ -3384,7 +3422,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.model.delForm(formname)
         self.model.delType(formname)
 
-        await self.extforms.pop(formname, None)
+        self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
 
@@ -3420,7 +3458,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.warning(mesg)
 
         full = f'{form}:{prop}'
-        await self.extprops.set(full, (form, prop, tdef, info))
+        self.extprops.set(full, (form, prop, tdef, info))
         await self.fire('core:extmodel:change', form=form, prop=prop, act='add', type='formprop')
         prop = self.model.prop(full)
         if prop:
@@ -3453,7 +3491,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
-        await self.extprops.pop(full, None)
+        self.extprops.pop(full, None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
 
@@ -3483,7 +3521,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.CantDelUniv(mesg=mesg)
 
         self.model.delUnivProp(prop)
-        await self.extunivs.pop(prop, None)
+        self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.feedBeholder('model:univ:del', {'prop': univname})
 
@@ -3508,7 +3546,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.addTagProp(name, tdef, info)
 
-        await self.exttagprops.set(name, (name, tdef, info))
+        self.exttagprops.set(name, (name, tdef, info))
         await self.fire('core:tagprop:change', name=name, act='add')
         tagp = self.model.tagprop(name)
         if tagp:
@@ -3535,7 +3573,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delTagProp(name)
 
-        await self.exttagprops.pop(name, None)
+        self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
@@ -3826,15 +3864,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         await self.waitfini(1)
 
-    async def _initCoreHive(self):
-        stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
-        self.stormvars = await stormvarsnode.dict()
+    async def _initCoreInfo(self):
+        self.stormvars = self.cortexdata.getSubKeyVal('storm:vars:')
         if self.inaugural:
-            await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
-        self.onfini(self.stormvars)
+            self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
 
     async def _initDeprLocks(self):
-        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})  # type: s_hive.Node
+        self.deprlocks = self.cortexdata.getSubKeyVal('model:deprlocks:')
         # TODO: 3.0.0 conversion will truncate this hive key
 
         if self.inaugural:
@@ -4067,18 +4103,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initPureStormCmds(self):
         oldcmds = []
-        for name, cdef in self.cmdhive.items():
+        for name, cdef in self.cmddefs.items():
             cmdiden = cdef.get('cmdconf', {}).get('svciden')
-            if cmdiden and self.svchive.get(cmdiden) is None:
+            if cmdiden and self.svcdefs.get(cmdiden) is None:
                 oldcmds.append(name)
             else:
                 await self._trySetStormCmd(name, cdef)
 
         for name in oldcmds:
             logger.warning(f'Removing old command: [{name}]')
-            await self.cmdhive.pop(name)
+            self.cmddefs.pop(name)
 
-        for pkgdef in self.pkghive.values():
+        for pkgdef in self.pkgdefs.values():
             await self._tryLoadStormPkg(pkgdef)
 
     async def _trySetStormCmd(self, name, cdef):
@@ -4404,9 +4440,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mrev = s_modelrev.ModelRev(self)
             await mrev.revCoreLayers()
 
-    async def _loadView(self, node):
+    async def _loadView(self, vdef):
 
-        view = await self.viewctor(self, node)
+        view = await self.viewctor(self, vdef)
 
         self.views[view.iden] = view
         self.dynitems[view.iden] = view
@@ -4430,8 +4466,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         defiden = self.cellinfo.get('defaultview')
 
-        for iden, node in await self.hive.open(('cortex', 'views')):
-            view = await self._loadView(node)
+        self.viewdefs = self.cortexdata.getSubKeyVal('view:info:')
+
+        for iden, vdef in self.viewdefs.items():
+            view = await self._loadView(vdef)
             if iden == defiden:
                 self.view = view
 
@@ -4455,7 +4493,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             }
             vdef = await self.addView(vdef, nexs=False)
             iden = vdef.get('iden')
-            await self.cellinfo.set('defaultview', iden)
+            self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
 
         self._calcViewsByLayer()
@@ -4502,13 +4540,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             role = await self.auth.getRoleByName('all')
             await role.addRule((True, ('view', 'read')), gateiden=iden, nexs=False)
 
-        node = await self.hive.open(('cortex', 'views', iden))
+        self.viewdefs.set(iden, vdef)
 
-        info = await node.dict()
-        for name, valu in vdef.items():
-            await info.set(name, valu)
-
-        view = await self._loadView(node)
+        view = await self._loadView(vdef)
         view.init2()
 
         self._calcViewsByLayer()
@@ -4568,8 +4602,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             view.layers = [lyr for lyr in view.layers if lyr.iden != layriden]
+
             layridens = [lyr.iden for lyr in view.layers]
-            await view.info.set('layers', layridens)
+            view.info['layers'] = layridens
 
             mesg = {'iden': view.iden, 'layers': layridens}
             await self.feedBeholder('view:setlayers', mesg, gates=[view.iden, layridens[0]])
@@ -4577,13 +4612,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if view.parent.iden == viewiden:
                 if newparent is None:
                     view.parent = None
-                    await view.info.pop('parent')
+                    view.info['parent'] = None
                 else:
                     view.parent = newview
-                    await view.info.set('parent', newparent)
+                    view.info['parent'] = newparent
 
                 mesg = {'iden': view.iden, 'name': 'parent', 'valu': newparent}
                 await self.feedBeholder('view:set', mesg, gates=[view.iden, layridens[0]])
+
+            self.viewdefs.set(view.iden, view.info)
 
         if not layrinuse and (layr := self.layers.get(layriden)) is not None:
             del self.layers[layriden]
@@ -4634,7 +4671,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if cview.parent is not None and cview.parent.iden == iden:
                 raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
-        await self.hive.pop(('cortex', 'views', iden))
+        self.viewdefs.pop(iden)
         await view.delete()
 
         self._calcViewsByLayer()
@@ -4670,7 +4707,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
 
-        await self.hive.pop(('cortex', 'layers', iden))
+        self.layerdefs.delete(iden)
 
         await layr.delete()
 
@@ -4832,13 +4869,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         user = await self.auth.reqUser(creator)
 
-        node = await self.hive.open(('cortex', 'layers', iden))
+        self.layerdefs.set(iden, ldef)
 
-        layrinfo = await node.dict()
-        for name, valu in ldef.items():
-            await layrinfo.set(name, valu)
-
-        layr = await self._initLayr(layrinfo, nexsoffs=nexsitem[0])
+        layr = await self._initLayr(ldef, nexsoffs=nexsitem[0])
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
@@ -4904,10 +4937,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await s_layer.Layer.anit(self, layrinfo)
 
     async def _initCoreLayers(self):
-        node = await self.hive.open(('cortex', 'layers'))
-        for _, node in node:
-            layrinfo = await node.dict()
-            await self._initLayr(layrinfo)
+        self.layerdefs = self.cortexdata.getSubKeyVal('layer:info:')
+        for ldef in self.layerdefs.values():
+            await self._initLayr(ldef)
 
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
@@ -4930,7 +4962,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         pushs[iden] = pdef
 
-        await layr.layrinfo.set('pushs', pushs)
+        layr.layrinfo['pushs'] = pushs
+        self.layerdefs.set(layr.iden, layr.layrinfo)
+
         await self.runLayrPush(layr, pdef)
 
     @s_nexus.Pusher.onPushAuto('layer:push:del')
@@ -4948,7 +4982,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pdef is None:
             return
 
-        await layr.layrinfo.set('pushs', pushs)
+        layr.layrinfo['pushs'] = pushs
+        self.layerdefs.set(layr.iden, layr.layrinfo)
+
         await self.delActiveCoro(pushiden)
 
     @s_nexus.Pusher.onPushAuto('layer:pull:add')
@@ -4971,7 +5007,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         pulls[iden] = pdef
-        await layr.layrinfo.set('pulls', pulls)
+
+        layr.layrinfo['pulls'] = pulls
+        self.layerdefs.set(layr.iden, layr.layrinfo)
 
         await self.runLayrPull(layr, pdef)
 
@@ -4990,7 +5028,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pdef is None:
             return
 
-        await layr.layrinfo.set('pulls', pulls)
+        layr.layrinfo['pulls'] = pulls
+        self.layerdefs.set(layr.iden, layr.layrinfo)
+
         await self.delActiveCoro(pulliden)
 
     async def runLayrPush(self, layr, pdef):
@@ -5111,24 +5151,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         newpath = s_common.gendir(self.dirn, 'layers', newiden)
         await layr.clone(newpath)
 
-        node = await self.hive.open(('cortex', 'layers', iden))
-        copynode = await self.hive.open(('cortex', 'layers', newiden))
+        copyinfo = self.layerdefs.get(iden)
 
-        layrinfo = await node.dict()
-        copyinfo = await copynode.dict()
-        for name, valu in layrinfo.items():
-            await copyinfo.set(name, valu)
+        for name, valu in copyinfo.items():
+            ldef.setdefault(name, valu)
 
-        for name, valu in ldef.items():
-            await copyinfo.set(name, valu)
+        self.layerdefs.set(newiden, ldef)
 
-        copylayr = await self._initLayr(copyinfo, nexsoffs=nexsitem[0])
+        copylayr = await self._initLayr(ldef, nexsoffs=nexsitem[0])
 
         creator = copyinfo.get('creator')
         user = await self.auth.reqUser(creator)
         await user.setAdmin(True, gateiden=newiden, logged=False)
 
-        return await copylayr.pack()
+        return ldef
 
     def addStormCmd(self, ctor):
         '''
@@ -5154,7 +5190,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
     async def bumpStormDmon(self, iden):
-        ddef = self.stormdmonhive.get(iden)
+        ddef = self.stormdmondefs.get(iden)
         if ddef is None:
             return False
 
@@ -5171,7 +5207,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (str): User iden.
         '''
-        for dmoniden, ddef in list(self.stormdmonhive.items()):
+        for dmoniden, ddef in list(self.stormdmondefs.items()):
             if ddef.get('user') == iden:
                 await self.bumpStormDmon(dmoniden)
 
@@ -5187,7 +5223,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon.enabled = True
         dmon.ddef['enabled'] = True
 
-        await self.stormdmonhive.set(iden, dmon.ddef)
+        self.stormdmondefs.set(iden, dmon.ddef)
 
         if self.isactive:
             await dmon.run()
@@ -5207,7 +5243,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         dmon.enabled = False
         dmon.ddef['enabled'] = False
 
-        await self.stormdmonhive.set(iden, dmon.ddef)
+        self.stormdmondefs.set(iden, dmon.ddef)
 
         if self.isactive:
             await dmon.stop()
@@ -5228,14 +5264,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         dmon = await self.runStormDmon(iden, ddef)
 
-        await self.stormdmonhive.set(iden, ddef)
+        self.stormdmondefs.set(iden, ddef)
         return dmon.pack()
 
     async def delStormDmon(self, iden):
         '''
         Stop and remove a storm dmon.
         '''
-        ddef = self.stormdmonhive.get(iden)
+        ddef = self.stormdmondefs.get(iden)
         if ddef is None:
             mesg = f'No storm daemon exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -5244,7 +5280,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
-        ddef = await self.stormdmonhive.pop(iden)
+        ddef = self.stormdmondefs.pop(iden)
         if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)
