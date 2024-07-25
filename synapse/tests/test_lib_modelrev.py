@@ -564,7 +564,10 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_27(self):
 
         async with self.getRegrCore('model-0.2.27', maxvers=(0, 2, 24)) as core:
-            # Do some pre-migration validation of the cortex
+            # Do some pre-migration validation of the cortex. It's still a
+            # little weird in here because the CPE types have been updated so
+            # some lifting/pivoting won't work right.
+
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(2, views)
 
@@ -582,12 +585,30 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('risk:vuln', s_common.guid(('risk', 'vuln'))))
 
-            nodes = await core.nodes('it:sec:cpe -> risk:vulnerable | uniq')
-            breakpoint()
+            nodes = await core.nodes('risk:vulnerable')
             self.len(11, nodes)
+            for node in nodes:
+                self.nn(node.get('node'))
 
             nodes = await core.nodes(r'it:sec:cpe:vendor="d\-link"')
             self.len(1, nodes)
+
+            nodes = await core.nodes('it:prod:soft', opts=infork00)
+            self.len(4, nodes)
+            for node in nodes:
+                self.isin('test.prod', node.tags)
+                self.nn(node.get('cpe'))
+
+            nodes = await core.nodes('inet:flow', opts=infork00)
+            self.len(4, nodes)
+            for node in nodes:
+                self.isin('test.flow', node.tags)
+                dsts = node.get('dst:cpes')
+                srcs = node.get('src:cpes')
+                self.true((
+                    (dsts is not None and len(dsts) == 2) or
+                    (srcs is not None and len(srcs) == 2)
+                ), msg=node)
 
             nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe', opts=infork00)
             self.len(5, nodes)
