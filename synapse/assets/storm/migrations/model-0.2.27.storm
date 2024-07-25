@@ -31,7 +31,7 @@ function getRefInfo(formname) {
 }
 
 
-function removeNode(n) {
+function removeNode(n, viewiden, layriden) {
 
     $sources = ([])
 
@@ -86,7 +86,7 @@ function removeNode(n) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$formname}:{$propname} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node)
+                            $removeNode($node, $view.iden, $view.layers.0.iden)
                             | delnode |
                             continue
                         }
@@ -207,26 +207,20 @@ function removeNode(n) {
         "form": $form,
         "repr": $repr,
         "props": $n.props,
-        "view": $view.iden,
-        "layer": $lib.layer.get().iden,
+        "view": $viewiden,
+        "layer": $layriden,
         "tags": $n.tags(),
         "data": $n.data.list(),
         "sources": $sources,
     })
 
     $nodeq.put($item)
-    return()
+    return($sources)
 }
 
-function makeCpeNode(valu) {
-    [ it:sec:cpe=$valu ]
-    return($node)
-}
+function migrateCpeNode(oldcpe, newcpe) {
 
-function migrateCpeNode(oldcpe, newvalu) {
-
-    // Create the new CPE node and migrate the edges, tags, and data
-    $newcpe = $makeCpeNode($newvalu)
+    // migrate the edges, tags, and data
     $lib.model.migration.copyEdges($oldcpe, $newcpe)
     $lib.model.migration.copyTags($oldcpe, $newcpe)
     $lib.model.migration.copyData($oldcpe, $newcpe)
@@ -275,7 +269,7 @@ function migrateCpeNode(oldcpe, newvalu) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node)
+                            $removeNode($node, $view.iden, $view.layers.0.iden)
                             | delnode
 
                         }
@@ -288,51 +282,66 @@ function migrateCpeNode(oldcpe, newvalu) {
     return()
 }
 
-for $view in $lib.view.list(deporder=$lib.true) {
+// This is a separate function because I was getting weird bugs from scoping
+// issues. Mainly, the $view variable being overwritten because this code was
+// scoped to the whole script.
+function main() {
 
-    if (not $layers.has($view.layers.0.iden)) { continue }
+    for $view in $lib.view.list(deporder=$lib.true) {
 
-    view.exec $view.iden {
+        if (not $layers.has($view.layers.0.iden)) { continue }
 
-        $layer = $lib.layer.get()
+        view.exec $view.iden {
 
-        for $oldcpe in $layer.liftByProp(it:sec:cpe) {
-            $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
+            $layer = $lib.layer.get()
 
-            $success = ($info.status = "success")
+            for $oldcpe in $layer.liftByProp(it:sec:cpe) {
+                $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
 
-            if $success {
-                // No primary property changes, nothing to do. Node has been fully migrated.
-                if (not $info.valu) {
-                    continue
+                $success = ($info.status = "success")
+
+                if $success {
+                    // No primary property changes, nothing to do. Node has been fully migrated.
+                    if (not $info.valu) {
+                        continue
+                    }
+
+                    /*
+                     * At this point, we have a node that can be fixed but
+                     * needs to be migrated to a new node because the primary
+                     * property needs to be changed. We'll create a new
+                     * (correct) node, and copy everything from the old node.
+                     * Then we complete the migration by iterating through
+                     * all the views to fix the references.
+                     */
+
+                    $lib.log.debug(`Migrating invalid it:sec:cpe node: {$oldcpe.repr()} -> {$info.valu}`)
+                    [ it:sec:cpe=$info.valu ]
+                    $migrateCpeNode($oldcpe, $node)
+
+                    $lib.log.debug(`Deleting invalid it:sec:cpe node: {$oldcpe.repr()}`)
+
+                    spin |
+
+                    iden $oldcpe.iden() |
+                    delnode --deledges --force
+
+                } else {
+
+                    // Node could not be automatically migrated. Collect
+                    // critical information to eventually reconstruct this node
+                    // and store it in a queue.
+
+                    $removeNode($oldcpe, $view.iden, $view.layers.0.iden)
+
+                    iden $oldcpe.iden() |
+                    delnode --deledges --force
                 }
-
-                /*
-                 * At this point, we have a node that can be fixed but
-                 * needs to be migrated to a new node because the primary
-                 * property needs to be changed. We'll create a new
-                 * (correct) node, and copy everything from the old node.
-                 * Then we complete the migration by iterating through
-                 * all the views to fix the references.
-                 */
-
-                $lib.log.debug(`Migrating invalid it:sec:cpe node: {$oldcpe.repr()} -> {$info.valu}`)
-                $migrateCpeNode($oldcpe, $info.valu)
-
-                $lib.log.debug(`Deleting invalid it:sec:cpe node: {$oldcpe.repr()}`)
-                iden $oldcpe.iden() | delnode --deledges --force
-
-            } else {
-
-                // Node could not be automatically migrated. Collect
-                // critical information to eventually reconstruct this node
-                // and store it in a queue.
-
-                $removeNode($oldcpe)
-
-                iden $oldcpe.iden() |
-                delnode --deledges --force
             }
         }
     }
+
+    return()
 }
+
+$main()
