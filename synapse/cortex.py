@@ -4581,7 +4581,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (view := self.views.get(viewiden)) is not None:
 
-            await self.hive.pop(('cortex', 'views', viewiden))
+            self.viewdefs.pop(viewiden)
             await view.delete()
 
             self._calcViewsByLayer()
@@ -4631,8 +4631,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.auth.delAuthGate(layriden)
             self.dynitems.pop(layriden)
 
-            await self.hive.pop(('cortex', 'layers', layriden))
-
+            self.layerdefs.pop(layriden)
             await layr.delete()
 
             layr.deloffs = nexsitem[0]
@@ -4703,7 +4702,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
 
-        self.layerdefs.delete(iden)
+        self.layerdefs.pop(iden)
 
         await layr.delete()
 
