@@ -1,0 +1,5 @@
+---
+desc: Catch Python ``TypeError`` exceptions that could be raised by ``$lib.base64.decode()`` and now raise ``StormRuntimeError`` detailing the problem..
+prs: []
+type: bug
+...
