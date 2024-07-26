@@ -1231,7 +1231,7 @@ class AhaCell(s_cell.Cell):
         hostname = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         hostpath = self.certdir.getHostCertPath(hostname)
-        if hostpath:
+        if hostpath is not None:
             os.unlink(hostpath)
 
         if signas is None:
@@ -1250,7 +1250,7 @@ class AhaCell(s_cell.Cell):
         username = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
         userpath = self.certdir.getUserCertPath(username)
-        if userpath:
+        if userpath is not None:
             os.unlink(userpath)
 
         if signas is None:
