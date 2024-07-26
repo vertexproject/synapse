@@ -963,7 +963,10 @@ class StormTest(s_t_utils.SynTest):
             oldlayr = await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts)
             msgs = await core.stormlist('inet:fqdn=hehehaha.com | merge --apply --wipe', opts=opts)
             self.stormHasNoWarnErr(msgs)
-            self.ne(oldlayr, await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts))
+            newlayr = await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts)
+            self.ne(oldlayr, newlayr)
+            await core.callStorm('$lib.view.get().swapLayer()', opts=opts)
+            self.ne(newlayr, await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts))
 
             self.len(0, await core.nodes('diff', opts=opts))
 
