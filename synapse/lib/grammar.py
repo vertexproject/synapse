@@ -15,6 +15,8 @@ formrestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+'
 formre = regex.compile(formrestr)
 tagrestr = r'(\w+\.)*\w+'
 tagre = regex.compile(tagrestr)
+edgerestr = r'[\w\.:]+'
+edgere = regex.compile(tagrestr)
 basepropnopivpropstr = r'[a-z_][a-z0-9_]*(?:(\:|\.)[a-z_][a-z0-9_]*)*'
 basepropnopivpropre = regex.compile(basepropnopivpropstr)
 
@@ -37,6 +39,9 @@ def isFormName(name):
 
 def isBasePropNoPivprop(name):
     return basepropnopivpropre.fullmatch(name) is not None
+
+def isEdgeVerb(verb):
+    return edgere.fullmatch(verb) is not None
 
 floatre = regex.compile(r'\s*-?\d+(\.\d+)?([eE][-+]\d+)?')
 

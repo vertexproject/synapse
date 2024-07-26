@@ -120,6 +120,18 @@ class StormtypesModelextTest(s_test.SynTest):
                 q = '''$lib.model.ext.addEdge(*, does, *, ({}))'''
                 await core.callStorm(q)
 
+            with self.raises(s_exc.BadEdgeDef):
+                q = '''$lib.model.ext.addEdge(*, _NEWP, *, ({}))'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadEdgeDef):
+                q = '''$lib.model.ext.addEdge(*, "_ne wp", *, ({}))'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadEdgeDef):
+                q = '''$lib.model.ext.delEdge(*, "_ne wp", *)'''
+                await core.callStorm(q)
+
             # Permission errors
             visi = await core.auth.addUser('visi')
             opts = {'user': visi.iden}

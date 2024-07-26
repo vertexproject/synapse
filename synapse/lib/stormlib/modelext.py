@@ -193,7 +193,9 @@ class LibModelExt(s_stormtypes.Lib):
         n2form = await s_stormtypes.tostr(n2form, noneok=True)
         edgeinfo = await s_stormtypes.toprim(edgeinfo)
 
-        # TODO do we want to strip/tolower verbs?
+        if not (s_grammar.isEdgeVerb(verb) and verb.islower()):
+            mesg = f'Invalid edge verb {verb}'
+            raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
 
         if n1form == '*':
             n1form = None
@@ -208,6 +210,10 @@ class LibModelExt(s_stormtypes.Lib):
         verb = await s_stormtypes.tostr(verb)
         n1form = await s_stormtypes.tostr(n1form, noneok=True)
         n2form = await s_stormtypes.tostr(n2form, noneok=True)
+
+        if not (s_grammar.isEdgeVerb(verb) and verb.islower()):
+            mesg = f'Invalid edge verb {verb}'
+            raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
 
         if n1form == '*':
             n1form = None
