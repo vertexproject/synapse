@@ -1,0 +1,7 @@
+---
+desc: Add .model.ext.addEdge() and delEdge() APIs for managing extended model edge
+  definitions.
+prs:
+- 3824
+type: feat
+...

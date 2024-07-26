@@ -1,5 +1,5 @@
 ---
-desc: Add a new Cell configuration option, auth:password:policy. This can be used
+desc: Add a new Cell configuration option, ``auth:password:policy``. This can be used
   to configure password policy options for authentication.
 prs:
 - 3698
