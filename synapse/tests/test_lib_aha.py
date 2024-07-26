@@ -14,7 +14,6 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 
 import synapse.tools.aha.list as s_a_list
-import synapse.tools.backup as s_tools_backup
 
 import synapse.tools.aha.enroll as s_tools_enroll
 import synapse.tools.aha.provision.user as s_tools_provision_user
@@ -1250,3 +1249,42 @@ class AhaTest(s_test.SynTest):
                     prox = self.nn(await asyncio.wait_for(core00.axon.proxy(), timeout=12))
                     unfo = await prox.getCellUser()
                     self.eq(unfo.get('name'), user)
+
+    async def test_aha_cell_with_tcp(self):
+        # It's an older code, sir, but it checks out.
+        # This should be removed in Synapse v3.0.0
+
+        with self.getTestDir() as dirn:
+            ahadir = s_common.gendir(dirn, 'aha')
+            clldir = s_common.gendir(dirn, 'cell')
+            ahaconf = {
+                'aha:name': '00.aha',
+                'aha:network': 'loop.vertex.link',
+                'dmon:listen': 'tcp://127.0.0.1:0/',
+                'auth:passwd': 'secret',
+            }
+            async with await s_aha.AhaCell.anit(dirn=ahadir, conf=ahaconf) as aha:
+                urls = await aha.getAhaUrls()
+                self.len(1, urls)
+                self.true(urls[0].startswith('ssl://'))
+                ahaurl = f'tcp://root:secret@127.0.0.1:{aha.sockaddr[1]}/'
+                cllconf = {
+                    'aha:name': '00.cell',
+                    'aha:network': 'loop.vertex.link',
+                    'aha:registry': ahaurl,
+                    'dmon:listen': None,
+                }
+                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+                    self.eq(cell.conf.get('aha:registry'), ahaurl)
+
+                    prox = await cell.ahaclient.proxy()
+                    await prox.fini()
+                    self.false(cell.ahaclient._t_ready.is_set())
+
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+
+                # No change when restarting
+                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+                    self.eq(cell.conf.get('aha:registry'), ahaurl)
