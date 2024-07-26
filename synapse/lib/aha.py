@@ -153,6 +153,7 @@ class AhaApi(s_cell.CellApi):
         username = self.user.name.split('@')[0]
 
         if svcinfo.get('svcinfo'):
+            logger.info(f'Hinting {self.user.name} for {name}')
             svcinfo['svcinfo']['urlinfo']['user'] = username
 
         return svcinfo
@@ -359,6 +360,14 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.clearAhaUserEnrolls()
 
+    @s_cell.adminapi()
+    async def clearAhaClones(self):
+        '''
+        Remove all unused AHA clone provisioning values.
+        '''
+        return await self.cell.clearAhaClones()
+
+
 class ProvDmon(s_daemon.Daemon):
 
     async def __anit__(self, aha):
@@ -386,8 +395,8 @@ class ProvDmon(s_daemon.Daemon):
 
         clone = await self.aha.getAhaClone(name)
         if clone is not None:
-            mesg = f'Retrieved AHA clone info for {name}'
             host = clone.get('host')
+            mesg = f'Retrieved AHA clone info for {host} iden {name}'
             logger.info(mesg, extra=await self.aha.getLogExtra(iden=name, host=host))
             return CloneApi(self.aha, clone)
 
@@ -1221,8 +1230,8 @@ class AhaCell(s_cell.Cell):
 
         hostname = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
-        hostpath = s_common.genpath(self.dirn, 'certs', 'hosts', f'{hostname}.crt')
-        if os.path.isfile(hostpath):
+        hostpath = self.certdir.getHostCertPath(hostname)
+        if hostpath is not None:
             os.unlink(hostpath)
 
         if signas is None:
@@ -1240,8 +1249,8 @@ class AhaCell(s_cell.Cell):
 
         username = xcsr.subject.get_attributes_for_oid(c_x509.NameOID.COMMON_NAME)[0].value
 
-        userpath = s_common.genpath(self.dirn, 'certs', 'users', f'{username}.crt')
-        if os.path.isfile(userpath):
+        userpath = self.certdir.getUserCertPath(username)
+        if userpath is not None:
             os.unlink(userpath)
 
         if signas is None:
@@ -1304,6 +1313,10 @@ class AhaCell(s_cell.Cell):
             'conf': conf,
         }
         await self._push('aha:clone:add', clone)
+
+        logger.info(f'Created AHA clone provisioning for {host} with iden {iden}',
+                     extra=await self.getLogExtra(iden=iden, name=host, netw=network))
+
         return self._getProvClientUrl(iden)
 
     @s_nexus.Pusher.onPush('aha:clone:add')
@@ -1442,6 +1455,13 @@ class AhaCell(s_cell.Cell):
             self.slab.delete(iden, db='aha:enrolls')
             userinfo = s_msgpack.un(byts)
             logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
+
+    @s_nexus.Pusher.onPushAuto('aha:clone:clear')
+    async def clearAhaClones(self):
+        for lkey, byts in self.slab.scanByFull(db='aha:clones'):
+            self.slab.delete(lkey, db='aha:clones')
+            cloninfo = s_msgpack.un(byts)
+            logger.info(f'Deleted AHA clone enrollment username={cloninfo.get("host")}, iden={s_common.ehex(lkey)}')
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):

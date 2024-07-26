@@ -1429,8 +1429,16 @@ class SynTest(unittest.TestCase):
                 yield core, prox, testsvc
 
     @contextlib.contextmanager
-    def mayTestDir(self, dirn):
+    def mayTestDir(self, dirn: str | None) -> contextlib.AbstractContextManager[str, None, None]:
+        '''
+        Convenience method to make a temporary directory or use an existing one.
 
+        Args:
+            dirn: Directory to use, or None.
+
+        Returns:
+            The directory to use.
+        '''
         if dirn is not None:
             yield dirn
             return
@@ -1559,7 +1567,7 @@ class SynTest(unittest.TestCase):
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None) -> contextlib.AbstractContextManager[str, None, None]:
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.

@@ -1,0 +1,5 @@
+---
+desc: Deprecate the ``Cell.conf.reqConfValu()`` API. This has been replaced with ``Cell.conf.req()``.
+prs: []
+type: deprecation
+...

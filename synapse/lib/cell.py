@@ -1673,15 +1673,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahaurls = self.conf.get('aha:registry')
         if ahaurls is not None:
 
-            info = await s_telepath.addAhaUrl(ahaurls)
+            await s_telepath.addAhaUrl(ahaurls)
             if self.ahaclient is not None:
                 await self.ahaclient.fini()
 
             async def onlink(proxy):
                 ahauser = self.conf.get('aha:user', 'root')
                 newurls = await proxy.getAhaUrls(user=ahauser)
-                oldurls = tuple(self.conf.get('aha:registry'))
+                oldurls = self.conf.get('aha:registry')
+                if isinstance(oldurls, str):
+                    oldurls = (oldurls,)
+                elif isinstance(oldurls, list):
+                    oldurls = tuple(oldurls)
                 if newurls and newurls != oldurls:
+                    if oldurls[0].startswith('tcp://'):
+                        s_common.deprecated('aha:registry: tcp:// client values.')
+                        logger.warning('tcp:// based aha:registry options will be deprecated in Synapse v3.0.0')
+                        return
+
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
 
@@ -1694,8 +1703,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.ahaclient.onfini(fini)
 
         ahaadmin = self.conf.get('aha:admin')
+        ahauser = self.conf.get('aha:user')
+
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
+
+        if ahauser is not None:
+            await self._addAdminUser(ahauser)
 
     def _getDmonListen(self):
 
@@ -1741,7 +1755,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _bindDmonListen(self):
 
-        # functionalized so Raft code can bind early...
+        # functionalized so downstream code can bind early.
         if self.sockaddr is not None:
             return
 
