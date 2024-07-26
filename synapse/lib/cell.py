@@ -1689,10 +1689,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     if oldurls[0].startswith('tcp://'):
                         s_common.deprecated('aha:registry: tcp:// client values.')
                         logger.warning('tcp:// based aha:registry options will be deprecated in Synapse v3.0.0')
-                    else:
-                        logger.info('moding stuff')
-                        self.modCellConf({'aha:registry': newurls})
-                        self.ahaclient.setBootUrls(newurls)
+                        return
+
+                    self.modCellConf({'aha:registry': newurls})
+                    self.ahaclient.setBootUrls(newurls)
 
             self.ahaclient = await s_telepath.Client.anit(ahaurls, onlink=onlink)
             self.onfini(self.ahaclient)
