@@ -3286,6 +3286,16 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Error during base64 decoding - Incorrect padding', err[1].get('mesg'))
 
+            opts = {'vars': {'bytes': None}}
+            text = '[test:str=$lib.base64.decode($bytes)]'
+            mesgs = await core.stormlist(text, opts=opts)
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            emsg = "Error during base64 decoding - argument should be a bytes-like object or ASCII string, not 'NoneType'"
+            self.isin(emsg, err[1].get('mesg'))
+
     async def test_storm_lib_vars(self):
 
         async with self.getTestCore() as core:

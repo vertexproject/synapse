@@ -4138,7 +4138,7 @@ class LibBase64(Lib):
             if urlsafe:
                 return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
-        except binascii.Error as e:
+        except (binascii.Error, TypeError) as e:
             mesg = f'Error during base64 decoding - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 

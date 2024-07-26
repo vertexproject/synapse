@@ -1012,8 +1012,63 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Do not copy nodedata to the risk:vulnerable node.'},
                  ),
                  'returns': {'type': 'list', 'desc': 'A list of idens for the risk:vulnerable nodes.'}}},
+        {'name': 'inetSslCertToTlsServerCert', 'desc': '''
+            Create a inet:tls:servercert node from the provided inet:ssl:cert node.
+
+            Edits will be made to the inet:tls:servercert node in the current write layer.
+
+            Tags, tag properties, edges, and node data will be copied
+            to the inet:tls:servercert node. However, existing tag properties and
+            node data will not be overwritten.
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The inet:ssl:cert node to migrate.'},
+                      {'name': 'nodata', 'type': 'bool', 'default': False,
+                       'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
+                 ),
+                 'returns': {'type': 'node', 'desc': 'The newly created inet:tls:servercert node.'}}},
+
     )
     _storm_lib_path = ('model', 'migration', 's')
+    _storm_query = '''
+        function inetSslCertToTlsServerCert(n, nodata=$lib.false) {
+            $form = $n.form()
+            if ($form != 'inet:ssl:cert') {
+                $mesg = `$lib.model.migration.s.inetSslCertToTlsServerCert() only accepts inet:ssl:cert nodes, not {$form}`
+                $lib.raise(BadArg, $mesg)
+            }
+
+            $server = $n.props.server
+            $sha256 = { yield $n -> file:bytes -> hash:sha256 }
+
+            if $sha256 {
+
+                yield $lib.gen.inetTlsServerCertByServerAndSha256($server, $sha256)
+
+            } else {
+
+                // File doesn't have a :sha256, try to lift/create a crypto:x509:node based on the file link
+                $crypto = { yield $n -> file:bytes -> crypto:x509:cert:file }
+                if (not $crypto) {
+                    $crypto = {[ crypto:x509:cert=($n.props.file,) :file=$n.props.file ]}
+                }
+
+                [ inet:tls:servercert=($server, $crypto) ]
+
+            }
+
+            [ .seen ?= $n.props.".seen" ]
+
+            $lib.model.migration.copyTags($n, $node, overwrite=$lib.false)
+            $lib.model.migration.copyEdges($n, $node)
+            if (not $nodata) {
+                $lib.model.migration.copyData($n, $node, overwrite=$lib.false)
+            }
+
+            return($node)
+        }
+    '''
 
     def getObjLocals(self):
         return {

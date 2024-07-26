@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
@@ -245,3 +246,101 @@ class StormLibGenTest(s_test.SynTest):
             names = nodes[0].get('names')
             self.len(1, names)
             self.isin('rhodesia', names)
+
+    async def test_stormlib_gen_fileBytes(self):
+
+        async with self.getTestCore() as core:
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+
+            nodes = await core.nodes('yield $lib.gen.fileBytesBySha256($sha256)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('sha256'), sha256)
+
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+
+            q = '''
+                [ file:bytes=(file1,) :sha256=$sha256 ]
+                spin |
+                yield $lib.gen.fileBytesBySha256($sha256)
+            '''
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), 'guid:' + s_common.guid(('file1',)))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('$lib.gen.fileBytesBySha256(newp)', opts=opts)
+
+            q = 'return($lib.gen.fileBytesBySha256(newp, try=$lib.true))'
+            self.none(await core.callStorm(q, opts=opts))
+
+    async def test_stormlib_gen_inetTlsServerCert(self):
+
+        async with self.getTestCore() as core:
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+
+            q = '''
+                $server = {[ inet:server="1.2.3.4:443" ]}
+                yield $lib.gen.inetTlsServerCertByServerAndSha256($server, $sha256)
+            '''
+            nodes = await core.nodes(q, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('server'), 'tcp://1.2.3.4:443')
+            cert = nodes[0].get('cert')
+            self.nn(cert)
+
+            nodes = await core.nodes('crypto:x509:cert:sha256=$sha256', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), cert)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('$lib.gen.inetTlsServerCertByServerAndSha256(newp, $sha256)', opts=opts)
+
+            q = 'return($lib.gen.inetTlsServerCertByServerAndSha256(newp, $sha256, try=$lib.true))'
+            self.none(await core.callStorm(q, opts=opts))
+
+    async def test_stormlib_gen_cryptoX509Cert(self):
+
+        async with self.getTestCore() as core:
+
+            # Check guid generation
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+            nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('sha256'), sha256)
+            self.eq(nodes[0].repr(), s_common.guid(sha256))
+
+            # Check invalid values, no try
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('$lib.gen.cryptoX509CertBySha256(newp)')
+
+            # Check invalid values, with try
+            self.none(await core.callStorm('return($lib.gen.cryptoX509CertBySha256(newp, try=$lib.true))'))
+
+            # Check node matching with same sha256 values
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+            nodes = await core.nodes('[crypto:x509:cert=* :sha256=$sha256]', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('sha256'), sha256)
+            self.ne(nodes[0].repr(), s_common.guid(sha256))
+            crypto = nodes[0].repr()
+
+            nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), crypto)
+
+            # Check node matching, crypto:x509:cert -> file with matching sha256
+            sha256 = s_common.buid().hex()
+            opts = {'vars': {'sha256': sha256}}
+            nodes = await core.nodes('[crypto:x509:cert=* :file={[ file:bytes=$sha256 ]} ]', opts=opts)
+            self.len(1, nodes)
+            self.none(nodes[0].get('sha256'))
+            crypto = nodes[0].repr()
+
+            nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), crypto)

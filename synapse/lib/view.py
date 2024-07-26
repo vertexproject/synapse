@@ -1620,7 +1620,6 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.trigdict.truncate()
-        self.core.viewdefs.delete(self.iden)
         await self._wipeViewMeta()
         shutil.rmtree(self.dirn, ignore_errors=True)
 
