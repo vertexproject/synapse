@@ -8,7 +8,6 @@ import signal
 import socket
 import asyncio
 import tarfile
-import warnings
 import collections
 import multiprocessing
 
@@ -1051,8 +1050,10 @@ class CellTest(s_t_utils.SynTest):
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SynErr')
 
-                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
+                        orig = s_cell.Cell.BACKUP_SPAWN_TIMEOUT
+                        with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', orig * 2):
+                            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                                await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
                         info = await proxy.getBackupInfo()
                         laststart3 = info['laststart']
