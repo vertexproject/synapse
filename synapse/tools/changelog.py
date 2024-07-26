@@ -193,7 +193,7 @@ async def main(argv, outp=None):
     opts = pars.parse_args(argv)
     if opts.git_dir_check:
         if not os.path.exists(os.path.join(os.getcwd(), '.git')):
-            outp.print('Current working directury must be the root of the repository.')
+            outp.printf('Current working directory must be the root of the repository.')
             return 1
     try:
         return opts.func(opts, outp)
