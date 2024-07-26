@@ -1287,7 +1287,8 @@ class AhaCell(s_cell.Cell):
         return f'ssl://{host}:{port}?certname={user}@{network}'
 
     async def getAhaClone(self, iden):
-        byts = self.slab.get(iden.encode(), db='aha:clones')
+        lkey = s_common.uhex(iden)
+        byts = self.slab.get(lkey, db='aha:clones')
         if byts is not None:
             return s_msgpack.un(byts)
 
@@ -1321,7 +1322,8 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPush('aha:clone:add')
     async def _addAhaClone(self, clone):
         iden = clone.get('iden')
-        self.slab.put(iden.encode(), s_msgpack.en(clone), db='aha:clones')
+        lkey = s_common.uhex(iden)
+        self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -1456,10 +1458,10 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPushAuto('aha:clone:clear')
     async def clearAhaClones(self):
-        for iden, byts in self.slab.scanByFull(db='aha:clones'):
-            self.slab.delete(iden, db='aha:clones')
+        for lkey, byts in self.slab.scanByFull(db='aha:clones'):
+            self.slab.delete(lkey, db='aha:clones')
             cloninfo = s_msgpack.un(byts)
-            logger.info(f'Deleted AHA clone enrollment username={cloninfo.get("host")}, iden={iden.decode()}')
+            logger.info(f'Deleted AHA clone enrollment username={cloninfo.get("host")}, iden={s_common.ehex(lkey)}')
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):
