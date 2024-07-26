@@ -8023,13 +8023,10 @@ class View(Prim):
 
     async def _methSwapLayer(self):
 
-        iden = self.valu.get('iden')
-        self.runt.reqAdmin(gateiden=iden)
+        view = self._reqView()
 
-        view = self.runt.snap.core.getView(iden)
-        if not view.parent:
-            mesg = 'swapLayer() API may only be called on a forked view.'
-            raise s_exc.BadArg(mesg=mesg)
+        self.runt.reqAdmin(gateiden=view.iden)
+        self.runt.confirm(('layer', 'del'), gateiden=view.layers[0].iden)
 
         await view.swapLayer()
 

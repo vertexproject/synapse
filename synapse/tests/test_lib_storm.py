@@ -947,9 +947,6 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('ps:person | merge --diff', opts={'view': view, 'user': visi.iden})
             self.stormIsInPrint('inet:fqdn = mvmnasde.com', msgs)
 
-            with self.raises(s_exc.BadArg):
-                await core.nodes('$lib.view.get().swapLayer()')
-
             # merge all the nodes with anything stored in the top layer...
             await core.callStorm('''
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {

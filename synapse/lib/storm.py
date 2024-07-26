@@ -3864,8 +3864,9 @@ class MergeCmd(Cmd):
             raise s_exc.CantMergeView(mesg=mesg)
 
         if self.opts.wipe:
-            mesg = 'merge --wipe option requires view admin'
+            mesg = 'merge --wipe requires view admin'
             runt.reqAdmin(gateiden=runt.snap.view.iden, mesg=mesg)
+            runt.confirm(('layer', 'del'), gateiden=runt.snap.view.layers[0].iden)
 
         notags = self.opts.no_tags
         onlytags = self.opts.only_tags
