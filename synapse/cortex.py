@@ -4890,7 +4890,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.reqLayer(oldiden)
         self.reqLayer(newiden)
 
-        for view in self.views.values():
+        for view in list(self.views.values()):
             await asyncio.sleep(0)
 
             oldlayers = view.info.get('layers')
