@@ -4848,6 +4848,62 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             return await self._addLayer(ldef, (None, None))
 
+    async def _twinLayer(self, oldlayr):
+
+        newldef = s_msgpack.deepcopy(oldlayr.layrinfo)
+
+        newiden = s_common.guid()
+        newldef['iden'] = newiden
+
+        self.addLayer(newldef)
+
+        newlayr = self.reqLayer(newiden)
+
+        oldinfo = self.auth.reqAuthGate(oldiden).pack()
+
+        for userinfo in oldinfo.get('users', ()):
+
+            user = self.auth.user(userinfo.get('iden'))
+            if user is None: # pragma: no cover
+                continue
+
+            if userinfo.get('admin'):
+                await user.setAdmin(True, gateiden=newiden)
+
+            for rule in userinfo.get('rules', ()):
+                await user.addRule(rule, gateiden=newiden)
+
+        for roleinfo in oldinfo.get('roles', ()):
+
+            role = self.auth.role(roleinfo.get('iden'))
+            if role is None: # pragma: no cover
+                continue
+
+            for rule in roleinfo.get('rules', ()):
+                await role.addRule(rule, gateiden=newiden)
+
+        return newlayr
+
+    @s_nexus.Pusher.onPushAuto('layer:swap')
+    async def swapLayer(self, oldiden, newiden):
+        '''
+        Atomically swap out a layer from all views that contain it.
+        '''
+        self.reqLayer(oldiden)
+        self.reqLayer(newiden)
+
+        for view in self.views.values():
+            await asyncio.sleep(0)
+
+            oldlayers = view.info.get('layers')
+            if oldiden not in oldlayers:
+                continue
+
+            newlayers = list(oldlayers)
+            newlayers[oldlayers.index(oldiden)] = newiden
+
+            await view._setLayerIdens(newlayers)
+
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):
 

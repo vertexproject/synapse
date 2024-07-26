@@ -7532,6 +7532,9 @@ class View(Prim):
         {'name': 'wipeLayer', 'desc': 'Delete all nodes and nodedata from the write layer. Triggers will be run.',
          'type': {'type': 'function', '_funcname': '_methWipeLayer',
                   'returns': {'type': 'null', }}},
+        {'name': 'swapLayer', 'desc': 'Swaps the top layer for a fresh one and deletes the old layer.',
+         'type': {'type': 'function', '_funcname': '_methSwapLayer',
+                  'returns': {'type': 'null', }}},
         {'name': 'addNode', 'desc': '''Transactionally add a single node and all it's properties. If any validation fails, no changes are made.''',
          'type': {'type': 'function', '_funcname': 'addNode',
                   'args': (
@@ -7717,6 +7720,7 @@ class View(Prim):
             'addNode': self.addNode,
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
+            'swapLayer': self._methSwapLayer,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
@@ -8016,6 +8020,14 @@ class View(Prim):
         viewiden = self.valu.get('iden')
         view = self.runt.snap.core.getView(viewiden)
         await view.wipeLayer(useriden=useriden)
+
+    async def _methSwapLayer(self):
+
+        iden = self.valu.get('iden')
+        self.runt.reqAdmin(gateiden=iden)
+
+        view = self.runt.snap.core.getView(iden)
+        await view.swapLayer()
 
     async def getMerges(self):
         view = self._reqView()
