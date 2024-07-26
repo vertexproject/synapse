@@ -1,6 +1,6 @@
 ---
-desc: Added  option to the  command which replaces the top layer of the view once
-  the merge is complete
+desc: Added ``--wipe`` option to the ``merge`` command which replaces the top layer of the view once
+  the merge is complete. Using ``--wipe`` makes incremental merges more performant.
 prs: []
 type: feat
 ...

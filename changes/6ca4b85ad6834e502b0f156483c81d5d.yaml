@@ -1,5 +1,5 @@
 ---
-desc: Updated view.merge command to use .swapLayer() for performance
+desc: Updated ``view.merge`` command to use ``$view.swapLayer()`` for improved performance.
 prs: []
 type: feat
 ...
