@@ -1,0 +1,6 @@
+---
+desc: Added  option to the  command which replaces the top layer of the view once
+  the merge is complete
+prs: []
+type: feat
+...

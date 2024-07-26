@@ -1,0 +1,5 @@
+---
+desc: Updated view.merge command to use .swapLayer() for performance
+prs: []
+type: feat
+...
