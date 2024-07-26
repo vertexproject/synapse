@@ -955,6 +955,18 @@ class StormTest(s_t_utils.SynTest):
                 | merge --apply
             ''', opts=opts)
 
+            # make a few more edits and merge some of them to test --wipe
+            await core.stormlist('[ inet:fqdn=hehehaha.com inet:fqdn=woottoow.com ]')
+
+            layrcount = len(core.layers.values())
+            await core.stormlist('[ inet:fqdn=hehehaha.com inet:fqdn=woottoow.com ]', opts=opts)
+            oldlayr = await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts)
+            msgs = await core.stormlist('inet:fqdn=hehehaha.com | merge --apply --wipe', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            self.ne(oldlayr, await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts))
+
+            self.len(0, await core.nodes('diff', opts=opts))
+
             self.len(0, await core.callStorm('''
                 $list = $lib.list()
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {

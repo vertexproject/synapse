@@ -4852,14 +4852,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         newldef = s_msgpack.deepcopy(oldlayr.layrinfo)
 
-        newiden = s_common.guid()
-        newldef['iden'] = newiden
+        newldef.pop('iden', None)
 
-        self.addLayer(newldef)
+        newldef = await self.addLayer(newldef)
+        newlayr = self.reqLayer(newldef.get('iden'))
 
-        newlayr = self.reqLayer(newiden)
-
-        oldinfo = self.auth.reqAuthGate(oldiden).pack()
+        oldinfo = self.auth.reqAuthGate(oldlayr.iden).pack()
 
         for userinfo in oldinfo.get('users', ()):
 
@@ -4868,10 +4866,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             if userinfo.get('admin'):
-                await user.setAdmin(True, gateiden=newiden)
+                await user.setAdmin(True, gateiden=newlayr.iden)
 
             for rule in userinfo.get('rules', ()):
-                await user.addRule(rule, gateiden=newiden)
+                await user.addRule(rule, gateiden=newlayr.iden)
 
         for roleinfo in oldinfo.get('roles', ()):
 
@@ -4880,7 +4878,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             for rule in roleinfo.get('rules', ()):
-                await role.addRule(rule, gateiden=newiden)
+                await role.addRule(rule, gateiden=newlayr.iden)
 
         return newlayr
 

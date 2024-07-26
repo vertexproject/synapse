@@ -1411,6 +1411,7 @@ class View(s_nexus.Pusher):  # type: ignore
         oldlayr = self.layers[0]
         newlayr = await self.core._twinLayer(oldlayr)
         await self.core.swapLayer(oldlayr.iden, newlayr.iden)
+        await self.core.delLayer(oldlayr.iden)
 
     async def wipeLayer(self, useriden=None):
         '''
