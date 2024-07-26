@@ -8027,6 +8027,10 @@ class View(Prim):
         self.runt.reqAdmin(gateiden=iden)
 
         view = self.runt.snap.core.getView(iden)
+        if not view.parent:
+            mesg = 'swapLayer() API may only be called on a forked view.'
+            raise s_exc.BadArg(mesg=mesg)
+
         await view.swapLayer()
 
     async def getMerges(self):
