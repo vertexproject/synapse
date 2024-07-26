@@ -759,6 +759,13 @@ class MigrationEditorMixin:
                 if overwrite or not proto.hasTagProp(tagname, propname):
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
 
+    async def copyUnivs(self, src, proto):
+        created = src.props.get('.created')
+        await proto.set('.created', created, ignore_ro=True)
+
+        seen = src.props.get('.seen')
+        if seen is not None:
+            await proto.set('.seen', seen)
 
 @s_stormtypes.registry.registerLib
 class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
@@ -791,6 +798,13 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Copy tag property value even if the property exists on the destination node.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'copyUnivs', 'desc': 'Copy universal properties from the src node to the dst node.',
+         'type': {'type': 'function', '_funcname': '_methCopyUnivs',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy universal properties from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy universal properties to.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -799,6 +813,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyData': self._methCopyData,
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
+            'copyUnivs': self._methCopyUnivs,
             'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
             'setNodePropValuNoNorm': self._methSetNodePropValuNoNorm,
         }
@@ -843,6 +858,19 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
+
+    async def _methCopyUnivs(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyUnivs() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyUnivs() dest argument must be a node.')
+
+        snap = self.runt.snap
+
+        async with snap.getEditor() as editor:
+            proto = editor.loadNode(dst)
+            await self.copyUnivs(src, proto)
 
     async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
         '''

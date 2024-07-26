@@ -1,3 +1,5 @@
+import datetime
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -639,13 +641,25 @@ class ModelRevTest(s_tests.SynTest):
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
 
-            # We started with 11 CPE nodes and two got removed
+            # Calculate some timestamps
+            start = datetime.datetime(year=2024, month=7, day=25, hour=13, minute=46, second=41, tzinfo=datetime.timezone.utc)
+            end = datetime.datetime(year=2024, month=7, day=25, hour=13, minute=46, second=42, tzinfo=datetime.timezone.utc)
+
+            start = int(start.timestamp() * 1000)
+            end = int(end.timestamp() * 1000)
+
+            # We started with 11 CPE nodes and   two got removed
             nodes = await core.nodes('it:sec:cpe')
             self.len(9, nodes)
             for node in nodes:
                 self.isin('test.cpe', node.tags)
                 data = await s_tests.alist(node.iterData())
                 self.eq([k[0] for k in data], ('cpe22', 'cpe23'))
+
+                # Check the .created time was migrated
+                created = node.get('.created')
+                self.ge(created, start)
+                self.lt(created, end)
 
             nodes = await core.nodes('it:sec:cpe#test.cpe.22invalid +#test.cpe.23invalid')
             self.len(0, nodes)
