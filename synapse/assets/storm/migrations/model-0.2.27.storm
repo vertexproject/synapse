@@ -5,7 +5,12 @@ $nodeq = $lib.queue.gen("model_0_2_27:nodes")
 $refsq = $lib.queue.gen("model_0_2_27:nodes:refs")
 $edgeq = $lib.queue.gen("model_0_2_27:nodes:edges")
 
+$refinfoCache = ({})
+
 function getRefInfo(formname) {
+    $cached = $refinfoCache.$formname
+    if $cached { return($cached) }
+
     $refinfo = ([])
 
     syn:prop:type*in=($formname, array, ndef)
@@ -27,9 +32,11 @@ function getRefInfo(formname) {
 
     $refinfo.append((:form, $prop.name, $proptype, $isarray))
 
-    fini { return($refinfo) }
+    fini {
+        $refinfoCache.$formname = $refinfo
+        return($refinfo)
+    }
 }
-
 
 function removeNode(n, viewiden, layriden) {
 
@@ -299,9 +306,7 @@ function main() {
             for $oldcpe in $layer.liftByProp(it:sec:cpe) {
                 $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
 
-                $success = ($info.status = "success")
-
-                if $success {
+                if ($info.status = "success") {
                     // No primary property changes, nothing to do. Node has been fully migrated.
                     if (not $info.valu) {
                         continue
@@ -317,10 +322,9 @@ function main() {
                      */
 
                     $lib.log.debug(`Migrating invalid it:sec:cpe node: {$oldcpe.repr()} -> {$info.valu}`)
+
                     [ it:sec:cpe=$info.valu ]
                     $migrateCpeNode($oldcpe, $node)
-
-                    $lib.log.debug(`Deleting invalid it:sec:cpe node: {$oldcpe.repr()}`)
 
                     spin |
 
@@ -344,5 +348,8 @@ function main() {
 
     return()
 }
+
+// Pre-cache the it:sec:cpe references
+$getRefInfo(it:sec:cpe)
 
 $main()
