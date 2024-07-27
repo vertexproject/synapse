@@ -955,6 +955,42 @@ class StormTest(s_t_utils.SynTest):
                 | merge --apply
             ''', opts=opts)
 
+            # make a few more edits and merge some of them to test --wipe
+            await core.stormlist('[ inet:fqdn=hehehaha.com inet:fqdn=woottoow.com ]')
+
+            layrcount = len(core.layers.values())
+            await core.stormlist('[ inet:fqdn=hehehaha.com inet:fqdn=woottoow.com ]', opts=opts)
+            oldlayr = await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts)
+            msgs = await core.stormlist('inet:fqdn=hehehaha.com | merge --apply --wipe', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            newlayr = await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts)
+            self.ne(oldlayr, newlayr)
+            msgs = await core.stormlist('''
+                $layr = $lib.view.get().layers.0.iden
+                $user = $lib.auth.users.byname(visi)
+                $role = $lib.auth.roles.add(ninjas)
+
+                $user.grant($role.iden)
+
+                $user.setAdmin((true), gateiden=$layr)
+                $user.addRule(([true, ["foo", "bar"]]), gateiden=$layr)
+                $role.addRule(([true, ["baz", "faz"]]), gateiden=$layr)
+            ''', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+            await core.callStorm('$lib.view.get().swapLayer()', opts=opts)
+            self.ne(newlayr, await core.callStorm('return($lib.view.get().layers.0.iden)', opts=opts))
+
+            self.true(await core.callStorm('''
+                $layr = $lib.view.get().layers.0.iden
+                return($lib.auth.users.byname(visi).allowed(foo.bar, gateiden=$layr))
+            ''', opts=opts))
+            self.true(await core.callStorm('''
+                $layr = $lib.view.get().layers.0.iden
+                return($lib.auth.users.byname(visi).allowed(baz.faz, gateiden=$layr))
+            ''', opts=opts))
+
+            self.len(0, await core.nodes('diff', opts=opts))
+
             self.len(0, await core.callStorm('''
                 $list = $lib.list()
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
