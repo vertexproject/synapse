@@ -77,9 +77,7 @@ function removeNode(n, viewiden, layriden) {
                         // deep down in the AST. So, instead, we have to operate on the whole array.
 
                         $list = $lib.copy(:$propname)
-                        while $list.has($oldvalu) {
-                            $list.remove($oldvalu)
-                        }
+                        $list.remove($oldvalu, all=$lib.true)
 
                         if $list {
                             $lib.model.migration.setNodePropValuNoNorm($node, $propname, $list)
@@ -232,7 +230,6 @@ function migrateCpeNode(oldcpe, newcpe) {
     $lib.model.migration.copyEdges($oldcpe, $newcpe)
     $lib.model.migration.copyTags($oldcpe, $newcpe)
     $lib.model.migration.copyData($oldcpe, $newcpe)
-    $lib.model.migration.copyUnivs($oldcpe, $newcpe)
 
     $refinfos = $getRefInfo($oldcpe.form())
 
@@ -324,7 +321,10 @@ function main() {
 
                     $lib.log.debug(`Migrating invalid it:sec:cpe node: {$oldcpe.repr()} -> {$info.valu}`)
 
-                    [ it:sec:cpe=$info.valu ]
+                    [ it:sec:cpe=$info.valu
+                        .seen ?= $oldcpe.props.".seen"
+                    ]
+
                     $migrateCpeNode($oldcpe, $node)
 
                     spin |

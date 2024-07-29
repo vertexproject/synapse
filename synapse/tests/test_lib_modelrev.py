@@ -642,13 +642,13 @@ class ModelRevTest(s_tests.SynTest):
             infork00 = {'view': fork00}
 
             # Calculate some timestamps
-            start = datetime.datetime(year=2024, month=7, day=25, hour=13, minute=46, second=41, tzinfo=datetime.timezone.utc)
-            end = datetime.datetime(year=2024, month=7, day=25, hour=13, minute=46, second=42, tzinfo=datetime.timezone.utc)
+            start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone.utc)
+            end = datetime.datetime(year=2021, month=1, day=1, tzinfo=datetime.timezone.utc)
 
             start = int(start.timestamp() * 1000)
             end = int(end.timestamp() * 1000)
 
-            # We started with 11 CPE nodes and   two got removed
+            # We started with 11 CPE nodes and two got removed
             nodes = await core.nodes('it:sec:cpe')
             self.len(9, nodes)
             for node in nodes:
@@ -656,10 +656,11 @@ class ModelRevTest(s_tests.SynTest):
                 data = await s_tests.alist(node.iterData())
                 self.eq([k[0] for k in data], ('cpe22', 'cpe23'))
 
-                # Check the .created time was migrated
-                created = node.get('.created')
-                self.ge(created, start)
-                self.lt(created, end)
+                # Check the .seen time was migrated
+                seen = node.get('.seen')
+                self.nn(seen)
+
+                self.eq((start, end), seen)
 
             nodes = await core.nodes('it:sec:cpe#test.cpe.22invalid +#test.cpe.23invalid')
             self.len(0, nodes)
@@ -933,7 +934,8 @@ class ModelRevTest(s_tests.SynTest):
                   'form': 'it:sec:cpe',
                   'iden': badcpe00,
                   'layer': viewlayr,
-                  'props': {'edition': '*',
+                  'props': {'.seen': (1577836800000, 1609459200000),
+                            'edition': '*',
                             'language': '*',
                             'other': '*',
                             'part': 'a',
@@ -977,7 +979,8 @@ class ModelRevTest(s_tests.SynTest):
                   'form': 'it:sec:cpe',
                   'iden': badcpe01,
                   'layer': viewlayr,
-                  'props': {'edition': '*',
+                  'props': {'.seen': (1577836800000, 1609459200000),
+                            'edition': '*',
                             'language': '*',
                             'other': '*',
                             'part': 'a',

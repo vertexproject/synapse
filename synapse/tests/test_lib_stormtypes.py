@@ -1657,10 +1657,18 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$lib.list().pop()')
 
-            somelist = ["foo", "bar", "baz"]
+            somelist = ["foo", "bar", "baz", "bar"]
             q = '''
                 $l.remove("bar")
                 $l.remove("newp")
+            '''
+            opts = {'vars': {'l': somelist}}
+            await core.callStorm(q, opts=opts)
+            self.eq(somelist, ["foo", "baz", "bar"])
+
+            somelist = ["foo", "bar", "baz", "bar"]
+            q = '''
+                $l.remove("bar", all=$lib.true)
             '''
             opts = {'vars': {'l': somelist}}
             await core.callStorm(q, opts=opts)

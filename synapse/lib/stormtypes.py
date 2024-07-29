@@ -5065,6 +5065,8 @@ class List(Prim):
          'type': {'type': 'function', '_funcname': '_methListRemove',
                   'args': (
                       {'name': 'item', 'type': 'any', 'desc': 'An item in the list.'},
+                      {'name': 'all', 'type': 'boolean', 'default': False,
+                       'desc': 'Remove all instances of item from the list.'},
                   ),
                   'returns': {'type': 'null'}}},
     )
@@ -5210,12 +5212,20 @@ class List(Prim):
             ret.append(val)
         return ret
 
-    async def _methListRemove(self, item):
+    async def _methListRemove(self, item, all=False):
         item = await toprim(item)
-        try:
+        all = await tobool(all)
+
+        if item not in self.valu:
+            return False
+
+        while item in self.valu:
             self.valu.remove(item)
-        except ValueError:
-            pass
+
+            if not all:
+                break
+
+        return True
 
     async def stormrepr(self):
         reprs = [await torepr(k) for k in self.valu]
