@@ -321,3 +321,10 @@ class DataModelTest(s_t_utils.SynTest):
 
             model = (await core.getModelDefs())[0][1]
             self.isin(('meta:rule', 'matches', None), [e[0] for e in model['edges']])
+
+            self.nn(core.model.edge(('meta:rule', 'matches', None)))
+
+            core.model.delEdge(('meta:rule', 'matches', None))
+            self.none(core.model.edge(('meta:rule', 'matches', None)))
+
+            core.model.delEdge(('meta:rule', 'matches', None))
