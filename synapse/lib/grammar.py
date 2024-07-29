@@ -15,8 +15,8 @@ formrestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+'
 formre = regex.compile(formrestr)
 tagrestr = r'(\w+\.)*\w+'
 tagre = regex.compile(tagrestr)
-edgerestr = r'[\w\.:]+'
-edgere = regex.compile(tagrestr)
+edgerestr = r'[\w\.:]{1,200}'
+edgere = regex.compile(edgerestr)
 basepropnopivpropstr = r'[a-z_][a-z0-9_]*(?:(\:|\.)[a-z_][a-z0-9_]*)*'
 basepropnopivpropre = regex.compile(basepropnopivpropstr)
 
