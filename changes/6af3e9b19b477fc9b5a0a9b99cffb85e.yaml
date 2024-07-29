@@ -1,0 +1,5 @@
+---
+desc: Added ``$view.swapLayer()`` API to allow users to start fresh with an existing view.
+prs: []
+type: feat
+...

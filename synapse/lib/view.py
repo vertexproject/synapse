@@ -858,6 +858,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _initViewLayers(self):
 
+        self.layers = []
         for iden in self.info.get('layers'):
 
             layr = self.core.layers.get(iden)
@@ -1162,6 +1163,14 @@ class View(s_nexus.Pusher):  # type: ignore
                                      gates=[self.iden, self.layers[0].iden])
         return valu
 
+    async def _setLayerIdens(self, idens):
+        # this may only be called from within a nexus handler...
+        self.info['layers'] = idens
+        self.core.viewdefs.set(self.iden, self.info)
+        await self._initViewLayers()
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'layers', 'valu': idens},
+                                     gates=[self.iden, self.layers[0].iden])
+
     async def addLayer(self, layriden, indx=None):
         if any(layriden == layr.iden for layr in self.layers):
             raise s_exc.DupIden(mesg='May not have the same layer in a view twice')
@@ -1398,6 +1407,12 @@ class View(s_nexus.Pusher):  # type: ignore
             async for nodeedits in fromlayr.iterLayerNodeEdits():
                 await self.parent.storNodeEdits([nodeedits], meta)
 
+    async def swapLayer(self):
+        oldlayr = self.layers[0]
+        newlayr = await self.core._twinLayer(oldlayr)
+        await self.core.swapLayer(oldlayr.iden, newlayr.iden)
+        await self.core.delLayer(oldlayr.iden)
+
     async def wipeLayer(self, useriden=None):
         '''
         Delete the data in the write layer by generating del nodeedits.
@@ -1620,7 +1635,6 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.trigdict.truncate()
-        self.core.viewdefs.delete(self.iden)
         await self._wipeViewMeta()
         shutil.rmtree(self.dirn, ignore_errors=True)
 

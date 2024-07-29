@@ -434,7 +434,7 @@ jobs:
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          COVERAGE_ARGS: --cov synapse
 
     working_directory: ~/repo
 
@@ -450,7 +450,7 @@ jobs:
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          COVERAGE_ARGS: --cov synapse
           SYNDEV_NEXUS_REPLAY: 1
 
     working_directory: ~/repo
