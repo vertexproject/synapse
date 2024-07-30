@@ -579,7 +579,7 @@ class Base:
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
 
-    async def main(self):
+    async def main(self): # pragma: no cover
         '''
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
@@ -790,9 +790,6 @@ async def schedGenr(genr, maxsize=100):
                 await q.put((True, item))
 
             await q.put((False, None))
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception:
             if not base.isfini:
