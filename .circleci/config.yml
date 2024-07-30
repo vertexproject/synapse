@@ -603,7 +603,6 @@ workflows:
             branches:
               only:
                 - master
-                - visi-aha-defnet
 
       - build_docker_tag:
           requires:
