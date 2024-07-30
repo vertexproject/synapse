@@ -408,8 +408,6 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
 
@@ -685,7 +683,9 @@ class Waiter:
 
     async def __aexit__(self, exc, cls, tb):
         if exc is None:
-            if await self.wait() is None:
+            if await self.wait() is None: # pragma: no cover
+                # these lines are 100% covered by the tests but
+                # the coverage plugin cannot seem to see them...
                 events = ','.join(self.names)
                 mesg = f'timeout waiting for {self.count} event(s): {events}'
                 raise s_exc.TimeOut(mesg=mesg)
