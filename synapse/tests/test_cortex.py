@@ -6083,12 +6083,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
-                # manually edit in a borked form entry
+                await core.addEdge(('test:int', '_goes', None), {})
+                await core._addEdge(('test:int', '_goes', None), {})
+
+                with self.raises(s_exc.DupEdgeType):
+                    await core.addEdge(('test:int', '_goes', None), {})
+
+                # manually edit in borked entries
                 core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
             async with self.getTestCore(dirn=dirn) as core:
 
                 self.none(core.model.form('_hehe:bork'))
+                self.none(core.model.edge((None, '_does', 'newp')))
+
+                self.nn(core.model.edge(('test:int', '_goes', None)))
 
                 self.len(1, await core.nodes('_hehe:haha=10'))
                 self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
@@ -6140,6 +6150,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadFormDef):
                     await core.delForm('hehe:haha')
+
+                with self.raises(s_exc.NoSuchEdge):
+                    await core.delEdge(('newp', 'newp', 'newp'))
+
+                await core._delEdge(('newp', 'newp', 'newp'))
 
                 await core.nodes('_hehe:haha [ -:visi ]')
                 await core.delFormProp('_hehe:haha', 'visi')
