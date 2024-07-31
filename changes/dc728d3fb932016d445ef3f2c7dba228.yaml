@@ -1,0 +1,5 @@
+---
+desc: Add ``biz:deal:id`` property to track deal identifiers.
+prs: []
+type: model
+...
