@@ -84,7 +84,7 @@ using AHA, the only host that needs DNS or other external name resolution is the
     or docker/kubernetes port mapping, you will need to use ``ssl://`` based URIs and specify ``hostname``,
     ``certname``, and ``ca`` parameters which match the service's AHA registration info. You will also need
     to specify a specific ``--dmon-port`` option when using the  ``synapse.tools.aha.provision.service``
-    command to provision the services with static ports that you can provide mappings too.
+    command to provision the services with static ports that you can provide mappings to.
 
 Choose an AHA Network Name
 --------------------------
