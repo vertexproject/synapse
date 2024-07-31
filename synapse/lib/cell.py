@@ -1965,37 +1965,39 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}.')
+        _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}{_dispname}.')
 
         if graceful:
 
             myurl = self.getMyUrl()
 
-            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff.')
+            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff{_dispname}.')
             async with await s_telepath.openurl(mirurl) as lead:
                 await lead.handoff(myurl)
-                logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}')
+                logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}{_dispname}')
                 return
 
-        logger.debug(f'PROMOTION: Clearing mirror configuration.')
+        logger.debug(f'PROMOTION: Clearing mirror configuration{_dispname}.')
         self.modCellConf({'mirror': None})
 
-        logger.debug(f'PROMOTION: Promoting the nexus root.')
+        logger.debug(f'PROMOTION: Promoting the nexus root{_dispname}.')
         await self.nexsroot.promote()
 
-        logger.debug(f'PROMOTION: Setting the cell as active.')
+        logger.debug(f'PROMOTION: Setting the cell as active{_dispname}.')
         await self.setCellActive(True)
 
-        logger.warning(f'PROMOTION: Finished leadership promotion!')
+        logger.warning(f'PROMOTION: Finished leadership promotion{_dispname}.')
 
     async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
-        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}.')
+        _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
         async with await s_telepath.openurl(turl) as cell:
 
-            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}.')
+            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
             if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
@@ -2005,34 +2007,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            logger.debug(f'HANDOFF: Obtaining nexus lock.')
+            logger.debug(f'HANDOFF: Obtaining nexus lock{_dispname}.')
 
             async with self.nexslock:
 
-                logger.debug(f'HANDOFF: Obtained nexus lock.')
+                logger.debug(f'HANDOFF: Obtained nexus lock{_dispname}.')
                 indx = await self.getNexsIndx()
 
-                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}.')
+                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}{_dispname}.')
                 if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)
 
-                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion.')
+                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion{_dispname}.')
                 await cell.promote()
 
-                logger.debug(f'HANDOFF: Setting the service as inactive.')
+                logger.debug(f'HANDOFF: Setting the service as inactive{_dispname}.')
                 await self.setCellActive(False)
 
-                logger.debug(f'HANDOFF: Configuring service to sync from new leader.')
+                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname}.')
                 self.modCellConf({'mirror': turl})
 
-                logger.debug(f'HANDOFF: Restarting the nexus.')
+                logger.debug(f'HANDOFF: Restarting the nexus{_dispname}.')
                 await self.nexsroot.startup()
 
-            logger.debug(f'HANDOFF: Released nexus lock.')
+            logger.debug(f'HANDOFF: Released nexus lock{_dispname}.')
 
-        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}.')
+        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
