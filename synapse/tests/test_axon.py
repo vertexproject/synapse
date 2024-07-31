@@ -1027,11 +1027,11 @@ bar baz",vv
 
             resp = await proxy.wput(sha256, 'vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+            self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
             resp = await proxy.postfiles(fields, 'vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('reason'))
+            self.isin('InvalidUrlClientError: vertex.link', resp.get('reason'))
 
             # Bypass the Axon proxy configuration from Storm
             url = axon.getLocalUrl()
