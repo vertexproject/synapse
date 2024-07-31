@@ -79,7 +79,7 @@ using AHA, the only host that needs DNS or other external name resolution is the
 
     The AHA service resolver requires that registered services connect directly using IP addresses which
     must also be reachable to AHA clients. Using an ``aha://`` telepath URL requires direct routes to the
-    service via it's AHA facing network address. If you need to provide telepath access from outside the
+    service via its AHA facing network address. If you need to provide telepath access from outside the
     Synapse service network via any network address translation (NAT) method such as an inbound TCP proxy
     or docker/kubernetes port mapping, you will need to use ``ssl://`` based URIs and specify ``hostname``,
     ``certname``, and ``ca`` parameters which match the service's AHA registration info. You will also need
