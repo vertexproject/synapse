@@ -153,7 +153,6 @@ class AhaApi(s_cell.CellApi):
         username = self.user.name.split('@')[0]
 
         if svcinfo.get('svcinfo'):
-            logger.info(f'Hinting {self.user.name} for {name}')
             svcinfo['svcinfo']['urlinfo']['user'] = username
 
         return svcinfo
