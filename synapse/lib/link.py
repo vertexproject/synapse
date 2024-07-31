@@ -143,14 +143,14 @@ class Link(s_base.Base):
         # then tcp links ( unit tests and legacy deployments )
         if self.info.get('tls'):
             self._addrinfo['family'] = 'tls'
-            self._addrinfo['addr'] = self.sock.getpeername(),
+            self._addrinfo['addr'] = self.sock.getpeername()
         elif self.info.get('unix'):
             self._addrinfo['family'] = 'unix'
             # Unix sockets don't use getpeername
             self._addrinfo['addr'] = self.sock.getsockname()
         else:
             self._addrinfo['family'] = 'tcp'
-            self._addrinfo['addr'] = self.sock.getpeername(),
+            self._addrinfo['addr'] = self.sock.getpeername()
         if self.sock.family == socket.AF_INET:
             self._addrinfo['ipver'] = 'ipv4'
         elif self.sock.family == socket.AF_INET6:
