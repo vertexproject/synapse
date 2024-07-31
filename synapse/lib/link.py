@@ -231,7 +231,7 @@ class Link(s_base.Base):
         '''
         Get a summary of address information related to the link.
         '''
-        return self._addrinfo
+        return dict(self._addrinfo)
 
     async def send(self, byts):
         self.writer.write(byts)
