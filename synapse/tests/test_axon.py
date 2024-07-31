@@ -941,13 +941,13 @@ bar baz",vv
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestAxon(conf=conf) as axon:
             async with axon.getLocalProxy() as proxy:
-                resp = await proxy.wget('http://vertex.link')
+                resp = await proxy.wget('http://vertex.link/')
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
             resp = await proxy.wget('vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+            self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
     async def test_axon_wput(self):
 
