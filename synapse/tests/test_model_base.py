@@ -278,6 +278,7 @@ class BaseTest(s_t_utils.SynTest):
                 [ meta:rule=*
                     :created=20200202 :updated=20220401 :author=*
                     :name=" My  Rule" :desc="My cool rule"
+                    :type=foo.bar
                     :text="while TRUE { BAD }"
                     :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
@@ -287,6 +288,7 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.nn(nodes[0].get('author'))
+            self.eq(nodes[0].get('type'), 'foo.bar.')
             self.eq(nodes[0].get('created'), 1580601600000)
             self.eq(nodes[0].get('updated'), 1648771200000)
             self.eq(nodes[0].get('name'), 'my rule')
@@ -296,6 +298,7 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('ext:id'), 'WOOT-20')
 
             self.len(1, await core.nodes('meta:rule -> ps:contact'))
+            self.len(1, await core.nodes('meta:rule -> meta:rule:type:taxonomy'))
             self.len(1, await core.nodes('meta:ruleset -> ps:contact'))
             self.len(1, await core.nodes('meta:ruleset -(has)> meta:rule -(matches)> *'))
 
