@@ -146,8 +146,7 @@ Member:     00.cell.loop.vertex.link'''
                                     network='loop.vertex.link')
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
-                emsg = '00.newp.loop.vertex.link                      null   false  null  0.0.0.0         3030  ' \
-                       'Service is not online. Will not attempt to retrieve its nexus offset.'
+                emsg = '00.newp.loop.vertex.link                      null   false  null  0.0.0.0         3030  <offline>'
                 self.stormIsInPrint(emsg, msgs)
 
                 self.none(await core00.callStorm('return($lib.aha.del(00.newp...))'))

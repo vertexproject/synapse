@@ -1,0 +1,5 @@
+---
+desc: Tightened up ``aha.svc.list`` Storm command output when using --nexus.
+prs: []
+type: feat
+...
