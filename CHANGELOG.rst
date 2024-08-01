@@ -34,11 +34,6 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Add ``synapse.lib.auth`` for non-hive based authentication.
-  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
-- Add ``synapse.lib.lmdbslab.SafeKeyValu`` class for managing prefix-based
-  key/value storage with key length enforcement in Slabs.
-  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
 - Add a new Cell configuration option, ``auth:password:policy``. This can be
   used to configure password policy options for authentication.
   (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
