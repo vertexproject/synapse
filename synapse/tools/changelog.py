@@ -986,7 +986,7 @@ def makeargparser():
     format_pars.add_argument('-r', '--rm', default=False, action='store_true',
                              help='Stage the changelog files as deleted files in git.')
     format_pars.add_argument('-m', '--model-ref', default=None, action='store', type=str,
-                             help='Model ref file to generate model deltas with.')
+                             help='Baseline model to use when generating model deltas. This is normally the previous releases model file.')
     format_pars.add_argument('--model-current', default=None, action='store',
                              help='Optional model file to use as a reference as the current model.')
     format_pars.add_argument('--model-doc-dir', default=None, action='store',
