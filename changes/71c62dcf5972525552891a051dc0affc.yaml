@@ -1,5 +1,5 @@
 ---
-desc: Add ``inet:service:model:type`` property to capture message types.
+desc: Add ``inet:service:message:type`` property to capture message types.
 prs: []
 type: model
 ...
