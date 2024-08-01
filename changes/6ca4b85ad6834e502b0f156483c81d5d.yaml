@@ -1,5 +1,0 @@
----
-desc: Updated ``view.merge`` command to use ``$view.swapLayer()`` for improved performance.
-prs: []
-type: feat
-...
