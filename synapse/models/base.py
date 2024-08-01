@@ -59,6 +59,10 @@ class BaseModule(s_module.CoreModule):
                 ('meta:ruleset', ('guid', {}), {
                     'doc': 'A set of rules linked with -(has)> edges.'}),
 
+                ('meta:rule:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy for meta:rule types.'}),
+
                 ('meta:rule', ('guid', {}), {
                     'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
@@ -257,9 +261,12 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'The time the ruleset was most recently modified.'}),
                 )),
 
+                ('meta:rule:type:taxonomy', {}, ()),
                 ('meta:rule', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the rule.'}),
+                    ('type', ('meta:rule:type:taxonomy', {}), {
+                        'doc': 'The rule type.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the rule.'}),
