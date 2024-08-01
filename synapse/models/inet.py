@@ -1576,6 +1576,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:message:attachment', ('guid', {}), {
                         'doc': 'A file attachment included within a message.'}),
 
+                    ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A message type taxonomy.'}),
+
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
                         'doc': 'Represents a user access request to a service resource.'}),
@@ -3645,6 +3649,7 @@ class InetModule(s_module.CoreModule):
                         # TODO ndef based auth proto details
                     )),
 
+                    ('inet:service:message:type:taxonomy', {}, ()),
                     ('inet:service:message', {}, (
 
                         ('account', ('inet:service:account', {}), {
@@ -3704,6 +3709,9 @@ class InetModule(s_module.CoreModule):
 
                         ('file', ('file:bytes', {}), {
                             'doc': 'The raw file that the message was extracted from.'}),
+
+                        ('type', ('inet:service:message:type:taxonomy', {}), {
+                            'doc': 'The type of message.'}),
                     )),
 
                     ('inet:service:message:link', {}, (

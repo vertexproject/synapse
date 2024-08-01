@@ -1,0 +1,5 @@
+---
+desc: Add ``inet:service:message:type`` property to capture message types.
+prs: []
+type: model
+...
