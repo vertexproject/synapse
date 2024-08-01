@@ -175,8 +175,9 @@ For this example, we will assume you chose a DNS name for your primary AHA serve
 listed above. If so, you can simply replace ``00`` with sequential numbers and repeat this step to deploy
 however many AHA mirrors you deem appropriate.
 
-NOTE: AHA uses two default ports ETC. The following steps assume you will be running each of your AHA servers
-on a different host. The use of ``network_mode; host`` ETC
+By default, AHA uses port ``27492`` to listen for RPC connections from other Synapse services and port ``27272``
+for the provisioning listener. The following example steps assume you will be running each AHA server on separate
+hosts or in a containerized to avoid port collisions.
 
 **Inside the AHA container**
 
