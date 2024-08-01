@@ -491,6 +491,9 @@ class GeoModule(s_module.CoreModule):
                     ('geo:place:taxonomy', {}, ()),
                     ('geo:place', {}, (
 
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'A type specific identifier such as an airport ID.'}),
+
                         ('name', ('geo:name', {}), {
                             'doc': 'The name of the place.'}),
 

@@ -8,6 +8,10 @@ class TransportModule(s_module.CoreModule):
                 ('transport:direction', ('hugenum', {'modulo': 360}), {
                     'doc': 'A direction measured in degrees with 0.0 being true North.'}),
 
+                ('transport:land:vehicle:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy', {}),
+                    'doc': 'A type taxonomy for land vehicles.'}),
+
                 ('transport:land:vehicle', ('guid', {}), {
                     'doc': 'An individual vehicle.'}),
 
@@ -52,9 +56,77 @@ class TransportModule(s_module.CoreModule):
                 ('transport:sea:telem', ('guid', {}), {
                     'doc': 'A telemetry sample from a vessel in transit.'}),
 
+                ('transport:rail:train', ('guid', {}), {
+                    'interfaces': ('transport:conveyance',),
+                    'templates': {'phys:item': 'train'},
+                    'doc': 'An individual instance of a train running a route.'}),
+
+                ('transport:rail:car', ('guid', {}), {
+                    'interfaces': ('transport:container',),
+                    'templates': {'phys:item': 'train car'},
+                    'doc': 'An individual train car.'}),
+
+                ('transport:rail:train:stop', ('guid', {}), {
+                    'doc': 'An instance of a train stopping at a station.'}),
+
+                ('transport:rail:route', ('guid', {}), {
+                    'doc': 'A recurring route taken by trains from station to station.'}),
+
+                ('transport:rail:station', ('guid', {}), {
+                    'doc': 'A train station.'}),
+
+                ('transport:shipping:container', ('guid', {}), {
+                    'interfaces': ('transport:container',),
+                    'templates': {'phys:item': 'shipping container'},
+                    'doc': 'An individual shipping container.'}),
+
                 # TODO a few more items to plumb eventually
                 # ('transport:sea:hin',
                 # ('transport:sea:port',
+            ),
+            'interfaces': (
+
+                # ('transport:hub'
+                ('transport:container', {
+                    'interfaces': ('mat:physical',),
+                    'doc': 'Properties common to a container used to transport cargo or people.',
+                    'props': (
+                        ('manufacturer', ('ou:org', {}), {
+                            'doc': 'The organization which manufactured the {phys:item}.'}),
+
+                        ('manufacturer:name', ('ou:name', {}), {
+                            'doc': 'The name of the organization which manufactured the {phys:item}.'}),
+
+                        ('model', ('str', {'lower': True, 'strip': True}), {
+                            'doc': 'The model of the {phys:item}.'}),
+
+                        ('serial', ('str', {'strip': True}), {
+                            'doc': 'The manufacturer assigned serial number of the {phys:item}.'}),
+
+                        ('occupants', ('int', {'min': 0}), {
+                            'doc': 'The maximum number of occupants the {phys:item} can hold.'}),
+
+                        ('cargo:mass', ('mass', {}), {
+                            'doc': 'The maximum mass the {phys:item} can carry as cargo.'}),
+
+                        ('cargo:volume', ('geo:dist', {}), {
+                            'doc': 'The maxiumum volume the {phys:item} can carry as cargo.'}),
+
+                        # TODO ownership interface
+                        ('owner', ('ps:contact', {}), {
+                            'doc': 'The contact information of the owner of the {phys:item}.'}),
+                    ),
+                }),
+                ('transport:conveyance', {
+                    # train, flight, launch...
+                    'doc': 'Properties common to conveyances.',
+                    'interfaces': ('transport:container',),
+                    'template': {'phys:item': 'vehicle'},
+                    'props': (
+                        ('operator', ('ps:contact', {}), {
+                            'doc': 'The contact information of the operator.'}),
+                    ),
+                }),
             ),
             'forms': (
                 ('transport:land:license', {}, (
@@ -90,17 +162,32 @@ class TransportModule(s_module.CoreModule):
                     ('issuer:name', ('ou:name', {}), {
                         'doc': 'The name of the org which issued the registration.'}),
                 )),
+
+                ('transport:land:vehicle:type:taxonomy', {}, ()),
+
                 ('transport:land:vehicle', {}, (
+
+                    ('type', ('transport:land:vehicle:type:taxonomy', {}), {
+                        'doc': 'A type taxonomy for land vehicles.'}),
+
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the vehicle.'}),
+
                     ('serial', ('str', {'strip': True}), {
                         'doc': 'The serial number or VIN of the vehicle.'}),
+
                     ('built', ('time', {}), {
                         'doc': 'The date the vehicle was constructed.'}),
+
                     ('make', ('ou:name', {}), {
                         'doc': 'The make of the vehicle.'}),
+
                     ('model', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The model of the vehicle.'}),
+
                     ('registration', ('transport:land:registration', {}), {
                         'doc': 'The current vehicle registration information.'}),
+
                     ('owner', ('ps:contact', {}), {
                         'doc': 'The contact info of the owner of the vehicle.'}),
                 )),
@@ -260,6 +347,110 @@ class TransportModule(s_module.CoreModule):
                     ('destination:eta', ('time', {}), {
                         'doc': 'The estimated time of arrival that the vessel has declared.'}),
                 )),
+
+                ('transport:rail:train', {}, (
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID assigned to the train.'}),
+
+                    ('route', ('transport:rail:route', {}), {
+                        'doc': 'The route the train travels along.'}),
+
+                    ('stops', ('array', {'type': 'transport:rail:train:stop'}), {
+                        'doc': 'The stops the train made along the route.'}),
+
+                    ('cars', ('array', {'type': 'transport:rail:car', 'uniq': True}), {
+                        'doc': 'The cars which are attached to form the train.'}),
+
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The organization which operates the train.'}),
+
+                    ('operator:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which operates the train.'}),
+                )),
+
+                ('transport:rail:car', {}, ()),
+
+                ('transport:rail:occupant', {}, (
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'Contact information of the occupant.'}),
+
+                    ('train', ('transport:rail:train', {}), {
+                        'doc': 'The train the occupant boarded.'}),
+
+                    ('car', ('int', {'min': 1}), {
+                        'doc': 'The car number containing the occupants seat.'}),
+
+                    ('seat', ('str', {'strip': True}), {
+                        'doc': 'The seat which the occupant sat in.'}),
+
+                    ('boarded', ('time', {}), {
+                        'doc': 'The time when the occupant boarded the train.'}),
+
+                    ('boarded:stop', ('transport:rail:train:stop', {}), {
+                        'doc': 'The stop where the occupant boarded the train.'}),
+
+                    ('disembarked', ('time', {}), {
+                        'doc': 'The time when the occupant detrained.'}),
+
+                    ('disembarked:stop', ('transport:rail:train:stop', {}), {
+                        'doc': 'The stop where the occupant detrained.'}),
+                )),
+
+                ('transport:travel:path', {}, (
+                )),
+
+                ('transport:travel:path:link', {}, (
+
+                    ('arrived', ('time', {}), {
+                        'doc': 'The time the vehicle arrived at the stop.'}),
+
+                    ('departed', ('time', {}), {
+                        'doc': 'The time the vehicle departed from the stop.'}),
+
+                    ('arrival:time', ('time', {}), {
+                        'doc': 'The time the vehicle was scheduled to arrive.'}),
+
+                    ('arrival:point', ('str', {'strip': True}), {
+                        'doc': 'The gate, platform, or dock where the vehicle arrived.'}),
+
+                    ('arrival:place', ('geo:place', {}), {
+                        'doc': 'The place that the vehicle arrives at.'}),
+
+                    ('departure:time', ('time', {}), {
+                        'doc': 'The time the vehicle was scheduled to depart.'}),
+
+                    ('departure:point', ('str', {'strip': True}), {
+                        'doc': 'The gate, platform, or dock that the vehicle departed from.'}),
+
+                    ('departure:place', ('geo:place', {}), {
+                        'doc': 'The place that the vehicle departs from.'}),
+                )),
+
+                ('transport:rail:route', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the train route.'}),
+
+                    ('stations', ('array', {'type': 'transport:rail:station'}), {
+                        'doc': 'The stations along the route.'}),
+                )),
+
+                ('transport:rail:station', {}, (
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The assigned ID of the rail station.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The geographic place of the station.'}),
+
+                    ('place:name', ('geo:name', {}), {
+                        'doc': 'The name of the rail station.'}),
+                )),
+
+                # ('transport:shipping:parcel',
+                ('transport:shipping:container', {}, ()),
             ),
         }
         return (('transport', modl), )
