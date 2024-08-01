@@ -72,7 +72,7 @@ Features and Enhancements
 - Update the ``aiohttp`` library constraints to ``>=3.10.0,<4.0``. Update the
   ``aiohttp-socks`` library constraints to ``>=0.10.0,<0.11.0``.
   (`#3830 <https://github.com/vertexproject/synapse/pull/3830>`_)
-- Tightened up ``aha.svc.list`` Storm command output when using --nexus.
+- Tightened up ``aha.svc.list`` Storm command output when using ``--nexus``.
   (`#3835 <https://github.com/vertexproject/synapse/pull/3835>`_)
 
 Bugfixes
