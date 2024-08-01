@@ -1044,6 +1044,7 @@ class ClientV2(s_base.Base):
         while not self.isfini:
 
             urlinfo = self.getNextBootUrl()
+            logger.debug(f'_initBootProxy: {urlinfo}')
 
             try:
 
@@ -1095,6 +1096,8 @@ class ClientV2(s_base.Base):
         if (oldc := self.clients.pop(svcname, None)) is not None:
             await oldc.fini()
 
+        logger.debug(f'_onPoolSvcAdd: hascli={oldc is not None}')
+
         urlinfo = {'scheme': 'aha', 'host': svcname, 'path': ''}
         self.clients[svcname] = await ClientV2.anit(urlinfo, onlink=self._onPoolLink)
         await self.fire('svc:add', **mesg[1])
@@ -1104,6 +1107,7 @@ class ClientV2(s_base.Base):
         client = self.clients.pop(svcname, None)
         if client is not None:
             await client.fini()
+        logger.debug(f'_onPoolSvcDel: hascli={client is not None}')
         self.deque.clear()
         await self.fire('svc:del', **mesg[1])
 
@@ -1117,6 +1121,7 @@ class ClientV2(s_base.Base):
             if not len(self.proxies):
                 self.ready.clear()
 
+        logger.debug(f'_onPoolLink: {urlinfo=}')
         proxy.onfini(onfini)
         self.proxies.add(proxy)
         self.ready.set()
@@ -1128,6 +1133,7 @@ class ClientV2(s_base.Base):
                 logger.exception(f'onlink: {self.onlink}')
 
     async def _shutDownPool(self):
+        logger.debug(f'_shutDownPool')
         # when we reconnect to our AHA service, we need to dump the current
         # topology state and gather it again.
         for client in list(self.clients.values()):
@@ -1151,6 +1157,7 @@ class ClientV2(s_base.Base):
         while not self.isfini:
 
             try:
+                logger.debug(f'_toposync')
                 ahaproxy = await self.aha.proxy()
 
                 await reset()
@@ -1161,6 +1168,7 @@ class ClientV2(s_base.Base):
                         logger.warning(f'Unknown AHA pool topography message: {mesg}')
                         continue
 
+                    logger.debug(f'_toposync: {mesg=}')
                     await hand(mesg)
 
             except Exception as e:
@@ -1172,6 +1180,7 @@ class ClientV2(s_base.Base):
         async def getNextProxy():
 
             while not self.isfini:
+                logger.debug(f'getNextProxy')
 
                 await self.ready.wait()
 

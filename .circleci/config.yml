@@ -603,6 +603,7 @@ workflows:
             branches:
               only:
                 - master
+                - redox/syn7744-debug-build
 
       - build_docker_tag:
           requires:

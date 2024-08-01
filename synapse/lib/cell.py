@@ -202,6 +202,12 @@ class CellApi(s_base.Base):
         self.sess.user = user
         await self.initCellApi()
 
+    async def wedge(self, timeout):
+        return await self.cell.wedge(timeout)
+
+    async def pulse(self, delay):
+        return await self.cell.pulse(delay)
+
     async def initCellApi(self):
         pass
 
@@ -1292,6 +1298,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def wedge(self, timeout):
+        logger.warning(f'Wedging for {timeout}')
+        time.sleep(timeout)
+        return
+
+    async def pulse(self, delay):
+        while True:
+            logger.debug(f'Pulse')
+            await asyncio.sleep(delay)
 
     async def _storCellHiveMigration(self):
         logger.warning(f'migrating Cell ({self.getCellType()}) info out of hive')
