@@ -57,4 +57,140 @@ class ChangelogToolTest(s_test_utils.SynTest):
         self.isin('updated_opts', uptd_types.get('it:query'))
         self.isin('updated_interfaces', uptd_types.get('it:reveng:impfunc'))
 
-        # rst = s_t_changelog._generate_model_rst(change, new_model.get('model'))
+        rst = s_t_changelog._gen_model_rst('v2.177.0', 'userguide_model_v2_177_0',
+                                           changes, newmodel.get('model'), outp)
+        text = rst.getRstText()
+        self.isin('v2.177.0 Model Updates', text)
+        self.isin('''**************
+New Interfaces
+**************
+
+``it:host:beeper``
+  Properties common to instances of beepers.''', text)
+        self.isin('''*********
+New Types
+*********
+
+``it:beeper:name``
+  The friendly name of a beeper.
+''', text)
+        self.isin('''*********
+New Forms
+*********
+
+``it:beeper:thingy``
+  A beeper thingy.
+''', text)
+        self.isin('''**************
+New Properties
+**************
+
+``file:mime:lnk``
+  The form had the following properties added to it:
+
+
+  ``driveserial``
+    The drive serial number of the volume the link target is stored on.
+
+
+  ``iconindex``
+    A resource index for an icon within an icon location.
+''', text)
+        self.isin('''``inet:http:request``
+  The form had the following property added to it:
+
+  ``beep``
+    The time that the host went beep.
+''', text)
+        # Some updates will require manual intervention to rewrite.
+        self.isin('''******************
+Updated Interfaces
+******************
+
+``inet:service:base``
+  The property ``id`` has been modified from ['str', {'strip': True}] to ['str',
+  {'lower': True, 'strip': True}].
+
+
+``it:host:activity``
+  The interface property ``time`` has been deprecated.
+
+
+  The property ``beep`` has been added to the interface.
+''', text)
+        self.isin('''*************
+Updated Types
+*************
+
+``it:query``
+  The type has been modified from {'enums': None, 'globsuffix': False, 'lower':
+  False, 'onespace': False, 'regex': None, 'replace': [], 'strip': True} to
+  {'enums': None, 'globsuffix': False, 'lower': True, 'onespace': False,
+  'regex': None, 'replace': [], 'strip': True}.
+
+
+``it:reveng:impfunc``
+  The type interface has been modified from None to ['it:host:beeper'].
+''', text)
+        self.isin('''******************
+Updated Properties
+******************
+
+``file:mime:lnk``
+  The form had the following property updated:
+
+
+    The property ``entry:icon`` has been modified from ['file:path', {}] to
+    ['time', {}].
+''', text)
+        self.isin('''***********
+Light Edges
+***********
+
+``jenkies``
+    When used with a ``it:prod:soft`` node, the edge indicates The software uses
+    the jenkies technique.
+
+
+``loves``
+    The source node loves the target node.
+
+
+``sneaky``
+    When used with a ``ou:technique`` target node, the edge indicates The
+    technique referred to is sneakily used.
+
+
+``zoinks``
+    When used with a ``it:prod:soft`` and an ``ou:technique`` node, the edge
+    indicates The software uses the zoinks technique.
+''', text)
+        self.isin('''****************
+Deprecated Types
+****************
+
+The following types have been marked as deprecated:
+
+
+* ``inet:port``
+
+''', text)
+        self.isin('''****************
+Deprecated Types
+****************
+
+The following forms have been marked as deprecated:
+
+
+* ``it:reveng:function``
+''', text)
+        self.isin('''*********************
+Deprecated Properties
+*********************
+
+``file:mime:lnk``
+  The form had the following property deprecated:
+
+  ``target:attrs``
+    The attributes of the target file according to the LNK header.
+''', text)

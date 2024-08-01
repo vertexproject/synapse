@@ -616,7 +616,6 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                     mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
                            f' to {pnfo.get("new_type")}.'
                     lines = [
-                        f'  ``{prop}``',
                         *textwrap.wrap(mesg, initial_indent='    ', subsequent_indent='    ',
                                        width=width),
                         '\n'
@@ -629,8 +628,7 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                        f' to {pnfo.get("new_type")}.'
                 lines = [
                     '  The form had the following property updated:',
-                    '\n'
-                    f'  ``{name}``',
+                    '\n',
                     *textwrap.wrap(mesg, initial_indent='    ', subsequent_indent='    ',
                                    width=width),
                     '\n'
