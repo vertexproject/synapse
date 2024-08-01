@@ -1,6 +1,0 @@
----
-desc: Add ``$lib.gen.cryptoX509CertBySha256()`` helper function to create ``crypto:x509:cert``
-  nodes from a SHA256.
-prs: []
-type: feat
-...

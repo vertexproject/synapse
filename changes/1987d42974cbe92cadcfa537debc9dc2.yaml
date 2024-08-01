@@ -1,6 +1,0 @@
----
-desc: Add ``$lib.gen.inetTlsServerCertByServerAndSha256()`` helper function to create
-  ``inet:tls:servercert`` nodes from a server (or URI) and SHA256.
-prs: []
-type: feat
-...
