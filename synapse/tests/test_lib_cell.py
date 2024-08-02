@@ -8,6 +8,7 @@ import signal
 import socket
 import asyncio
 import tarfile
+import warnings
 import collections
 import multiprocessing
 
@@ -1050,10 +1051,8 @@ class CellTest(s_t_utils.SynTest):
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SynErr')
 
-                        orig = s_cell.Cell.BACKUP_SPAWN_TIMEOUT
-                        with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', orig * 2):
-                            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                                await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
                         info = await proxy.getBackupInfo()
                         laststart3 = info['laststart']
@@ -2759,199 +2758,9 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(node.get('._woot'), 5)
                 self.nn(node.getTagProp('test', 'score'), 6)
 
-                roles = s_t_utils.deguidify(
-                    json.dumps([
-                        {
-                            "type": "role",
-                            "iden": "e1ef725990aa62ae3c4b98be8736d89f",
-                            "name": "all",
-                            "rules": [],
-                            "authgates": {
-                                "46cfde2c1682566602860f8df7d0cc83": {
-                                    "rules": [
-                                        [True, ["layer", "read"]]
-                                    ]
-                                },
-                                "4d50eb257549436414643a71e057091a": {
-                                    "rules": [
-                                        [True, ["view", "read"]]
-                                    ]
-                                }
-                            }
-                        }
-                    ])
-                )
-
-                users = s_t_utils.deguidify(
-                    json.dumps([
-                        {
-                            "type": "user",
-                            "iden": "a357138db50780b62093a6ce0d057fd8",
-                            "name": "root",
-                            "rules": [],
-                            "roles": [],
-                            "admin": True,
-                            "email": None,
-                            "locked": False,
-                            "archived": False,
-                            "authgates": {
-                                "f21b7ae79c2dacb89484929a8409e5d8": {"admin": True},
-                                "d7d0380dd4e743e35af31a20d014ed48": {"admin": True},
-                                'queue:model_0_2_27:nodes': {'admin': True},
-                                'queue:model_0_2_27:nodes:refs': {'admin': True},
-                                'queue:model_0_2_27:nodes:edges': {'admin': True},
-                            }
-                        },
-                        {
-                            "type": "user",
-                            "iden": "f77ac6744671a845c27e571071877827",
-                            "name": "visi",
-                            "rules": [
-                                [True, ["cron", "add"]],
-                                [True, ["dmon", "add"]],
-                                [True, ["trigger", "add"]]
-                            ],
-                            "roles": [
-                                {
-                                    "type": "role",
-                                    "iden": "e1ef725990aa62ae3c4b98be8736d89f",
-                                    "name": "all",
-                                    "rules": [],
-                                    "authgates": {
-                                        "46cfde2c1682566602860f8df7d0cc83": {
-                                            "rules": [
-                                                [True, ["layer", "read"]]
-                                            ]
-                                        },
-                                        "4d50eb257549436414643a71e057091a": {
-                                            "rules": [
-                                                [True, ["view", "read"]]
-                                            ]
-                                        }
-                                    }
-                                }
-                            ],
-                            "admin": False,
-                            "email": None,
-                            "locked": False,
-                            "archived": False,
-                            "authgates": {
-                                "f21b7ae79c2dacb89484929a8409e5d8": {"admin": True},
-                                "d7d0380dd4e743e35af31a20d014ed48": {"admin": True},
-                            }
-                        }
-                    ])
-                )
-
-                gates = s_t_utils.deguidify(
-                    json.dumps([
-                        {
-                            "iden": "46cfde2c1682566602860f8df7d0cc83",
-                            "type": "layer",
-                            "users": [
-                                {"iden": "a357138db50780b62093a6ce0d057fd8",
-                                 "rules": [],
-                                 "admin": True}
-                            ],
-                            "roles": [
-                                {
-                                    "iden": "e1ef725990aa62ae3c4b98be8736d89f",
-                                    "rules": [
-                                        [True, ["layer", "read"]]
-                                    ],
-                                    "admin": False
-                                }
-                            ]
-                        },
-                        {
-                            "iden": "d7d0380dd4e743e35af31a20d014ed48",
-                            "type": "trigger",
-                            "users": [
-                                {
-                                    "iden": "f77ac6744671a845c27e571071877827",
-                                    "rules": [],
-                                    "admin": True
-                                }
-                            ],
-                            "roles": []
-                        },
-                        {
-                            "iden": "f21b7ae79c2dacb89484929a8409e5d8",
-                            "type": "cronjob",
-                            "users": [
-                                {
-                                    "iden": "f77ac6744671a845c27e571071877827",
-                                    "rules": [],
-                                    "admin": True
-                                }
-                            ],
-                            "roles": []
-                        },
-                        {
-                            "iden": "4d50eb257549436414643a71e057091a",
-                            "type": "view",
-                            "users": [
-                                {
-                                    "iden": "a357138db50780b62093a6ce0d057fd8",
-                                    "rules": [],
-                                    "admin": True
-                                }
-                            ],
-                            "roles": [
-                                {
-                                    "iden": "e1ef725990aa62ae3c4b98be8736d89f",
-                                    "rules": [
-                                        [True, ["view", "read"]]
-                                    ],
-                                    "admin": False
-                                }
-                            ]
-                        },
-                        {
-                            "iden": "cortex",
-                            "type": "cortex",
-                            "users": [],
-                            "roles": []
-                        },
-                        {
-                            'iden': 'queue:model_0_2_27:nodes',
-                            'type': 'queue',
-                            'users': [
-                                {
-                                    "iden": "a357138db50780b62093a6ce0d057fd8",
-                                    "rules": [],
-                                    "admin": True
-                                }
-                            ],
-                            'roles': []
-                        },
-                        {
-                            'iden': 'queue:model_0_2_27:nodes:edges',
-                            'type': 'queue',
-                            'users': [
-                                {
-                                    "iden": "a357138db50780b62093a6ce0d057fd8",
-                                    "rules": [],
-                                    "admin": True
-                                }
-                            ],
-                            'roles': []
-                        },
-                        {
-                            'iden': 'queue:model_0_2_27:nodes:refs',
-                            'type': 'queue',
-                            'users': [
-                                {
-                                    "iden": "a357138db50780b62093a6ce0d057fd8",
-                                    "rules": [],
-                                    "admin": True
-                                }
-                            ],
-                            'roles':
-                            []
-                        },
-                    ])
-                )
+                roles = s_t_utils.deguidify('[{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}]')
+                users = s_t_utils.deguidify('[{"type": "user", "iden": "a357138db50780b62093a6ce0d057fd8", "name": "root", "rules": [], "roles": [], "admin": true, "email": null, "locked": false, "archived": false, "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"admin": true}, "4d50eb257549436414643a71e057091a": {"admin": true}}}, {"type": "user", "iden": "f77ac6744671a845c27e571071877827", "name": "visi", "rules": [[true, ["cron", "add"]], [true, ["dmon", "add"]], [true, ["trigger", "add"]]], "roles": [{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}], "admin": false, "email": null, "locked": false, "archived": false, "authgates": {"f21b7ae79c2dacb89484929a8409e5d8": {"admin": true}, "d7d0380dd4e743e35af31a20d014ed48": {"admin": true}}}]')
+                gates = s_t_utils.deguidify('[{"iden": "46cfde2c1682566602860f8df7d0cc83", "type": "layer", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["layer", "read"]]], "admin": false}]}, {"iden": "d7d0380dd4e743e35af31a20d014ed48", "type": "trigger", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "f21b7ae79c2dacb89484929a8409e5d8", "type": "cronjob", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "4d50eb257549436414643a71e057091a", "type": "view", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["view", "read"]]], "admin": false}]}, {"iden": "cortex", "type": "cortex", "users": [], "roles": []}]')
 
                 self.eq(roles, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.roles.list())'))))
                 self.eq(users, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
