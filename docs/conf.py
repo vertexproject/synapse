@@ -279,8 +279,9 @@ def convert_rstorm(_):
                 print(f'convert_rstorm: Rstorm {fn} execution took {took} seconds.')
 
 def setup(app):
-    app.connect('builder-inited', run_apidoc)
-    app.connect('builder-inited', run_modeldoc)
-    app.connect('builder-inited', run_confdocs)
-    app.connect('builder-inited', convert_rstorm)
-    app.connect('builder-inited', run_stormtypes)
+    return
+    # app.connect('builder-inited', run_apidoc)
+    # app.connect('builder-inited', run_modeldoc)
+    # app.connect('builder-inited', run_confdocs)
+    # app.connect('builder-inited', convert_rstorm)
+    # app.connect('builder-inited', run_stormtypes)

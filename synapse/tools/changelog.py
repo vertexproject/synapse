@@ -466,6 +466,8 @@ async def gen(opts: argparse.Namespace,
 def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.OutPut, width=80) -> s_autodoc.RstHelp:
     rst = s_autodoc.RstHelp()
     rst.addHead(f'{version} Model Updates', link=f'.. _{model_ref}:')
+    rst.addLines(f'The following model updates were made during the ``{version}`` Synapse release.')
+
     if new_interfaces := changes.get('interfaces').get('new_interfaces'):
         rst.addHead('New Interfaces', lvl=1)
         for interface, info in new_interfaces.items():
