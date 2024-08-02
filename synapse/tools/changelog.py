@@ -851,7 +851,7 @@ async def format(opts: argparse.Namespace,
             if opts.verbose:
                 outp.printf(model_text)
             if opts.model_doc_dir:
-                fp = s_common.genpath(opts.model_doc_dir, f'model_update_{clean_vers_ref}.rst')
+                fp = s_common.genpath(opts.model_doc_dir, f'update_{clean_vers_ref}.rst')
                 with s_common.genfile(fp) as fd:
                     fd.truncate(0)
                     fd.write(model_text.encode())
