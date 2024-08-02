@@ -1,0 +1,5 @@
+---
+desc: Update Synapse tool examples to use ``aha://`` URLs.
+prs: []
+type: doc
+...
