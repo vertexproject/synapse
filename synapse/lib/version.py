@@ -193,7 +193,8 @@ def matches(vers, cmprvers):
 
 def reqVersion(valu, reqver,
                exc=s_exc.BadVersion,
-               mesg='Provided version does not match required version.'):
+               mesg='Provided version does not match required version.',
+               prereleases=None):
     '''
     Require a given version tuple is valid for a given requirements string.
 
@@ -213,7 +214,7 @@ def reqVersion(valu, reqver,
         mesg = 'Version value is missing.  ' + mesg
         raise exc(mesg=mesg, valu=valu, reqver=reqver)
 
-    spec = p_specifiers.SpecifierSet(reqver)
+    spec = p_specifiers.SpecifierSet(reqver, prereleases=prereleases)
     verstr = fmtVersion(*valu)
     vers = p_version.Version(verstr)
 
@@ -223,6 +224,6 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (3, 0, 0)
+version = (3, 0, 0, 'rc1')
 verstring = '.'.join([str(x) for x in version])
 commit = ''
