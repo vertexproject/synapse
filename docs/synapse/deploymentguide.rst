@@ -177,7 +177,7 @@ however many AHA mirrors you deem appropriate.
 
 By default, AHA uses port ``27492`` to listen for RPC connections from other Synapse services and port ``27272``
 for the provisioning listener. The following example steps assume you will be running each AHA server on separate
-hosts or in a containerized to avoid port collisions.
+hosts or in a containerized deployment to avoid port collisions.
 
 **Inside the AHA container**
 
