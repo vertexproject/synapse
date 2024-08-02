@@ -21,7 +21,7 @@ async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
     '''
     Async connect and return a Link().
     '''
-    info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname}
+    info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname, 'tls': bool(ssl)}
     if linkinfo is not None:
         info.update(linkinfo)
 
@@ -137,6 +137,25 @@ class Link(s_base.Base):
 
         self.info = info
 
+        self._addrinfo = {}
+        # _addrinfo is populated in this order so that as first hit tls links (prod deployments)
+        # then unix links (unit tests with local sockets, container healthchecks, local tools )
+        # then tcp links ( unit tests and legacy deployments )
+        if self.info.get('tls'):
+            self._addrinfo['family'] = 'tls'
+            self._addrinfo['addr'] = self.sock.getpeername()
+        elif self.info.get('unix'):
+            self._addrinfo['family'] = 'unix'
+            # Unix sockets don't use getpeername
+            self._addrinfo['addr'] = self.sock.getsockname()
+        else:
+            self._addrinfo['family'] = 'tcp'
+            self._addrinfo['addr'] = self.sock.getpeername()
+        if self.sock.family == socket.AF_INET:
+            self._addrinfo['ipver'] = 'ipv4'
+        elif self.sock.family == socket.AF_INET6:
+            self._addrinfo['ipver'] = 'ipv6'
+
         self.unpk = s_msgpack.Unpk()
 
         async def fini():
@@ -212,22 +231,7 @@ class Link(s_base.Base):
         '''
         Get a summary of address information related to the link.
         '''
-        ret = {'family': 'tcp',
-               'addr': self.sock.getpeername(),
-               }
-        # Set family information
-        if self.info.get('unix'):
-            ret['family'] = 'unix'
-            # Unix sockets don't use getpeername
-            ret['addr'] = self.sock.getsockname()
-        elif self.info.get('tls'):
-            ret['family'] = 'tls'
-        # Set ipver if needed
-        if self.sock.family == socket.AF_INET:
-            ret['ipver'] = 'ipv4'
-        if self.sock.family == socket.AF_INET6:
-            ret['ipver'] = 'ipv6'
-        return ret
+        return dict(self._addrinfo)
 
     async def send(self, byts):
         self.writer.write(byts)

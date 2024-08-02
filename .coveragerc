@@ -1,7 +1,6 @@
 [report]
 omit =
     */synapse/tests/test_*
-    */synapse/tools/changelog.py
 
 ; Uncomment this section to enable code coverage of storm files in the
 ; storm_dirs directory listed below. This is disabled by default right now

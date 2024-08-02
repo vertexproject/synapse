@@ -63,10 +63,15 @@ class LinkTest(s_test.SynTest):
         host, port = serv.sockets[0].getsockname()
 
         link = await s_link.connect(host, port)
-
+        info = link.getAddrInfo()
+        self.eq(info.get('family'), 'tcp')
+        self.eq(info.get('ipver'), 'ipv4')
         await link.send(b'visi')
         self.eq(b'vert', await link.recvsize(4))
         self.none(await link.recvsize(1))
+        await link.fini()
+        # We can still get the info after we've closed the socket / fini'd the link.
+        self.eq(info, link.getAddrInfo())
 
     async def test_link_tx_sadpath(self):
 
@@ -295,3 +300,39 @@ class LinkTest(s_test.SynTest):
                         await s_link.connect(hostname, port=port, ssl=sslctx)
                 finally:
                     server.close()
+
+                # Ensure we can talk to a TLS link though.
+                async def func(link: s_link.Link):
+                    self.eq(b'go', await link.recv(2))
+                    await link.tx(link.getAddrInfo())
+                    await link.fini()
+
+                srv_sslctx = certdir.getServerSSLContext(hostname)  # type: ssl.SSLContext
+                server = await s_link.listen(hostname, lport, onlink=func, ssl=srv_sslctx)
+                sslctx = certdir.getClientSSLContext()  # type: ssl.SSLContext
+                _, port = server.sockets[0].getsockname()
+                print(f'listening on port {port=}')
+                async with await s_link.connect(hostname, port=port, ssl=sslctx) as link:
+                    await link.send(b'go')
+                    item = await link.rx()
+                    self.eq(link.getAddrInfo().get('family'), 'tls')
+                    self.eq(item.get('family'), 'tls')
+                server.close()
+
+    async def test_link_unix(self):
+        with self.getTestDir() as dirn:
+
+            async def func(link: s_link.Link):
+                self.eq(b'go', await link.recv(2))
+                await link.tx(link.getAddrInfo())
+                await link.fini()
+            fp = s_common.genpath(dirn, 'sock')
+            server = await s_link.unixlisten(fp, onlink=func)
+
+            async with await s_link.unixconnect(fp) as link:
+                await link.send(b'go')
+                item = await link.rx()
+                self.eq(link.getAddrInfo().get('family'), 'unix')
+                self.eq(item.get('addr'), fp)
+                self.eq(item.get('family'), 'unix')
+            server.close()
