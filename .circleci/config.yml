@@ -572,7 +572,7 @@ workflows:
             - PublicPypiAccess
           filters:
             tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v[23]\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
@@ -587,7 +587,7 @@ workflows:
             - Mailgun
           filters:
             tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v[23]\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
@@ -615,7 +615,7 @@ workflows:
             - VTXDockerControl
           filters:
             tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+              only: /^v[23]\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 

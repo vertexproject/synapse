@@ -9,39 +9,43 @@ import synapse.lib.version as s_version
 
 class VersionTest(s_t_utils.SynTest):
 
-    def _runreqtest(self, valu, reqver, exp):
+    def _runreqtest(self, valu, reqver, exp, pre):
         if exp is None:
-            self.none(s_version.reqVersion(valu, reqver))
+            self.none(s_version.reqVersion(valu, reqver, prereleases=pre))
         else:
             with self.raises(exp):
-                s_version.reqVersion(valu, reqver)
+                s_version.reqVersion(valu, reqver, prereleases=pre)
 
     def test_req_version(self):
 
         # Test vectors are laid out in the order:
         #   Vers, reqver, result
         tsts = [
-            ((0, 1, 98), '>=0.1.99,<=0.1.101', s_exc.BadVersion),
-            ((0, 1, 99), '>=0.1.99,<=0.1.101', None),
-            ((0, 1, 100), '>=0.1.99,<=0.1.101', None),
-            ((0, 1, 101), '>=0.1.99,<=0.1.101', None),
-            ((0, 1, 102), '>=0.1.99,<=0.1.101', s_exc.BadVersion),
+            ((0, 1, 98), '>=0.1.99,<=0.1.101', s_exc.BadVersion, None),
+            ((0, 1, 99), '>=0.1.99,<=0.1.101', None, None),
+            ((0, 1, 100), '>=0.1.99,<=0.1.101', None, None),
+            ((0, 1, 101), '>=0.1.99,<=0.1.101', None, None),
+            ((0, 1, 102), '>=0.1.99,<=0.1.101', s_exc.BadVersion, None),
 
-            ((0, 1, 0), '>=0.1.0,<0.2.0', None),
-            ((0, 1, 100), '>=0.1.0,<0.2.0', None),
-            ((0, 2, 0), '>=0.1.0,<0.2.0', s_exc.BadVersion),
+            ((0, 1, 0), '>=0.1.0,<0.2.0', None, None),
+            ((0, 1, 100), '>=0.1.0,<0.2.0', None, None),
+            ((0, 2, 0), '>=0.1.0,<0.2.0', s_exc.BadVersion, None),
 
-            ((0, 2, 0), '>=0.2.0,<0.3.0', None),
-            ((0, 1, 51), '>=0.2.0,<0.3.0', s_exc.BadVersion),
-            ((0, 2, 51), '>=0.2.0,<0.3.0', None),
-            ((0, 2, 51), '>=0.2.0,<0.3.0,!=0.2.51', s_exc.BadVersion),
+            ((0, 2, 0), '>=0.2.0,<0.3.0', None, None),
+            ((0, 1, 51), '>=0.2.0,<0.3.0', s_exc.BadVersion, None),
+            ((0, 2, 51), '>=0.2.0,<0.3.0', None, None),
+            ((0, 2, 51), '>=0.2.0,<0.3.0,!=0.2.51', s_exc.BadVersion, None),
 
-            ((0, 1, 56), '>=0.2.0,<3.0.0', s_exc.BadVersion),
-            ((0, 2, 0), '>=0.2.0,<3.0.0', None),
-            ((2, 0, 0), '>=0.2.0,<3.0.0', None),
-            ((2, 0, 1), '>=2.0.0,<3.0.0', None),
-            ((2, 1, 0), '>=0.2.0,<3.0.0', None),
-            ((3, 0, 0), '>=2.0.0,<3.0.0', s_exc.BadVersion),
+            ((0, 1, 56), '>=0.2.0,<3.0.0', s_exc.BadVersion, None),
+            ((0, 2, 0), '>=0.2.0,<3.0.0', None, None),
+            ((2, 0, 0), '>=0.2.0,<3.0.0', None, None),
+            ((2, 0, 1), '>=2.0.0,<3.0.0', None, None),
+            ((2, 1, 0), '>=0.2.0,<3.0.0', None, None),
+            ((3, 0, 0), '>=2.0.0,<3.0.0', s_exc.BadVersion, None),
+
+            ((3, 0, 0, 'rc1'), '>=2.0.0,<3.0.0', s_exc.BadVersion, None),
+            ((3, 0, 0, 'rc1'), '>=3.0.0,<4.0.0', s_exc.BadVersion, True),
+            ((3, 0, 0, 'rc1'), '>=2.0.0,<4.0.0', None, True),
 
         ]
 
@@ -53,12 +57,14 @@ class VersionTest(s_t_utils.SynTest):
         self.eq(s_version.mask60.bit_length(), 60)
 
         self.isinstance(s_version.version, tuple)
-        self.len(3, s_version.version)
-        for v in s_version.version:
+        self.ge(len(s_version.version), 3)
+        self.le(len(s_version.version), 4)
+        for v in s_version.version[:3]:
             self.isinstance(v, int)
 
         self.isinstance(s_version.verstring, str)
-        tver = tuple([int(p) for p in s_version.verstring.split('.')])
+        tver = tuple([p for p in s_version.verstring.split('.')])
+        tver = tuple(map(int, tver[:3])) + tver[3:]
         self.eq(tver, s_version.version)
 
         self.isinstance(s_version.commit, str)
