@@ -604,6 +604,7 @@ workflows:
             branches:
               only:
                 - master
+                - blackout/SYN-7653/it-sec-cpe-migration
 
       - build_docker_tag:
           requires:
