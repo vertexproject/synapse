@@ -5061,7 +5061,7 @@ class List(Prim):
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
          'type': {'type': 'function', '_funcname': '_methListUnique',
                   'returns': {'type': 'list'}}},
-        {'name': 'remove', 'desc': 'Remove a specific item from anywhere in the list.',
+        {'name': 'rem', 'desc': 'Remove a specific item from anywhere in the list.',
          'type': {'type': 'function', '_funcname': '_methListRemove',
                   'args': (
                       {'name': 'item', 'type': 'any', 'desc': 'An item in the list.'},
@@ -5090,7 +5090,7 @@ class List(Prim):
             'slice': self._methListSlice,
             'extend': self._methListExtend,
             'unique': self._methListUnique,
-            'remove': self._methListRemove,
+            'rem': self._methListRemove,
         }
 
     @stormfunc(readonly=True)

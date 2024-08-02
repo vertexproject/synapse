@@ -1,10 +1,6 @@
 $layers = $lib.spooled.set()
 $layers.adds($layridens)
 
-$nodeq = $lib.queue.gen("model_0_2_27:nodes")
-$refsq = $lib.queue.gen("model_0_2_27:nodes:refs")
-$edgeq = $lib.queue.gen("model_0_2_27:nodes:edges")
-
 $refinfoCache = ({})
 
 function getRefInfo(formname) {
@@ -39,6 +35,10 @@ function getRefInfo(formname) {
 }
 
 function removeNode(n, viewiden, layriden) {
+
+    $nodeq = $lib.queue.gen("model_0_2_27:nodes")
+    $refsq = $lib.queue.gen("model_0_2_27:nodes:refs")
+    $edgeq = $lib.queue.gen("model_0_2_27:nodes:edges")
 
     $sources = ([])
 
@@ -77,7 +77,7 @@ function removeNode(n, viewiden, layriden) {
                         // deep down in the AST. So, instead, we have to operate on the whole array.
 
                         $list = $lib.copy(:$propname)
-                        $list.remove($oldvalu, all=$lib.true)
+                        $list.rem($oldvalu, all=$lib.true)
 
                         if $list {
                             $lib.model.migration.setNodePropValuNoNorm($node, $propname, $list)
@@ -118,7 +118,7 @@ function removeNode(n, viewiden, layriden) {
                 }
             }
 
-            { if $references {
+            if $references {
                 $item = ({
                     "iden": $iden,
                     "view": $view.iden,
@@ -127,7 +127,7 @@ function removeNode(n, viewiden, layriden) {
 
                 $refsq.put($item)
                 $references = ([])
-            }}
+            }
 
             spin |
 
@@ -260,7 +260,7 @@ function migrateCpeNode(oldcpe, newcpe) {
 
                         $list = $lib.copy(:$prop)
                         while $list.has($oldvalu) {
-                            $list.remove($oldvalu)
+                            $list.rem($oldvalu)
                         }
 
                         if (not $list.has($newvalu)) {
