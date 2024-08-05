@@ -6,6 +6,7 @@
 v2.177.0 Model Updates
 ######################
 
+The following model updates were made during the ``v2.177.0`` Synapse release.
 
 *********
 New Forms
@@ -59,4 +60,3 @@ New Properties
 
   ``type``
     The rule type.
-
