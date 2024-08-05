@@ -238,8 +238,6 @@ def run_confdocs(_):
         ('synapse.cortex.Cortex',),
         ('synapse.lib.aha.AhaCell', ),
         ('synapse.lib.jsonstor.JsonStorCell', ),
-        # TODO For now lets leave this off...
-        # ('synapse.cryotank.CryoCell',),
     )
     for args in svcargs:
         argv = baseargs.copy()
