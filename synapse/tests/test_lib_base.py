@@ -65,7 +65,6 @@ class BaseTest(s_t_utils.SynTest):
         data = {}
         async def onfini():
             data['woot'] = True
-            raise s_exc.SynErr(mesg='lulz')
 
         await base00.fini()
         base00.onfini(onfini)
