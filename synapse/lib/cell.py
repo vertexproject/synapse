@@ -2285,10 +2285,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ctx = multiprocessing.get_context('spawn')
 
-        mypipe, child_pipe = ctx.Pipe()
+        event = ctx.Event()
         paths = [str(slab.path) for slab in slabs]
         logconf = await self._getSpawnLogConf()
-        proc = None
+
+        args = (event, self.dirn, dirn, paths, logconf)
+        proc = ctx.Process(target=self._backupProc, args=args)
 
         try:
 
@@ -2307,27 +2309,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 dstdir = s_common.gendir(dirn)
                 shutil.copy(os.path.join(self.dirn, 'cell.guid'), os.path.join(dstdir, 'cell.guid'))
 
-                args = (child_pipe, self.dirn, dirn, paths, logconf)
-
-                def waitforproc1():
-                    nonlocal proc
-                    proc = ctx.Process(target=self._backupProc, args=args)
-                    proc.start()
-                    hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
-                    if not hasdata:
+                def waitforproc1(_proc, _event):
+                    _proc.start()
+                    started = _event.wait(timeout=self.BACKUP_SPAWN_TIMEOUT)
+                    if not started:
                         raise s_exc.SynErr(mesg='backup subprocess start timed out')
-                    data = mypipe.recv()
-                    assert data == 'captured'
 
-                await s_coro.executor(waitforproc1)
+                await s_coro.executor(waitforproc1, proc, event)
 
-            def waitforproc2():
-                proc.join()
-                if proc.exitcode:
-                    raise s_exc.SpawnExit(code=proc.exitcode)
+            def waitforproc2(_proc):
+                _proc.join()
+                if _proc.exitcode:
+                    raise s_exc.SpawnExit(code=_proc.exitcode)
 
-            await s_coro.executor(waitforproc2)
-            proc = None
+            await s_coro.executor(waitforproc2, proc)
 
             logger.info(f'Backup completed to [{dirn}]')
             return
@@ -2337,11 +2332,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
 
         finally:
-            if proc:
+            if proc is not None and proc.is_alive():
                 proc.terminate()
 
     @staticmethod
-    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
+    def _backupProc(event, srcdir, dstdir, lmdbpaths, logconf):
         '''
         (In a separate process) Actually do the backup
         '''
@@ -2350,7 +2345,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
-                pipe.send('captured')
+                event.set()
                 logger.debug('Acquired LMDB transactions')
                 s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
         except Exception:

@@ -40,14 +40,14 @@ import synapse.tools.backup as s_tools_backup
 import synapse.tests.utils as s_t_utils
 
 # Defective versions of spawned backup processes
-def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
+def _sleeperProc(event, srcdir, dstdir, lmdbpaths, logconf):
     time.sleep(3.0)
 
-def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths, logconf):
+def _sleeper2Proc(event, srcdir, dstdir, lmdbpaths, logconf):
     time.sleep(2.0)
 
-def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
-    pipe.send('captured')
+def _exiterProc(event, srcdir, dstdir, lmdbpaths, logconf):
+    event.set()
     sys.exit(1)
 
 def _backupSleep(path, linkinfo):
@@ -1050,10 +1050,8 @@ class CellTest(s_t_utils.SynTest):
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SynErr')
 
-                        orig = s_cell.Cell.BACKUP_SPAWN_TIMEOUT
-                        with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', orig * 2):
-                            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                                await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
                         info = await proxy.getBackupInfo()
                         laststart3 = info['laststart']
